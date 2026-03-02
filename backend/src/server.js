@@ -9,5 +9,5 @@ const PORT = process.env.PORT || 10000;
 connectDB();
 
 app.listen(PORT, () => {
-  console.log(`✅ Servidor corriendo en puerto ${PORT}`);
+  console.log(`✅ MeetYouLive backend corriendo en puerto ${PORT}`);
 });

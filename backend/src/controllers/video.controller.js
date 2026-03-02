@@ -1,6 +1,6 @@
-import Purchase from "../models/Purchase.js";
+const Purchase = require("../models/Purchase.js");
 
-export const canWatchVideo = async (req, res) => {
+const canWatchVideo = async (req, res) => {
   try {
     const bought = await Purchase.findOne({
       user: req.userId,
@@ -11,3 +11,5 @@ export const canWatchVideo = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+module.exports = { canWatchVideo };

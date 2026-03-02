@@ -1,8 +1,8 @@
-import { Router } from "express";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import rateLimit from "express-rate-limit";
-import User from "../models/User.js";
+const { Router } = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
+const User = require("../models/User.js");
 
 const router = Router();
 
@@ -48,4 +48,4 @@ router.post("/login", authLimiter, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

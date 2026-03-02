@@ -1,16 +1,16 @@
-import express from "express";
-import cors from "cors";
-import authRoutes from "./routes/auth.routes.js";
-import userRoutes from "./routes/user.routes.js";
-import googleRoutes from "./routes/google.routes.js";
-import passport from "./config/passport.js";
-import paymentRoutes from "./routes/payment.routes.js";
-import webhookRoutes from "./routes/webhook.routes.js";
-import liveRoutes from "./routes/live.routes.js";
-import giftRoutes from "./routes/gift.routes.js";
-import subscriptionRoutes from "./routes/subscription.routes.js";
-import adminRoutes from "./routes/admin.routes.js";
-import moderationRoutes from "./routes/moderation.routes.js";
+const express = require("express");
+const cors = require("cors");
+const authRoutes = require("./routes/auth.routes.js");
+const userRoutes = require("./routes/user.routes.js");
+const googleRoutes = require("./routes/google.routes.js");
+const passport = require("./config/passport.js");
+const paymentRoutes = require("./routes/payment.routes.js");
+const webhookRoutes = require("./routes/webhook.routes.js");
+const liveRoutes = require("./routes/live.routes.js");
+const giftRoutes = require("./routes/gift.routes.js");
+const subscriptionRoutes = require("./routes/subscription.routes.js");
+const adminRoutes = require("./routes/admin.routes.js");
+const moderationRoutes = require("./routes/moderation.routes.js");
 
 const app = express();
 
@@ -51,4 +51,4 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/moderation", moderationRoutes);
 
-export default app;
+module.exports = app;

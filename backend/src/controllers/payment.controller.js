@@ -1,10 +1,10 @@
-import Stripe from "stripe";
-import Video from "../models/Video.js";
-import Purchase from "../models/Purchase.js";
+const Stripe = require("stripe");
+const Video = require("../models/Video.js");
+const Purchase = require("../models/Purchase.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-export const createCheckoutSession = async (req, res) => {
+const createCheckoutSession = async (req, res) => {
   try {
     const video = await Video.findById(req.params.videoId);
     if (!video) return res.status(404).json({ message: "Vídeo no encontrado" });
@@ -42,7 +42,7 @@ export const createCheckoutSession = async (req, res) => {
   }
 };
 
-export const handlePaymentCompleted = async (session) => {
+const handlePaymentCompleted = async (session) => {
   const { userId, videoId, amount } = session.metadata;
   const existing = await Purchase.findOne({ stripeSessionId: session.id });
   if (!existing) {
@@ -54,3 +54,5 @@ export const handlePaymentCompleted = async (session) => {
     });
   }
 };
+
+module.exports = { createCheckoutSession, handlePaymentCompleted };

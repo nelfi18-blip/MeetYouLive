@@ -1,7 +1,7 @@
-import crypto from "crypto";
-import Live from "../models/Live.js";
+const crypto = require("crypto");
+const Live = require("../models/Live.js");
 
-export const startLive = async (req, res) => {
+const startLive = async (req, res) => {
   const { title, description } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
   try {
@@ -19,7 +19,7 @@ export const startLive = async (req, res) => {
   }
 };
 
-export const endLive = async (req, res) => {
+const endLive = async (req, res) => {
   try {
     const live = await Live.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
@@ -33,7 +33,7 @@ export const endLive = async (req, res) => {
   }
 };
 
-export const getLives = async (req, res) => {
+const getLives = async (req, res) => {
   try {
     const lives = await Live.find({ isLive: true }).populate("user", "username name");
     res.json(lives);
@@ -41,3 +41,5 @@ export const getLives = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+module.exports = { startLive, endLive, getLives };

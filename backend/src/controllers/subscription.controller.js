@@ -1,10 +1,10 @@
-import Stripe from "stripe";
-import Subscription from "../models/Subscription.js";
-import User from "../models/User.js";
+const Stripe = require("stripe");
+const Subscription = require("../models/Subscription.js");
+const User = require("../models/User.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-export const createSubscriptionSession = async (req, res) => {
+const createSubscriptionSession = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -38,7 +38,7 @@ export const createSubscriptionSession = async (req, res) => {
   }
 };
 
-export const getSubscriptionStatus = async (req, res) => {
+const getSubscriptionStatus = async (req, res) => {
   try {
     const sub = await Subscription.findOne({ user: req.userId });
     res.json({ status: sub?.status || "inactive", currentPeriodEnd: sub?.currentPeriodEnd });
@@ -47,7 +47,7 @@ export const getSubscriptionStatus = async (req, res) => {
   }
 };
 
-export const cancelSubscription = async (req, res) => {
+const cancelSubscription = async (req, res) => {
   try {
     const sub = await Subscription.findOne({ user: req.userId });
     if (!sub?.stripeSubscriptionId) {
@@ -62,7 +62,7 @@ export const cancelSubscription = async (req, res) => {
   }
 };
 
-export const handleSubscriptionWebhook = async (event) => {
+const handleSubscriptionWebhook = async (event) => {
   const session = event.data.object;
   const userId = session.metadata?.userId;
   if (!userId) {
@@ -99,3 +99,5 @@ export const handleSubscriptionWebhook = async (event) => {
     );
   }
 };
+
+module.exports = { createSubscriptionSession, getSubscriptionStatus, cancelSubscription, handleSubscriptionWebhook };

@@ -1,11 +1,11 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import {
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const {
   createSubscriptionSession,
   getSubscriptionStatus,
   cancelSubscription,
-} from "../controllers/subscription.controller.js";
+} = require("../controllers/subscription.controller.js");
 
 const router = Router();
 
@@ -19,4 +19,4 @@ router.post("/checkout", subLimiter, verifyToken, createSubscriptionSession);
 router.get("/status", subLimiter, verifyToken, getSubscriptionStatus);
 router.delete("/cancel", subLimiter, verifyToken, cancelSubscription);
 
-export default router;
+module.exports = router;

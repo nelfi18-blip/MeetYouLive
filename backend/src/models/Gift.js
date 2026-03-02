@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const giftSchema = new mongoose.Schema(
   {
@@ -11,4 +11,4 @@ const giftSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Gift", giftSchema);
+module.exports = mongoose.model("Gift", giftSchema);

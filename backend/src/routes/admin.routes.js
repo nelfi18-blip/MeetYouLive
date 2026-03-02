@@ -1,10 +1,10 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { requireAdmin } from "../middlewares/admin.middleware.js";
-import User from "../models/User.js";
-import Video from "../models/Video.js";
-import Live from "../models/Live.js";
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { requireAdmin } = require("../middlewares/admin.middleware.js");
+const User = require("../models/User.js");
+const Video = require("../models/Video.js");
+const Live = require("../models/Live.js");
 
 const router = Router();
 
@@ -92,4 +92,4 @@ router.delete("/lives/:id", async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

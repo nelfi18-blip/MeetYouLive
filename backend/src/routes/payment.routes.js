@@ -1,8 +1,8 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { createCheckoutSession } from "../controllers/payment.controller.js";
-import { canWatchVideo } from "../controllers/video.controller.js";
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { createCheckoutSession } = require("../controllers/payment.controller.js");
+const { canWatchVideo } = require("../controllers/video.controller.js");
 
 const router = Router();
 
@@ -15,4 +15,4 @@ const paymentLimiter = rateLimit({
 router.post("/checkout/:videoId", paymentLimiter, verifyToken, createCheckoutSession);
 router.get("/access/:videoId", paymentLimiter, verifyToken, canWatchVideo);
 
-export default router;
+module.exports = router;

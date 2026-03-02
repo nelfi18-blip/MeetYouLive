@@ -1,6 +1,6 @@
-import Gift from "../models/Gift.js";
+const Gift = require("../models/Gift.js");
 
-export const sendGift = async (req, res) => {
+const sendGift = async (req, res) => {
   const { receiverId, liveId, amount, message } = req.body;
   if (!receiverId || !amount) {
     return res.status(400).json({ message: "receiverId y amount son requeridos" });
@@ -23,7 +23,7 @@ export const sendGift = async (req, res) => {
   }
 };
 
-export const getReceivedGifts = async (req, res) => {
+const getReceivedGifts = async (req, res) => {
   try {
     const gifts = await Gift.find({ receiver: req.userId })
       .populate("sender", "username name")
@@ -33,3 +33,5 @@ export const getReceivedGifts = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+module.exports = { sendGift, getReceivedGifts };

@@ -1,8 +1,8 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { requireAdmin } from "../middlewares/admin.middleware.js";
-import Report from "../models/Report.js";
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { requireAdmin } = require("../middlewares/admin.middleware.js");
+const Report = require("../models/Report.js");
 
 const router = Router();
 
@@ -55,4 +55,4 @@ router.patch("/reports/:id", moderationLimiter, verifyToken, requireAdmin, async
   }
 });
 
-export default router;
+module.exports = router;

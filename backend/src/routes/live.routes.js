@@ -1,7 +1,7 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { startLive, endLive, getLives } from "../controllers/live.controller.js";
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { startLive, endLive, getLives } = require("../controllers/live.controller.js");
 
 const router = Router();
 
@@ -15,4 +15,4 @@ router.get("/", liveLimiter, getLives);
 router.post("/start", liveLimiter, verifyToken, startLive);
 router.patch("/:id/end", liveLimiter, verifyToken, endLive);
 
-export default router;
+module.exports = router;

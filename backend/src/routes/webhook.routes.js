@@ -1,9 +1,9 @@
-import { Router } from "express";
-import express from "express";
-import rateLimit from "express-rate-limit";
-import Stripe from "stripe";
-import { handlePaymentCompleted } from "../controllers/payment.controller.js";
-import { handleSubscriptionWebhook } from "../controllers/subscription.controller.js";
+const { Router } = require("express");
+const express = require("express");
+const rateLimit = require("express-rate-limit");
+const Stripe = require("stripe");
+const { handlePaymentCompleted } = require("../controllers/payment.controller.js");
+const { handleSubscriptionWebhook } = require("../controllers/subscription.controller.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -43,4 +43,4 @@ router.post(
   }
 );
 
-export default router;
+module.exports = router;

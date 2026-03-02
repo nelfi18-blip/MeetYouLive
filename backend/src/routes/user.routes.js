@@ -1,7 +1,7 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import User from "../models/User.js";
+const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
+const { verifyToken } = require("../middlewares/auth.middleware.js");
+const User = require("../models/User.js");
 
 const router = Router();
 
@@ -21,4 +21,4 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

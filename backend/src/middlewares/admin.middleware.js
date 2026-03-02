@@ -1,6 +1,6 @@
-import User from "../models/User.js";
+const User = require("../models/User.js");
 
-export const requireAdmin = async (req, res, next) => {
+const requireAdmin = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId).select("role");
     if (!user || user.role !== "admin") {
@@ -11,3 +11,5 @@ export const requireAdmin = async (req, res, next) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+module.exports = { requireAdmin };

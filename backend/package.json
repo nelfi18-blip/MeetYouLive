@@ -2,9 +2,9 @@
   "name": "meetyoulive-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node index.js",
     "dev": "node --watch src/server.js"
   },
   "engines": {

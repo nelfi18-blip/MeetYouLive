@@ -14,7 +14,7 @@ Live streaming platform — [meetyoulive.net](https://meetyoulive.net)
 ## Repository structure
 
 ```
-meetyoulive-platform/
+MeetYouLive/
 ├── backend/
 │   ├── src/
 │   │   ├── controllers/
@@ -22,16 +22,21 @@ meetyoulive-platform/
 │   │   ├── routes/
 │   │   ├── middlewares/
 │   │   ├── services/
+│   │   ├── config/
 │   │   ├── app.js
 │   │   └── server.js
+│   ├── vercel.json
 │   ├── package.json
 │   └── .env.example
 ├── frontend/
-│   ├── app/          (Next.js App Router)
-│   ├── components/
-│   ├── hooks/
-│   ├── lib/
-│   ├── public/
+│   ├── src/
+│   │   ├── pages/    (React + React Router pages)
+│   │   ├── lib/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── vite.config.js
+│   ├── vercel.json
 │   ├── package.json
 │   └── .env.example
 ├── docker-compose.yml
@@ -74,20 +79,21 @@ npm install
 npm run dev
 ```
 
+Frontend runs on [http://localhost:5173](http://localhost:5173) (Vite default).
+
 ## Deployment
 
 ### 1. Frontend → Vercel
 
-1. Import the repo in [Vercel](https://vercel.com) and set the **Root Directory** to `frontend`.
-2. Add environment variables:
+1. Import the repo in [Vercel](https://vercel.com), set the **Root Directory** to `frontend`, and choose **Vite** as the framework preset.
+2. Set **Build Command** to `npm run build` and **Output Directory** to `dist`.
+3. Add environment variables:
    ```
-   NEXT_PUBLIC_API_URL=https://api.meetyoulive.net
-   NEXT_PUBLIC_GOOGLE_URL=https://api.meetyoulive.net/api/auth/google
-   NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_live_xxxx
-   NEXT_PUBLIC_LIVE_PROVIDER_KEY=xxxx
+   VITE_API_URL=https://api.meetyoulive.net
+   VITE_LIVE_PROVIDER_KEY=xxxx
    ```
-3. In **Project → Settings → Domains** add `meetyoulive.net` and `www.meetyoulive.net`.
-4. In GoDaddy DNS set:
+4. In **Project → Settings → Domains** add `meetyoulive.net` and `www.meetyoulive.net`.
+5. In GoDaddy DNS set:
    - `A` record: `@` → `76.76.21.21`
    - `CNAME` record: `www` → `cname.vercel-dns.com`
 
@@ -139,7 +145,5 @@ docker-compose up --build
 
 | Variable                      | Description                                             |
 |-------------------------------|---------------------------------------------------------|
-| `NEXT_PUBLIC_API_URL`         | `https://api.meetyoulive.net`                           |
-| `NEXT_PUBLIC_GOOGLE_URL`      | `https://api.meetyoulive.net/api/auth/google`           |
-| `NEXT_PUBLIC_STRIPE_PUBLIC_KEY` | Stripe publishable key (`pk_test_…` or `pk_live_…`)   |
-| `NEXT_PUBLIC_LIVE_PROVIDER_KEY` | Live streaming provider API key                       |
+| `VITE_API_URL`                | Backend API base URL (e.g. `https://api.meetyoulive.net`) |
+| `VITE_LIVE_PROVIDER_KEY`      | Live streaming provider API key                         |

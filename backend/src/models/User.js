@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "creator", "admin"], default: "user" },
     isBlocked: { type: Boolean, default: false },
+    coins: { type: Number, default: 0, min: 0 },
+    earningsCoins: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

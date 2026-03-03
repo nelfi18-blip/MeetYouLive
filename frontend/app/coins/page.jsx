@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+"use client";
 
-const API_URL = import.meta.env.VITE_API_URL;
+import { useState } from "react";
+import Link from "next/link";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const PACKAGES = [
   { value: 100, label: "100 monedas — $0.99" },
@@ -57,7 +59,7 @@ export default function BuyCoinsPage() {
         ))}
       </div>
       <p style={{ marginTop: "1rem" }}>
-        <Link to="/dashboard">← Volver al inicio</Link>
+        <Link href="/dashboard">← Volver al inicio</Link>
       </p>
     </div>
   );

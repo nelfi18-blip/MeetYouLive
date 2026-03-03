@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+"use client";
 
-const API_URL = import.meta.env.VITE_API_URL;
-const LIVE_PROVIDER_KEY = import.meta.env.VITE_LIVE_PROVIDER_KEY;
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 
 export default function LiveViewerPage() {
   const { id } = useParams();

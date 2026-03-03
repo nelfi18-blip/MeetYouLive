@@ -1,6 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export const payVideo = async (videoId) => {
+  if (typeof window === "undefined") return;
   const token = localStorage.getItem("token");
 
   const res = await fetch(`${API_URL}/api/payments/checkout/${videoId}`, {

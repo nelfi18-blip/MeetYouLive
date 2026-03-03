@@ -1,7 +1,9 @@
-import { useState } from "react";
+"use client";
 
-const API_URL = import.meta.env.VITE_API_URL;
-const GOOGLE_URL = API_URL ? `${API_URL}/api/auth/google` : "";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -51,7 +53,7 @@ export default function LoginPage() {
         onChange={(e) => setPassword(e.target.value)}
       />
       <button onClick={login}>Entrar</button>
-      {GOOGLE_URL && <a href={GOOGLE_URL}>Entrar con Google</a>}
+      <button onClick={() => signIn("google")}>Entrar con Google</button>
     </div>
   );
 }

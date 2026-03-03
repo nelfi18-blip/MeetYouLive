@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+"use client";
 
-const API_URL = import.meta.env.VITE_API_URL;
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function DashboardPage() {
   const [user, setUser] = useState(null);
@@ -55,8 +57,8 @@ export default function DashboardPage() {
         </p>
       )}
       <nav style={{ marginTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link to="/live">🎥 Directos</Link>
-        <Link to="/coins">💰 Comprar monedas</Link>
+        <Link href="/live">🎥 Directos</Link>
+        <Link href="/coins">💰 Comprar monedas</Link>
       </nav>
       <button onClick={logout} style={{ marginTop: "1.5rem" }}>Cerrar sesión</button>
     </div>

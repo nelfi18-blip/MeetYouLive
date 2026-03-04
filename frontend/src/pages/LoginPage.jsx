@@ -35,23 +35,45 @@ export default function LoginPage() {
   };
 
   return (
-    <div>
-      <h1>MeetYouLive — Iniciar sesión</h1>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Contraseña"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button onClick={login}>Entrar</button>
-      {GOOGLE_URL && <a href={GOOGLE_URL}>Entrar con Google</a>}
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">MeetYouLive</div>
+        <p className="auth-subtitle">Inicia sesión para continuar</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-group">
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            className="input"
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="password">Contraseña</label>
+          <input
+            id="password"
+            className="input"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-primary" onClick={login}>
+          Entrar
+        </button>
+        {GOOGLE_URL && (
+          <>
+            <div className="divider">o</div>
+            <a className="btn btn-outline" href={GOOGLE_URL}>
+              🔍 Entrar con Google
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 }

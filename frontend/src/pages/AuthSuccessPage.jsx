@@ -11,5 +11,5 @@ export default function AuthSuccessPage() {
     }
   }, []);
 
-  return <p>Autenticando con Google…</p>;
+  return <div className="loading-screen">Autenticando con Google…</div>;
 }

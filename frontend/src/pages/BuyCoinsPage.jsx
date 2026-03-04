@@ -40,25 +40,23 @@ export default function BuyCoinsPage() {
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "3rem" }}>
+    <div className="coins-page">
       <h1>💰 Comprar Monedas</h1>
-      <p>Usa monedas para enviar regalos virtuales en directos.</p>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", marginTop: "1.5rem" }}>
+      <p className="subtitle">Usa monedas para enviar regalos virtuales en directos.</p>
+      {error && <div className="error-msg">{error}</div>}
+      <div className="package-list">
         {PACKAGES.map((pkg) => (
           <button
             key={pkg.value}
+            className="package-btn"
             onClick={() => buy(pkg.value)}
             disabled={loading}
-            style={{ padding: "0.75rem 2rem", fontSize: "1rem", cursor: "pointer" }}
           >
             {pkg.label}
           </button>
         ))}
       </div>
-      <p style={{ marginTop: "1rem" }}>
-        <Link to="/dashboard">← Volver al inicio</Link>
-      </p>
+      <Link className="back-link" to="/dashboard">← Volver al inicio</Link>
     </div>
   );
 }

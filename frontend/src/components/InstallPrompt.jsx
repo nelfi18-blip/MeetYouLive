@@ -25,11 +25,11 @@ export default function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div style={{ background: "#e91e8c", color: "#fff", padding: "0.75rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div className="install-bar">
       <span>📲 Instala MeetYouLive como app en tu dispositivo</span>
-      <div>
-        <button onClick={install} style={{ marginRight: "0.5rem", cursor: "pointer" }}>Instalar</button>
-        <button onClick={() => setVisible(false)} style={{ cursor: "pointer" }}>✕</button>
+      <div className="install-bar-actions">
+        <button onClick={install}>Instalar</button>
+        <button onClick={() => setVisible(false)}>✕</button>
       </div>
     </div>
   );

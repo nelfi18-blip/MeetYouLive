@@ -41,24 +41,34 @@ export default function DashboardPage() {
     window.location.href = "/login";
   };
 
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!user) return <p>Cargando...</p>;
+  if (error) return <div className="loading-screen">{error}</div>;
+  if (!user) return <div className="loading-screen">Cargando…</div>;
 
   return (
-    <div>
-      <h1>Bienvenido, {user.username || user.name}</h1>
-      <p>Email: {user.email}</p>
-      {coins !== null && (
-        <p>
-          💰 Monedas: <strong>{coins.coins}</strong> &nbsp;|&nbsp;
-          🎁 Ganancias: <strong>{coins.earningsCoins}</strong>
-        </p>
-      )}
-      <nav style={{ marginTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link to="/live">🎥 Directos</Link>
-        <Link to="/coins">💰 Comprar monedas</Link>
-      </nav>
-      <button onClick={logout} style={{ marginTop: "1.5rem" }}>Cerrar sesión</button>
+    <div className="page">
+      <div className="top-bar">
+        <h1>👋 {user.username || user.name}</h1>
+        <div className="coins-badge">
+          {coins !== null && (
+            <>
+              <span>💰 <strong>{coins.coins}</strong> monedas</span>
+              <span>🎁 <strong>{coins.earningsCoins}</strong> ganancias</span>
+            </>
+          )}
+          <button className="btn btn-sm" onClick={logout}>Cerrar sesión</button>
+        </div>
+      </div>
+      <p className="section-title">📋 Menú principal</p>
+      <div className="nav-grid">
+        <Link className="nav-card" to="/live">
+          <span className="icon">🎥</span>
+          Directos
+        </Link>
+        <Link className="nav-card" to="/coins">
+          <span className="icon">💰</span>
+          Comprar monedas
+        </Link>
+      </div>
     </div>
   );
 }

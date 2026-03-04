@@ -1,9 +1,12 @@
 export default function PaymentCancelPage() {
   return (
-    <div style={{ textAlign: "center", marginTop: "4rem" }}>
-      <h1>❌ Pago cancelado</h1>
+    <div className="status-page">
+      <div className="status-icon">❌</div>
+      <h1>Pago cancelado</h1>
       <p>No se ha realizado ningún cargo. Puedes intentarlo de nuevo cuando quieras.</p>
-      <a href="/dashboard">Volver al inicio</a>
+      <a className="btn btn-primary" href="/dashboard" style={{ maxWidth: 220 }}>
+        Volver al inicio
+      </a>
     </div>
   );
 }

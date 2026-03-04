@@ -18,23 +18,32 @@ export default function LivePage() {
       .catch(() => setError("No se pudo cargar la lista de directos"));
   }, []);
 
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (error) return <div className="loading-screen">{error}</div>;
 
   return (
-    <div>
-      <h1>Directos en vivo</h1>
+    <div className="page">
+      <a className="back-link" href="/dashboard">← Volver</a>
+      <h1 style={{ marginBottom: "1.5rem" }}>🎥 Directos en vivo</h1>
       {lives.length === 0 ? (
-        <p>No hay directos activos en este momento.</p>
+        <div className="empty-state">
+          <p>No hay directos activos en este momento.</p>
+        </div>
       ) : (
-        <ul>
+        <div className="lives-grid">
           {lives.map((live) => (
-            <li key={live._id}>
-              <button onClick={() => navigate(`/live/${live._id}`)}>
-                {live.title} — {live.user?.username}
-              </button>
-            </li>
+            <button
+              className="live-card"
+              key={live._id}
+              onClick={() => navigate(`/live/${live._id}`)}
+            >
+              <span className="live-badge">en vivo</span>
+              <h3>{live.title}</h3>
+              {live.user?.username && (
+                <p>👤 {live.user.username}</p>
+              )}
+            </button>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

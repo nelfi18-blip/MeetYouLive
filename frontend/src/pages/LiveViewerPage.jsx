@@ -26,24 +26,24 @@ export default function LiveViewerPage() {
       .catch(() => setError("No se pudo cargar el directo"));
   }, [id]);
 
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!live) return <p>Cargando directo…</p>;
+  if (error) return <div className="loading-screen">{error}</div>;
+  if (!live) return <div className="loading-screen">Cargando directo…</div>;
 
   const playerUrl = `https://wl.cinectar.com/player/${LIVE_PROVIDER_KEY}/${live.streamKey}`;
 
   return (
-    <div>
+    <div className="viewer-page">
+      <a className="back-link" href="/live">← Volver a directos</a>
       <h1>{live.title}</h1>
-      {live.description && <p>{live.description}</p>}
-      <iframe
-        src={playerUrl}
-        width="854"
-        height="480"
-        allow="autoplay; fullscreen"
-        allowFullScreen
-        title={live.title}
-        style={{ display: "block", border: "none" }}
-      />
+      {live.description && <p className="description">{live.description}</p>}
+      <div className="player-wrap">
+        <iframe
+          src={playerUrl}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title={live.title}
+        />
+      </div>
     </div>
   );
 }

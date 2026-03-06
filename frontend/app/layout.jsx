@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "MeetYouLive",
-  description: "Plataforma de streaming en vivo",
+  description: "Dating, live streaming y experiencias VR",
 };
 
 export default function RootLayout({ children }) {

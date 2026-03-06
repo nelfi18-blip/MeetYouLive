@@ -6,34 +6,51 @@ import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const login = async () => {
+  const register = async () => {
     setError("");
+    setSuccess("");
+
+    if (!username.trim() || !email.trim() || !password) {
+      setError("Todos los campos son obligatorios");
+      return;
+    }
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
+        body: JSON.stringify({ username, email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Error al iniciar sesión");
+        setError(data.message || "Error al registrarse");
         return;
       }
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        window.location.href = "/dashboard";
-      }
+      setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
@@ -42,28 +59,41 @@ export default function LoginPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") login();
+    if (e.key === "Enter") register();
   };
 
   return (
-    <div className="login-bg">
+    <div className="register-bg">
       {/* Decorative blobs */}
-      <div className="login-blob login-blob-1" />
-      <div className="login-blob login-blob-2" />
+      <div className="register-blob register-blob-1" />
+      <div className="register-blob register-blob-2" />
 
-      <div className="login-card">
+      <div className="register-card">
         {/* Logo */}
-        <div className="login-logo">
-          <div className="login-logo-icon">▶</div>
-          <span className="login-logo-text">MeetYouLive</span>
+        <div className="register-logo">
+          <div className="register-logo-icon">▶</div>
+          <span className="register-logo-text">MeetYouLive</span>
         </div>
 
-        <h1 className="login-title">Bienvenido de nuevo</h1>
-        <p className="login-subtitle">Inicia sesión para continuar</p>
+        <h1 className="register-title">Crear cuenta</h1>
+        <p className="register-subtitle">Únete a la comunidad de streaming</p>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && <div className="register-error">{error}</div>}
+        {success && <div className="register-success">{success}</div>}
 
-        <div className="login-form">
+        <div className="register-form">
+          <div className="form-group">
+            <label className="form-label">Nombre de usuario</label>
+            <input
+              className="input"
+              type="text"
+              placeholder="tunombredeusuario"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
           <div className="form-group">
             <label className="form-label">Email</label>
             <input
@@ -81,19 +111,31 @@ export default function LoginPage() {
             <input
               className="input"
               type="password"
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Confirmar contraseña</label>
+            <input
+              className="input"
+              type="password"
+              placeholder="Repite tu contraseña"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
           <button
             className="btn btn-primary btn-lg btn-block"
-            onClick={login}
+            onClick={register}
             disabled={loading}
           >
-            {loading ? "Iniciando sesión…" : "Iniciar sesión"}
+            {loading ? "Creando cuenta…" : "Crear cuenta"}
           </button>
         </div>
 
@@ -112,14 +154,14 @@ export default function LoginPage() {
           Entrar con Google
         </button>
 
-        <p className="login-register-link">
-          ¿No tienes cuenta?{" "}
-          <Link href="/register">Regístrate gratis</Link>
+        <p className="register-login-link">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/login">Inicia sesión</Link>
         </p>
       </div>
 
       <style jsx>{`
-        .login-bg {
+        .register-bg {
           min-height: 100vh;
           display: flex;
           align-items: center;
@@ -130,7 +172,7 @@ export default function LoginPage() {
           overflow: hidden;
         }
 
-        .login-blob {
+        .register-blob {
           position: absolute;
           border-radius: 50%;
           filter: blur(80px);
@@ -138,23 +180,23 @@ export default function LoginPage() {
           opacity: 0.25;
         }
 
-        .login-blob-1 {
+        .register-blob-1 {
           width: 500px;
           height: 500px;
           background: var(--accent);
           top: -200px;
-          right: -150px;
+          left: -150px;
         }
 
-        .login-blob-2 {
+        .register-blob-2 {
           width: 400px;
           height: 400px;
           background: #3d1a78;
           bottom: -180px;
-          left: -100px;
+          right: -100px;
         }
 
-        .login-card {
+        .register-card {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 20px;
@@ -166,7 +208,7 @@ export default function LoginPage() {
           z-index: 1;
         }
 
-        .login-logo {
+        .register-logo {
           display: flex;
           align-items: center;
           gap: 0.6rem;
@@ -174,7 +216,7 @@ export default function LoginPage() {
           justify-content: center;
         }
 
-        .login-logo-icon {
+        .register-logo-icon {
           width: 40px;
           height: 40px;
           background: var(--accent);
@@ -186,14 +228,14 @@ export default function LoginPage() {
           color: #fff;
         }
 
-        .login-logo-text {
+        .register-logo-text {
           font-size: 1.3rem;
           font-weight: 800;
           color: var(--text);
           letter-spacing: -0.03em;
         }
 
-        .login-title {
+        .register-title {
           font-size: 1.6rem;
           font-weight: 700;
           color: var(--text);
@@ -201,14 +243,14 @@ export default function LoginPage() {
           margin-bottom: 0.4rem;
         }
 
-        .login-subtitle {
+        .register-subtitle {
           color: var(--text-muted);
           text-align: center;
           margin-bottom: 1.75rem;
           font-size: 0.95rem;
         }
 
-        .login-error {
+        .register-error {
           background: rgba(244, 67, 54, 0.12);
           border: 1px solid var(--error);
           color: var(--error);
@@ -218,7 +260,17 @@ export default function LoginPage() {
           margin-bottom: 1.25rem;
         }
 
-        .login-form { display: flex; flex-direction: column; gap: 1rem; }
+        .register-success {
+          background: rgba(76, 175, 80, 0.12);
+          border: 1px solid var(--success);
+          color: var(--success);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          margin-bottom: 1.25rem;
+        }
+
+        .register-form { display: flex; flex-direction: column; gap: 1rem; }
 
         .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
 
@@ -245,7 +297,7 @@ export default function LoginPage() {
           border-color: #4285F4;
         }
 
-        .login-register-link {
+        .register-login-link {
           text-align: center;
           margin-top: 1.5rem;
           font-size: 0.9rem;

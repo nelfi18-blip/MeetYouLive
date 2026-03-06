@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import BottomNav from "./BottomNav";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -14,6 +15,14 @@ const NAV_LINKS = [
   { href: "/chats", label: "Chats", icon: "💬" },
   { href: "/profile", label: "Perfil", icon: "👤" },
 ];
+
+function pathnameToActive(pathname) {
+  if (pathname?.startsWith("/explore")) return "explore";
+  if (pathname?.startsWith("/live")) return "live";
+  if (pathname?.startsWith("/vr")) return "vr";
+  if (pathname?.startsWith("/profile")) return "profile";
+  return "dashboard";
+}
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -98,18 +107,7 @@ export default function Navbar() {
       </nav>
 
       {/* Bottom nav for mobile */}
-      <nav className="bottom-nav">
-        {NAV_LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={`bottom-nav-item${pathname === link.href ? " active" : ""}`}
-          >
-            <span>{link.icon}</span>
-            <span>{link.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <BottomNav active={pathnameToActive(pathname)} />
 
       <style jsx>{`
         .navbar {
@@ -258,44 +256,10 @@ export default function Navbar() {
         .dropdown-logout { color: var(--error) !important; }
         .dropdown-logout:hover { background: rgba(244, 67, 54, 0.1) !important; color: var(--error) !important; }
 
-        /* Bottom nav */
-        .bottom-nav {
-          display: none;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 100;
-          background: rgba(24, 24, 24, 0.95);
-          backdrop-filter: blur(12px);
-          border-top: 1px solid var(--border);
-          height: 60px;
-          padding: 0 0.5rem;
-          gap: 0;
-        }
-
-        .bottom-nav-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex: 1;
-          font-size: 0.65rem;
-          gap: 0.2rem;
-          color: var(--text-muted) !important;
-          transition: color var(--transition);
-          padding: 0.5rem;
-        }
-
-        .bottom-nav-item span:first-child { font-size: 1.2rem; }
-
-        .bottom-nav-item:hover,
-        .bottom-nav-item.active { color: var(--accent) !important; }
 
         @media (max-width: 768px) {
           .navbar-links { display: none; }
           .navbar-username { display: none; }
-          .bottom-nav { display: flex; }
           .main-content { padding-bottom: 72px !important; }
         }
       `}</style>

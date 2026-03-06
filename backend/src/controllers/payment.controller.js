@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const Video = require("../models/Video.js");
 const Purchase = require("../models/Purchase.js");
 const User = require("../models/User.js");
+const Wallet = require("../models/Wallet.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -92,6 +93,14 @@ const handlePaymentCompleted = async (session) => {
     const result = await User.findByIdAndUpdate(userId, { $inc: { coins: parseInt(coins, 10) } });
     if (!result) {
       console.error(`[coins webhook] User not found: ${userId} for session ${session.id}`);
+    } else {
+      await Wallet.create({
+        user: userId,
+        type: "purchase",
+        coins: parseInt(coins, 10),
+        stripeSessionId: session.id,
+        description: `Compra de ${coins} monedas`,
+      });
     }
     return;
   }

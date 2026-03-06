@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import BottomNav from "@/components/BottomNav";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -260,6 +261,8 @@ export default function ExplorePage() {
           .explore-header { flex-direction: column; }
         }
       `}</style>
+
+      <BottomNav active="explore" />
     </div>
   );
 }

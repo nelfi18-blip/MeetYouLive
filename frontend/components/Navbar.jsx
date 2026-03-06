@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Inicio", icon: "🏠" },
   { href: "/explore", label: "Explorar", icon: "🔍" },
   { href: "/live", label: "Directos", icon: "🎥" },
+  { href: "/chats", label: "Chats", icon: "💬" },
   { href: "/profile", label: "Perfil", icon: "👤" },
 ];
 

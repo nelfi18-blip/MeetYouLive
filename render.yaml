@@ -29,16 +29,26 @@ services:
         sync: false
       - key: STRIPE_SUBSCRIPTION_PRICE_ID
         sync: false
+      - key: NEXTAUTH_SECRET
+        sync: false
 
   - type: web
     name: meetyoulive-frontend
-    runtime: static
+    runtime: node
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    startCommand: npm start
     envVars:
-      - key: VITE_API_URL
+      - key: NEXT_PUBLIC_API_URL
         value: https://api.meetyoulive.net
-      - key: VITE_LIVE_PROVIDER_KEY
+      - key: NEXT_PUBLIC_LIVE_PROVIDER_KEY
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: NEXTAUTH_SECRET
+        sync: false
+      - key: NEXTAUTH_URL
+        value: https://meetyoulive.net

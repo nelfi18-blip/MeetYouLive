@@ -3,7 +3,7 @@ import Providers from "./providers";
 
 export const metadata = {
   title: "MeetYouLive",
-  description: "Dating, Live streaming y VR",
+  description: "Meet people live",
 };
 
 export default function RootLayout({ children }) {

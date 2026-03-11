@@ -64,7 +64,7 @@ export default function ChatsPage() {
           {chats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
             const displayName = other.username || other.name || "Usuario";
-            const initial = displayName[0].toUpperCase();
+            const initial = (displayName[0] || "?").toUpperCase();
             const lastMsg = chat.lastMessage;
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row card">

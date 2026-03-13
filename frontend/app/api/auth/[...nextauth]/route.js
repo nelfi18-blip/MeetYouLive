@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -21,52 +23,65 @@ const handler = NextAuth({
   },
 
   callbacks: {
-    async jwt({ token, account, profile }) {
-      if (account && profile) {
-        token.accessToken = account.access_token;
-        token.name = profile.name;
-        token.email = profile.email;
-        token.picture = profile.picture;
+    async signIn({ user, account }) {
+      try {
+        if (account?.provider === "google" && API_URL) {
+          const response = await fetch(`${API_URL}/api/auth/google-login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            }),
+          });
 
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google-session`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-nextauth-secret": process.env.NEXTAUTH_SECRET,
-              },
-              body: JSON.stringify({
-                email: profile.email,
-                name: profile.name,
-              }),
-            }
-          );
-
-          if (res.ok) {
-            const data = await res.json();
-            token.backendToken = data.token;
-          } else {
-            console.error(
-              `[NextAuth] google-session responded with status ${res.status}`
-            );
+          if (!response.ok) {
+            console.error("Error al sincronizar usuario con backend");
+            return false;
           }
-        } catch (err) {
-          console.error("[NextAuth] Failed to reach backend google-session:", err.message);
+
+          const data = await response.json();
+
+          user.backendToken = data.token;
+          user.backendUser = data.user;
         }
+
+        return true;
+      } catch (error) {
+        console.error("Error en signIn:", error);
+        return false;
       }
+    },
+
+    async jwt({ token, user }) {
+      if (user?.backendToken) {
+        token.backendToken = user.backendToken;
+      }
+
+      if (user?.backendUser) {
+        token.user = user.backendUser;
+      }
+
+      if (user?.name && !token.name) token.name = user.name;
+      if (user?.email && !token.email) token.email = user.email;
+      if (user?.image && !token.picture) token.picture = user.image;
 
       return token;
     },
 
     async session({ session, token }) {
-      if (token) {
-        session.user.name = token.name;
-        session.user.email = token.email;
-        session.user.image = token.picture;
-        session.accessToken = token.accessToken;
+      if (token?.backendToken) {
         session.backendToken = token.backendToken;
+      }
+
+      if (token?.user) {
+        session.user = {
+          ...session.user,
+          ...token.user,
+        };
       }
 
       return session;

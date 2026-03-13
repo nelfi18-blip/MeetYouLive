@@ -77,4 +77,52 @@ router.post("/google-session", async (req, res) => {
   }
 });
 
+router.post("/google-login", async (req, res) => {
+  try {
+    const { name, email, image } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email requerido" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        name: name || "",
+        email,
+        avatar: image || "",
+        provider: "google",
+      });
+    } else {
+      if (name && !user.name) user.name = name;
+      if (image && !user.avatar) user.avatar = image;
+      if (!user.provider) user.provider = "google";
+      await user.save();
+    }
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role || "user" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        role: user.role || "user",
+        avatar: user.avatar || image || "",
+        coins: user.coins || 0,
+      },
+    });
+  } catch (err) {
+    console.error("google-login error:", err);
+    return res.status(500).json({ message: "Error del servidor" });
+  }
+});
+
 module.exports = router;

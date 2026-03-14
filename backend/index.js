@@ -4,10 +4,15 @@ dotenv.config();
 const app = require("./src/app.js");
 const { connectDB } = require("./src/config/db.js");
 
-const PORT = process.env.PORT || 10000;
-
-connectDB();
-
-app.listen(PORT, () => {
-  console.log("✅ MeetYouLive backend corriendo en puerto " + PORT);
-});
+module.exports = async (req, res) => {
+  try {
+    await connectDB();
+    return app(req, res);
+  } catch (error) {
+    console.error("❌ Serverless function error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

@@ -2,7 +2,15 @@ const Stripe = require("stripe");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY no configurado");
+  }
+  if (!getStripe._instance) {
+    getStripe._instance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return getStripe._instance;
+};
 
 const createSubscriptionSession = async (req, res) => {
   try {
@@ -13,11 +21,11 @@ const createSubscriptionSession = async (req, res) => {
     let customerId = sub?.stripeCustomerId;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email });
+      const customer = await getStripe().customers.create({ email: user.email });
       customerId = customer.id;
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "subscription",
       customer: customerId,
@@ -53,7 +61,7 @@ const cancelSubscription = async (req, res) => {
     if (!sub?.stripeSubscriptionId) {
       return res.status(404).json({ message: "No hay suscripción activa" });
     }
-    await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+    await getStripe().subscriptions.cancel(sub.stripeSubscriptionId);
     sub.status = "canceled";
     await sub.save();
     res.json({ message: "Suscripción cancelada" });
@@ -71,7 +79,7 @@ const handleSubscriptionWebhook = async (event) => {
   }
 
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
-    const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    const stripeSubscription = await getStripe().subscriptions.retrieve(session.subscription);
     await Subscription.findOneAndUpdate(
       { user: userId },
       {

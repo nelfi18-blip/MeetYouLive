@@ -5,7 +5,13 @@ const Stripe = require("stripe");
 const { handlePaymentCompleted } = require("../controllers/payment.controller.js");
 const { handleSubscriptionWebhook } = require("../controllers/subscription.controller.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let _stripeInstance = null;
+const getStripe = () => {
+  if (!_stripeInstance) {
+    _stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return _stripeInstance;
+};
 
 const router = Router();
 
@@ -20,6 +26,11 @@ router.post(
   webhookLimiter,
   express.raw({ type: "application/json" }),
   async (req, res) => {
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+      return res.status(503).json({ message: "Stripe no está configurado" });
+    }
+
+    const stripe = getStripe();
     const sig = req.headers["stripe-signature"];
 
     let event;

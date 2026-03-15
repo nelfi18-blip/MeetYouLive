@@ -3,7 +3,15 @@ const Video = require("../models/Video.js");
 const Purchase = require("../models/Purchase.js");
 const User = require("../models/User.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY no configurado");
+  }
+  if (!getStripe._instance) {
+    getStripe._instance = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return getStripe._instance;
+};
 
 // Coin packages: { coins, priceUsd }
 const COIN_PACKAGES = {
@@ -19,7 +27,7 @@ const createCoinCheckoutSession = async (req, res) => {
     return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 500 o 1000" });
   }
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: [
@@ -54,7 +62,7 @@ const createCheckoutSession = async (req, res) => {
       return res.status(400).json({ message: "Este vídeo no requiere pago" });
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: [

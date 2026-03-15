@@ -35,6 +35,7 @@ const handler = NextAuth({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "x-nextauth-secret": process.env.NEXTAUTH_SECRET,
             },
             body: JSON.stringify({
               email: profile.email,

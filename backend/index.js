@@ -1,14 +1,23 @@
-const dotenv = require("dotenv");
-dotenv.config();
+require("dotenv").config();
 
-const app = require("./src/app.js");
-const { connectDB } = require("./src/config/db.js");
+const path = require("path");
 
-module.exports = async (req, res) => {
+const app = require(path.join(__dirname, "src", "app"));
+const { connectDB } = require(path.join(__dirname, "src", "config", "db"));
+
+const PORT = process.env.PORT || 10000;
+
+async function startServer() {
   try {
     await connectDB();
-  } catch (err) {
-    return res.status(503).json({ ok: false, message: "Service unavailable" });
+
+    app.listen(PORT, () => {
+      console.log(`✅ MeetYouLive API running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("❌ Error starting backend:", error);
+    process.exit(1);
   }
-  return app(req, res);
-};
+}
+
+startServer();

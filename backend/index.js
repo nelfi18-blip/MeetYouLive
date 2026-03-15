@@ -4,10 +4,11 @@ dotenv.config();
 const app = require("./src/app.js");
 const { connectDB } = require("./src/config/db.js");
 
-const PORT = process.env.PORT || 10000;
-
-connectDB();
-
-app.listen(PORT, () => {
-  console.log("✅ MeetYouLive backend corriendo en puerto " + PORT);
-});
+module.exports = async (req, res) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    return res.status(503).json({ ok: false, message: "Service unavailable" });
+  }
+  return app(req, res);
+};

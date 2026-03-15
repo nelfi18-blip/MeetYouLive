@@ -24,6 +24,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "loading") return;
 
+    if (status === "unauthenticated") {
+      window.location.href = "/login";
+      return;
+    }
+
     if (session?.backendToken) {
       localStorage.setItem("token", session.backendToken);
     }
@@ -31,7 +36,7 @@ export default function DashboardPage() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      window.location.href = "/login";
+      setError("No se pudo obtener el token de sesión. Por favor, inicia sesión de nuevo.");
       return;
     }
 
@@ -41,13 +46,13 @@ export default function DashboardPage() {
       .then((res) => {
         if (!res.ok) {
           localStorage.removeItem("token");
-          window.location.href = "/login";
+          setError("Sesión expirada. Por favor, inicia sesión de nuevo.");
           return null;
         }
         return res.json();
       })
       .then((data) => { if (data) setUser(data); })
-      .catch(() => setError("No se pudo cargar el perfil"));
+      .catch(() => setError("No se pudo cargar el perfil. Verifica tu conexión e intenta de nuevo."));
 
     fetch(`${API_URL}/api/user/coins`, { headers })
       .then((res) => res.ok ? res.json() : null)

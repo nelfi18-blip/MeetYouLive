@@ -46,7 +46,9 @@ const handler = NextAuth({
 
           if (res.ok) {
             const data = await res.json();
-            token.backendToken = data.token;
+            if (data.token) {
+              token.backendToken = data.token;
+            }
           } else {
             console.error(
               `[NextAuth] google-session responded with status ${res.status}`

@@ -38,7 +38,7 @@ app.use(express.json());
 app.use(passport.initialize());
 
 app.get("/", (req, res) => {
-  res.json({ status: "MeetYouLive API running 🚀" });
+  res.json({ ok: true, service: "meetyoulive-backend" });
 });
 
 app.use("/api/auth", authRoutes);

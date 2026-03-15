@@ -24,6 +24,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "loading") return;
 
+    if (status === "unauthenticated") {
+      window.location.href = "/login";
+      return;
+    }
+
     if (session?.backendToken) {
       localStorage.setItem("token", session.backendToken);
     }
@@ -31,7 +36,7 @@ export default function DashboardPage() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      window.location.href = "/login";
+      // Authenticated but backend token not yet available — wait for next render
       return;
     }
 
@@ -39,15 +44,11 @@ export default function DashboardPage() {
 
     fetch(`${API_URL}/api/user/me`, { headers })
       .then((res) => {
-        if (!res.ok) {
-          localStorage.removeItem("token");
-          window.location.href = "/login";
-          return null;
-        }
+        if (!res.ok) throw new Error("Error cargando usuario");
         return res.json();
       })
       .then((data) => { if (data) setUser(data); })
-      .catch(() => setError("No se pudo cargar el perfil"));
+      .catch(() => setError("Backend no respondió todavía"));
 
     fetch(`${API_URL}/api/user/coins`, { headers })
       .then((res) => res.ok ? res.json() : null)

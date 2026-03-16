@@ -60,8 +60,8 @@ export default function LivePage() {
             <Link key={live._id} href={`/live/${live._id}`} className="stream-card card">
               <div className="stream-thumb">
                 <span className="badge badge-live">LIVE</span>
-                {live.viewers && (
-                  <span className="viewer-count">👁 {live.viewers}</span>
+                {live.viewerCount > 0 && (
+                  <span className="viewer-count">👁 {live.viewerCount}</span>
                 )}
                 <span className="thumb-icon">📺</span>
               </div>

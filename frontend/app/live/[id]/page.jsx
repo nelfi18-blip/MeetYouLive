@@ -115,10 +115,10 @@ export default function LiveViewerPage() {
           </div>
         </div>
         <div className="viewer-actions">
-          {live.viewers && (
+          {live.viewerCount > 0 && (
             <div className="viewer-count-badge">
               <span>👁</span>
-              <span>{live.viewers} viendo</span>
+              <span>{live.viewerCount} viendo</span>
             </div>
           )}
           <Link href="/coins" className="btn btn-primary">

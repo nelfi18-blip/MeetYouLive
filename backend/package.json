@@ -7,5 +7,8 @@
   },
   "engines": {
     "node": "24.x"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
   }
 }

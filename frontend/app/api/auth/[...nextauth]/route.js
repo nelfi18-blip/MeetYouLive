@@ -71,7 +71,7 @@ const handler = NextAuth({
       session.user.name = token.name;
       session.user.email = token.email;
       session.user.image = token.picture;
-      session.backendToken = token.backendToken;
+      session.backendToken = token.backendToken || null;
 
       return session;
     },

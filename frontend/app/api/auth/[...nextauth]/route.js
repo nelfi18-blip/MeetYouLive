@@ -50,7 +50,7 @@ const handler = NextAuth({
           const data = await res.json();
 
           if (!data?.token) {
-            throw new Error("Backend token not returned");
+            throw new Error("Backend token missing");
           }
 
           token.backendToken = data.token;

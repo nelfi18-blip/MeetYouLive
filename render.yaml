@@ -11,7 +11,7 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: MONGO_URI
+      - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false
@@ -20,9 +20,9 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_CALLBACK_URL
-        value: https://api.meetyoulive.net/api/auth/google/callback
+        value: https://www.meetyoulive.net/api/auth/callback/google
       - key: FRONTEND_URL
-        value: https://meetyoulive.net
+        value: https://www.meetyoulive.net
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

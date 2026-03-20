@@ -41,16 +41,31 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
+      if (!API_URL) {
+        setError("Error de configuración: no se puede contactar el servidor");
+        return;
+      }
+
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
       });
 
-      const data = await res.json();
+      let data = {};
+      let jsonParseError = false;
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not valid JSON (e.g. HTML error page from proxy)
+        jsonParseError = true;
+      }
 
-      if (!res.ok) {
-        setError(data.message || "Error al registrarse");
+      if (!res.ok || jsonParseError) {
+        setError(
+          data.message ||
+            "El servidor no respondió correctamente. Por favor, intente de nuevo más tarde."
+        );
         return;
       }
 

@@ -24,10 +24,20 @@ export default function LoginPage() {
         credentials: "include",
       });
 
-      const data = await res.json();
+      let data = {};
+      let jsonParseError = false;
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not valid JSON (e.g. HTML error page from proxy)
+        jsonParseError = true;
+      }
 
-      if (!res.ok) {
-        setError(data.message || "Error al iniciar sesión");
+      if (!res.ok || jsonParseError) {
+        setError(
+          data.message ||
+            "El servidor no respondió correctamente. Por favor, intente de nuevo más tarde."
+        );
         return;
       }
 

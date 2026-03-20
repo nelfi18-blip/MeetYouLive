@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +56,7 @@ export default function RegisterPage() {
 
       setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
       setTimeout(() => {
-        window.location.href = "/login";
+        router.push("/login");
       }, 1500);
     } catch {
       setError("No se pudo conectar con el servidor");

@@ -5,6 +5,7 @@ const { requireAdmin } = require("../middlewares/admin.middleware.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
+const { getOverview, getUsers, getReports, makeAdmin } = require("../controllers/admin.controller.js");
 
 const router = Router();
 
@@ -17,14 +18,10 @@ const adminLimiter = rateLimit({
 // All routes below require a valid JWT and admin role
 router.use(adminLimiter, verifyToken, requireAdmin);
 
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+router.get("/overview", getOverview);
+router.get("/users", getUsers);
+router.get("/reports", getReports);
+router.patch("/make-admin", makeAdmin);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;

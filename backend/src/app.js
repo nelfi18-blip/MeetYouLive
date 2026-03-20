@@ -16,11 +16,18 @@ const videoRoutes = require("./routes/video.routes.js");
 
 const app = express();
 
+function buildAllowedOrigins(frontendUrl) {
+  const withWww = frontendUrl.includes("://www.")
+    ? frontendUrl
+    : frontendUrl.replace("://", "://www.");
+  const withoutWww = frontendUrl.includes("://www.")
+    ? frontendUrl.replace("://www.", "://")
+    : frontendUrl;
+  return [withWww, withoutWww];
+}
+
 const allowedOrigins = process.env.FRONTEND_URL
-  ? [
-      process.env.FRONTEND_URL,
-      process.env.FRONTEND_URL.replace("://", "://www."),
-    ]
+  ? buildAllowedOrigins(process.env.FRONTEND_URL)
   : null;
 
 app.use(

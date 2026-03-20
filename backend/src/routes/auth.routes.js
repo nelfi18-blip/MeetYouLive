@@ -26,6 +26,17 @@ router.post("/register", authLimiter, async (req, res) => {
     const user = await User.create({ username, email, password: hashedPassword });
     res.status(201).json({ message: "Usuario registrado", userId: user._id });
   } catch (err) {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyValue || {})[0];
+      if (field === "email") {
+        return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+      }
+      if (field === "username") {
+        return res.status(400).json({ message: "Ese nombre de usuario ya está en uso" });
+      }
+      // Unknown or missing duplicate field
+      return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
+    }
     res.status(400).json({ message: err.message });
   }
 });

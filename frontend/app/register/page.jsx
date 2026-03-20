@@ -15,6 +15,11 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    register();
+  };
+
   const register = async () => {
     setError("");
     setSuccess("");
@@ -58,10 +63,6 @@ export default function RegisterPage() {
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") register();
-  };
-
   return (
     <div className="register-bg">
       {/* Decorative blobs */}
@@ -81,7 +82,7 @@ export default function RegisterPage() {
         {error && <div className="register-error">{error}</div>}
         {success && <div className="register-success">{success}</div>}
 
-        <div className="register-form">
+        <form className="register-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Nombre de usuario</label>
             <input
@@ -90,7 +91,6 @@ export default function RegisterPage() {
               placeholder="tunombredeusuario"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={handleKeyDown}
             />
           </div>
 
@@ -102,7 +102,6 @@ export default function RegisterPage() {
               placeholder="tu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={handleKeyDown}
             />
           </div>
 
@@ -114,7 +113,6 @@ export default function RegisterPage() {
               placeholder="Mínimo 6 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
             />
           </div>
 
@@ -126,18 +124,17 @@ export default function RegisterPage() {
               placeholder="Repite tu contraseña"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
             />
           </div>
 
           <button
+            type="submit"
             className="btn btn-primary btn-lg btn-block"
-            onClick={register}
             disabled={loading}
           >
             {loading ? "Creando cuenta…" : "Crear cuenta"}
           </button>
-        </div>
+        </form>
 
         <div className="divider-text">o continúa con</div>
 

@@ -64,7 +64,7 @@ export default function SetupPage() {
       try {
         data = await res.json();
       } catch {
-        setError("El servidor devolvió una respuesta inválida. Por favor, intenta de nuevo.");
+        setError("El servidor devolvió una respuesta inválida. Por favor, inténtalo de nuevo.");
         return;
       }
 

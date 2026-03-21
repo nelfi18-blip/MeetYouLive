@@ -78,7 +78,7 @@ router.post("/setup", authLimiter, async (req, res) => {
 
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
-      return res.status(400).json({ message: "nombre de usuario, email y contraseña son requeridos" });
+      return res.status(400).json({ message: "Nombre de usuario, email y contraseña son requeridos" });
     }
     if (password.length < 6) {
       return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });

@@ -1,20 +1,67 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* =========================================================
+   CSS Custom Properties (Design Tokens)
+   ========================================================= */
+:root {
+  /* Colors */
+  --bg:           #0d0d0d;
+  --card:         #1a1a1a;
+  --card-hover:   #222222;
+  --border:       rgba(255,255,255,0.08);
+  --text:         #f0f0f0;
+  --text-muted:   #8a8a8a;
+  --accent:       #e91e8c;
+  --accent-dim:   rgba(233,30,140,0.12);
+  --error:        #f44336;
+
+  /* Radii */
+  --radius:       12px;
+  --radius-sm:    8px;
+
+  /* Shadows */
+  --shadow:       0 4px 24px rgba(0,0,0,0.5);
+  --shadow-accent:0 4px 24px rgba(233,30,140,0.3);
+
+  /* Transition */
+  --transition:   0.18s ease;
+}
+
+/* =========================================================
+   Reset / Base
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
   padding: 0;
-  color: white;
-  font-family: system-ui, sans-serif;
-
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(circle at top right,#ff006a33,transparent 35%),
-    radial-gradient(circle at bottom left,#6a00ff33,transparent 40%),
-    linear-gradient(180deg,#05010a 0%,#09020f 45%,#12051d 100%);
+    radial-gradient(circle at top right,  #ff006a33, transparent 35%),
+    radial-gradient(circle at bottom left, #6a00ff33, transparent 40%),
+    linear-gradient(180deg, #05010a 0%, #09020f 45%, #12051d 100%);
+  min-height: 100vh;
 }
 
-/* glass card */
+a { color: inherit; text-decoration: none; }
+
+/* =========================================================
+   Layout
+   ========================================================= */
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* =========================================================
+   Utility: Card
+   ========================================================= */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
 
 .card-glass {
   background: rgba(255,255,255,0.05);
@@ -24,38 +71,119 @@ body {
   box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 }
 
-/* main button */
-
-.btn-primary {
-  background: linear-gradient(135deg,#ff2d8a,#ff006a);
-  color: white;
-  border-radius: 16px;
-  padding: 14px;
+/* =========================================================
+   Utility: Buttons
+   ========================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
   font-weight: 600;
   border: none;
-  box-shadow: 0 8px 30px rgba(255,0,120,0.4);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-decoration: none;
+  line-height: 1.4;
 }
 
-/* swipe buttons */
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(233,30,140,0.35);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.1); box-shadow: var(--shadow-accent); }
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--card-hover); color: var(--text); }
+
+.btn-lg  { padding: 0.75rem 1.75rem; font-size: 1rem; border-radius: var(--radius); }
+.btn-block { width: 100%; }
+
+/* =========================================================
+   Utility: Input
+   ========================================================= */
+.input {
+  width: 100%;
+  padding: 0.6rem 0.875rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color var(--transition);
+  font-family: inherit;
+}
+
+.input::placeholder { color: var(--text-muted); }
+.input:focus { border-color: var(--accent); }
+.input-lg { padding: 0.75rem 1rem; font-size: 1rem; border-radius: var(--radius); }
+
+/* =========================================================
+   Utility: Badge
+   ========================================================= */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.badge-live {
+  background: #f44336;
+  color: #fff;
+}
+
+/* =========================================================
+   Utility: Avatar placeholder
+   ========================================================= */
+.avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #9c27b0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* =========================================================
+   Legacy / Login-specific helpers (kept for login page)
+   ========================================================= */
 .swipe-btn {
-  width:60px;
-  height:60px;
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(255,255,255,0.1);
-  backdrop-filter:blur(10px);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
 }
 
-/* bottom nav */
-
+/* bottom nav fallback (overridden by Navbar styled-jsx on mobile) */
 .bottom-nav {
-  position:fixed;
-  bottom:0;
-  width:100%;
-  backdrop-filter:blur(20px);
-  background:rgba(0,0,0,0.5);
-  border-top:1px solid rgba(255,255,255,0.08);
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  backdrop-filter: blur(20px);
+  background: rgba(0,0,0,0.5);
+  border-top: 1px solid rgba(255,255,255,0.08);
 }

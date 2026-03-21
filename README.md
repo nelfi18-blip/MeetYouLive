@@ -1,32 +1,32 @@
 # MeetYouLive
 
-MeetYouLive es una plataforma de streaming en vivo y red social con:
+MeetYouLive is a live streaming and social platform with:
 
-- Frontend en Next.js desplegado en Vercel
-- Backend en Express desplegado en Render
-- Base de datos MongoDB Atlas
-- Autenticación con Google
-- Soporte de sesión backend mediante JWT
+- Next.js frontend deployed on Vercel
+- Express backend deployed on Render
+- MongoDB Atlas database
+- Google authentication
+- JWT-based backend session support
 
-## Arquitectura
+## Architecture
 
 ### Frontend
-- Plataforma: Vercel
-- Directorio: `frontend`
+- Platform: Vercel
+- Directory: `frontend`
 - URL: `https://www.meetyoulive.net`
 
 ### Backend
-- Plataforma: Render
-- Directorio: `backend`
+- Platform: Render
+- Directory: `backend`
 - URL: `https://api.meetyoulive.net`
 
-### Base de datos
+### Database
 - MongoDB Atlas
 
 ### DNS
 - GoDaddy
 
-## Estructura del repositorio
+## Repository structure
 
 ```text
 MeetYouLive/
@@ -44,28 +44,28 @@ MeetYouLive/
 └── README.md
 ```
 
-## Funcionalidades
+## Features
 
-- ✅ Registro / Inicio de sesión (JWT)
-- ✅ Inicio de sesión con Google OAuth
-- ✅ Roles (usuario / creador / administrador)
-- ✅ Vídeos (públicos y privados con pago)
-- ✅ Streaming en vivo (iniciar, ver, terminar directo)
-- ✅ Edición de perfil (nombre, usuario, bio)
-- ✅ Chat privado entre usuarios
-- ✅ Regalos virtuales con monedas
-- ✅ Pagos con Stripe (compra única + suscripciones)
-- ✅ Moderación y sistema de reportes
-- ✅ Panel de administrador (gestión de usuarios, reportes)
+- ✅ Register / Login (JWT)
+- ✅ Google OAuth login
+- ✅ Roles (user / creator / admin)
+- ✅ Videos (public & private with payment)
+- ✅ Live streaming (start, watch, end stream)
+- ✅ Profile editing (name, username, bio)
+- ✅ Private chat between users
+- ✅ Virtual gifts with coins
+- ✅ Stripe payments (one-time + subscriptions)
+- ✅ Moderation & reporting
+- ✅ Admin panel (user management, reports)
 
-## Desarrollo local
+## Local development
 
 ### Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# completa los valores
+# fill in your values
 npm install
 npm run dev
 ```
@@ -75,92 +75,93 @@ npm run dev
 ```bash
 cd frontend
 cp .env.example .env.local
-# completa los valores
+# fill in your values
 npm install
 npm run dev
 ```
 
-El frontend se ejecuta en [http://localhost:3000](http://localhost:3000) (por defecto en Next.js).
+Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default).
 
-## Despliegue
+## Deployment
 
 ### Frontend → Vercel
 
-1. Importa el repositorio en [Vercel](https://vercel.com) y establece el **Directorio raíz** en `frontend`.
-2. Configura las variables de entorno:
+1. Import the repo in [Vercel](https://vercel.com) and set the **Root Directory** to `frontend`.
+2. Set environment variables:
    ```
    NEXTAUTH_URL=https://www.meetyoulive.net
-   NEXTAUTH_SECRET=tu_nextauth_secret
+   NEXTAUTH_SECRET=your_nextauth_secret
    NEXT_PUBLIC_API_URL=https://api.meetyoulive.net
-   GOOGLE_CLIENT_ID=tu_google_client_id
-   GOOGLE_CLIENT_SECRET=tu_google_client_secret
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
-3. En **Proyecto → Configuración → Dominios** añade `meetyoulive.net` y `www.meetyoulive.net`.
-4. En GoDaddy DNS configura:
-   - Registro `A`: `@` → `76.76.21.21`
-   - Registro `CNAME`: `www` → `cname.vercel-dns.com`
+3. In **Project → Settings → Domains** add `meetyoulive.net` and `www.meetyoulive.net`.
+4. In GoDaddy DNS set:
+   - `A` record: `@` → `76.76.21.21`
+   - `CNAME` record: `www` → `cname.vercel-dns.com`
 
 ### Backend → Render
 
-Se incluye un archivo `render.yaml` para que Render configure el servicio automáticamente.
+A `render.yaml` is included so Render can auto-configure the service.
 
-1. Conecta el repositorio en [Render](https://render.com) y establece el **Directorio raíz** en `backend`.
-2. Configura las variables de entorno secretas en **Environment**:
+1. Connect the repo in [Render](https://render.com) and set the **Root Directory** to `backend`.
+2. Set the secret environment variables in **Environment**:
    ```
    NODE_ENV=production
    PORT=10000
-   MONGODB_URI=tu_mongodb_uri
-   JWT_SECRET=tu_jwt_secret
-   NEXTAUTH_SECRET=tu_nextauth_secret
+   MONGO_URI=your_mongodb_uri
+   JWT_SECRET=your_jwt_secret
+   NEXTAUTH_SECRET=your_nextauth_secret
    FRONTEND_URL=https://www.meetyoulive.net
-   GOOGLE_CLIENT_ID=tu_google_client_id
-   GOOGLE_CLIENT_SECRET=tu_google_client_secret
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
    GOOGLE_CALLBACK_URL=https://api.meetyoulive.net/api/auth/google/callback
-   STRIPE_SECRET_KEY=tu_stripe_secret_key
-   STRIPE_WEBHOOK_SECRET=tu_stripe_webhook_secret
-   STRIPE_SUBSCRIPTION_PRICE_ID=tu_stripe_price_id
+   STRIPE_SECRET_KEY=your_stripe_secret_key
+   STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+   STRIPE_SUBSCRIPTION_PRICE_ID=your_stripe_price_id
    ```
-3. En **Configuración → Dominios personalizados** añade `api.meetyoulive.net`.
-4. En GoDaddy DNS añade un registro `CNAME`: `api` → `<tu-servicio>.onrender.com`.
+3. In **Settings → Custom Domains** add `api.meetyoulive.net`.
+4. In GoDaddy DNS add a `CNAME` record: `api` → `<your-service>.onrender.com`.
 
 ### Google OAuth
 
-En [Google Cloud Console](https://console.cloud.google.com) → **Cliente OAuth**:
+In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**:
 
-- **URIs de redirección autorizados**: `https://api.meetyoulive.net/api/auth/google/callback`
-- **Orígenes JavaScript autorizados**: `https://www.meetyoulive.net`
+- **Authorized Redirect URIs**: `https://api.meetyoulive.net/api/auth/google/callback`
+- **Authorized JavaScript origins**: `https://www.meetyoulive.net`
 
-## Variables de entorno
+## Environment variables
 
 ### Frontend (`frontend/.env.example`)
 
-| Variable                      | Descripción                                             |
-|-------------------------------|---------------------------------------------------------|
-| `NEXTAUTH_URL`                | URL canónica del frontend                               |
-| `NEXTAUTH_SECRET`             | Secreto de firma/cifrado de NextAuth                    |
-| `NEXT_PUBLIC_API_URL`         | URL base de la API del backend                          |
-| `NEXT_PUBLIC_LIVE_PROVIDER_KEY` | Clave de la plataforma de streaming                   |
-| `GOOGLE_CLIENT_ID`            | Client ID de Google OAuth (usado por NextAuth)          |
-| `GOOGLE_CLIENT_SECRET`        | Client Secret de Google OAuth (usado por NextAuth)      |
+| Variable                        | Description                                             |
+|---------------------------------|---------------------------------------------------------|
+| `NEXTAUTH_URL`                  | Canonical URL of the frontend                           |
+| `NEXTAUTH_SECRET`               | NextAuth signing/encryption secret                      |
+| `NEXT_PUBLIC_API_URL`           | Backend API base URL                                    |
+| `NEXT_PUBLIC_LIVE_PROVIDER_KEY` | Live streaming provider API key                         |
+| `GOOGLE_CLIENT_ID`              | Google OAuth client ID (used by NextAuth)               |
+| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret (used by NextAuth)           |
 
 ### Backend (`backend/.env.example`)
 
-| Variable                        | Descripción                                              |
+| Variable                        | Description                                              |
 |---------------------------------|----------------------------------------------------------|
-| `PORT`                          | Puerto del servidor (por defecto 10000)                  |
-| `MONGO_URI`                     | Cadena de conexión a MongoDB                             |
-| `JWT_SECRET`                    | Secreto para firmar tokens JWT                           |
-| `NEXTAUTH_SECRET`               | Secreto compartido verificado mediante la cabecera `x-nextauth-secret` |
-| `GOOGLE_CLIENT_ID`              | Client ID de Google OAuth                                |
-| `GOOGLE_CLIENT_SECRET`          | Client Secret de Google OAuth                            |
+| `PORT`                          | Server port (default 10000)                              |
+| `MONGO_URI`                     | MongoDB connection string                                |
+| `JWT_SECRET`                    | Secret for signing JWT tokens                            |
+| `NEXTAUTH_SECRET`               | Shared secret verified via `x-nextauth-secret` header    |
+| `GOOGLE_CLIENT_ID`              | Google OAuth client ID                                   |
+| `GOOGLE_CLIENT_SECRET`          | Google OAuth client secret                               |
 | `GOOGLE_CALLBACK_URL`           | `https://api.meetyoulive.net/api/auth/google/callback`   |
 | `FRONTEND_URL`                  | `https://www.meetyoulive.net`                            |
-| `STRIPE_SECRET_KEY`             | Clave secreta de Stripe (`sk_test_…` o `sk_live_…`)      |
-| `STRIPE_WEBHOOK_SECRET`         | Secreto de firma del webhook de Stripe                   |
-| `STRIPE_SUBSCRIPTION_PRICE_ID`  | ID de precio de Stripe para el plan de suscripción       |
+| `STRIPE_SECRET_KEY`             | Stripe secret key (`sk_test_…` or `sk_live_…`)           |
+| `STRIPE_WEBHOOK_SECRET`         | Stripe webhook signing secret                            |
+| `STRIPE_SUBSCRIPTION_PRICE_ID`  | Stripe Price ID for the subscription plan                |
 
-## Notas
+## Notes
 
-- `NEXTAUTH_SECRET` debe tener el mismo valor tanto en Vercel como en Render.
-- `api.meetyoulive.net` debe apuntar al hostname del backend en Render.
-- El frontend usa NextAuth y solicita un JWT del backend en: `POST /api/auth/google-session`
+- `NEXTAUTH_SECRET` must be the same value in both Vercel and Render.
+- `api.meetyoulive.net` must point to the Render backend hostname.
+- The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`
+

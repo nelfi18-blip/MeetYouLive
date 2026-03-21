@@ -11,19 +11,18 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      window.location.href = "/login";
-      return;
+    if (status === "loading") return;
+
+    // For Google (NextAuth) users, sync the backend token to localStorage.
+    if (status === "authenticated") {
+      if (session?.backendToken) {
+        localStorage.setItem("token", session.backendToken);
+      } else {
+        localStorage.removeItem("token");
+      }
     }
 
-    if (status !== "authenticated") return;
-
-    if (session?.backendToken) {
-      localStorage.setItem("token", session.backendToken);
-    } else {
-      localStorage.removeItem("token");
-    }
-
+    // Both email/password and Google users need a valid token in localStorage.
     const token = localStorage.getItem("token");
     if (!token) {
       window.location.href = "/login";

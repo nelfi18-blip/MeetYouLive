@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Handles the redirect from the backend Passport-based Google OAuth callback.
- * The backend redirects to /auth/success?token=<jwt> after a successful OAuth flow.
- * This page saves the token to localStorage and navigates to the dashboard.
+ * Inner component that reads search params and performs the redirect.
+ * Must be wrapped in <Suspense> because useSearchParams() opts into
+ * client-side rendering and Next.js requires a boundary for SSG/SSR.
  */
-export default function AuthSuccessPage() {
+function AuthSuccessHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -26,4 +26,17 @@ export default function AuthSuccessPage() {
   }, [router, searchParams]);
 
   return null;
+}
+
+/**
+ * Handles the redirect from the backend Passport-based Google OAuth callback.
+ * The backend redirects to /auth/success?token=<jwt> after a successful OAuth flow.
+ * This page saves the token to localStorage and navigates to the dashboard.
+ */
+export default function AuthSuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthSuccessHandler />
+    </Suspense>
+  );
 }

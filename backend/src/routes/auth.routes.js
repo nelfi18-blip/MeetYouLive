@@ -24,7 +24,8 @@ router.post("/register", authLimiter, async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hashedPassword });
-    res.status(201).json({ message: "Usuario registrado", userId: user._id });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.status(201).json({ message: "Usuario registrado", userId: user._id, token });
   } catch (err) {
     if (err.code === 11000) {
       const field = Object.keys(err.keyValue || {})[0];

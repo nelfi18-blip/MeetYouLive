@@ -28,7 +28,7 @@ const createSubscriptionSession = async (req, res) => {
         },
       ],
       metadata: { userId: String(req.userId) },
-      success_url: `${process.env.FRONTEND_URL}/payment/success`,
+      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
     });
 

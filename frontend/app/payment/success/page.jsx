@@ -1,13 +1,23 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function PaymentSuccessPage() {
+function SuccessContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
   return (
     <div className="status-page">
       <div className="status-icon">✅</div>
       <h1>Pago completado</h1>
       <p>Tu compra ha sido procesada correctamente. Ya puedes usar tus monedas.</p>
+      {token && (
+        <p className="session-ref">
+          Referencia: <code>{token.slice(0, 20)}…</code>
+        </p>
+      )}
       <div className="status-actions">
         <Link href="/coins" className="btn btn-primary btn-lg">
           💰 Ver mis monedas
@@ -47,6 +57,17 @@ export default function PaymentSuccessPage() {
           max-width: 380px;
         }
 
+        .session-ref {
+          font-size: 0.8rem;
+        }
+
+        .session-ref code {
+          font-family: monospace;
+          background: var(--card);
+          padding: 0.1rem 0.4rem;
+          border-radius: 4px;
+        }
+
         .status-actions {
           display: flex;
           gap: 0.75rem;
@@ -56,5 +77,45 @@ export default function PaymentSuccessPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <>
+      <Suspense
+        fallback={
+          <div className="status-loading">
+            <div className="status-icon">⏳</div>
+            <p>Cargando…</p>
+          </div>
+        }
+      >
+        <SuccessContent />
+      </Suspense>
+
+      <style jsx>{`
+        .status-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 60vh;
+          gap: 1rem;
+          text-align: center;
+          padding: 2rem;
+        }
+
+        .status-loading .status-icon {
+          font-size: 3rem;
+          line-height: 1;
+        }
+
+        .status-loading p {
+          color: var(--text-muted);
+          font-size: 1rem;
+        }
+      `}</style>
+    </>
   );
 }

@@ -37,7 +37,7 @@ const createCoinCheckoutSession = async (req, res) => {
         coins: String(coinPackage.coins),
         type: "coins",
       },
-      success_url: `${process.env.FRONTEND_URL}/payment/success`,
+      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
     });
     res.json({ url: session.url });
@@ -75,7 +75,7 @@ const createCheckoutSession = async (req, res) => {
         amount: String(video.price),
         type: "video",
       },
-      success_url: `${process.env.FRONTEND_URL}/payment/success`,
+      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
     });
 

@@ -1,17 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "../../components/Logo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Redirect to dashboard if the user is already authenticated.
+  useEffect(() => {
+    if (status === "loading") return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token || status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
 
   const login = async () => {
     setError("");

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +17,15 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Redirect to dashboard if the user is already authenticated.
+  useEffect(() => {
+    if (status === "loading") return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token || status === "authenticated") {
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -62,10 +72,14 @@ export default function RegisterPage() {
       }
 
       if (!res.ok || jsonParseError) {
-        setError(
-          data.message ||
-            "El servidor no respondió correctamente. Por favor, intente de nuevo más tarde."
-        );
+        const rawMsg = data.message || "El servidor no respondió correctamente. Por favor, intente de nuevo más tarde.";
+        const lowerMsg = rawMsg.toLowerCase();
+        // Show a friendlier message when the email is already registered.
+        if (lowerMsg.includes("email") && lowerMsg.includes("exist")) {
+          setError("Esta cuenta ya existe. Inicia sesión o continúa con Google.");
+        } else {
+          setError(rawMsg);
+        }
         return;
       }
 

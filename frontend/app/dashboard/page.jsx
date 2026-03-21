@@ -11,26 +11,13 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // For Google OAuth sessions, sync the backend token to localStorage
-    if (status === "authenticated" && session?.backendToken) {
-      localStorage.setItem("token", session.backendToken);
-    }
-
-    // During NextAuth initialization, proceed immediately if a localStorage token
-    // already exists (email/password users don't need to wait for NextAuth to resolve)
-    if (status === "loading" && !localStorage.getItem("token")) return;
-
-    // Support both Google OAuth (backendToken synced above) and
-    // email/password users (token already in localStorage from login)
     if (status === "loading") return;
 
-    // For Google (NextAuth) users, sync the backend token to localStorage.
-    if (status === "authenticated") {
-      if (session?.backendToken) {
-        localStorage.setItem("token", session.backendToken);
-      } else {
-        localStorage.removeItem("token");
-      }
+    // For Google OAuth sessions, sync the backend token to localStorage.
+    // Only overwrite (never delete) an existing token – the localStorage token
+    // may belong to an active email/password session.
+    if (status === "authenticated" && session?.backendToken) {
+      localStorage.setItem("token", session.backendToken);
     }
 
     // Both email/password and Google users need a valid token in localStorage.

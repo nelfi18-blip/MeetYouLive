@@ -14,7 +14,8 @@ const authLimiter = rateLimit({
 });
 
 router.post("/register", authLimiter, async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, password } = req.body;
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
     return res.status(400).json({ message: "username, email y password son requeridos" });
   }
@@ -43,7 +44,8 @@ router.post("/register", authLimiter, async (req, res) => {
 });
 
 router.post("/login", authLimiter, async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email || !password) {
     return res.status(400).json({ message: "email y password son requeridos" });
   }
@@ -110,7 +112,8 @@ router.post("/google-session", async (req, res) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { email, name } = req.body;
+  const { name } = req.body;
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email) {
     return res.status(400).json({ message: "email es requerido" });
   }

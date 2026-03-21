@@ -64,7 +64,7 @@ export default function SetupPage() {
       try {
         data = await res.json();
       } catch {
-        setError("El servidor no respondió correctamente. Revisa tu conexión e intenta de nuevo.");
+        setError("El servidor devolvió una respuesta inválida. Por favor, intenta de nuevo.");
         return;
       }
 
@@ -108,6 +108,15 @@ export default function SetupPage() {
 
         <h1 className="setup-title">Configuración inicial</h1>
         <p className="setup-subtitle">Crea la cuenta de administrador para comenzar</p>
+
+        <div className="setup-info">
+          <span className="setup-info-icon">ℹ️</span>
+          <span>
+            Elige el <strong>nombre de usuario</strong>, <strong>email</strong> y{" "}
+            <strong>contraseña</strong> que deseas usar para acceder como administrador.
+            No hay credenciales predeterminadas — tú las defines aquí.
+          </span>
+        </div>
 
         {error && <div className="setup-error">{error}</div>}
         {success && <div className="setup-success">{success}</div>}
@@ -280,6 +289,26 @@ export default function SetupPage() {
           text-align: center;
           margin-bottom: 1.75rem;
           font-size: 0.95rem;
+        }
+
+        .setup-info {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          background: rgba(66, 133, 244, 0.1);
+          border: 1px solid rgba(66, 133, 244, 0.35);
+          border-radius: var(--radius-sm);
+          padding: 0.85rem 1rem;
+          font-size: 0.875rem;
+          color: var(--text);
+          line-height: 1.5;
+          margin-bottom: 1.25rem;
+        }
+
+        .setup-info-icon {
+          font-size: 1rem;
+          flex-shrink: 0;
+          margin-top: 0.05rem;
         }
 
         .setup-error {

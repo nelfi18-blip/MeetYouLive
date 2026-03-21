@@ -134,6 +134,11 @@ export default function LoginPage() {
           ¿No tienes cuenta?{" "}
           <Link href="/register">Regístrate gratis</Link>
         </p>
+
+        <p className="login-setup-link">
+          ¿Primera vez aquí?{" "}
+          <Link href="/setup">Configurar administrador</Link>
+        </p>
       </div>
 
       <style jsx>{`
@@ -341,6 +346,14 @@ export default function LoginPage() {
           margin-top: 1.5rem;
           font-size: 0.9rem;
           color: var(--text-muted);
+        }
+
+        .login-setup-link {
+          text-align: center;
+          margin-top: 0.6rem;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          opacity: 0.65;
         }
       `}</style>
     </div>

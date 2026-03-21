@@ -156,6 +156,18 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `STRIPE_WEBHOOK_SECRET`       | Stripe webhook signing secret                           |
 | `STRIPE_SUBSCRIPTION_PRICE_ID`| Stripe Price ID for the subscription plan               |
 
+## Initial admin setup
+
+After deploying both the backend and the frontend for the first time, you must create the administrator account before anyone can manage the platform.
+
+1. Open `https://<your-frontend-url>/setup` in a browser.
+2. Fill in the form with your chosen **username**, **email**, and **password** (minimum 6 characters).  
+   These are credentials **you define yourself** — there are no default or preset credentials.
+3. Submit the form. Your admin account is created and you are logged in automatically.
+4. The `/setup` page is disabled permanently once an admin account exists; any future visit redirects to `/login`.
+
+> You can also reach the setup page from the login screen via the **"¿Primera vez aquí? Configurar administrador"** link at the bottom of the page.
+
 ## Notes
 
 - `NEXTAUTH_SECRET` must be the same value in both Vercel and Render.

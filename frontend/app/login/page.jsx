@@ -16,6 +16,13 @@ export default function LoginPage() {
   const login = async () => {
     setError("");
     setLoading(true);
+
+    if (!API_URL) {
+      setError("Error de configuración: no se puede contactar el servidor");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",

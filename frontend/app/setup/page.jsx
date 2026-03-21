@@ -53,6 +53,13 @@ export default function SetupPage() {
     }
 
     setLoading(true);
+
+    if (!API_URL) {
+      setError("Error de configuración: no se puede contactar el servidor");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/auth/setup`, {
         method: "POST",

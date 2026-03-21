@@ -38,7 +38,18 @@ app.use(
           if (/\.vercel\.app$/.test(origin)) return cb(null, true);
           cb(new Error("Not allowed by CORS"));
         }
-      : /\.vercel\.app$/,
+      : (origin, cb) => {
+          if (!origin) return cb(null, true);
+          if (/\.vercel\.app$/.test(origin)) return cb(null, true);
+          // Allow localhost in development; NODE_ENV !== "production" also covers
+          // the case where NODE_ENV is unset (local dev without explicit env config)
+          if (
+            process.env.NODE_ENV !== "production" &&
+            /^http:\/\/localhost(:\d+)?$/.test(origin)
+          )
+            return cb(null, true);
+          cb(new Error("Not allowed by CORS"));
+        },
     credentials: true,
   })
 );

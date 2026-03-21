@@ -69,10 +69,18 @@ export default function RegisterPage() {
         return;
       }
 
-      setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
-      setTimeout(() => {
-        router.push("/login");
-      }, 1500);
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setSuccess("¡Cuenta creada! Redirigiendo al dashboard…");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1500);
+      } else {
+        setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
+      }
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

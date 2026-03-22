@@ -25,30 +25,39 @@ export default function LivePage() {
     <div className="live-page">
       <div className="live-header">
         <div>
-          <h1 className="live-title">🔴 Directos en vivo</h1>
-          <p className="live-sub">
-            {loading ? "Cargando…" : `${lives.length} stream${lives.length !== 1 ? "s" : ""} activo${lives.length !== 1 ? "s" : ""}`}
+          <h1 className="page-title">Directos en vivo</h1>
+          <p className="page-subtitle">
+            {loading
+              ? "Cargando transmisiones…"
+              : `${lives.length} stream${lives.length !== 1 ? "s" : ""} activo${lives.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <Link href="/explore" className="btn btn-secondary">
-          🔍 Explorar todo
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Explorar todo
         </Link>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="banner-error">{error}</div>}
 
       {loading && (
-        <div className="live-loading">
+        <div className="streams-grid">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="skeleton-card" />
+            <div key={i} className="skeleton" style={{ height: 230, borderRadius: "var(--radius)" }} />
           ))}
         </div>
       )}
 
       {!loading && lives.length === 0 && !error && (
-        <div className="empty-state card">
-          <span style={{ fontSize: "3rem" }}>📡</span>
-          <h3 style={{ color: "var(--text)" }}>Sin directos ahora mismo</h3>
+        <div className="empty-state">
+          <div className="empty-icon-wrap">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
+              <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+          <h3>Sin directos ahora mismo</h3>
           <p>Vuelve más tarde o explora el contenido disponible.</p>
           <Link href="/explore" className="btn btn-primary">Explorar</Link>
         </div>
@@ -57,17 +66,26 @@ export default function LivePage() {
       {!loading && lives.length > 0 && (
         <div className="streams-grid">
           {lives.map((live) => (
-            <Link key={live._id} href={`/live/${live._id}`} className="stream-card card">
+            <Link key={live._id} href={`/live/${live._id}`} className="stream-card">
               <div className="stream-thumb">
-                <span className="badge badge-live">LIVE</span>
-                {live.viewers && (
-                  <span className="viewer-count">👁 {live.viewers}</span>
+                <span className="badge badge-live">
+                  <span className="live-dot" />
+                  LIVE
+                </span>
+                {live.viewers != null && (
+                  <span className="viewer-count">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    {live.viewers}
+                  </span>
                 )}
-                <span className="thumb-icon">📺</span>
+                <div className="thumb-play">▶</div>
               </div>
               <div className="stream-body">
                 <div className="stream-user-row">
-                  <div className="avatar-placeholder" style={{ width: 32, height: 32, fontSize: "0.85rem" }}>
+                  <div className="stream-avatar">
                     {(live.user?.username || "?")[0].toUpperCase()}
                   </div>
                   <span className="stream-username">@{live.user?.username || "anónimo"}</span>
@@ -83,51 +101,41 @@ export default function LivePage() {
       )}
 
       <style jsx>{`
-        .live-page { display: flex; flex-direction: column; gap: 1.5rem; }
+        .live-page { display: flex; flex-direction: column; gap: 1.75rem; }
 
         .live-header {
           display: flex;
-          align-items: flex-start;
+          align-items: flex-end;
           justify-content: space-between;
           gap: 1rem;
           flex-wrap: wrap;
         }
 
-        .live-title {
-          font-size: 1.9rem;
-          font-weight: 800;
-          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .live-sub { color: var(--text-muted); margin-top: 0.2rem; font-weight: 500; }
-
         /* Grid */
         .streams-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
           gap: 1.25rem;
         }
 
         .stream-card {
-          padding: 0;
           overflow: hidden;
           cursor: pointer;
           border: 1px solid var(--border);
           border-radius: var(--radius);
-          background: var(--grad-card);
-          transition: all var(--transition);
+          background: var(--grad-card-2);
+          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition);
+          display: block;
         }
 
         .stream-card:hover {
-          border-color: rgba(255,15,138,0.35);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.6), var(--glow-pink);
-          transform: translateY(-3px);
+          border-color: rgba(139,92,246,0.4);
+          box-shadow: var(--shadow), 0 0 28px rgba(139,92,246,0.2);
+          transform: translateY(-4px);
         }
 
         .stream-thumb {
-          background: linear-gradient(135deg, #1A0B2E 0%, #2a1260 50%, #1A0B2E 100%);
+          background: linear-gradient(135deg, rgba(22,12,45,0.9), rgba(35,16,70,0.95), rgba(15,8,32,1));
           height: 160px;
           display: flex;
           align-items: center;
@@ -140,44 +148,91 @@ export default function LivePage() {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(255,15,138,0.12), transparent 70%);
+          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.08), transparent 65%);
         }
 
-        .stream-thumb .badge { position: absolute; top: 0.6rem; left: 0.6rem; z-index: 2; }
+        .stream-thumb .badge-live {
+          position: absolute;
+          top: 0.65rem;
+          left: 0.65rem;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          padding: 0.25rem 0.65rem;
+        }
+
+        .live-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: #fff;
+          animation: dot-blink 1.2s ease-in-out infinite;
+        }
+
+        @keyframes dot-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
 
         .viewer-count {
           position: absolute;
-          bottom: 0.6rem;
-          right: 0.6rem;
-          background: rgba(11,6,19,0.75);
-          color: #fff;
+          bottom: 0.65rem;
+          right: 0.65rem;
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(6,4,17,0.8);
+          color: var(--text);
           font-size: 0.72rem;
           font-weight: 600;
-          padding: 0.2rem 0.55rem;
-          border-radius: 8px;
+          padding: 0.22rem 0.6rem;
+          border-radius: var(--radius-pill);
           z-index: 2;
-          backdrop-filter: blur(6px);
-          border: 1px solid rgba(255,255,255,0.1);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.08);
         }
 
-        .thumb-icon { font-size: 3.2rem; opacity: 0.3; position: relative; z-index: 1; }
+        .thumb-play {
+          font-size: 2.5rem;
+          opacity: 0.12;
+          position: relative;
+          z-index: 1;
+          color: var(--text);
+        }
 
-        .stream-body { padding: 1rem; }
+        .stream-body { padding: 1rem 1.1rem; }
 
         .stream-user-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.4rem;
+          gap: 0.55rem;
+          margin-bottom: 0.5rem;
         }
 
-        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+        .stream-avatar {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 800;
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .stream-username { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
 
         .stream-title {
           font-weight: 700;
           color: var(--text);
           font-size: 0.95rem;
-          line-height: 1.3;
+          line-height: 1.35;
         }
 
         .stream-desc {
@@ -188,50 +243,45 @@ export default function LivePage() {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-        }
-
-        /* Skeleton loading */
-        .live-loading {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .skeleton-card {
-          height: 230px;
-          border-radius: var(--radius);
-          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border: 1px solid var(--border);
-        }
-
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
+          line-height: 1.4;
         }
 
         /* Error / empty */
-        .error-banner {
-          background: rgba(244,67,54,0.1);
-          border: 1px solid var(--error);
+        .banner-error {
+          background: var(--error-bg);
+          border: 1px solid rgba(248,113,113,0.35);
           color: var(--error);
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
+          font-weight: 500;
         }
 
         .empty-state {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
-          padding: 3rem;
+          gap: 1rem;
+          padding: 4rem 2rem;
           text-align: center;
-          border: 1px solid var(--border);
+          border: 1px dashed rgba(139,92,246,0.2);
           border-radius: var(--radius);
-          background: var(--grad-card);
+          background: rgba(15,8,32,0.4);
         }
+
+        .empty-icon-wrap {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: rgba(139,92,246,0.08);
+          border: 1px solid rgba(139,92,246,0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }
+        .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
       `}</style>
     </div>
   );

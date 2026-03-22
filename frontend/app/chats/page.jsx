@@ -42,28 +42,32 @@ export default function ChatsPage() {
     <div className="chats-page">
       <div className="chats-header">
         <div>
-          <h1 className="chats-title">💬 Chats</h1>
-          <p className="chats-sub">Tus conversaciones privadas</p>
+          <h1 className="page-title">Chats</h1>
+          <p className="page-subtitle">Tus conversaciones privadas</p>
         </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="banner-error">{error}</div>}
 
       {loading && (
         <div className="chats-list">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="skeleton-row" />
+            <div key={i} className="skeleton" style={{ height: 72, borderRadius: "var(--radius)" }} />
           ))}
         </div>
       )}
 
       {!loading && chats.length === 0 && (
-        <div className="empty-state card">
-          <span style={{ fontSize: "3rem" }}>💬</span>
-          <h3 style={{ color: "var(--text)" }}>Sin conversaciones</h3>
+        <div className="empty-state">
+          <div className="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+          </div>
+          <h3>Sin conversaciones</h3>
           <p>Aún no tienes chats. ¡Explora streamers y empieza a conectar!</p>
           <Link href="/explore" className="btn btn-primary">
-            🔍 Explorar streamers
+            Explorar streamers
           </Link>
         </div>
       )}
@@ -76,8 +80,8 @@ export default function ChatsPage() {
             const initial = displayName[0].toUpperCase();
             const lastMsg = chat.lastMessage;
             return (
-              <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row card">
-                <div className="chat-avatar avatar-placeholder">
+              <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
+                <div className="chat-avatar">
                   {initial}
                 </div>
                 <div className="chat-info">
@@ -94,6 +98,11 @@ export default function ChatsPage() {
                     })}
                   </div>
                 )}
+                <div className="chat-arrow">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
               </Link>
             );
           })}
@@ -101,54 +110,46 @@ export default function ChatsPage() {
       )}
 
       <style jsx>{`
-        .chats-page { display: flex; flex-direction: column; gap: 1.5rem; }
+        .chats-page { display: flex; flex-direction: column; gap: 1.75rem; }
 
-        .chats-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .chats-title {
-          font-size: 1.9rem;
-          font-weight: 800;
-          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .chats-sub { color: var(--text-muted); margin-top: 0.25rem; font-weight: 500; }
+        .chats-header {}
 
         /* List */
-        .chats-list { display: flex; flex-direction: column; gap: 0.6rem; }
+        .chats-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
         .chat-row {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 1rem 1.1rem;
+          padding: 1rem 1.25rem;
           cursor: pointer;
-          transition: all var(--transition);
+          transition: background var(--transition), border-color var(--transition), transform var(--transition-slow);
           border: 1px solid var(--border);
           border-radius: var(--radius);
-          background: var(--grad-card);
+          background: rgba(15,8,32,0.7);
         }
 
         .chat-row:hover {
-          border-color: rgba(255,15,138,0.3);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,79,216,0.1);
-          background: rgba(36,16,64,0.9);
+          border-color: rgba(129,140,248,0.3);
+          background: rgba(22,12,45,0.9);
+          transform: translateX(4px);
         }
 
+        .chat-row:hover .chat-arrow { opacity: 1; color: var(--accent-3); }
+
         .chat-avatar {
-          width: 50px;
-          height: 50px;
-          font-size: 1.15rem;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 800;
+          font-size: 1.1rem;
           flex-shrink: 0;
-          background: linear-gradient(135deg, #FF0F8A, #7A2BFF);
-          box-shadow: 0 0 16px rgba(255,15,138,0.4);
+          box-shadow: 0 0 0 2px rgba(224,64,251,0.2);
         }
 
         .chat-info { flex: 1; min-width: 0; }
@@ -165,7 +166,7 @@ export default function ChatsPage() {
         .chat-preview {
           color: var(--text-muted);
           font-size: 0.8rem;
-          margin-top: 0.2rem;
+          margin-top: 0.18rem;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -173,34 +174,28 @@ export default function ChatsPage() {
 
         .chat-time {
           font-size: 0.72rem;
-          color: var(--text-muted);
+          color: var(--text-dim);
           flex-shrink: 0;
           font-weight: 500;
         }
 
-        /* Skeleton */
-        .skeleton-row {
-          height: 70px;
-          border-radius: var(--radius);
-          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border: 1px solid var(--border);
+        .chat-arrow {
+          color: var(--text-dim);
+          opacity: 0;
+          transition: all var(--transition);
+          display: flex;
+          flex-shrink: 0;
         }
 
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        /* Error */
-        .error-banner {
-          background: rgba(244,67,54,0.1);
-          border: 1px solid var(--error);
+        /* Banner */
+        .banner-error {
+          background: var(--error-bg);
+          border: 1px solid rgba(248,113,113,0.35);
           color: var(--error);
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
+          font-weight: 500;
         }
 
         /* Empty */
@@ -208,13 +203,27 @@ export default function ChatsPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
-          padding: 3rem;
+          gap: 1rem;
+          padding: 4rem 2rem;
           text-align: center;
-          border: 1px solid var(--border);
+          border: 1px dashed rgba(139,92,246,0.2);
           border-radius: var(--radius);
-          background: var(--grad-card);
+          background: rgba(15,8,32,0.4);
         }
+
+        .empty-icon {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: rgba(139,92,246,0.08);
+          border: 1px solid rgba(139,92,246,0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }
+        .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; max-width: 320px; }
       `}</style>
     </div>
   );

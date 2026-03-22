@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const apiUrl = process.env.API_URL;
+const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
 
 const useSecureCookies =
   process.env.NODE_ENV === "production" ||

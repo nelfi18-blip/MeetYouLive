@@ -23,10 +23,17 @@ export default function ChatsPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
+        if (r.status === 401) {
+          localStorage.removeItem("token");
+          router.replace("/login");
+          return null;
+        }
         if (!r.ok) throw new Error("Failed to fetch chats");
         return r.json();
       })
-      .then((d) => setChats(Array.isArray(d) ? d : []))
+      .then((d) => {
+        if (d !== null) setChats(Array.isArray(d) ? d : []);
+      })
       .catch(() => setError("No se pudo cargar los chats"))
       .finally(() => setLoading(false));
   }, [router]);

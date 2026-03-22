@@ -36,10 +36,16 @@ export default function ProfilePage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
+        if (r.status === 401) {
+          localStorage.removeItem("token");
+          router.replace("/login");
+          return null;
+        }
         if (!r.ok) throw new Error("Error al cargar perfil");
         return r.json();
       })
       .then((d) => {
+        if (!d) return;
         setUser(d);
         setEditForm({ username: d.username || "", name: d.name || "", bio: d.bio || "" });
       })

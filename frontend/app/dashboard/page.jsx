@@ -12,14 +12,20 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
 
+  // Extract the backend token from the session to use as a stable dependency.
+  // Using the full `session` object would trigger re-runs every time NextAuth
+  // refreshes the session reference (e.g., on window focus), causing excessive
+  // /api/user/me calls and spurious 401-triggered logouts.
+  const backendToken = session?.backendToken ?? null;
+
   useEffect(() => {
     if (status === "loading") return;
 
     // For Google OAuth sessions, sync the backend token to localStorage.
     // Only overwrite (never delete) an existing token – the localStorage token
     // may belong to an active email/password session.
-    if (status === "authenticated" && session?.backendToken) {
-      localStorage.setItem("token", session.backendToken);
+    if (backendToken) {
+      localStorage.setItem("token", backendToken);
     }
 
     // Both email/password and Google users need a valid token in localStorage.
@@ -53,9 +59,44 @@ export default function DashboardPage() {
       })
       .then((d) => { if (d) setUser(d); })
       .catch(() => {});
-  }, [session, status]);
+  }, [status, backendToken]);
 
-  if (status === "loading") return null;
+  if (status === "loading") {
+    return (
+      <div className="dashboard">
+        <div className="dash-welcome card" style={{ opacity: 0.5 }}>
+          <div className="skeleton-avatar" />
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="skeleton-line" style={{ width: "180px" }} />
+            <div className="skeleton-line" style={{ width: "240px" }} />
+          </div>
+        </div>
+        <style jsx>{`
+          .dashboard { display: flex; flex-direction: column; gap: 1.5rem; }
+          .dash-welcome {
+            display: flex; align-items: center; gap: 1.25rem;
+            padding: 1.75rem; flex-wrap: wrap;
+          }
+          .skeleton-avatar,
+          .skeleton-line {
+            background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+          }
+          .skeleton-avatar {
+            width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+          }
+          .skeleton-line {
+            height: 16px; border-radius: 8px;
+          }
+          @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
 

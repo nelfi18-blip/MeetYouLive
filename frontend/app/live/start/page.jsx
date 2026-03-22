@@ -20,7 +20,19 @@ export default function StartLivePage() {
     const token = localStorage.getItem("token");
     if (!token) {
       router.replace("/login");
+      return;
     }
+    // Validate token with the backend on mount so an expired token is caught
+    // early and the user is redirected to login rather than seeing an error
+    // only after they try to start a stream.
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => {
+      if (r.status === 401) {
+        localStorage.removeItem("token");
+        router.replace("/login");
+      }
+    }).catch(() => {});
   }, [router]);
 
   const startLive = async (e) => {

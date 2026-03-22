@@ -3,26 +3,26 @@
    ========================================================= */
 :root {
   /* Base palette — deeper, richer darks */
-  --bg:           #060411;
-  --bg-2:         #0f0820;
-  --bg-3:         #160c2d;
-  --card:         rgba(15,8,32,0.85);
-  --card-hover:   rgba(22,12,45,0.95);
-  --border:       rgba(139,92,246,0.18);
-  --border-glow:  rgba(236,72,153,0.4);
+  --bg:           #06020f;
+  --bg-2:         #0e0520;
+  --bg-3:         #160830;
+  --card:         rgba(12,5,25,0.88);
+  --card-hover:   rgba(20,10,42,0.95);
+  --border:       rgba(224,64,251,0.16);
+  --border-glow:  rgba(255,45,120,0.45);
   --border-subtle:rgba(255,255,255,0.06);
   --text:         #F4F0FF;
   --text-muted:   #9585b8;
   --text-dim:     #5a4d78;
 
   /* Accent — vibrant electric palette */
-  --accent:        #e040fb;
-  --accent-2:      #f472b6;
+  --accent:        #ff2d78;
+  --accent-2:      #e040fb;
   --accent-3:      #818cf8;
-  --accent-cyan:   #22d3ee;
+  --accent-cyan:   #60a5fa;
   --accent-orange: #fb923c;
   --accent-green:  #34d399;
-  --accent-dim:    rgba(224,64,251,0.12);
+  --accent-dim:    rgba(255,45,120,0.12);
   --accent-dim-2:  rgba(129,140,248,0.1);
 
   /* Semantic */
@@ -41,19 +41,19 @@
   /* Shadows / glows */
   --shadow:        0 8px 40px rgba(0,0,0,0.8);
   --shadow-sm:     0 4px 16px rgba(0,0,0,0.5);
-  --shadow-accent: 0 4px 32px rgba(224,64,251,0.35);
+  --shadow-accent: 0 4px 32px rgba(255,45,120,0.38);
   --shadow-indigo: 0 4px 32px rgba(129,140,248,0.3);
-  --glow-pink:     0 0 28px rgba(224,64,251,0.45);
+  --glow-pink:     0 0 28px rgba(255,45,120,0.5);
   --glow-indigo:   0 0 28px rgba(129,140,248,0.4);
-  --glow-cyan:     0 0 28px rgba(34,211,238,0.35);
+  --glow-cyan:     0 0 28px rgba(96,165,250,0.35);
 
   /* Gradients */
-  --grad-primary:  linear-gradient(135deg, #e040fb 0%, #818cf8 50%, #22d3ee 100%);
-  --grad-warm:     linear-gradient(135deg, #e040fb 0%, #f472b6 100%);
-  --grad-cool:     linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
-  --grad-card:     linear-gradient(160deg, rgba(22,12,45,0.92) 0%, rgba(15,8,32,0.96) 100%);
-  --grad-card-2:   linear-gradient(135deg, rgba(30,16,60,0.9) 0%, rgba(15,8,32,0.95) 100%);
-  --grad-surface:  linear-gradient(180deg, rgba(139,92,246,0.06) 0%, transparent 100%);
+  --grad-primary:  linear-gradient(135deg, #ff2d78 0%, #e040fb 50%, #818cf8 100%);
+  --grad-warm:     linear-gradient(135deg, #ff2d78 0%, #e040fb 100%);
+  --grad-cool:     linear-gradient(135deg, #7c3aed 0%, #60a5fa 100%);
+  --grad-card:     linear-gradient(160deg, rgba(22,8,45,0.92) 0%, rgba(12,5,25,0.96) 100%);
+  --grad-card-2:   linear-gradient(135deg, rgba(30,12,60,0.9) 0%, rgba(12,5,25,0.95) 100%);
+  --grad-surface:  linear-gradient(180deg, rgba(224,64,251,0.06) 0%, transparent 100%);
 
   /* Transition */
   --transition:    0.2s ease;
@@ -71,11 +71,11 @@ body {
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(ellipse at 75% -5%,  rgba(139,92,246,0.22) 0%, transparent 45%),
-    radial-gradient(ellipse at -5% 85%,  rgba(224,64,251,0.16) 0%, transparent 45%),
-    radial-gradient(ellipse at 100% 60%, rgba(34,211,238,0.08) 0%, transparent 40%),
-    linear-gradient(180deg, #060411 0%, #0d0620 60%, #060411 100%);
-  background-color: #060411;
+    radial-gradient(ellipse at 60% -5%,  rgba(224,64,251,0.22) 0%, transparent 50%),
+    radial-gradient(ellipse at -5% 80%,  rgba(139,92,246,0.18) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 60%, rgba(96,165,250,0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #06020f 0%, #0e0520 60%, #06020f 100%);
+  background-color: #06020f;
   background-attachment: fixed;
   min-height: 100vh;
 }

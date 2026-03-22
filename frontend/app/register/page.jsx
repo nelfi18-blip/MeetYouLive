@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { signUp } from "@/lib/auth.service";
 
 export default function RegisterPage() {
@@ -98,12 +99,15 @@ export default function RegisterPage() {
       <div className="register-card">
         {/* Logo */}
         <div className="register-logo">
-          <div className="register-logo-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
-            </svg>
-          </div>
-          <span className="register-logo-text">MeetYou<span>Live</span></span>
+          <Image
+            src="/logo.svg"
+            alt="MeetYouLive logo"
+            width={80}
+            height={80}
+            priority
+            className="register-logo-img"
+          />
+          <span className="register-logo-text">Meet You<span>Live</span></span>
         </div>
 
         <div className="register-header">
@@ -266,21 +270,15 @@ export default function RegisterPage() {
 
         .register-logo {
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.65rem;
-          margin-bottom: 2rem;
+          gap: 0.4rem;
+          margin-bottom: 1.5rem;
         }
 
-        .register-logo-icon {
-          width: 44px;
-          height: 44px;
-          background: var(--grad-primary);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 0 24px rgba(224,64,251,0.5);
+        :global(.register-logo-img) {
+          filter: drop-shadow(0 0 14px rgba(224,64,251,0.5)) drop-shadow(0 0 28px rgba(96,165,250,0.25));
         }
 
         .register-logo-text {
@@ -291,7 +289,8 @@ export default function RegisterPage() {
         }
 
         .register-logo-text span {
-          background: var(--grad-warm);
+          font-style: italic;
+          background: linear-gradient(135deg, #ff2d78 0%, #e040fb 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;

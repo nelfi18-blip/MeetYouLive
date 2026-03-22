@@ -7,6 +7,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const CATEGORIES = ["Todos", "Gaming", "Música", "Charla", "Arte", "Educación", "Otro"];
 
+const CAT_ICONS = {
+  Todos: "🌐", Gaming: "🎮", Música: "🎵", Charla: "💬",
+  Arte: "🎨", Educación: "📚", Otro: "✨",
+};
+
 export default function ExplorePage() {
   const [lives, setLives] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -43,14 +48,18 @@ export default function ExplorePage() {
     <div className="explore">
       {/* Page header */}
       <div className="explore-header">
-        <div>
-          <h1 className="explore-title">Explorar</h1>
-          <p className="explore-sub">Descubre streamers en vivo ahora mismo</p>
+        <div className="explore-header-left">
+          <h1 className="page-title">Explorar</h1>
+          <p className="page-subtitle">Descubre streamers en vivo ahora mismo</p>
         </div>
-        <div className="explore-search-wrap">
-          <span className="search-icon">🔍</span>
+        <div className="search-wrap">
+          <span className="search-icon-inner">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </span>
           <input
-            className="input explore-search"
+            className="input search-input"
             type="text"
             placeholder="Buscar por título o streamer…"
             value={search}
@@ -67,18 +76,20 @@ export default function ExplorePage() {
             className={`cat-pill${category === cat ? " active" : ""}`}
             onClick={() => setCategory(cat)}
           >
-            {cat}
+            <span className="cat-icon">{CAT_ICONS[cat]}</span>
+            <span>{cat}</span>
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      {error && <div className="error-banner">{error}</div>}
+      {/* Error */}
+      {error && <div className="banner-error">{error}</div>}
 
+      {/* Content */}
       {filtered.length === 0 ? (
-        <div className="empty-state card">
-          <span style={{ fontSize: "3rem" }}>📡</span>
-          <h3 style={{ color: "var(--text)" }}>Sin resultados</h3>
+        <div className="empty-state">
+          <div className="empty-icon">📡</div>
+          <h3>Sin resultados</h3>
           <p>
             {search || category !== "Todos"
               ? "No hay directos que coincidan con tu búsqueda."
@@ -88,17 +99,23 @@ export default function ExplorePage() {
       ) : (
         <div className="streams-grid">
           {filtered.map((live) => (
-            <Link key={live._id} href={`/live/${live._id}`} className="stream-card card">
+            <Link key={live._id} href={`/live/${live._id}`} className="stream-card">
               <div className="stream-thumb">
-                <span className="badge badge-live">LIVE</span>
-                {live.viewers && (
-                  <span className="viewer-count">👁 {live.viewers}</span>
+                <span className="badge badge-live">
+                  <span className="live-dot" />
+                  LIVE
+                </span>
+                {live.viewers != null && (
+                  <span className="viewer-count">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    {live.viewers}
+                  </span>
                 )}
-                <span className="stream-thumb-icon">📺</span>
+                <div className="stream-thumb-icon">▶</div>
               </div>
               <div className="stream-body">
                 <div className="stream-user-row">
-                  <div className="avatar-placeholder" style={{ width: 32, height: 32, fontSize: "0.85rem" }}>
+                  <div className="stream-avatar">
                     {(live.user?.username || "?")[0].toUpperCase()}
                   </div>
                   <span className="stream-username">@{live.user?.username || "anónimo"}</span>
@@ -114,42 +131,36 @@ export default function ExplorePage() {
       )}
 
       <style jsx>{`
-        .explore { display: flex; flex-direction: column; gap: 1.5rem; }
+        .explore { display: flex; flex-direction: column; gap: 1.75rem; }
 
+        /* Header */
         .explore-header {
           display: flex;
-          align-items: flex-start;
+          align-items: flex-end;
           justify-content: space-between;
-          gap: 1rem;
+          gap: 1.25rem;
           flex-wrap: wrap;
         }
 
-        .explore-title {
-          font-size: 1.9rem;
-          font-weight: 800;
-          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
+        .explore-header-left {}
 
-        .explore-sub { color: var(--text-muted); margin-top: 0.25rem; font-weight: 500; }
-
-        .explore-search-wrap {
+        /* Search */
+        .search-wrap {
           position: relative;
-          width: 290px;
+          width: 300px;
         }
 
-        .search-icon {
+        .search-icon-inner {
           position: absolute;
-          left: 0.85rem;
+          left: 0.9rem;
           top: 50%;
           transform: translateY(-50%);
           pointer-events: none;
-          font-size: 0.95rem;
+          color: var(--text-dim);
+          display: flex;
         }
 
-        .explore-search { padding-left: 2.5rem !important; }
+        .search-input { padding-left: 2.5rem !important; }
 
         /* Category pills */
         .category-bar {
@@ -159,52 +170,63 @@ export default function ExplorePage() {
         }
 
         .cat-pill {
-          padding: 0.45rem 1.1rem;
-          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.45rem 1rem;
+          border-radius: var(--radius-pill);
           border: 1px solid var(--border);
-          background: rgba(26,11,46,0.6);
+          background: rgba(15,8,32,0.7);
           color: var(--text-muted);
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           font-weight: 600;
           cursor: pointer;
           transition: all var(--transition);
           backdrop-filter: blur(8px);
         }
 
-        .cat-pill:hover { border-color: var(--accent-2); color: var(--accent-2); }
+        .cat-icon { font-size: 0.85rem; }
+
+        .cat-pill:hover {
+          border-color: rgba(129,140,248,0.35);
+          color: var(--accent-3);
+          background: rgba(129,140,248,0.08);
+        }
+
         .cat-pill.active {
           background: var(--grad-primary);
           border-color: transparent;
           color: #fff;
-          box-shadow: 0 2px 14px rgba(255,15,138,0.4);
+          box-shadow: 0 2px 16px rgba(224,64,251,0.35);
         }
 
-        /* Stream grid */
+        /* Streams grid */
         .streams-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
           gap: 1.25rem;
         }
 
         .stream-card {
-          padding: 0;
           overflow: hidden;
           cursor: pointer;
-          transition: all var(--transition);
+          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition);
           border: 1px solid var(--border);
           border-radius: var(--radius);
-          background: var(--grad-card);
+          background: var(--grad-card-2);
+          display: block;
         }
 
         .stream-card:hover {
-          border-color: rgba(255,15,138,0.35);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.6), var(--glow-pink);
-          transform: translateY(-3px);
+          border-color: rgba(139,92,246,0.4);
+          box-shadow: var(--shadow), 0 0 28px rgba(139,92,246,0.2);
+          transform: translateY(-4px);
         }
 
+        /* Thumbnail */
         .stream-thumb {
-          background: linear-gradient(135deg, #1A0B2E 0%, #2a1260 50%, #1A0B2E 100%);
-          height: 150px;
+          background: linear-gradient(135deg, rgba(22,12,45,0.9) 0%, rgba(35,16,70,0.95) 50%, rgba(15,8,32,1) 100%);
+          height: 160px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -216,37 +238,91 @@ export default function ExplorePage() {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(255,15,138,0.1), transparent 70%);
+          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.08), transparent 65%);
         }
 
-        .stream-thumb .badge { position: absolute; top: 0.6rem; left: 0.6rem; }
+        .stream-thumb .badge-live {
+          position: absolute;
+          top: 0.65rem;
+          left: 0.65rem;
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.25rem 0.65rem;
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+        }
+
+        .live-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: #fff;
+          animation: dot-blink 1.2s ease-in-out infinite;
+        }
+
+        @keyframes dot-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
 
         .viewer-count {
           position: absolute;
-          bottom: 0.6rem;
-          right: 0.6rem;
-          background: rgba(11,6,19,0.75);
-          color: #fff;
+          bottom: 0.65rem;
+          right: 0.65rem;
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(6,4,17,0.8);
+          color: var(--text);
           font-size: 0.72rem;
           font-weight: 600;
-          padding: 0.2rem 0.55rem;
-          border-radius: 8px;
-          backdrop-filter: blur(6px);
-          border: 1px solid rgba(255,255,255,0.1);
+          padding: 0.22rem 0.6rem;
+          border-radius: var(--radius-pill);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.08);
         }
 
-        .stream-thumb-icon { font-size: 2.8rem; opacity: 0.35; position: relative; z-index: 1; }
+        .stream-thumb-icon {
+          font-size: 2.4rem;
+          opacity: 0.15;
+          position: relative;
+          z-index: 1;
+          color: var(--text);
+        }
 
-        .stream-body { padding: 1rem; }
+        /* Body */
+        .stream-body { padding: 1rem 1.1rem; }
 
         .stream-user-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
+          gap: 0.55rem;
+          margin-bottom: 0.6rem;
         }
 
-        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+        .stream-avatar {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 800;
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .stream-username {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
 
         .stream-title {
           font-weight: 700;
@@ -262,23 +338,24 @@ export default function ExplorePage() {
         .stream-category {
           display: inline-block;
           margin-top: 0.55rem;
-          background: rgba(255,15,138,0.12);
-          color: var(--accent-2);
-          font-size: 0.72rem;
+          background: rgba(129,140,248,0.1);
+          color: var(--accent-3);
+          font-size: 0.7rem;
           padding: 0.2rem 0.6rem;
-          border-radius: 20px;
+          border-radius: var(--radius-pill);
           font-weight: 700;
-          border: 1px solid rgba(255,79,216,0.2);
+          border: 1px solid rgba(129,140,248,0.2);
         }
 
-        /* Errors / empty */
-        .error-banner {
-          background: rgba(244,67,54,0.1);
-          border: 1px solid var(--error);
+        /* Banner / empty */
+        .banner-error {
+          background: var(--error-bg);
+          border: 1px solid rgba(248,113,113,0.35);
           color: var(--error);
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
+          font-weight: 500;
         }
 
         .empty-state {
@@ -286,16 +363,20 @@ export default function ExplorePage() {
           flex-direction: column;
           align-items: center;
           gap: 0.75rem;
-          padding: 3rem;
+          padding: 4rem 2rem;
           text-align: center;
-          border: 1px solid var(--border);
+          border: 1px dashed rgba(139,92,246,0.2);
           border-radius: var(--radius);
-          background: var(--grad-card);
+          background: rgba(15,8,32,0.4);
         }
 
+        .empty-icon { font-size: 3rem; }
+        .empty-state h3 { color: var(--text); font-size: 1.1rem; margin: 0; }
+        .empty-state p { color: var(--text-muted); font-size: 0.875rem; margin: 0; max-width: 340px; }
+
         @media (max-width: 640px) {
-          .explore-search-wrap { width: 100%; }
-          .explore-header { flex-direction: column; }
+          .search-wrap { width: 100%; }
+          .explore-header { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
     </div>

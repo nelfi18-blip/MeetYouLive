@@ -36,10 +36,18 @@ const handler = NextAuth({
 
   pages: {
     signIn: "/login",
-    error: "/login",
+    error: "/auth/error",
   },
 
   callbacks: {
+    async signIn({ account }) {
+      return account?.provider === "google";
+    },
+
+    async redirect({ baseUrl }) {
+      return baseUrl;
+    },
+
     async jwt({ token, account, profile }) {
       if (account && profile) {
 

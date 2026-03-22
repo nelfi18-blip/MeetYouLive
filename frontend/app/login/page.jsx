@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import Logo from "../../components/Logo";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export default function LoginPage() {
+function LoginForm() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,17 +27,18 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
-  // Redirect to dashboard if the user is already authenticated.
+  // Redirect immediately if a token is already stored (email/password login).
   useEffect(() => {
-    if (status === "loading") return;
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    // If there is already a valid token in localStorage, go to dashboard.
+    const token = localStorage.getItem("token");
     if (token) {
       router.replace("/dashboard");
-      return;
     }
-    // If the user is authenticated via Google and a backend token is available,
-    // sync it to localStorage and redirect (avoids a second round-trip).
+  }, []); // runs once on mount
+
+  // If the user is authenticated via Google and a backend token is available,
+  // sync it to localStorage and redirect (avoids a second round-trip).
+  useEffect(() => {
+    if (status === "loading") return;
     if (status === "authenticated" && session?.backendToken) {
       localStorage.setItem("token", session.backendToken);
       router.replace("/dashboard");
@@ -407,5 +408,13 @@ export default function LoginPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

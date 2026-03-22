@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
@@ -63,10 +64,15 @@ export default function Navbar() {
         {/* Brand */}
         <div className="navbar-brand">
           <Link href="/dashboard" className="navbar-logo">
-            <span className="navbar-logo-icon">
-              <LiveIcon />
-            </span>
-            <span className="navbar-logo-text">MeetYou<span className="logo-accent">Live</span></span>
+            <Image
+              src="/logo.svg"
+              alt="MeetYouLive"
+              width={38}
+              height={38}
+              className="navbar-logo-img"
+              priority
+            />
+            <span className="navbar-logo-text">Meet You<span className="logo-accent">Live</span></span>
           </Link>
         </div>
 
@@ -182,17 +188,9 @@ export default function Navbar() {
         }
         .navbar-logo:hover { opacity: 0.85; }
 
-        .navbar-logo-icon {
-          width: 34px;
-          height: 34px;
-          background: var(--grad-primary);
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
+        .navbar-logo-img {
+          filter: drop-shadow(0 0 8px rgba(224,64,251,0.5));
           flex-shrink: 0;
-          box-shadow: 0 0 16px rgba(224,64,251,0.45);
         }
 
         .navbar-logo-text {
@@ -203,7 +201,8 @@ export default function Navbar() {
         }
 
         .logo-accent {
-          background: var(--grad-warm);
+          font-style: italic;
+          background: linear-gradient(135deg, #ff2d78 0%, #e040fb 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;

@@ -88,6 +88,19 @@ const handler = NextAuth({
 
       return session;
     },
+
+    async redirect({ url, baseUrl }) {
+      // Allow relative callback URLs (e.g. "/dashboard")
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allow absolute callback URLs on the same origin
+      try {
+        if (new URL(url).origin === new URL(baseUrl).origin) return url;
+      } catch {
+        // malformed URL – fall through to default
+      }
+      // Reject all external URLs to prevent open-redirect attacks
+      return baseUrl;
+    },
   },
 });
 

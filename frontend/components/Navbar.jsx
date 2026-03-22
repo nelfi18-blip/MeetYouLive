@@ -116,14 +116,14 @@ export default function Navbar() {
           position: sticky;
           top: 0;
           z-index: 100;
-          background: rgba(13, 13, 13, 0.9);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--border);
+          background: rgba(11,6,19,0.88);
+          backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(255,15,138,0.15);
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0 1.5rem;
-          height: 60px;
+          height: 64px;
           gap: 1rem;
         }
 
@@ -133,24 +133,25 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          font-size: 1.1rem;
+          font-size: 1.15rem;
           font-weight: 800;
           color: var(--text) !important;
           letter-spacing: -0.03em;
         }
 
-        .navbar-logo:hover { color: var(--accent) !important; }
+        .navbar-logo:hover { color: var(--accent-2) !important; }
 
         .navbar-logo-icon {
-          width: 30px;
-          height: 30px;
-          background: var(--accent);
-          border-radius: 8px;
+          width: 32px;
+          height: 32px;
+          background: var(--grad-primary);
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.9rem;
+          font-size: 1rem;
           color: #fff;
+          box-shadow: 0 0 14px rgba(255,15,138,0.5);
         }
 
         .navbar-links {
@@ -163,17 +164,21 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          padding: 0.45rem 0.9rem;
-          border-radius: 8px;
+          padding: 0.45rem 1rem;
+          border-radius: 10px;
           color: var(--text-muted) !important;
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           transition: all var(--transition);
         }
 
-        .navbar-link:hover { color: var(--text) !important; background: var(--card); }
-        .navbar-link.active { color: var(--accent) !important; background: var(--accent-dim); }
-        .navbar-link-icon { font-size: 1rem; }
+        .navbar-link:hover { color: var(--text) !important; background: rgba(255,79,216,0.08); }
+        .navbar-link.active {
+          color: var(--accent-2) !important;
+          background: rgba(255,15,138,0.12);
+          box-shadow: inset 0 0 0 1px rgba(255,15,138,0.2);
+        }
+        .navbar-link-icon { font-size: 1.05rem; }
 
         .navbar-right {
           display: flex;
@@ -184,16 +189,19 @@ export default function Navbar() {
         }
 
         .coins-badge {
-          background: var(--accent-dim);
-          color: var(--accent) !important;
-          border: 1px solid var(--accent);
+          background: rgba(255,154,31,0.12);
+          color: #FF9A1F !important;
+          border: 1px solid rgba(255,154,31,0.35);
           border-radius: 20px;
-          padding: 0.3rem 0.75rem;
+          padding: 0.3rem 0.8rem;
           font-size: 0.8rem;
           font-weight: 700;
           transition: all var(--transition);
         }
-        .coins-badge:hover { background: var(--accent); color: #fff !important; }
+        .coins-badge:hover {
+          background: rgba(255,154,31,0.22);
+          box-shadow: 0 0 12px rgba(255,154,31,0.4);
+        }
 
         .navbar-user {
           display: flex;
@@ -201,44 +209,46 @@ export default function Navbar() {
           gap: 0.5rem;
           cursor: pointer;
           padding: 0.3rem 0.5rem;
-          border-radius: 8px;
+          border-radius: 10px;
           transition: background var(--transition);
         }
-        .navbar-user:hover { background: var(--card); }
+        .navbar-user:hover { background: rgba(255,79,216,0.08); }
 
         .navbar-username {
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           max-width: 120px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          color: var(--text);
         }
 
         .navbar-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 10px);
           right: 0;
-          background: var(--card);
-          border: 1px solid var(--border);
+          background: rgba(26,11,46,0.97);
+          border: 1px solid var(--border-glow);
           border-radius: var(--radius);
           padding: 0.5rem;
-          min-width: 180px;
-          box-shadow: var(--shadow);
+          min-width: 190px;
+          box-shadow: var(--shadow), var(--glow-violet);
+          backdrop-filter: blur(20px);
           display: flex;
           flex-direction: column;
-          gap: 0.125rem;
+          gap: 0.1rem;
         }
 
         .dropdown-item {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.6rem 0.75rem;
-          border-radius: var(--radius-sm);
+          padding: 0.65rem 0.875rem;
+          border-radius: var(--radius-xs);
           font-size: 0.875rem;
           color: var(--text-muted) !important;
-          font-weight: 500;
+          font-weight: 600;
           transition: all var(--transition);
           background: none;
           border: none;
@@ -247,7 +257,10 @@ export default function Navbar() {
           text-align: left;
         }
 
-        .dropdown-item:hover { background: var(--card-hover); color: var(--text) !important; }
+        .dropdown-item:hover {
+          background: rgba(255,79,216,0.12);
+          color: var(--text) !important;
+        }
 
         .dropdown-divider {
           border: none;
@@ -256,7 +269,10 @@ export default function Navbar() {
         }
 
         .dropdown-logout { color: var(--error) !important; }
-        .dropdown-logout:hover { background: rgba(244, 67, 54, 0.1) !important; color: var(--error) !important; }
+        .dropdown-logout:hover {
+          background: rgba(244, 67, 54, 0.1) !important;
+          color: var(--error) !important;
+        }
 
         /* Bottom nav */
         .bottom-nav {
@@ -266,10 +282,10 @@ export default function Navbar() {
           left: 0;
           right: 0;
           z-index: 100;
-          background: rgba(24, 24, 24, 0.95);
-          backdrop-filter: blur(12px);
-          border-top: 1px solid var(--border);
-          height: 60px;
+          background: rgba(11,6,19,0.94);
+          backdrop-filter: blur(24px);
+          border-top: 1px solid rgba(255,15,138,0.18);
+          height: 64px;
           padding: 0 0.5rem;
           gap: 0;
         }
@@ -280,23 +296,34 @@ export default function Navbar() {
           align-items: center;
           justify-content: center;
           flex: 1;
-          font-size: 0.65rem;
+          font-size: 0.62rem;
+          font-weight: 600;
           gap: 0.2rem;
           color: var(--text-muted) !important;
-          transition: color var(--transition);
+          transition: all var(--transition);
           padding: 0.5rem;
+          border-radius: var(--radius-xs);
+          letter-spacing: 0.02em;
         }
 
-        .bottom-nav-item span:first-child { font-size: 1.2rem; }
+        .bottom-nav-item span:first-child { font-size: 1.3rem; }
 
-        .bottom-nav-item:hover,
-        .bottom-nav-item.active { color: var(--accent) !important; }
+        .bottom-nav-item:hover { color: var(--accent-2) !important; }
+
+        .bottom-nav-item.active {
+          color: var(--accent-2) !important;
+          text-shadow: 0 0 12px rgba(255,79,216,0.8);
+        }
+
+        .bottom-nav-item.active span:first-child {
+          filter: drop-shadow(0 0 8px rgba(255,15,138,0.9));
+        }
 
         @media (max-width: 768px) {
           .navbar-links { display: none; }
           .navbar-username { display: none; }
           .bottom-nav { display: flex; }
-          .main-content { padding-bottom: 72px !important; }
+          .main-content { padding-bottom: 76px !important; }
         }
       `}</style>
     </>

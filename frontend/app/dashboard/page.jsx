@@ -79,7 +79,7 @@ export default function DashboardPage() {
           }
           .skeleton-avatar,
           .skeleton-line {
-            background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+            background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
           }
@@ -180,38 +180,47 @@ export default function DashboardPage() {
           gap: 1.25rem;
           padding: 1.75rem;
           flex-wrap: wrap;
+          background: rgba(20,8,42,0.9);
+          border: 1px solid var(--border-glow);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
+          box-shadow: var(--shadow);
         }
 
         .welcome-avatar {
-          width: 56px;
-          height: 56px;
-          font-size: 1.4rem;
+          width: 60px;
+          height: 60px;
+          font-size: 1.5rem;
           flex-shrink: 0;
+          box-shadow: var(--glow-pink);
         }
 
         .welcome-title {
-          font-size: 1.4rem;
+          font-size: 1.5rem;
           font-weight: 800;
-          color: var(--text);
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
-        .welcome-sub { color: var(--text-muted); margin-top: 0.2rem; font-size: 0.9rem; }
+        .welcome-sub { color: var(--text-muted); margin-top: 0.2rem; font-size: 0.9rem; font-weight: 500; }
 
         .welcome-coins {
           margin-left: auto;
           display: flex;
           align-items: center;
           gap: 0.35rem;
-          background: var(--accent-dim);
-          border: 1px solid var(--accent);
+          background: rgba(255,154,31,0.12);
+          border: 1px solid rgba(255,154,31,0.3);
           border-radius: 20px;
-          padding: 0.4rem 0.875rem;
+          padding: 0.45rem 1rem;
           flex-shrink: 0;
         }
 
         .coins-icon { font-size: 1rem; }
-        .coins-num { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
-        .coins-label { font-size: 0.75rem; color: var(--text-muted); }
+        .coins-num { font-size: 1.1rem; font-weight: 800; color: #FF9A1F; }
+        .coins-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
 
         .dash-grid {
           display: grid;
@@ -223,17 +232,21 @@ export default function DashboardPage() {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 1.25rem;
+          padding: 1.35rem;
           cursor: pointer;
-          transition: transform var(--transition), box-shadow var(--transition);
+          transition: all var(--transition);
+          background: var(--grad-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
         }
 
         .dash-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow);
+          transform: translateY(-3px);
+          border-color: rgba(255,15,138,0.35);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.5), var(--glow-pink);
         }
 
-        .dash-icon { font-size: 1.75rem; flex-shrink: 0; }
+        .dash-icon { font-size: 1.9rem; flex-shrink: 0; }
 
         .dash-card-title { font-weight: 700; color: var(--text); font-size: 0.95rem; }
         .dash-card-sub { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }

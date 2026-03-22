@@ -178,17 +178,21 @@ export default function ChatConversationPage() {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 0.875rem 1.25rem;
+          padding: 1rem 1.25rem;
+          background: rgba(20,8,42,0.9);
+          border: 1px solid var(--border-glow);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
         }
 
         .back-btn {
           color: var(--text-muted);
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           flex-shrink: 0;
           transition: color var(--transition);
         }
-        .back-btn:hover { color: var(--accent); }
+        .back-btn:hover { color: var(--accent-2); }
 
         .chat-peer { display: flex; align-items: center; gap: 0.6rem; }
         .peer-avatar { flex-shrink: 0; }
@@ -199,7 +203,7 @@ export default function ChatConversationPage() {
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.7rem;
           padding: 0.5rem 0;
         }
 
@@ -212,37 +216,39 @@ export default function ChatConversationPage() {
         .bubble-wrap.mine { flex-direction: row-reverse; }
 
         .bubble {
-          max-width: 70%;
-          padding: 0.6rem 0.875rem;
-          border-radius: 16px;
+          max-width: 72%;
+          padding: 0.65rem 1rem;
+          border-radius: 18px;
           display: flex;
           flex-direction: column;
           gap: 0.2rem;
         }
 
         .bubble-mine {
-          background: var(--accent);
-          border-bottom-right-radius: 4px;
+          background: linear-gradient(135deg, #FF0F8A, #FF4FD8);
+          border-bottom-right-radius: 5px;
+          box-shadow: 0 4px 14px rgba(255,15,138,0.35);
         }
 
         .bubble-theirs {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-bottom-left-radius: 4px;
+          background: rgba(42,18,82,0.9);
+          border: 1px solid rgba(122,43,255,0.25);
+          border-bottom-left-radius: 5px;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.3);
         }
 
         .bubble-text {
           font-size: 0.9rem;
           color: var(--text);
           word-break: break-word;
-          line-height: 1.4;
+          line-height: 1.45;
         }
 
         .bubble-mine .bubble-text { color: #fff; }
 
         .bubble-time {
-          font-size: 0.65rem;
-          color: rgba(255,255,255,0.6);
+          font-size: 0.63rem;
+          color: rgba(255,255,255,0.55);
           align-self: flex-end;
         }
 
@@ -253,27 +259,38 @@ export default function ChatConversationPage() {
           gap: 0.75rem;
           padding: 0.875rem 1rem;
           align-items: center;
+          background: rgba(20,8,42,0.9);
+          border: 1px solid var(--border-glow);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
         }
 
-        .chat-input { flex: 1; }
+        .chat-input {
+          flex: 1;
+          background: rgba(26,11,46,0.8) !important;
+          border-radius: var(--radius) !important;
+        }
 
         .send-btn {
           flex-shrink: 0;
-          padding: 0.55rem 1.25rem;
-          border-radius: 12px;
+          padding: 0.6rem 1.4rem;
+          border-radius: var(--radius-sm);
           font-size: 0.875rem;
+          background: var(--grad-primary);
+          box-shadow: 0 2px 12px rgba(255,15,138,0.4);
         }
 
         /* Skeletons */
         .messages-loading { display: flex; flex-direction: column; gap: 0.75rem; }
 
         .skeleton-bubble {
-          height: 48px;
+          height: 50px;
           width: 55%;
-          border-radius: 16px;
-          background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+          border-radius: 18px;
+          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
+          border: 1px solid var(--border);
         }
 
         .skeleton-bubble.right { align-self: flex-end; }

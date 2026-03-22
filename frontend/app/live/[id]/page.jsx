@@ -62,9 +62,9 @@ export default function LiveViewerPage() {
             color: var(--text-muted);
           }
           .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
+            width: 44px;
+            height: 44px;
+            border: 3px solid rgba(255,15,138,0.15);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
@@ -133,6 +133,8 @@ export default function LiveViewerPage() {
           background: #000;
           border-radius: var(--radius);
           overflow: hidden;
+          border: 1px solid rgba(255,15,138,0.2);
+          box-shadow: 0 0 40px rgba(255,15,138,0.15);
         }
 
         .player-frame {
@@ -149,6 +151,12 @@ export default function LiveViewerPage() {
           gap: 1.5rem;
           flex-wrap: wrap;
           justify-content: space-between;
+          background: rgba(20,8,42,0.9);
+          border: 1px solid var(--border-glow);
+          border-radius: var(--radius);
+          padding: 1.25rem;
+          backdrop-filter: blur(16px);
+          box-shadow: var(--shadow);
         }
 
         .viewer-info-left {
@@ -165,15 +173,18 @@ export default function LiveViewerPage() {
         }
 
         .viewer-streamer {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text);
           font-size: 0.95rem;
         }
 
         .viewer-title {
-          font-size: 1.3rem;
-          font-weight: 700;
-          color: var(--text);
+          font-size: 1.35rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
         .viewer-desc { color: var(--text-muted); font-size: 0.9rem; }
@@ -190,12 +201,13 @@ export default function LiveViewerPage() {
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          background: var(--card);
+          background: rgba(26,11,46,0.8);
           border: 1px solid var(--border);
           border-radius: 20px;
-          padding: 0.4rem 0.9rem;
+          padding: 0.4rem 1rem;
           font-size: 0.85rem;
           color: var(--text-muted);
+          font-weight: 600;
         }
       `}</style>
     </div>

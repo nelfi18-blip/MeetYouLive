@@ -93,43 +93,76 @@ export default function LivePage() {
           flex-wrap: wrap;
         }
 
-        .live-title { font-size: 1.75rem; font-weight: 800; color: var(--text); }
-        .live-sub { color: var(--text-muted); margin-top: 0.2rem; }
+        .live-title {
+          font-size: 1.9rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .live-sub { color: var(--text-muted); margin-top: 0.2rem; font-weight: 500; }
 
         /* Grid */
         .streams-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1rem;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 1.25rem;
         }
 
-        .stream-card { padding: 0; overflow: hidden; cursor: pointer; }
+        .stream-card {
+          padding: 0;
+          overflow: hidden;
+          cursor: pointer;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
+          transition: all var(--transition);
+        }
+
+        .stream-card:hover {
+          border-color: rgba(255,15,138,0.35);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6), var(--glow-pink);
+          transform: translateY(-3px);
+        }
 
         .stream-thumb {
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          height: 150px;
+          background: linear-gradient(135deg, #1A0B2E 0%, #2a1260 50%, #1A0B2E 100%);
+          height: 160px;
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
+          overflow: hidden;
         }
 
-        .stream-thumb .badge { position: absolute; top: 0.5rem; left: 0.5rem; }
+        .stream-thumb::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% 50%, rgba(255,15,138,0.12), transparent 70%);
+        }
+
+        .stream-thumb .badge { position: absolute; top: 0.6rem; left: 0.6rem; z-index: 2; }
 
         .viewer-count {
           position: absolute;
-          bottom: 0.5rem;
-          right: 0.5rem;
-          background: rgba(0,0,0,0.65);
+          bottom: 0.6rem;
+          right: 0.6rem;
+          background: rgba(11,6,19,0.75);
           color: #fff;
-          font-size: 0.75rem;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 0.2rem 0.55rem;
+          border-radius: 8px;
+          z-index: 2;
+          backdrop-filter: blur(6px);
+          border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .thumb-icon { font-size: 3rem; opacity: 0.35; }
+        .thumb-icon { font-size: 3.2rem; opacity: 0.3; position: relative; z-index: 1; }
 
-        .stream-body { padding: 0.875rem; }
+        .stream-body { padding: 1rem; }
 
         .stream-user-row {
           display: flex;
@@ -138,10 +171,10 @@ export default function LivePage() {
           margin-bottom: 0.4rem;
         }
 
-        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
 
         .stream-title {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text);
           font-size: 0.95rem;
           line-height: 1.3;
@@ -160,16 +193,17 @@ export default function LivePage() {
         /* Skeleton loading */
         .live-loading {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1rem;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 1.25rem;
         }
 
         .skeleton-card {
-          height: 220px;
+          height: 230px;
           border-radius: var(--radius);
-          background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
+          border: 1px solid var(--border);
         }
 
         @keyframes shimmer {
@@ -194,6 +228,9 @@ export default function LivePage() {
           gap: 0.75rem;
           padding: 3rem;
           text-align: center;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
         }
       `}</style>
     </div>

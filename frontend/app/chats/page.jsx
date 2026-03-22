@@ -111,34 +111,50 @@ export default function ChatsPage() {
           flex-wrap: wrap;
         }
 
-        .chats-title { font-size: 1.75rem; font-weight: 800; color: var(--text); }
-        .chats-sub { color: var(--text-muted); margin-top: 0.25rem; }
+        .chats-title {
+          font-size: 1.9rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .chats-sub { color: var(--text-muted); margin-top: 0.25rem; font-weight: 500; }
 
         /* List */
-        .chats-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .chats-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
         .chat-row {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 0.875rem 1rem;
+          padding: 1rem 1.1rem;
           cursor: pointer;
-          transition: background var(--transition);
+          transition: all var(--transition);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
         }
 
-        .chat-row:hover { background: var(--card-hover); }
+        .chat-row:hover {
+          border-color: rgba(255,15,138,0.3);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,79,216,0.1);
+          background: rgba(36,16,64,0.9);
+        }
 
         .chat-avatar {
-          width: 46px;
-          height: 46px;
-          font-size: 1.1rem;
+          width: 50px;
+          height: 50px;
+          font-size: 1.15rem;
           flex-shrink: 0;
+          background: linear-gradient(135deg, #FF0F8A, #7A2BFF);
+          box-shadow: 0 0 16px rgba(255,15,138,0.4);
         }
 
         .chat-info { flex: 1; min-width: 0; }
 
         .chat-name {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text);
           font-size: 0.95rem;
           white-space: nowrap;
@@ -156,18 +172,20 @@ export default function ChatsPage() {
         }
 
         .chat-time {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--text-muted);
           flex-shrink: 0;
+          font-weight: 500;
         }
 
         /* Skeleton */
         .skeleton-row {
-          height: 66px;
+          height: 70px;
           border-radius: var(--radius);
-          background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
           background-size: 200% 100%;
           animation: shimmer 1.5s infinite;
+          border: 1px solid var(--border);
         }
 
         @keyframes shimmer {
@@ -193,6 +211,9 @@ export default function ChatsPage() {
           gap: 0.75rem;
           padding: 3rem;
           text-align: center;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
         }
       `}</style>
     </div>

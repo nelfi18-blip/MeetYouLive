@@ -125,30 +125,33 @@ export default function ExplorePage() {
         }
 
         .explore-title {
-          font-size: 1.75rem;
+          font-size: 1.9rem;
           font-weight: 800;
-          color: var(--text);
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
-        .explore-sub { color: var(--text-muted); margin-top: 0.25rem; }
+        .explore-sub { color: var(--text-muted); margin-top: 0.25rem; font-weight: 500; }
 
         .explore-search-wrap {
           position: relative;
-          width: 280px;
+          width: 290px;
         }
 
         .search-icon {
           position: absolute;
-          left: 0.75rem;
+          left: 0.85rem;
           top: 50%;
           transform: translateY(-50%);
           pointer-events: none;
           font-size: 0.95rem;
         }
 
-        .explore-search { padding-left: 2.4rem !important; }
+        .explore-search { padding-left: 2.5rem !important; }
 
-        /* Categories */
+        /* Category pills */
         .category-bar {
           display: flex;
           gap: 0.5rem;
@@ -156,54 +159,85 @@ export default function ExplorePage() {
         }
 
         .cat-pill {
-          padding: 0.4rem 1rem;
+          padding: 0.45rem 1.1rem;
           border-radius: 20px;
           border: 1px solid var(--border);
-          background: var(--card);
+          background: rgba(26,11,46,0.6);
           color: var(--text-muted);
           font-size: 0.85rem;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
           transition: all var(--transition);
+          backdrop-filter: blur(8px);
         }
 
-        .cat-pill:hover { border-color: var(--accent); color: var(--accent); }
-        .cat-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .cat-pill:hover { border-color: var(--accent-2); color: var(--accent-2); }
+        .cat-pill.active {
+          background: var(--grad-primary);
+          border-color: transparent;
+          color: #fff;
+          box-shadow: 0 2px 14px rgba(255,15,138,0.4);
+        }
 
         /* Stream grid */
         .streams-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1rem;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 1.25rem;
         }
 
-        .stream-card { padding: 0; overflow: hidden; cursor: pointer; }
+        .stream-card {
+          padding: 0;
+          overflow: hidden;
+          cursor: pointer;
+          transition: all var(--transition);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
+        }
+
+        .stream-card:hover {
+          border-color: rgba(255,15,138,0.35);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6), var(--glow-pink);
+          transform: translateY(-3px);
+        }
 
         .stream-thumb {
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          height: 140px;
+          background: linear-gradient(135deg, #1A0B2E 0%, #2a1260 50%, #1A0B2E 100%);
+          height: 150px;
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
+          overflow: hidden;
         }
 
-        .stream-thumb .badge { position: absolute; top: 0.5rem; left: 0.5rem; }
+        .stream-thumb::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% 50%, rgba(255,15,138,0.1), transparent 70%);
+        }
+
+        .stream-thumb .badge { position: absolute; top: 0.6rem; left: 0.6rem; }
 
         .viewer-count {
           position: absolute;
-          bottom: 0.5rem;
-          right: 0.5rem;
-          background: rgba(0,0,0,0.6);
+          bottom: 0.6rem;
+          right: 0.6rem;
+          background: rgba(11,6,19,0.75);
           color: #fff;
-          font-size: 0.75rem;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 0.2rem 0.55rem;
+          border-radius: 8px;
+          backdrop-filter: blur(6px);
+          border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .stream-thumb-icon { font-size: 2.5rem; opacity: 0.4; }
+        .stream-thumb-icon { font-size: 2.8rem; opacity: 0.35; position: relative; z-index: 1; }
 
-        .stream-body { padding: 0.875rem; }
+        .stream-body { padding: 1rem; }
 
         .stream-user-row {
           display: flex;
@@ -212,13 +246,13 @@ export default function ExplorePage() {
           margin-bottom: 0.5rem;
         }
 
-        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+        .stream-username { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
 
         .stream-title {
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text);
-          font-size: 0.9rem;
-          line-height: 1.3;
+          font-size: 0.95rem;
+          line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -227,13 +261,14 @@ export default function ExplorePage() {
 
         .stream-category {
           display: inline-block;
-          margin-top: 0.5rem;
-          background: var(--accent-dim);
-          color: var(--accent);
-          font-size: 0.75rem;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
-          font-weight: 500;
+          margin-top: 0.55rem;
+          background: rgba(255,15,138,0.12);
+          color: var(--accent-2);
+          font-size: 0.72rem;
+          padding: 0.2rem 0.6rem;
+          border-radius: 20px;
+          font-weight: 700;
+          border: 1px solid rgba(255,79,216,0.2);
         }
 
         /* Errors / empty */
@@ -253,6 +288,9 @@ export default function ExplorePage() {
           gap: 0.75rem;
           padding: 3rem;
           text-align: center;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          background: var(--grad-card);
         }
 
         @media (max-width: 640px) {

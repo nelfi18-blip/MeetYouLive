@@ -205,29 +205,29 @@ function LoginForm() {
         }
 
         .login-blob-1 {
-          width: 520px;
-          height: 520px;
-          background: radial-gradient(circle, rgba(233,30,140,0.32), transparent 70%);
-          top: -220px;
-          right: -160px;
+          width: 560px;
+          height: 560px;
+          background: radial-gradient(circle, rgba(255,15,138,0.3), transparent 70%);
+          top: -240px;
+          right: -180px;
           animation-delay: 0s;
         }
 
         .login-blob-2 {
-          width: 420px;
-          height: 420px;
-          background: radial-gradient(circle, rgba(61,26,120,0.38), transparent 70%);
-          bottom: -200px;
-          left: -110px;
+          width: 440px;
+          height: 440px;
+          background: radial-gradient(circle, rgba(122,43,255,0.35), transparent 70%);
+          bottom: -210px;
+          left: -120px;
           animation-delay: -3s;
         }
 
         .login-blob-3 {
-          width: 300px;
-          height: 300px;
-          background: radial-gradient(circle, rgba(156,39,176,0.22), transparent 70%);
+          width: 320px;
+          height: 320px;
+          background: radial-gradient(circle, rgba(255,79,216,0.2), transparent 70%);
           top: 40%;
-          left: 60%;
+          left: 58%;
           animation-delay: -5s;
         }
 
@@ -273,16 +273,16 @@ function LoginForm() {
 
         /* ---- Card ---- */
         .login-card {
-          background: rgba(24, 24, 24, 0.92);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 24px;
+          background: rgba(20,8,42,0.92);
+          border: 1px solid rgba(255,15,138,0.2);
+          border-radius: 28px;
           padding: 2.75rem 2.5rem;
           width: 100%;
           max-width: 430px;
-          box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(233,30,140,0.08);
+          box-shadow: 0 8px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,79,216,0.08), 0 0 60px rgba(122,43,255,0.18);
           position: relative;
           z-index: 1;
-          backdrop-filter: blur(12px);
+          backdrop-filter: blur(20px);
         }
 
         /* ---- Logo wrapper ---- */
@@ -346,19 +346,23 @@ function LoginForm() {
         /* ---- Submit button shimmer ---- */
         .login-submit-btn {
           margin-top: 0.25rem;
-          background: linear-gradient(135deg, #e91e8c, #9c27b0);
+          background: linear-gradient(135deg, #FF0F8A, #FF4FD8, #7A2BFF);
           border: none;
           position: relative;
           overflow: hidden;
+          box-shadow: 0 4px 24px rgba(255,15,138,0.5);
+          font-size: 1rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
         }
 
         .login-submit-btn::after {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.12) 60%, transparent 70%);
+          background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15) 60%, transparent 70%);
           transform: translateX(-100%);
-          transition: transform 0.4s ease;
+          transition: transform 0.45s ease;
           pointer-events: none;
         }
 
@@ -367,27 +371,28 @@ function LoginForm() {
         }
 
         .login-submit-btn:hover:not(:disabled) {
-          box-shadow: 0 6px 28px rgba(233,30,140,0.45);
-          transform: translateY(-1px);
+          box-shadow: 0 6px 36px rgba(255,15,138,0.6);
+          transform: translateY(-2px);
         }
 
         /* ---- Google button ---- */
         .btn-google {
-          background: rgba(255,255,255,0.05);
+          background: rgba(255,255,255,0.04);
           color: var(--text);
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.1);
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.7rem;
+          gap: 0.75rem;
           transition: all 0.2s ease;
           font-weight: 600;
+          font-size: 0.95rem;
         }
 
         .btn-google:hover {
-          background: rgba(255,255,255,0.1);
-          border-color: rgba(66,133,244,0.6);
-          box-shadow: 0 4px 20px rgba(66,133,244,0.2);
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(66,133,244,0.5);
+          box-shadow: 0 4px 20px rgba(66,133,244,0.18);
           transform: translateY(-1px);
         }
 

@@ -52,9 +52,13 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-nextauth-secret"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "x-nextauth-secret"],
   })
 );
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 app.use(morgan("dev"));
 app.use("/api/webhooks", webhookRoutes);
 app.use(express.json());

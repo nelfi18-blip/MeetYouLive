@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
@@ -49,11 +51,11 @@ export default function AdminPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
     loadAdminData();
-  }, []);
+  }, [router]);
 
   const doAction = async (url, method, userId) => {
     const token = localStorage.getItem("token");

@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -28,10 +30,10 @@ export default function DashboardPage() {
         // would cause an infinite redirect loop between /dashboard and /login.
         // Sign out of NextAuth first so the login page doesn't bounce back.
         signOut({ callbackUrl: "/login" }).catch(() => {
-          window.location.href = "/login";
+          router.replace("/login");
         });
       } else {
-        window.location.href = "/login";
+        router.replace("/login");
       }
       return;
     }
@@ -43,7 +45,7 @@ export default function DashboardPage() {
         if (!r.ok) {
           if (r.status === 401) {
             localStorage.removeItem("token");
-            window.location.href = "/login";
+            router.replace("/login");
           }
           return null;
         }

@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ProfilePage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,7 +28,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
 
@@ -43,7 +45,7 @@ export default function ProfilePage() {
       })
       .catch(() => setError("No se pudo cargar el perfil"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");

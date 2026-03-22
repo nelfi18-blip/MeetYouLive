@@ -82,7 +82,7 @@ function LoginForm() {
 
       if (data.token) {
         localStorage.setItem("token", data.token);
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       }
     } catch {
       setError("No se pudo conectar con el servidor");

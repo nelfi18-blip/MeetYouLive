@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ChatsPage() {
+  const router = useRouter();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,7 +15,7 @@ export default function ChatsPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
 
@@ -27,7 +29,7 @@ export default function ChatsPage() {
       .then((d) => setChats(Array.isArray(d) ? d : []))
       .catch(() => setError("No se pudo cargar los chats"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   return (
     <div className="chats-page">

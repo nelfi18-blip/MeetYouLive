@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const morgan = require("morgan");
 const authRoutes = require("./routes/auth.routes.js");
 const userRoutes = require("./routes/user.routes.js");
 const googleRoutes = require("./routes/google.routes.js");
@@ -54,12 +55,21 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "x-nextauth-secret"],
   })
 );
+app.use(morgan("dev"));
 app.use("/api/webhooks", webhookRoutes);
 app.use(express.json());
 app.use(passport.initialize());
 
 app.get("/", (req, res) => {
   res.json({ ok: true, service: "meetyoulive-backend" });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Servidor de MeetYouLive activo",
+    port: process.env.PORT || 10000,
+  });
 });
 
 app.use("/api/auth", authRoutes);

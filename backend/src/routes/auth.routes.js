@@ -39,7 +39,8 @@ router.post("/register", authLimiter, async (req, res) => {
       // Unknown or missing duplicate field
       return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
     }
-    res.status(400).json({ message: err.message });
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 

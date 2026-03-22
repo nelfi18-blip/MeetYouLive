@@ -16,14 +16,26 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  // Prevents flashing the register form while we verify existing auth state.
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     if (status === "loading") return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (token || status === "authenticated") {
       router.replace("/dashboard");
+    } else {
+      setChecking(false);
     }
   }, [status, router]);
+
+  if (checking) return (
+    <div
+      aria-busy="true"
+      aria-label="Verificando sesión…"
+      style={{ minHeight: "100vh", background: "#060411" }}
+    />
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();

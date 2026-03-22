@@ -15,6 +15,8 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  // Prevents flashing the login form while we verify existing auth state.
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const emailParam = searchParams.get("email");
@@ -28,6 +30,8 @@ function LoginForm() {
     const token = localStorage.getItem("token");
     if (token) {
       router.replace("/dashboard");
+    } else {
+      setChecking(false);
     }
   }, []);
 
@@ -42,9 +46,20 @@ function LoginForm() {
         // Clear the stale NextAuth session so the user can try again cleanly.
         setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
         signOut({ redirect: false });
+        setChecking(false);
       }
+    } else if (status === "unauthenticated") {
+      setChecking(false);
     }
   }, [status, session, router]);
+
+  if (checking) return (
+    <div
+      aria-busy="true"
+      aria-label="Verificando sesión…"
+      style={{ minHeight: "100vh", background: "#060411" }}
+    />
+  );
 
   const login = async () => {
     setError("");

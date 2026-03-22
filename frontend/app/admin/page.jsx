@@ -23,7 +23,12 @@ export default function AdminPage() {
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 401 || r.status === 403)) {
+      if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 401)) {
+        localStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
+      if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 403)) {
         throw new Error("auth");
       }
       if (!overviewRes.ok || !usersRes.ok || !reportsRes.ok) throw new Error("server");

@@ -25,7 +25,7 @@ router.post("/register", authLimiter, async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hashedPassword });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.status(201).json({ message: "Usuario registrado", userId: user._id, token });
   } catch (err) {
     if (err.code === 11000) {
@@ -56,7 +56,7 @@ router.post("/login", authLimiter, async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Contraseña incorrecta" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -89,7 +89,7 @@ router.post("/setup", authLimiter, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const admin = await User.create({ username, email, password: hashedPassword, role: "admin" });
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.status(201).json({ message: "Administrador creado", token });
   } catch (err) {
     if (err.code === 11000) {
@@ -128,7 +128,7 @@ router.post("/google-session", async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     const safeUser = { id: user._id, email: user.email, name: user.name, username: user.username, role: user.role };
     res.json({ ok: true, token, user: safeUser });
   } catch (err) {

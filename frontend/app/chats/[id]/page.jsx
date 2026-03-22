@@ -29,8 +29,12 @@ export default function ChatConversationPage() {
 
     // Fetch current user and messages in parallel, then resolve otherName
     Promise.all([
-      fetch(`${API_URL}/api/user/me`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_URL}/api/user/me`, { headers }).then((r) => {
+        if (r.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
+        return r.ok ? r.json() : null;
+      }),
       fetch(`${API_URL}/api/chats/${id}/messages`, { headers }).then((r) => {
+        if (r.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
         if (!r.ok) throw new Error("Error al cargar mensajes");
         return r.json();
       }),
@@ -45,7 +49,14 @@ export default function ChatConversationPage() {
           setOtherName(other.sender?.username || other.sender?.name || "Usuario");
         }
       })
-      .catch(() => setError("No se pudo cargar la conversación"))
+      .catch((err) => {
+        if (err.status === 401) {
+          localStorage.removeItem("token");
+          router.replace("/login");
+          return;
+        }
+        setError("No se pudo cargar la conversación");
+      })
       .finally(() => setLoading(false));
   }, [id, router]);
 

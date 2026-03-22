@@ -3,6 +3,11 @@ import GoogleProvider from "next-auth/providers/google";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
+const useSecureCookies =
+  process.env.NODE_ENV === "production" ||
+  (process.env.NEXTAUTH_URL?.startsWith("https://") ?? false);
+const cookiePrefix = useSecureCookies ? "__Secure-" : "";
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -15,6 +20,18 @@ const handler = NextAuth({
 
   session: {
     strategy: "jwt",
+  },
+
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
   },
 
   pages: {

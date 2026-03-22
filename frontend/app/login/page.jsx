@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -34,9 +34,16 @@ function LoginForm() {
 
   useEffect(() => {
     if (status === "loading") return;
-    if (status === "authenticated" && session?.backendToken) {
-      localStorage.setItem("token", session.backendToken);
-      router.replace("/dashboard");
+    if (status === "authenticated") {
+      if (session?.backendToken) {
+        localStorage.setItem("token", session.backendToken);
+        router.replace("/dashboard");
+      } else {
+        // Authenticated via Google but backend token is unavailable.
+        // Clear the stale NextAuth session so the user can try again cleanly.
+        setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
+        signOut({ redirect: false });
+      }
     }
   }, [status, session, router]);
 

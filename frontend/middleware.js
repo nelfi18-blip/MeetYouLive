@@ -1,26 +1,36 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
 
 export function middleware(request) {
-  const token = request.cookies.get('next-auth.session-token') ||
-                request.cookies.get('__Secure-next-auth.session-token')
+  // Detecta el token de sesión (normal y seguro para producción)
+  const token = request.cookies.get('next-auth.session-token') || 
+                request.cookies.get('__Secure-next-auth.session-token');
 
-  // Si el usuario intenta ir a una ruta protegida sin token
-  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  const { pathname } = request.nextUrl;
+
+  // 1. Si ya está logueado, no dejarlo ir a login/register
+  if (token && (pathname === '/login' || pathname === '/register')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  return NextResponse.next()
+  // 2. Proteger rutas sensibles (si no hay token, al login)
+  const isProtectedRoute = pathname.startsWith('/dashboard') || 
+                           pathname.startsWith('/profile') || 
+                           pathname.startsWith('/admin');
+
+  if (!token && isProtectedRoute) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  return NextResponse.next();
 }
 
-// ESTO EVITA EL REFRESCO INFINITO
+// 3. MATCHER: IMPORTANTE PARA EVITAR REFRESCADO INFINITO
 export const config = {
   matcher: [
     /*
-     * Excluir rutas que NO deben refrescarse:
-     * - api/auth (crucial para que NextAuth trabaje)
-     * - _next/static y _next/image (archivos del sistema)
-     * - favicon y logos
+     * Excluye rutas internas de Next.js y archivos estáticos
+     * Esto permite que la API de auth funcione sin interferencias
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.png).*)',
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.png|favicon.svg).*)',
   ],
-}
+};

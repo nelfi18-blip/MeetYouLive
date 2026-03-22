@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
+const { signup } = require("../controllers/auth.controller.js");
 
 const router = Router();
 
@@ -13,36 +14,7 @@ const authLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.post("/register", authLimiter, async (req, res) => {
-  const { username, password } = req.body;
-  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: "username, email y password son requeridos" });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
-  }
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: hashedPassword });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-    res.status(201).json({ message: "Usuario registrado", userId: user._id, token });
-  } catch (err) {
-    if (err.code === 11000) {
-      const field = Object.keys(err.keyValue || {})[0];
-      if (field === "email") {
-        return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
-      }
-      if (field === "username") {
-        return res.status(400).json({ message: "Ese nombre de usuario ya está en uso" });
-      }
-      // Unknown or missing duplicate field
-      return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
-    }
-    console.error("Register error:", err);
-    res.status(500).json({ message: "Error interno del servidor" });
-  }
-});
+router.post("/register", authLimiter, signup);
 
 router.post("/login", authLimiter, async (req, res) => {
   const { password } = req.body;
@@ -88,8 +60,7 @@ router.post("/setup", authLimiter, async (req, res) => {
       return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const admin = await User.create({ username, email, password: hashedPassword, role: "admin" });
+    const admin = await User.create({ username, email: email.trim().toLowerCase(), password, role: "admin" });
     const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.status(201).json({ message: "Administrador creado", token });
   } catch (err) {

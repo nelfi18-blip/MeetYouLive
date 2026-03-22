@@ -28,29 +28,29 @@ function buildAllowedOrigins(frontendUrl) {
 
 const allowedOrigins = process.env.FRONTEND_URL
   ? buildAllowedOrigins(process.env.FRONTEND_URL)
-  : null;
+  : [];
 
 app.use(
   cors({
-    origin: allowedOrigins
-      ? (origin, cb) => {
-          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-          if (/\.vercel\.app$/.test(origin)) return cb(null, true);
-          cb(new Error("Not allowed by CORS"));
-        }
-      : (origin, cb) => {
-          if (!origin) return cb(null, true);
-          if (/\.vercel\.app$/.test(origin)) return cb(null, true);
-          // Allow localhost in development; NODE_ENV !== "production" also covers
-          // the case where NODE_ENV is unset (local dev without explicit env config)
-          if (
-            process.env.NODE_ENV !== "production" &&
-            /^http:\/\/localhost(:\d+)?$/.test(origin)
-          )
-            return cb(null, true);
-          cb(new Error("Not allowed by CORS"));
-        },
+    origin: (origin, cb) => {
+      // Allow server-to-server requests with no origin header
+      if (!origin) return cb(null, true);
+      // Allow all Vercel preview and production deployments
+      if (/\.vercel\.app$/.test(origin)) return cb(null, true);
+      // Allow configured frontend domain (both www and non-www)
+      if (allowedOrigins.length && allowedOrigins.includes(origin))
+        return cb(null, true);
+      // Allow localhost in development
+      if (
+        process.env.NODE_ENV !== "production" &&
+        /^http:\/\/localhost(:\d+)?$/.test(origin)
+      )
+        return cb(null, true);
+      cb(new Error("Not allowed by CORS"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-nextauth-secret"],
   })
 );
 app.use("/api/webhooks", webhookRoutes);

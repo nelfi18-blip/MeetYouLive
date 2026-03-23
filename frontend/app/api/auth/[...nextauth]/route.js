@@ -3,11 +3,14 @@ import GoogleProvider from "next-auth/providers/google";
 
 const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
 
+// Derive from NEXTAUTH_URL so NextAuth and our code agree on secure-cookie mode.
+// When NEXTAUTH_URL is set, it is the authoritative source: an explicit HTTP URL
+// (e.g. local development with a tunnelled URL) intentionally disables secure
+// cookies, even in NODE_ENV=production. Falls back to NODE_ENV for deployments
+// that haven't configured NEXTAUTH_URL yet.
 const useSecureCookies =
-  process.env.NODE_ENV === "production" ||
-  (process.env.NEXTAUTH_URL?.startsWith("https://") ?? false);
-
-const cookiePrefix = useSecureCookies ? "__Secure-" : "";
+  process.env.NEXTAUTH_URL?.startsWith("https://") ??
+  process.env.NODE_ENV === "production";
 
 const handler = NextAuth({
   providers: [
@@ -19,20 +22,14 @@ const handler = NextAuth({
 
   secret: process.env.NEXTAUTH_SECRET,
 
+  // Tell NextAuth to use __Secure- / __Host- cookie prefixes consistently
+  // for ALL cookies (session token, state, CSRF, callbackUrl, PKCE verifier).
+  // Without this, state/CSRF cookies may lack the secure prefix while the
+  // session-token cookie has it, which can cause OAuthCallback state mismatches.
+  useSecureCookies,
+
   session: {
     strategy: "jwt",
-  },
-
-  cookies: {
-    sessionToken: {
-      name: `${cookiePrefix}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: useSecureCookies,
-      },
-    },
   },
 
   pages: {

@@ -21,9 +21,9 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_CALLBACK_URL
-        value: https://www.meetyoulive.net/api/auth/callback/google
+        value: https://api.meetyoulive.net/api/auth/google/callback
       - key: FRONTEND_URL
-        value: https://www.meetyoulive.net
+        value: https://meetyoulive.net
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

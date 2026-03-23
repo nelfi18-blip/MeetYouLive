@@ -4,11 +4,13 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // Detectar varias posibles cookies de sesión de NextAuth/Auth.js
+  // También verificar la cookie auth-session que establecen usuarios con email/contraseña
   const token =
     request.cookies.get("next-auth.session-token")?.value ||
     request.cookies.get("__Secure-next-auth.session-token")?.value ||
     request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("auth-session")?.value;
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
 

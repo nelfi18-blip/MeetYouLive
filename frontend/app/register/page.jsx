@@ -6,6 +6,7 @@ import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { signUp } from "@/lib/auth.service";
+import { setToken } from "@/lib/token";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function RegisterPage() {
       }
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        setToken(data.token);
         setSuccess("¡Cuenta creada! Redirigiendo al dashboard…");
         setTimeout(() => { router.push("/dashboard"); }, 1500);
       } else {

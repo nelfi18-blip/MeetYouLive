@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,7 +25,7 @@ export default function ChatsPage() {
     })
       .then((r) => {
         if (r.status === 401) {
-          localStorage.removeItem("token");
+          clearToken();
           router.replace("/login");
           return null;
         }

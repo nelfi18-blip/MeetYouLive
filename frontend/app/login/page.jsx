@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { login as authLogin } from "@/lib/auth.service";
+import { setToken, clearToken } from "@/lib/token";
 
 function LoginForm() {
   const { data: session, status } = useSession();
@@ -30,6 +31,8 @@ function LoginForm() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
+      // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
+      setToken(token);
       router.replace("/dashboard");
     } else {
       setChecking(false);
@@ -40,12 +43,13 @@ function LoginForm() {
     if (status === "loading") return;
     if (status === "authenticated") {
       if (session?.backendToken) {
-        localStorage.setItem("token", session.backendToken);
+        setToken(session.backendToken);
         router.replace("/dashboard");
       } else {
         // Authenticated via Google but backend token is unavailable.
         // Clear the stale NextAuth session so the user can try again cleanly.
         setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
+        clearToken();
         signOut({ redirect: false });
         setChecking(false);
       }
@@ -75,7 +79,7 @@ function LoginForm() {
       }
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        setToken(data.token);
         router.push("/dashboard");
       }
     } catch {

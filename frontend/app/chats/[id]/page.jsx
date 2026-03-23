@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -51,7 +52,7 @@ export default function ChatConversationPage() {
       })
       .catch((err) => {
         if (err.status === 401) {
-          localStorage.removeItem("token");
+          clearToken();
           router.replace("/login");
           return;
         }

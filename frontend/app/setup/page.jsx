@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { setToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -81,7 +82,7 @@ export default function SetupPage() {
       }
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        setToken(data.token);
       }
       setSuccess("¡Administrador creado! Redirigiendo…");
       setTimeout(() => {

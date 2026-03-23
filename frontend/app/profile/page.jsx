@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -49,7 +50,7 @@ export default function ProfilePage() {
     })
       .then((r) => {
         if (r.status === 401) {
-          localStorage.removeItem("token");
+          clearToken();
           router.replace("/login");
           return null;
         }
@@ -66,7 +67,7 @@ export default function ProfilePage() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    clearToken();
     signOut({ callbackUrl: "/login" });
   };
 

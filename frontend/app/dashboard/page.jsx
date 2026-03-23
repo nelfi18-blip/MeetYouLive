@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { setToken, clearToken, getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -120,10 +121,10 @@ export default function DashboardPage() {
     if (status === "loading") return;
 
     if (backendToken) {
-      localStorage.setItem("token", backendToken);
+      setToken(backendToken);
     }
 
-    const token = localStorage.getItem("token");
+    const token = getToken();
     if (!token) {
       if (status === "authenticated") {
         signOut({ callbackUrl: "/login" }).catch(() => {
@@ -141,7 +142,7 @@ export default function DashboardPage() {
       .then((r) => {
         if (!r.ok) {
           if (r.status === 401) {
-            localStorage.removeItem("token");
+            clearToken();
             router.replace("/login");
           }
           return null;

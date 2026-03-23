@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { setToken } from "@/lib/token";
 
 /**
  * Inner component that reads search params and performs the redirect.
@@ -17,7 +18,7 @@ function AuthSuccessHandler() {
     // Basic JWT format guard: three Base64URL segments separated by dots.
     const isValidJwt = token && /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]*$/.test(token);
     if (isValidJwt) {
-      localStorage.setItem("token", token);
+      setToken(token);
       router.replace("/dashboard");
     } else {
       // No valid token in the URL — something went wrong; redirect to login.

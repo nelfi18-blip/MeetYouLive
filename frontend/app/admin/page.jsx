@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { clearToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,7 +25,7 @@ export default function AdminPage() {
       ]);
 
       if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 401)) {
-        localStorage.removeItem("token");
+        clearToken();
         router.replace("/login");
         return;
       }

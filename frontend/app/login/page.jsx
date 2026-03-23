@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken } from "@/lib/token";
+import { AUTH_ERROR_MESSAGES } from "@/lib/authErrors";
 
 function LoginForm() {
   const { data: session, status } = useSession();
@@ -25,6 +26,14 @@ function LoginForm() {
     if (emailParam) {
       setEmail(emailParam);
       setInfo("Esta cuenta ya existe. Ingresa tu contraseña o continúa con Google.");
+    }
+
+    // Handle NextAuth error codes returned as ?error= in the URL
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      setError(
+        AUTH_ERROR_MESSAGES[errorParam] || AUTH_ERROR_MESSAGES.Default
+      );
     }
   }, [searchParams]);
 

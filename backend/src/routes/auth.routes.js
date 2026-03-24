@@ -108,6 +108,9 @@ router.post("/google-session", authLimiter, async (req, res) => {
         email,
         password: crypto.randomBytes(32).toString("hex"),
       });
+    } else if (!user.name && name) {
+      user.name = name;
+      await user.save();
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });

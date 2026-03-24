@@ -119,7 +119,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
 
-  const backendToken = session?.accessToken ?? null;
+  const backendToken = session?.backendToken ?? null;
 
   useEffect(() => {
     if (status === "loading") return;
@@ -181,7 +181,7 @@ export default function DashboardPage() {
     );
   }
 
-  const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
+  const displayName = user?.username || user?.name || session?.user?.name || session?.user?.email || "Invitado";
   const allCards = user?.role === "creator"
     ? [...CARDS, { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" }]
     : CARDS;

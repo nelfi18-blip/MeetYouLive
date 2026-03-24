@@ -15,8 +15,8 @@ export const signUp = async (userData) => {
 
     return await response.json();
   } catch (error) {
-    console.error("DEBUG -> Connection Error:", error);
-    return { error: "No se pudo conectar con el servidor. Revisa la URL de la API." };
+    console.error("Connection Error:", error);
+    return { error: "No se pudo conectar con el servidor. Intenta de nuevo más tarde." };
   }
 };
 
@@ -36,7 +36,7 @@ export const login = async (credentials) => {
 
     return await response.json();
   } catch (error) {
-    console.error("DEBUG -> Connection Error:", error);
-    return { error: "No se pudo conectar con el servidor. Revisa la URL de la API." };
+    console.error("Connection Error:", error);
+    return { error: "No se pudo conectar con el servidor. Intenta de nuevo más tarde." };
   }
 };

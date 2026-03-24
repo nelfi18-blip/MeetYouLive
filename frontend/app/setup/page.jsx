@@ -12,6 +12,7 @@ export default function SetupPage() {
   const [checking, setChecking] = useState(true);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [configuredEmail, setConfiguredEmail] = useState(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,6 +27,10 @@ export default function SetupPage() {
         if (data.adminExists) {
           router.replace("/login");
         } else {
+          if (data.adminEmail) {
+            setConfiguredEmail(data.adminEmail);
+            setEmail(data.adminEmail);
+          }
           setChecking(false);
         }
       } catch {
@@ -120,9 +125,18 @@ export default function SetupPage() {
         <div className="setup-info">
           <span className="setup-info-icon">ℹ️</span>
           <span>
-            Elige el <strong>nombre de usuario</strong>, <strong>email</strong> y{" "}
-            <strong>contraseña</strong> que deseas usar para acceder como administrador.
-            No hay credenciales predeterminadas — tú las defines aquí.
+            {configuredEmail ? (
+              <>
+                El correo administrativo es <strong>{configuredEmail}</strong>.
+                Elige un <strong>nombre de usuario</strong> y <strong>contraseña</strong> para activar la cuenta.
+              </>
+            ) : (
+              <>
+                Elige el <strong>nombre de usuario</strong>, <strong>email</strong> y{" "}
+                <strong>contraseña</strong> que deseas usar para acceder como administrador.
+                No hay credenciales predeterminadas — tú las defines aquí.
+              </>
+            )}
           </span>
         </div>
 
@@ -143,13 +157,19 @@ export default function SetupPage() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">
+              Email
+              {configuredEmail && (
+                <span className="form-label-badge">configurado</span>
+              )}
+            </label>
             <input
-              className="input"
+              className={`input${configuredEmail ? " input-locked" : ""}`}
               type="email"
               placeholder="admin@ejemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              readOnly={Boolean(configuredEmail)}
               autoComplete="email"
             />
           </div>
@@ -357,6 +377,27 @@ export default function SetupPage() {
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.07em;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .form-label-badge {
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          background: rgba(66,133,244,0.18);
+          color: #93c5fd;
+          border: 1px solid rgba(66,133,244,0.35);
+          border-radius: 4px;
+          padding: 0.1rem 0.4rem;
+        }
+
+        :global(.input-locked) {
+          opacity: 0.7;
+          cursor: not-allowed;
+          background: rgba(255,255,255,0.03) !important;
         }
 
         .setup-submit-btn {

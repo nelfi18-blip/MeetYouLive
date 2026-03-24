@@ -67,7 +67,10 @@ router.post("/login", authLimiter, async (req, res) => {
 router.get("/check-admin", authLimiter, async (req, res) => {
   try {
     const adminExists = await User.exists({ role: "admin" });
-    res.json({ adminExists: Boolean(adminExists) });
+    res.json({
+      adminExists: Boolean(adminExists),
+      adminEmail: process.env.ADMIN_EMAIL || null,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -80,12 +83,23 @@ router.post("/setup", authLimiter, async (req, res) => {
       return res.status(409).json({ message: "Ya existe un administrador" });
     }
 
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
+    const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Nombre de usuario, email y contraseña son requeridos" });
     }
     if (password.length < 6) {
       return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
+    }
+
+    // If ADMIN_EMAIL is configured in the environment, enforce it.
+    const configuredAdminEmail = process.env.ADMIN_EMAIL
+      ? process.env.ADMIN_EMAIL.trim().toLowerCase()
+      : null;
+    if (configuredAdminEmail && email !== configuredAdminEmail) {
+      return res.status(400).json({
+        message: "El correo no coincide con el correo administrativo configurado",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

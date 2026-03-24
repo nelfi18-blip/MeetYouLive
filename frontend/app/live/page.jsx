@@ -72,13 +72,13 @@ export default function LivePage() {
                   <span className="live-dot" />
                   LIVE
                 </span>
-                {live.viewers != null && (
+                {live.viewerCount != null && (
                   <span className="viewer-count">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
-                    {live.viewers}
+                    {live.viewerCount}
                   </span>
                 )}
                 <div className="thumb-play">▶</div>

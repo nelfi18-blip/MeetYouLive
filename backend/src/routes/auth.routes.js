@@ -73,38 +73,16 @@ router.get("/check-admin", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/setup", authLimiter, async (req, res) => {
-  try {
-    const adminExists = await User.exists({ role: "admin" });
-    if (adminExists) {
-      return res.status(409).json({ message: "Ya existe un administrador" });
-    }
-
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: "Nombre de usuario, email y contraseña son requeridos" });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const admin = await User.create({ username, email, password: hashedPassword, role: "admin" });
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-    res.status(201).json({ message: "Administrador creado", token });
-  } catch (err) {
-    if (err.code === 11000) {
-      const field = Object.keys(err.keyValue || {})[0];
-      if (field === "email") {
-        return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
-      }
-      if (field === "username") {
-        return res.status(400).json({ message: "Ese nombre de usuario ya está en uso" });
-      }
-      return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
-    }
-    res.status(500).json({ message: err.message });
+router.post("/setup", async (req, res) => {
+  if (process.env.ALLOW_ADMIN_SETUP !== "true") {
+    return res.status(403).json({
+      message: "La creación pública de administradores está deshabilitada.",
+    });
   }
+
+  return res.status(403).json({
+    message: "Setup bloqueado temporalmente.",
+  });
 });
 
 router.post("/google-session", authLimiter, async (req, res) => {

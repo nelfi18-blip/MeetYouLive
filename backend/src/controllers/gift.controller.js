@@ -4,6 +4,21 @@ const mongoose = require("mongoose");
 
 const COMMISSION_RATE = 0.20;
 
+// Predefined gift catalog with icon and coin cost
+const GIFT_CATALOG = [
+  { id: "rose", name: "Rosa", icon: "🌹", coins: 5, description: "Una rosa para tu favorito" },
+  { id: "heart", name: "Corazón", icon: "❤️", coins: 10, description: "Muestra tu amor" },
+  { id: "star", name: "Estrella", icon: "⭐", coins: 20, description: "Brilla en el chat" },
+  { id: "fire", name: "Fuego", icon: "🔥", coins: 50, description: "¡Esto está on fire!" },
+  { id: "diamond", name: "Diamante", icon: "💎", coins: 100, description: "El regalo más preciado" },
+  { id: "crown", name: "Corona", icon: "👑", coins: 200, description: "Para el rey o la reina del directo" },
+  { id: "rocket", name: "Cohete", icon: "🚀", coins: 500, description: "Lanza al streamer a la luna" },
+];
+
+const getGiftCatalog = (req, res) => {
+  res.json(GIFT_CATALOG);
+};
+
 const sendGift = async (req, res) => {
   const { receiverId, liveId, amount, message } = req.body;
   if (!receiverId || !amount) {
@@ -56,4 +71,4 @@ const getReceivedGifts = async (req, res) => {
   }
 };
 
-module.exports = { sendGift, getReceivedGifts };
+module.exports = { sendGift, getReceivedGifts, getGiftCatalog };

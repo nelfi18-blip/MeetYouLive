@@ -181,7 +181,12 @@ export default function DashboardPage() {
     );
   }
 
-  const displayName = user?.username || user?.name || session?.user?.name || session?.user?.email || "Invitado";
+  const displayName =
+    user?.username ||
+    user?.name ||
+    session?.user?.name ||
+    session?.user?.email?.split("@")[0] ||
+    "Usuario";
   const allCards = user?.role === "creator"
     ? [...CARDS, { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" }]
     : CARDS;

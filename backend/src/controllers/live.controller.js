@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const Live = require("../models/Live.js");
 
 const startLive = async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, category } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
   try {
     const streamKey = crypto.randomBytes(16).toString("hex");
@@ -10,6 +10,7 @@ const startLive = async (req, res) => {
       user: req.userId,
       title,
       description,
+      category: category || "",
       streamKey,
       isLive: true,
     });

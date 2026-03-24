@@ -8,6 +8,10 @@ import { setToken, clearToken, getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+if (!API_URL) {
+  console.error("NEXT_PUBLIC_API_URL no está configurada");
+}
+
 const CARDS = [
   {
     href: "/explore",
@@ -115,7 +119,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
 
-  const backendToken = session?.backendToken ?? null;
+  const backendToken = session?.accessToken ?? null;
 
   useEffect(() => {
     if (status === "loading") return;

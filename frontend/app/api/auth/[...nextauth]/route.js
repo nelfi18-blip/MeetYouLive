@@ -1,6 +1,14 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+const useSecureCookies =
+  process.env.NODE_ENV === "production" ||
+  (process.env.NEXTAUTH_URL?.startsWith("https://") ?? false);
+
+const cookiePrefix = useSecureCookies ? "__Secure-" : "";
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -15,48 +23,82 @@ const handler = NextAuth({
     strategy: "jwt",
   },
 
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+  },
+
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+
   callbacks: {
-    async signIn() {
-      return true;
+    async signIn({ user }) {
+      return !!user;
     },
 
-    async jwt({ token, user, account, profile }) {
-      if (user) {
-        token.name = user.name;
-        token.email = user.email;
+    async jwt({ token, account, profile }) {
+      if (profile) {
+        token.name = profile.name || token.name || "";
+        token.email = profile.email || token.email || "";
       }
 
-      if (account && profile) {
-        token.accessToken = account.access_token;
-
+      if (account?.provider === "google" && apiUrl) {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-          const headers = { "Content-Type": "application/json" };
-          const secret = process.env.INTERNAL_API_SECRET;
-          if (secret) headers["x-internal-api-secret"] = secret;
-
-          const res = await fetch(`${apiUrl}/api/auth/google-session`, {
+          const response = await fetch(`${apiUrl}/api/auth/google-session`, {
             method: "POST",
-            headers,
-            body: JSON.stringify({ email: token.email, name: token.name }),
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-api-secret":
+                process.env.INTERNAL_API_SECRET || "",
+            },
+            body: JSON.stringify({
+              email: profile?.email || token.email || "",
+              name: profile?.name || token.name || "",
+              image: profile?.picture || "",
+            }),
           });
 
-          if (res.ok) {
-            const data = await res.json();
+          const data = await response.json().catch(() => null);
+
+          if (response.ok && data?.token) {
             token.backendToken = data.token;
+            token.backendUser = data.user || null;
           }
-        } catch (err) {
-          console.error("Failed to exchange Google profile for backend JWT:", err);
+        } catch (error) {
+          console.error("Error creating backend session:", error);
         }
       }
+
       return token;
     },
 
     async session({ session, token }) {
-      session.accessToken = token.accessToken;
-      session.backendToken = token.backendToken;
-      session.user.name = token.name;
-      session.user.email = token.email;
+      session.backendToken = token.backendToken || null;
+      session.backendUser = token.backendUser || null;
+
+      if (session.user) {
+        session.user.name =
+          token.backendUser?.username ||
+          token.backendUser?.name ||
+          token.name ||
+          session.user.name ||
+          "";
+        session.user.email =
+          token.backendUser?.email ||
+          token.email ||
+          session.user.email ||
+          "";
+      }
+
       return session;
     },
   },

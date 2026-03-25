@@ -3,27 +3,33 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { login as authLogin } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-export default function SetupPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // If an admin already exists, redirect to admin login
+  // If already logged in as admin, redirect directly to /admin
   useEffect(() => {
-    fetch(`${apiUrl}/api/auth/check-admin`)
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+    fetch(`${apiUrl}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.adminExists) {
-          router.replace("/admin/login");
+      .then((user) => {
+        if (user?.role === "admin") {
+          router.replace("/admin");
         } else {
           setChecking(false);
         }
@@ -35,40 +41,47 @@ export default function SetupPage() {
     return (
       <div
         aria-busy="true"
-        aria-label="Verificando…"
+        aria-label="Verificando sesión…"
         style={{ minHeight: "100vh", background: "#060411" }}
       />
     );
   }
 
-  const handleSetup = async () => {
-    if (!username || !email || !password || !confirmPassword) {
-      setError("Por favor, completa todos los campos.");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Por favor, introduce el email y la contraseña.");
       return;
     }
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
-
     setError("");
     setLoading(true);
 
     try {
-      const res = await fetch(`${apiUrl}/api/auth/setup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+      const data = await authLogin({ email, password });
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      if (!data.token) {
+        setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+        return;
+      }
+
+      // Verify the user has admin role
+      const meRes = await fetch(`${apiUrl}/api/user/me`, {
+        headers: { Authorization: `Bearer ${data.token}` },
       });
 
-      const data = await res.json();
+      if (!meRes.ok) {
+        setError("No se pudo verificar el rol del usuario.");
+        return;
+      }
 
-      if (!res.ok) {
-        setError(data.message || "Error al crear el administrador.");
+      const me = await meRes.json();
+
+      if (me.role !== "admin") {
+        setError("No tienes permisos de administrador.");
         return;
       }
 
@@ -82,11 +95,11 @@ export default function SetupPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); handleSetup(); }
+    if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
   };
 
   return (
-    <div className="setup-bg">
+    <div className="admin-login-bg">
       {/* Aurora orbs */}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
@@ -102,54 +115,45 @@ export default function SetupPage() {
         ))}
       </div>
 
-      <div className="setup-card">
-        {/* Icon + branding */}
-        <div className="setup-logo">
-          <div className="key-icon" aria-hidden="true">
+      <div className="admin-login-card">
+        {/* Shield icon + branding */}
+        <div className="admin-login-logo">
+          <div className="shield-icon" aria-hidden="true">
             <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-              <circle cx="8" cy="14" r="5" fill="url(#keyGrad)" stroke="rgba(224,64,251,0.5)" strokeWidth="0.5" />
               <path
-                d="M12.5 9.5L19 3M19 3H16M19 3V6"
-                stroke="url(#keyGrad2)"
-                strokeWidth="2"
+                d="M12 2L4 5.5V11C4 15.418 7.582 19.546 12 21C16.418 19.546 20 15.418 20 11V5.5L12 2Z"
+                fill="url(#shieldGrad)"
+                stroke="rgba(224,64,251,0.6)"
+                strokeWidth="0.5"
+              />
+              <path
+                d="M9 12L11 14L15 10"
+                stroke="#fff"
+                strokeWidth="1.8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="8" cy="14" r="2" fill="rgba(255,255,255,0.85)" />
               <defs>
-                <linearGradient id="keyGrad" x1="3" y1="9" x2="13" y2="19" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="rgba(139,92,246,0.8)" />
-                  <stop offset="100%" stopColor="rgba(224,64,251,0.8)" />
-                </linearGradient>
-                <linearGradient id="keyGrad2" x1="12" y1="3" x2="19" y2="10" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#a78bfa" />
-                  <stop offset="100%" stopColor="#e040fb" />
+                <linearGradient id="shieldGrad" x1="4" y1="2" x2="20" y2="21" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="rgba(224,64,251,0.7)" />
+                  <stop offset="100%" stopColor="rgba(139,92,246,0.7)" />
                 </linearGradient>
               </defs>
             </svg>
           </div>
-          <div className="setup-logo-text">
+          <div className="admin-login-logo-text">
             Meet You<span className="logo-live">Live</span>
           </div>
         </div>
 
-        <div className="setup-header">
-          <h1 className="setup-title">Configurar Administrador</h1>
-          <p className="setup-subtitle">Crea la cuenta de administrador principal</p>
+        <div className="admin-login-header">
+          <h1 className="admin-login-title">Acceso de Administrador</h1>
+          <p className="admin-login-subtitle">Solo para personal autorizado</p>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
 
-        <div className="setup-form">
-          <input
-            className="input input-lg"
-            type="text"
-            placeholder="NOMBRE DE USUARIO"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoComplete="username"
-          />
+        <div className="admin-login-form">
           <input
             className="input input-lg"
             type="email"
@@ -159,57 +163,53 @@ export default function SetupPage() {
             onKeyDown={handleKeyDown}
             autoComplete="email"
           />
+
           <input
             className="input input-lg"
             type="password"
-            placeholder="CONTRASEÑA (mín. 6 caracteres)"
+            placeholder="CONTRASEÑA"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoComplete="new-password"
-          />
-          <input
-            className="input input-lg"
-            type="password"
-            placeholder="CONFIRMAR CONTRASEÑA"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoComplete="new-password"
+            autoComplete="current-password"
           />
 
           <button
-            className="btn-setup btn-lg btn-block"
-            onClick={handleSetup}
+            className="btn btn-admin btn-lg btn-block submit-btn"
+            onClick={handleLogin}
             disabled={loading}
           >
             {loading ? (
               <>
                 <span className="spinner" />
-                Creando administrador…
+                Verificando…
               </>
             ) : (
-              "Crear cuenta de administrador →"
+              "Entrar al Panel →"
             )}
           </button>
         </div>
 
-        <div className="setup-footer">
+        <div className="admin-login-footer">
           <p className="footer-link">
-            <Link href="/admin/login">← Ya tengo cuenta de administrador</Link>
+            <Link href="/login">← Volver al inicio de sesión</Link>
+          </p>
+          <p className="footer-link footer-link-dim">
+            ¿Primera vez?{" "}
+            <Link href="/setup">Crear cuenta de administrador</Link>
           </p>
         </div>
       </div>
 
       <style jsx>{`
         /* ── Background ── */
-        .setup-bg {
+        .admin-login-bg {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
           background:
-            radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.28) 0%, transparent 55%),
+            radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.30) 0%, transparent 55%),
             radial-gradient(ellipse at 20% 100%, rgba(224,64,251,0.18) 0%, transparent 50%),
             radial-gradient(ellipse at 85% 60%, rgba(59,130,246,0.12) 0%, transparent 40%),
             #060411;
@@ -228,7 +228,7 @@ export default function SetupPage() {
         }
         .orb-1 {
           width: 500px; height: 500px;
-          background: radial-gradient(circle, rgba(139,92,246,0.22), transparent 70%);
+          background: radial-gradient(circle, rgba(139,92,246,0.24), transparent 70%);
           top: -200px; left: 50%;
           transform: translateX(-50%);
           animation-delay: 0s;
@@ -241,7 +241,7 @@ export default function SetupPage() {
         }
         .orb-3 {
           width: 260px; height: 260px;
-          background: radial-gradient(circle, rgba(59,130,246,0.12), transparent 70%);
+          background: radial-gradient(circle, rgba(59,130,246,0.14), transparent 70%);
           top: 50%; right: -80px;
           animation-delay: -7s;
         }
@@ -295,11 +295,11 @@ export default function SetupPage() {
         }
 
         /* ── Card ── */
-        .setup-card {
+        .admin-login-card {
           position: relative;
           z-index: 1;
           width: 100%;
-          max-width: 440px;
+          max-width: 420px;
           background: rgba(8,4,20,0.92);
           border: 1px solid rgba(139,92,246,0.22);
           border-radius: 32px;
@@ -312,7 +312,7 @@ export default function SetupPage() {
         }
 
         /* ── Logo ── */
-        .setup-logo {
+        .admin-login-logo {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -320,11 +320,11 @@ export default function SetupPage() {
           margin-bottom: 1.5rem;
         }
 
-        .key-icon {
+        .shield-icon {
           filter: drop-shadow(0 0 18px rgba(139,92,246,0.6)) drop-shadow(0 0 36px rgba(224,64,251,0.3));
         }
 
-        .setup-logo-text {
+        .admin-login-logo-text {
           font-size: 1.75rem;
           font-weight: 800;
           letter-spacing: -0.03em;
@@ -341,19 +341,19 @@ export default function SetupPage() {
         }
 
         /* ── Header ── */
-        .setup-header {
+        .admin-login-header {
           text-align: center;
           margin-bottom: 1.75rem;
         }
 
-        .setup-title {
+        .admin-login-title {
           font-size: 1.35rem;
           font-weight: 800;
           letter-spacing: -0.03em;
           color: var(--text);
         }
 
-        .setup-subtitle {
+        .admin-login-subtitle {
           color: var(--text-muted);
           font-size: 0.875rem;
           margin-top: 0.3rem;
@@ -372,14 +372,14 @@ export default function SetupPage() {
         }
 
         /* ── Form ── */
-        .setup-form {
+        .admin-login-form {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
         }
 
-        /* ── Setup button ── */
-        .btn-setup {
+        /* ── Admin button ── */
+        .btn-admin {
           background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
           color: #fff;
           border: none;
@@ -400,13 +400,13 @@ export default function SetupPage() {
           margin-top: 0.35rem;
         }
 
-        .btn-setup:hover:not(:disabled) {
+        .btn-admin:hover:not(:disabled) {
           background: linear-gradient(135deg, #6d28d9 0%, #9333ea 100%);
           box-shadow: 0 6px 28px rgba(124,58,237,0.5);
           transform: translateY(-1px);
         }
 
-        .btn-setup:disabled {
+        .btn-admin:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
@@ -427,14 +427,22 @@ export default function SetupPage() {
         }
 
         /* ── Footer ── */
-        .setup-footer {
+        .admin-login-footer {
           margin-top: 1.75rem;
           text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
         }
 
         .footer-link {
           font-size: 0.875rem;
           color: var(--text-muted);
+        }
+
+        .footer-link-dim {
+          font-size: 0.8rem;
+          opacity: 0.6;
         }
 
         .footer-link :global(a) {
@@ -448,9 +456,9 @@ export default function SetupPage() {
         }
 
         @media (max-width: 480px) {
-          .setup-card { padding: 2rem 1.5rem; }
-          .setup-title { font-size: 1.2rem; }
-          .setup-logo-text { font-size: 1.55rem; }
+          .admin-login-card { padding: 2rem 1.5rem; }
+          .admin-login-title { font-size: 1.2rem; }
+          .admin-login-logo-text { font-size: 1.55rem; }
         }
       `}</style>
     </div>

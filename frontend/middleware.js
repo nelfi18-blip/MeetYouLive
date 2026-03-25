@@ -17,7 +17,7 @@ export function middleware(request) {
   const isProtectedRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/admin");
+    (pathname.startsWith("/admin") && pathname !== "/admin/login");
 
   // Si ya está logueado, no permitir volver a login/register
   if (token && isAuthPage) {

@@ -190,7 +190,7 @@ function LoginForm() {
           </p>
           <p className="footer-link footer-link-dim">
             ¿Primera vez aquí?{" "}
-            <Link href="/setup">Configurar administrador</Link>
+            <Link href="/admin/login">Iniciar sesión como administrador</Link>
           </p>
         </div>
       </div>

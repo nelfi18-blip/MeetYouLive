@@ -8,6 +8,7 @@ import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function StarIcon()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function EditIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function KeyIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>; }
 function LogoutIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
@@ -37,6 +38,10 @@ export default function ProfilePage() {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [pwdError, setPwdError] = useState("");
   const [pwdSuccess, setPwdSuccess] = useState("");
+
+  const [requestingCreator, setRequestingCreator] = useState(false);
+  const [creatorReqError, setCreatorReqError] = useState("");
+  const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -123,6 +128,22 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
+  const handleCreatorRequest = async () => {
+    setCreatorReqError(""); setCreatorReqSuccess(""); setRequestingCreator(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
+      setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
+      setUser((u) => ({ ...u, role: "creator_pending", creatorRequest: true }));
+    } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
+    finally { setRequestingCreator(false); }
+  };
+
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
 
@@ -161,10 +182,10 @@ export default function ProfilePage() {
                 <p className="profile-email">{user.email}</p>
                 {user.bio && <p className="profile-bio">{user.bio}</p>}
                 <div className="profile-badges">
-                  <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : ""}`}>
-                    {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : "Usuario"}
-                  </span>
-                </div>
+                    <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.role === "creator_pending" ? " pending" : ""}`}>
+                      {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.role === "creator_pending" ? "Pendiente de aprobación" : "Usuario"}
+                    </span>
+                  </div>
               </div>
               <div className="profile-actions-top">
                 <button className="btn btn-secondary btn-sm" onClick={handleEdit}>
@@ -282,6 +303,45 @@ export default function ProfilePage() {
               <div className="stat-label">Miembro desde</div>
             </div>
           </div>
+
+          {/* Become a Creator / Creator status */}
+          {user.role === "user" && (
+            <div className="creator-cta-card">
+              <div className="creator-cta-icon"><StarIcon /></div>
+              <div className="creator-cta-body">
+                <div className="creator-cta-title">¿Quieres ser Creador?</div>
+                <div className="creator-cta-sub">Solicita acceso para transmitir en vivo y ganar monedas con tu comunidad.</div>
+              </div>
+              {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
+              {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
+              {!creatorReqSuccess && (
+                <button className="btn btn-primary creator-cta-btn" onClick={handleCreatorRequest} disabled={requestingCreator}>
+                  {requestingCreator ? "Enviando…" : "Solicitar ser Creador"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {user.role === "creator_pending" && (
+            <div className="creator-pending-card">
+              <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
+              <div className="creator-cta-body">
+                <div className="creator-cta-title">Solicitud en revisión</div>
+                <div className="creator-cta-sub">Tu solicitud para ser creador está siendo revisada por un administrador. Te notificaremos pronto.</div>
+              </div>
+            </div>
+          )}
+
+          {user.role === "creator" && (
+            <div className="creator-active-card">
+              <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
+              <div className="creator-cta-body">
+                <div className="creator-cta-title">Eres Creador</div>
+                <div className="creator-cta-sub">Accede a tu estudio, gestiona tus directos y consulta tus ganancias.</div>
+              </div>
+              <Link href="/creator" className="btn btn-primary creator-cta-btn">Ir al Estudio</Link>
+            </div>
+          )}
 
           {/* Quick actions */}
           <div className="actions-card">
@@ -575,6 +635,61 @@ export default function ProfilePage() {
         .action-logout { color: var(--error) !important; }
         .action-logout:hover { background: rgba(248,113,113,0.08) !important; }
         .action-logout:hover .action-icon { color: var(--error) !important; }
+
+        /* Creator CTA / Pending / Active */
+        .creator-cta-card, .creator-pending-card, .creator-active-card {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
+          padding: 1.5rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(224,64,251,0.25);
+          background: rgba(224,64,251,0.05);
+        }
+
+        .creator-pending-card {
+          border-color: rgba(251,191,36,0.3);
+          background: rgba(251,191,36,0.05);
+        }
+
+        .creator-active-card {
+          border-color: rgba(224,64,251,0.3);
+          background: rgba(224,64,251,0.07);
+        }
+
+        .creator-cta-icon {
+          font-size: 1.6rem;
+          line-height: 1;
+          color: var(--accent-2);
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .creator-cta-body { flex: 1; min-width: 180px; }
+
+        .creator-cta-title {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+          letter-spacing: -0.01em;
+        }
+
+        .creator-cta-sub {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-top: 0.25rem;
+          line-height: 1.5;
+        }
+
+        .creator-cta-btn { white-space: nowrap; flex-shrink: 0; }
+
+        .role-badge.pending {
+          background: rgba(251,191,36,0.1);
+          color: #fbbf24;
+          border-color: rgba(251,191,36,0.3);
+        }
       `}</style>
     </div>
   );

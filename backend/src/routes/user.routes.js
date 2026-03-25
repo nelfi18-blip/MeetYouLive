@@ -84,4 +84,23 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (user.role !== "user") {
+      return res.status(400).json({ message: "Solo los usuarios normales pueden solicitar ser creadores" });
+    }
+
+    user.creatorRequest = true;
+    user.role = "creator_pending";
+    await user.save();
+
+    res.json({ message: "Solicitud enviada correctamente. Un administrador la revisará pronto.", user: { role: user.role, creatorRequest: user.creatorRequest } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

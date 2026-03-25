@@ -12,19 +12,23 @@ export default function AdminPage() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [creatorRequests, setCreatorRequests] = useState([]);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const [activeTab, setActiveTab] = useState("users");
 
   const loadAdminData = async () => {
     const token = localStorage.getItem("token");
     try {
-      const [overviewRes, usersRes, reportsRes] = await Promise.all([
+      const [overviewRes, usersRes, reportsRes, creatorReqRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 401)) {
+      if ([overviewRes, usersRes, reportsRes, creatorReqRes].some((r) => r.status === 401)) {
         clearToken();
         router.replace("/login");
         return;
@@ -34,15 +38,17 @@ export default function AdminPage() {
       }
       if (!overviewRes.ok || !usersRes.ok || !reportsRes.ok) throw new Error("server");
 
-      const [overviewData, usersData, reportsData] = await Promise.all([
+      const [overviewData, usersData, reportsData, creatorReqData] = await Promise.all([
         overviewRes.json(),
         usersRes.json(),
         reportsRes.json(),
+        creatorReqRes.ok ? creatorReqRes.json() : { requests: [] },
       ]);
 
       setStats(overviewData.stats || null);
       setUsers(usersData.users || []);
       setReports(reportsData.reports || []);
+      setCreatorRequests(creatorReqData.requests || []);
     } catch (err) {
       if (err.message === "auth") {
         setError("No tienes permisos para acceder al panel de administrador.");
@@ -117,6 +123,36 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreatorAction = async (userId, action) => {
+    const token = localStorage.getItem("token");
+    setActionLoading(userId + action);
+    setActionError("");
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/creator-requests/${userId}/${action}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error");
+      // Refresh creator requests and user list to reflect updated roles
+      const [reqRes, usersRes] = await Promise.all([
+        fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (reqRes.ok) {
+        const data = await reqRes.json();
+        setCreatorRequests(data.requests || []);
+      }
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setUsers(data.users || []);
+      }
+    } catch {
+      setActionError(action === "approve" ? "Error al aprobar la solicitud" : "Error al rechazar la solicitud");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#fff" }}>
@@ -144,139 +180,230 @@ export default function AdminPage() {
           <StatCard title="Reportes" value={stats.reports} />
           <StatCard title="Suscripciones" value={stats.subscriptions} />
           <StatCard title="Admins" value={stats.admins} />
+          <StatCard title="Solicitudes creador" value={creatorRequests.length} highlight={creatorRequests.length > 0} />
         </div>
       )}
 
-      <section style={{ marginBottom: "2.5rem" }}>
-        <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Usuarios recientes</h2>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-            <thead>
-              <tr style={{ background: "#1e293b" }}>
-                <Th>Nombre</Th>
-                <Th>Email</Th>
-                <Th>Rol</Th>
-                <Th>Estado</Th>
-                <Th>Registrado</Th>
-                <Th>Acciones</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u._id} style={{ borderBottom: "1px solid #334155" }}>
-                  <Td>{u.name || u.username || "—"}</Td>
-                  <Td>{u.email}</Td>
-                  <Td>
-                    <select
-                      value={u.role}
-                      disabled={actionLoading === u._id + "role"}
-                      onChange={(e) => changeRole(u._id, e.target.value)}
-                      style={{
-                        background: "#0f172a",
-                        color: "#e2e8f0",
-                        border: "1px solid #334155",
-                        borderRadius: "4px",
-                        padding: "0.25rem 0.5rem",
-                        fontSize: "0.85rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <option value="user">user</option>
-                      <option value="creator">creator</option>
-                      <option value="admin">admin</option>
-                    </select>
-                  </Td>
-                  <Td>
-                    <span style={{ color: u.isBlocked ? "#f87171" : "#4ade80", fontSize: "0.8rem" }}>
-                      {u.isBlocked ? "Bloqueado" : "Activo"}
-                    </span>
-                  </Td>
-                  <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
-                  <Td>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      {u.isBlocked ? (
-                        <ActionBtn
-                          label="Desbloquear"
-                          color="#4ade80"
-                          disabled={!!actionLoading}
-                          onClick={() =>
-                            doAction(`${apiUrl}/api/admin/users/${u._id}/unblock`, "PATCH", u._id)
-                          }
-                        />
-                      ) : (
-                        <ActionBtn
-                          label="Bloquear"
-                          color="#f87171"
-                          disabled={!!actionLoading}
-                          onClick={() =>
-                            doAction(`${apiUrl}/api/admin/users/${u._id}/block`, "PATCH", u._id)
-                          }
-                        />
-                      )}
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
-                    No hay usuarios
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem" }}>
+        {[
+          { key: "users", label: "Usuarios" },
+          { key: "creators", label: `Solicitudes Creador${creatorRequests.length > 0 ? ` (${creatorRequests.length})` : ""}` },
+          { key: "reports", label: "Reportes" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              background: activeTab === tab.key ? "#7c3aed" : "transparent",
+              color: activeTab === tab.key ? "#fff" : "#94a3b8",
+              border: "1px solid",
+              borderColor: activeTab === tab.key ? "#7c3aed" : "#334155",
+              borderRadius: "6px",
+              padding: "0.4rem 1rem",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              fontWeight: activeTab === tab.key ? "700" : "500",
+              transition: "all 0.15s",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      <section>
-        <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Reportes recientes</h2>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-            <thead>
-              <tr style={{ background: "#1e293b" }}>
-                <Th>Tipo</Th>
-                <Th>Razón</Th>
-                <Th>Estado</Th>
-                <Th>Fecha</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map((r) => (
-                <tr key={r._id} style={{ borderBottom: "1px solid #334155" }}>
-                  <Td>{r.targetType}</Td>
-                  <Td>{r.reason}</Td>
-                  <Td>{r.status}</Td>
-                  <Td>{new Date(r.createdAt).toLocaleDateString()}</Td>
+      {activeTab === "users" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Usuarios recientes</h2>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead>
+                <tr style={{ background: "#1e293b" }}>
+                  <Th>Nombre</Th>
+                  <Th>Email</Th>
+                  <Th>Rol</Th>
+                  <Th>Estado</Th>
+                  <Th>Registrado</Th>
+                  <Th>Acciones</Th>
                 </tr>
-              ))}
-              {reports.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
-                    No hay reportes
-                  </td>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td>{u.name || u.username || "—"}</Td>
+                    <Td>{u.email}</Td>
+                    <Td>
+                      <select
+                        value={u.role}
+                        disabled={actionLoading === u._id + "role"}
+                        onChange={(e) => changeRole(u._id, e.target.value)}
+                        style={{
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                          border: "1px solid #334155",
+                          borderRadius: "4px",
+                          padding: "0.25rem 0.5rem",
+                          fontSize: "0.85rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="user">user</option>
+                        <option value="creator_pending">creator_pending</option>
+                        <option value="creator">creator</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </Td>
+                    <Td>
+                      <span style={{ color: u.isBlocked ? "#f87171" : "#4ade80", fontSize: "0.8rem" }}>
+                        {u.isBlocked ? "Bloqueado" : "Activo"}
+                      </span>
+                    </Td>
+                    <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {u.isBlocked ? (
+                          <ActionBtn
+                            label="Desbloquear"
+                            color="#4ade80"
+                            disabled={!!actionLoading}
+                            onClick={() =>
+                              doAction(`${apiUrl}/api/admin/users/${u._id}/unblock`, "PATCH", u._id)
+                            }
+                          />
+                        ) : (
+                          <ActionBtn
+                            label="Bloquear"
+                            color="#f87171"
+                            disabled={!!actionLoading}
+                            onClick={() =>
+                              doAction(`${apiUrl}/api/admin/users/${u._id}/block`, "PATCH", u._id)
+                            }
+                          />
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
+                      No hay usuarios
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "creators" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Solicitudes para ser Creador</h2>
+          {actionError && (
+            <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+              {actionError}
+            </div>
+          )}
+          {creatorRequests.length === 0 ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", background: "#1e293b", borderRadius: "0.75rem" }}>
+              No hay solicitudes pendientes
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                <thead>
+                  <tr style={{ background: "#1e293b" }}>
+                    <Th>Nombre</Th>
+                    <Th>Email</Th>
+                    <Th>Username</Th>
+                    <Th>Registrado</Th>
+                    <Th>Acciones</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {creatorRequests.map((u) => (
+                    <tr key={u._id} style={{ borderBottom: "1px solid #334155" }}>
+                      <Td>{u.name || "—"}</Td>
+                      <Td>{u.email}</Td>
+                      <Td>{u.username ? `@${u.username}` : "—"}</Td>
+                      <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <ActionBtn
+                            label="✓ Aprobar"
+                            color="#4ade80"
+                            disabled={!!actionLoading}
+                            onClick={() => handleCreatorAction(u._id, "approve")}
+                          />
+                          <ActionBtn
+                            label="✗ Rechazar"
+                            color="#f87171"
+                            disabled={!!actionLoading}
+                            onClick={() => handleCreatorAction(u._id, "reject")}
+                          />
+                        </div>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === "reports" && (
+        <section>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Reportes recientes</h2>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead>
+                <tr style={{ background: "#1e293b" }}>
+                  <Th>Tipo</Th>
+                  <Th>Razón</Th>
+                  <Th>Estado</Th>
+                  <Th>Fecha</Th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody>
+                {reports.map((r) => (
+                  <tr key={r._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td>{r.targetType}</Td>
+                    <Td>{r.reason}</Td>
+                    <Td>{r.status}</Td>
+                    <Td>{new Date(r.createdAt).toLocaleDateString()}</Td>
+                  </tr>
+                ))}
+                {reports.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
+                      No hay reportes
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-function StatCard({ title, value }) {
+function StatCard({ title, value, highlight }) {
   return (
     <div
       style={{
-        background: "#1e293b",
+        background: highlight ? "rgba(251,191,36,0.1)" : "#1e293b",
         borderRadius: "0.75rem",
         padding: "1.25rem 1.5rem",
         minWidth: "140px",
         textAlign: "center",
+        border: highlight ? "1px solid rgba(251,191,36,0.4)" : "1px solid transparent",
       }}
     >
-      <div style={{ fontSize: "2rem", fontWeight: "700" }}>{value}</div>
+      <div style={{ fontSize: "2rem", fontWeight: "700", color: highlight ? "#fbbf24" : undefined }}>{value}</div>
       <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.25rem" }}>{title}</div>
     </div>
   );

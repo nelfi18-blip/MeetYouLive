@@ -56,7 +56,11 @@ export default function Navbar() {
     signOut({ callbackUrl: "/login" });
   };
 
-  const displayName = session?.user?.name || username || "Usuario";
+  const displayName =
+    username ||
+    session?.user?.name ||
+    session?.user?.email?.split("@")[0] ||
+    "Usuario";
   const initial = displayName[0].toUpperCase();
 
   return (

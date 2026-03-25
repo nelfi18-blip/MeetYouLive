@@ -123,7 +123,12 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
-  const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
+  const displayName =
+    user?.username ||
+    user?.name ||
+    session?.user?.name ||
+    session?.user?.email?.split("@")[0] ||
+    "Usuario";
   const initial = displayName[0].toUpperCase();
 
   const ACTIONS = [

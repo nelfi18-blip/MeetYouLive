@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleLogin();
+    if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
   };
 
   return (
@@ -193,6 +193,10 @@ export default function AdminLoginPage() {
         <div className="admin-login-footer">
           <p className="footer-link">
             <Link href="/login">← Volver al inicio de sesión</Link>
+          </p>
+          <p className="footer-link footer-link-dim">
+            ¿Primera vez?{" "}
+            <Link href="/setup">Crear cuenta de administrador</Link>
           </p>
         </div>
       </div>
@@ -426,11 +430,19 @@ export default function AdminLoginPage() {
         .admin-login-footer {
           margin-top: 1.75rem;
           text-align: center;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
         }
 
         .footer-link {
           font-size: 0.875rem;
           color: var(--text-muted);
+        }
+
+        .footer-link-dim {
+          font-size: 0.8rem;
+          opacity: 0.6;
         }
 
         .footer-link :global(a) {

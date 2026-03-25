@@ -73,16 +73,44 @@ router.get("/check-admin", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/setup", async (req, res) => {
-  if (process.env.ALLOW_ADMIN_SETUP !== "true") {
-    return res.status(403).json({
-      message: "La creación pública de administradores está deshabilitada.",
-    });
-  }
+router.post("/setup", authLimiter, async (req, res) => {
+  try {
+    // Only allow creating the first admin when no admin account exists yet
+    const adminExists = await User.exists({ role: "admin" });
+    if (adminExists) {
+      return res.status(403).json({
+        message: "Ya existe un administrador. El acceso de configuración está deshabilitado.",
+      });
+    }
 
-  return res.status(403).json({
-    message: "Setup bloqueado temporalmente.",
-  });
+    const { username, password } = req.body;
+    const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "username, email y password son requeridos" });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ username, email, password: hashedPassword, role: "admin" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    res.status(201).json({ message: "Administrador creado correctamente", token });
+  } catch (err) {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyValue || {})[0];
+      if (field === "email") {
+        return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+      }
+      if (field === "username") {
+        return res.status(400).json({ message: "Ese nombre de usuario ya está en uso" });
+      }
+      return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
+    }
+    console.error("Setup error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
 });
 
 router.post("/google-session", authLimiter, async (req, res) => {

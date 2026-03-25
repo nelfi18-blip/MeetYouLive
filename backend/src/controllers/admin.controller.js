@@ -79,3 +79,45 @@ exports.makeAdmin = async (req, res) => {
     return res.status(500).json({ ok: false, message: "Error actualizando usuario" });
   }
 };
+
+exports.getCreatorRequests = async (req, res) => {
+  try {
+    const requests = await User.find({ creatorRequest: true, role: "creator_pending" }, "-password")
+      .sort({ createdAt: -1 })
+      .limit(100);
+    return res.json({ ok: true, requests });
+  } catch (error) {
+    console.error("Creator requests error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo solicitudes" });
+  }
+};
+
+exports.approveCreator = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "creator", creatorRequest: false, creatorApprovedAt: new Date() },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, user });
+  } catch (error) {
+    console.error("Approve creator error:", error);
+    return res.status(500).json({ ok: false, message: "Error aprobando solicitud" });
+  }
+};
+
+exports.rejectCreator = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "user", creatorRequest: false },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, user });
+  } catch (error) {
+    console.error("Reject creator error:", error);
+    return res.status(500).json({ ok: false, message: "Error rechazando solicitud" });
+  }
+};

@@ -97,6 +97,15 @@ function BroadcastIcon() {
     </svg>
   );
 }
+function StudioIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <circle cx="12" cy="12" r="3"/>
+      <line x1="3" y1="9" x2="21" y2="9"/>
+    </svg>
+  );
+}
 function ArrowIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -112,6 +121,7 @@ const COLOR_MAP = {
   orange: { bg: "rgba(251,146,60,0.08)",  border: "rgba(251,146,60,0.2)",  glow: "rgba(251,146,60,0.3)",  icon: "#fb923c" },
   purple: { bg: "rgba(224,64,251,0.08)",  border: "rgba(224,64,251,0.2)",  glow: "rgba(224,64,251,0.3)",  icon: "#e040fb" },
   red:    { bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)", glow: "rgba(248,113,113,0.3)", icon: "#f87171" },
+  green:  { bg: "rgba(52,211,153,0.08)",  border: "rgba(52,211,153,0.2)",  glow: "rgba(52,211,153,0.3)",  icon: "#34d399" },
 };
 
 export default function DashboardPage() {
@@ -188,7 +198,10 @@ export default function DashboardPage() {
     session?.user?.email?.split("@")[0] ||
     "Usuario";
   const allCards = user?.role === "creator"
-    ? [...CARDS, { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" }]
+    ? [...CARDS,
+        { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" },
+        { href: "/creator", title: "Estudio Creador", sub: "Ganancias, directos y más", icon: StudioIcon, color: "green", size: "normal" },
+      ]
     : CARDS;
 
   return (

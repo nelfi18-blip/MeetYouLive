@@ -20,11 +20,14 @@ const handler = NextAuth({
       return true;
     },
 
-    async jwt({ token, account, profile }) {
+    async jwt({ token, user, account, profile }) {
+      if (user) {
+        token.name = user.name;
+        token.email = user.email;
+      }
+
       if (account && profile) {
         token.accessToken = account.access_token;
-        token.name = profile.name;
-        token.email = profile.email;
 
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -35,7 +38,7 @@ const handler = NextAuth({
           const res = await fetch(`${apiUrl}/api/auth/google-session`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ email: profile.email, name: profile.name }),
+            body: JSON.stringify({ email: token.email, name: token.name }),
           });
 
           if (res.ok) {

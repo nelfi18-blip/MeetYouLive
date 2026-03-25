@@ -118,6 +118,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
 
   const backendToken = session?.backendToken ?? null;
 
@@ -130,6 +131,7 @@ export default function DashboardPage() {
 
     const token = getToken();
     if (!token) {
+      setUserLoading(false);
       if (status === "authenticated") {
         signOut({ callbackUrl: "/login" }).catch(() => {
           router.replace("/login");
@@ -153,11 +155,14 @@ export default function DashboardPage() {
         }
         return r.json();
       })
-      .then((d) => { if (d) setUser(d); })
-      .catch(() => {});
+      .then((d) => {
+        if (d) setUser(d);
+        setUserLoading(false);
+      })
+      .catch(() => { setUserLoading(false); });
   }, [status, backendToken]);
 
-  if (status === "loading") {
+  if (status === "loading" || userLoading) {
     return (
       <div className="dashboard">
         <div className="hero-skeleton">

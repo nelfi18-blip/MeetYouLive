@@ -199,6 +199,8 @@ export default function DashboardPage() {
   const displayName =
     user?.username ||
     user?.name ||
+    session?.backendUser?.username ||
+    session?.backendUser?.name ||
     session?.user?.name ||
     session?.user?.email?.split("@")[0] ||
     "Usuario";

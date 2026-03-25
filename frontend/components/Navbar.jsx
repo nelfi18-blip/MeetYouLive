@@ -33,6 +33,7 @@ export default function Navbar() {
   const [coins, setCoins] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
+  const [role, setRole] = useState("");
 
   useEffect(() => {
     const token =
@@ -42,7 +43,7 @@ export default function Navbar() {
 
     fetch(`${API_URL}/api/user/me`, { headers })
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setUsername(d.username || d.name || ""); })
+      .then((d) => { if (d) { setUsername(d.username || d.name || ""); setRole(d.role || ""); } })
       .catch(() => {});
 
     fetch(`${API_URL}/api/user/coins`, { headers })
@@ -56,7 +57,20 @@ export default function Navbar() {
     signOut({ callbackUrl: "/login" });
   };
 
-  const displayName = session?.user?.name || username || "Usuario";
+  const displayName =
+    username ||
+    session?.backendUser?.username ||
+    session?.backendUser?.name ||
+    session?.user?.name ||
+    session?.user?.email?.split("@")[0] ||
+    "Usuario";
+  const effectiveRole = role || session?.backendUser?.role || "";
+  const displayRole =
+    effectiveRole === "admin"
+      ? "Administrador"
+      : effectiveRole === "creator"
+      ? "Creador"
+      : "Miembro";
   const initial = displayName[0].toUpperCase();
 
   return (
@@ -122,7 +136,7 @@ export default function Navbar() {
                   <div className="dropdown-avatar">{initial}</div>
                   <div>
                     <div className="dropdown-name">{displayName}</div>
-                    <div className="dropdown-role">Miembro</div>
+                    <div className="dropdown-role">{displayRole}</div>
                   </div>
                 </div>
                 <div className="dropdown-divider" />

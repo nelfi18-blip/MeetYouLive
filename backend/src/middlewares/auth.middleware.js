@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User.js");
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -15,6 +16,9 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("isBlocked");
+    if (!user) return res.status(401).json({ message: "Token inválido" });
+    if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada" });
     req.userId = decoded.id;
     next();
   } catch (err) {

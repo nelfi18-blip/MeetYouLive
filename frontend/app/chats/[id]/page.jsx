@@ -22,6 +22,7 @@ export default function ChatConversationPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
+      clearToken();
       router.replace("/login");
       return;
     }

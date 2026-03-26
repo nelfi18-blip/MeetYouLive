@@ -1,7 +1,7 @@
-const User = require("../models/User");
-const Live = require("../models/Live");
-const Report = require("../models/Report");
-const Subscription = require("../models/Subscription");
+const User = require("../models/User.js");
+const Live = require("../models/Live.js");
+const Report = require("../models/Report.js");
+const Subscription = require("../models/Subscription.js");
 
 exports.getOverview = async (req, res) => {
   try {

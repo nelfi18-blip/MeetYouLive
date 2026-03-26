@@ -4,7 +4,7 @@ const purchaseSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     video: { type: mongoose.Schema.Types.ObjectId, ref: "Video", required: true },
-    amount: Number,
+    amount: { type: Number, required: true, min: 0 },
     stripeSessionId: String,
   },
   { timestamps: true }

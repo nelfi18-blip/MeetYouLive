@@ -15,6 +15,13 @@ const createSubscriptionSession = async (req, res) => {
     if (!customerId) {
       const customer = await stripe.customers.create({ email: user.email });
       customerId = customer.id;
+      // Persist the customer ID immediately so future calls reuse the same
+      // Stripe customer even if the checkout webhook hasn't fired yet.
+      await Subscription.findOneAndUpdate(
+        { user: req.userId },
+        { user: req.userId, stripeCustomerId: customerId },
+        { upsert: true, new: true }
+      );
     }
 
     const session = await stripe.checkout.sessions.create({

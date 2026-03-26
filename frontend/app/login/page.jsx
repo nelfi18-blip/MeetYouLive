@@ -54,19 +54,16 @@ function LoginForm() {
           .then((data) => {
             if (data?.token) {
               setToken(data.token);
-              router.replace("/dashboard");
-            } else {
-              setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
-              clearToken();
-              signOut({ redirect: false });
-              setChecking(false);
             }
+            // Whether or not the backend token was obtained, the user is
+            // Google-authenticated – send them to the dashboard. The dashboard
+            // and Navbar degrade gracefully when no backend token is present.
+            router.replace("/dashboard");
           })
-          .catch(() => {
-            setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");
-            clearToken();
-            signOut({ redirect: false });
-            setChecking(false);
+          .catch((err) => {
+            // Network error – still Google-authenticated, so go to dashboard.
+            console.error("[auth] backend-token fetch failed:", err);
+            router.replace("/dashboard");
           });
       } else {
         setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");

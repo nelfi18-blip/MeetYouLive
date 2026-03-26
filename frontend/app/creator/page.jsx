@@ -72,7 +72,7 @@ export default function CreatorPage() {
 
     Promise.all([
       fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_URL}/api/lives?mine=true`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/api/lives/mine`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
       .then(async ([userRes, livesRes]) => {
         if (userRes.status === 401) {

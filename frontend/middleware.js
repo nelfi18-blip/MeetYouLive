@@ -21,6 +21,9 @@ export function middleware(request) {
   const isProtectedRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/profile") ||
+    pathname.startsWith("/creator") ||
+    pathname.startsWith("/chats") ||
+    pathname.startsWith("/coins") ||
     (pathname.startsWith("/admin") && pathname !== "/admin/login");
 
   // Only redirect away from auth pages once the backend session is confirmed.

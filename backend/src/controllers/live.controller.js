@@ -53,4 +53,14 @@ const getLiveById = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById };
+const getMyLives = async (req, res) => {
+  try {
+    const lives = await Live.find({ user: req.userId })
+      .sort({ createdAt: -1 });
+    res.json(lives);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, getMyLives };

@@ -44,7 +44,11 @@ app.use(
   cors({
     origin: (origin, cb) => {
       // Si no hay origen (como apps móviles o curl) o está en la lista, permitir
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)
+      ) {
         cb(null, true);
       } else {
         console.log("Bloqueado por CORS:", origin);

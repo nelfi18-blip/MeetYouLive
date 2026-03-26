@@ -142,6 +142,9 @@ export default function DashboardPage() {
     const token = getToken();
     if (!token) {
       setUserLoading(false);
+      // Clear the auth-session cookie so the middleware doesn't redirect back
+      // to /dashboard, which would create an infinite redirect loop.
+      clearToken();
       if (status === "authenticated") {
         signOut({ callbackUrl: "/login" }).catch(() => {
           router.replace("/login");

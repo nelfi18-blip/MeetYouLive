@@ -45,9 +45,36 @@ function LoginForm() {
       if (session?.backendToken) {
         setToken(session.backendToken);
         router.replace("/dashboard");
+      } else if (session?.user?.email) {
+        // Google auth succeeded but backend token is not in the NextAuth session.
+        // Call the backend directly to create/find the user and obtain a token.
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: session.user.email,
+            name: session.user.name || "",
+          }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.token) {
+              setToken(data.token);
+              router.replace("/dashboard");
+            } else {
+              setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+              clearToken();
+              signOut({ redirect: false });
+              setChecking(false);
+            }
+          })
+          .catch(() => {
+            setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");
+            clearToken();
+            signOut({ redirect: false });
+            setChecking(false);
+          });
       } else {
-        // Authenticated via Google but backend token is unavailable.
-        // Clear the stale NextAuth session so the user can try again cleanly.
         setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
         clearToken();
         signOut({ redirect: false });
@@ -137,7 +164,7 @@ function LoginForm() {
         {/* Google first, matching mockup */}
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          onClick={() => signIn("google", { callbackUrl: "/login" })}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

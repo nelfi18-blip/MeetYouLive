@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -19,7 +18,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("users");
 
   const loadAdminData = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     try {
       const [overviewRes, usersRes, reportsRes, creatorReqRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -29,8 +28,8 @@ export default function AdminPage() {
       ]);
 
       if ([overviewRes, usersRes, reportsRes, creatorReqRes].some((r) => r.status === 401)) {
-        clearToken();
-        router.replace("/login");
+        localStorage.removeItem("admin_token");
+        router.replace("/admin/login");
         return;
       }
       if ([overviewRes, usersRes, reportsRes].some((r) => r.status === 403)) {
@@ -61,16 +60,16 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     if (!token) {
-      router.replace("/login");
+      router.replace("/admin/login");
       return;
     }
     loadAdminData();
   }, [router]);
 
   const doAction = async (url, method, userId) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     setActionLoading(userId + url);
     try {
       const res = await fetch(url, {
@@ -97,7 +96,7 @@ export default function AdminPage() {
   };
 
   const changeRole = async (userId, role) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     setActionLoading(userId + "role");
     try {
       const res = await fetch(`${apiUrl}/api/admin/users/${userId}/role`, {
@@ -124,7 +123,7 @@ export default function AdminPage() {
   };
 
   const handleCreatorAction = async (userId, action) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     setActionLoading(userId + action);
     setActionError("");
     try {

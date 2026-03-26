@@ -3,14 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login as authLogin } from "@/lib/auth.service";
-import { setToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,17 +16,16 @@ export default function AdminLoginPage() {
 
   // If already logged in as admin, redirect directly to /admin
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
     if (!token) {
       setChecking(false);
       return;
     }
-    fetch(`${apiUrl}/api/user/me`, {
+    fetch(`${apiUrl}/api/admin/overview`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((user) => {
-        if (user?.role === "admin") {
+      .then((res) => {
+        if (res.ok) {
           router.replace("/admin");
         } else {
           setChecking(false);
@@ -47,45 +44,30 @@ export default function AdminLoginPage() {
     );
   }
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Por favor, introduce el email y la contraseña.");
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!username || !password) {
+      setError("Por favor, introduce el usuario y la contraseña.");
       return;
     }
     setError("");
     setLoading(true);
 
     try {
-      const data = await authLogin({ email, password });
-
-      if (data.error) {
-        setError(data.error);
-        return;
-      }
-
-      if (!data.token) {
-        setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
-        return;
-      }
-
-      // Verify the user has admin role
-      const meRes = await fetch(`${apiUrl}/api/user/me`, {
-        headers: { Authorization: `Bearer ${data.token}` },
+      const res = await fetch(`${apiUrl}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
 
-      if (!meRes.ok) {
-        setError("No se pudo verificar el rol del usuario.");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Credenciales inválidas.");
         return;
       }
 
-      const me = await meRes.json();
-
-      if (me.role !== "admin") {
-        setError("No tienes permisos de administrador.");
-        return;
-      }
-
-      setToken(data.token);
+      localStorage.setItem("admin_token", data.token);
       router.push("/admin");
     } catch {
       setError("No se pudo conectar con el servidor.");
@@ -156,12 +138,12 @@ export default function AdminLoginPage() {
         <div className="admin-login-form">
           <input
             className="input input-lg"
-            type="email"
-            placeholder="EMAIL"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="USUARIO"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoComplete="email"
+            autoComplete="username"
           />
 
           <input

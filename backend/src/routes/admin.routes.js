@@ -1,4 +1,6 @@
 const { Router } = require("express");
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin } = require("../middlewares/admin.middleware.js");
@@ -13,6 +15,64 @@ const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+});
+
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: "Demasiados intentos de acceso, intenta de nuevo más tarde" },
+});
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Always compares same-length buffers to avoid leaking length information.
+ */
+function timingSafeStringEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const maxLen = Math.max(Buffer.byteLength(a, "utf8"), Buffer.byteLength(b, "utf8"));
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  bufA.write(a, "utf8");
+  bufB.write(b, "utf8");
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// Public admin login — validates against ADMIN_USER/ADMIN_PASS env vars
+router.post("/login", adminLoginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "username y password son requeridos" });
+    }
+
+    const adminUser = process.env.ADMIN_USER || "";
+    const adminPass = process.env.ADMIN_PASS || "";
+
+    const credentialsValid =
+      timingSafeStringEqual(username, adminUser) &&
+      timingSafeStringEqual(password, adminPass);
+
+    if (!credentialsValid) {
+      return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    // Find the admin user in the database to obtain a valid user ID for the JWT.
+    // The database user's username must match ADMIN_USER and have the admin role.
+    const user = await User.findOne({ username, role: "admin" });
+    if (!user) {
+      return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      token,
+      user: { id: user._id, username: user.username, role: user.role },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error servidor" });
+  }
 });
 
 // All routes below require a valid JWT and admin role

@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import { setToken, clearToken, getToken } from "@/lib/token";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_URL) {
-  console.error("NEXT_PUBLIC_API_URL no está configurada");
-}
+import { useSession } from "next-auth/react";
 
 const CARDS = [
   {
@@ -129,95 +122,22 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
-  // Prevents triggering the proxy-token fetch more than once per mount.
-  // useRef instead of useState so updating it doesn't re-trigger the effect
-  // and cause a premature logout before the fetch completes.
-  const tokenFetchAttempted = useRef(false);
-
-  const backendToken = session?.backendToken ?? null;
 
   useEffect(() => {
     if (status === "loading") return;
 
-    if (backendToken) {
-      setToken(backendToken);
-    }
-
-    const token = getToken();
-    if (!token) {
-      // No token in localStorage or session. If the user has an active Google
-      // OAuth session, the backend JWT may not have been obtained during the
-      // NextAuth jwt() callback (e.g. backend was cold-starting). Try to fetch
-      // it now via the server-side proxy before giving up and logging out.
-      if (status === "authenticated" && session?.googleEmail && !tokenFetchAttempted.current) {
-        tokenFetchAttempted.current = true;
-        fetch("/api/auth/backend-token", { method: "POST" })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data?.token) {
-              setToken(data.token);
-              // Reload user data with the newly obtained token.
-              fetch(`${API_URL}/api/user/me`, {
-                headers: { Authorization: `Bearer ${data.token}` },
-              })
-                .then((r) => (r.ok ? r.json() : null))
-                .then((d) => {
-                  if (d) setUser(d);
-                  setUserLoading(false);
-                })
-                .catch(() => { setUserLoading(false); });
-            } else {
-              // Proxy also failed — clear everything and redirect to login.
-              setUserLoading(false);
-              clearToken();
-              signOut({ callbackUrl: "/login" }).catch(() => {
-                router.replace("/login");
-              });
-            }
-          })
-          .catch(() => {
-            setUserLoading(false);
-            clearToken();
-            signOut({ callbackUrl: "/login" }).catch(() => {
-              router.replace("/login");
-            });
-          });
-        return;
-      }
-
-      setUserLoading(false);
-      // Clear the auth-session cookie so the middleware doesn't redirect back
-      // to /dashboard, which would create an infinite redirect loop.
-      clearToken();
-      if (status === "authenticated") {
-        signOut({ callbackUrl: "/login" }).catch(() => {
-          router.replace("/login");
-        });
-      } else {
-        router.replace("/login");
-      }
+    if (status !== "authenticated") {
+      router.replace("/login");
       return;
     }
 
-    fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) {
-          if (r.status === 401) {
-            clearToken();
-            router.replace("/login");
-          }
-          return null;
-        }
-        return r.json();
-      })
-      .then((d) => {
-        if (d) setUser(d);
-        setUserLoading(false);
-      })
-      .catch(() => { setUserLoading(false); });
-  }, [status, backendToken, session]);
+    setUser({
+      username: session?.user?.name || session?.user?.email?.split("@")[0] || "Usuario",
+      coins: 0,
+      role: "user",
+    });
+    setUserLoading(false);
+  }, [status, session, router]);
 
   if (status === "loading" || userLoading) {
     return (

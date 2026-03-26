@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-export const authOptions = {
+const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -17,56 +17,32 @@ export const authOptions = {
 
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 
   callbacks: {
-    async jwt({ token, account, profile }) {
-      // On first sign-in via Google, fetch the backend token server-side so it
-      // is available immediately when the user reaches the dashboard, preventing
-      // the redirect loop caused by an empty backendToken on arrival.
-      if (account && profile) {
-        token.googleEmail = profile.email;
-        token.googleName = profile.name || "";
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-          const res = await fetch(`${apiUrl}/api/auth/google-session`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "",
-            },
-            body: JSON.stringify({
-              email: profile.email,
-              name: profile.name || "",
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            token.backendToken = data.token || null;
-            token.backendUser = data.user || null;
-          } else {
-            token.backendToken = null;
-            token.backendUser = null;
-          }
-        } catch {
-          token.backendToken = null;
-          token.backendUser = null;
-        }
+    async signIn() {
+      return true;
+    },
+
+    async jwt({ token, profile }) {
+      if (profile) {
+        token.name = profile.name || token.name || "";
+        token.email = profile.email || token.email || "";
+        token.picture = profile.picture || token.picture || "";
       }
       return token;
     },
 
     async session({ session, token }) {
-      session.backendToken = token.backendToken || null;
-      session.backendUser = token.backendUser || null;
-      // Expose the Google email so the proxy route can use it for token refresh
-      session.googleEmail = token.googleEmail || null;
-      session.googleName = token.googleName || null;
+      if (session.user) {
+        session.user.name = token.name || session.user.name || "";
+        session.user.email = token.email || session.user.email || "";
+        session.user.image = token.picture || session.user.image || "";
+      }
       return session;
     },
   },
-};
-
-const handler = NextAuth(authOptions);
+});
 
 export { handler as GET, handler as POST };

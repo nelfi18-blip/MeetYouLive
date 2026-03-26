@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -130,7 +130,9 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
   // Prevents triggering the proxy-token fetch more than once per mount.
-  const [tokenFetchAttempted, setTokenFetchAttempted] = useState(false);
+  // useRef instead of useState so updating it doesn't re-trigger the effect
+  // and cause a premature logout before the fetch completes.
+  const tokenFetchAttempted = useRef(false);
 
   const backendToken = session?.backendToken ?? null;
 
@@ -147,8 +149,8 @@ export default function DashboardPage() {
       // OAuth session, the backend JWT may not have been obtained during the
       // NextAuth jwt() callback (e.g. backend was cold-starting). Try to fetch
       // it now via the server-side proxy before giving up and logging out.
-      if (status === "authenticated" && session?.googleEmail && !tokenFetchAttempted) {
-        setTokenFetchAttempted(true);
+      if (status === "authenticated" && session?.googleEmail && !tokenFetchAttempted.current) {
+        tokenFetchAttempted.current = true;
         fetch("/api/auth/backend-token", { method: "POST" })
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
@@ -215,7 +217,7 @@ export default function DashboardPage() {
         setUserLoading(false);
       })
       .catch(() => { setUserLoading(false); });
-  }, [status, backendToken, session, tokenFetchAttempted]);
+  }, [status, backendToken, session]);
 
   if (status === "loading" || userLoading) {
     return (

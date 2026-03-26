@@ -20,12 +20,36 @@ const handler = NextAuth({
   },
 
   callbacks: {
-    async jwt({ token, account }) {
-      // On first sign-in via Google, mark backend token as pending (to be
-      // fetched client-side on the login page to avoid server-side fetch issues).
-      if (account) {
-        token.backendToken = null;
-        token.backendUser = null;
+    async jwt({ token, account, profile }) {
+      // On first sign-in via Google, fetch the backend token server-side so it
+      // is available immediately when the user reaches the dashboard, preventing
+      // the redirect loop caused by an empty backendToken on arrival.
+      if (account && profile) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+          const res = await fetch(`${apiUrl}/api/auth/google-session`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "",
+            },
+            body: JSON.stringify({
+              email: profile.email,
+              name: profile.name || "",
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            token.backendToken = data.token || null;
+            token.backendUser = data.user || null;
+          } else {
+            token.backendToken = null;
+            token.backendUser = null;
+          }
+        } catch {
+          token.backendToken = null;
+          token.backendUser = null;
+        }
       }
       return token;
     },

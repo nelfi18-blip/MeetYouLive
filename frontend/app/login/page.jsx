@@ -45,17 +45,11 @@ function LoginForm() {
       if (session?.backendToken) {
         setToken(session.backendToken);
         router.replace("/dashboard");
-      } else if (session?.user?.email) {
-        // Google auth succeeded but backend token is not in the NextAuth session.
-        // Call the backend directly to create/find the user and obtain a token.
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google-session`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: session.user.email,
-            name: session.user.name || "",
-          }),
-        })
+      } else if (session?.googleEmail) {
+        // Google auth succeeded but backend token is not in the NextAuth session
+        // (the server-side jwt() callback failed, e.g. backend was cold-starting).
+        // Call the server-side proxy, which adds the INTERNAL_API_SECRET for us.
+        fetch("/api/auth/backend-token", { method: "POST" })
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
             if (data?.token) {

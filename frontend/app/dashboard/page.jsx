@@ -129,6 +129,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  // Prevents triggering the proxy-token fetch more than once per mount.
+  const [tokenFetchAttempted, setTokenFetchAttempted] = useState(false);
 
   const backendToken = session?.backendToken ?? null;
 
@@ -141,6 +143,46 @@ export default function DashboardPage() {
 
     const token = getToken();
     if (!token) {
+      // No token in localStorage or session. If the user has an active Google
+      // OAuth session, the backend JWT may not have been obtained during the
+      // NextAuth jwt() callback (e.g. backend was cold-starting). Try to fetch
+      // it now via the server-side proxy before giving up and logging out.
+      if (status === "authenticated" && session?.googleEmail && !tokenFetchAttempted) {
+        setTokenFetchAttempted(true);
+        fetch("/api/auth/backend-token", { method: "POST" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.token) {
+              setToken(data.token);
+              // Reload user data with the newly obtained token.
+              fetch(`${API_URL}/api/user/me`, {
+                headers: { Authorization: `Bearer ${data.token}` },
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => {
+                  if (d) setUser(d);
+                  setUserLoading(false);
+                })
+                .catch(() => { setUserLoading(false); });
+            } else {
+              // Proxy also failed — clear everything and redirect to login.
+              setUserLoading(false);
+              clearToken();
+              signOut({ callbackUrl: "/login" }).catch(() => {
+                router.replace("/login");
+              });
+            }
+          })
+          .catch(() => {
+            setUserLoading(false);
+            clearToken();
+            signOut({ callbackUrl: "/login" }).catch(() => {
+              router.replace("/login");
+            });
+          });
+        return;
+      }
+
       setUserLoading(false);
       // Clear the auth-session cookie so the middleware doesn't redirect back
       // to /dashboard, which would create an infinite redirect loop.
@@ -173,7 +215,7 @@ export default function DashboardPage() {
         setUserLoading(false);
       })
       .catch(() => { setUserLoading(false); });
-  }, [status, backendToken]);
+  }, [status, backendToken, session, tokenFetchAttempted]);
 
   if (status === "loading" || userLoading) {
     return (

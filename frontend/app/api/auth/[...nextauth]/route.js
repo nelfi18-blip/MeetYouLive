@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -25,6 +25,8 @@ const handler = NextAuth({
       // is available immediately when the user reaches the dashboard, preventing
       // the redirect loop caused by an empty backendToken on arrival.
       if (account && profile) {
+        token.googleEmail = profile.email;
+        token.googleName = profile.name || "";
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL;
           const res = await fetch(`${apiUrl}/api/auth/google-session`, {
@@ -57,9 +59,14 @@ const handler = NextAuth({
     async session({ session, token }) {
       session.backendToken = token.backendToken || null;
       session.backendUser = token.backendUser || null;
+      // Expose the Google email so the proxy route can use it for token refresh
+      session.googleEmail = token.googleEmail || null;
+      session.googleName = token.googleName || null;
       return session;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "seed:admin": "node scripts/seed-admin.js",
+    "create-admin": "node scripts/createAdmin.js",
     "test:db": "node scripts/test-db-connection.js"
   },
   "engines": {

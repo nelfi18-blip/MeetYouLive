@@ -8,7 +8,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,8 +46,8 @@ export default function AdminLoginPage() {
 
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
-    if (!username || !password) {
-      setError("Por favor, introduce el usuario y la contraseña.");
+    if (!email || !password) {
+      setError("Por favor, introduce el email y la contraseña.");
       return;
     }
     setError("");
@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
       const res = await fetch(`${apiUrl}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
@@ -68,6 +68,7 @@ export default function AdminLoginPage() {
       }
 
       localStorage.setItem("admin_token", data.token);
+      if (data.user) localStorage.setItem("admin_user", JSON.stringify(data.user));
       router.push("/admin");
     } catch {
       setError("No se pudo conectar con el servidor.");
@@ -138,12 +139,12 @@ export default function AdminLoginPage() {
         <div className="admin-login-form">
           <input
             className="input input-lg"
-            type="text"
-            placeholder="USUARIO"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            type="email"
+            placeholder="CORREO DEL ADMINISTRADOR"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoComplete="username"
+            autoComplete="email"
           />
 
           <input

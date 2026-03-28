@@ -3,12 +3,15 @@ const path = require("path");
 
 const app = require(path.join(__dirname, "src", "app"));
 const connectDB = require(path.join(__dirname, "src", "config", "db"));
+const { createAdminIfNotExists } = require(path.join(__dirname, "src", "utils", "createAdminIfNotExists"));
 
 const PORT = process.env.PORT || 10000;
 
 // Iniciar base de datos y luego el servidor
 connectDB()
-  .then(() => {
+  .then(async () => {
+    await createAdminIfNotExists();
+
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Servidor MeetYouLive listo en puerto ${PORT}`);
     });

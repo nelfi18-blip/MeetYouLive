@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getToken } from "next-auth/jwt";
 
 /**
  * POST /api/auth/backend-token
@@ -9,12 +8,17 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
  * still allowing the dashboard (and login page) to recover a backend JWT when
  * the server-side NextAuth jwt() callback failed (e.g. backend was sleeping).
  *
- * Requires a valid NextAuth session – returns 401 if none is present.
+ * Uses getToken() from next-auth/jwt to read the session directly from the
+ * request cookies, which is more reliable in Next.js 15 App Router than
+ * getServerSession().
  */
-export async function POST() {
-  const session = await getServerSession(authOptions);
+export async function POST(request) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
 
-  if (!session?.googleEmail) {
+  if (!token?.googleEmail) {
     console.warn("[backend-token] No valid NextAuth session or missing googleEmail");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -42,8 +46,8 @@ export async function POST() {
         "x-internal-api-secret": internalSecret,
       },
       body: JSON.stringify({
-        email: session.googleEmail,
-        name: session.googleName || "",
+        email: token.googleEmail,
+        name: token.googleName || "",
       }),
       signal: controller.signal,
     });

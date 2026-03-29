@@ -3,7 +3,7 @@ const path = require("path");
 
 const app = require(path.join(__dirname, "src", "app"));
 const connectDB = require(path.join(__dirname, "src", "config", "db"));
-const { createAdminIfNotExists } = require(path.join(__dirname, "src", "utils", "createAdminIfNotExists"));
+const createAdminIfNotExists = require(path.join(__dirname, "src", "utils", "createAdminIfNotExists"));
 
 const PORT = process.env.PORT || 10000;
 

@@ -150,16 +150,19 @@ function LoginForm() {
 
       if (data.error) {
         setError(data.error);
+        setLoading(false);
         return;
       }
 
       if (data.token) {
         setToken(data.token);
-        router.push("/dashboard");
+        router.replace("/dashboard");
+        return;
       }
+
+      setLoading(false);
     } catch {
       setError("No se pudo conectar con el servidor");
-    } finally {
       setLoading(false);
     }
   };

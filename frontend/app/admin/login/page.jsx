@@ -69,7 +69,7 @@ export default function AdminLoginPage() {
       localStorage.setItem("admin_token", data.token);
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
-      window.location.href = "/admin/dashboard";
+      window.location.href = "/admin";
     } catch (error) {
       setError("No se pudo conectar con el servidor.");
     } finally {

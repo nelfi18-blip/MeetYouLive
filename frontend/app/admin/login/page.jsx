@@ -8,7 +8,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,31 +45,41 @@ export default function AdminLoginPage() {
   }
 
   const handleLogin = async (e) => {
-    if (e) e.preventDefault();
-    if (!username || !password) {
-      setError("Por favor, introduce el usuario y la contraseña.");
-      return;
-    }
+    e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
+      if (!apiUrl) {
+        setError("NEXT_PUBLIC_API_URL no está configurada");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${apiUrl}/api/admin/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(data.message || "Credenciales inválidas.");
+        setError(data?.message || "No se pudo iniciar sesión");
         return;
       }
 
       localStorage.setItem("admin_token", data.token);
-      router.push("/admin");
-    } catch {
+      localStorage.setItem("admin_user", JSON.stringify(data.user));
+
+      window.location.href = "/admin";
+    } catch (err) {
+      console.error("Admin login error:", err);
       setError("No se pudo conectar con el servidor.");
     } finally {
       setLoading(false);
@@ -138,12 +148,12 @@ export default function AdminLoginPage() {
         <div className="admin-login-form">
           <input
             className="input input-lg"
-            type="text"
-            placeholder="USUARIO"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            type="email"
+            placeholder="Correo del administrador"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoComplete="username"
+            autoComplete="email"
           />
 
           <input

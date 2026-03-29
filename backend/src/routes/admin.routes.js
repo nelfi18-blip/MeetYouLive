@@ -1,6 +1,6 @@
 const { Router } = require("express");
-const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin } = require("../middlewares/admin.middleware.js");
@@ -23,55 +23,71 @@ const adminLoginLimiter = rateLimit({
   message: { message: "Demasiados intentos de acceso, intenta de nuevo más tarde" },
 });
 
-/**
- * Constant-time string comparison to prevent timing attacks.
- * Always compares same-length buffers to avoid leaking length information.
- */
-function timingSafeStringEqual(a, b) {
-  if (typeof a !== "string" || typeof b !== "string") return false;
-  const maxLen = Math.max(Buffer.byteLength(a, "utf8"), Buffer.byteLength(b, "utf8"));
-  const bufA = Buffer.alloc(maxLen);
-  const bufB = Buffer.alloc(maxLen);
-  bufA.write(a, "utf8");
-  bufB.write(b, "utf8");
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-// Public admin login — validates against ADMIN_USER/ADMIN_PASS env vars
+// Public admin login — validates email/password against the database
 router.post("/login", adminLoginLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ message: "username y password son requeridos" });
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email y contraseña son requeridos",
+      });
     }
 
-    const adminUser = process.env.ADMIN_USER || "";
-    const adminPass = process.env.ADMIN_PASS || "";
+    const adminUser = await User.findOne({ email });
 
-    const credentialsValid =
-      timingSafeStringEqual(username, adminUser) &&
-      timingSafeStringEqual(password, adminPass);
-
-    if (!credentialsValid) {
-      return res.status(401).json({ message: "Credenciales inválidas" });
+    if (!adminUser) {
+      return res.status(401).json({
+        message: "Credenciales inválidas",
+      });
     }
 
-    // Find the admin user in the database to obtain a valid user ID for the JWT.
-    // The database user's username must match ADMIN_USER and have the admin role.
-    const user = await User.findOne({ username, role: "admin" });
-    if (!user) {
-      return res.status(401).json({ message: "Credenciales inválidas" });
+    if (adminUser.role !== "admin") {
+      return res.status(403).json({
+        message: "Acceso solo para administradores",
+      });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    if (!adminUser.password) {
+      return res.status(401).json({
+        message: "Credenciales inválidas",
+      });
+    }
 
-    res.json({
+    const isMatch = await bcrypt.compare(password, adminUser.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Credenciales inválidas",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: adminUser._id,
+        email: adminUser.email,
+        username: adminUser.username,
+        role: adminUser.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
       token,
-      user: { id: user._id, username: user.username, role: user.role },
+      user: {
+        id: adminUser._id,
+        name: adminUser.name,
+        username: adminUser.username,
+        email: adminUser.email,
+        role: adminUser.role,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error servidor" });
+    console.error("Admin login error:", error);
+    return res.status(500).json({
+      message: "Error del servidor",
+    });
   }
 });
 

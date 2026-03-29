@@ -48,11 +48,11 @@ function LoginForm() {
       } else if (session?.googleEmail) {
         // Google auth succeeded but backend token is not in the NextAuth session
         // (the server-side jwt() callback failed, e.g. backend was cold-starting).
-        // Show a "connecting" state and retry up to 3 times before giving up.
+        // Show a "connecting" state and retry up to 5 times before giving up.
         setInfo("Conectando con el servidor…");
 
-        const maxAttempts = 3;
-        const retryDelay = 3000; // ms between retries
+        const maxAttempts = 5;
+        const retryDelay = 2000; // ms between retries
 
         const tryFetchToken = (attempt) => {
           fetch("/api/auth/backend-token", { method: "POST" })
@@ -176,7 +176,7 @@ function LoginForm() {
         {/* Google first, matching mockup */}
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          onClick={() => signIn("google", { callbackUrl: "/login" })}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

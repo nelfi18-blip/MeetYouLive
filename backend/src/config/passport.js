@@ -2,6 +2,7 @@ const passport = require("passport");
 const { Strategy: GoogleStrategy } = require("passport-google-oauth20");
 const crypto = require("crypto");
 const User = require("../models/User.js");
+const { generateUniqueUsername } = require("../services/username.service.js");
 
 passport.use(
   new GoogleStrategy(
@@ -20,11 +21,16 @@ passport.use(
         let user = await User.findOne({ email });
 
         if (!user) {
+          const username = await generateUniqueUsername(email);
           user = await User.create({
             name: profile.displayName,
+            username,
             email,
             password: crypto.randomBytes(32).toString("hex"),
           });
+        } else if (!user.username) {
+          user.username = await generateUniqueUsername(email, user._id);
+          await user.save();
         }
 
         done(null, user);

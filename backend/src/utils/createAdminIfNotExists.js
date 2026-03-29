@@ -8,14 +8,14 @@ async function createAdminIfNotExists() {
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminName || !adminEmail || !adminPassword) {
-      console.log("Admin env vars incompletas, se omite creación de admin");
+      console.log("⚠️ Admin env vars incompletas, se omite creación de admin");
       return;
     }
 
     const existing = await User.findOne({ email: adminEmail });
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     if (!existing) {
-      const hashedPassword = await bcrypt.hash(adminPassword, 10);
       await User.create({
         name: adminName,
         username: adminName,
@@ -26,40 +26,21 @@ async function createAdminIfNotExists() {
         earningsCoins: 0,
       });
 
-      console.log("Admin creado automáticamente");
+      console.log("✅ Admin creado automáticamente");
       return;
     }
 
-    let changed = false;
+    existing.name = adminName;
+    existing.username = adminName;
+    existing.email = adminEmail;
+    existing.password = hashedPassword;
+    existing.role = "admin";
 
-    if (existing.name !== adminName) {
-      existing.name = adminName;
-      changed = true;
-    }
-
-    if (existing.username !== adminName) {
-      existing.username = adminName;
-      changed = true;
-    }
-
-    if (existing.role !== "admin") {
-      existing.role = "admin";
-      changed = true;
-    }
-
-    const passwordMatch = await bcrypt.compare(adminPassword, existing.password);
-    if (!passwordMatch) {
-      existing.password = await bcrypt.hash(adminPassword, 10);
-      changed = true;
-    }
-
-    if (changed) {
-      await existing.save();
-      console.log("Admin actualizado automáticamente");
-    }
+    await existing.save();
+    console.log("🔁 Admin actualizado automáticamente");
   } catch (error) {
     console.error("Error creando/actualizando admin:", error.message);
   }
 }
 
-module.exports = { createAdminIfNotExists };
+module.exports = createAdminIfNotExists;

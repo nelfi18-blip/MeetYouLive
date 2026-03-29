@@ -36,30 +36,31 @@ export const authOptions = {
         // Try to get the backend JWT on first sign-in so the client can use
         // it immediately. If the backend is unreachable (e.g. cold start on
         // Render), the login page falls back to /api/auth/backend-token.
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
+        const internalSecret = process.env.INTERNAL_API_SECRET;
+
         if (!apiUrl) {
-          console.warn("[NextAuth] NEXT_PUBLIC_API_URL is not set – cannot fetch backend token");
+          console.warn("[NextAuth] API_URL/NEXT_PUBLIC_API_URL is not set – cannot fetch backend token");
+        } else if (!internalSecret) {
+          console.warn("[NextAuth] INTERNAL_API_SECRET is not set – cannot fetch backend token");
         } else if (token.googleEmail) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+
           try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            let res;
-            try {
-              res = await fetch(`${apiUrl}/api/auth/google-session`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "",
-                },
-                body: JSON.stringify({
-                  email: token.googleEmail,
-                  name: token.googleName,
-                }),
-                signal: controller.signal,
-              });
-            } finally {
-              clearTimeout(timeoutId);
-            }
+            const res = await fetch(`${apiUrl}/api/auth/google-session`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-internal-api-secret": internalSecret,
+              },
+              body: JSON.stringify({
+                email: token.googleEmail,
+                name: token.googleName,
+              }),
+              signal: controller.signal,
+            });
+
             if (res.ok) {
               const data = await res.json();
               if (data.token) {
@@ -69,15 +70,30 @@ export const authOptions = {
               }
             } else {
               let body = {};
-              try { body = await res.json(); } catch { try { body = { error: await res.text() }; } catch { /* ignore */ } }
+              try {
+                body = await res.json();
+              } catch {
+                try {
+                  body = { error: await res.text() };
+                } catch {
+                  // ignore
+                }
+              }
+
               console.warn(
                 `[NextAuth] /api/auth/google-session responded with status ${res.status} – login page will retry`,
                 body
               );
             }
           } catch (err) {
-            // Backend unreachable or timed out – login page will retry via /api/auth/backend-token
-            console.warn("[NextAuth] Could not reach backend /api/auth/google-session:", err.message);
+            if (err instanceof Error && err.name === "AbortError") {
+              console.warn("[NextAuth] Backend /api/auth/google-session timed out");
+            } else {
+              const message = err instanceof Error ? err.message : "Unknown error";
+              console.warn("[NextAuth] Could not reach backend /api/auth/google-session:", message);
+            }
+          } finally {
+            clearTimeout(timeoutId);
           }
         }
       }

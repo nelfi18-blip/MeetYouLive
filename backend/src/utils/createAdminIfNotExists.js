@@ -1,46 +1,44 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-async function createAdminIfNotExists() {
+const createAdminIfNotExists = async () => {
   try {
-    const adminName = process.env.ADMIN_NAME;
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    const name = process.env.ADMIN_NAME;
 
-    if (!adminName || !adminEmail || !adminPassword) {
-      console.log("⚠️ Admin env vars incompletas, se omite creación de admin");
+    if (!email || !password || !name) {
+      console.log("❌ ADMIN env variables faltantes");
       return;
     }
 
-    const existing = await User.findOne({ email: adminEmail });
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    let admin = await User.findOne({ email });
 
-    if (!existing) {
-      await User.create({
-        name: adminName,
-        username: adminName,
-        email: adminEmail,
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    if (!admin) {
+      admin = new User({
+        name,
+        username: name,
+        email,
         password: hashedPassword,
         role: "admin",
-        coins: 0,
-        earningsCoins: 0,
       });
 
-      console.log("✅ Admin creado automáticamente");
-      return;
+      await admin.save();
+      console.log("✅ Admin creado");
+    } else {
+      admin.password = hashedPassword;
+      admin.role = "admin";
+      admin.name = name;
+      admin.username = name;
+
+      await admin.save();
+      console.log("🔁 Admin actualizado correctamente");
     }
-
-    existing.name = adminName;
-    existing.username = adminName;
-    existing.email = adminEmail;
-    existing.password = hashedPassword;
-    existing.role = "admin";
-
-    await existing.save();
-    console.log("🔁 Admin actualizado automáticamente");
   } catch (error) {
-    console.error("Error creando/actualizando admin:", error.message);
+    console.error("❌ Error creando admin:", error);
   }
-}
+};
 
 module.exports = createAdminIfNotExists;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -20,6 +20,9 @@ function LoginForm() {
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
 
+  const retryStartedRef = useRef(false);
+  const timeoutIdsRef = useRef([]);
+
   useEffect(() => {
     const emailParam = searchParams.get("email");
     if (emailParam) {
@@ -37,62 +40,95 @@ function LoginForm() {
     } else {
       setChecking(false);
     }
+  }, [router]);
+
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach(clearTimeout);
+      timeoutIdsRef.current = [];
+    };
   }, []);
 
   useEffect(() => {
     if (status === "loading") return;
+
     if (status === "authenticated") {
       if (session?.backendToken) {
+        retryStartedRef.current = false;
+        setInfo("");
+        setError("");
         setToken(session.backendToken);
         router.replace("/dashboard");
-      } else if (session?.googleEmail) {
-        // Google auth succeeded but backend token is not in the NextAuth session
-        // (the server-side jwt() callback failed, e.g. backend was cold-starting).
-        // Show a "connecting" state and retry up to 5 times before giving up.
+        return;
+      }
+
+      if (session?.googleEmail) {
+        if (retryStartedRef.current) return;
+        retryStartedRef.current = true;
+
+        setError("");
         setInfo("Conectando con el servidor…");
 
         const maxAttempts = 5;
-        const retryDelay = 2000; // ms between retries
+        const retryDelay = 2000;
 
-        const tryFetchToken = (attempt) => {
-          fetch("/api/auth/backend-token", { method: "POST" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
+        const tryFetchToken = async (attempt) => {
+          try {
+            const response = await fetch("/api/auth/backend-token", { method: "POST" });
+
+            if (response.ok) {
+              const data = await response.json();
+
               if (data?.token) {
+                retryStartedRef.current = false;
                 setInfo("");
                 setToken(data.token);
                 router.replace("/dashboard");
-              } else if (attempt < maxAttempts) {
-                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
-              } else {
-                setInfo("");
-                setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
-                clearToken();
-                signOut({ redirect: false });
-                setChecking(false);
+                return;
               }
-            })
-            .catch(() => {
-              if (attempt < maxAttempts) {
-                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
-              } else {
-                setInfo("");
-                setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");
-                clearToken();
-                signOut({ redirect: false });
-                setChecking(false);
-              }
-            });
+            } else if (response.status === 401) {
+              retryStartedRef.current = false;
+              setInfo("");
+              setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
+              clearToken();
+              await signOut({ redirect: false });
+              setChecking(false);
+              return;
+            }
+          } catch {
+            // continue to retry below
+          }
+
+          if (attempt < maxAttempts) {
+            const timeoutId = setTimeout(() => {
+              timeoutIdsRef.current = timeoutIdsRef.current.filter((id) => id !== timeoutId);
+              tryFetchToken(attempt + 1);
+            }, retryDelay);
+            timeoutIdsRef.current.push(timeoutId);
+          } else {
+            retryStartedRef.current = false;
+            setInfo("");
+            setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+            clearToken();
+            await signOut({ redirect: false });
+            setChecking(false);
+          }
         };
 
         tryFetchToken(1);
-      } else {
-        setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
-        clearToken();
-        signOut({ redirect: false });
-        setChecking(false);
+        return;
       }
-    } else if (status === "unauthenticated") {
+
+      retryStartedRef.current = false;
+      setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
+      clearToken();
+      signOut({ redirect: false });
+      setChecking(false);
+      return;
+    }
+
+    if (status === "unauthenticated") {
+      retryStartedRef.current = false;
       setChecking(false);
     }
   }, [status, session, router]);

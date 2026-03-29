@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
       setChecking(false);
       return;
     }
-    fetch(`${apiUrl}/api/admin/overview`, {
+    fetch(`${API_URL}/api/admin/overview`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -50,13 +50,13 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      if (!apiUrl) {
+      if (!API_URL) {
         setError("NEXT_PUBLIC_API_URL no está configurada");
         setLoading(false);
         return;
       }
 
-      const res = await fetch(`${apiUrl}/api/admin/login`, {
+      const res = await fetch(`${API_URL}/api/admin/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,20 +67,30 @@ export default function AdminLoginPage() {
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const rawText = await res.text();
+      let data = null;
+
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
+      }
 
       if (!res.ok) {
-        setError(data?.message || "No se pudo iniciar sesión");
+        setError(
+          `Error ${res.status}: ${data?.message || rawText || "No se pudo iniciar sesión"}`
+        );
         return;
       }
 
       localStorage.setItem("admin_token", data.token);
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
-      window.location.href = "/admin";
+      window.location.href = "/admin/dashboard";
     } catch (err) {
-      console.error("Admin login error:", err);
-      setError("No se pudo conectar con el servidor.");
+      setError(
+        `Fetch error: ${err?.message || "No se pudo conectar con el servidor"}`
+      );
     } finally {
       setLoading(false);
     }

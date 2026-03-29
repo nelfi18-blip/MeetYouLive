@@ -31,17 +31,7 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
-      setToken(token);
-      router.replace("/dashboard");
-    } else {
-      setChecking(false);
-    }
-  }, [router]);
-
+  // Cleanup pending retry timeouts on unmount.
   useEffect(() => {
     return () => {
       timeoutIdsRef.current.forEach(clearTimeout);
@@ -50,6 +40,19 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
+    // Email/password users: redirect immediately from localStorage token.
+    // Do this first so returning users are never shown the login form.
+    const localToken = localStorage.getItem("token");
+    if (localToken) {
+      // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
+      setToken(localToken);
+      router.replace("/dashboard");
+      return;
+    }
+
+    // Keep the loading screen visible while the NextAuth session is being
+    // read. This prevents Google OAuth users from briefly seeing the login
+    // form (and thinking login failed) before the redirect to /dashboard fires.
     if (status === "loading") return;
 
     if (status === "authenticated") {
@@ -66,6 +69,8 @@ function LoginForm() {
         if (retryStartedRef.current) return;
         retryStartedRef.current = true;
 
+        // Show the form so the user can see the progress/error messages.
+        setChecking(false);
         setError("");
         setInfo("Conectando con el servidor…");
 
@@ -92,7 +97,6 @@ function LoginForm() {
               setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
               clearToken();
               await signOut({ redirect: false });
-              setChecking(false);
               return;
             }
           } catch {
@@ -111,7 +115,6 @@ function LoginForm() {
             setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
             clearToken();
             await signOut({ redirect: false });
-            setChecking(false);
           }
         };
 
@@ -120,10 +123,10 @@ function LoginForm() {
       }
 
       retryStartedRef.current = false;
+      setChecking(false);
       setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
       clearToken();
       signOut({ redirect: false });
-      setChecking(false);
       return;
     }
 

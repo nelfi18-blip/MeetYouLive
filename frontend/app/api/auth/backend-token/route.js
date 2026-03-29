@@ -15,11 +15,13 @@ export async function POST() {
   const session = await getServerSession(authOptions);
 
   if (!session?.googleEmail) {
+    console.warn("[backend-token] No valid NextAuth session or missing googleEmail");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
+    console.error("[backend-token] NEXT_PUBLIC_API_URL is not set");
     return Response.json({ error: "API URL not configured" }, { status: 500 });
   }
 
@@ -37,7 +39,9 @@ export async function POST() {
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
+      let body = {};
+      try { body = await res.json(); } catch { /* ignore parse error */ }
+      console.error(`[backend-token] Backend /api/auth/google-session returned ${res.status}:`, body);
       return Response.json(
         { error: body.message || "Backend error" },
         { status: res.status }
@@ -46,7 +50,8 @@ export async function POST() {
 
     const data = await res.json();
     return Response.json(data);
-  } catch {
+  } catch (err) {
+    console.error("[backend-token] Could not reach backend:", err.message);
     return Response.json({ error: "Could not reach backend" }, { status: 502 });
   }
 }

@@ -120,18 +120,26 @@ router.post("/google-session", authLimiter, async (req, res) => {
   // This allows the endpoint to work in fresh deployments before the secret is set.
   // The rate limiter above always applies to prevent abuse regardless.
   if (process.env.INTERNAL_API_SECRET && secret !== process.env.INTERNAL_API_SECRET) {
+    console.warn("[google-session] Rejected request: invalid x-internal-api-secret");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email) {
+    console.warn("[google-session] Missing email in request body");
     return res.status(400).json({ message: "email es requerido" });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    console.error("[google-session] JWT_SECRET is not set – cannot sign token");
+    return res.status(500).json({ message: "Server configuration error" });
   }
 
   try {
     let user = await User.findOne({ email });
     if (!user) {
+      console.log(`[google-session] Creating new user for email: ${email}`);
       const username = await generateUniqueUsername(email);
       user = await User.create({
         name: name || email.split("@")[0],
@@ -140,6 +148,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
         password: crypto.randomBytes(32).toString("hex"),
       });
     } else {
+      console.log(`[google-session] Existing user found for email: ${email}`);
       let changed = false;
       if (!user.name && name) { user.name = name; changed = true; }
       if (!user.username) {
@@ -153,6 +162,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
     const safeUser = { id: user._id, email: user.email, name: user.name, username: user.username, role: user.role };
     res.json({ ok: true, token, user: safeUser });
   } catch (err) {
+    console.error("[google-session] Unexpected error:", err.message);
     res.status(500).json({ message: err.message });
   }
 });

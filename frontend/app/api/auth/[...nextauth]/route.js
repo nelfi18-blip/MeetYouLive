@@ -37,7 +37,9 @@ export const authOptions = {
         // it immediately. If the backend is unreachable (e.g. cold start on
         // Render), the login page falls back to /api/auth/backend-token.
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-        if (apiUrl && token.googleEmail) {
+        if (!apiUrl) {
+          console.warn("[NextAuth] NEXT_PUBLIC_API_URL is not set – cannot fetch backend token");
+        } else if (token.googleEmail) {
           try {
             const res = await fetch(`${apiUrl}/api/auth/google-session`, {
               method: "POST",
@@ -54,10 +56,15 @@ export const authOptions = {
               const data = await res.json();
               if (data.token) {
                 token.backendToken = data.token;
+              } else {
+                console.warn("[NextAuth] /api/auth/google-session responded OK but returned no token");
               }
+            } else {
+              console.warn(`[NextAuth] /api/auth/google-session responded with status ${res.status} – login page will retry`);
             }
-          } catch {
+          } catch (err) {
             // Backend unreachable – login page will retry via /api/auth/backend-token
+            console.warn("[NextAuth] Could not reach backend /api/auth/google-session:", err.message);
           }
         }
       }

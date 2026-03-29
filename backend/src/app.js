@@ -35,14 +35,19 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    // Permite URLs de preview de Vercel (*.vercel.app)
+    if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-internal-api-secret"],
 };
 
-app.options("*", cors());
+app.options("*", cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use("/api/webhooks", webhookRoutes);

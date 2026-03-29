@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { setToken, clearToken } from "@/lib/token";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const CARDS = [
   {
@@ -126,17 +129,54 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "loading") return;
 
-    if (status !== "authenticated") {
+    const localToken =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+    // Sync backend token from Google OAuth session into localStorage so all
+    // other pages (which read localStorage) can find it.
+    if (status === "authenticated" && session?.backendToken && !localToken) {
+      setToken(session.backendToken);
+    }
+
+    const token =
+      localToken ||
+      (status === "authenticated" && session?.backendToken
+        ? session.backendToken
+        : null);
+
+    if (!token) {
+      // Neither email/password token nor Google OAuth backend token found.
       router.replace("/login");
       return;
     }
 
-    setUser({
-      username: session?.user?.name || session?.user?.email?.split("@")[0] || "Usuario",
-      coins: 0,
-      role: "user",
-    });
-    setUserLoading(false);
+    // Fetch real user data from the backend.
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => {
+        if (r.status === 401) {
+          clearToken();
+          router.replace("/login");
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
+      .then((data) => {
+        if (data) setUser(data);
+      })
+      .catch(() => {
+        // Network error – show a placeholder so the page still renders.
+        setUser({
+          username:
+            session?.user?.name ||
+            session?.user?.email?.split("@")[0] ||
+            "Usuario",
+          coins: 0,
+          role: "user",
+        });
+      })
+      .finally(() => setUserLoading(false));
   }, [status, session, router]);
 
   if (status === "loading" || userLoading) {

@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
+const { generateUniqueUsername } = require("../services/username.service.js");
 
 const router = Router();
 
@@ -131,14 +132,21 @@ router.post("/google-session", authLimiter, async (req, res) => {
   try {
     let user = await User.findOne({ email });
     if (!user) {
+      const username = await generateUniqueUsername(email);
       user = await User.create({
         name: name || email.split("@")[0],
+        username,
         email,
         password: crypto.randomBytes(32).toString("hex"),
       });
-    } else if (!user.name && name) {
-      user.name = name;
-      await user.save();
+    } else {
+      let changed = false;
+      if (!user.name && name) { user.name = name; changed = true; }
+      if (!user.username) {
+        user.username = await generateUniqueUsername(email, user._id);
+        changed = true;
+      }
+      if (changed) await user.save();
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });

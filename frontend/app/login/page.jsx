@@ -269,10 +269,6 @@ function LoginForm() {
             ¿No tienes cuenta?{" "}
             <Link href="/register">Regístrate gratis</Link>
           </p>
-          <p className="footer-link footer-link-dim">
-            ¿Primera vez aquí?{" "}
-            <Link href="/admin/login">Iniciar sesión como administrador</Link>
-          </p>
         </div>
       </div>
 
@@ -554,11 +550,6 @@ function LoginForm() {
         }
 
         .footer-link :global(a):hover { color: var(--accent-2); }
-
-        .footer-link-dim {
-          font-size: 0.8rem;
-          opacity: 0.6;
-        }
 
         @media (max-width: 480px) {
           .login-card { padding: 2rem 1.5rem; }

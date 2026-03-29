@@ -25,6 +25,12 @@ export async function POST() {
     return Response.json({ error: "API URL not configured" }, { status: 500 });
   }
 
+  // Abort if the backend doesn't respond within 20 seconds. This prevents
+  // the Vercel serverless function from hanging indefinitely during a Render
+  // cold start and lets the client-side retry loop take over.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
   try {
     const res = await fetch(`${apiUrl}/api/auth/google-session`, {
       method: "POST",
@@ -36,6 +42,7 @@ export async function POST() {
         email: session.googleEmail,
         name: session.googleName || "",
       }),
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -53,5 +60,7 @@ export async function POST() {
   } catch (err) {
     console.error("[backend-token] Could not reach backend:", err.message);
     return Response.json({ error: "Could not reach backend" }, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

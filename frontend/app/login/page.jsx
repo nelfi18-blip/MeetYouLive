@@ -48,26 +48,44 @@ function LoginForm() {
       } else if (session?.googleEmail) {
         // Google auth succeeded but backend token is not in the NextAuth session
         // (the server-side jwt() callback failed, e.g. backend was cold-starting).
-        // Call the server-side proxy, which adds the INTERNAL_API_SECRET for us.
-        fetch("/api/auth/backend-token", { method: "POST" })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data?.token) {
-              setToken(data.token);
-              router.replace("/dashboard");
-            } else {
-              setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
-              clearToken();
-              signOut({ redirect: false });
-              setChecking(false);
-            }
-          })
-          .catch(() => {
-            setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");
-            clearToken();
-            signOut({ redirect: false });
-            setChecking(false);
-          });
+        // Show a "connecting" state and retry up to 3 times before giving up.
+        setInfo("Conectando con el servidor…");
+
+        const maxAttempts = 3;
+        const retryDelay = 3000; // ms between retries
+
+        const tryFetchToken = (attempt) => {
+          fetch("/api/auth/backend-token", { method: "POST" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data?.token) {
+                setInfo("");
+                setToken(data.token);
+                router.replace("/dashboard");
+              } else if (attempt < maxAttempts) {
+                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
+              } else {
+                setInfo("");
+                setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
+                clearToken();
+                signOut({ redirect: false });
+                setChecking(false);
+              }
+            })
+            .catch(() => {
+              if (attempt < maxAttempts) {
+                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
+              } else {
+                setInfo("");
+                setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");
+                clearToken();
+                signOut({ redirect: false });
+                setChecking(false);
+              }
+            });
+        };
+
+        tryFetchToken(1);
       } else {
         setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
         clearToken();

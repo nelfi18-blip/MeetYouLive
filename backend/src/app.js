@@ -18,52 +18,32 @@ const videoRoutes = require("./routes/video.routes.js");
 
 const app = express();
 
-function buildAllowedOrigins(frontendUrl) {
-  const withWww = frontendUrl.includes("://www.")
-    ? frontendUrl
-    : frontendUrl.replace("://", "://www.");
-  const withoutWww = frontendUrl.includes("://www.")
-    ? frontendUrl.replace("://www.", "://")
-    : frontendUrl;
-  return [withWww, withoutWww];
-}
-
-const baseAllowedOrigins = [
+const allowedOrigins = [
   "https://meetyoulive.net",
   "https://www.meetyoulive.net",
-  "https://meetyoulive.onrender.com",
   "http://localhost:3000",
 ];
 
-// Construye la lista final de orígenes permitidos
-const allowedOrigins = process.env.FRONTEND_URL
-  ? [...new Set([...baseAllowedOrigins, ...buildAllowedOrigins(process.env.FRONTEND_URL)])]
-  : baseAllowedOrigins;
+const corsOptions = {
+  origin(origin, callback) {
+    // Permite requests sin origin (health checks, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Si no hay origen (como apps móviles o curl) o está en la lista, permitir
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)
-      ) {
-        cb(null, true);
-      } else {
-        console.log("Bloqueado por CORS:", origin);
-        cb(new Error("No permitido por CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "x-internal-api-secret"],
-  })
-);
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Credentials", "true");
-  next();
-});
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-internal-api-secret"],
+};
+
+app.options("*", cors(corsOptions));
+app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use("/api/webhooks", webhookRoutes);
 app.use(express.json());

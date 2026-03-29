@@ -19,15 +19,18 @@ export async function POST() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
-    console.error("[backend-token] NEXT_PUBLIC_API_URL is not set");
+    console.error("[backend-token] API URL is not set");
     return Response.json({ error: "API URL not configured" }, { status: 500 });
   }
 
-  // Abort if the backend doesn't respond within 20 seconds. This prevents
-  // the Vercel serverless function from hanging indefinitely during a Render
-  // cold start and lets the client-side retry loop take over.
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+  if (!internalSecret) {
+    console.error("[backend-token] INTERNAL_API_SECRET is not set");
+    return Response.json({ error: "Internal API secret not configured" }, { status: 500 });
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -36,7 +39,7 @@ export async function POST() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-internal-api-secret": process.env.INTERNAL_API_SECRET || "",
+        "x-internal-api-secret": internalSecret,
       },
       body: JSON.stringify({
         email: session.googleEmail,
@@ -47,8 +50,17 @@ export async function POST() {
 
     if (!res.ok) {
       let body = {};
-      try { body = await res.json(); } catch { /* ignore parse error */ }
-      console.error(`[backend-token] Backend /api/auth/google-session returned ${res.status}:`, body);
+      try {
+        body = await res.json();
+      } catch {
+        // ignore parse error
+      }
+
+      console.error(
+        `[backend-token] Backend /api/auth/google-session returned ${res.status}:`,
+        body
+      );
+
       return Response.json(
         { error: body.message || "Backend error" },
         { status: res.status }
@@ -58,7 +70,13 @@ export async function POST() {
     const data = await res.json();
     return Response.json(data);
   } catch (err) {
-    console.error("[backend-token] Could not reach backend:", err.message);
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error("[backend-token] Backend request timed out");
+      return Response.json({ error: "Backend timeout" }, { status: 504 });
+    }
+
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[backend-token] Could not reach backend:", message);
     return Response.json({ error: "Could not reach backend" }, { status: 502 });
   } finally {
     clearTimeout(timeoutId);

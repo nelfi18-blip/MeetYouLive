@@ -28,7 +28,10 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("🔐 Intento login admin:", email);
+
     if (!email || !password) {
+      console.log("❌ Email o contraseña faltantes");
       return res.status(400).json({
         message: "Email y contraseña son requeridos",
       });
@@ -37,18 +40,21 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
     const adminUser = await User.findOne({ email });
 
     if (!adminUser) {
+      console.log("❌ Admin no encontrado:", email);
       return res.status(401).json({
         message: "Credenciales inválidas",
       });
     }
 
     if (adminUser.role !== "admin") {
+      console.log("❌ No es admin. Rol actual:", adminUser.role);
       return res.status(403).json({
         message: "Acceso solo para administradores",
       });
     }
 
     if (!adminUser.password) {
+      console.log("❌ Usuario sin contraseña configurada:", email);
       return res.status(401).json({
         message: "Credenciales inválidas",
       });
@@ -57,6 +63,7 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
     const isMatch = await bcrypt.compare(password, adminUser.password);
 
     if (!isMatch) {
+      console.log("❌ Password incorrecto para:", email);
       return res.status(401).json({
         message: "Credenciales inválidas",
       });
@@ -73,6 +80,8 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    console.log("✅ Login exitoso para:", email);
+
     return res.json({
       token,
       user: {
@@ -84,7 +93,7 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Admin login error:", error);
+    console.error("🔥 ERROR ADMIN LOGIN:", error);
     return res.status(500).json({
       message: "Error del servidor",
     });

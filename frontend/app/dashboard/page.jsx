@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -125,6 +125,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  // Prevents a second recovery attempt if the first one is already in flight.
+  const backendTokenAttempted = useRef(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -145,6 +147,52 @@ export default function DashboardPage() {
         : null);
 
     if (!token) {
+      // Google OAuth user whose backend token wasn't captured in the NextAuth
+      // jwt() callback (e.g. the Render backend was cold-starting).
+      // Try the server-side proxy once before bouncing the user to /login.
+      if (
+        status === "authenticated" &&
+        session?.googleEmail &&
+        !backendTokenAttempted.current
+      ) {
+        backendTokenAttempted.current = true;
+        fetch("/api/auth/backend-token", { method: "POST" })
+          .then((r) => {
+            if (!r.ok) {
+              console.error("[dashboard] backend-token proxy failed:", r.status);
+              return null;
+            }
+            return r.json();
+          })
+          .then((data) => {
+            if (data?.token) {
+              setToken(data.token);
+              return fetch(`${API_URL}/api/user/me`, {
+                headers: { Authorization: `Bearer ${data.token}` },
+              });
+            }
+            router.replace("/login");
+            return null;
+          })
+          .then((r) => {
+            if (!r) return null;
+            if (r.status === 401) {
+              clearToken();
+              router.replace("/login");
+              return null;
+            }
+            return r.ok ? r.json() : null;
+          })
+          .then((data) => {
+            if (data) setUser(data);
+          })
+          .catch((err) => {
+            console.error("[dashboard] backend-token recovery error:", err);
+            router.replace("/login");
+          })
+          .finally(() => setUserLoading(false));
+        return;
+      }
       // Neither email/password token nor Google OAuth backend token found.
       router.replace("/login");
       return;

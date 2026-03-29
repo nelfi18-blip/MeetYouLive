@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +19,10 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
+  // Prevents a second recovery attempt if the first one is already in flight.
+  const backendTokenAttempted = useRef(false);
+  // Tracks the pending retry timeout so it can be cancelled on unmount.
+  const retryTimeoutRef = useRef(null);
 
   useEffect(() => {
     const emailParam = searchParams.get("email");
@@ -39,6 +43,15 @@ function LoginForm() {
     }
   }, []);
 
+  // Cancel any pending retry timeout when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (status === "loading") return;
     if (status === "authenticated") {
@@ -46,6 +59,10 @@ function LoginForm() {
         setToken(session.backendToken);
         router.replace("/dashboard");
       } else if (session?.googleEmail) {
+        // Guard: only start one recovery chain even if the effect re-runs.
+        if (backendTokenAttempted.current) return;
+        backendTokenAttempted.current = true;
+
         // Google auth succeeded but backend token is not in the NextAuth session
         // (the server-side jwt() callback failed, e.g. backend was cold-starting).
         // Show a "connecting" state and retry up to 5 times before giving up.
@@ -56,14 +73,23 @@ function LoginForm() {
 
         const tryFetchToken = (attempt) => {
           fetch("/api/auth/backend-token", { method: "POST" })
-            .then((r) => (r.ok ? r.json() : null))
+            .then((r) => {
+              if (r.status === 401) {
+                // The NextAuth session is not recognized as valid by the backend.
+                // This is an auth failure, not a temporary outage — do not retry.
+                const err = new Error("unauthorized");
+                err.status = 401;
+                throw err;
+              }
+              return r.ok ? r.json() : null;
+            })
             .then((data) => {
               if (data?.token) {
                 setInfo("");
                 setToken(data.token);
                 router.replace("/dashboard");
               } else if (attempt < maxAttempts) {
-                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
+                retryTimeoutRef.current = setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
               } else {
                 setInfo("");
                 setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
@@ -72,9 +98,19 @@ function LoginForm() {
                 setChecking(false);
               }
             })
-            .catch(() => {
+            .catch((err) => {
+              if (err?.status === 401) {
+                // Unauthorized — invalid session, not a transient error.
+                setInfo("");
+                setError("Sesión no válida. Por favor, inicia sesión de nuevo.");
+                clearToken();
+                signOut({ redirect: false });
+                setChecking(false);
+                return;
+              }
+              // Transient backend failure (e.g. Render cold start) — keep retrying.
               if (attempt < maxAttempts) {
-                setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
+                retryTimeoutRef.current = setTimeout(() => tryFetchToken(attempt + 1), retryDelay);
               } else {
                 setInfo("");
                 setError("No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.");

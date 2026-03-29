@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -21,7 +19,7 @@ export default function AdminLoginPage() {
       setChecking(false);
       return;
     }
-    fetch(`${API_URL}/api/admin/overview`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/overview`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -50,13 +48,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      if (!API_URL) {
-        setError("NEXT_PUBLIC_API_URL no está configurada");
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch(`${API_URL}/api/admin/login`, {
+      const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,19 +59,10 @@ export default function AdminLoginPage() {
         }),
       });
 
-      const rawText = await res.text();
-      let data = null;
-
-      try {
-        data = rawText ? JSON.parse(rawText) : null;
-      } catch {
-        data = null;
-      }
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(
-          `Error ${res.status}: ${data?.message || rawText || "No se pudo iniciar sesión"}`
-        );
+        setError(data?.message || "No se pudo iniciar sesión");
         return;
       }
 
@@ -87,10 +70,8 @@ export default function AdminLoginPage() {
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
       window.location.href = "/admin/dashboard";
-    } catch (err) {
-      setError(
-        `Fetch error: ${err?.message || "No se pudo conectar con el servidor"}`
-      );
+    } catch (error) {
+      setError("No se pudo conectar con el servidor.");
     } finally {
       setLoading(false);
     }

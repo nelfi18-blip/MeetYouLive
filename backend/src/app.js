@@ -24,6 +24,12 @@ const allowedOrigins = [
   "http://localhost:3000",
 ];
 
+// Add FRONTEND_URL from environment so production deployments on custom
+// domains (or staging URLs) are allowed without changing this file.
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 const corsOptions = {
   origin(origin, callback) {
     // Permite requests sin origin (health checks, curl, etc.)

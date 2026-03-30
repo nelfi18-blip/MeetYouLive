@@ -74,10 +74,14 @@ function LoginForm() {
         setError("");
         setInfo("Conectando con el servidor…");
 
-        const maxAttempts = 5;
-        const retryDelay = 2000;
+        // Allow up to 8 attempts with 4-second gaps so a cold-starting Render
+        // backend (which can take 30-60 s to wake up) has time to respond.
+        const maxAttempts = 8;
+        const retryDelay = 4000;
 
         const tryFetchToken = async (attempt) => {
+          setInfo(`Conectando con el servidor… (${attempt}/${maxAttempts})`);
+
           try {
             const response = await fetch("/api/auth/backend-token", { method: "POST" });
 
@@ -91,6 +95,9 @@ function LoginForm() {
                 router.replace("/dashboard");
                 return;
               }
+
+              // Proxy responded OK but sent no token – treat as a recoverable error.
+              console.error("[login] backend-token returned ok but no token:", data);
             } else if (response.status === 401) {
               retryStartedRef.current = false;
               setInfo("");
@@ -98,9 +105,14 @@ function LoginForm() {
               clearToken();
               await signOut({ redirect: false });
               return;
+            } else {
+              // Log non-401 errors for debugging; they will be retried below.
+              let body = {};
+              try { body = await response.json(); } catch { /* ignore */ }
+              console.warn(`[login] backend-token attempt ${attempt} failed (${response.status}):`, body);
             }
-          } catch {
-            // continue to retry below
+          } catch (err) {
+            console.warn(`[login] backend-token attempt ${attempt} fetch error:`, err?.message);
           }
 
           if (attempt < maxAttempts) {

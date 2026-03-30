@@ -116,6 +116,8 @@ router.post("/setup", authLimiter, async (req, res) => {
 
 router.post("/google-session", authLimiter, async (req, res) => {
   const secret = req.headers["x-internal-api-secret"];
+  const hasSecret = Boolean(secret);
+
   // Only enforce the shared secret when it is explicitly configured.
   // This allows the endpoint to work in fresh deployments before the secret is set.
   // The rate limiter above always applies to prevent abuse regardless.
@@ -123,6 +125,8 @@ router.post("/google-session", authLimiter, async (req, res) => {
     console.warn("[google-session] Rejected request: invalid x-internal-api-secret");
     return res.status(401).json({ message: "Unauthorized" });
   }
+
+  console.log(`[google-session] Request received – origin: ${req.headers.origin || "(none)"}, secret-present: ${hasSecret}`);
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
@@ -160,6 +164,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     const safeUser = { id: user._id, email: user.email, name: user.name, username: user.username, role: user.role };
+    console.log(`[google-session] Token issued successfully for email: ${email}`);
     res.json({ ok: true, token, user: safeUser });
   } catch (err) {
     console.error("[google-session] Unexpected error:", err.message);

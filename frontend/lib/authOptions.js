@@ -119,6 +119,13 @@ export const authOptions = {
         session.googleEmail = token.googleEmail;
         session.googleName = token.googleName || "";
       }
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[NextAuth] Session data:", {
+          googleEmail: session.googleEmail || "(not set)",
+          googleName: session.googleName || "(not set)",
+          hasBackendToken: Boolean(session.backendToken),
+        });
+      }
       return session;
     },
   },

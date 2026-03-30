@@ -59,9 +59,11 @@ function LoginForm() {
 
     if (status === "authenticated") {
       if (session?.backendToken) {
-        retryStartedRef.current = false;
-        setInfo("");
-        setError("");
+        // Cancel any in progress retry loop so its timeouts don't fire after
+        // navigation has already started.
+        timeoutIdsRef.current.forEach(clearTimeout);
+        timeoutIdsRef.current = [];
+        console.log("[login] session.backendToken available – saving token and redirecting to /dashboard");
         setToken(session.backendToken);
         router.replace("/dashboard");
         return;
@@ -83,6 +85,7 @@ function LoginForm() {
         const retryDelay = 4000;
 
         const tryFetchToken = async (attempt) => {
+          console.log(`[login] backend-token attempt ${attempt}/${maxAttempts}`);
           setInfo(`Conectando con el servidor… (${attempt}/${maxAttempts})`);
 
           try {
@@ -92,17 +95,23 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                retryStartedRef.current = false;
-                setConnecting(false);
-                setInfo("");
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to /dashboard`);
+                // Cancel any pending retries so they don't fire after navigation.
+                timeoutIdsRef.current.forEach(clearTimeout);
+                timeoutIdsRef.current = [];
+                // Save the token and navigate immediately.
+                // Do NOT reset connecting/info state here – keeping the connecting
+                // screen visible prevents a flash of the login form before the
+                // router navigation completes.
                 setToken(data.token);
                 router.replace("/dashboard");
                 return;
               }
 
               // Proxy responded OK but sent no token – treat as a recoverable error.
-              console.error("[login] backend-token returned ok but no token:", data);
+              console.error(`[login] backend-token attempt ${attempt} returned ok but no token:`, data);
             } else if (response.status === 401) {
+              console.warn(`[login] backend-token attempt ${attempt} returned 401 – session invalid`);
               retryStartedRef.current = false;
               setConnecting(false);
               setInfo("");
@@ -114,10 +123,10 @@ function LoginForm() {
               // Log non-401 errors for debugging; they will be retried below.
               let body = {};
               try { body = await response.json(); } catch { /* ignore */ }
-              console.warn(`[login] backend-token attempt ${attempt} failed (${response.status}):`, body);
+              console.warn(`[login] backend-token attempt ${attempt}/${maxAttempts} failed (${response.status}):`, body);
             }
           } catch (err) {
-            console.warn(`[login] backend-token attempt ${attempt} fetch error:`, err?.message);
+            console.warn(`[login] backend-token attempt ${attempt}/${maxAttempts} fetch error:`, err?.message);
           }
 
           if (attempt < maxAttempts) {
@@ -127,6 +136,7 @@ function LoginForm() {
             }, retryDelay);
             timeoutIdsRef.current.push(timeoutId);
           } else {
+            console.error(`[login] All ${maxAttempts} backend-token attempts failed – signing out`);
             retryStartedRef.current = false;
             setConnecting(false);
             setInfo("");

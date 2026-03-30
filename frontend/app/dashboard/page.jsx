@@ -176,7 +176,7 @@ export default function DashboardPage() {
           })
           .then((r) => {
             if (!r) return null;
-            if (r.status === 401) {
+            if (r.status === 401 || r.status === 403) {
               clearToken();
               router.replace("/login");
               return null;
@@ -203,7 +203,7 @@ export default function DashboardPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => {
-        if (r.status === 401) {
+        if (r.status === 401 || r.status === 403) {
           clearToken();
           router.replace("/login");
           return null;

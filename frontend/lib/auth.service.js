@@ -10,7 +10,7 @@ export const signUp = async (userData) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || "Error en el servidor" };
+      return { error: errorData.message || "Error en el servidor", code: errorData.code };
     }
 
     return await response.json();
@@ -31,7 +31,7 @@ export const login = async (credentials) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || "Error en el servidor" };
+      return { error: errorData.message || "Error en el servidor", code: errorData.code };
     }
 
     return await response.json();

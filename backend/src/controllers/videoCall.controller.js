@@ -2,6 +2,13 @@ const VideoCall = require("../models/VideoCall.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 
+// Helper: refund coins to caller for a paid call
+const refundPaidCall = async (callerId, coins) => {
+  if (coins > 0) {
+    await User.findByIdAndUpdate(callerId, { $inc: { coins } });
+  }
+};
+
 // POST /api/calls — create call invite
 const inviteCall = async (req, res) => {
   const { recipientId, type, callCoins } = req.body;
@@ -32,28 +39,37 @@ const inviteCall = async (req, res) => {
       if (!creator) {
         return res.status(403).json({ message: "El usuario no es un creador activo" });
       }
-      // Deduct coins from caller immediately on invite
+      // Deduct coins atomically using a conditional update
       if (coins > 0) {
-        const caller = await User.findById(req.userId);
-        if (!caller || caller.coins < coins) {
+        const updated = await User.findOneAndUpdate(
+          { _id: req.userId, coins: { $gte: coins } },
+          { $inc: { coins: -coins } },
+          { new: true }
+        );
+        if (!updated) {
           return res.status(402).json({ message: `Necesitas ${coins} monedas para esta llamada` });
         }
-        caller.coins -= coins;
-        await caller.save();
-        // Credit creator on acceptance (done in respondCall)
       }
     }
 
-    // Cancel any existing pending calls between these users
-    await VideoCall.updateMany(
-      {
-        $or: [
-          { caller: req.userId, recipient: recipientId, status: "pending" },
-          { caller: recipientId, recipient: req.userId, status: "pending" },
-        ],
-      },
-      { status: "missed" }
-    );
+    // Cancel any existing pending calls between these users; refund coins for paid ones
+    const pendingCalls = await VideoCall.find({
+      $or: [
+        { caller: req.userId, recipient: recipientId, status: "pending" },
+        { caller: recipientId, recipient: req.userId, status: "pending" },
+      ],
+    });
+
+    for (const pending of pendingCalls) {
+      if (pending.type === "paid_creator") {
+        await refundPaidCall(pending.caller, pending.callCoins);
+      }
+    }
+
+    if (pendingCalls.length > 0) {
+      const ids = pendingCalls.map((c) => c._id);
+      await VideoCall.updateMany({ _id: { $in: ids } }, { status: "missed" });
+    }
 
     const call = await VideoCall.create({
       caller: req.userId,
@@ -142,10 +158,8 @@ const respondCall = async (req, res) => {
     } else {
       call.status = "rejected";
       // Refund caller coins if paid call is rejected
-      if (call.type === "paid_creator" && call.callCoins > 0) {
-        await User.findByIdAndUpdate(call.caller, {
-          $inc: { coins: call.callCoins },
-        });
+      if (call.type === "paid_creator") {
+        await refundPaidCall(call.caller, call.callCoins);
       }
     }
 
@@ -180,10 +194,8 @@ const endCall = async (req, res) => {
     }
 
     // Refund coins if paid call ended before fully accepted (caller hangs up while pending)
-    if (call.status === "pending" && call.type === "paid_creator" && call.callCoins > 0) {
-      await User.findByIdAndUpdate(call.caller, {
-        $inc: { coins: call.callCoins },
-      });
+    if (call.status === "pending" && call.type === "paid_creator") {
+      await refundPaidCall(call.caller, call.callCoins);
     }
 
     call.status = "ended";

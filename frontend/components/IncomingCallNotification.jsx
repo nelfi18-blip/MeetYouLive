@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const POLL_INTERVAL = 5000; // poll every 5 seconds
+const POLL_INTERVAL = 2500; // poll every 2.5 seconds
 
 export default function IncomingCallNotification() {
   const router = useRouter();

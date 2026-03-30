@@ -15,7 +15,7 @@ const ICE_SERVERS = {
   ],
 };
 
-const POLL_MS = 2000; // polling interval for signaling
+const POLL_MS = 1000; // polling interval for WebRTC signaling
 
 export default function CallPage() {
   const { id } = useParams();
@@ -35,7 +35,7 @@ export default function CallPage() {
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
   const pollRef = useRef(null);
-  const sentCandidatesRef = useRef(0); // tracks how many candidates we've submitted
+  const processedCandidatesRef = useRef(0); // tracks how many remote candidates we've processed
 
   const token = useRef(
     typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -311,7 +311,7 @@ export default function CallPage() {
             return;
           }
 
-          const newCandidates = data.candidates.slice(sentCandidatesRef.current);
+          const newCandidates = data.candidates.slice(processedCandidatesRef.current);
           for (const c of newCandidates) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(c)));
@@ -319,7 +319,7 @@ export default function CallPage() {
               // ignore invalid candidates
             }
           }
-          sentCandidatesRef.current = data.candidates.length;
+          processedCandidatesRef.current = data.candidates.length;
 
           if (pc.connectionState === "connected") {
             clearInterval(pollRef.current);

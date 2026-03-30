@@ -267,7 +267,7 @@ export default function ExplorePage() {
                   const initial = displayName[0].toUpperCase();
                   const liked = likedIds.has(user._id);
                   const matched = matchIds.has(user._id);
-                  const isCreatorLive = user.isLive && user.liveId;
+                  const isCreatorLive = user.role === "creator" && user.isLive && user.liveId;
                   return (
                     <div key={user._id} className={`discover-card${matched ? " matched" : ""}${isCreatorLive ? " creator-live" : ""}`}>
                       {matched && (

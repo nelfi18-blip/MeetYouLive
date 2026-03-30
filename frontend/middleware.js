@@ -23,7 +23,9 @@ export function middleware(request) {
     pathname.startsWith("/profile") ||
     pathname.startsWith("/creator") ||
     pathname.startsWith("/chats") ||
-    pathname.startsWith("/coins");
+    pathname.startsWith("/coins") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/matches");
 
   // Only redirect away from auth pages once the backend session is confirmed.
   // Using only nextAuthSession here would cause a redirect loop: Google OAuth

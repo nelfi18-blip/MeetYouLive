@@ -2,7 +2,8 @@ const Gift = require("../models/Gift.js");
 const User = require("../models/User.js");
 const mongoose = require("mongoose");
 
-const COMMISSION_RATE = 0.20;
+// 60% goes to the creator, 40% is the platform commission
+const COMMISSION_RATE = 0.40;
 
 // Predefined gift catalog with icon and coin cost
 const GIFT_CATALOG = [

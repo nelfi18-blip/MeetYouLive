@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "/explore",   label: "Explorar",  icon: ExploreIcon },
   { href: "/live",      label: "Directos",  icon: LiveIcon    },
   { href: "/chats",     label: "Chats",     icon: ChatIcon    },
+  { href: "/matches",   label: "Matches",   icon: MatchIcon   },
   { href: "/profile",   label: "Perfil",    icon: ProfileIcon },
 ];
 
@@ -23,6 +24,7 @@ function ExploreIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" 
 function LiveIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
 function ChatIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>; }
 function ProfileIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>; }
+function MatchIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>; }
 function CoinIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
 function LogoutIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
 function ChevronIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>; }
@@ -34,6 +36,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
+  const [avatar, setAvatar] = useState("");
 
   useEffect(() => {
     const token =
@@ -43,7 +46,7 @@ export default function Navbar() {
 
     fetch(`${API_URL}/api/user/me`, { headers })
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) { setUsername(d.username || d.name || ""); setRole(d.role || ""); } })
+      .then((d) => { if (d) { setUsername(d.username || d.name || ""); setRole(d.role || ""); setAvatar(d.avatar || ""); } })
       .catch(() => {});
 
     fetch(`${API_URL}/api/user/coins`, { headers })
@@ -120,7 +123,9 @@ export default function Navbar() {
 
           <div className="navbar-user" onClick={() => setMenuOpen(!menuOpen)}>
             <div className="nav-avatar">
-              {initial}
+              {avatar
+                ? <img src={avatar} alt={displayName} className="nav-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
+                : initial}
             </div>
             <span className="navbar-username">{displayName}</span>
             <span className={`nav-chevron${menuOpen ? " open" : ""}`}>
@@ -133,7 +138,11 @@ export default function Navbar() {
               <div className="navbar-overlay" onClick={() => setMenuOpen(false)} />
               <div className="navbar-dropdown">
                 <div className="dropdown-header">
-                  <div className="dropdown-avatar">{initial}</div>
+                  <div className="dropdown-avatar">
+                    {avatar
+                      ? <img src={avatar} alt={displayName} className="nav-avatar-img" style={{ width: "100%", height: "100%" }} onError={(e) => { e.target.style.display = "none"; }} />
+                      : initial}
+                  </div>
                   <div>
                     <div className="dropdown-name">{displayName}</div>
                     <div className="dropdown-role">{displayRole}</div>
@@ -308,6 +317,14 @@ export default function Navbar() {
           font-size: 0.9rem;
           flex-shrink: 0;
           box-shadow: 0 0 0 2px rgba(224,64,251,0.35);
+          overflow: hidden;
+        }
+
+        .nav-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
         }
 
         .navbar-username {

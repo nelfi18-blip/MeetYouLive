@@ -12,9 +12,17 @@ const CARDS = [
   {
     href: "/explore",
     title: "Explorar",
-    sub: "Descubre streamers en vivo",
+    sub: "Descubre streamers y personas",
     icon: ExploreIcon,
     color: "indigo",
+    size: "normal",
+  },
+  {
+    href: "/matches",
+    title: "Matches",
+    sub: "Tus conexiones mutuas",
+    icon: MatchIcon,
+    color: "pink",
     size: "normal",
   },
   {
@@ -22,7 +30,7 @@ const CARDS = [
     title: "Directos",
     sub: "Ve transmisiones en tiempo real",
     icon: LiveIcon,
-    color: "pink",
+    color: "red",
     size: "normal",
   },
   {
@@ -55,6 +63,13 @@ function ExploreIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  );
+}
+function MatchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
     </svg>
   );
 }
@@ -184,7 +199,12 @@ export default function DashboardPage() {
             return r.ok ? r.json() : null;
           })
           .then((data) => {
-            if (data) setUser(data);
+            if (data) {
+              setUser(data);
+              if (data.onboardingComplete === false) {
+                router.replace("/onboarding");
+              }
+            }
           })
           .catch((err) => {
             console.error("[dashboard] backend-token recovery error:", err);
@@ -211,7 +231,12 @@ export default function DashboardPage() {
         return r.ok ? r.json() : null;
       })
       .then((data) => {
-        if (data) setUser(data);
+        if (data) {
+          setUser(data);
+          if (data.onboardingComplete === false) {
+            router.replace("/onboarding");
+          }
+        }
       })
       .catch(() => {
         // Network error – show a placeholder so the page still renders.

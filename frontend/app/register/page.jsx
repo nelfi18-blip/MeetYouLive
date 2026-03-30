@@ -77,8 +77,8 @@ export default function RegisterPage() {
 
       if (data.token) {
         setToken(data.token);
-        setSuccess("¡Cuenta creada! Redirigiendo al dashboard…");
-        setTimeout(() => { router.push("/dashboard"); }, 1500);
+        setSuccess("¡Cuenta creada! Configurando tu perfil…");
+        setTimeout(() => { router.push("/onboarding"); }, 1500);
       } else {
         setSuccess("¡Cuenta creada! Redirigiendo al inicio de sesión…");
         setTimeout(() => { router.push("/login"); }, 1500);

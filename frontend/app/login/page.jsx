@@ -118,6 +118,15 @@ function LoginForm() {
               clearToken();
               await signOut({ redirect: false });
               return;
+            } else if (response.status === 403) {
+              console.warn(`[login] backend-token attempt ${attempt} returned 403 – account blocked`);
+              retryStartedRef.current = false;
+              setConnecting(false);
+              setInfo("");
+              setError("Tu cuenta ha sido bloqueada. Contacta al soporte.");
+              clearToken();
+              await signOut({ redirect: false });
+              return;
             } else {
               // Log non-401 errors for debugging; they will be retried below.
               let body = {};
@@ -336,13 +345,20 @@ function LoginForm() {
 
   const login = async () => {
     setError("");
+    setInfo("");
     setLoading(true);
 
     try {
       const data = await authLogin({ email, password });
 
       if (data.error) {
-        setError(data.error);
+        // "Use Google" suggestions are shown as info (blue) rather than an error (red)
+        // so the user clearly understands they need to click the Google button above.
+        if (data.code === "GOOGLE_ACCOUNT") {
+          setInfo(data.error);
+        } else {
+          setError(data.error);
+        }
         setLoading(false);
         return;
       }

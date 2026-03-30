@@ -55,6 +55,15 @@ router.post("/login", authLimiter, async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
+    if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
+
+    // Accounts created via Google OAuth have a random hex password (not a bcrypt hash).
+    // Detect this early to avoid a misleading "Contraseña incorrecta" or a bcrypt error.
+    // All standard bcrypt variants start with "$2a$", "$2b$", or "$2y$".
+    if (!user.password || !/^\$2[aby]\$/.test(user.password)) {
+      return res.status(400).json({ code: "GOOGLE_ACCOUNT", message: "Esta cuenta fue creada con Google. Por favor, inicia sesión con Google." });
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Contraseña incorrecta" });
 
@@ -156,6 +165,10 @@ router.post("/google-session", authLimiter, async (req, res) => {
       });
     } else {
       console.log(`[google-session] Existing user found for email: ${email}`);
+      if (user.isBlocked) {
+        console.warn(`[google-session] Blocked user attempted login: ${email}`);
+        return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
+      }
       let changed = false;
       if (!user.name && name) { user.name = name; changed = true; }
       if (!user.username) {

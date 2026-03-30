@@ -172,6 +172,15 @@ export default function CreatorPage() {
             <span className="tool-card-arrow"><ArrowIcon /></span>
           </Link>
 
+          <Link href="/videos/upload" className="tool-card tool-video">
+            <div className="tool-card-icon"><VideoIcon /></div>
+            <div className="tool-card-body">
+              <div className="tool-card-title">Subir vídeo</div>
+              <div className="tool-card-sub">Publica contenido para tus fans</div>
+            </div>
+            <span className="tool-card-arrow"><ArrowIcon /></span>
+          </Link>
+
           <Link href="/live" className="tool-card tool-archive">
             <div className="tool-card-icon"><ChartIcon /></div>
             <div className="tool-card-body">
@@ -380,6 +389,7 @@ export default function CreatorPage() {
         }
 
         .tool-live { border-color: rgba(248,113,113,0.2); }
+        .tool-video { border-color: rgba(52,211,153,0.2); }
         .tool-archive { border-color: rgba(129,140,248,0.2); }
 
         .tool-card:hover {
@@ -388,6 +398,7 @@ export default function CreatorPage() {
         }
 
         .tool-live:hover { border-color: rgba(248,113,113,0.4); box-shadow: 0 0 16px rgba(248,113,113,0.15); }
+        .tool-video:hover { border-color: rgba(52,211,153,0.4); box-shadow: 0 0 16px rgba(52,211,153,0.15); }
         .tool-archive:hover { border-color: rgba(129,140,248,0.4); box-shadow: 0 0 16px rgba(129,140,248,0.15); }
 
         .tool-card-icon {
@@ -400,6 +411,11 @@ export default function CreatorPage() {
           flex-shrink: 0;
           background: rgba(248,113,113,0.08);
           color: #f87171;
+        }
+
+        .tool-video .tool-card-icon {
+          background: rgba(52,211,153,0.08);
+          color: #34d399;
         }
 
         .tool-archive .tool-card-icon {

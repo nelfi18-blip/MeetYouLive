@@ -9,10 +9,14 @@ import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
+function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
+
 const NAV_LINKS = [
   { href: "/dashboard", label: "Inicio",    icon: HomeIcon    },
   { href: "/explore",   label: "Explorar",  icon: ExploreIcon },
   { href: "/live",      label: "Directos",  icon: LiveIcon    },
+  { href: "/videos",    label: "Vídeos",    icon: VideoNavIcon},
   { href: "/chats",     label: "Chats",     icon: ChatIcon    },
   { href: "/matches",   label: "Matches",   icon: MatchIcon   },
   { href: "/profile",   label: "Perfil",    icon: ProfileIcon },
@@ -154,6 +158,9 @@ export default function Navbar() {
                 </Link>
                 <Link href="/coins" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                   <CoinIcon /> Comprar monedas
+                </Link>
+                <Link href="/subscription" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <StarNavIcon /> Suscripción Premium
                 </Link>
                 <div className="dropdown-divider" />
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>

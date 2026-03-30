@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const USERS_PER_PAGE = 20;
 
 const CATEGORIES = ["Todos", "Gaming", "Música", "Charla", "Arte", "Educación", "Otro"];
 const CAT_ICONS = {
@@ -76,14 +77,14 @@ export default function ExplorePage() {
     setDiscoverLoading(true);
     setDiscoverError("");
     try {
-      const res = await fetch(`${API_URL}/api/user/discover?page=${page}&limit=20`, {
+      const res = await fetch(`${API_URL}/api/user/discover?page=${page}&limit=${USERS_PER_PAGE}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       const newUsers = data.users || [];
       setUsers((prev) => page === 1 ? newUsers : [...prev, ...newUsers]);
-      setHasMore(newUsers.length === 20);
+      setHasMore(newUsers.length === USERS_PER_PAGE);
     } catch {
       setDiscoverError("No se pudo cargar los perfiles");
     } finally {

@@ -85,6 +85,9 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Maximum number of interests a user can have (must match frontend limit)
+const MAX_INTERESTS = 10;
+
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
     const { avatar, gender, birthdate, interests, location, name, bio } = req.body;
@@ -93,7 +96,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (avatar !== undefined) updates.avatar = avatar.trim();
     if (gender !== undefined) updates.gender = gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
-    if (Array.isArray(interests)) updates.interests = interests.slice(0, 10);
+    if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
     if (location !== undefined) updates.location = location.trim();
     if (name !== undefined) {
       const trimmed = name.trim();
@@ -141,6 +144,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       },
       "username name avatar bio gender interests location role"
     )
+      // Sort newest first so recently joined users appear at the top.
+      // Future improvement: weight by shared interests or location.
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

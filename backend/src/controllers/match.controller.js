@@ -19,7 +19,8 @@ exports.likeUser = async (req, res) => {
     const mutual = await Like.findOne({ from: userId, to: req.userId });
 
     if (mutual) {
-      // Ensure a chat room exists for the matched pair
+      // Sort participant IDs so [A,B] and [B,A] always produce the same array.
+      // This prevents creating duplicate chat rooms for the same pair of users.
       const participants = [req.userId, userId].sort();
       await Chat.findOneAndUpdate(
         { participants: { $all: participants, $size: 2 } },

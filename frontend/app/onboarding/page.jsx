@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const MAX_INTERESTS = 10;
+const MIN_AGE_YEARS = 13;
+const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .split("T")[0];
 
 const INTERESTS = [
   "Música", "Gaming", "Arte", "Viajes", "Fitness",
@@ -45,7 +50,7 @@ export default function OnboardingPage() {
     setInterests((prev) =>
       prev.includes(interest)
         ? prev.filter((i) => i !== interest)
-        : prev.length < 10
+        : prev.length < MAX_INTERESTS
         ? [...prev, interest]
         : prev
     );
@@ -69,6 +74,15 @@ export default function OnboardingPage() {
   const finish = async () => {
     setLoading(true);
     setError("");
+
+    // Basic avatar URL validation to prevent XSS via javascript: URIs
+    const trimmedAvatar = avatarUrl.trim();
+    if (trimmedAvatar && !/^https?:\/\//i.test(trimmedAvatar)) {
+      setError("La URL de la foto debe comenzar con http:// o https://");
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API_URL}/api/user/me/onboarding`, {
@@ -84,7 +98,7 @@ export default function OnboardingPage() {
           birthdate: birthdate || undefined,
           interests,
           location: location.trim() || undefined,
-          avatar: avatarUrl.trim() || undefined,
+          avatar: trimmedAvatar || undefined,
         }),
       });
       if (!res.ok) {
@@ -178,7 +192,7 @@ export default function OnboardingPage() {
                   type="date"
                   value={birthdate}
                   onChange={(e) => setBirthdate(e.target.value)}
-                  max={new Date(Date.now() - 13 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                  max={MIN_AGE_DATE}
                 />
               </div>
             </div>
@@ -221,7 +235,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className="ob-selected-count">
-              {interests.length}/10 seleccionados
+              {interests.length}/{MAX_INTERESTS} seleccionados
             </div>
 
             <div className="ob-actions ob-actions-row">

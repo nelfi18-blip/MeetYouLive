@@ -8,6 +8,8 @@ const likeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Unique compound index: a user can only like another user once.
+// This prevents duplicate match records and makes the operation idempotent.
 likeSchema.index({ from: 1, to: 1 }, { unique: true });
 
 module.exports = mongoose.model("Like", likeSchema);

@@ -90,6 +90,14 @@ export default function ProfilePage() {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveError(""); setSaveSuccess(""); setSaving(true);
+
+    // Validate avatar URL to prevent XSS via javascript: URIs
+    if (editForm.avatar && !/^https?:\/\//i.test(editForm.avatar.trim())) {
+      setSaveError("La URL de la foto debe comenzar con http:// o https://");
+      setSaving(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/user/me`, {

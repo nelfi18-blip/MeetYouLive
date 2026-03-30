@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [creatorRequests, setCreatorRequests] = useState([]);
+  const [verificationRequests, setVerificationRequests] = useState([]);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -20,14 +21,15 @@ export default function AdminPage() {
   const loadAdminData = async () => {
     const token = localStorage.getItem("admin_token");
     try {
-      const [overviewRes, usersRes, reportsRes, creatorReqRes] = await Promise.all([
+      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/verifications`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if ([overviewRes, usersRes, reportsRes, creatorReqRes].some((r) => r.status === 401)) {
+      if ([overviewRes, usersRes, reportsRes, creatorReqRes, verifRes].some((r) => r.status === 401)) {
         localStorage.removeItem("admin_token");
         router.replace("/admin/login");
         return;
@@ -37,17 +39,19 @@ export default function AdminPage() {
       }
       if (!overviewRes.ok || !usersRes.ok || !reportsRes.ok) throw new Error("server");
 
-      const [overviewData, usersData, reportsData, creatorReqData] = await Promise.all([
+      const [overviewData, usersData, reportsData, creatorReqData, verифData] = await Promise.all([
         overviewRes.json(),
         usersRes.json(),
         reportsRes.json(),
         creatorReqRes.ok ? creatorReqRes.json() : { requests: [] },
+        verifRes.ok ? verifRes.json() : { requests: [] },
       ]);
 
       setStats(overviewData.stats || null);
       setUsers(usersData.users || []);
       setReports(reportsData.reports || []);
       setCreatorRequests(creatorReqData.requests || []);
+      setVerificationRequests(verифData.requests || []);
     } catch (err) {
       if (err.message === "auth") {
         setError("No tienes permisos para acceder al panel de administrador.");
@@ -152,6 +156,29 @@ export default function AdminPage() {
     }
   };
 
+  const handleVerificationAction = async (userId, action) => {
+    const token = localStorage.getItem("admin_token");
+    setActionLoading(userId + "verify" + action);
+    setActionError("");
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/verify`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) throw new Error("Error");
+      const verifRes = await fetch(`${apiUrl}/api/admin/verifications`, { headers: { Authorization: `Bearer ${token}` } });
+      if (verifRes.ok) {
+        const data = await verifRes.json();
+        setVerificationRequests(data.requests || []);
+      }
+    } catch {
+      setActionError(action === "approve" ? "Error al aprobar la verificación" : "Error al rechazar la verificación");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#fff" }}>
@@ -180,6 +207,7 @@ export default function AdminPage() {
           <StatCard title="Suscripciones" value={stats.subscriptions} />
           <StatCard title="Admins" value={stats.admins} />
           <StatCard title="Solicitudes creador" value={creatorRequests.length} highlight={creatorRequests.length > 0} />
+          <StatCard title="Verificaciones" value={verificationRequests.length} highlight={verificationRequests.length > 0} />
         </div>
       )}
 
@@ -188,6 +216,7 @@ export default function AdminPage() {
         {[
           { key: "users", label: "Usuarios" },
           { key: "creators", label: `Solicitudes Creador${creatorRequests.length > 0 ? ` (${creatorRequests.length})` : ""}` },
+          { key: "verifications", label: `Verificaciones${verificationRequests.length > 0 ? ` (${verificationRequests.length})` : ""}` },
           { key: "reports", label: "Reportes" },
         ].map((tab) => (
           <button
@@ -347,6 +376,61 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === "verifications" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Solicitudes de verificación</h2>
+          {actionError && (
+            <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+              {actionError}
+            </div>
+          )}
+          {verificationRequests.length === 0 ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", background: "#1e293b", borderRadius: "0.75rem" }}>
+              No hay solicitudes de verificación pendientes
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {verificationRequests.map((u) => (
+                <div key={u._id} style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", display: "flex", alignItems: "flex-start", gap: "1.25rem", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontWeight: 700, color: "#e2e8f0" }}>{u.name || "—"}</div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>{u.email}</div>
+                    {u.username && <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>@{u.username}</div>}
+                    <div style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      Registrado: {new Date(u.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  {u.verificationPhoto && (
+                    <a href={`${apiUrl}${u.verificationPhoto}`} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={`${apiUrl}${u.verificationPhoto}`}
+                        alt="Foto verificación"
+                        style={{ width: 120, height: 90, objectFit: "cover", borderRadius: "0.5rem", border: "1px solid #334155", cursor: "pointer" }}
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                    </a>
+                  )}
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <ActionBtn
+                      label="✓ Verificar"
+                      color="#4ade80"
+                      disabled={!!actionLoading}
+                      onClick={() => handleVerificationAction(u._id, "approve")}
+                    />
+                    <ActionBtn
+                      label="✗ Rechazar"
+                      color="#f87171"
+                      disabled={!!actionLoading}
+                      onClick={() => handleVerificationAction(u._id, "reject")}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>

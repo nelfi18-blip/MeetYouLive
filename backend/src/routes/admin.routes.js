@@ -7,7 +7,7 @@ const { requireAdmin } = require("../middlewares/admin.middleware.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
-const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator } = require("../controllers/admin.controller.js");
+const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
 
 const router = Router();
 
@@ -110,6 +110,8 @@ router.patch("/make-admin", makeAdmin);
 router.get("/creator-requests", getCreatorRequests);
 router.patch("/creator-requests/:id/approve", approveCreator);
 router.patch("/creator-requests/:id/reject", rejectCreator);
+router.get("/verifications", getVerificationRequests);
+router.patch("/users/:id/verify", verifyUser);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;

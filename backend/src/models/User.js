@@ -20,6 +20,9 @@ const userSchema = new mongoose.Schema(
     coins: { type: Number, default: 0, min: 0 },
     earningsCoins: { type: Number, default: 0, min: 0 },
     isPremium: { type: Boolean, default: false },
+    verificationPhoto: { type: String, default: "" },
+    verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
+    isVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

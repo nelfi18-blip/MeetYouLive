@@ -26,4 +26,24 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken };
+// Sets req.userId if a valid Bearer token is present, but does not fail if absent.
+const optionalVerifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+  const token = authHeader.split(" ")[1];
+  if (!process.env.JWT_SECRET) return next();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("isBlocked");
+    if (user && !user.isBlocked) {
+      req.userId = decoded.id;
+    }
+  } catch {
+    // ignore invalid token
+  }
+  next();
+};
+
+module.exports = { verifyToken, optionalVerifyToken };

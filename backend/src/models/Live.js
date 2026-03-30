@@ -10,6 +10,9 @@ const liveSchema = new mongoose.Schema(
     isLive: { type: Boolean, default: false },
     viewerCount: { type: Number, default: 0 },
     endedAt: { type: Date },
+    isPrivate: { type: Boolean, default: false },
+    entryCost: { type: Number, default: 0, min: 0 },
+    paidViewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );

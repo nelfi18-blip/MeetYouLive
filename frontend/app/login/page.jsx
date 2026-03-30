@@ -103,13 +103,23 @@ function LoginForm() {
               // Proxy responded OK but sent no token – treat as a recoverable error.
               console.error("[login] backend-token returned ok but no token:", data);
             } else if (response.status === 401) {
-              retryStartedRef.current = false;
-              setConnecting(false);
-              setInfo("");
-              setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
-              clearToken();
-              await signOut({ redirect: false });
-              return;
+              // A 401 can occur transiently on the first call if the NextAuth
+              // session cookie hasn't been read correctly yet (e.g., secure vs
+              // non-secure cookie name mismatch in Next.js 15 App Router).
+              // Allow 2 retries (attempts 1 and 2 fall through) before aborting
+              // on the 3rd attempt.
+              if (attempt >= 3) {
+                retryStartedRef.current = false;
+                setConnecting(false);
+                setInfo("");
+                setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
+                clearToken();
+                await signOut({ redirect: false });
+                return;
+              }
+              let body = {};
+              try { body = await response.json(); } catch { /* ignore */ }
+              console.warn(`[login] backend-token attempt ${attempt} returned 401 – will retry:`, body);
             } else {
               // Log non-401 errors for debugging; they will be retried below.
               let body = {};

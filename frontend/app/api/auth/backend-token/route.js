@@ -15,10 +15,38 @@ import { getToken } from "next-auth/jwt";
 export async function POST(request) {
   console.log("[backend-token] Request received");
 
-  const token = await getToken({
+  // NextAuth uses "__Secure-next-auth.session-token" on HTTPS (production) and
+  // "next-auth.session-token" on HTTP (development). getToken() auto-detects
+  // this from NEXTAUTH_URL, but if the env var is not set or the protocol
+  // detection is wrong, it may look for the wrong cookie and return null.
+  // We therefore try both settings so we handle misconfigured environments.
+  if (!process.env.NEXTAUTH_URL) {
+    console.warn(
+      "[backend-token] NEXTAUTH_URL is not set – secureCookie detection may be unreliable. " +
+        "Set NEXTAUTH_URL in your Vercel environment variables."
+    );
+  }
+  const inferredSecure = process.env.NEXTAUTH_URL?.startsWith("https://") ?? false;
+
+  let token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: inferredSecure,
   });
+
+  if (!token) {
+    // Retry with the opposite secureCookie setting in case NEXTAUTH_URL is
+    // missing or the app is behind a TLS-terminating proxy.
+    token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: !inferredSecure,
+    });
+
+    if (token) {
+      console.log(`[backend-token] Token found using secureCookie=${!inferredSecure} (fallback)`);
+    }
+  }
 
   if (!token) {
     console.warn("[backend-token] getToken returned null – no valid NextAuth session cookie");

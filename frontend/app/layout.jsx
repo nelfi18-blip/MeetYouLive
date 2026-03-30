@@ -1,6 +1,7 @@
 import "./globals.css";
 import Providers from "./providers";
 import NavbarWrapper from "../components/NavbarWrapper";
+import IncomingCallNotification from "../components/IncomingCallNotification";
 
 export const metadata = {
   title: "MeetYouLive",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
           <main className="main-content">
             {children}
           </main>
+          <IncomingCallNotification />
         </Providers>
       </body>
     </html>

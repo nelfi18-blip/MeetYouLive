@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const User = require("../models/User.js");
+const Live = require("../models/Live.js");
 
 const router = Router();
 
@@ -150,7 +151,21 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    res.json({ users, page, limit });
+    // Enrich with live status for creator accounts
+    const userIds = users.map((u) => u._id);
+    const activeLives = await Live.find({ user: { $in: userIds }, isLive: true }).select("user _id");
+    const liveByUser = {};
+    activeLives.forEach((l) => { liveByUser[String(l.user)] = String(l._id); });
+
+    const enriched = users.map((u) => {
+      const obj = u.toObject();
+      const liveId = liveByUser[String(u._id)] || null;
+      obj.isLive = !!liveId;
+      obj.liveId = liveId;
+      return obj;
+    });
+
+    res.json({ users: enriched, page, limit });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

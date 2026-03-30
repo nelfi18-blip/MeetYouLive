@@ -267,11 +267,17 @@ export default function ExplorePage() {
                   const initial = displayName[0].toUpperCase();
                   const liked = likedIds.has(user._id);
                   const matched = matchIds.has(user._id);
+                  const isCreatorLive = user.role === "creator" && user.isLive && user.liveId;
                   return (
-                    <div key={user._id} className={`discover-card${matched ? " matched" : ""}`}>
+                    <div key={user._id} className={`discover-card${matched ? " matched" : ""}${isCreatorLive ? " creator-live" : ""}`}>
                       {matched && (
                         <div className="match-ribbon">
                           <MatchTabIcon /> Match!
+                        </div>
+                      )}
+                      {isCreatorLive && !matched && (
+                        <div className="live-ribbon">
+                          <span className="live-dot" /> EN VIVO
                         </div>
                       )}
                       <div className="discover-avatar-wrap">
@@ -279,6 +285,12 @@ export default function ExplorePage() {
                           <img src={user.avatar} alt={displayName} className="discover-avatar-img" />
                         ) : (
                           <div className="discover-avatar-placeholder">{initial}</div>
+                        )}
+                        {isCreatorLive && (
+                          <span className="avatar-live-badge">
+                            <span className="live-dot-sm" />
+                            LIVE
+                          </span>
                         )}
                       </div>
                       <div className="discover-body">
@@ -298,6 +310,12 @@ export default function ExplorePage() {
                           </div>
                         )}
                       </div>
+                      {isCreatorLive && (
+                        <Link href={`/live/${user.liveId}`} className="watch-live-btn">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                          Ver en vivo
+                        </Link>
+                      )}
                       <button
                         className={`discover-like-btn${liked ? " liked" : ""}`}
                         onClick={() => handleLike(user._id)}
@@ -382,11 +400,18 @@ export default function ExplorePage() {
         .discover-card { background: rgba(15,8,32,0.7); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem 1.1rem 1.1rem; display: flex; flex-direction: column; align-items: center; gap: 0.8rem; position: relative; transition: all var(--transition-slow); }
         .discover-card:hover { border-color: rgba(255,45,120,0.25); box-shadow: var(--shadow), 0 0 20px rgba(255,45,120,0.08); transform: translateY(-3px); }
         .discover-card.matched { border-color: rgba(255,45,120,0.4); box-shadow: var(--shadow), 0 0 24px rgba(255,45,120,0.15); }
+        .discover-card.creator-live { border-color: rgba(255,15,138,0.5); box-shadow: var(--shadow), 0 0 28px rgba(255,15,138,0.2); }
         .match-ribbon { position: absolute; top: 0.5rem; right: 0.5rem; background: var(--grad-warm); color: #fff; font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: var(--radius-pill); display: flex; align-items: center; gap: 0.25rem; box-shadow: 0 2px 8px rgba(255,45,120,0.4); }
         .match-ribbon :global(svg) { width: 10px; height: 10px; }
-        .discover-avatar-wrap { flex-shrink: 0; }
+        .live-ribbon { position: absolute; top: 0.5rem; right: 0.5rem; background: linear-gradient(135deg, #ff0f8a, #e040fb); color: #fff; font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.55rem; border-radius: var(--radius-pill); display: flex; align-items: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(255,15,138,0.5); letter-spacing: 0.04em; animation: live-pulse 2s ease-in-out infinite; }
+        @keyframes live-pulse { 0%, 100% { box-shadow: 0 2px 8px rgba(255,15,138,0.5); } 50% { box-shadow: 0 2px 16px rgba(255,15,138,0.8); } }
+        .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; display: inline-block; animation: dot-blink 1s ease-in-out infinite; }
+        @keyframes dot-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .discover-avatar-wrap { flex-shrink: 0; position: relative; }
         .discover-avatar-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,45,120,0.2); }
         .discover-avatar-placeholder { width: 80px; height: 80px; border-radius: 50%; background: var(--grad-primary); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: #fff; }
+        .avatar-live-badge { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0f8a, #e040fb); color: #fff; font-size: 0.55rem; font-weight: 800; padding: 0.12rem 0.45rem; border-radius: var(--radius-pill); display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; letter-spacing: 0.06em; }
+        .live-dot-sm { width: 5px; height: 5px; border-radius: 50%; background: #fff; display: inline-block; animation: dot-blink 1s ease-in-out infinite; }
         .discover-body { text-align: center; width: 100%; }
         .discover-name { font-weight: 700; font-size: 0.92rem; color: var(--text); margin-bottom: 0.3rem; }
         .discover-creator-badge { display: inline-block; font-size: 0.62rem; padding: 0.15rem 0.5rem; border-radius: var(--radius-pill); background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); color: var(--accent-green); font-weight: 700; margin-bottom: 0.3rem; }
@@ -394,6 +419,8 @@ export default function ExplorePage() {
         .discover-bio { font-size: 0.77rem; color: var(--text-muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0 0 0.35rem; }
         .discover-interests { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; }
         .discover-interest-tag { font-size: 0.62rem; padding: 0.18rem 0.5rem; border-radius: var(--radius-pill); background: rgba(224,64,251,0.08); border: 1px solid rgba(224,64,251,0.15); color: var(--accent-2); font-weight: 600; }
+        .watch-live-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; border-radius: var(--radius-sm); background: linear-gradient(135deg, rgba(255,15,138,0.15), rgba(224,64,251,0.15)); border: 1px solid rgba(255,15,138,0.35); color: var(--accent); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all var(--transition); text-decoration: none; }
+        .watch-live-btn:hover { background: linear-gradient(135deg, rgba(255,15,138,0.25), rgba(224,64,251,0.25)); box-shadow: 0 0 16px rgba(255,15,138,0.3); }
         .discover-like-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,45,120,0.25); background: rgba(255,45,120,0.06); color: var(--text-muted); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all var(--transition); }
         .discover-like-btn:hover { background: rgba(255,45,120,0.12); color: var(--accent); border-color: rgba(255,45,120,0.4); }
         .discover-like-btn.liked { background: rgba(255,45,120,0.12); border-color: var(--accent); color: var(--accent); }

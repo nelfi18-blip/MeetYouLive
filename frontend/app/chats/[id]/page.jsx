@@ -16,8 +16,13 @@ export default function ChatConversationPage() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [otherName, setOtherName] = useState("");
+  const [otherUser, setOtherUser] = useState(null); // { _id, username, name, avatar, role }
+  const [isMatch, setIsMatch] = useState(false);
+  const [callLoading, setCallLoading] = useState(false);
+  const [callError, setCallError] = useState("");
   const bottomRef = useRef(null);
+
+  const otherName = otherUser?.username || otherUser?.name || "Usuario";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -29,9 +34,13 @@ export default function ChatConversationPage() {
 
     const headers = { Authorization: `Bearer ${token}` };
 
-    // Fetch current user and messages in parallel, then resolve otherName
+    // Fetch current user, chat participants, and messages in parallel
     Promise.all([
       fetch(`${API_URL}/api/user/me`, { headers }).then((r) => {
+        if (r.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
+        return r.ok ? r.json() : null;
+      }),
+      fetch(`${API_URL}/api/chats/${id}`, { headers }).then((r) => {
         if (r.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
         return r.ok ? r.json() : null;
       }),
@@ -41,14 +50,35 @@ export default function ChatConversationPage() {
         return r.json();
       }),
     ])
-      .then(([me, data]) => {
+      .then(async ([me, chatData, data]) => {
         const myId = me?._id ?? null;
         setCurrentUserId(myId);
         const msgs = Array.isArray(data) ? data : [];
         setMessages(msgs);
-        const other = msgs.find((m) => m.sender?._id !== myId);
-        if (other) {
-          setOtherName(other.sender?.username || other.sender?.name || "Usuario");
+
+        // Resolve the other participant from chat data
+        let other = null;
+        if (chatData?.participants) {
+          other = chatData.participants.find((p) => String(p._id) !== String(myId)) || null;
+        }
+        // Fallback: derive from messages
+        if (!other) {
+          const otherMsg = msgs.find((m) => m.sender?._id !== myId);
+          if (otherMsg) other = otherMsg.sender;
+        }
+        setOtherUser(other);
+
+        // Check match status if we have both IDs
+        if (myId && other?._id) {
+          try {
+            const matchRes = await fetch(`${API_URL}/api/matches/check/${other._id}`, { headers });
+            if (matchRes.ok) {
+              const matchData = await matchRes.json();
+              setIsMatch(!!matchData.match);
+            }
+          } catch {
+            // non-critical
+          }
         }
       })
       .catch((err) => {
@@ -92,6 +122,38 @@ export default function ChatConversationPage() {
     }
   };
 
+  const handleVideoCall = async (type = "social", callCoins = 0) => {
+    if (!otherUser?._id || callLoading) return;
+    setCallLoading(true);
+    setCallError("");
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ recipientId: otherUser._id, type, callCoins }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCallError(data.message || "No se pudo iniciar la llamada");
+        return;
+      }
+      // Navigate to the call room
+      router.push(`/call/${data._id}`);
+    } catch {
+      setCallError("Error de conexión al iniciar la llamada");
+    } finally {
+      setCallLoading(false);
+    }
+  };
+
+  const isCreator = otherUser?.role === "creator";
+  // Show video call button if: matched users (social call) OR talking to a creator (paid call)
+  const canVideoCall = isMatch || isCreator;
+
   return (
     <div className="chat-page">
       <div className="chat-header card">
@@ -100,15 +162,40 @@ export default function ChatConversationPage() {
           {otherName && (
             <>
               <div className="peer-avatar avatar-placeholder">
-                {otherName[0].toUpperCase()}
+                {otherUser?.avatar ? (
+                  <img src={otherUser.avatar} alt={otherName} className="peer-avatar-img" />
+                ) : (
+                  otherName[0].toUpperCase()
+                )}
               </div>
-              <span className="peer-name">{otherName}</span>
+              <div className="peer-info">
+                <span className="peer-name">{otherName}</span>
+                {isCreator && <span className="peer-creator-badge">Creador</span>}
+              </div>
             </>
           )}
           {!otherName && <span className="peer-name">Conversación</span>}
         </div>
+
+        {canVideoCall && (
+          <button
+            className="video-call-btn"
+            onClick={() => handleVideoCall(isCreator ? "paid_creator" : "social")}
+            disabled={callLoading}
+            title={isCreator ? "Llamada privada con creador" : "Videollamada"}
+            aria-label="Iniciar videollamada"
+          >
+            {callLoading ? (
+              <span className="call-spinner-sm" />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            )}
+            <span className="video-call-label">{isCreator ? "Llamada privada" : "Videollamada"}</span>
+          </button>
+        )}
       </div>
 
+      {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
 
       <div className="messages-area">
@@ -196,9 +283,81 @@ export default function ChatConversationPage() {
         }
         .back-btn:hover { color: var(--accent-2); }
 
-        .chat-peer { display: flex; align-items: center; gap: 0.6rem; }
-        .peer-avatar { flex-shrink: 0; }
-        .peer-name { font-weight: 700; color: var(--text); font-size: 0.95rem; }
+        .chat-peer { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; }
+        .peer-avatar {
+          flex-shrink: 0;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 800;
+          overflow: hidden;
+        }
+        .peer-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+        .peer-info { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+        .peer-name { font-weight: 700; color: var(--text); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .peer-creator-badge {
+          display: inline-block;
+          font-size: 0.6rem;
+          padding: 0.1rem 0.4rem;
+          border-radius: var(--radius-pill);
+          background: rgba(52,211,153,0.1);
+          border: 1px solid rgba(52,211,153,0.2);
+          color: var(--accent-green);
+          font-weight: 700;
+          width: fit-content;
+        }
+
+        /* Video call button */
+        .video-call-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.5rem 1rem;
+          border-radius: var(--radius-sm);
+          background: rgba(129,140,248,0.12);
+          border: 1px solid rgba(129,140,248,0.3);
+          color: var(--accent-3);
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all var(--transition);
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .video-call-btn:hover:not(:disabled) {
+          background: rgba(129,140,248,0.2);
+          box-shadow: 0 0 16px rgba(129,140,248,0.3);
+        }
+        .video-call-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .video-call-label {
+          display: none;
+        }
+
+        @media (min-width: 480px) {
+          .video-call-label { display: inline; }
+        }
+
+        .call-spinner-sm {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(129,140,248,0.3);
+          border-top-color: var(--accent-3);
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .messages-area {
           flex: 1;

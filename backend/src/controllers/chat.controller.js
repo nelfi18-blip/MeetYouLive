@@ -22,6 +22,19 @@ const getChats = async (req, res) => {
   }
 };
 
+const getChatById = async (req, res) => {
+  try {
+    const chat = await Chat.findOne({
+      _id: req.params.chatId,
+      participants: req.userId,
+    }).populate("participants", "username name avatar role");
+    if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
+    res.json(chat);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 const createOrGetChat = async (req, res) => {
   const { recipientId } = req.body;
   if (!recipientId) {
@@ -99,4 +112,4 @@ const sendMessage = async (req, res) => {
   }
 };
 
-module.exports = { getChats, createOrGetChat, getMessages, sendMessage };
+module.exports = { getChats, getChatById, createOrGetChat, getMessages, sendMessage };

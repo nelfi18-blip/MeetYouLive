@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
-const { getChats, createOrGetChat, getMessages, sendMessage } = require("../controllers/chat.controller.js");
+const { getChats, getChatById, createOrGetChat, getMessages, sendMessage } = require("../controllers/chat.controller.js");
 
 const router = Router();
 
@@ -13,6 +13,7 @@ const chatLimiter = rateLimit({
 
 router.get("/", chatLimiter, verifyToken, getChats);
 router.post("/", chatLimiter, verifyToken, createOrGetChat);
+router.get("/:chatId", chatLimiter, verifyToken, getChatById);
 router.get("/:chatId/messages", chatLimiter, verifyToken, getMessages);
 router.post("/:chatId/messages", chatLimiter, verifyToken, sendMessage);
 

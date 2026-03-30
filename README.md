@@ -190,6 +190,45 @@ The script connects to MongoDB using `MONGODB_URI` from your `.env` file, then *
 
 Log in, go to **Profile → 🔑 Contraseña**, enter your current password and choose a new one.
 
+## Google login flow
+
+Google login goes through the following steps:
+
+1. User clicks **Sign in with Google** → NextAuth redirects to Google consent screen.
+2. Google redirects back to NextAuth callback → NextAuth creates a session.
+3. The frontend enters a **"Connecting…"** state while it requests a backend JWT from `POST /api/auth/google-session` (with automatic retries).
+4. Once the backend responds the JWT is stored and the user is taken to the dashboard.
+
+The connecting delay on first login is caused by **Render free-tier cold starts** (the backend spins down after inactivity). This is expected behavior. See the [Uptime Monitoring](#uptime-monitoring) section below to eliminate the delay.
+
+## Uptime Monitoring
+
+The backend is hosted on Render's **free tier**, which suspends the service after ~15 minutes of inactivity. When the first request arrives after a suspension the backend needs ~30–60 seconds to restart (cold start), which is why the "Connecting…" screen appears during Google login.
+
+To keep the backend always-on, set up a free uptime monitor that pings the backend health endpoint every 5–10 minutes:
+
+### UptimeRobot (recommended — free)
+
+1. Create a free account at [https://uptimerobot.com](https://uptimerobot.com).
+2. Click **Add New Monitor**:
+   - **Monitor Type**: HTTP(s)
+   - **Friendly Name**: MeetYouLive API
+   - **URL**: `https://api.meetyoulive.net/api/health`
+   - **Monitoring Interval**: 5 minutes
+3. Save. UptimeRobot will ping the backend every 5 minutes, preventing Render from suspending it.
+
+### Other free options
+
+| Service | Free monitors | Min interval |
+|---------|---------------|--------------|
+| [Better Uptime](https://betteruptime.com) | 10 | 3 min |
+| [Freshping](https://freshping.io) | 50 | 1 min |
+| [Statuspage (Atlassian)](https://www.atlassian.com/software/statuspage) | — | varies |
+
+### Backend health endpoint
+
+The backend exposes a lightweight health endpoint at `GET /api/health` that returns `200 OK`. This is the recommended URL to use with any uptime monitor.
+
 ## Notes
 
 - `NEXTAUTH_SECRET` must be the same value in both Vercel and Render.
@@ -197,3 +236,4 @@ Log in, go to **Profile → 🔑 Contraseña**, enter your current password and 
 - `api.meetyoulive.net` must point to the Render backend hostname.
 - The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`
 - Google OAuth redirect URI must be `https://www.meetyoulive.net/api/auth/callback/google` (NextAuth callback, not the legacy backend route).
+- The "Connecting…" delay after Google login is a Render cold-start artifact on the free tier. Set up UptimeRobot (see above) to eliminate it.

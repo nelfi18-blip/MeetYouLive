@@ -110,7 +110,6 @@ A `render.yaml` is included so Render can auto-configure the service.
    PORT=10000
    MONGODB_URI=your_mongodb_uri
    JWT_SECRET=your_jwt_secret
-   NEXTAUTH_SECRET=your_nextauth_secret
    INTERNAL_API_SECRET=your_internal_api_secret
    FRONTEND_URL=https://www.meetyoulive.net
    GOOGLE_CLIENT_ID=your_google_client_id
@@ -137,7 +136,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | Variable                      | Description                                             |
 |-------------------------------|---------------------------------------------------------|
 | `NEXTAUTH_URL`                | Canonical URL of the frontend                           |
-| `NEXTAUTH_SECRET`             | Shared secret (must match `NEXTAUTH_SECRET` on the backend)     |
+| `NEXTAUTH_SECRET`             | Secret used by NextAuth to sign session cookies (frontend only) |
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header) |
 | `NEXT_PUBLIC_API_URL`         | Backend API base URL                                    |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID (used by NextAuth)               |
@@ -150,7 +149,6 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `PORT`                        | Server port (default 10000)                             |
 | `MONGODB_URI`                 | MongoDB connection string                               |
 | `JWT_SECRET`                  | Secret for signing JWT tokens                           |
-| `NEXTAUTH_SECRET`             | Shared secret verified via `x-nextauth-secret` header on `/api/auth/google-session`; must match frontend |
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header); must match frontend |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID                                  |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret                              |
@@ -231,7 +229,6 @@ The backend exposes a lightweight health endpoint at `GET /api/health` that retu
 
 ## Notes
 
-- `NEXTAUTH_SECRET` must be the same value in both Vercel and Render.
 - `INTERNAL_API_SECRET` must be the same value in both Vercel and Render.
 - `api.meetyoulive.net` must point to the Render backend hostname.
 - The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`

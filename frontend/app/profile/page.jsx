@@ -28,7 +28,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: "", name: "", bio: "" });
+  const [editForm, setEditForm] = useState({ username: "", name: "", bio: "", avatar: "" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -66,7 +66,7 @@ export default function ProfilePage() {
       .then((d) => {
         if (!d) return;
         setUser(d);
-        setEditForm({ username: d.username || "", name: d.name || "", bio: d.bio || "" });
+        setEditForm({ username: d.username || "", name: d.name || "", bio: d.bio || "", avatar: d.avatar || "" });
       })
       .catch(() => setError("No se pudo cargar el perfil"))
       .finally(() => setLoading(false));
@@ -83,13 +83,21 @@ export default function ProfilePage() {
 
   const handleCancelEdit = () => {
     setEditing(false);
-    setEditForm({ username: user.username || "", name: user.name || "", bio: user.bio || "" });
+    setEditForm({ username: user.username || "", name: user.name || "", bio: user.bio || "", avatar: user.avatar || "" });
     setSaveError(""); setSaveSuccess("");
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveError(""); setSaveSuccess(""); setSaving(true);
+
+    // Validate avatar URL to prevent XSS via javascript: URIs
+    if (editForm.avatar && !/^https?:\/\//i.test(editForm.avatar.trim())) {
+      setSaveError("La URL de la foto debe comenzar con http:// o https://");
+      setSaving(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/user/me`, {
@@ -100,7 +108,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
       setUser(data);
-      setEditForm({ username: data.username || "", name: data.name || "", bio: data.bio || "" });
+      setEditForm({ username: data.username || "", name: data.name || "", bio: data.bio || "", avatar: data.avatar || "" });
       setSaveSuccess("Perfil actualizado correctamente");
       setEditing(false);
     } catch { setSaveError("No se pudo conectar con el servidor"); }
@@ -176,7 +184,13 @@ export default function ProfilePage() {
           <div className="profile-card">
             <div className="profile-card-bg" />
             <div className="profile-card-content">
-              <div className="profile-avatar">{initial}</div>
+              <div className="profile-avatar-wrap">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={displayName} className="profile-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
+                  ) : (
+                    <div className="profile-avatar">{initial}</div>
+                  )}
+                </div>
               <div className="profile-info">
                 <h1 className="profile-name">{displayName}</h1>
                 {user.username && <p className="profile-handle">@{user.username}</p>}
@@ -225,6 +239,15 @@ export default function ProfilePage() {
                   <textarea className="input bio-textarea" value={editForm.bio}
                     onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">URL de foto de perfil</label>
+                  <input className="input" type="url" value={editForm.avatar}
+                    onChange={(e) => setEditForm((f) => ({ ...f, avatar: e.target.value }))}
+                    placeholder="https://ejemplo.com/tu-foto.jpg" />
+                  {editForm.avatar && (
+                    <img src={editForm.avatar} alt="Preview" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", marginTop: "0.5rem", border: "2px solid rgba(224,64,251,0.3)" }} onError={(e) => { e.target.style.display = "none"; }} />
+                  )}
                 </div>
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -429,6 +452,16 @@ export default function ProfilePage() {
           gap: 1.5rem;
           padding: 2rem;
           flex-wrap: wrap;
+        }
+
+        .profile-avatar-wrap { flex-shrink: 0; }
+
+        .profile-avatar-img {
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          object-fit: cover;
+          box-shadow: 0 0 0 3px rgba(224,64,251,0.25), 0 0 20px rgba(224,64,251,0.25);
         }
 
         .profile-avatar {

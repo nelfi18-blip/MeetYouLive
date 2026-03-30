@@ -34,7 +34,7 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
 
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio } = req.body;
+    const { username, name, bio, avatar } = req.body;
     const updates = {};
     if (username !== undefined) {
       const trimmed = username.trim();
@@ -45,6 +45,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (trimmed.length > 0) updates.name = trimmed;
     }
     if (bio !== undefined) updates.bio = bio.trim();
+    if (avatar !== undefined) updates.avatar = avatar.trim();
 
     if (updates.username) {
       const existing = await User.findOne({ username: updates.username, _id: { $ne: req.userId } });
@@ -79,6 +80,77 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
     res.json({ message: "Contraseña actualizada correctamente" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Maximum number of interests a user can have (must match frontend limit)
+const MAX_INTERESTS = 10;
+
+router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const { avatar, gender, birthdate, interests, location, name, bio } = req.body;
+    const updates = { onboardingComplete: true };
+
+    if (avatar !== undefined) updates.avatar = avatar.trim();
+    if (gender !== undefined) updates.gender = gender;
+    if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
+    if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
+    if (location !== undefined) updates.location = location.trim();
+    if (name !== undefined) {
+      const trimmed = name.trim();
+      if (trimmed.length > 0) updates.name = trimmed;
+    }
+    if (bio !== undefined) updates.bio = bio.trim();
+
+    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    if (!avatar || typeof avatar !== "string") {
+      return res.status(400).json({ message: "avatar (URL) es requerido" });
+    }
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { avatar: avatar.trim() },
+      { new: true }
+    ).select("-password");
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get("/discover", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const skip = (page - 1) * limit;
+
+    const users = await User.find(
+      {
+        _id: { $ne: req.userId },
+        isBlocked: false,
+        onboardingComplete: true,
+      },
+      "username name avatar bio gender interests location role"
+    )
+      // Sort newest first so recently joined users appear at the top.
+      // Future improvement: weight by shared interests or location.
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({ users, page, limit });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

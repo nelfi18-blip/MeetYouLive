@@ -19,6 +19,10 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
+  // Prevents a second recovery attempt if the first one is already in flight.
+  const backendTokenAttempted = useRef(false);
+  // Tracks the pending retry timeout so it can be cancelled on unmount.
+  const retryTimeoutRef = useRef(null);
 
   const [connecting, setConnecting] = useState(false);
 

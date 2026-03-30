@@ -177,10 +177,7 @@ export default function AdminLoginPage() {
           <p className="footer-link">
             <Link href="/login">← Volver al inicio de sesión</Link>
           </p>
-          <p className="footer-link footer-link-dim">
-            ¿Primera vez?{" "}
-            <Link href="/setup">Crear cuenta de administrador</Link>
-          </p>
+
         </div>
       </div>
 

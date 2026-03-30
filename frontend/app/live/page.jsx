@@ -72,6 +72,9 @@ export default function LivePage() {
                   <span className="live-dot" />
                   LIVE
                 </span>
+                {live.isPrivate && (
+                  <span className="badge-private-thumb">🔒 {live.entryCost} 🪙</span>
+                )}
                 {live.viewerCount != null && (
                   <span className="viewer-count">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -163,6 +166,22 @@ export default function LivePage() {
           font-weight: 800;
           letter-spacing: 0.06em;
           padding: 0.25rem 0.65rem;
+        }
+
+        .badge-private-thumb {
+          position: absolute;
+          top: 0.65rem;
+          right: 0.65rem;
+          z-index: 2;
+          background: rgba(139,92,246,0.85);
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          padding: 0.22rem 0.65rem;
+          border-radius: var(--radius-pill);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(139,92,246,0.5);
         }
 
         .live-dot {

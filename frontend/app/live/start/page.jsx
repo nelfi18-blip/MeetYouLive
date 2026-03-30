@@ -12,6 +12,8 @@ export default function StartLivePage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [entryCost, setEntryCost] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [live, setLive] = useState(null);
@@ -43,6 +45,10 @@ export default function StartLivePage() {
       setError("El título es obligatorio");
       return;
     }
+    if (isPrivate && (!entryCost || entryCost < 1)) {
+      setError("El coste de entrada debe ser al menos 1 moneda");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -53,7 +59,13 @@ export default function StartLivePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title: title.trim(), description: description.trim(), category }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          isPrivate,
+          entryCost: isPrivate ? Number(entryCost) : 0,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -81,6 +93,8 @@ export default function StartLivePage() {
       setTitle("");
       setDescription("");
       setCategory("");
+      setIsPrivate(false);
+      setEntryCost(10);
     } catch {
       setError("Error al finalizar el directo");
     } finally {
@@ -144,6 +158,47 @@ export default function StartLivePage() {
             </select>
           </div>
 
+          {/* Privacy toggle */}
+          <div className="form-group">
+            <label className="form-label">Privacidad</label>
+            <div className="privacy-toggle">
+              <button
+                type="button"
+                className={`privacy-btn${!isPrivate ? " active" : ""}`}
+                onClick={() => setIsPrivate(false)}
+              >
+                🌐 Público
+              </button>
+              <button
+                type="button"
+                className={`privacy-btn${isPrivate ? " active" : ""}`}
+                onClick={() => setIsPrivate(true)}
+              >
+                🔒 Privado (monedas)
+              </button>
+            </div>
+            {isPrivate && (
+              <p className="privacy-hint">
+                Solo los usuarios que paguen la entrada podrán ver este directo.
+              </p>
+            )}
+          </div>
+
+          {isPrivate && (
+            <div className="form-group">
+              <label className="form-label">Coste de entrada (monedas) *</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={10000}
+                value={entryCost}
+                onChange={(e) => setEntryCost(Number(e.target.value))}
+                required
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             className="btn btn-primary btn-lg btn-block"
@@ -156,6 +211,9 @@ export default function StartLivePage() {
         <div className="live-active card">
           <div className="live-active-header">
             <span className="badge badge-live">EN VIVO</span>
+            {live.isPrivate && (
+              <span className="badge badge-private">🔒 PRIVADO · {live.entryCost} monedas</span>
+            )}
             <h2 className="live-active-title">{live.title}</h2>
           </div>
 
@@ -212,12 +270,56 @@ export default function StartLivePage() {
 
         .textarea { resize: vertical; min-height: 80px; }
 
+        /* Privacy toggle */
+        .privacy-toggle {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .privacy-btn {
+          flex: 1;
+          padding: 0.6rem 1rem;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .privacy-btn.active {
+          border-color: var(--accent);
+          background: rgba(255, 15, 138, 0.1);
+          color: var(--accent);
+        }
+
+        .privacy-hint {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin-top: 0.25rem;
+          line-height: 1.5;
+        }
+
         /* Active live */
         .live-active { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
 
-        .live-active-header { display: flex; align-items: center; gap: 0.75rem; }
+        .live-active-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 
         .live-active-title { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+
+        .badge-private {
+          background: rgba(139,92,246,0.15);
+          color: #a78bfa;
+          border: 1px solid rgba(139,92,246,0.35);
+          border-radius: var(--radius-pill);
+          padding: 0.2rem 0.65rem;
+          font-size: 0.7rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+        }
 
         .stream-info { display: flex; flex-direction: column; gap: 0.75rem; }
 

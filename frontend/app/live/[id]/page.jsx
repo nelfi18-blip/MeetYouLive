@@ -11,9 +11,15 @@ export default function LiveViewerPage() {
   const { id } = useParams();
   const [live, setLive] = useState(null);
   const [error, setError] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   useEffect(() => {
-    fetch(`${API_URL}/api/lives/${id}`)
+    fetch(`${API_URL}/api/lives/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => {
         if (!res.ok) throw new Error("Error al cargar el directo");
         return res.json();
@@ -21,6 +27,31 @@ export default function LiveViewerPage() {
       .then((data) => setLive(data))
       .catch(() => setError("Directo no encontrado o ya finalizado"));
   }, [id]);
+
+  const handleJoin = async () => {
+    if (!token) {
+      setJoinError("Debes iniciar sesión para unirte a este directo privado.");
+      return;
+    }
+    setJoining(true);
+    setJoinError("");
+    try {
+      const res = await fetch(`${API_URL}/api/lives/${id}/join`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setJoinError(data.message || "No se pudo unir al directo");
+        return;
+      }
+      setLive(data);
+    } catch {
+      setJoinError("No se pudo conectar con el servidor");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   if (error) {
     return (
@@ -75,6 +106,80 @@ export default function LiveViewerPage() {
     );
   }
 
+  // Private stream paywall
+  if (live.isPrivate && !live.hasAccess) {
+    return (
+      <div className="viewer-page">
+        <div className="paywall card">
+          <div className="paywall-icon">🔒</div>
+          <h2 className="paywall-title">{live.title}</h2>
+          <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
+          <p className="paywall-desc">Este directo es privado. Paga la entrada con monedas para acceder.</p>
+          <div className="paywall-cost">
+            <span className="coin-icon">🪙</span>
+            <span className="cost-num">{live.entryCost}</span>
+            <span className="cost-label">monedas</span>
+          </div>
+          {joinError && <div className="error-banner">{joinError}</div>}
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={handleJoin}
+            disabled={joining}
+          >
+            {joining ? "Procesando…" : `🪙 Pagar ${live.entryCost} monedas y entrar`}
+          </button>
+          {!token && (
+            <p className="paywall-login-hint">
+              <Link href="/login" className="link-accent">Inicia sesión</Link> para comprar la entrada.
+            </p>
+          )}
+          <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
+        </div>
+
+        <style jsx>{`
+          .viewer-page { display: flex; flex-direction: column; gap: 1rem; }
+          .paywall {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 3rem 2rem;
+            max-width: 480px;
+            margin: 2rem auto;
+            text-align: center;
+          }
+          .paywall-icon { font-size: 3rem; }
+          .paywall-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
+          .paywall-streamer { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+          .paywall-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; }
+          .paywall-cost {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(139,92,246,0.1);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: var(--radius-pill);
+            padding: 0.5rem 1.5rem;
+          }
+          .coin-icon { font-size: 1.4rem; }
+          .cost-num { font-size: 1.75rem; font-weight: 900; color: #a78bfa; }
+          .cost-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+          .error-banner {
+            width: 100%;
+            background: rgba(244,67,54,0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+            border-radius: var(--radius-sm);
+            padding: 0.65rem 1rem;
+            font-size: 0.85rem;
+          }
+          .paywall-login-hint { font-size: 0.8rem; color: var(--text-muted); }
+          .link-accent { color: var(--accent); text-decoration: underline; }
+        `}</style>
+      </div>
+    );
+  }
+
   const playerUrl = `https://wl.cinectar.com/player/${LIVE_PROVIDER_KEY}/${live.streamKey}`;
 
   return (
@@ -99,7 +204,12 @@ export default function LiveViewerPage() {
             </div>
             <div>
               <div className="viewer-streamer">@{live.user?.username || "anónimo"}</div>
-              <span className="badge badge-live">EN VIVO</span>
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: "0.25rem" }}>
+                <span className="badge badge-live">EN VIVO</span>
+                {live.isPrivate && (
+                  <span className="badge badge-private">🔒 PRIVADO</span>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -208,6 +318,17 @@ export default function LiveViewerPage() {
           font-size: 0.85rem;
           color: var(--text-muted);
           font-weight: 600;
+        }
+
+        .badge-private {
+          background: rgba(139,92,246,0.15);
+          color: #a78bfa;
+          border: 1px solid rgba(139,92,246,0.35);
+          border-radius: var(--radius-pill);
+          padding: 0.15rem 0.55rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
         }
       `}</style>
     </div>

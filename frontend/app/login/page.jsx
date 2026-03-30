@@ -20,6 +20,8 @@ function LoginForm() {
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
 
+  const [connecting, setConnecting] = useState(false);
+
   const retryStartedRef = useRef(false);
   const timeoutIdsRef = useRef([]);
 
@@ -69,8 +71,9 @@ function LoginForm() {
         if (retryStartedRef.current) return;
         retryStartedRef.current = true;
 
-        // Show the form so the user can see the progress/error messages.
+        // Show the connecting screen so the user can see the progress/error messages.
         setChecking(false);
+        setConnecting(true);
         setError("");
         setInfo("Conectando con el servidor…");
 
@@ -90,6 +93,7 @@ function LoginForm() {
 
               if (data?.token) {
                 retryStartedRef.current = false;
+                setConnecting(false);
                 setInfo("");
                 setToken(data.token);
                 router.replace("/dashboard");
@@ -100,6 +104,7 @@ function LoginForm() {
               console.error("[login] backend-token returned ok but no token:", data);
             } else if (response.status === 401) {
               retryStartedRef.current = false;
+              setConnecting(false);
               setInfo("");
               setError("Tu sesión de Google ya no es válida. Inténtalo otra vez.");
               clearToken();
@@ -123,6 +128,7 @@ function LoginForm() {
             timeoutIdsRef.current.push(timeoutId);
           } else {
             retryStartedRef.current = false;
+            setConnecting(false);
             setInfo("");
             setError("Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.");
             clearToken();
@@ -154,6 +160,169 @@ function LoginForm() {
       aria-label="Verificando sesión…"
       style={{ minHeight: "100vh", background: "#060411" }}
     />
+  );
+
+  if (connecting) return (
+    <div className="login-bg" aria-label="Conectando con el servidor">
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
+      <div className="grid-overlay" aria-hidden="true" />
+
+      <div className="login-card connecting-card">
+        <div className="login-logo">
+          <Image
+            src="/logo.svg"
+            alt="MeetYouLive logo"
+            width={110}
+            height={110}
+            priority
+            className="logo-img"
+          />
+          <div className="login-logo-text">
+            Meet You<span className="logo-live">Live</span>
+          </div>
+        </div>
+
+        <div className="connecting-body" role="status">
+          <div className="connecting-spinner" aria-hidden="true" />
+          <p className="connecting-message" aria-live="polite">{info}</p>
+          <p className="connecting-hint">Iniciando el servidor, por favor espera…</p>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .login-bg {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background:
+            radial-gradient(ellipse at 50% 0%, rgba(224,64,251,0.28) 0%, transparent 55%),
+            radial-gradient(ellipse at 20% 100%, rgba(139,92,246,0.22) 0%, transparent 50%),
+            radial-gradient(ellipse at 85% 60%, rgba(96,165,250,0.10) 0%, transparent 40%),
+            #06020f;
+          padding: 2rem 1rem;
+          position: relative;
+          overflow: hidden;
+        }
+        .orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          pointer-events: none;
+          animation: orb-float 10s ease-in-out infinite alternate;
+        }
+        .orb-1 {
+          width: 520px; height: 520px;
+          background: radial-gradient(circle, rgba(224,64,251,0.22), transparent 70%);
+          top: -220px; left: 50%;
+          transform: translateX(-50%);
+          animation-delay: 0s;
+        }
+        .orb-2 {
+          width: 380px; height: 380px;
+          background: radial-gradient(circle, rgba(139,92,246,0.18), transparent 70%);
+          bottom: -160px; left: -80px;
+          animation-delay: -4s;
+        }
+        .orb-3 {
+          width: 280px; height: 280px;
+          background: radial-gradient(circle, rgba(96,165,250,0.12), transparent 70%);
+          top: 50%; right: -80px;
+          animation-delay: -7s;
+        }
+        @keyframes orb-float {
+          0%   { transform: translate(0, 0) scale(1); }
+          100% { transform: translate(20px, 18px) scale(1.05); }
+        }
+        .grid-overlay {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(224,64,251,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(224,64,251,0.04) 1px, transparent 1px);
+          background-size: 48px 48px;
+          mask-image: radial-gradient(ellipse at 50% 50%, black 0%, transparent 72%);
+          pointer-events: none;
+        }
+        .login-card {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 420px;
+          background: rgba(10,5,22,0.90);
+          border: 1px solid rgba(224,64,251,0.18);
+          border-radius: 32px;
+          padding: 2.5rem 2.25rem 2.25rem;
+          box-shadow:
+            0 24px 80px rgba(0,0,0,0.75),
+            0 0 0 1px rgba(255,255,255,0.04),
+            0 0 80px rgba(224,64,251,0.12);
+          backdrop-filter: blur(32px) saturate(1.6);
+        }
+        .login-logo {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 2rem;
+        }
+        :global(.logo-img) {
+          filter: drop-shadow(0 0 18px rgba(224,64,251,0.55)) drop-shadow(0 0 36px rgba(96,165,250,0.3));
+        }
+        .login-logo-text {
+          font-size: 1.9rem;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          color: var(--text);
+          line-height: 1;
+        }
+        .logo-live {
+          font-style: italic;
+          background: linear-gradient(135deg, #ff2d78 0%, #e040fb 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .connecting-body {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1.25rem;
+          padding-bottom: 0.5rem;
+        }
+        .connecting-spinner {
+          width: 48px;
+          height: 48px;
+          border: 3px solid rgba(224,64,251,0.2);
+          border-top-color: #e040fb;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .connecting-message {
+          color: var(--text);
+          font-size: 1rem;
+          font-weight: 600;
+          text-align: center;
+          letter-spacing: -0.01em;
+        }
+        .connecting-hint {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          text-align: center;
+          max-width: 260px;
+          line-height: 1.5;
+        }
+        @media (max-width: 480px) {
+          .login-card { padding: 2rem 1.5rem; }
+          .login-logo-text { font-size: 1.65rem; }
+        }
+      `}</style>
+    </div>
   );
 
   const login = async () => {

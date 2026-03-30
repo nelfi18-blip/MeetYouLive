@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
+const { sendVerificationEmail } = require("../services/email.service.js");
 
 const router = Router();
 
@@ -13,6 +14,17 @@ const authLimiter = rateLimit({
   max: 20,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
+
+const verifyEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { message: "Demasiados intentos. Espera un momento antes de volver a intentarlo." },
+});
+
+/** Generate a cryptographically random 6-digit numeric code */
+function generateVerificationCode() {
+  return String(Math.floor(100000 + (crypto.randomBytes(4).readUInt32BE(0) % 900000)));
+}
 
 router.post("/register", authLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -24,10 +36,24 @@ router.post("/register", authLimiter, async (req, res) => {
     return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
   }
   try {
+    const code = generateVerificationCode();
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: hashedPassword });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-    res.status(201).json({ message: "Usuario registrado", userId: user._id, token });
+    const user = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      emailVerified: false,
+      emailVerificationCode: code,
+      emailVerificationExpires: expires,
+    });
+
+    // Send verification email (non-blocking — don't fail registration if email fails)
+    sendVerificationEmail(email, code).catch((err) =>
+      console.error("[register] Failed to send verification email:", err.message)
+    );
+
+    res.status(201).json({ message: "Cuenta creada. Revisa tu email para verificar tu cuenta.", requiresVerification: true, userId: user._id });
   } catch (err) {
     if (err.code === 11000) {
       const field = Object.keys(err.keyValue || {})[0];
@@ -37,7 +63,6 @@ router.post("/register", authLimiter, async (req, res) => {
       if (field === "username") {
         return res.status(400).json({ message: "Ese nombre de usuario ya está en uso" });
       }
-      // Unknown or missing duplicate field
       return res.status(400).json({ message: "Ya existe una cuenta con esos datos" });
     }
     console.error("Register error:", err);
@@ -58,14 +83,22 @@ router.post("/login", authLimiter, async (req, res) => {
     if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
 
     // Accounts created via Google OAuth have a random hex password (not a bcrypt hash).
-    // Detect this early to avoid a misleading "Contraseña incorrecta" or a bcrypt error.
-    // All standard bcrypt variants start with "$2a$", "$2b$", or "$2y$".
     if (!user.password || !/^\$2[aby]\$/.test(user.password)) {
       return res.status(400).json({ code: "GOOGLE_ACCOUNT", message: "Esta cuenta fue creada con Google. Por favor, inicia sesión con Google." });
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Contraseña incorrecta" });
+
+    // emailVerified === false means a new account that hasn't been verified yet.
+    // undefined (old accounts created before this feature) are allowed through.
+    if (user.emailVerified === false) {
+      return res.status(403).json({
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.",
+        email: user.email,
+      });
+    }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.json({ token });
@@ -79,6 +112,73 @@ router.get("/check-admin", authLimiter, async (req, res) => {
     const adminExists = await User.exists({ role: "admin" });
     res.json({ adminExists: Boolean(adminExists) });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Verify email with a 6-digit code
+router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const { code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ message: "email y código son requeridos" });
+  }
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (user.emailVerified) {
+      // Already verified — issue token so the user can proceed
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+      return res.json({ message: "Email ya verificado", token });
+    }
+    if (!user.emailVerificationCode || !user.emailVerificationExpires) {
+      return res.status(400).json({ message: "No hay código de verificación activo. Solicita uno nuevo." });
+    }
+    if (new Date() > user.emailVerificationExpires) {
+      return res.status(400).json({ code: "CODE_EXPIRED", message: "El código ha caducado. Solicita uno nuevo." });
+    }
+    if (String(user.emailVerificationCode).trim() !== String(code).trim()) {
+      return res.status(400).json({ message: "Código incorrecto. Inténtalo de nuevo." });
+    }
+    // Mark verified and clear code
+    user.emailVerified = true;
+    user.emailVerificationCode = null;
+    user.emailVerificationExpires = null;
+    await user.save();
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    res.json({ message: "Email verificado correctamente", token });
+  } catch (err) {
+    console.error("verify-email error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Resend verification email
+router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  if (!email) return res.status(400).json({ message: "email es requerido" });
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return success to avoid user enumeration
+      return res.json({ message: "Si la cuenta existe, se ha reenviado el código." });
+    }
+    if (user.emailVerified) {
+      return res.json({ message: "Tu email ya está verificado. Inicia sesión normalmente." });
+    }
+    const code = generateVerificationCode();
+    user.emailVerificationCode = code;
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    sendVerificationEmail(email, code).catch((err) =>
+      console.error("[resend-verification] Failed to send email:", err.message)
+    );
+
+    res.json({ message: "Código de verificación reenviado. Revisa tu email." });
+  } catch (err) {
+    console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
   }
 });

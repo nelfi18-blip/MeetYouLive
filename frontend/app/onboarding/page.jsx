@@ -114,8 +114,9 @@ export default function OnboardingPage() {
       }
     }
 
-    // Basic avatar URL validation to prevent XSS via javascript: URIs
-    if (finalAvatarUrl && !/^https?:\/\//i.test(finalAvatarUrl) && !finalAvatarUrl.startsWith("/uploads/")) {
+    // Basic avatar URL validation to prevent XSS via javascript: URIs.
+    // /uploads/ paths are only set programmatically after a successful upload, never from user text input.
+    if (finalAvatarUrl && !/^https?:\/\//i.test(finalAvatarUrl) && !/^\/uploads\/[a-zA-Z0-9._-]+$/.test(finalAvatarUrl)) {
       setError("La URL de la foto debe comenzar con http:// o https://");
       setLoading(false);
       return;

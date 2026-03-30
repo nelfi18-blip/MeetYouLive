@@ -39,7 +39,7 @@ export default function AdminPage() {
       }
       if (!overviewRes.ok || !usersRes.ok || !reportsRes.ok) throw new Error("server");
 
-      const [overviewData, usersData, reportsData, creatorReqData, verифData] = await Promise.all([
+      const [overviewData, usersData, reportsData, creatorReqData, verifData] = await Promise.all([
         overviewRes.json(),
         usersRes.json(),
         reportsRes.json(),
@@ -51,7 +51,7 @@ export default function AdminPage() {
       setUsers(usersData.users || []);
       setReports(reportsData.reports || []);
       setCreatorRequests(creatorReqData.requests || []);
-      setVerificationRequests(verифData.requests || []);
+      setVerificationRequests(verifData.requests || []);
     } catch (err) {
       if (err.message === "auth") {
         setError("No tienes permisos para acceder al panel de administrador.");

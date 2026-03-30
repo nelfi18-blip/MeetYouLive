@@ -1,6 +1,5 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
-const path = require("path");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");

@@ -127,6 +127,9 @@ router.post("/google-session", authLimiter, async (req, res) => {
   }
 
   console.log(`[google-session] Request received – origin: ${req.headers.origin || "(none)"}, secret-present: ${hasSecret}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[google-session] Request body:", { email: req.body.email, name: req.body.name });
+  }
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";

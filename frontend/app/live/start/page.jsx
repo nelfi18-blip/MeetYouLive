@@ -12,6 +12,7 @@ export default function StartLivePage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [language, setLanguage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [entryCost, setEntryCost] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,7 @@ export default function StartLivePage() {
           title: title.trim(),
           description: description.trim(),
           category,
+          language,
           isPrivate,
           entryCost: isPrivate ? Number(entryCost) : 0,
         }),
@@ -101,6 +103,7 @@ export default function StartLivePage() {
       setTitle("");
       setDescription("");
       setCategory("");
+      setLanguage("");
       setIsPrivate(false);
       setEntryCost(10);
     } catch {
@@ -163,6 +166,20 @@ export default function StartLivePage() {
               <option value="Arte">Arte</option>
               <option value="Educación">Educación</option>
               <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Idioma</label>
+            <select
+              className="input"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option value="">Sin especificar</option>
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
             </select>
           </div>
 

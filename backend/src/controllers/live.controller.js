@@ -3,7 +3,7 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 
 const startLive = async (req, res) => {
-  const { title, description, category, isPrivate, entryCost } = req.body;
+  const { title, description, category, language, isPrivate, entryCost } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
 
   try {
@@ -28,6 +28,7 @@ const startLive = async (req, res) => {
       title,
       description,
       category: category || "",
+      language: language || "",
       streamKey,
       isLive: true,
       isPrivate: Boolean(isPrivate),

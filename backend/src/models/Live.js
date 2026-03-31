@@ -7,6 +7,7 @@ const liveSchema = new mongoose.Schema(
     description: { type: String },
     streamKey: { type: String, required: true, unique: true },
     category: { type: String, default: "" },
+    language: { type: String, default: "" },
     isLive: { type: Boolean, default: false },
     viewerCount: { type: Number, default: 0 },
     endedAt: { type: Date },

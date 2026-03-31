@@ -182,7 +182,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      setUser((u) => ({ ...u, role: "creator_pending", creatorRequest: true }));
+      setUser((u) => ({ ...u, creatorStatus: "pending" }));
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
   };
@@ -273,8 +273,8 @@ export default function ProfilePage() {
                 <p className="profile-email">{user.email}</p>
                 {user.bio && <p className="profile-bio">{user.bio}</p>}
                 <div className="profile-badges">
-                    <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.role === "creator_pending" ? " pending" : ""}`}>
-                      {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.role === "creator_pending" ? "Pendiente de aprobación" : "Usuario"}
+                    <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
+                      {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.creatorStatus === "pending" ? "Pendiente de aprobación" : "Usuario"}
                     </span>
                     {user.isVerified && (
                       <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
@@ -435,7 +435,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Become a Creator / Creator status */}
-          {user.role === "user" && (
+          {user.role === "user" && user.creatorStatus !== "pending" && (
             <div className="creator-cta-card">
               <div className="creator-cta-icon"><StarIcon /></div>
               <div className="creator-cta-body">
@@ -452,7 +452,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {user.role === "creator_pending" && (
+          {user.creatorStatus === "pending" && (
             <div className="creator-pending-card">
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">

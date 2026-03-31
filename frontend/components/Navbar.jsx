@@ -43,6 +43,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("");
+  const [creatorStatus, setCreatorStatus] = useState("");
   const [avatar, setAvatar] = useState("");
 
   useEffect(() => {
@@ -53,15 +54,7 @@ export default function Navbar() {
 
     fetch(`${API_URL}/api/user/me`, { headers })
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        if (d) {
-          setUsername(d.username || d.name || "");
-          setRole(d.role || "");
-          setAvatar(d.avatar || "");
-          // Sync the user's saved language preference (highest priority)
-          if (d.preferredLanguage) syncFromUser(d.preferredLanguage);
-        }
-      })
+      .then((d) => { if (d) { setUsername(d.username || d.name || ""); setRole(d.role || ""); setCreatorStatus(d.creatorStatus || ""); setAvatar(d.avatar || ""); } })
       .catch(() => {});
 
     fetch(`${API_URL}/api/user/coins`, { headers })
@@ -83,14 +76,15 @@ export default function Navbar() {
     session?.user?.email?.split("@")[0] ||
     "Usuario";
   const effectiveRole = role || session?.backendUser?.role || "";
+  const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
   const displayRole =
     effectiveRole === "admin"
       ? t("role.admin")
       : effectiveRole === "creator"
-      ? t("role.creator")
-      : effectiveRole === "creator_pending"
-      ? t("role.creator_pending")
-      : t("role.member");
+      ? "Creador"
+      : effectiveCreatorStatus === "pending"
+      ? "Creador (pendiente)"
+      : "Miembro";
   const initial = displayName[0].toUpperCase();
 
   return (

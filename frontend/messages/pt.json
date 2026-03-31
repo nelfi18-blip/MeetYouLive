@@ -1,0 +1,64 @@
+{
+  "nav": {
+    "home": "Início",
+    "explore": "Explorar",
+    "live": "Ao Vivo",
+    "videos": "Vídeos",
+    "chats": "Chats",
+    "matches": "Matches",
+    "profile": "Perfil",
+    "myProfile": "Meu perfil",
+    "buyCoins": "Comprar moedas",
+    "premiumSubscription": "Assinatura Premium",
+    "logout": "Sair"
+  },
+  "role": {
+    "admin": "Administrador",
+    "creator": "Criador",
+    "creator_pending": "Criador (pendente)",
+    "member": "Membro"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English",
+    "pt": "Português"
+  },
+  "profile": {
+    "title": "Meu Perfil",
+    "loading": "Carregando perfil...",
+    "editProfile": "Editar perfil",
+    "cancelEdit": "Cancelar",
+    "saveChanges": "Salvar alterações",
+    "saving": "Salvando...",
+    "saveSuccess": "Perfil atualizado com sucesso",
+    "username": "Nome de usuário",
+    "name": "Nome",
+    "bio": "Bio",
+    "avatarUrl": "URL do avatar",
+    "uploadAvatar": "Enviar foto",
+    "changePassword": "Alterar senha",
+    "currentPassword": "Senha atual",
+    "newPassword": "Nova senha",
+    "confirmPassword": "Confirmar nova senha",
+    "updatePassword": "Atualizar senha",
+    "languageSection": "Idioma da interface",
+    "languageHint": "Selecione o idioma em que o aplicativo será exibido. Isso não afeta os idiomas do seu perfil.",
+    "languageSaved": "Idioma salvo",
+    "creatorSection": "Solicitar status de criador",
+    "creatorBtn": "Enviar solicitação de criador",
+    "verificationSection": "Verificação de identidade",
+    "verificationBtn": "Enviar foto de verificação",
+    "logout": "Sair",
+    "buyCoins": "Comprar moedas",
+    "startLive": "Iniciar ao vivo",
+    "exploreLive": "Explorar ao vivo",
+    "myChats": "Meus chats"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "error": "Ocorreu um erro",
+    "success": "Operação bem-sucedida"
+  }
+}

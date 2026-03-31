@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
+import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,6 +25,7 @@ function ShopIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" 
 export default function ProfilePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { t, lang, setLang, syncFromUser } = useLanguage();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,6 +40,9 @@ export default function ProfilePage() {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [pwdError, setPwdError] = useState("");
   const [pwdSuccess, setPwdSuccess] = useState("");
+
+  const [langSaving, setLangSaving] = useState(false);
+  const [langSuccess, setLangSuccess] = useState("");
 
   const [requestingCreator, setRequestingCreator] = useState(false);
   const [creatorReqError, setCreatorReqError] = useState("");
@@ -72,14 +77,38 @@ export default function ProfilePage() {
         if (!d) return;
         setUser(d);
         setEditForm({ username: d.username || "", name: d.name || "", bio: d.bio || "", avatar: d.avatar || "" });
+        // Sync the user's saved language preference (highest priority)
+        if (d.preferredLanguage) syncFromUser(d.preferredLanguage);
       })
       .catch(() => setError("No se pudo cargar el perfil"))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, syncFromUser]);
 
   const handleLogout = () => {
     clearToken();
     signOut({ callbackUrl: "/login" });
+  };
+
+  const handleLanguageSave = async (newLang) => {
+    setLang(newLang);
+    setLangSuccess("");
+    setLangSaving(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        await fetch(`${API_URL}/api/user/me`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ preferredLanguage: newLang }),
+        });
+      }
+      setLangSuccess(t("profile.languageSaved"));
+      setTimeout(() => setLangSuccess(""), 3000);
+    } catch {
+      // Language is already changed locally; backend save is best-effort
+    } finally {
+      setLangSaving(false);
+    }
   };
 
   const handleEdit = () => {
@@ -204,10 +233,10 @@ export default function ProfilePage() {
   const initial = displayName[0].toUpperCase();
 
   const ACTIONS = [
-    { href: "/coins",      label: "Comprar monedas", Icon: ShopIcon },
-    ...(user?.role === "creator" ? [{ href: "/live/start", label: "Iniciar directo", Icon: BroadcastIcon }] : []),
-    { href: "/explore",    label: "Explorar directos", Icon: ExploreIcon },
-    { href: "/chats",      label: "Mis chats", Icon: ChatIcon },
+    { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
+    ...(user?.role === "creator" ? [{ href: "/live/start", label: t("profile.startLive"), Icon: BroadcastIcon }] : []),
+    { href: "/explore",    label: t("profile.exploreLive"), Icon: ExploreIcon },
+    { href: "/chats",      label: t("profile.myChats"), Icon: ChatIcon },
   ];
 
   return (
@@ -354,6 +383,28 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Language preference */}
+          <div className="form-card">
+            <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
+              {t("profile.languageHint")}
+            </p>
+            {langSuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{langSuccess}</div>}
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              {SUPPORTED_LANGS.map((code) => (
+                <button
+                  key={code}
+                  className={`btn${lang === code ? " btn-primary" : " btn-secondary"}`}
+                  onClick={() => handleLanguageSave(code)}
+                  disabled={langSaving}
+                  style={{ minWidth: "7rem" }}
+                >
+                  {t(`lang.${code}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Stats */}
           <div className="stats-grid">
             <div className="stat-card">
@@ -477,7 +528,7 @@ export default function ProfilePage() {
               ))}
               <button className="action-item action-logout" onClick={handleLogout}>
                 <span className="action-icon"><LogoutIcon /></span>
-                <span>Cerrar sesión</span>
+                <span>{t("profile.logout")}</span>
                 <span className="action-arrow"><ArrowRightIcon /></span>
               </button>
             </div>

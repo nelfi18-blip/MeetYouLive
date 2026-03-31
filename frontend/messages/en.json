@@ -1,0 +1,64 @@
+{
+  "nav": {
+    "home": "Home",
+    "explore": "Explore",
+    "live": "Live",
+    "videos": "Videos",
+    "chats": "Chats",
+    "matches": "Matches",
+    "profile": "Profile",
+    "myProfile": "My profile",
+    "buyCoins": "Buy coins",
+    "premiumSubscription": "Premium Subscription",
+    "logout": "Log out"
+  },
+  "role": {
+    "admin": "Administrator",
+    "creator": "Creator",
+    "creator_pending": "Creator (pending)",
+    "member": "Member"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English",
+    "pt": "Português"
+  },
+  "profile": {
+    "title": "My Profile",
+    "loading": "Loading profile...",
+    "editProfile": "Edit profile",
+    "cancelEdit": "Cancel",
+    "saveChanges": "Save changes",
+    "saving": "Saving...",
+    "saveSuccess": "Profile updated successfully",
+    "username": "Username",
+    "name": "Name",
+    "bio": "Bio",
+    "avatarUrl": "Avatar URL",
+    "uploadAvatar": "Upload photo",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "updatePassword": "Update password",
+    "languageSection": "Interface language",
+    "languageHint": "Select the language the app will be displayed in. This does not affect your profile languages.",
+    "languageSaved": "Language saved",
+    "creatorSection": "Request creator status",
+    "creatorBtn": "Submit creator request",
+    "verificationSection": "Identity verification",
+    "verificationBtn": "Upload verification photo",
+    "logout": "Log out",
+    "buyCoins": "Buy coins",
+    "startLive": "Start live",
+    "exploreLive": "Explore live",
+    "myChats": "My chats"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "error": "An error occurred",
+    "success": "Operation successful"
+  }
+}

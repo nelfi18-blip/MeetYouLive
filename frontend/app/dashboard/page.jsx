@@ -286,7 +286,7 @@ export default function DashboardPage() {
     "Usuario";
   const allCards = user?.role === "creator"
     ? [...CARDS,
-        { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" },
+        { href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" },
         { href: "/creator", title: "Estudio Creador", sub: "Ganancias, directos y más", icon: StudioIcon, color: "green", size: "normal" },
       ]
     : CARDS;

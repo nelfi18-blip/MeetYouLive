@@ -117,6 +117,49 @@ function StudioIcon() {
     </svg>
   );
 }
+function GiftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
+    </svg>
+  );
+}
+function EarningsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+    </svg>
+  );
+}
+function PrivateCallIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94m-1 7.98v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.09 9.17 19.79 19.79 0 01.1 .5 2 2 0 012.11-1.5h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 6.5a16 16 0 006.59 6.59l.94-.94a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0121.07 14.5z"/>
+    </svg>
+  );
+}
+function ExclusiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  );
+}
+function CreatorRequestIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+  );
+}
+function PendingIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  );
+}
+
 function ArrowIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -284,12 +327,35 @@ export default function DashboardPage() {
     session?.user?.name ||
     session?.user?.email?.split("@")[0] ||
     "Usuario";
-  const allCards = user?.role === "creator"
-    ? [...CARDS,
-        { href: "/live/start", title: "Iniciar directo", sub: "Comienza a transmitir en vivo", icon: BroadcastIcon, color: "red", size: "normal" },
-        { href: "/creator", title: "Estudio Creador", sub: "Ganancias, directos y más", icon: StudioIcon, color: "green", size: "normal" },
+  const isCreator = user?.role === "creator";
+  const creatorStatus = user?.creatorStatus || "none";
+
+  const creatorCards = isCreator
+    ? [
+        { href: "/live/start",  title: "Transmitir",          sub: "Inicia tu directo ahora",                 icon: BroadcastIcon, color: "red",    size: "normal" },
+        { href: "/creator",     title: "Mis ganancias",        sub: "Consulta tus ingresos",                   icon: EarningsIcon,  color: "green",  size: "normal" },
+        { href: "/gifts",       title: "Mis regalos",          sub: "Regalos recibidos de tus fans",           icon: GiftIcon,      color: "pink",   size: "normal" },
+        { href: "/private-calls", title: "Sesiones privadas",  sub: "Llamadas privadas de pago",               icon: PrivateCallIcon, color: "cyan", size: "normal" },
+        { href: "/exclusive",   title: "Contenido exclusivo",  sub: "Publica contenido para suscriptores",     icon: ExclusiveIcon, color: "purple", size: "normal" },
       ]
-    : CARDS;
+    : [];
+
+  const requestCard =
+    !isCreator && creatorStatus === "none"
+      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Aplica para transmitir y ganar", icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
+      : [];
+
+  const pendingCard =
+    !isCreator && creatorStatus === "pending"
+      ? [{ href: "#", title: "Solicitud pendiente", sub: "Tu solicitud de creador está en revisión", icon: PendingIcon, color: "orange", size: "normal", _disabled: true }]
+      : [];
+
+  const rejectedCard =
+    !isCreator && creatorStatus === "rejected"
+      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Rechazada. Vuelve a aplicar.", icon: CreatorRequestIcon, color: "green", size: "normal" }]
+      : [];
+
+  const allCards = [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
 
   return (
     <div className="dashboard">
@@ -324,6 +390,23 @@ export default function DashboardPage() {
         {allCards.map((card) => {
           const Icon = card.icon;
           const c = COLOR_MAP[card.color];
+          if (card._disabled) {
+            return (
+              <div
+                key={card.href + card.title}
+                className="dash-card dash-card-disabled"
+                style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
+              >
+                <div className="dash-card-icon-wrap">
+                  <Icon />
+                </div>
+                <div className="dash-card-body">
+                  <div className="dash-card-title">{card.title}</div>
+                  <div className="dash-card-sub">{card.sub}</div>
+                </div>
+              </div>
+            );
+          }
           return (
             <Link
               key={card.href}
@@ -497,6 +580,16 @@ export default function DashboardPage() {
         }
 
         .dash-card:hover .dash-card-arrow { opacity: 1; transform: translateX(0); }
+
+        .dash-card-disabled {
+          cursor: default;
+          opacity: 0.7;
+        }
+        .dash-card-disabled:hover {
+          transform: none;
+          box-shadow: none;
+        }
+        .dash-card-disabled::before { display: none; }
 
         .dash-card-icon-wrap {
           width: 48px;

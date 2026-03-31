@@ -276,7 +276,6 @@ export default function AdminPage() {
                         }}
                       >
                         <option value="user">user</option>
-                        <option value="creator_pending">creator_pending</option>
                         <option value="creator">creator</option>
                         <option value="admin">admin</option>
                       </select>

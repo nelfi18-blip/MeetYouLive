@@ -1,5 +1,19 @@
 const mongoose = require("mongoose");
 
+const creatorProfileSchema = new mongoose.Schema(
+  {
+    displayName: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    category: { type: String, default: "" },
+    pricePerMinute: { type: Number, default: 0, min: 0 },
+    privateCallEnabled: { type: Boolean, default: false },
+    giftsEnabled: { type: Boolean, default: true },
+    exclusiveContentEnabled: { type: Boolean, default: false },
+    liveEnabled: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -13,9 +27,15 @@ const userSchema = new mongoose.Schema(
     interests: { type: [String], default: [] },
     location: { type: String, default: "" },
     onboardingComplete: { type: Boolean, default: false },
-    role: { type: String, enum: ["user", "creator_pending", "creator", "admin"], default: "user" },
+    role: { type: String, enum: ["user", "creator", "admin"], default: "user" },
+    creatorStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected", "suspended"],
+      default: "none",
+    },
+    isVerifiedCreator: { type: Boolean, default: false },
+    creatorProfile: { type: creatorProfileSchema, default: () => ({}) },
     isBlocked: { type: Boolean, default: false },
-    creatorRequest: { type: Boolean, default: false },
     creatorApprovedAt: { type: Date, default: null },
     coins: { type: Number, default: 0, min: 0 },
     earningsCoins: { type: Number, default: 0, min: 0 },

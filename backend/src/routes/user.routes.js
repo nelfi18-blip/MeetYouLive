@@ -181,11 +181,56 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
       return res.status(400).json({ message: "Solo los usuarios normales pueden solicitar ser creadores" });
     }
 
-    user.creatorRequest = true;
-    user.role = "creator_pending";
+    if (user.creatorStatus === "pending") {
+      return res.status(400).json({ message: "Ya tienes una solicitud de creador pendiente" });
+    }
+
+    user.creatorStatus = "pending";
     await user.save();
 
-    res.json({ message: "Solicitud enviada correctamente. Un administrador la revisará pronto.", user: { role: user.role, creatorRequest: user.creatorRequest } });
+    res.json({
+      message: "Solicitud enviada correctamente. Un administrador la revisará pronto.",
+      user: { role: user.role, creatorStatus: user.creatorStatus },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.patch("/me/creator-profile", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    if (user.role !== "creator") {
+      return res.status(403).json({ message: "Solo los creadores pueden actualizar su perfil de creador" });
+    }
+
+    const allowed = [
+      "displayName",
+      "bio",
+      "category",
+      "pricePerMinute",
+      "privateCallEnabled",
+      "giftsEnabled",
+      "exclusiveContentEnabled",
+      "liveEnabled",
+    ];
+
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        updates[`creatorProfile.${key}`] = req.body[key];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No se proporcionaron campos para actualizar" });
+    }
+
+    const updated = await User.findByIdAndUpdate(req.userId, { $set: updates }, { new: true }).select("-password");
+    if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

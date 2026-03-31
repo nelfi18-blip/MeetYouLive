@@ -38,6 +38,8 @@ export default function OnboardingPage() {
 
   // Step 2 fields
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -54,6 +56,15 @@ export default function OnboardingPage() {
         ? [...prev, interest]
         : prev
     );
+  };
+
+  const handleAvatarFileChange = (file) => {
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setAvatarPreview(e.target.result);
+    reader.readAsDataURL(file);
+    setAvatarUrl("");
   };
 
   const handleNext = () => {
@@ -75,9 +86,37 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
 
-    // Basic avatar URL validation to prevent XSS via javascript: URIs
-    const trimmedAvatar = avatarUrl.trim();
-    if (trimmedAvatar && !/^https?:\/\//i.test(trimmedAvatar)) {
+    let finalAvatarUrl = avatarUrl.trim();
+
+    // If a file was selected, upload it first
+    if (avatarFile) {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("avatar", avatarFile);
+      try {
+        const uploadRes = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          setError(errData.message || "Error al subir la foto");
+          setLoading(false);
+          return;
+        }
+        const uploadData = await uploadRes.json();
+        finalAvatarUrl = uploadData.avatar || "";
+      } catch {
+        setError("No se pudo subir la foto");
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Basic avatar URL validation to prevent XSS via javascript: URIs.
+    // /uploads/ paths are only set programmatically after a successful upload, never from user text input.
+    if (finalAvatarUrl && !/^https?:\/\//i.test(finalAvatarUrl) && !/^\/uploads\/[a-zA-Z0-9._-]+$/.test(finalAvatarUrl)) {
       setError("La URL de la foto debe comenzar con http:// o https://");
       setLoading(false);
       return;
@@ -98,7 +137,7 @@ export default function OnboardingPage() {
           birthdate: birthdate || undefined,
           interests,
           location: location.trim() || undefined,
-          avatar: trimmedAvatar || undefined,
+          avatar: finalAvatarUrl || undefined,
         }),
       });
       if (!res.ok) {
@@ -256,8 +295,13 @@ export default function OnboardingPage() {
             <p className="ob-subtitle">Una foto de perfil ayuda a que otros te reconozcan</p>
 
             <div className="ob-avatar-preview">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="ob-avatar-img" onError={() => setAvatarUrl("")} />
+              {avatarPreview || avatarUrl ? (
+                <img
+                  src={avatarPreview || avatarUrl}
+                  alt="Avatar"
+                  className="ob-avatar-img"
+                  onError={() => { setAvatarUrl(""); setAvatarPreview(""); }}
+                />
               ) : (
                 <div className="ob-avatar-placeholder">
                   {name ? name[0].toUpperCase() : "?"}
@@ -266,12 +310,27 @@ export default function OnboardingPage() {
             </div>
 
             <div className="ob-field">
+              <label className="ob-label">Sube una foto desde tu dispositivo</label>
+              <label className="ob-upload-btn">
+                📷 {avatarFile ? avatarFile.name : "Elegir archivo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  onChange={(e) => handleAvatarFileChange(e.target.files[0])}
+                />
+              </label>
+            </div>
+
+            <div className="divider-text">o pega una URL</div>
+
+            <div className="ob-field">
               <label className="ob-label">URL de tu foto de perfil</label>
               <input
                 className="input"
                 placeholder="https://ejemplo.com/tu-foto.jpg"
                 value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
+                onChange={(e) => { setAvatarUrl(e.target.value); setAvatarFile(null); setAvatarPreview(""); }}
               />
               <span className="ob-hint">Pega la URL de una imagen pública (Gravatar, LinkedIn, etc.)</span>
             </div>
@@ -555,6 +614,49 @@ export default function OnboardingPage() {
           transition: color 0.18s;
         }
         .ob-skip:hover { color: var(--text-muted); }
+
+        /* File upload button */
+        .ob-upload-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.55rem 1.1rem;
+          border-radius: var(--radius-sm);
+          border: 1px dashed rgba(224,64,251,0.4);
+          background: rgba(224,64,251,0.06);
+          color: var(--text-muted);
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.18s;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ob-upload-btn:hover {
+          border-color: rgba(224,64,251,0.7);
+          color: var(--text);
+          background: rgba(224,64,251,0.1);
+        }
+
+        .divider-text {
+          text-align: center;
+          font-size: 0.75rem;
+          color: var(--text-dim);
+          margin: 0.5rem 0;
+          position: relative;
+        }
+        .divider-text::before, .divider-text::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          width: 38%;
+          height: 1px;
+          background: rgba(255,255,255,0.08);
+        }
+        .divider-text::before { left: 0; }
+        .divider-text::after { right: 0; }
 
         @media (max-width: 480px) {
           .onboarding-card { padding: 2rem 1.25rem; }

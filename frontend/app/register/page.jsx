@@ -75,7 +75,10 @@ export default function RegisterPage() {
         return;
       }
 
-      if (data.token) {
+      if (data.requiresVerification) {
+        setSuccess("¡Cuenta creada! Revisa tu email para obtener el código de verificación.");
+        setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`); }, 1500);
+      } else if (data.token) {
         setToken(data.token);
         setSuccess("¡Cuenta creada! Configurando tu perfil…");
         setTimeout(() => { router.push("/onboarding"); }, 1500);

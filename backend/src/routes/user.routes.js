@@ -2,6 +2,7 @@ const { Router } = require("express");
 const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
+const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 
@@ -185,6 +186,63 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
     await user.save();
 
     res.json({ message: "Solicitud enviada correctamente. Un administrador la revisará pronto.", user: { role: user.role, creatorRequest: user.creatorRequest } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Upload profile photo (multipart/form-data, field "avatar")
+router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
+  upload.single("avatar")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Error al subir la imagen" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No se recibió ningún archivo" });
+    }
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select("-password");
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json({ avatar: avatarUrl, user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Submit verification photo — users send a selfie for admin review
+router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next) => {
+  upload.single("verificationPhoto")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Error al subir la imagen" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No se recibió ningún archivo" });
+    }
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (user.verificationStatus === "approved") {
+      return res.status(400).json({ message: "Tu cuenta ya está verificada" });
+    }
+    if (user.verificationStatus === "pending") {
+      return res.status(400).json({ message: "Ya tienes una solicitud de verificación pendiente" });
+    }
+    const photoUrl = `/uploads/${req.file.filename}`;
+    user.verificationPhoto = photoUrl;
+    user.verificationStatus = "pending";
+    await user.save();
+    res.json({ message: "Foto de verificación enviada. Un administrador la revisará pronto.", verificationStatus: user.verificationStatus });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

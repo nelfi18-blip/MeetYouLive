@@ -43,6 +43,11 @@ export default function ProfilePage() {
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
 
+  const [verifyError, setVerifyError] = useState("");
+  const [verifySuccess, setVerifySuccess] = useState("");
+  const [verifyUploading, setVerifyUploading] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -153,6 +158,48 @@ export default function ProfilePage() {
     finally { setRequestingCreator(false); }
   };
 
+  const handleAvatarFileUpload = async (file) => {
+    if (!file) return;
+    setAvatarUploading(true);
+    setSaveError(""); setSaveSuccess("");
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { setSaveError(data.message || "Error al subir la imagen"); return; }
+      setUser((u) => ({ ...u, avatar: data.avatar }));
+      setEditForm((f) => ({ ...f, avatar: data.avatar }));
+      setSaveSuccess("Foto de perfil actualizada correctamente");
+    } catch { setSaveError("No se pudo subir la imagen"); }
+    finally { setAvatarUploading(false); }
+  };
+
+  const handleVerificationSubmit = async (file) => {
+    if (!file) return;
+    setVerifyError(""); setVerifySuccess(""); setVerifyUploading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("verificationPhoto", file);
+      const res = await fetch(`${API_URL}/api/user/me/verification-photo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { setVerifyError(data.message || "Error al enviar la verificación"); return; }
+      setVerifySuccess(data.message || "Foto enviada. Un administrador la revisará pronto.");
+      setUser((u) => ({ ...u, verificationStatus: "pending" }));
+    } catch { setVerifyError("No se pudo conectar con el servidor"); }
+    finally { setVerifyUploading(false); }
+  };
+
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
 
@@ -200,6 +247,9 @@ export default function ProfilePage() {
                     <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.role === "creator_pending" ? " pending" : ""}`}>
                       {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.role === "creator_pending" ? "Pendiente de aprobación" : "Usuario"}
                     </span>
+                    {user.isVerified && (
+                      <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
+                    )}
                   </div>
               </div>
               <div className="profile-actions-top">
@@ -241,7 +291,12 @@ export default function ProfilePage() {
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">URL de foto de perfil</label>
+                  <label className="form-label">Foto de perfil</label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderRadius: "var(--radius-sm)", border: "1px dashed rgba(224,64,251,0.4)", background: "rgba(224,64,251,0.06)", color: "var(--text-muted)", fontSize: "0.82rem", fontWeight: 600, cursor: avatarUploading ? "not-allowed" : "pointer", marginBottom: "0.5rem" }}>
+                    {avatarUploading ? "Subiendo…" : "📷 Subir foto desde dispositivo"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: "none" }} disabled={avatarUploading} onChange={(e) => handleAvatarFileUpload(e.target.files[0])} />
+                  </label>
+                  <div style={{ fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: "0.4rem" }}>o pega una URL:</div>
                   <input className="input" type="url" value={editForm.avatar}
                     onChange={(e) => setEditForm((f) => ({ ...f, avatar: e.target.value }))}
                     placeholder="https://ejemplo.com/tu-foto.jpg" />
@@ -364,6 +419,48 @@ export default function ProfilePage() {
                 <div className="creator-cta-sub">Accede a tu estudio, gestiona tus directos y consulta tus ganancias.</div>
               </div>
               <Link href="/creator" className="btn btn-primary creator-cta-btn">Ir al Estudio</Link>
+            </div>
+          )}
+
+          {/* Identity verification */}
+          {user.verificationStatus !== "approved" && (
+            <div className="form-card">
+              <h2 className="form-card-title">
+                {user.verificationStatus === "pending" ? "⏳ Verificación en revisión" : "🪪 Verificar identidad"}
+              </h2>
+              {user.verificationStatus === "pending" ? (
+                <p style={{ color: "#fbbf24", fontSize: "0.875rem", lineHeight: 1.5 }}>
+                  Tu foto de verificación está siendo revisada por un administrador. Te avisaremos pronto.
+                </p>
+              ) : user.verificationStatus === "rejected" ? (
+                <>
+                  <p style={{ color: "var(--error)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
+                    Tu verificación anterior fue rechazada. Puedes intentarlo de nuevo con una foto más clara.
+                  </p>
+                  {verifyError && <div className="banner-error" style={{ marginBottom: "0.75rem" }}>{verifyError}</div>}
+                  {verifySuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{verifySuccess}</div>}
+                  {!verifySuccess && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1.25rem", borderRadius: "var(--radius-sm)", background: "var(--grad-primary)", color: "#fff", fontSize: "0.875rem", fontWeight: 700, cursor: verifyUploading ? "not-allowed" : "pointer", opacity: verifyUploading ? 0.7 : 1 }}>
+                      {verifyUploading ? "Enviando…" : "📷 Subir nueva foto de verificación"}
+                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} disabled={verifyUploading} onChange={(e) => handleVerificationSubmit(e.target.files[0])} />
+                    </label>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
+                    Sube una selfie sosteniendo un papel con tu nombre de usuario para demostrar que eres un usuario real. Un administrador revisará tu solicitud.
+                  </p>
+                  {verifyError && <div className="banner-error" style={{ marginBottom: "0.75rem" }}>{verifyError}</div>}
+                  {verifySuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{verifySuccess}</div>}
+                  {!verifySuccess && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1.25rem", borderRadius: "var(--radius-sm)", background: "var(--grad-primary)", color: "#fff", fontSize: "0.875rem", fontWeight: 700, cursor: verifyUploading ? "not-allowed" : "pointer", opacity: verifyUploading ? 0.7 : 1 }}>
+                      {verifyUploading ? "Enviando…" : "📷 Subir foto de verificación"}
+                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} disabled={verifyUploading} onChange={(e) => handleVerificationSubmit(e.target.files[0])} />
+                    </label>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -723,6 +820,13 @@ export default function ProfilePage() {
           background: rgba(251,191,36,0.1);
           color: #fbbf24;
           border-color: rgba(251,191,36,0.3);
+        }
+
+        .role-badge.verified {
+          background: rgba(52,211,153,0.1);
+          color: var(--success);
+          border-color: rgba(52,211,153,0.3);
+          margin-left: 0.35rem;
         }
       `}</style>
     </div>

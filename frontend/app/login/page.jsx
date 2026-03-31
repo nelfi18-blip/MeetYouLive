@@ -356,6 +356,10 @@ function LoginForm() {
         // so the user clearly understands they need to click the Google button above.
         if (data.code === "GOOGLE_ACCOUNT") {
           setInfo(data.error);
+        } else if (data.code === "EMAIL_NOT_VERIFIED") {
+          // Redirect to verify-email page with the email pre-filled
+          router.push(`/verify-email?email=${encodeURIComponent(data.email || email)}`);
+          return;
         } else {
           setError(data.error);
         }

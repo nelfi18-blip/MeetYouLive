@@ -121,3 +121,34 @@ exports.rejectCreator = async (req, res) => {
     return res.status(500).json({ ok: false, message: "Error rechazando solicitud" });
   }
 };
+
+exports.getVerificationRequests = async (req, res) => {
+  try {
+    const requests = await User.find({ verificationStatus: "pending" }, "-password")
+      .sort({ createdAt: -1 })
+      .limit(100);
+    return res.json({ ok: true, requests });
+  } catch (error) {
+    console.error("Verification requests error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo solicitudes de verificación" });
+  }
+};
+
+exports.verifyUser = async (req, res) => {
+  try {
+    const { action } = req.body;
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({ ok: false, message: "Acción inválida. Usa 'approve' o 'reject'" });
+    }
+    const updates =
+      action === "approve"
+        ? { isVerified: true, verificationStatus: "approved" }
+        : { isVerified: false, verificationStatus: "rejected" };
+    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, select: "-password" });
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, user });
+  } catch (error) {
+    console.error("Verify user error:", error);
+    return res.status(500).json({ ok: false, message: "Error procesando verificación" });
+  }
+};

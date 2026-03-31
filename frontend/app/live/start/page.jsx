@@ -17,8 +17,6 @@ export default function StartLivePage() {
   const [entryCost, setEntryCost] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [live, setLive] = useState(null);
-  const [ending, setEnding] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -82,7 +80,7 @@ export default function StartLivePage() {
         setError(data.message || "Error al iniciar el directo");
         return;
       }
-      setLive(data);
+      router.push(`/live/${data._id}`);
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
@@ -90,28 +88,6 @@ export default function StartLivePage() {
     }
   };
 
-  const endLive = async () => {
-    if (!live?._id) return;
-    setEnding(true);
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`${API_URL}/api/lives/${live._id}/end`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setLive(null);
-      setTitle("");
-      setDescription("");
-      setCategory("");
-      setLanguage("");
-      setIsPrivate(false);
-      setEntryCost(10);
-    } catch {
-      setError("Error al finalizar el directo");
-    } finally {
-      setEnding(false);
-    }
-  };
 
   return (
     <div className="start-page">
@@ -125,8 +101,7 @@ export default function StartLivePage() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      {!live ? (
-        <form className="start-form card" onSubmit={startLive}>
+      <form className="start-form card" onSubmit={startLive}>
           <div className="form-group">
             <label className="form-label">Título *</label>
             <input
@@ -244,43 +219,9 @@ export default function StartLivePage() {
             className="btn btn-primary btn-lg btn-block"
             disabled={loading}
           >
-            {loading ? "Iniciando…" : "🔴 Empezar directo"}
+            {loading ? "Iniciando…" : "🔴 Iniciar transmisión"}
           </button>
         </form>
-      ) : (
-        <div className="live-active card">
-          <div className="live-active-header">
-            <span className="badge badge-live">EN VIVO</span>
-            {live.isPrivate && (
-              <span className="badge badge-private">🔒 PRIVADO · {live.entryCost} monedas</span>
-            )}
-            <h2 className="live-active-title">{live.title}</h2>
-          </div>
-
-          <div className="stream-info">
-            <div className="info-row">
-              <span className="info-label">Stream Key</span>
-              <code className="stream-key">{live.streamKey}</code>
-            </div>
-            <p className="stream-hint">
-              Usa esta stream key en tu software de emisión (OBS, Streamlabs, etc.) para comenzar a transmitir.
-            </p>
-          </div>
-
-          <div className="live-actions">
-            <Link href={`/live/${live._id}`} className="btn btn-secondary" target="_blank">
-              👁 Ver directo
-            </Link>
-            <button
-              className="btn btn-danger"
-              onClick={endLive}
-              disabled={ending}
-            >
-              {ending ? "Finalizando…" : "⏹ Finalizar directo"}
-            </button>
-          </div>
-        </div>
-      )}
 
       <style jsx>{`
         .start-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 600px; margin: 0 auto; }
@@ -388,54 +329,6 @@ export default function StartLivePage() {
           margin-top: 0.25rem;
           line-height: 1.5;
         }
-
-        /* Active live */
-        .live-active { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
-
-        .live-active-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-
-        .live-active-title { font-size: 1.2rem; font-weight: 700; color: var(--text); }
-
-        .badge-private {
-          background: rgba(139,92,246,0.15);
-          color: #a78bfa;
-          border: 1px solid rgba(139,92,246,0.35);
-          border-radius: var(--radius-pill);
-          padding: 0.2rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-        }
-
-        .stream-info { display: flex; flex-direction: column; gap: 0.75rem; }
-
-        .info-row { display: flex; flex-direction: column; gap: 0.3rem; }
-
-        .info-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
-
-        .stream-key {
-          background: rgba(0,0,0,0.3);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 0.5rem 0.75rem;
-          font-family: monospace;
-          font-size: 0.85rem;
-          color: var(--accent);
-          word-break: break-all;
-        }
-
-        .stream-hint { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
-
-        .live-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-
-        .btn-danger {
-          background: var(--error);
-          color: #fff;
-          border: none;
-          cursor: pointer;
-        }
-
-        .btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
 
         .error-banner {
           background: rgba(244,67,54,0.1);

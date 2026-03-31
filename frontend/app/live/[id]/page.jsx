@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 
-export default function LiveViewerPage() {
+export default function LiveRoomPage() {
   const { id } = useParams();
   const [live, setLive] = useState(null);
   const [error, setError] = useState("");
@@ -23,6 +23,14 @@ export default function LiveViewerPage() {
   const [giftError, setGiftError] = useState("");
   const [giftSuccess, setGiftSuccess] = useState("");
 
+  // Chat state (local only — no backend yet)
+  const [chatMessages, setChatMessages] = useState([
+    { id: 0, user: "Sistema", text: "¡Bienvenido al directo! 🎉", system: true },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef(null);
+  const msgCounterRef = useRef(1);
+
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   useEffect(() => {
@@ -36,6 +44,22 @@ export default function LiveViewerPage() {
       .then((data) => setLive(data))
       .catch(() => setError("Directo no encontrado o ya finalizado"));
   }, [id]);
+
+  // Scroll chat to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const sendChatMessage = (e) => {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text) return;
+    setChatMessages((prev) => [
+      ...prev,
+      { id: ++msgCounterRef.current, user: "Tú", text, system: false },
+    ]);
+    setChatInput("");
+  };
 
   const openGiftModal = useCallback(() => {
     setGiftError("");
@@ -74,6 +98,11 @@ export default function LiveViewerPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al enviar el regalo");
+      const giftNotif = `🎁 Tú enviaste ${selectedGift.icon} ${selectedGift.name}`;
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: "Sistema", text: giftNotif, system: true },
+      ]);
       setGiftSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name} a @${live.user.username || live.user.name}!`);
       setSelectedGift(null);
       setGiftMessage("");
@@ -237,60 +266,138 @@ export default function LiveViewerPage() {
     );
   }
 
-  const playerUrl = `https://wl.cinectar.com/player/${LIVE_PROVIDER_KEY}/${live.streamKey}`;
+  const playerUrl = LIVE_PROVIDER_KEY && live.streamKey
+    ? `https://wl.cinectar.com/player/${encodeURIComponent(LIVE_PROVIDER_KEY)}/${encodeURIComponent(live.streamKey)}`
+    : null;
+
+  const creatorName = live.user?.username || live.user?.name || "Creador";
 
   return (
-    <div className="viewer-page">
-      {/* Player */}
-      <div className="player-wrap">
-        <iframe
-          src={playerUrl}
-          allow="autoplay; fullscreen"
-          allowFullScreen
-          title={live.title}
-          className="player-frame"
-        />
-      </div>
+    <div className="room">
+      {/* ── Two-column layout ────────────────────── */}
+      <div className="room-layout">
 
-      {/* Info bar */}
-      <div className="viewer-info card">
-        <div className="viewer-info-left">
-          <div className="viewer-user-row">
-            <div className="avatar-placeholder" style={{ width: 44, height: 44, fontSize: "1.1rem" }}>
-              {(live.user?.username || "?")[0].toUpperCase()}
-            </div>
-            <div>
-              <div className="viewer-streamer">@{live.user?.username || "anónimo"}</div>
-              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: "0.25rem" }}>
-                <span className="badge badge-live">EN VIVO</span>
+        {/* LEFT / TOP — Video + info */}
+        <div className="room-main">
+
+          {/* Video area */}
+          <div className="video-wrap">
+            {playerUrl ? (
+              <iframe
+                src={playerUrl}
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                title={live.title}
+                className="player-frame"
+              />
+            ) : (
+              <div className="video-placeholder">
+                <div className="video-placeholder-icon">🎥</div>
+                <p className="video-placeholder-text">Transmisión en vivo</p>
+              </div>
+            )}
+
+            {/* Overlaid info on video */}
+            <div className="video-overlay">
+              <div className="overlay-left">
+                <span className="badge badge-live pulse">● EN VIVO</span>
                 {live.isPrivate && (
-                  <span className="badge badge-private">🔒 PRIVADO</span>
+                  <span className="badge-private">🔒 PRIVADO</span>
                 )}
+              </div>
+              <div className="overlay-right">
+                <div className="creator-chip">
+                  <div className="creator-avatar">
+                    {creatorName[0].toUpperCase()}
+                  </div>
+                  <span>@{creatorName}</span>
+                </div>
               </div>
             </div>
           </div>
-          <div>
-            <h1 className="viewer-title">{live.title}</h1>
-            {live.description && <p className="viewer-desc">{live.description}</p>}
+
+          {/* Action bar */}
+          <div className="action-bar">
+            <div className="viewers-badge">
+              <span>👁</span>
+              <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
+            </div>
+            <div className="action-buttons">
+              <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
+                🎁 Regalo
+              </button>
+              <button className="btn btn-secondary btn-sm" disabled title="Próximamente">
+                📞 Llamada privada
+              </button>
+              <Link href="/live" className="btn btn-ghost btn-sm">
+                ← Directos
+              </Link>
+            </div>
+          </div>
+
+          {/* Stream title / description */}
+          <div className="stream-info card">
+            <div className="stream-meta">
+              <div className="stream-creator-row">
+                <div className="avatar-placeholder" style={{ width: 40, height: 40, fontSize: "1rem" }}>
+                  {creatorName[0].toUpperCase()}
+                </div>
+                <div>
+                  <div className="stream-creator-name">@{creatorName}</div>
+                  <span className="badge badge-live" style={{ fontSize: "0.6rem", padding: "0.1rem 0.45rem" }}>EN VIVO</span>
+                </div>
+              </div>
+              <h1 className="stream-title">{live.title}</h1>
+              {live.description && <p className="stream-desc">{live.description}</p>}
+            </div>
           </div>
         </div>
-        <div className="viewer-actions">
-          {live.viewers && (
-            <div className="viewer-count-badge">
-              <span>👁</span>
-              <span>{live.viewers} viendo</span>
-            </div>
-          )}
-          <button className="btn btn-primary" onClick={openGiftModal}>
-            🎁 Enviar regalo
-          </button>
-          <Link href="/live" className="btn btn-secondary">
-            ← Directos
-          </Link>
+
+        {/* RIGHT / BOTTOM — Live chat */}
+        <div className="room-chat">
+          <div className="chat-header">
+            <span className="chat-header-icon">💬</span>
+            <span>Chat en vivo</span>
+          </div>
+
+          <div className="chat-messages">
+            {chatMessages.map((msg) => (
+              <div key={msg.id} className={`chat-msg${msg.system ? " chat-msg-system" : ""}`}>
+                {msg.system ? (
+                  <span className="chat-text-system">{msg.text}</span>
+                ) : (
+                  <>
+                    <span className="chat-user">{msg.user}</span>
+                    <span className="chat-text">{msg.text}</span>
+                  </>
+                )}
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          <form className="chat-form" onSubmit={sendChatMessage}>
+            <input
+              className="chat-input"
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder={token ? "Escribe un mensaje…" : "Inicia sesión para chatear"}
+              maxLength={200}
+              disabled={!token}
+            />
+            <button
+              type="submit"
+              className="chat-send-btn"
+              disabled={!token || !chatInput.trim()}
+            >
+              ➤
+            </button>
+          </form>
         </div>
       </div>
 
-      {/* Gift Modal */}
+      {/* ── Gift Modal ─────────────────────────────── */}
       {showGiftModal && (
         <>
           <div className="gift-overlay" onClick={() => setShowGiftModal(false)} />
@@ -299,7 +406,7 @@ export default function LiveViewerPage() {
               <h2 className="gift-modal-title">🎁 Enviar regalo</h2>
               <button className="gift-modal-close" onClick={() => setShowGiftModal(false)}>✕</button>
             </div>
-            <p className="gift-modal-sub">Elige un regalo para @{live.user?.username || "el creador"}</p>
+            <p className="gift-modal-sub">Elige un regalo para @{creatorName}</p>
 
             {giftSuccess && <div className="gift-alert gift-success">{giftSuccess}</div>}
             {giftError && <div className="gift-alert gift-error">{giftError}</div>}
@@ -357,17 +464,41 @@ export default function LiveViewerPage() {
       )}
 
       <style jsx>{`
-        .viewer-page { display: flex; flex-direction: column; gap: 1rem; }
+        /* ── Layout ───────────────────────────────── */
+        .room {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
 
-        .player-wrap {
+        .room-layout {
+          display: grid;
+          grid-template-columns: 1fr 340px;
+          gap: 1rem;
+          align-items: start;
+        }
+
+        @media (max-width: 900px) {
+          .room-layout { grid-template-columns: 1fr; }
+        }
+
+        /* ── Room main (left/top) ─────────────────── */
+        .room-main {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        /* ── Video ────────────────────────────────── */
+        .video-wrap {
           position: relative;
           width: 100%;
-          padding-top: 56.25%;
+          aspect-ratio: 16 / 9;
           background: #000;
           border-radius: var(--radius);
           overflow: hidden;
-          border: 1px solid rgba(255,15,138,0.2);
-          box-shadow: 0 0 40px rgba(255,15,138,0.15);
+          border: 1px solid rgba(255,15,138,0.25);
+          box-shadow: 0 0 40px rgba(255,15,138,0.15), var(--shadow);
         }
 
         .player-frame {
@@ -378,81 +509,301 @@ export default function LiveViewerPage() {
           border: none;
         }
 
-        .viewer-info {
-          display: flex;
-          align-items: flex-start;
-          gap: 1.5rem;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          background: rgba(20,8,42,0.9);
-          border: 1px solid var(--border-glow);
-          border-radius: var(--radius);
-          padding: 1.25rem;
-          backdrop-filter: blur(16px);
-          box-shadow: var(--shadow);
-        }
-
-        .viewer-info-left {
+        .video-placeholder {
+          position: absolute;
+          inset: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
-          flex: 1;
-        }
-
-        .viewer-user-row {
-          display: flex;
           align-items: center;
+          justify-content: center;
           gap: 0.75rem;
+          background: radial-gradient(ellipse at center, rgba(30,8,60,0.95) 0%, rgba(6,2,15,0.98) 100%);
         }
 
-        .viewer-streamer {
-          font-weight: 700;
-          color: var(--text);
-          font-size: 0.95rem;
+        .video-placeholder-icon { font-size: 3.5rem; opacity: 0.6; }
+
+        .video-placeholder-text {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          letter-spacing: 0.05em;
         }
 
-        .viewer-title {
-          font-size: 1.35rem;
-          font-weight: 800;
-          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .viewer-desc { color: var(--text-muted); font-size: 0.9rem; }
-
-        .viewer-actions {
+        /* Overlay bar at bottom of video */
+        .video-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          flex-shrink: 0;
+          align-items: flex-end;
+          justify-content: space-between;
+          padding: 0.6rem 0.85rem;
+          background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
         }
 
-        .viewer-count-badge {
+        .overlay-left,
+        .overlay-right {
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          background: rgba(26,11,46,0.8);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          padding: 0.4rem 1rem;
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          font-weight: 600;
+        }
+
+        .creator-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(0,0,0,0.55);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: var(--radius-pill);
+          padding: 0.25rem 0.65rem 0.25rem 0.25rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: var(--text);
+          backdrop-filter: blur(6px);
+        }
+
+        .creator-avatar {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--grad-warm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.65rem;
+          font-weight: 900;
+          color: #fff;
+          flex-shrink: 0;
+        }
+
+        /* Pulsing live dot */
+        .pulse::before {
+          content: '';
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #ff2d78;
+          margin-right: 5px;
+          animation: pulse-dot 1.4s infinite;
+          vertical-align: middle;
+        }
+
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.75); }
         }
 
         .badge-private {
-          background: rgba(139,92,246,0.15);
-          color: #a78bfa;
-          border: 1px solid rgba(139,92,246,0.35);
+          background: rgba(139,92,246,0.25);
+          color: #c4b5fd;
+          border: 1px solid rgba(139,92,246,0.4);
           border-radius: var(--radius-pill);
           padding: 0.15rem 0.55rem;
           font-size: 0.65rem;
           font-weight: 700;
           letter-spacing: 0.05em;
         }
+
+        /* ── Action bar ───────────────────────────── */
+        .action-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .viewers-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(26,11,46,0.8);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-pill);
+          padding: 0.35rem 0.9rem;
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+
+        .action-buttons {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        /* ── Stream info card ─────────────────────── */
+        .stream-info {
+          background: rgba(20,8,42,0.9);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 1rem 1.25rem;
+          backdrop-filter: blur(16px);
+        }
+
+        .stream-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+
+        .stream-creator-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
+        .stream-creator-name {
+          font-weight: 700;
+          font-size: 0.9rem;
+          color: var(--text);
+        }
+
+        .stream-title {
+          font-size: 1.2rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, #F8F4FF, #FF4FD8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin: 0;
+          line-height: 1.3;
+        }
+
+        .stream-desc {
+          color: var(--text-muted);
+          font-size: 0.875rem;
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        /* ── Chat (right/bottom) ──────────────────── */
+        .room-chat {
+          display: flex;
+          flex-direction: column;
+          background: rgba(14,5,32,0.92);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          overflow: hidden;
+          height: 540px;
+          position: sticky;
+          top: 1rem;
+        }
+
+        @media (max-width: 900px) {
+          .room-chat {
+            height: 400px;
+            position: static;
+          }
+        }
+
+        .chat-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          background: rgba(224,64,251,0.06);
+          border-bottom: 1px solid var(--border);
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: var(--text);
+          flex-shrink: 0;
+        }
+
+        .chat-header-icon { font-size: 1rem; }
+
+        .chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(224,64,251,0.2) transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(224,64,251,0.25); border-radius: 4px; }
+
+        .chat-msg {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.25rem;
+          align-items: baseline;
+          font-size: 0.82rem;
+          line-height: 1.4;
+          word-break: break-word;
+        }
+
+        .chat-msg-system {
+          justify-content: center;
+        }
+
+        .chat-user {
+          font-weight: 700;
+          color: var(--accent-2);
+          white-space: nowrap;
+        }
+
+        .chat-user::after { content: ':'; }
+
+        .chat-text { color: var(--text); }
+
+        .chat-text-system {
+          font-size: 0.75rem;
+          color: var(--text-dim);
+          font-style: italic;
+          text-align: center;
+        }
+
+        .chat-form {
+          display: flex;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          border-top: 1px solid var(--border);
+          flex-shrink: 0;
+          background: rgba(10,4,24,0.8);
+        }
+
+        .chat-input {
+          flex: 1;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-pill);
+          color: var(--text);
+          font-size: 0.82rem;
+          padding: 0.5rem 0.875rem;
+          outline: none;
+          transition: border-color var(--transition);
+          min-width: 0;
+        }
+
+        .chat-input:focus { border-color: rgba(224,64,251,0.45); }
+        .chat-input::placeholder { color: var(--text-dim); }
+        .chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .chat-send-btn {
+          flex-shrink: 0;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: var(--grad-warm);
+          border: none;
+          color: #fff;
+          font-size: 0.9rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity var(--transition), transform var(--transition);
+        }
+
+        .chat-send-btn:hover:not(:disabled) { opacity: 0.85; transform: scale(1.08); }
+        .chat-send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         /* ── Gift Modal ─────────────────────────── */
         .gift-overlay {

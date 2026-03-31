@@ -94,17 +94,25 @@ exports.getCreatorRequests = async (req, res) => {
 
 exports.approveCreator = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        role: "creator",
-        creatorStatus: "approved",
-        isVerifiedCreator: true,
-        creatorApprovedAt: new Date(),
-      },
-      { new: true, select: "-password" }
-    );
-    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    const updates = {
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt: new Date(),
+    };
+
+    // Copy application fields into the active creatorProfile
+    if (targetUser.creatorApplication) {
+      const app = targetUser.creatorApplication;
+      if (app.displayName?.trim()) updates["creatorProfile.displayName"] = app.displayName;
+      if (app.bio?.trim()) updates["creatorProfile.bio"] = app.bio;
+      if (app.category?.trim()) updates["creatorProfile.category"] = app.category;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, select: "-password" });
     return res.json({ ok: true, user });
   } catch (error) {
     console.error("Approve creator error:", error);

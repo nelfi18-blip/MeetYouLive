@@ -14,6 +14,24 @@ const creatorProfileSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const creatorApplicationSchema = new mongoose.Schema(
+  {
+    displayName: { type: String, default: "" },
+    bio: { type: String, default: "" },
+    category: { type: String, default: "" },
+    country: { type: String, default: "" },
+    languages: { type: [String], default: [] },
+    socialLinks: {
+      twitter: { type: String, default: "" },
+      instagram: { type: String, default: "" },
+      tiktok: { type: String, default: "" },
+      youtube: { type: String, default: "" },
+    },
+    submittedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -35,6 +53,7 @@ const userSchema = new mongoose.Schema(
     },
     isVerifiedCreator: { type: Boolean, default: false },
     creatorProfile: { type: creatorProfileSchema, default: () => ({}) },
+    creatorApplication: { type: creatorApplicationSchema, default: () => ({}) },
     isBlocked: { type: Boolean, default: false },
     creatorApprovedAt: { type: Date, default: null },
     coins: { type: Number, default: 0, min: 0 },

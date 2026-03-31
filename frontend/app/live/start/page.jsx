@@ -183,6 +183,21 @@ export default function StartLivePage() {
             </select>
           </div>
 
+          {/* Cover image placeholder (UI only) */}
+          <div className="form-group">
+            <label className="form-label">Imagen de portada</label>
+            <div className="cover-placeholder">
+              <div className="cover-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+              <span className="cover-label">Arrastra o selecciona una imagen</span>
+              <span className="cover-soon">Próximamente</span>
+            </div>
+          </div>
+
           {/* Privacy toggle */}
           <div className="form-group">
             <label className="form-label">Privacidad</label>
@@ -294,6 +309,52 @@ export default function StartLivePage() {
         }
 
         .textarea { resize: vertical; min-height: 80px; }
+
+        /* Cover image placeholder */
+        .cover-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 2rem 1rem;
+          border: 1.5px dashed rgba(139,92,246,0.3);
+          border-radius: var(--radius-sm);
+          background: rgba(15,8,32,0.5);
+          cursor: not-allowed;
+          opacity: 0.7;
+          user-select: none;
+        }
+
+        .cover-icon {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: rgba(139,92,246,0.1);
+          border: 1px solid rgba(139,92,246,0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--accent-3);
+        }
+
+        .cover-label {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .cover-soon {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--accent-3);
+          background: rgba(129,140,248,0.1);
+          border: 1px solid rgba(129,140,248,0.2);
+          border-radius: var(--radius-pill);
+          padding: 0.15rem 0.6rem;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
 
         /* Privacy toggle */
         .privacy-toggle {

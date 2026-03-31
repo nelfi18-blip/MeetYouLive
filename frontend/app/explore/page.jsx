@@ -146,7 +146,6 @@ export default function ExplorePage() {
     } catch { /* ignore */ }
   };
 
-  // ── Message (create or get chat, then navigate) ─────────────
   const handleMessage = async (userId) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) { router.push("/login"); return; }
@@ -154,17 +153,21 @@ export default function ExplorePage() {
       const res = await fetch(`${API_URL}/api/chats`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ recipientId: userId }),
       });
       if (res.ok) {
         const data = await res.json();
-        const chatId = data._id || data.chat?._id;
-        if (chatId) { router.push(`/chats/${chatId}`); return; }
+        router.push(`/chats/${data._id}`);
+      } else {
+        router.push("/chats");
       }
-      router.push("/chats");
     } catch {
       router.push("/chats");
     }
+  };
+
+  const handleVideoCall = (userId) => {
+    router.push(`/call/${userId}`);
   };
 
   const loadMore = () => {
@@ -288,8 +291,10 @@ export default function ExplorePage() {
                     user={user}
                     liked={likedIds.has(user._id)}
                     matched={matchIds.has(user._id)}
-                    onLike={() => handleLike(user._id)}
-                    onMessage={() => handleMessage(user._id)}
+                    onLike={handleLike}
+                    onMessage={handleMessage}
+                    onVideoCall={handleVideoCall}
+                    loading={discoverLoading}
                   />
                 ))}
               </div>
@@ -351,7 +356,8 @@ export default function ExplorePage() {
         .cat-icon { font-size: 0.9rem; }
 
         .streams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.25rem; }
-        .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.1rem; }
+
+        .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.1rem; }
 
         .banner-error { background: var(--error-bg); border: 1px solid rgba(248,113,113,0.35); color: var(--error); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 500; }
 

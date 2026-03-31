@@ -1,121 +1,105 @@
+"use client";
+
 /**
- * Badge – reusable status/label pill.
+ * Reusable Badge component.
  *
- * Variants:
- *   live      – animated red "EN VIVO" pulse
- *   creator   – green "CREATOR" label
- *   match     – pink "Match!" label
- *   verified  – cyan verified check
- *   premium   – purple premium star
- *   custom    – pass `bg`, `color`, `border` via style prop
+ * Props:
+ *  - variant: "live" | "creator" | "match" | "verified" | "premium" | "custom"
+ *  - children: badge label
+ *  - pulse: boolean – adds pulsing glow animation (for "live")
+ *  - style: extra inline styles
+ *  - className: extra class names
  */
-export default function Badge({ variant = "custom", label, style, className = "" }) {
+export default function Badge({ variant = "custom", children, pulse = false, style = {}, className = "" }) {
   return (
     <>
-      <span className={`badge-root badge-${variant} ${className}`} style={style}>
+      <span className={`badge badge-${variant}${pulse ? " badge-pulse" : ""}${className ? ` ${className}` : ""}`} style={style}>
         {variant === "live" && <span className="badge-dot" />}
-        {variant === "verified" && (
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.29 7.05L12 2 3.71 7.05 2 16.05l7.29 5.05h5.42L22 16.05 20.29 7.05zm-8.29 9.2L7.5 11.75l1.41-1.41 3.09 3.09 6.09-6.09 1.41 1.42-7.5 7.49z"/>
-          </svg>
-        )}
-        {variant === "premium" && (
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-        )}
-        <span className="badge-label">
-          {label ?? defaultLabel(variant)}
-        </span>
+        {children}
       </span>
-
       <style jsx>{`
-        .badge-root {
+        .badge {
           display: inline-flex;
           align-items: center;
-          gap: 0.28rem;
-          font-size: 0.62rem;
+          gap: 0.3rem;
+          font-size: 0.6rem;
           font-weight: 800;
-          letter-spacing: 0.07em;
-          text-transform: uppercase;
+          letter-spacing: 0.06em;
           padding: 0.22rem 0.6rem;
           border-radius: 999px;
           white-space: nowrap;
-          line-height: 1;
+          text-transform: uppercase;
         }
 
-        /* live – animated red glow */
+        /* EN VIVO */
         .badge-live {
           background: linear-gradient(135deg, #ff0f8a, #e040fb);
           color: #fff;
-          border: 1px solid rgba(255,15,138,0.4);
-          animation: badge-live-pulse 2s ease-in-out infinite;
-        }
-        @keyframes badge-live-pulse {
-          0%, 100% { box-shadow: 0 0 6px rgba(255,15,138,0.5); }
-          50%       { box-shadow: 0 0 16px rgba(255,15,138,0.85); }
-        }
-        .badge-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #fff;
-          flex-shrink: 0;
-          animation: badge-dot-blink 1.2s ease-in-out infinite;
-        }
-        @keyframes badge-dot-blink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.35; }
+          border: 1px solid rgba(255, 15, 138, 0.4);
+          box-shadow: 0 2px 10px rgba(255, 15, 138, 0.4);
         }
 
-        /* creator */
+        /* CREATOR */
         .badge-creator {
-          background: rgba(52,211,153,0.12);
+          background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.1));
           color: #34d399;
-          border: 1px solid rgba(52,211,153,0.3);
+          border: 1px solid rgba(52, 211, 153, 0.3);
         }
 
-        /* match */
+        /* MATCH */
         .badge-match {
           background: linear-gradient(135deg, #ff2d78, #e040fb);
           color: #fff;
-          border: 1px solid rgba(255,45,120,0.4);
+          border: 1px solid rgba(255, 45, 120, 0.4);
+          box-shadow: 0 2px 10px rgba(255, 45, 120, 0.4);
         }
 
-        /* verified */
+        /* VERIFIED */
         .badge-verified {
-          background: rgba(96,165,250,0.1);
+          background: linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(59, 130, 246, 0.1));
           color: #60a5fa;
-          border: 1px solid rgba(96,165,250,0.25);
+          border: 1px solid rgba(96, 165, 250, 0.3);
         }
 
-        /* premium */
+        /* PREMIUM */
         .badge-premium {
-          background: rgba(224,64,251,0.12);
-          color: #e040fb;
-          border: 1px solid rgba(224,64,251,0.3);
+          background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(245, 101, 28, 0.1));
+          color: #fb923c;
+          border: 1px solid rgba(251, 146, 60, 0.3);
         }
 
-        /* custom – styles passed via prop */
+        /* CUSTOM */
         .badge-custom {
-          background: rgba(255,255,255,0.06);
-          color: var(--text-muted, #9585b8);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(139, 92, 246, 0.12);
+          color: #a78bfa;
+          border: 1px solid rgba(139, 92, 246, 0.25);
         }
 
-        .badge-label { line-height: 1; }
+        /* Animated dot */
+        .badge-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: #fff;
+          animation: badge-dot-blink 1.2s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+
+        @keyframes badge-dot-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+
+        /* Pulsing glow */
+        .badge-pulse {
+          animation: badge-glow-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes badge-glow-pulse {
+          0%, 100% { box-shadow: 0 2px 8px rgba(255, 15, 138, 0.45); }
+          50% { box-shadow: 0 2px 18px rgba(255, 15, 138, 0.8); }
+        }
       `}</style>
     </>
   );
-}
-
-function defaultLabel(variant) {
-  switch (variant) {
-    case "live":     return "EN VIVO";
-    case "creator":  return "CREATOR";
-    case "match":    return "Match!";
-    case "verified": return "Verificado";
-    case "premium":  return "Premium";
-    default:         return "";
-  }
 }

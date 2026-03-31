@@ -91,6 +91,7 @@ export default function LivePage() {
           gap: 1.25rem;
         }
 
+        /* Error / empty */
         .banner-error {
           background: var(--error-bg);
           border: 1px solid rgba(248,113,113,0.35);

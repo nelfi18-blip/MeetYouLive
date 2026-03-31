@@ -1,12 +1,15 @@
-/**
- * LiveCard – card for a live stream.
- *
- * Props:
- *   live  – live stream object { _id, title, description, user, viewerCount, isPrivate, entryCost, category }
- */
+"use client";
+
 import Link from "next/link";
 import Badge from "./Badge";
 
+/**
+ * Reusable LiveCard component for live-stream listings.
+ *
+ * Props:
+ *  - live: { _id, title, description, viewerCount, isPrivate, entryCost,
+ *            user: { username, avatar }, category }
+ */
 export default function LiveCard({ live }) {
   const username = live.user?.username || "anónimo";
   const initial = username[0].toUpperCase();
@@ -14,78 +17,120 @@ export default function LiveCard({ live }) {
   return (
     <>
       <Link href={`/live/${live._id}`} className="live-card">
-        <div className="lc-thumb">
-          <Badge variant="live" />
+        {/* Thumbnail */}
+        <div className="live-thumb">
+          <div className="live-thumb-bg" />
+
+          <div className="live-thumb-badges">
+            <Badge variant="live" pulse>EN VIVO</Badge>
+            {live.category && (
+              <span className="live-category-tag">{live.category}</span>
+            )}
+          </div>
+
           {live.isPrivate && (
-            <span className="lc-private">🔒 {live.entryCost} 🪙</span>
+            <span className="live-private-badge">🔒 {live.entryCost} 🪙</span>
           )}
+
           {live.viewerCount != null && (
-            <span className="lc-viewers">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <span className="live-viewer-count">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                 <circle cx="12" cy="12" r="3"/>
               </svg>
               {live.viewerCount}
             </span>
           )}
-          <div className="lc-play">▶</div>
+
+          <div className="live-thumb-play">▶</div>
         </div>
 
-        <div className="lc-body">
-          <div className="lc-user-row">
-            <div className="lc-avatar">{initial}</div>
-            <span className="lc-username">@{username}</span>
+        {/* Body */}
+        <div className="live-body">
+          <div className="live-user-row">
+            <div className="live-avatar">
+              {live.user?.avatar ? (
+                <img src={live.user.avatar} alt={username} className="live-avatar-img" />
+              ) : (
+                initial
+              )}
+            </div>
+            <span className="live-username">@{username}</span>
+            <Badge variant="creator" style={{ marginLeft: "auto" }}>CREATOR</Badge>
           </div>
-          <div className="lc-title">{live.title}</div>
+          <div className="live-title">{live.title}</div>
           {live.description && (
-            <div className="lc-desc">{live.description}</div>
+            <div className="live-desc">{live.description}</div>
           )}
         </div>
       </Link>
 
       <style jsx>{`
         .live-card {
-          display: block;
           overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 22px;
+          cursor: pointer;
+          border: 1px solid rgba(224, 64, 251, 0.16);
+          border-radius: var(--radius);
           background: linear-gradient(135deg, rgba(30,12,60,0.9) 0%, rgba(12,5,25,0.95) 100%);
           transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
                       box-shadow 0.35s cubic-bezier(0.4,0,0.2,1),
                       border-color 0.2s ease;
-          cursor: pointer;
+          display: block;
           text-decoration: none;
-          color: inherit;
         }
+
         .live-card:hover {
-          border-color: rgba(139,92,246,0.45);
-          box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 28px rgba(139,92,246,0.22);
+          border-color: rgba(139, 92, 246, 0.45);
+          box-shadow: var(--shadow), 0 0 32px rgba(139, 92, 246, 0.22);
           transform: translateY(-4px);
         }
 
-        .lc-thumb {
-          background: linear-gradient(135deg, rgba(22,12,45,0.9), rgba(35,16,70,0.95), rgba(15,8,32,1));
-          height: 160px;
+        /* Thumbnail */
+        .live-thumb {
+          height: 162px;
+          position: relative;
+          overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
-          position: relative;
-          overflow: hidden;
         }
-        .lc-thumb::before {
+
+        .live-thumb-bg {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(22,12,45,0.92), rgba(35,16,70,0.96), rgba(15,8,32,1));
+        }
+
+        .live-thumb-bg::after {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.08), transparent 65%);
+          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.1), transparent 65%);
         }
-        .lc-thumb :global(.badge-root) {
+
+        .live-thumb-badges {
           position: absolute;
           top: 0.65rem;
           left: 0.65rem;
           z-index: 2;
+          display: flex;
+          gap: 0.35rem;
+          align-items: center;
         }
 
-        .lc-private {
+        .live-category-tag {
+          font-size: 0.6rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 0.2rem 0.55rem;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--text-muted);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(8px);
+        }
+
+        .live-private-badge {
           position: absolute;
           top: 0.65rem;
           right: 0.65rem;
@@ -94,14 +139,13 @@ export default function LiveCard({ live }) {
           color: #fff;
           font-size: 0.65rem;
           font-weight: 800;
-          letter-spacing: 0.04em;
           padding: 0.22rem 0.65rem;
           border-radius: 999px;
           backdrop-filter: blur(8px);
           border: 1px solid rgba(139,92,246,0.5);
         }
 
-        .lc-viewers {
+        .live-viewer-count {
           position: absolute;
           bottom: 0.65rem;
           right: 0.65rem;
@@ -109,7 +153,7 @@ export default function LiveCard({ live }) {
           align-items: center;
           gap: 0.3rem;
           background: rgba(6,4,17,0.8);
-          color: #F4F0FF;
+          color: var(--text);
           font-size: 0.72rem;
           font-weight: 600;
           padding: 0.22rem 0.6rem;
@@ -119,28 +163,31 @@ export default function LiveCard({ live }) {
           border: 1px solid rgba(255,255,255,0.08);
         }
 
-        .lc-play {
+        .live-thumb-play {
           font-size: 2.5rem;
           opacity: 0.12;
           position: relative;
           z-index: 1;
-          color: #F4F0FF;
+          color: var(--text);
         }
 
-        .lc-body { padding: 1rem 1.1rem; }
+        /* Body */
+        .live-body {
+          padding: 1rem 1.1rem;
+        }
 
-        .lc-user-row {
+        .live-user-row {
           display: flex;
           align-items: center;
-          gap: 0.55rem;
+          gap: 0.5rem;
           margin-bottom: 0.5rem;
         }
 
-        .lc-avatar {
+        .live-avatar {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #ff2d78 0%, #e040fb 50%, #818cf8 100%);
+          background: var(--grad-primary);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -148,23 +195,31 @@ export default function LiveCard({ live }) {
           font-weight: 800;
           font-size: 0.75rem;
           flex-shrink: 0;
+          overflow: hidden;
         }
 
-        .lc-username {
+        .live-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+
+        .live-username {
           font-size: 0.78rem;
-          color: #9585b8;
+          color: var(--text-muted);
           font-weight: 600;
         }
 
-        .lc-title {
+        .live-title {
           font-weight: 700;
-          color: #F4F0FF;
+          color: var(--text);
           font-size: 0.95rem;
           line-height: 1.35;
         }
 
-        .lc-desc {
-          color: #9585b8;
+        .live-desc {
+          color: var(--text-muted);
           font-size: 0.8rem;
           margin-top: 0.3rem;
           display: -webkit-box;

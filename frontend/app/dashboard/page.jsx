@@ -330,13 +330,18 @@ export default function DashboardPage() {
   const isCreator = user?.role === "creator";
   const creatorStatus = user?.creatorStatus || "none";
 
+  const isApprovedCreator = isCreator && creatorStatus === "approved";
+
   const creatorCards = isCreator
     ? [
-        { href: "/live/start",  title: "Transmitir",          sub: "Inicia tu directo ahora",                 icon: BroadcastIcon, color: "red",    size: "normal" },
-        { href: "/creator",     title: "Mis ganancias",        sub: "Consulta tus ingresos",                   icon: EarningsIcon,  color: "green",  size: "normal" },
-        { href: "/gifts",       title: "Mis regalos",          sub: "Regalos recibidos de tus fans",           icon: GiftIcon,      color: "pink",   size: "normal" },
-        { href: "/private-calls", title: "Sesiones privadas",  sub: "Llamadas privadas de pago",               icon: PrivateCallIcon, color: "cyan", size: "normal" },
-        { href: "/exclusive",   title: "Contenido exclusivo",  sub: "Publica contenido para suscriptores",     icon: ExclusiveIcon, color: "purple", size: "normal" },
+        // "Transmitir" only when the creator account is approved
+        ...(isApprovedCreator
+          ? [{ href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" }]
+          : []),
+        { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
+        { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
+        { href: "/private-calls", title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
+        { href: "/exclusive",     title: "Contenido exclusivo", sub: "Publica contenido para suscriptores", icon: ExclusiveIcon,   color: "purple", size: "normal" },
       ]
     : [];
 

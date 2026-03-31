@@ -35,7 +35,8 @@ export default function LivePage() {
         </div>
         <Link href="/explore" className="btn btn-secondary">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           Explorar todo
         </Link>
@@ -55,7 +56,8 @@ export default function LivePage() {
         <div className="empty-state">
           <div className="empty-icon-wrap">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
-              <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2"/>
             </svg>
           </div>
           <h3>Sin directos ahora mismo</h3>
@@ -83,7 +85,6 @@ export default function LivePage() {
           flex-wrap: wrap;
         }
 
-        /* Grid */
         .streams-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));

@@ -12,29 +12,47 @@ const USERS_PER_PAGE = 20;
 const CATEGORIES = ["Todos", "Gaming", "Música", "Charla", "Arte", "Educación", "Otro"];
 const CAT_ICONS = {
   Todos: "🌐", Gaming: "🎮", Música: "🎵", Charla: "💬",
-  Arte: "🎨", Educación: "��", Otro: "✨",
+  Arte: "🎨", Educación: "📚", Otro: "✨",
 };
 
 function LiveTabIcon() {
-  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>;
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="23 7 16 12 23 17 23 7"/>
+      <rect x="1" y="5" width="15" height="14" rx="2"/>
+    </svg>
+  );
 }
 function PeopleIcon() {
-  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>;
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+      <path d="M16 3.13a4 4 0 010 7.75"/>
+    </svg>
+  );
 }
 function MatchTabIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>;
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+    </svg>
+  );
 }
 
 export default function ExplorePage() {
   const router = useRouter();
   const [tab, setTab] = useState("live");
 
+  // ── Live tab state ──────────────────────────────────────────
   const [lives, setLives] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [category, setCategory] = useState("Todos");
   const [search, setSearch] = useState("");
   const [liveError, setLiveError] = useState("");
 
+  // ── Discover tab state ─────────────────────────────────────
   const [users, setUsers] = useState([]);
   const [likedIds, setLikedIds] = useState(new Set());
   const [matchIds, setMatchIds] = useState(new Set());
@@ -43,6 +61,7 @@ export default function ExplorePage() {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
 
+  // ── Load lives ─────────────────────────────────────────────
   useEffect(() => {
     fetch(`${API_URL}/api/lives`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
@@ -50,6 +69,7 @@ export default function ExplorePage() {
       .catch(() => setLiveError("No se pudo cargar los directos"));
   }, []);
 
+  // ── Filter lives ───────────────────────────────────────────
   useEffect(() => {
     let result = lives;
     if (category !== "Todos") {
@@ -68,19 +88,21 @@ export default function ExplorePage() {
     setFiltered(result);
   }, [lives, category, search]);
 
+  // ── Load discover users ────────────────────────────────────
   const loadUsers = useCallback(async (page) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     setDiscoverLoading(true);
     setDiscoverError("");
     try {
-      const res = await fetch(`${API_URL}/api/user/discover?page=${page}&limit=${USERS_PER_PAGE}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API_URL}/api/user/discover?page=${page}&limit=${USERS_PER_PAGE}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       if (!res.ok) throw new Error();
       const data = await res.json();
       const newUsers = data.users || [];
-      setUsers((prev) => page === 1 ? newUsers : [...prev, ...newUsers]);
+      setUsers((prev) => (page === 1 ? newUsers : [...prev, ...newUsers]));
       setHasMore(newUsers.length === USERS_PER_PAGE);
     } catch {
       setDiscoverError("No se pudo cargar los perfiles");
@@ -95,6 +117,7 @@ export default function ExplorePage() {
     }
   }, [tab, loadUsers, users.length]);
 
+  // ── Like / unlike ──────────────────────────────────────────
   const handleLike = async (userId) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) { router.push("/login"); return; }
@@ -155,6 +178,7 @@ export default function ExplorePage() {
 
   return (
     <div className="explore">
+      {/* ── Header ── */}
       <div className="explore-header">
         <div className="explore-header-left">
           <h1 className="page-title">Explorar</h1>
@@ -164,7 +188,8 @@ export default function ExplorePage() {
           <div className="search-wrap">
             <span className="search-icon-inner">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
             </span>
             <input
@@ -178,6 +203,7 @@ export default function ExplorePage() {
         )}
       </div>
 
+      {/* ── Tab bar ── */}
       <div className="explore-tabs">
         <button
           className={`explore-tab${tab === "live" ? " active" : ""}`}
@@ -196,6 +222,7 @@ export default function ExplorePage() {
         </Link>
       </div>
 
+      {/* ── Live tab ── */}
       {tab === "live" && (
         <>
           <div className="category-bar">
@@ -233,6 +260,7 @@ export default function ExplorePage() {
         </>
       )}
 
+      {/* ── Discover tab ── */}
       {tab === "discover" && (
         <>
           {discoverError && <div className="banner-error">{discoverError}</div>}
@@ -240,7 +268,7 @@ export default function ExplorePage() {
           {discoverLoading && users.length === 0 && (
             <div className="discover-grid">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="skeleton" style={{ height: 240, borderRadius: "var(--radius)" }} />
+                <div key={i} className="skeleton" style={{ height: 280, borderRadius: "var(--radius)" }} />
               ))}
             </div>
           )}
@@ -277,7 +305,13 @@ export default function ExplorePage() {
                     className="btn"
                     onClick={loadMore}
                     disabled={discoverLoading}
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-muted)", padding: "0.7rem 2rem", borderRadius: "var(--radius-pill)" }}
+                    style={{
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "var(--text-muted)",
+                      padding: "0.7rem 2rem",
+                      borderRadius: "var(--radius-pill)",
+                    }}
                   >
                     {discoverLoading ? "Cargando…" : "Ver más"}
                   </button>
@@ -326,6 +360,7 @@ export default function ExplorePage() {
         .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.1rem; }
 
         .banner-error { background: var(--error-bg); border: 1px solid rgba(248,113,113,0.35); color: var(--error); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 500; }
+
         .empty-state { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem 2rem; text-align: center; border: 1px dashed rgba(139,92,246,0.2); border-radius: var(--radius); background: rgba(15,8,32,0.4); }
         .empty-icon { font-size: 2.5rem; }
         .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }

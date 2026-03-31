@@ -6,6 +6,15 @@ const startLive = async (req, res) => {
   const { title, description, category, isPrivate, entryCost } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
 
+  try {
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar transmisiones" });
+    }
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+
   let costCoins = 0;
   if (isPrivate) {
     const parsed = Number(entryCost);

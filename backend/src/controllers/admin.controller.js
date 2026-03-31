@@ -82,7 +82,7 @@ exports.makeAdmin = async (req, res) => {
 
 exports.getCreatorRequests = async (req, res) => {
   try {
-    const requests = await User.find({ creatorRequest: true, role: "creator_pending" }, "-password")
+    const requests = await User.find({ creatorStatus: "pending" }, "-password")
       .sort({ createdAt: -1 })
       .limit(100);
     return res.json({ ok: true, requests });
@@ -96,7 +96,12 @@ exports.approveCreator = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "creator", creatorRequest: false, creatorApprovedAt: new Date() },
+      {
+        role: "creator",
+        creatorStatus: "approved",
+        isVerifiedCreator: true,
+        creatorApprovedAt: new Date(),
+      },
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -111,7 +116,7 @@ exports.rejectCreator = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "user", creatorRequest: false },
+      { role: "user", creatorStatus: "rejected", isVerifiedCreator: false },
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -119,6 +124,21 @@ exports.rejectCreator = async (req, res) => {
   } catch (error) {
     console.error("Reject creator error:", error);
     return res.status(500).json({ ok: false, message: "Error rechazando solicitud" });
+  }
+};
+
+exports.suspendCreator = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "user", creatorStatus: "suspended", isVerifiedCreator: false },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, user });
+  } catch (error) {
+    console.error("Suspend creator error:", error);
+    return res.status(500).json({ ok: false, message: "Error suspendiendo creador" });
   }
 };
 

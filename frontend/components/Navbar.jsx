@@ -6,20 +6,22 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
 function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 
-const NAV_LINKS = [
-  { href: "/dashboard", label: "Inicio",    icon: HomeIcon    },
-  { href: "/explore",   label: "Explorar",  icon: ExploreIcon },
-  { href: "/live",      label: "Directos",  icon: LiveIcon    },
-  { href: "/videos",    label: "Vídeos",    icon: VideoNavIcon},
-  { href: "/chats",     label: "Chats",     icon: ChatIcon    },
-  { href: "/matches",   label: "Matches",   icon: MatchIcon   },
-  { href: "/profile",   label: "Perfil",    icon: ProfileIcon },
+/* ── Nav link definitions (keys resolved via t() at render time) ── */
+const NAV_LINK_DEFS = [
+  { href: "/dashboard", key: "nav.home",    icon: HomeIcon    },
+  { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
+  { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+  { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
+  { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
+  { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
+  { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
 ];
 
 /* ── SVG icon components ─────────────────────────── */
@@ -36,6 +38,7 @@ function ChevronIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { t, syncFromUser } = useLanguage();
   const [coins, setCoins] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
@@ -58,7 +61,7 @@ export default function Navbar() {
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d) setCoins(d.coins); })
       .catch(() => {});
-  }, [session]);
+  }, [session, syncFromUser]);
 
   const handleLogout = () => {
     clearToken();
@@ -76,7 +79,7 @@ export default function Navbar() {
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
   const displayRole =
     effectiveRole === "admin"
-      ? "Administrador"
+      ? t("role.admin")
       : effectiveRole === "creator"
       ? "Creador"
       : effectiveCreatorStatus === "pending"
@@ -104,7 +107,7 @@ export default function Navbar() {
 
         {/* Center nav links */}
         <div className="navbar-links">
-          {NAV_LINKS.map((link) => {
+          {NAV_LINK_DEFS.map((link) => {
             const active = pathname === link.href;
             const Icon = link.icon;
             return (
@@ -114,7 +117,7 @@ export default function Navbar() {
                 className={`navbar-link${active ? " active" : ""}`}
               >
                 <Icon />
-                <span>{link.label}</span>
+                <span>{t(link.key)}</span>
               </Link>
             );
           })}
@@ -158,17 +161,17 @@ export default function Navbar() {
                 </div>
                 <div className="dropdown-divider" />
                 <Link href="/profile" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <ProfileIcon /> Mi perfil
+                  <ProfileIcon /> {t("nav.myProfile")}
                 </Link>
                 <Link href="/coins" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <CoinIcon /> Comprar monedas
+                  <CoinIcon /> {t("nav.buyCoins")}
                 </Link>
                 <Link href="/subscription" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <StarNavIcon /> Suscripción Premium
+                  <StarNavIcon /> {t("nav.premiumSubscription")}
                 </Link>
                 <div className="dropdown-divider" />
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
-                  <LogoutIcon /> Cerrar sesión
+                  <LogoutIcon /> {t("nav.logout")}
                 </button>
               </div>
             </>
@@ -178,7 +181,7 @@ export default function Navbar() {
 
       {/* Bottom nav for mobile */}
       <nav className="bottom-nav">
-        {NAV_LINKS.map((link) => {
+        {NAV_LINK_DEFS.map((link) => {
           const active = pathname === link.href;
           const Icon = link.icon;
           return (
@@ -188,7 +191,7 @@ export default function Navbar() {
               className={`bottom-nav-item${active ? " active" : ""}`}
             >
               <Icon />
-              <span>{link.label}</span>
+              <span>{t(link.key)}</span>
             </Link>
           );
         })}

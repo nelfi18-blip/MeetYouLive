@@ -36,7 +36,7 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
 
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio, avatar } = req.body;
+    const { username, name, bio, avatar, preferredLanguage } = req.body;
     const updates = {};
     if (username !== undefined) {
       const trimmed = username.trim();
@@ -48,6 +48,12 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
     if (bio !== undefined) updates.bio = bio.trim();
     if (avatar !== undefined) updates.avatar = avatar.trim();
+    if (preferredLanguage !== undefined) {
+      const allowedLangs = ["es", "en", "pt"];
+      if (allowedLangs.includes(preferredLanguage)) {
+        updates.preferredLanguage = preferredLanguage;
+      }
+    }
 
     if (updates.username) {
       const existing = await User.findOne({ username: updates.username, _id: { $ne: req.userId } });

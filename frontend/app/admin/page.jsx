@@ -338,44 +338,82 @@ export default function AdminPage() {
               No hay solicitudes pendientes
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-                <thead>
-                  <tr style={{ background: "#1e293b" }}>
-                    <Th>Nombre</Th>
-                    <Th>Email</Th>
-                    <Th>Username</Th>
-                    <Th>Registrado</Th>
-                    <Th>Acciones</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {creatorRequests.map((u) => (
-                    <tr key={u._id} style={{ borderBottom: "1px solid #334155" }}>
-                      <Td>{u.name || "—"}</Td>
-                      <Td>{u.email}</Td>
-                      <Td>{u.username ? `@${u.username}` : "—"}</Td>
-                      <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
-                      <Td>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                          <ActionBtn
-                            label="✓ Aprobar"
-                            color="#4ade80"
-                            disabled={!!actionLoading}
-                            onClick={() => handleCreatorAction(u._id, "approve")}
-                          />
-                          <ActionBtn
-                            label="✗ Rechazar"
-                            color="#f87171"
-                            disabled={!!actionLoading}
-                            onClick={() => handleCreatorAction(u._id, "reject")}
-                          />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {creatorRequests.map((u) => {
+                const app = u.creatorApplication || {};
+                return (
+                  <div key={u._id} style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "1.25rem", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontWeight: 700, color: "#e2e8f0" }}>{app.displayName || u.name || "—"}</div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>{u.email}</div>
+                        {u.username && <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>@{u.username}</div>}
+                        <div style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                          Registrado: {new Date(u.createdAt).toLocaleDateString()}
                         </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        {app.submittedAt && (
+                          <div style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                            Solicitado: {new Date(app.submittedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        <ActionBtn
+                          label="✓ Aprobar"
+                          color="#4ade80"
+                          disabled={!!actionLoading}
+                          onClick={() => handleCreatorAction(u._id, "approve")}
+                        />
+                        <ActionBtn
+                          label="✗ Rechazar"
+                          color="#f87171"
+                          disabled={!!actionLoading}
+                          onClick={() => handleCreatorAction(u._id, "reject")}
+                        />
+                      </div>
+                    </div>
+                    {(app.category || app.bio || app.country || app.language || (app.socialLinks && app.socialLinks.length > 0)) && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.5rem", fontSize: "0.82rem", borderTop: "1px solid #334155", paddingTop: "0.75rem" }}>
+                        {app.category && (
+                          <div>
+                            <span style={{ color: "#64748b" }}>Categoría: </span>
+                            <span style={{ color: "#e2e8f0", textTransform: "capitalize" }}>{app.category}</span>
+                          </div>
+                        )}
+                        {app.country && (
+                          <div>
+                            <span style={{ color: "#64748b" }}>País: </span>
+                            <span style={{ color: "#e2e8f0" }}>{app.country}</span>
+                          </div>
+                        )}
+                        {app.language && (
+                          <div>
+                            <span style={{ color: "#64748b" }}>Idioma: </span>
+                            <span style={{ color: "#e2e8f0" }}>{app.language}</span>
+                          </div>
+                        )}
+                        {app.bio && (
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <span style={{ color: "#64748b" }}>Bio: </span>
+                            <span style={{ color: "#e2e8f0" }}>{app.bio}</span>
+                          </div>
+                        )}
+                        {app.socialLinks && app.socialLinks.length > 0 && (
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <span style={{ color: "#64748b" }}>Redes: </span>
+                            {app.socialLinks.map((link, i) => (
+                              <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                                style={{ color: "#818cf8", marginRight: "0.5rem", wordBreak: "break-all" }}>
+                                {link}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

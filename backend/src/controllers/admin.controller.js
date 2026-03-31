@@ -82,7 +82,15 @@ exports.makeAdmin = async (req, res) => {
 
 exports.getCreatorRequests = async (req, res) => {
   try {
-    const requests = await User.find({ creatorRequest: true, role: "creator_pending" }, "-password")
+    const requests = await User.find(
+      {
+        $or: [
+          { creatorStatus: "pending" },
+          { creatorRequest: true, role: "creator_pending" },
+        ],
+      },
+      "-password"
+    )
       .sort({ createdAt: -1 })
       .limit(100);
     return res.json({ ok: true, requests });
@@ -96,7 +104,14 @@ exports.approveCreator = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "creator", creatorRequest: false, creatorApprovedAt: new Date() },
+      {
+        role: "creator",
+        creatorRequest: false,
+        creatorApprovedAt: new Date(),
+        creatorStatus: "approved",
+        "creatorApplication.reviewedAt": new Date(),
+        "creatorApplication.reviewedBy": req.userId,
+      },
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -109,11 +124,18 @@ exports.approveCreator = async (req, res) => {
 
 exports.rejectCreator = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { role: "user", creatorRequest: false },
-      { new: true, select: "-password" }
-    );
+    const { notes } = req.body;
+    const update = {
+      role: "user",
+      creatorRequest: false,
+      creatorStatus: "rejected",
+      "creatorApplication.reviewedAt": new Date(),
+      "creatorApplication.reviewedBy": req.userId,
+    };
+    if (notes && typeof notes === "string") {
+      update["creatorApplication.notes"] = notes.trim();
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, select: "-password" });
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     return res.json({ ok: true, user });
   } catch (error) {

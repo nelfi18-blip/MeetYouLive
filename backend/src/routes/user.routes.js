@@ -181,11 +181,59 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
       return res.status(400).json({ message: "Solo los usuarios normales pueden solicitar ser creadores" });
     }
 
+    if (user.creatorStatus === "pending") {
+      return res.status(400).json({ message: "Ya tienes una solicitud en revisión" });
+    }
+
+    if (user.creatorStatus === "approved") {
+      return res.status(400).json({ message: "Tu solicitud ya fue aprobada" });
+    }
+
+    const { displayName, category, bio, country, language, socialLinks, rulesAccepted } = req.body;
+
+    if (!displayName || !displayName.trim()) {
+      return res.status(400).json({ message: "El nombre a mostrar es requerido" });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ message: "La categoría es requerida" });
+    }
+    if (!bio || !bio.trim()) {
+      return res.status(400).json({ message: "La biografía es requerida" });
+    }
+    if (!country || !country.trim()) {
+      return res.status(400).json({ message: "El país es requerido" });
+    }
+    if (!language || !language.trim()) {
+      return res.status(400).json({ message: "El idioma es requerido" });
+    }
+    if (!rulesAccepted) {
+      return res.status(400).json({ message: "Debes aceptar las normas de la comunidad" });
+    }
+
+    const links = Array.isArray(socialLinks)
+      ? socialLinks.map((l) => (typeof l === "string" ? l.trim() : "")).filter(Boolean)
+      : [];
+
     user.creatorRequest = true;
-    user.role = "creator_pending";
+    user.creatorStatus = "pending";
+    user.creatorApplication = {
+      submittedAt: new Date(),
+      reviewedAt: null,
+      reviewedBy: null,
+      displayName: displayName.trim(),
+      bio: bio.trim(),
+      category: category.trim(),
+      country: country.trim(),
+      language: language.trim(),
+      socialLinks: links,
+      notes: "",
+    };
     await user.save();
 
-    res.json({ message: "Solicitud enviada correctamente. Un administrador la revisará pronto.", user: { role: user.role, creatorRequest: user.creatorRequest } });
+    res.json({
+      message: "Solicitud enviada correctamente. Un administrador la revisará pronto.",
+      user: { role: user.role, creatorStatus: user.creatorStatus },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -40,6 +40,16 @@ export default function ProfilePage() {
   const [pwdSuccess, setPwdSuccess] = useState("");
 
   const [requestingCreator, setRequestingCreator] = useState(false);
+  const [showCreatorForm, setShowCreatorForm] = useState(false);
+  const [creatorForm, setCreatorForm] = useState({
+    displayName: "",
+    category: "",
+    bio: "",
+    country: "",
+    language: "",
+    socialLinks: [""],
+    rulesAccepted: false,
+  });
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
 
@@ -142,18 +152,30 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
-  const handleCreatorRequest = async () => {
+  const handleCreatorRequest = async (e) => {
+    e.preventDefault();
     setCreatorReqError(""); setCreatorReqSuccess(""); setRequestingCreator(true);
     try {
       const token = localStorage.getItem("token");
+      const links = creatorForm.socialLinks.filter((l) => l.trim());
       const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          displayName: creatorForm.displayName,
+          category: creatorForm.category,
+          bio: creatorForm.bio,
+          country: creatorForm.country,
+          language: creatorForm.language,
+          socialLinks: links,
+          rulesAccepted: creatorForm.rulesAccepted,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      setUser((u) => ({ ...u, role: "creator_pending", creatorRequest: true }));
+      setUser((u) => ({ ...u, creatorStatus: "pending" }));
+      setShowCreatorForm(false);
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
   };
@@ -244,9 +266,12 @@ export default function ProfilePage() {
                 <p className="profile-email">{user.email}</p>
                 {user.bio && <p className="profile-bio">{user.bio}</p>}
                 <div className="profile-badges">
-                    <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.role === "creator_pending" ? " pending" : ""}`}>
-                      {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.role === "creator_pending" ? "Pendiente de aprobación" : "Usuario"}
-                    </span>
+                    {(() => {
+                      const isPending = user.creatorStatus === "pending" || user.role === "creator_pending";
+                      const badgeClass = user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : isPending ? " pending" : "";
+                      const badgeLabel = user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : isPending ? "Solicitud pendiente" : user.creatorStatus === "rejected" ? "Solicitud rechazada" : "Usuario";
+                      return <span className={`role-badge${badgeClass}`}>{badgeLabel}</span>;
+                    })()}
                     {user.isVerified && (
                       <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
                     )}
@@ -384,7 +409,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Become a Creator / Creator status */}
-          {user.role === "user" && (
+          {user.role === "user" && user.creatorStatus !== "pending" && user.creatorStatus !== "approved" && (
             <div className="creator-cta-card">
               <div className="creator-cta-icon"><StarIcon /></div>
               <div className="creator-cta-body">
@@ -393,15 +418,105 @@ export default function ProfilePage() {
               </div>
               {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
               {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
-              {!creatorReqSuccess && (
-                <button className="btn btn-primary creator-cta-btn" onClick={handleCreatorRequest} disabled={requestingCreator}>
-                  {requestingCreator ? "Enviando…" : "Solicitar ser Creador"}
+              {user.creatorStatus === "rejected" && !creatorReqSuccess && (
+                <div style={{ color: "#f87171", fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                  Tu solicitud anterior fue rechazada. Puedes volver a intentarlo.
+                </div>
+              )}
+              {!showCreatorForm && !creatorReqSuccess && (
+                <button className="btn btn-primary creator-cta-btn" onClick={() => { setShowCreatorForm(true); setCreatorReqError(""); }}>
+                  Solicitar ser Creador
                 </button>
+              )}
+              {showCreatorForm && !creatorReqSuccess && (
+                <form onSubmit={handleCreatorRequest} className="form-fields" style={{ marginTop: "1rem", width: "100%" }}>
+                  <div className="form-group">
+                    <label className="form-label">Nombre a mostrar *</label>
+                    <input className="input" type="text" value={creatorForm.displayName} maxLength={60} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, displayName: e.target.value }))}
+                      placeholder="Tu nombre como creador" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Categoría *</label>
+                    <select className="input" value={creatorForm.category} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, category: e.target.value }))}>
+                      <option value="">Selecciona una categoría</option>
+                      <option value="gaming">Gaming</option>
+                      <option value="music">Música</option>
+                      <option value="art">Arte</option>
+                      <option value="education">Educación</option>
+                      <option value="lifestyle">Lifestyle</option>
+                      <option value="sports">Deportes</option>
+                      <option value="cooking">Cocina</option>
+                      <option value="technology">Tecnología</option>
+                      <option value="entertainment">Entretenimiento</option>
+                      <option value="other">Otro</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Biografía corta *</label>
+                    <textarea className="input bio-textarea" value={creatorForm.bio} maxLength={300} rows={3} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, bio: e.target.value }))}
+                      placeholder="Cuéntanos sobre ti y tu contenido…" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">País *</label>
+                    <input className="input" type="text" value={creatorForm.country} maxLength={60} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, country: e.target.value }))}
+                      placeholder="Tu país" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Idioma principal *</label>
+                    <input className="input" type="text" value={creatorForm.language} maxLength={60} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, language: e.target.value }))}
+                      placeholder="p. ej. Español, Inglés" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Redes sociales (opcional)</label>
+                    {creatorForm.socialLinks.map((link, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                        <input className="input" type="url" value={link}
+                          onChange={(e) => {
+                            const links = [...creatorForm.socialLinks];
+                            links[idx] = e.target.value;
+                            setCreatorForm((f) => ({ ...f, socialLinks: links }));
+                          }}
+                          placeholder="https://instagram.com/tuusuario" />
+                        {creatorForm.socialLinks.length > 1 && (
+                          <button type="button" onClick={() => setCreatorForm((f) => ({ ...f, socialLinks: f.socialLinks.filter((_, i) => i !== idx) }))}
+                            style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: "1.1rem", padding: "0 0.25rem" }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    {creatorForm.socialLinks.length < 4 && (
+                      <button type="button" onClick={() => setCreatorForm((f) => ({ ...f, socialLinks: [...f.socialLinks, ""] }))}
+                        style={{ background: "none", border: "1px dashed rgba(224,64,251,0.4)", color: "var(--text-muted)", borderRadius: "6px", padding: "0.3rem 0.75rem", fontSize: "0.82rem", cursor: "pointer", marginTop: "0.25rem" }}>
+                        + Agregar enlace
+                      </button>
+                    )}
+                  </div>
+                  <div className="form-group" style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
+                    <input type="checkbox" id="rulesAccepted" checked={creatorForm.rulesAccepted} required
+                      onChange={(e) => setCreatorForm((f) => ({ ...f, rulesAccepted: e.target.checked }))}
+                      style={{ marginTop: "0.2rem", accentColor: "var(--accent)", width: 16, height: 16, flexShrink: 0 }} />
+                    <label htmlFor="rulesAccepted" className="form-label" style={{ margin: 0, cursor: "pointer" }}>
+                      Acepto las normas de la comunidad y me comprometo a crear contenido apropiado *
+                    </label>
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="btn btn-primary" disabled={requestingCreator}>
+                      {requestingCreator ? "Enviando…" : "Enviar solicitud"}
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => { setShowCreatorForm(false); setCreatorReqError(""); }} disabled={requestingCreator}>
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           )}
 
-          {user.role === "creator_pending" && (
+          {(user.creatorStatus === "pending" || user.role === "creator_pending") && (
             <div className="creator-pending-card">
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">

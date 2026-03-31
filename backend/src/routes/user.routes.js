@@ -34,9 +34,11 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+const SUPPORTED_UI_LANGS = ["en", "es", "pt"];
+
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio, avatar } = req.body;
+    const { username, name, bio, avatar, uiLanguage, language, languages, creatorProfile } = req.body;
     const updates = {};
     if (username !== undefined) {
       const trimmed = username.trim();
@@ -48,6 +50,19 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
     if (bio !== undefined) updates.bio = bio.trim();
     if (avatar !== undefined) updates.avatar = avatar.trim();
+    if (uiLanguage !== undefined && SUPPORTED_UI_LANGS.includes(uiLanguage)) {
+      updates.uiLanguage = uiLanguage;
+    }
+    if (language !== undefined) updates.language = language.trim();
+    if (Array.isArray(languages)) updates.languages = languages;
+    if (creatorProfile !== undefined && typeof creatorProfile === "object") {
+      if (Array.isArray(creatorProfile.languages)) {
+        updates["creatorProfile.languages"] = creatorProfile.languages;
+      }
+      if (creatorProfile.primaryLanguage !== undefined) {
+        updates["creatorProfile.primaryLanguage"] = creatorProfile.primaryLanguage.trim();
+      }
+    }
 
     if (updates.username) {
       const existing = await User.findOne({ username: updates.username, _id: { $ne: req.userId } });
@@ -92,7 +107,7 @@ const MAX_INTERESTS = 10;
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { avatar, gender, birthdate, interests, location, name, bio } = req.body;
+    const { avatar, gender, birthdate, interests, location, name, bio, uiLanguage, language, languages } = req.body;
     const updates = { onboardingComplete: true };
 
     if (avatar !== undefined) updates.avatar = avatar.trim();
@@ -105,6 +120,11 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (trimmed.length > 0) updates.name = trimmed;
     }
     if (bio !== undefined) updates.bio = bio.trim();
+    if (uiLanguage !== undefined && SUPPORTED_UI_LANGS.includes(uiLanguage)) {
+      updates.uiLanguage = uiLanguage;
+    }
+    if (language !== undefined) updates.language = language.trim();
+    if (Array.isArray(languages)) updates.languages = languages;
 
     const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });

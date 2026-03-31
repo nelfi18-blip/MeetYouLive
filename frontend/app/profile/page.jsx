@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
+import { SUPPORTED_LANGUAGES, detectBrowserLanguage } from "@/lib/language";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -28,7 +29,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: "", name: "", bio: "", avatar: "" });
+  const [editForm, setEditForm] = useState({ username: "", name: "", bio: "", avatar: "", uiLanguage: "en", language: "", languages: [] });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -71,7 +72,18 @@ export default function ProfilePage() {
       .then((d) => {
         if (!d) return;
         setUser(d);
-        setEditForm({ username: d.username || "", name: d.name || "", bio: d.bio || "", avatar: d.avatar || "" });
+        // Sync uiLanguage from DB to localStorage so it persists across sessions
+        const detectedUi = d.uiLanguage || localStorage.getItem("uiLanguage") || detectBrowserLanguage();
+        if (d.uiLanguage) localStorage.setItem("uiLanguage", d.uiLanguage);
+        setEditForm({
+          username: d.username || "",
+          name: d.name || "",
+          bio: d.bio || "",
+          avatar: d.avatar || "",
+          uiLanguage: detectedUi,
+          language: d.language || "",
+          languages: Array.isArray(d.languages) ? d.languages : [],
+        });
       })
       .catch(() => setError("No se pudo cargar el perfil"))
       .finally(() => setLoading(false));
@@ -88,8 +100,21 @@ export default function ProfilePage() {
 
   const handleCancelEdit = () => {
     setEditing(false);
-    setEditForm({ username: user.username || "", name: user.name || "", bio: user.bio || "", avatar: user.avatar || "" });
+    setEditForm({
+      username: user.username || "",
+      name: user.name || "",
+      bio: user.bio || "",
+      avatar: user.avatar || "",
+      uiLanguage: user.uiLanguage || "en",
+      language: user.language || "",
+      languages: Array.isArray(user.languages) ? user.languages : [],
+    });
     setSaveError(""); setSaveSuccess("");
+  };
+
+  const handleUiLanguageChange = (e) => {
+    setEditForm((f) => ({ ...f, uiLanguage: e.target.value }));
+    localStorage.setItem("uiLanguage", e.target.value);
   };
 
   const handleSave = async (e) => {
@@ -113,7 +138,16 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
       setUser(data);
-      setEditForm({ username: data.username || "", name: data.name || "", bio: data.bio || "", avatar: data.avatar || "" });
+      setEditForm({
+        username: data.username || "",
+        name: data.name || "",
+        bio: data.bio || "",
+        avatar: data.avatar || "",
+        uiLanguage: data.uiLanguage || "en",
+        language: data.language || "",
+        languages: Array.isArray(data.languages) ? data.languages : [],
+      });
+      if (data.uiLanguage) localStorage.setItem("uiLanguage", data.uiLanguage);
       setSaveSuccess("Perfil actualizado correctamente");
       setEditing(false);
     } catch { setSaveError("No se pudo conectar con el servidor"); }
@@ -289,6 +323,25 @@ export default function ProfilePage() {
                   <textarea className="input bio-textarea" value={editForm.bio}
                     onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Idioma hablado</label>
+                  <select className="input" value={editForm.language}
+                    onChange={(e) => setEditForm((f) => ({ ...f, language: e.target.value }))}>
+                    <option value="">Selecciona un idioma</option>
+                    {SUPPORTED_LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>{l.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Idioma de la interfaz</label>
+                  <select className="input" value={editForm.uiLanguage}
+                    onChange={handleUiLanguageChange}>
+                    {SUPPORTED_LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>{l.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Foto de perfil</label>

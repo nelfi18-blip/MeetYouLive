@@ -26,6 +26,13 @@ const userSchema = new mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
+    uiLanguage: { type: String, enum: ["en", "es", "pt"], default: "en" },
+    language: { type: String, default: "" },
+    languages: { type: [String], default: [] },
+    creatorProfile: {
+      languages: { type: [String], default: [] },
+      primaryLanguage: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

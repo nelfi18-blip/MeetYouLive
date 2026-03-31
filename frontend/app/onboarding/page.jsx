@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { SUPPORTED_LANGUAGES, detectBrowserLanguage } from "@/lib/language";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -32,6 +33,8 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [location, setLocation] = useState("");
+  const [language, setLanguage] = useState("");
+  const [uiLanguage, setUiLanguage] = useState("en");
 
   // Step 1 fields
   const [interests, setInterests] = useState([]);
@@ -46,6 +49,10 @@ export default function OnboardingPage() {
     if (!token) {
       router.replace("/login");
     }
+    // Auto-detect browser language for UI language preference
+    const detected = detectBrowserLanguage();
+    setUiLanguage(detected);
+    localStorage.setItem("uiLanguage", detected);
   }, [router]);
 
   const toggleInterest = (interest) => {
@@ -56,6 +63,11 @@ export default function OnboardingPage() {
         ? [...prev, interest]
         : prev
     );
+  };
+
+  const handleUiLanguageChange = (e) => {
+    setUiLanguage(e.target.value);
+    localStorage.setItem("uiLanguage", e.target.value);
   };
 
   const handleAvatarFileChange = (file) => {
@@ -138,6 +150,8 @@ export default function OnboardingPage() {
           interests,
           location: location.trim() || undefined,
           avatar: finalAvatarUrl || undefined,
+          language: language || undefined,
+          uiLanguage,
         }),
       });
       if (!res.ok) {
@@ -245,6 +259,35 @@ export default function OnboardingPage() {
                 onChange={(e) => setLocation(e.target.value)}
                 maxLength={80}
               />
+            </div>
+
+            <div className="ob-row">
+              <div className="ob-field ob-field-half">
+                <label className="ob-label">Idioma hablado</label>
+                <select
+                  className="input"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  <option value="">Selecciona un idioma</option>
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ob-field ob-field-half">
+                <label className="ob-label">Idioma de la interfaz</label>
+                <select
+                  className="input"
+                  value={uiLanguage}
+                  onChange={handleUiLanguageChange}
+                >
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="ob-actions">

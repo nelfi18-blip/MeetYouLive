@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -9,6 +9,7 @@ const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 
 export default function LiveRoomPage() {
   const { id } = useParams();
+  const router = useRouter();
   const [live, setLive] = useState(null);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
@@ -31,6 +32,10 @@ export default function LiveRoomPage() {
   const chatEndRef = useRef(null);
   const msgCounterRef = useRef(1);
 
+  // Creator mode state
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [endingStream, setEndingStream] = useState(false);
+
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   useEffect(() => {
@@ -44,6 +49,17 @@ export default function LiveRoomPage() {
       .then((data) => setLive(data))
       .catch(() => setError("Directo no encontrado o ya finalizado"));
   }, [id]);
+
+  // Fetch current user to detect creator mode
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?._id) setCurrentUserId(String(data._id)); })
+      .catch(() => {});
+  }, [token]);
 
   // Scroll chat to bottom on new messages
   useEffect(() => {
@@ -266,6 +282,24 @@ export default function LiveRoomPage() {
     );
   }
 
+  const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
+
+  const handleEndStream = async () => {
+    if (!token) return;
+    setEndingStream(true);
+    try {
+      await fetch(`${API_URL}/api/lives/${id}/end`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // ignore — redirect regardless
+    } finally {
+      setEndingStream(false);
+      router.push("/live");
+    }
+  };
+
   const playerUrl = LIVE_PROVIDER_KEY && live.streamKey
     ? `https://wl.cinectar.com/player/${encodeURIComponent(LIVE_PROVIDER_KEY)}/${encodeURIComponent(live.streamKey)}`
     : null;
@@ -323,12 +357,27 @@ export default function LiveRoomPage() {
               <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
             </div>
             <div className="action-buttons">
-              <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
-                🎁 Regalo
-              </button>
-              <button className="btn btn-secondary btn-sm" disabled title="Próximamente">
-                📞 Llamada privada
-              </button>
+              {isCreator ? (
+                <>
+                  <span className="badge-broadcasting">🔴 TRANSMITIENDO</span>
+                  <button
+                    className="btn btn-end-stream btn-sm"
+                    onClick={handleEndStream}
+                    disabled={endingStream}
+                  >
+                    {endingStream ? "Finalizando…" : "⏹ Finalizar"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
+                    🎁 Regalo
+                  </button>
+                  <button className="btn btn-secondary btn-sm" disabled title="Próximamente">
+                    📞 Llamada privada
+                  </button>
+                </>
+              )}
               <Link href="/live" className="btn btn-ghost btn-sm">
                 ← Directos
               </Link>
@@ -634,6 +683,47 @@ export default function LiveRoomPage() {
           gap: 0.5rem;
           flex-wrap: wrap;
         }
+
+        /* ── Creator-mode badge + end-stream button ── */
+        .badge-broadcasting {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(255,15,138,0.12);
+          border: 1px solid rgba(255,15,138,0.4);
+          border-radius: var(--radius-pill);
+          padding: 0.25rem 0.75rem;
+          font-size: 0.65rem;
+          font-weight: 800;
+          color: #ff4fbd;
+          letter-spacing: 0.07em;
+          animation: bcast-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes bcast-glow {
+          0%, 100% { box-shadow: 0 0 6px rgba(255,15,138,0.2); }
+          50% { box-shadow: 0 0 14px rgba(255,15,138,0.45); }
+        }
+
+        .btn-end-stream {
+          background: rgba(220,38,38,0.12);
+          border: 1px solid rgba(220,38,38,0.45);
+          color: #f87171;
+          border-radius: var(--radius-pill);
+          padding: 0.35rem 0.9rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all var(--transition);
+        }
+
+        .btn-end-stream:hover:not(:disabled) {
+          background: rgba(220,38,38,0.25);
+          border-color: rgba(220,38,38,0.7);
+          box-shadow: 0 0 12px rgba(220,38,38,0.3);
+        }
+
+        .btn-end-stream:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ── Stream info card ─────────────────────── */
         .stream-info {

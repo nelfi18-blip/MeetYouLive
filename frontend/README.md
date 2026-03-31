@@ -26,8 +26,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Base URL of the MeetYouLive backend (e.g. `https://yourapp.onrender.com`) |
-| `NEXT_PUBLIC_GOOGLE_URL` | Google OAuth URL from the backend (e.g. `https://yourapp.onrender.com/api/auth/google`) |
+| `NEXT_PUBLIC_API_URL` | Base URL of the MeetYouLive backend (e.g. `https://api.meetyoulive.net`) |
 
 ## Deploy on Vercel
 

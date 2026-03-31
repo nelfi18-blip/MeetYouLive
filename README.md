@@ -29,7 +29,7 @@ MeetYouLive is a live streaming and social platform with:
 ## Repository structure
 
 ```text
-MeerYouLive/
+MeetYouLive/
 ├── backend/
 │   ├── src/
 │   ├── index.js
@@ -175,14 +175,6 @@ ADMIN_USERNAME=meetyoulive ADMIN_EMAIL=admin@meetyoulive.net ADMIN_PASSWORD=your
 ```
 
 The script connects to MongoDB using `MONGODB_URI` from your `.env` file, then **creates or updates** the admin account. You can re-run it at any time to reset the password.
-
-### Option B – Web setup page
-
-1. Open `https://<your-frontend-url>/setup` in a browser.  
-   (A **"¿Primera vez aquí? Configurar administrador"** link also appears at the bottom of the login page.)
-2. Fill in the form with your chosen **username**, **email**, and **password** (minimum 6 characters).
-3. Submit the form. The admin account is created and you are logged in automatically.
-4. The `/setup` page is disabled permanently once an admin account exists.
 
 ### Changing the admin password later
 

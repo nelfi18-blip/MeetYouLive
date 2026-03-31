@@ -32,28 +32,3 @@ services:
         sync: false
       - key: INTERNAL_API_SECRET
         sync: false
-
-  - type: web
-    name: meetyoulive-frontend
-    runtime: node
-    plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://api.meetyoulive.net
-      - key: API_URL
-        value: https://api.meetyoulive.net
-      - key: NEXT_PUBLIC_LIVE_PROVIDER_KEY
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: NEXTAUTH_SECRET
-        sync: false
-      - key: NEXTAUTH_URL
-        value: https://www.meetyoulive.net
-      - key: INTERNAL_API_SECRET
-        sync: false

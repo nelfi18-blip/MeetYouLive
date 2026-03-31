@@ -337,44 +337,90 @@ export default function AdminPage() {
               No hay solicitudes pendientes
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-                <thead>
-                  <tr style={{ background: "#1e293b" }}>
-                    <Th>Nombre</Th>
-                    <Th>Email</Th>
-                    <Th>Username</Th>
-                    <Th>Registrado</Th>
-                    <Th>Acciones</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {creatorRequests.map((u) => (
-                    <tr key={u._id} style={{ borderBottom: "1px solid #334155" }}>
-                      <Td>{u.name || "—"}</Td>
-                      <Td>{u.email}</Td>
-                      <Td>{u.username ? `@${u.username}` : "—"}</Td>
-                      <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
-                      <Td>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                          <ActionBtn
-                            label="✓ Aprobar"
-                            color="#4ade80"
-                            disabled={!!actionLoading}
-                            onClick={() => handleCreatorAction(u._id, "approve")}
-                          />
-                          <ActionBtn
-                            label="✗ Rechazar"
-                            color="#f87171"
-                            disabled={!!actionLoading}
-                            onClick={() => handleCreatorAction(u._id, "reject")}
-                          />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              {creatorRequests.map((u) => {
+                const app = u.creatorApplication || {};
+                const langs = app.languages?.length ? app.languages.join(", ") : null;
+                const socialEntries = app.socialLinks
+                  ? Object.entries(app.socialLinks).filter(([, v]) => v)
+                  : [];
+                return (
+                  <div key={u._id} style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", border: "1px solid #334155" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "1rem" }}>
+                          {u.name || "—"}
+                          {u.username && <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: "0.5rem", fontSize: "0.85rem" }}>@{u.username}</span>}
                         </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginTop: "0.2rem" }}>{u.email}</div>
+                        <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+                          Registrado: {new Date(u.createdAt).toLocaleDateString()}
+                          {app.submittedAt && (
+                            <span style={{ marginLeft: "0.75rem" }}>
+                              Solicitud enviada: {new Date(app.submittedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                        <ActionBtn
+                          label="✓ Aprobar"
+                          color="#4ade80"
+                          disabled={!!actionLoading}
+                          onClick={() => handleCreatorAction(u._id, "approve")}
+                        />
+                        <ActionBtn
+                          label="✗ Rechazar"
+                          color="#f87171"
+                          disabled={!!actionLoading}
+                          onClick={() => handleCreatorAction(u._id, "reject")}
+                        />
+                      </div>
+                    </div>
+
+                    {(app.displayName || app.category || app.country || langs) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: app.bio ? "0.75rem" : 0 }}>
+                        {app.displayName && (
+                          <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#c4b5fd" }}>
+                            🎭 {app.displayName}
+                          </span>
+                        )}
+                        {app.category && (
+                          <span style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#67e8f9" }}>
+                            🏷 {app.category}
+                          </span>
+                        )}
+                        {app.country && (
+                          <span style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#6ee7b7" }}>
+                            🌍 {app.country}
+                          </span>
+                        )}
+                        {langs && (
+                          <span style={{ background: "rgba(251,146,60,0.1)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#fed7aa" }}>
+                            🗣 {langs}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {app.bio && (
+                      <div style={{ color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.55, marginBottom: socialEntries.length ? "0.75rem" : 0, background: "rgba(255,255,255,0.03)", borderRadius: "0.5rem", padding: "0.6rem 0.875rem" }}>
+                        {app.bio}
+                      </div>
+                    )}
+
+                    {socialEntries.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                        {socialEntries.map(([net, val]) => (
+                          <span key={net} style={{ fontSize: "0.78rem", color: "#94a3b8", background: "#0f172a", borderRadius: "0.375rem", padding: "0.2rem 0.6rem", border: "1px solid #1e293b" }}>
+                            {net}: {val}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

@@ -26,17 +26,25 @@ export default function StartLivePage() {
       router.replace("/login");
       return;
     }
-    // Validate token with the backend on mount so an expired token is caught
-    // early and the user is redirected to login rather than seeing an error
-    // only after they try to start a stream.
+    // Validate token and ensure only approved creators can access this page.
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((r) => {
-      if (r.status === 401) {
-        clearToken();
-        router.replace("/login");
-      }
-    }).catch(() => {});
+    })
+      .then((r) => {
+        if (r.status === 401) {
+          clearToken();
+          router.replace("/login");
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
+      .then((data) => {
+        if (!data) return;
+        if (data.role !== "creator" || data.creatorStatus !== "approved") {
+          router.replace("/dashboard");
+        }
+      })
+      .catch(() => {});
   }, [router]);
 
   const startLive = async (e) => {

@@ -191,6 +191,45 @@ router.post("/me/creator-request", userLimiter, verifyToken, async (req, res) =>
       return res.status(400).json({ message: "Ya tienes una solicitud de creador pendiente" });
     }
 
+    const { displayName, bio, category, country, languages, socialLinks } = req.body;
+
+    if (!displayName || !displayName.trim()) {
+      return res.status(400).json({ message: "El nombre de creador es requerido" });
+    }
+    if (!bio || !bio.trim()) {
+      return res.status(400).json({ message: "La biografía es requerida" });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ message: "La categoría es requerida" });
+    }
+    if (!country || !country.trim()) {
+      return res.status(400).json({ message: "El país es requerido" });
+    }
+    if (!languages || !Array.isArray(languages) || languages.length === 0) {
+      return res.status(400).json({ message: "Debes seleccionar al menos un idioma" });
+    }
+
+    const filteredLanguages = languages.filter((l) => l && l.trim());
+    if (filteredLanguages.length === 0) {
+      return res.status(400).json({ message: "Debes seleccionar al menos un idioma válido" });
+    }
+
+    const sanitizedSocialLinks = {
+      twitter: (socialLinks?.twitter || "").trim(),
+      instagram: (socialLinks?.instagram || "").trim(),
+      tiktok: (socialLinks?.tiktok || "").trim(),
+      youtube: (socialLinks?.youtube || "").trim(),
+    };
+
+    user.creatorApplication = {
+      displayName: displayName.trim(),
+      bio: bio.trim(),
+      category: category.trim(),
+      country: country.trim(),
+      languages: filteredLanguages.map((l) => l.trim()),
+      socialLinks: sanitizedSocialLinks,
+      submittedAt: new Date(),
+    };
     user.creatorStatus = "pending";
     await user.save();
 

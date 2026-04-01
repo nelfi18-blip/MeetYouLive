@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -16,6 +16,18 @@ const PACKAGES = [
     desc: "Ideal para empezar",
     highlight: false,
     perCoin: "$0.0099",
+  },
+  {
+    value: 250,
+    label: "Básico",
+    coins: "250",
+    price: "$2.29",
+    priceNote: "por paquete",
+    icon: "🎯",
+    desc: "Un poco más para disfrutar",
+    highlight: false,
+    perCoin: "$0.0092",
+    save: "Ahorra 8%",
   },
   {
     value: 500,
@@ -43,9 +55,45 @@ const PACKAGES = [
   },
 ];
 
+const TX_TYPE_LABELS = {
+  purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
+  gift_sent: { label: "Regalo enviado", color: "var(--error)", sign: "-" },
+  gift_received: { label: "Regalo recibido", color: "var(--accent-green)", sign: "+" },
+  private_call: { label: "Llamada privada", color: "var(--error)", sign: "-" },
+  content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
+  refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
+  admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
+};
+
+function formatDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function BuyCoinsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [balance, setBalance] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [txLoading, setTxLoading] = useState(true);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { setTxLoading(false); return; }
+    const headers = { Authorization: `Bearer ${token}` };
+
+    fetch(`${API_URL}/api/user/coins`, { headers })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setBalance(d.coins); })
+      .catch(() => {});
+
+    fetch(`${API_URL}/api/coins/transactions?limit=20`, { headers })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setTransactions(d.transactions || []); })
+      .catch(() => {})
+      .finally(() => setTxLoading(false));
+  }, []);
 
   const buy = async (pkg) => {
     setError("");
@@ -81,6 +129,13 @@ export default function BuyCoinsPage() {
         <p className="page-subtitle" style={{ maxWidth: 500, marginInline: "auto", textAlign: "center" }}>
           Usa monedas para enviar regalos virtuales durante los directos y apoyar a tus streamers favoritos.
         </p>
+        {balance !== null && (
+          <div className="balance-pill">
+            <span className="balance-icon">🪙</span>
+            <span className="balance-value">{balance}</span>
+            <span className="balance-label">monedas disponibles</span>
+          </div>
+        )}
       </div>
 
       {error && <div className="banner-error">{error}</div>}
@@ -153,6 +208,38 @@ export default function BuyCoinsPage() {
         </div>
       </div>
 
+      {/* Transaction history */}
+      <div className="tx-card">
+        <h3 className="tx-title">Historial de transacciones</h3>
+        {txLoading ? (
+          <div className="tx-loading">Cargando historial…</div>
+        ) : transactions.length === 0 ? (
+          <div className="tx-empty">No hay transacciones todavía. ¡Compra tus primeras monedas!</div>
+        ) : (
+          <div className="tx-list">
+            {transactions.map((tx) => {
+              const info = TX_TYPE_LABELS[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
+              const absAmount = Math.abs(tx.amount);
+              const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
+              return (
+                <div key={tx._id} className="tx-row">
+                  <div className="tx-row-left">
+                    <span className="tx-type-badge" style={{ color: info.color }}>{info.label}</span>
+                    <span className="tx-reason">{tx.reason}</span>
+                  </div>
+                  <div className="tx-row-right">
+                    <span className="tx-amount" style={{ color: info.color }}>
+                      {sign}{absAmount} 🪙
+                    </span>
+                    <span className="tx-date">{formatDate(tx.createdAt)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <p className="back-link">
         <Link href="/dashboard">← Volver al dashboard</Link>
       </p>
@@ -166,7 +253,32 @@ export default function BuyCoinsPage() {
           margin: 0 auto;
         }
 
-        .coins-header { text-align: center; }
+        .coins-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+
+        .balance-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(251,146,60,0.1);
+          border: 1px solid rgba(251,146,60,0.25);
+          border-radius: var(--radius-pill);
+          padding: 0.45rem 1.25rem;
+          margin-top: 0.25rem;
+        }
+
+        .balance-icon { font-size: 1rem; }
+
+        .balance-value {
+          font-size: 1.15rem;
+          font-weight: 800;
+          color: var(--accent-orange);
+        }
+
+        .balance-label {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
 
         /* Banner */
         .banner-error {
@@ -182,7 +294,7 @@ export default function BuyCoinsPage() {
         /* Packages */
         .packages-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 1.25rem;
           align-items: start;
         }
@@ -393,6 +505,88 @@ export default function BuyCoinsPage() {
         .step-title { font-weight: 700; color: var(--text); font-size: 0.9rem; }
         .step-desc { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; line-height: 1.45; }
 
+        /* Transaction history */
+        .tx-card {
+          background: rgba(15,8,32,0.8);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 2rem 2.25rem;
+        }
+
+        .tx-title {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: var(--text);
+          margin-bottom: 1.25rem;
+          letter-spacing: -0.02em;
+        }
+
+        .tx-loading, .tx-empty {
+          color: var(--text-muted);
+          font-size: 0.875rem;
+          text-align: center;
+          padding: 1.5rem 0;
+        }
+
+        .tx-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .tx-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          transition: background var(--transition);
+        }
+
+        .tx-row:hover { background: rgba(255,255,255,0.05); }
+
+        .tx-row-left {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          min-width: 0;
+        }
+
+        .tx-type-badge {
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+
+        .tx-reason {
+          font-size: 0.75rem;
+          color: var(--text-dim);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 320px;
+        }
+
+        .tx-row-right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.15rem;
+          flex-shrink: 0;
+        }
+
+        .tx-amount {
+          font-size: 0.9rem;
+          font-weight: 700;
+        }
+
+        .tx-date {
+          font-size: 0.72rem;
+          color: var(--text-dim);
+        }
+
         .back-link {
           text-align: center;
           font-size: 0.875rem;
@@ -407,11 +601,16 @@ export default function BuyCoinsPage() {
 
         .back-link :global(a):hover { color: var(--accent-2); }
 
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
+          .packages-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 480px) {
           .packages-grid { grid-template-columns: 1fr; }
-          .how-card { padding: 1.5rem; }
+          .how-card, .tx-card { padding: 1.5rem; }
         }
       `}</style>
     </div>
   );
 }
+

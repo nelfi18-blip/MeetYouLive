@@ -2,12 +2,14 @@ const Stripe = require("stripe");
 const Video = require("../models/Video.js");
 const Purchase = require("../models/Purchase.js");
 const User = require("../models/User.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Coin packages: { coins, priceUsd }
 const COIN_PACKAGES = {
   100: { coins: 100, priceUsd: 0.99 },
+  250: { coins: 250, priceUsd: 2.29 },
   500: { coins: 500, priceUsd: 4.49 },
   1000: { coins: 1000, priceUsd: 7.99 },
 };
@@ -16,7 +18,7 @@ const createCoinCheckoutSession = async (req, res) => {
   const { package: pkg } = req.body;
   const coinPackage = COIN_PACKAGES[pkg];
   if (!coinPackage) {
-    return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 500 o 1000" });
+    return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 250, 500 o 1000" });
   }
   try {
     const session = await stripe.checkout.sessions.create({
@@ -89,10 +91,20 @@ const handlePaymentCompleted = async (session) => {
   const { userId, videoId, amount, type, coins } = session.metadata;
 
   if (type === "coins") {
-    const result = await User.findByIdAndUpdate(userId, { $inc: { coins: parseInt(coins, 10) } });
+    const coinCount = parseInt(coins, 10);
+    const result = await User.findByIdAndUpdate(userId, { $inc: { coins: coinCount } });
     if (!result) {
       console.error(`[coins webhook] User not found: ${userId} for session ${session.id}`);
+      return;
     }
+    await CoinTransaction.create({
+      userId,
+      type: "purchase",
+      amount: coinCount,
+      reason: `Compra de ${coinCount} monedas via Stripe`,
+      status: "completed",
+      metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
+    });
     return;
   }
 

@@ -21,6 +21,7 @@ const videoCallRoutes = require("./routes/videoCall.routes.js");
 const exclusiveContentRoutes = require("./routes/exclusiveContent.routes.js");
 const sparksRoutes = require("./routes/sparks.routes.js");
 const passesRoutes = require("./routes/passes.routes.js");
+const creatorRoutes = require("./routes/creator.routes.js");
 
 const app = express();
 
@@ -96,5 +97,6 @@ app.use("/api/calls", videoCallRoutes);
 app.use("/api/exclusive", exclusiveContentRoutes);
 app.use("/api/sparks", sparksRoutes);
 app.use("/api/passes", passesRoutes);
+app.use("/api/creator", creatorRoutes);
 
 module.exports = app;

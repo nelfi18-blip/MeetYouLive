@@ -9,12 +9,12 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
-  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common"    },
-  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon"  },
-  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare"      },
-  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic"      },
-  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary" },
-  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic"    },
+  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common",    sortOrder: 1 },
+  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon",  sortOrder: 2 },
+  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare",      sortOrder: 3 },
+  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic",      sortOrder: 4 },
+  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary", sortOrder: 5 },
+  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic",    sortOrder: 6 },
 ];
 
 const seedGiftCatalog = async () => {
@@ -25,10 +25,46 @@ const seedGiftCatalog = async () => {
   }
 };
 
+// Shared helper: record coin transactions for a completed gift (fire-and-forget)
+const recordGiftTransactions = (senderId, receiverId, amount, creatorShare, giftDocId, extra = {}) => {
+  const txMeta = { giftId: giftDocId, ...extra };
+  CoinTransaction.create([
+    {
+      userId: senderId,
+      type: "gift_sent",
+      amount: -amount,
+      reason: `Regalo enviado a ${receiverId}`,
+      status: "completed",
+      metadata: txMeta,
+    },
+    {
+      userId: receiverId,
+      type: "gift_received",
+      amount: creatorShare,
+      reason: `Regalo recibido de ${senderId}`,
+      status: "completed",
+      metadata: txMeta,
+    },
+  ]).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
+};
+
+// Shared helper: transfer coins and credit creator earnings within a session
+const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
+  const sender = await User.findById(senderId).session(session);
+  if (!sender) throw Object.assign(new Error("Sender no encontrado"), { status: 404 });
+  if (sender.coins < amount) throw Object.assign(new Error("Monedas insuficientes"), { status: 400 });
+
+  const receiver = await User.findById(receiverId).session(session);
+  if (!receiver) throw Object.assign(new Error("Receiver no encontrado"), { status: 404 });
+
+  await User.findByIdAndUpdate(senderId, { $inc: { coins: -amount } }, { session });
+  await User.findByIdAndUpdate(receiverId, { $inc: { earningsCoins: creatorShare } }, { session });
+};
+
 const getGiftCatalog = async (req, res) => {
   try {
     await seedGiftCatalog();
-    const catalog = await GiftCatalog.find({ active: true }).sort({ coinCost: 1 });
+    const catalog = await GiftCatalog.find({ active: true }).sort({ sortOrder: 1, coinCost: 1 });
     res.json(catalog);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -36,16 +72,39 @@ const getGiftCatalog = async (req, res) => {
 };
 
 const sendGift = async (req, res) => {
-  const { receiverId, giftId, liveId, context, contextId, message } = req.body;
-  if (!receiverId || !giftId) {
-    return res.status(400).json({ message: "receiverId y giftId son requeridos" });
+  const { receiverId, giftId, giftSlug, liveId, context, contextId, message } = req.body;
+  if (!receiverId || (!giftId && !giftSlug)) {
+    return res.status(400).json({ message: "receiverId y giftId (o giftSlug) son requeridos" });
+  }
+
+  // Validate receiverId is a proper ObjectId before any comparison/lookup
+  if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+    return res.status(400).json({ message: "receiverId inválido" });
+  }
+
+  // Prevent self-gifting
+  if (String(req.userId) === String(receiverId)) {
+    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
+  }
+
+  if (String(req.userId) === String(receiverId)) {
+    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
   }
 
   let catalogItem;
   try {
-    catalogItem = await GiftCatalog.findOne({ _id: giftId, active: true });
+    if (giftSlug) {
+      // Sanitize slug: only allow alphanumeric + hyphens to prevent NoSQL injection
+      const safeSlug = String(giftSlug).replace(/[^a-z0-9-]/gi, "");
+      catalogItem = await GiftCatalog.findOne({ slug: safeSlug, active: true });
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(giftId)) {
+        return res.status(400).json({ message: "giftId inválido" });
+      }
+      catalogItem = await GiftCatalog.findOne({ _id: new mongoose.Types.ObjectId(giftId), active: true });
+    }
   } catch {
-    return res.status(400).json({ message: "giftId inválido" });
+    return res.status(400).json({ message: "Identificador de regalo inválido" });
   }
   if (!catalogItem) {
     return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
@@ -57,17 +116,9 @@ const sendGift = async (req, res) => {
 
   const session = await mongoose.startSession();
   try {
-    await session.withTransaction(async () => {
-      const sender = await User.findById(req.userId).session(session);
-      if (!sender) throw Object.assign(new Error("Sender no encontrado"), { status: 404 });
-      if (sender.coins < amount) throw Object.assign(new Error("Monedas insuficientes"), { status: 400 });
-
-      const receiver = await User.findById(receiverId).session(session);
-      if (!receiver) throw Object.assign(new Error("Receiver no encontrado"), { status: 404 });
-
-      await User.findByIdAndUpdate(req.userId, { $inc: { coins: -amount } }, { session });
-      await User.findByIdAndUpdate(receiverId, { $inc: { earningsCoins: creatorShare } }, { session });
-    });
+    await session.withTransaction(() =>
+      transferCoins(req.userId, receiverId, amount, creatorShare, session)
+    );
 
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
@@ -86,26 +137,7 @@ const sendGift = async (req, res) => {
     await giftDoc.populate("sender", "username name");
     await giftDoc.populate("giftCatalogItem", "name icon coinCost");
 
-    // Record coin transactions (fire-and-forget; don't fail the gift if this errors)
-    const txMeta = { giftId: giftDoc._id, liveId: liveId || null };
-    CoinTransaction.create([
-      {
-        userId: req.userId,
-        type: "gift_sent",
-        amount: -amount,
-        reason: `Regalo enviado a ${receiverId}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-      {
-        userId: receiverId,
-        type: "gift_received",
-        amount: creatorShare,
-        reason: `Regalo recibido de ${req.userId}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-    ]).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
+    recordGiftTransactions(req.userId, receiverId, amount, creatorShare, giftDoc._id, { liveId: liveId || null });
 
     res.status(201).json(giftDoc);
   } catch (err) {
@@ -125,6 +157,63 @@ const getReceivedGifts = async (req, res) => {
     res.json(gifts);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/gifts/send — accepts giftSlug instead of giftId
+const sendGiftBySlug = async (req, res) => {
+  const { giftSlug, receiverId, context, contextId } = req.body;
+  if (!receiverId || !giftSlug) {
+    return res.status(400).json({ message: "receiverId y giftSlug son requeridos" });
+  }
+
+  if (String(req.userId) === String(receiverId)) {
+    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
+  }
+
+  let catalogItem;
+  try {
+    catalogItem = await GiftCatalog.findOne({ slug: giftSlug, active: true });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+  if (!catalogItem) {
+    return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
+  }
+
+  const amount = catalogItem.coinCost;
+  const creatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
+  const platformShare = amount - creatorShare;
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(() =>
+      transferCoins(req.userId, receiverId, amount, creatorShare, session)
+    );
+
+    const resolvedContext = context || "profile";
+    const resolvedContextId = contextId || null;
+    const giftDoc = await Gift.create({
+      sender: req.userId,
+      receiver: receiverId,
+      giftCatalogItem: catalogItem._id,
+      coinCost: amount,
+      creatorShare,
+      platformShare,
+      context: resolvedContext,
+      contextId: resolvedContextId,
+    });
+    await giftDoc.populate("sender", "username name");
+    await giftDoc.populate("giftCatalogItem", "name icon coinCost");
+
+    recordGiftTransactions(req.userId, receiverId, amount, creatorShare, giftDoc._id);
+
+    res.status(201).json(giftDoc);
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -192,6 +281,7 @@ const adminDeleteCatalogItem = async (req, res) => {
 
 module.exports = {
   sendGift,
+  sendGiftBySlug,
   getReceivedGifts,
   getGiftCatalog,
   adminGetCatalog,

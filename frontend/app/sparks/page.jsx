@@ -8,65 +8,61 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const PACKAGES = [
   {
-    value: 100,
-    label: "Starter Pack",
-    coins: "100",
+    value: 50,
+    label: "Starter",
+    sparks: "50",
     price: "$0.99",
-    priceNote: "por paquete",
-    icon: "🪙",
-    desc: "Ideal para empezar",
+    icon: "✨",
+    desc: "Ideal para explorar",
     highlight: false,
-    perCoin: "$0.0099",
+    save: null,
   },
   {
-    value: 250,
-    label: "Explorer Pack",
-    coins: "250",
-    price: "$2.29",
-    priceNote: "por paquete",
-    icon: "🎯",
-    desc: "Más MYL Coins para disfrutar",
+    value: 150,
+    label: "Explorer",
+    sparks: "150",
+    price: "$2.49",
+    icon: "⚡",
+    desc: "Más presencia social",
     highlight: false,
-    perCoin: "$0.0092",
-    save: "Ahorra 8%",
+    save: "Ahorra 16%",
   },
   {
-    value: 500,
-    label: "Popular Pack",
-    coins: "500",
+    value: 300,
+    label: "Popular",
+    sparks: "300",
     price: "$4.49",
-    priceNote: "por paquete",
-    icon: "💰",
-    desc: "El más elegido por la comunidad",
+    icon: "🌟",
+    desc: "El más elegido",
     highlight: true,
-    perCoin: "$0.009",
-    save: "Ahorra 9%",
+    save: "Ahorra 24%",
   },
   {
-    value: 1000,
-    label: "Elite Pack",
-    coins: "1.000",
+    value: 600,
+    label: "Elite",
+    sparks: "600",
     price: "$7.99",
-    priceNote: "por paquete",
-    icon: "💎",
-    desc: "Mejor precio por MYL Coin",
+    icon: "💥",
+    desc: "Domina la descubierta social",
     highlight: false,
-    perCoin: "$0.008",
-    save: "Ahorra 19%",
+    save: "Ahorra 32%",
   },
+];
+
+const BOOSTS = [
+  { type: "visibility_boost", label: "Visibility Boost", icon: "📡", cost: 50, desc: "Aumenta tu visibilidad durante 24 horas" },
+  { type: "super_interest", label: "Super Interest", icon: "💫", cost: 30, desc: "Señal premium de match intent" },
+  { type: "speed_dating", label: "Speed Dating", icon: "⏱️", cost: 100, desc: "Acceso a sesiones de speed dating" },
+  { type: "room_entry", label: "Social Room Entry", icon: "🚪", cost: 75, desc: "Entra a salas sociales especiales" },
 ];
 
 const TX_TYPE_LABELS = {
   purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
-  gift_sent: { label: "Regalo enviado", color: "var(--error)", sign: "-" },
-  gift_received: { label: "Regalo recibido", color: "var(--accent-green)", sign: "+" },
-  private_call: { label: "Llamada privada", color: "var(--error)", sign: "-" },
-  call_started: { label: "Llamada iniciada", color: "var(--error)", sign: "-" },
-  call_earned: { label: "Llamada recibida", color: "var(--accent-green)", sign: "+" },
+  boost_used: { label: "Boost activado", color: "var(--error)", sign: "-" },
+  pass_purchase: { label: "Pase adquirido", color: "var(--error)", sign: "-" },
+  match_boost: { label: "Match boost", color: "var(--error)", sign: "-" },
+  speed_dating: { label: "Speed dating", color: "var(--error)", sign: "-" },
   room_entry: { label: "Entrada a sala", color: "var(--error)", sign: "-" },
-  content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
-  content_earned: { label: "Contenido exclusivo", color: "var(--accent-green)", sign: "+" },
-  refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
   admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
 };
 
@@ -76,51 +72,51 @@ function formatDate(iso) {
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function BuyCoinsPage() {
+export default function SparksPage() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  const [boostLoading, setBoostLoading] = useState("");
   const [error, setError] = useState("");
+  const [boostMsg, setBoostMsg] = useState("");
   const [balance, setBalance] = useState(null);
-  const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
 
+  const getToken = () =>
+    (typeof window !== "undefined" ? localStorage.getItem("token") : null) ||
+    session?.backendToken ||
+    null;
+
   useEffect(() => {
-    const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const token = localToken || session?.backendToken || null;
+    const token = getToken();
     if (!token) { setTxLoading(false); return; }
     const headers = { Authorization: `Bearer ${token}` };
 
-    fetch(`${API_URL}/api/user/coins`, { headers })
+    fetch(`${API_URL}/api/sparks/balance`, { headers })
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) { setBalance(d.coins); setSparks(d.sparks ?? null); } })
+      .then((d) => { if (d) setBalance(d.sparks); })
       .catch(() => {});
 
-    fetch(`${API_URL}/api/coins/transactions?limit=20`, { headers })
+    fetch(`${API_URL}/api/sparks/transactions?limit=20`, { headers })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d) setTransactions(d.transactions || []); })
       .catch(() => {})
       .finally(() => setTxLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.backendToken]);
 
   const buy = async (pkg) => {
     setError("");
     setLoading(true);
     try {
-      const token = localStorage.getItem("token") || session?.backendToken;
-      const res = await fetch(`${API_URL}/api/payments/coins`, {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/api/payments/sparks`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ package: pkg }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || "Error al iniciar el pago");
-        return;
-      }
+      if (!res.ok) { setError(data.message || "Error al iniciar el pago"); return; }
       window.location.href = data.url;
     } catch {
       setError("No se pudo conectar con el servidor");
@@ -129,121 +125,120 @@ export default function BuyCoinsPage() {
     }
   };
 
+  const activateBoost = async (boostType) => {
+    setBoostMsg("");
+    setError("");
+    setBoostLoading(boostType);
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/api/sparks/boost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ boostType }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || "Error al activar boost"); return; }
+      setBoostMsg(`✅ ${data.boostType} activado`);
+      setBalance((prev) => (prev !== null ? Math.max(0, prev - data.sparkCost) : prev));
+    } catch {
+      setError("No se pudo conectar con el servidor");
+    } finally {
+      setBoostLoading("");
+    }
+  };
+
   return (
-    <div className="coins-page">
+    <div className="sparks-page">
       {/* Header */}
-      <div className="coins-header">
-        <h1 className="page-title">MYL Coins</h1>
-        <p className="page-subtitle" style={{ maxWidth: 500, marginInline: "auto", textAlign: "center" }}>
-          Usa MYL Coins para enviar regalos exclusivos, acceder a llamadas privadas con creators y desbloquear contenido premium.
+      <div className="sparks-header">
+        <h1 className="page-title">✨ Sparks</h1>
+        <p className="page-subtitle" style={{ maxWidth: 520, marginInline: "auto", textAlign: "center" }}>
+          Los Sparks son la moneda social de MeetYouLive. Úsalos para impulsar tu visibilidad, acceder a salas exclusivas y matchear con más intensidad.
         </p>
-        <div className="balance-row">
-          {balance !== null && (
-            <div className="balance-pill">
-              <span className="balance-icon">🪙</span>
-              <span className="balance-value">{balance}</span>
-              <span className="balance-label">MYL Coins</span>
-            </div>
-          )}
-          {sparks !== null && (
-            <Link href="/sparks" className="balance-pill balance-pill-sparks">
-              <span className="balance-icon">✨</span>
-              <span className="balance-value">{sparks}</span>
-              <span className="balance-label">Sparks</span>
-            </Link>
-          )}
-        </div>
+        {balance !== null && (
+          <div className="balance-pill">
+            <span className="balance-icon">✨</span>
+            <span className="balance-value">{balance}</span>
+            <span className="balance-label">Sparks disponibles</span>
+          </div>
+        )}
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+      {boostMsg && <div className="banner-success">{boostMsg}</div>}
 
       {/* Packages */}
       <div className="packages-grid">
         {PACKAGES.map((pkg) => (
           <div key={pkg.value} className={`pkg-card${pkg.highlight ? " pkg-highlight" : ""}`}>
-            {pkg.highlight && (
-              <div className="pkg-badge-top">⭐ Más popular</div>
-            )}
-            {pkg.save && !pkg.highlight && (
-              <div className="pkg-save-badge">{pkg.save}</div>
-            )}
+            {pkg.highlight && <div className="pkg-badge-top">⭐ Más popular</div>}
+            {pkg.save && !pkg.highlight && <div className="pkg-save-badge">{pkg.save}</div>}
             <div className="pkg-icon">{pkg.icon}</div>
             <div className="pkg-label">{pkg.label}</div>
-            <div className="pkg-coins">
-              {pkg.coins}
-              <span>MYL Coins</span>
+            <div className="pkg-sparks">
+              {pkg.sparks}
+              <span>Sparks</span>
             </div>
             <div className="pkg-price">{pkg.price}</div>
-            <div className="pkg-note">{pkg.priceNote}</div>
+            {pkg.save && <div className="pkg-save-inline">{pkg.save}</div>}
             <div className="pkg-desc">{pkg.desc}</div>
             <button
               className={`pkg-btn${pkg.highlight ? " pkg-btn-primary" : ""}`}
               onClick={() => buy(pkg.value)}
               disabled={loading}
             >
-              {loading ? (
-                <><span className="spinner" />Redirigiendo…</>
-              ) : "Comprar ahora"}
+              {loading ? <><span className="spinner" />Redirigiendo…</> : "Comprar ahora"}
             </button>
           </div>
         ))}
       </div>
 
-      {/* Sparks teaser */}
-      <div className="sparks-teaser">
-        <div className="sparks-teaser-icon">✨</div>
-        <div className="sparks-teaser-text">
-          <div className="sparks-teaser-title">¿Sabías que existen los Sparks?</div>
-          <div className="sparks-teaser-desc">
-            Los Sparks son la moneda social de MeetYouLive. Úsalos para boosts de visibilidad, super interests, speed dating y más.
-          </div>
-        </div>
-        <Link href="/sparks" className="sparks-teaser-btn">Ver Sparks →</Link>
-      </div>
-
-      {/* How it works */}
-      <div className="how-card">
-        <h3 className="how-title">¿Cómo funcionan los MYL Coins?</h3>
-        <div className="how-steps">
-          {[
-            {
-              n: "01",
-              title: "Compra MYL Coins",
-              desc: "Elige el paquete que más te convenga y paga de forma segura con Stripe.",
-              icon: "💳",
-            },
-            {
-              n: "02",
-              title: "Envía regalos exclusivos",
-              desc: "Sorprende a tus creators con Neon Hearts, Golden Rings y más regalos premium.",
-              icon: "🎁",
-            },
-            {
-              n: "03",
-              title: "Accede a experiencias únicas",
-              desc: "Paga llamadas privadas, contenido exclusivo y entradas a salas premium.",
-              icon: "🌟",
-            },
-          ].map((step) => (
-            <div key={step.n} className="how-step">
-              <div className="step-num">{step.n}</div>
-              <div className="step-icon">{step.icon}</div>
-              <div>
-                <div className="step-title">{step.title}</div>
-                <p className="step-desc">{step.desc}</p>
+      {/* Boosts */}
+      <div className="boosts-card">
+        <h3 className="boosts-title">⚡ Usa tus Sparks</h3>
+        <p className="boosts-subtitle">Activa boosts sociales con tus Sparks para destacar en MeetYouLive</p>
+        <div className="boosts-grid">
+          {BOOSTS.map((boost) => (
+            <div key={boost.type} className="boost-item">
+              <div className="boost-icon">{boost.icon}</div>
+              <div className="boost-info">
+                <div className="boost-label">{boost.label}</div>
+                <div className="boost-desc">{boost.desc}</div>
+              </div>
+              <div className="boost-right">
+                <div className="boost-cost">✨ {boost.cost}</div>
+                <button
+                  className="boost-btn"
+                  onClick={() => activateBoost(boost.type)}
+                  disabled={!!boostLoading || balance === null || balance < boost.cost}
+                >
+                  {boostLoading === boost.type ? <span className="spinner spinner-sm" /> : "Activar"}
+                </button>
               </div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Access passes teaser */}
+      <div className="passes-teaser">
+        <div className="passes-teaser-icon">🎭</div>
+        <div className="passes-teaser-text">
+          <div className="passes-teaser-title">Access Passes — Backstage Pass, VIP Live Pass y más</div>
+          <div className="passes-teaser-desc">
+            Canjea tus Sparks por pases de acceso a experiencias exclusivas con creators y eventos premium.
+          </div>
+        </div>
+        <Link href="/passes" className="passes-teaser-btn">Ver Pases →</Link>
+      </div>
+
       {/* Transaction history */}
       <div className="tx-card">
-        <h3 className="tx-title">Historial de MYL Coins</h3>
+        <h3 className="tx-title">Historial de Sparks</h3>
         {txLoading ? (
           <div className="tx-loading">Cargando historial…</div>
         ) : transactions.length === 0 ? (
-          <div className="tx-empty">No hay transacciones todavía. ¡Compra tus primeros MYL Coins!</div>
+          <div className="tx-empty">No hay movimientos todavía. ¡Compra tus primeros Sparks!</div>
         ) : (
           <div className="tx-list">
             {transactions.map((tx) => {
@@ -258,7 +253,7 @@ export default function BuyCoinsPage() {
                   </div>
                   <div className="tx-row-right">
                     <span className="tx-amount" style={{ color: info.color }}>
-                      {sign}{absAmount} 🪙
+                      {sign}{absAmount} ✨
                     </span>
                     <span className="tx-date">{formatDate(tx.createdAt)}</span>
                   </div>
@@ -276,7 +271,7 @@ export default function BuyCoinsPage() {
       </p>
 
       <style jsx>{`
-        .coins-page {
+        .sparks-page {
           display: flex;
           flex-direction: column;
           gap: 2.5rem;
@@ -284,36 +279,17 @@ export default function BuyCoinsPage() {
           margin: 0 auto;
         }
 
-        .coins-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-
-        .balance-row {
-          display: flex;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          justify-content: center;
-          margin-top: 0.25rem;
-        }
+        .sparks-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
 
         .balance-pill {
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          background: rgba(251,146,60,0.1);
-          border: 1px solid rgba(251,146,60,0.25);
+          background: rgba(139,92,246,0.1);
+          border: 1px solid rgba(139,92,246,0.25);
           border-radius: var(--radius-pill);
           padding: 0.45rem 1.25rem;
-          text-decoration: none;
-        }
-
-        .balance-pill-sparks {
-          background: rgba(139,92,246,0.1);
-          border-color: rgba(139,92,246,0.25);
-          transition: background var(--transition), border-color var(--transition);
-        }
-
-        .balance-pill-sparks:hover {
-          background: rgba(139,92,246,0.2);
-          border-color: rgba(139,92,246,0.5);
+          margin-top: 0.25rem;
         }
 
         .balance-icon { font-size: 1rem; }
@@ -321,10 +297,8 @@ export default function BuyCoinsPage() {
         .balance-value {
           font-size: 1.15rem;
           font-weight: 800;
-          color: var(--accent-orange);
+          color: var(--accent-3);
         }
-
-        .balance-pill-sparks .balance-value { color: var(--accent-3); }
 
         .balance-label {
           font-size: 0.8rem;
@@ -332,49 +306,20 @@ export default function BuyCoinsPage() {
           font-weight: 500;
         }
 
-        /* Sparks teaser */
-        .sparks-teaser {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1.25rem 1.5rem;
-          background: rgba(139,92,246,0.08);
-          border: 1px solid rgba(139,92,246,0.2);
-          border-radius: var(--radius);
-        }
-
-        .sparks-teaser-icon { font-size: 2rem; flex-shrink: 0; }
-
-        .sparks-teaser-text { flex: 1; min-width: 0; }
-
-        .sparks-teaser-title { font-weight: 700; color: var(--text); font-size: 0.95rem; }
-
-        .sparks-teaser-desc { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.45; }
-
-        .sparks-teaser-btn {
-          flex-shrink: 0;
-          padding: 0.55rem 1.25rem;
-          background: rgba(139,92,246,0.15);
-          border: 1px solid rgba(139,92,246,0.35);
-          border-radius: var(--radius-sm);
-          color: var(--accent-3);
-          font-size: 0.85rem;
-          font-weight: 700;
-          text-decoration: none;
-          transition: all var(--transition);
-          white-space: nowrap;
-        }
-
-        .sparks-teaser-btn:hover {
-          background: rgba(139,92,246,0.25);
-          border-color: rgba(139,92,246,0.6);
-        }
-
-        /* Banner */
         .banner-error {
           background: var(--error-bg);
           border: 1px solid rgba(248,113,113,0.35);
           color: var(--error);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+
+        .banner-success {
+          background: rgba(52,211,153,0.08);
+          border: 1px solid rgba(52,211,153,0.25);
+          color: var(--accent-green);
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
@@ -413,11 +358,11 @@ export default function BuyCoinsPage() {
           background: linear-gradient(var(--bg-3), var(--bg-3)) padding-box,
                       var(--grad-primary) border-box;
           border: 1px solid transparent;
-          box-shadow: var(--shadow), 0 0 40px rgba(224,64,251,0.2);
+          box-shadow: var(--shadow), 0 0 40px rgba(139,92,246,0.2);
         }
 
         .pkg-highlight:hover {
-          box-shadow: var(--shadow), 0 0 60px rgba(224,64,251,0.3);
+          box-shadow: var(--shadow), 0 0 60px rgba(139,92,246,0.3);
           transform: translateY(-6px);
         }
 
@@ -431,7 +376,7 @@ export default function BuyCoinsPage() {
           padding: 0.22rem 0.85rem;
           border-radius: var(--radius-pill);
           letter-spacing: 0.02em;
-          box-shadow: 0 4px 16px rgba(224,64,251,0.4);
+          box-shadow: 0 4px 16px rgba(139,92,246,0.4);
         }
 
         .pkg-save-badge {
@@ -457,7 +402,7 @@ export default function BuyCoinsPage() {
           letter-spacing: 0.1em;
         }
 
-        .pkg-coins {
+        .pkg-sparks {
           font-size: 2rem;
           font-weight: 800;
           color: var(--text);
@@ -467,7 +412,7 @@ export default function BuyCoinsPage() {
           gap: 0.4rem;
         }
 
-        .pkg-coins span {
+        .pkg-sparks span {
           font-size: 0.8rem;
           font-weight: 500;
           color: var(--text-muted);
@@ -476,16 +421,17 @@ export default function BuyCoinsPage() {
         .pkg-price {
           font-size: 1.5rem;
           font-weight: 800;
-          background: var(--grad-primary);
+          background: linear-gradient(135deg, #a78bfa, #818cf8);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
 
-        .pkg-note {
-          font-size: 0.72rem;
-          color: var(--text-dim);
-          margin-top: -0.4rem;
+        .pkg-save-inline {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: var(--accent-green);
+          margin-top: -0.35rem;
         }
 
         .pkg-desc {
@@ -527,20 +473,8 @@ export default function BuyCoinsPage() {
           overflow: hidden;
         }
 
-        .pkg-btn-primary::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.15) 55%, transparent 70%);
-          transform: translateX(-100%);
-          transition: transform 0.5s ease;
-        }
-
-        .pkg-btn-primary:hover:not(:disabled)::before { transform: translateX(100%); }
-
         .pkg-btn-primary:hover:not(:disabled) {
           filter: brightness(1.1);
-          box-shadow: var(--glow-pink), var(--shadow-accent);
           transform: translateY(-1px);
         }
 
@@ -554,46 +488,134 @@ export default function BuyCoinsPage() {
           animation: spin 0.7s linear infinite;
         }
 
+        .spinner-sm { width: 12px; height: 12px; }
+
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* How it works */
-        .how-card {
+        /* Boosts */
+        .boosts-card {
           background: rgba(15,8,32,0.8);
           border: 1px solid var(--border);
           border-radius: var(--radius);
           padding: 2rem 2.25rem;
         }
 
-        .how-title {
+        .boosts-title {
           font-size: 1.05rem;
           font-weight: 800;
           color: var(--text);
-          margin-bottom: 1.5rem;
+          margin-bottom: 0.35rem;
           letter-spacing: -0.02em;
         }
 
-        .how-steps { display: flex; flex-direction: column; gap: 1.25rem; }
+        .boosts-subtitle {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
 
-        .how-step {
+        .boosts-grid {
           display: flex;
-          align-items: flex-start;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .boost-item {
+          display: flex;
+          align-items: center;
           gap: 1rem;
+          padding: 1rem 1.25rem;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          transition: background var(--transition);
         }
 
-        .step-num {
-          font-size: 0.65rem;
-          font-weight: 800;
-          color: var(--text-dim);
-          letter-spacing: 0.08em;
-          width: 32px;
+        .boost-item:hover { background: rgba(255,255,255,0.05); }
+
+        .boost-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+        .boost-info { flex: 1; min-width: 0; }
+
+        .boost-label { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+
+        .boost-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+        .boost-right {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.35rem;
           flex-shrink: 0;
-          padding-top: 0.15rem;
         }
 
-        .step-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .boost-cost {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--accent-3);
+        }
 
-        .step-title { font-weight: 700; color: var(--text); font-size: 0.9rem; }
-        .step-desc { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; line-height: 1.45; }
+        .boost-btn {
+          padding: 0.4rem 1rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.82rem;
+          font-weight: 700;
+          border: 1px solid rgba(139,92,246,0.3);
+          background: rgba(139,92,246,0.1);
+          color: var(--accent-3);
+          cursor: pointer;
+          transition: all var(--transition);
+          font-family: inherit;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 70px;
+        }
+
+        .boost-btn:hover:not(:disabled) {
+          background: rgba(139,92,246,0.2);
+          border-color: rgba(139,92,246,0.6);
+        }
+
+        .boost-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Access passes teaser */
+        .passes-teaser {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.25rem 1.5rem;
+          background: rgba(224,64,251,0.06);
+          border: 1px solid rgba(224,64,251,0.18);
+          border-radius: var(--radius);
+        }
+
+        .passes-teaser-icon { font-size: 2rem; flex-shrink: 0; }
+
+        .passes-teaser-text { flex: 1; min-width: 0; }
+
+        .passes-teaser-title { font-weight: 700; color: var(--text); font-size: 0.95rem; }
+
+        .passes-teaser-desc { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.45; }
+
+        .passes-teaser-btn {
+          flex-shrink: 0;
+          padding: 0.55rem 1.25rem;
+          background: rgba(224,64,251,0.1);
+          border: 1px solid rgba(224,64,251,0.3);
+          border-radius: var(--radius-sm);
+          color: var(--accent-2);
+          font-size: 0.85rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all var(--transition);
+          white-space: nowrap;
+        }
+
+        .passes-teaser-btn:hover {
+          background: rgba(224,64,251,0.18);
+          border-color: rgba(224,64,251,0.5);
+        }
 
         /* Transaction history */
         .tx-card {
@@ -618,11 +640,7 @@ export default function BuyCoinsPage() {
           padding: 1.5rem 0;
         }
 
-        .tx-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
+        .tx-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
         .tx-row {
           display: flex;
@@ -638,17 +656,9 @@ export default function BuyCoinsPage() {
 
         .tx-row:hover { background: rgba(255,255,255,0.05); }
 
-        .tx-row-left {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-        }
+        .tx-row-left { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 
-        .tx-type-badge {
-          font-size: 0.8rem;
-          font-weight: 700;
-        }
+        .tx-type-badge { font-size: 0.8rem; font-weight: 700; }
 
         .tx-reason {
           font-size: 0.75rem;
@@ -659,23 +669,11 @@ export default function BuyCoinsPage() {
           max-width: 320px;
         }
 
-        .tx-row-right {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 0.15rem;
-          flex-shrink: 0;
-        }
+        .tx-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; flex-shrink: 0; }
 
-        .tx-amount {
-          font-size: 0.9rem;
-          font-weight: 700;
-        }
+        .tx-amount { font-size: 0.9rem; font-weight: 700; }
 
-        .tx-date {
-          font-size: 0.72rem;
-          color: var(--text-dim);
-        }
+        .tx-date { font-size: 0.72rem; color: var(--text-dim); }
 
         .back-link {
           text-align: center;
@@ -693,12 +691,13 @@ export default function BuyCoinsPage() {
 
         @media (max-width: 768px) {
           .packages-grid { grid-template-columns: repeat(2, 1fr); }
-          .sparks-teaser { flex-direction: column; text-align: center; }
+          .passes-teaser { flex-direction: column; text-align: center; }
         }
 
         @media (max-width: 480px) {
           .packages-grid { grid-template-columns: 1fr; }
-          .how-card, .tx-card { padding: 1.5rem; }
+          .boosts-card, .tx-card { padding: 1.5rem; }
+          .boost-item { flex-wrap: wrap; }
         }
       `}</style>
     </div>

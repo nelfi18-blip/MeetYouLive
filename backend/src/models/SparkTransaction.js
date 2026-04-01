@@ -1,21 +1,17 @@
 const mongoose = require("mongoose");
 
-const coinTransactionSchema = new mongoose.Schema(
+const sparkTransactionSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: {
       type: String,
       enum: [
         "purchase",
-        "gift_sent",
-        "gift_received",
-        "private_call",
-        "call_started",
-        "call_earned",
+        "boost_used",
+        "pass_purchase",
+        "match_boost",
+        "speed_dating",
         "room_entry",
-        "content_unlock",
-        "content_earned",
-        "refund",
         "admin_adjustment",
       ],
       required: true,
@@ -24,7 +20,7 @@ const coinTransactionSchema = new mongoose.Schema(
     reason: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["pending", "completed", "failed", "refunded"],
+      enum: ["pending", "completed", "failed"],
       default: "completed",
     },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -32,6 +28,6 @@ const coinTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const CoinTransaction = mongoose.model("CoinTransaction", coinTransactionSchema);
+const SparkTransaction = mongoose.model("SparkTransaction", sparkTransactionSchema);
 
-module.exports = CoinTransaction;
+module.exports = SparkTransaction;

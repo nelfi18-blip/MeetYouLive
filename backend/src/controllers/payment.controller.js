@@ -3,6 +3,8 @@ const Video = require("../models/Video.js");
 const Purchase = require("../models/Purchase.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const SparkTransaction = require("../models/SparkTransaction.js");
+const { SPARK_PACKAGES } = require("./sparks.controller.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -13,6 +15,12 @@ const COIN_PACKAGES = {
   500: { coins: 500, priceUsd: 4.49 },
   1000: { coins: 1000, priceUsd: 7.99 },
 };
+
+// Build lookup map from the canonical SPARK_PACKAGES list
+const SPARK_PACKAGES_MAP = SPARK_PACKAGES.reduce((acc, pkg) => {
+  acc[pkg.id] = { sparks: pkg.sparks, priceUsd: pkg.priceUsd };
+  return acc;
+}, {});
 
 const createCoinCheckoutSession = async (req, res) => {
   const { package: pkg } = req.body;
@@ -38,6 +46,40 @@ const createCoinCheckoutSession = async (req, res) => {
         userId: req.userId,
         coins: String(coinPackage.coins),
         type: "coins",
+      },
+      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const createSparkCheckoutSession = async (req, res) => {
+  const { package: pkg } = req.body;
+  const sparkPackage = SPARK_PACKAGES_MAP[pkg];
+  if (!sparkPackage) {
+    return res.status(400).json({ message: "Paquete de sparks inválido. Usa 50, 150, 300 o 600" });
+  }
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: `${sparkPackage.sparks} Sparks MeetYouLive` },
+            unit_amount: Math.round(sparkPackage.priceUsd * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        userId: req.userId,
+        sparks: String(sparkPackage.sparks),
+        type: "sparks",
       },
       success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
@@ -88,7 +130,7 @@ const createCheckoutSession = async (req, res) => {
 };
 
 const handlePaymentCompleted = async (session) => {
-  const { userId, videoId, amount, type, coins } = session.metadata;
+  const { userId, videoId, amount, type, coins, sparks } = session.metadata;
 
   if (type === "coins") {
     const coinCount = parseInt(coins, 10);
@@ -103,7 +145,7 @@ const handlePaymentCompleted = async (session) => {
       userId,
       type: "purchase",
       amount: coinCount,
-      reason: `Compra de ${coinCount} monedas via Stripe`,
+      reason: `Compra de ${coinCount} MYL Coins via Stripe`,
       status: "pending",
       metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
     });
@@ -114,6 +156,32 @@ const handlePaymentCompleted = async (session) => {
       return;
     }
     await CoinTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
+    return;
+  }
+
+  if (type === "sparks") {
+    const sparkCount = parseInt(sparks, 10);
+    // Idempotency check
+    const existingTx = await SparkTransaction.findOne({ "metadata.stripeSessionId": session.id });
+    if (existingTx) {
+      console.warn(`[sparks webhook] Duplicate event for session ${session.id}, skipping`);
+      return;
+    }
+    const tx = await SparkTransaction.create({
+      userId,
+      type: "purchase",
+      amount: sparkCount,
+      reason: `Compra de ${sparkCount} Sparks via Stripe`,
+      status: "pending",
+      metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
+    });
+    const result = await User.findByIdAndUpdate(userId, { $inc: { sparks: sparkCount } });
+    if (!result) {
+      console.error(`[sparks webhook] User not found: ${userId} for session ${session.id}`);
+      await SparkTransaction.findByIdAndUpdate(tx._id, { status: "failed" });
+      return;
+    }
+    await SparkTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
     return;
   }
 
@@ -129,4 +197,4 @@ const handlePaymentCompleted = async (session) => {
   }
 };
 
-module.exports = { createCheckoutSession, createCoinCheckoutSession, handlePaymentCompleted };
+module.exports = { createCheckoutSession, createCoinCheckoutSession, createSparkCheckoutSession, handlePaymentCompleted };

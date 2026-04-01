@@ -9,13 +9,12 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
-  { name: "Rosa",     icon: "🌹", coinCost: 5 },
-  { name: "Corazón",  icon: "❤️", coinCost: 10 },
-  { name: "Estrella", icon: "⭐", coinCost: 20 },
-  { name: "Fuego",    icon: "🔥", coinCost: 50 },
-  { name: "Diamante", icon: "💎", coinCost: 100 },
-  { name: "Corona",   icon: "👑", coinCost: 200 },
-  { name: "Cohete",   icon: "🚀", coinCost: 500 },
+  { name: "Neon Heart",   icon: "💗", coinCost: 10 },
+  { name: "Fire Kiss",    icon: "🔥", coinCost: 25 },
+  { name: "Moon Rose",    icon: "🌹", coinCost: 50 },
+  { name: "Diamond Wink", icon: "💎", coinCost: 100 },
+  { name: "Golden Ring",  icon: "💍", coinCost: 200 },
+  { name: "Secret Flame", icon: "🕯️", coinCost: 500 },
 ];
 
 const seedGiftCatalog = async () => {

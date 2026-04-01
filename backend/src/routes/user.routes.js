@@ -26,9 +26,9 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
 
 router.get("/coins", userLimiter, verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("coins earningsCoins");
+    const user = await User.findById(req.userId).select("coins sparks earningsCoins");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json({ coins: user.coins, earningsCoins: user.earningsCoins });
+    res.json({ coins: user.coins, sparks: user.sparks, earningsCoins: user.earningsCoins });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

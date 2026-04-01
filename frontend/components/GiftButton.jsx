@@ -60,8 +60,9 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         return;
       }
       setSuccess(`¡Enviaste ${selected.icon} ${selected.name}!`);
+      const sentItem = selected;
       setSelected(null);
-      if (onGiftSent) onGiftSent(data);
+      if (onGiftSent) onGiftSent(data, sentItem);
       setTimeout(() => {
         setSuccess("");
         setOpen(false);

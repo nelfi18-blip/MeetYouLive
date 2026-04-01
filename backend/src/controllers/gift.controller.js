@@ -36,16 +36,35 @@ const getGiftCatalog = async (req, res) => {
 };
 
 const sendGift = async (req, res) => {
-  const { receiverId, giftId, liveId, context, contextId, message } = req.body;
-  if (!receiverId || !giftId) {
-    return res.status(400).json({ message: "receiverId y giftId son requeridos" });
+  const { receiverId, giftId, giftSlug, liveId, context, contextId, message } = req.body;
+  if (!receiverId || (!giftId && !giftSlug)) {
+    return res.status(400).json({ message: "receiverId y giftId (o giftSlug) son requeridos" });
+  }
+
+  // Validate receiverId is a proper ObjectId before any comparison/lookup
+  if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+    return res.status(400).json({ message: "receiverId inválido" });
+  }
+
+  // Prevent self-gifting
+  if (String(req.userId) === String(receiverId)) {
+    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
   }
 
   let catalogItem;
   try {
-    catalogItem = await GiftCatalog.findOne({ _id: giftId, active: true });
+    if (giftSlug) {
+      // Sanitize slug: only allow alphanumeric + hyphens to prevent NoSQL injection
+      const safeSlug = String(giftSlug).replace(/[^a-z0-9-]/gi, "");
+      catalogItem = await GiftCatalog.findOne({ slug: safeSlug, active: true });
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(giftId)) {
+        return res.status(400).json({ message: "giftId inválido" });
+      }
+      catalogItem = await GiftCatalog.findOne({ _id: new mongoose.Types.ObjectId(giftId), active: true });
+    }
   } catch {
-    return res.status(400).json({ message: "giftId inválido" });
+    return res.status(400).json({ message: "Identificador de regalo inválido" });
   }
   if (!catalogItem) {
     return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });

@@ -107,8 +107,9 @@ export default function LiveRoomPage() {
         },
         body: JSON.stringify({
           receiverId: live.user._id,
+          giftId: selectedGift._id,
           liveId: id,
-          amount: selectedGift.coins,
+          context: "live",
           message: giftMessage.trim() || undefined,
         }),
       });
@@ -469,14 +470,14 @@ export default function LiveRoomPage() {
             <div className="gift-catalog">
               {giftCatalog.map((gift) => (
                 <button
-                  key={gift.id}
+                  key={gift._id}
                   type="button"
-                  className={`gift-item${selectedGift?.id === gift.id ? " selected" : ""}`}
+                  className={`gift-item${selectedGift?._id === gift._id ? " selected" : ""}`}
                   onClick={() => setSelectedGift(gift)}
                 >
                   <span className="gift-icon">{gift.icon}</span>
                   <span className="gift-name">{gift.name}</span>
-                  <span className="gift-cost">🪙 {gift.coins}</span>
+                  <span className="gift-cost">🪙 {gift.coinCost}</span>
                 </button>
               ))}
             </div>
@@ -500,7 +501,7 @@ export default function LiveRoomPage() {
               {sendingGift
                 ? "Enviando…"
                 : selectedGift
-                ? `Enviar ${selectedGift.icon} ${selectedGift.name} — ${selectedGift.coins} 🪙`
+                ? `Enviar ${selectedGift.icon} ${selectedGift.name} — ${selectedGift.coinCost} 🪙`
                 : "Selecciona un regalo"}
             </button>
 

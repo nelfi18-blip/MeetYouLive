@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Badge from "./Badge";
+import GiftButton from "./GiftButton";
 
 /**
  * Reusable ProfileCard component for the explore/discover section.
@@ -140,6 +141,13 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
               <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
             </svg>
           </button>
+
+          {/* Gift — creators only */}
+          {isCreator && (
+            <div className="card-gift-wrap">
+              <GiftButton receiverId={user._id} context="profile" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -374,6 +382,19 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
           background: rgba(255, 255, 255, 0.06);
           color: var(--text-muted);
           border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .card-gift-wrap {
+          width: 100%;
+        }
+
+        .card-gift-wrap :global(.gift-btn-wrap) {
+          width: 100%;
+        }
+
+        .card-gift-wrap :global(.gift-trigger-btn) {
+          width: 100%;
+          justify-content: center;
         }
       `}</style>
     </>

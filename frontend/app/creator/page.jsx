@@ -61,6 +61,7 @@ export default function CreatorPage() {
   const [lives, setLives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [receivedGifts, setReceivedGifts] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -73,8 +74,9 @@ export default function CreatorPage() {
     Promise.all([
       fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${API_URL}/api/lives/mine`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/api/gifts/received`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
-      .then(async ([userRes, livesRes]) => {
+      .then(async ([userRes, livesRes, giftsRes]) => {
         if (userRes.status === 401) {
           clearToken();
           router.replace("/login");
@@ -94,6 +96,11 @@ export default function CreatorPage() {
         if (livesRes.ok) {
           const livesData = await livesRes.json();
           setLives(livesData.lives || livesData || []);
+        }
+
+        if (giftsRes.ok) {
+          const giftsData = await giftsRes.json();
+          setReceivedGifts(Array.isArray(giftsData) ? giftsData.slice(0, 10) : []);
         }
       })
       .catch(() => setError("No se pudo cargar el estudio"))
@@ -220,6 +227,43 @@ export default function CreatorPage() {
           </div>
         </div>
       )}
+
+      {/* Received gifts */}
+      <div className="creator-recent">
+        <h2 className="section-title">🎁 Regalos recibidos</h2>
+        {receivedGifts.length === 0 ? (
+          <p className="no-gifts-msg">Aún no has recibido regalos. ¡Comparte tu perfil para que tus fans te regalen!</p>
+        ) : (
+          <div className="recent-list">
+            {receivedGifts.map((gift) => {
+              const item = gift.giftCatalogItem;
+              const sender = gift.sender;
+              const contextLabel = gift.context === "live" ? "Directo" : gift.context === "private_call" ? "Llamada" : "Perfil";
+              return (
+                <div key={gift._id} className="recent-item gift-row">
+                  <div className="gift-row-icon">{item?.icon || "🎁"}</div>
+                  <div className="recent-item-info">
+                    <div className="recent-item-title">
+                      {item?.name || "Regalo"}{" "}
+                      <span className="gift-row-from">de @{sender?.username || sender?.name || "usuario"}</span>
+                    </div>
+                    <div className="recent-item-meta">
+                      <span className="recent-item-tag">{contextLabel}</span>
+                      <span className="recent-item-date">
+                        {new Date(gift.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="gift-row-earnings">
+                    <span className="gift-earnings-value">+{gift.creatorShare} 🪙</span>
+                    <span className="gift-earnings-label">ganancia</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <style jsx>{`
         .creator-page {
@@ -499,6 +543,48 @@ export default function CreatorPage() {
           font-size: 0.75rem;
           font-weight: 600;
           color: var(--text-dim);
+        }
+
+        /* Received gifts */
+        .gift-row { align-items: center; gap: 0.75rem; }
+
+        .gift-row-icon {
+          font-size: 1.6rem;
+          flex-shrink: 0;
+          line-height: 1;
+        }
+
+        .gift-row-from {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .gift-row-earnings {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          flex-shrink: 0;
+        }
+
+        .gift-earnings-value {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #fbbf24;
+        }
+
+        .gift-earnings-label {
+          font-size: 0.68rem;
+          color: var(--text-dim);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .no-gifts-msg {
+          font-size: 0.875rem;
+          color: var(--text-muted);
+          text-align: center;
+          padding: 1rem 0;
         }
       `}</style>
     </div>

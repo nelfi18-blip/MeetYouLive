@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export default function GiftButton({ receiverId, liveId, onGiftSent }) {
+export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -38,8 +38,9 @@ export default function GiftButton({ receiverId, liveId, onGiftSent }) {
         },
         body: JSON.stringify({
           receiverId,
+          giftId: selected._id,
           liveId,
-          amount: selected.coins,
+          context: context || (liveId ? "live" : "profile"),
           message: selected.name,
         }),
       });
@@ -81,13 +82,13 @@ export default function GiftButton({ receiverId, liveId, onGiftSent }) {
           <div className="gift-catalog">
             {catalog.map((g) => (
               <button
-                key={g.id}
-                className={`gift-item${selected?.id === g.id ? " gift-item-selected" : ""}`}
+                key={g._id}
+                className={`gift-item${selected?._id === g._id ? " gift-item-selected" : ""}`}
                 onClick={() => setSelected(g)}
               >
                 <span className="gift-item-icon">{g.icon}</span>
                 <span className="gift-item-name">{g.name}</span>
-                <span className="gift-item-cost">🪙 {g.coins}</span>
+                <span className="gift-item-cost">🪙 {g.coinCost}</span>
               </button>
             ))}
           </div>
@@ -97,7 +98,7 @@ export default function GiftButton({ receiverId, liveId, onGiftSent }) {
             onClick={send}
             disabled={!selected || loading}
           >
-            {loading ? "Enviando…" : selected ? `Enviar ${selected.icon} (${selected.coins} 🪙)` : "Selecciona un regalo"}
+            {loading ? "Enviando…" : selected ? `Enviar ${selected.icon} (${selected.coinCost} 🪙)` : "Selecciona un regalo"}
           </button>
         </div>
       )}

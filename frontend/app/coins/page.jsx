@@ -62,6 +62,7 @@ const TX_TYPE_LABELS = {
   gift_received: { label: "Regalo recibido", color: "var(--accent-green)", sign: "+" },
   private_call: { label: "Llamada privada", color: "var(--error)", sign: "-" },
   content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
+  content_earned: { label: "Contenido exclusivo", color: "var(--accent-green)", sign: "+" },
   refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
   admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
 };

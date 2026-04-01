@@ -11,6 +11,7 @@ const coinTransactionSchema = new mongoose.Schema(
         "gift_received",
         "private_call",
         "content_unlock",
+        "content_earned",
         "refund",
         "admin_adjustment",
       ],

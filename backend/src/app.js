@@ -18,6 +18,7 @@ const chatRoutes = require("./routes/chat.routes.js");
 const matchRoutes = require("./routes/match.routes.js");
 const videoRoutes = require("./routes/video.routes.js");
 const videoCallRoutes = require("./routes/videoCall.routes.js");
+const exclusiveContentRoutes = require("./routes/exclusiveContent.routes.js");
 
 const app = express();
 
@@ -90,5 +91,6 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/calls", videoCallRoutes);
+app.use("/api/exclusive", exclusiveContentRoutes);
 
 module.exports = app;

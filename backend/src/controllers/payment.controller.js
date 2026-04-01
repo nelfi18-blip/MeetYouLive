@@ -92,19 +92,28 @@ const handlePaymentCompleted = async (session) => {
 
   if (type === "coins") {
     const coinCount = parseInt(coins, 10);
-    const result = await User.findByIdAndUpdate(userId, { $inc: { coins: coinCount } });
-    if (!result) {
-      console.error(`[coins webhook] User not found: ${userId} for session ${session.id}`);
+    // Idempotency: skip if this session has already been processed
+    const existingTx = await CoinTransaction.findOne({ "metadata.stripeSessionId": session.id });
+    if (existingTx) {
+      console.warn(`[coins webhook] Duplicate event for session ${session.id}, skipping`);
       return;
     }
-    await CoinTransaction.create({
+    // Create the transaction record first so a duplicate webhook finds it above
+    const tx = await CoinTransaction.create({
       userId,
       type: "purchase",
       amount: coinCount,
       reason: `Compra de ${coinCount} monedas via Stripe`,
-      status: "completed",
+      status: "pending",
       metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
     });
+    const result = await User.findByIdAndUpdate(userId, { $inc: { coins: coinCount } });
+    if (!result) {
+      console.error(`[coins webhook] User not found: ${userId} for session ${session.id}`);
+      await CoinTransaction.findByIdAndUpdate(tx._id, { status: "failed" });
+      return;
+    }
+    await CoinTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
     return;
   }
 

@@ -23,6 +23,7 @@ const giftLimiter = rateLimit({
 
 router.get("/", getGiftCatalog);
 router.post("/", giftLimiter, verifyToken, sendGift);
+router.post("/send", giftLimiter, verifyToken, sendGift);
 router.post("/send", giftLimiter, verifyToken, sendGiftBySlug);
 router.get("/received", giftLimiter, verifyToken, getReceivedGifts);
 

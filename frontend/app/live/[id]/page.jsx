@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import GiftPanel from "@/components/GiftPanel";
 import GiftEffect from "@/components/GiftEffect";
+import GiftPanel from "@/components/GiftPanel";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -365,8 +365,8 @@ export default function LiveRoomPage() {
                   <span
                     className="recent-gift-badge"
                     style={{
-                      borderColor: rarityStyle?.borderColor || "rgba(255,255,255,0.12)",
-                      boxShadow: rarityStyle?.boxShadow || "0 0 12px rgba(224,64,251,0.18)",
+                      borderColor: rarityStyle?.color || "rgba(255,255,255,0.12)",
+                      boxShadow: rarityStyle?.glow ? `0 0 12px ${rarityStyle.glow}` : "0 0 12px rgba(224,64,251,0.18)",
                     }}
                   >
                     {recentGift.icon} {recentGift.name}

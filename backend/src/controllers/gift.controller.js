@@ -1,5 +1,6 @@
 const Gift = require("../models/Gift.js");
 const User = require("../models/User.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
 const mongoose = require("mongoose");
 
 // 60% goes to the creator, 40% is the platform commission
@@ -29,6 +30,7 @@ const sendGift = async (req, res) => {
     return res.status(400).json({ message: "El monto debe ser un entero de al menos 1" });
   }
   const session = await mongoose.startSession();
+  const netAmount = Math.floor(amount * (1 - COMMISSION_RATE));
   try {
     await session.withTransaction(async () => {
       const sender = await User.findById(req.userId).session(session);
@@ -37,8 +39,6 @@ const sendGift = async (req, res) => {
 
       const receiver = await User.findById(receiverId).session(session);
       if (!receiver) throw Object.assign(new Error("Receiver no encontrado"), { status: 404 });
-
-      const netAmount = Math.floor(amount * (1 - COMMISSION_RATE));
 
       await User.findByIdAndUpdate(req.userId, { $inc: { coins: -amount } }, { session });
       await User.findByIdAndUpdate(receiverId, { $inc: { earningsCoins: netAmount } }, { session });
@@ -52,6 +52,28 @@ const sendGift = async (req, res) => {
       message,
     });
     await gift.populate("sender", "username name");
+
+    // Record coin transactions (fire-and-forget; don't fail the gift if this errors)
+    const txMeta = { giftId: gift._id, liveId: liveId || null };
+    CoinTransaction.create([
+      {
+        userId: req.userId,
+        type: "gift_sent",
+        amount: -amount,
+        reason: `Regalo enviado a ${receiverId}`,
+        status: "completed",
+        metadata: txMeta,
+      },
+      {
+        userId: receiverId,
+        type: "gift_received",
+        amount: netAmount,
+        reason: `Regalo recibido de ${req.userId}`,
+        status: "completed",
+        metadata: txMeta,
+      },
+    ]).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
+
     res.status(201).json(gift);
   } catch (err) {
     const status = err.status || 500;

@@ -97,6 +97,16 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
 
         {/* Action buttons */}
         <div className="card-actions">
+          {/* View creator profile */}
+          {isCreator && (
+            <Link href={`/creator/${user._id}`} className="action-btn action-profile">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Ver perfil
+            </Link>
+          )}
+
           {/* Watch live */}
           {isLive && (
             <Link href={`/live/${user.liveId}`} className="action-btn action-watch">
@@ -357,6 +367,19 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
         .action-watch:hover {
           background: linear-gradient(135deg, rgba(255,15,138,0.25), rgba(224,64,251,0.25));
           box-shadow: 0 0 16px rgba(255, 15, 138, 0.3);
+        }
+
+        .action-profile {
+          width: 100%;
+          flex: none;
+          background: rgba(129,140,248,0.06);
+          border-color: rgba(129,140,248,0.25);
+          color: var(--accent-3);
+        }
+        .action-profile:hover {
+          background: rgba(129,140,248,0.14);
+          border-color: rgba(129,140,248,0.45);
+          box-shadow: 0 0 12px rgba(129,140,248,0.2);
         }
 
         .action-like {

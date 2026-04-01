@@ -13,21 +13,19 @@ const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
+
   const [live, setLive] = useState(null);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
 
-  // Gift state
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
 
-  // Private call state
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
 
-  // Chat state (local only — no backend yet)
   const [chatMessages, setChatMessages] = useState([
     { id: 0, user: "Sistema", text: "¡Bienvenido al directo! 🎉", system: true },
   ]);
@@ -37,11 +35,11 @@ export default function LiveRoomPage() {
   const giftEffectTimeoutRef = useRef(null);
   const recentGiftTimeoutRef = useRef(null);
 
-  // Creator mode state
   const [currentUserId, setCurrentUserId] = useState(null);
   const [endingStream, setEndingStream] = useState(false);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives/${id}`, {
@@ -55,7 +53,6 @@ export default function LiveRoomPage() {
       .catch(() => setError("Directo no encontrado o ya finalizado"));
   }, [id, token]);
 
-  // Fetch current user to detect creator mode
   useEffect(() => {
     if (!token) return;
     fetch(`${API_URL}/api/user/me`, {
@@ -68,7 +65,6 @@ export default function LiveRoomPage() {
       .catch(() => {});
   }, [token]);
 
-  // Scroll chat to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -89,15 +85,12 @@ export default function LiveRoomPage() {
       ...prev,
       { id: ++msgCounterRef.current, user: "Tú", text, system: false },
     ]);
-
     setChatInput("");
   };
 
   const handleGiftSent = useCallback((data) => {
     const gift = data?.gift || null;
     const senderName = data?.senderName || "Tú";
-    const icon = gift?.icon ?? "🎁";
-    const name = gift?.name ?? "regalo";
 
     if (gift) {
       setActiveGiftEffect({ gift, senderName });
@@ -120,7 +113,7 @@ export default function LiveRoomPage() {
       {
         id: ++msgCounterRef.current,
         user: senderName,
-        text: `${icon} ${name}`,
+        text: `${gift?.icon || "🎁"} ${gift?.name || "regalo"}`,
         gift,
         system: false,
         isGift: true,
@@ -133,6 +126,7 @@ export default function LiveRoomPage() {
       setJoinError("Debes iniciar sesión para unirte a este directo privado.");
       return;
     }
+
     setJoining(true);
     setJoinError("");
 
@@ -207,7 +201,6 @@ export default function LiveRoomPage() {
     );
   }
 
-  // Private stream paywall
   if (live.isPrivate && !live.hasAccess) {
     return (
       <div className="viewer-page">
@@ -282,7 +275,6 @@ export default function LiveRoomPage() {
   }
 
   const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
-
   const privateCallEnabled = live.user?.creatorProfile?.privateCallEnabled;
   const pricePerMinute = live.user?.creatorProfile?.pricePerMinute ?? 0;
 
@@ -291,13 +283,17 @@ export default function LiveRoomPage() {
       setCallError("Debes iniciar sesión para realizar llamadas privadas.");
       return;
     }
+
     setStartingCall(true);
     setCallError("");
 
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ recipientId: live.user._id, type: "paid_creator" }),
       });
       const data = await res.json();
@@ -319,16 +315,16 @@ export default function LiveRoomPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
     } catch {
-      // ignore — redirect regardless
     } finally {
       setEndingStream(false);
       router.push("/live");
     }
   };
 
-  const playerUrl = LIVE_PROVIDER_KEY && live.streamKey
-    ? `https://wl.cinectar.com/player/${encodeURIComponent(LIVE_PROVIDER_KEY)}/${encodeURIComponent(live.streamKey)}`
-    : null;
+  const playerUrl =
+    LIVE_PROVIDER_KEY && live.streamKey
+      ? `https://wl.cinectar.com/player/${encodeURIComponent(LIVE_PROVIDER_KEY)}/${encodeURIComponent(live.streamKey)}`
+      : null;
 
   const creatorName = live.user?.username || live.user?.name || "Creador";
   const recentGiftRarity = recentGift?.rarity || "common";
@@ -364,10 +360,8 @@ export default function LiveRoomPage() {
             <div className="video-overlay">
               <div className="overlay-left">
                 <span className="badge badge-live pulse">● EN VIVO</span>
-                {live.isPrivate && (
-                  <span className="badge-private">🔒 PRIVADO</span>
-                )}
-                {recentGift && (
+                {live.isPrivate ? <span className="badge-private">🔒 PRIVADO</span> : null}
+                {recentGift ? (
                   <span
                     className="recent-gift-badge"
                     style={{
@@ -377,8 +371,9 @@ export default function LiveRoomPage() {
                   >
                     {recentGift.icon} {recentGift.name}
                   </span>
-                )}
+                ) : null}
               </div>
+
               <div className="overlay-right">
                 <div className="creator-chip">
                   <div className="creator-avatar">
@@ -395,6 +390,7 @@ export default function LiveRoomPage() {
               <span>👁</span>
               <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
             </div>
+
             <div className="action-buttons">
               {isCreator ? (
                 <>
@@ -412,6 +408,7 @@ export default function LiveRoomPage() {
                   <button className="btn btn-primary btn-sm" onClick={() => setShowGiftPanel(true)}>
                     🎁 Regalos
                   </button>
+
                   {privateCallEnabled ? (
                     <button
                       className="btn btn-call btn-sm"
@@ -422,13 +419,19 @@ export default function LiveRoomPage() {
                       {startingCall ? "Conectando…" : `📞 Llamada · 🪙${pricePerMinute}/min`}
                     </button>
                   ) : (
-                    <button className="btn btn-secondary btn-sm" disabled title="El creador no tiene llamadas privadas habilitadas">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled
+                      title="El creador no tiene llamadas privadas habilitadas"
+                    >
                       📞 Llamada privada
                     </button>
                   )}
-                  {callError && <span className="call-error-inline">{callError}</span>}
+
+                  {callError ? <span className="call-error-inline">{callError}</span> : null}
                 </>
               )}
+
               <Link href="/live" className="btn btn-ghost btn-sm">
                 ← Directos
               </Link>
@@ -443,11 +446,14 @@ export default function LiveRoomPage() {
                 </div>
                 <div>
                   <div className="stream-creator-name">@{creatorName}</div>
-                  <span className="badge badge-live" style={{ fontSize: "0.6rem", padding: "0.1rem 0.45rem" }}>EN VIVO</span>
+                  <span className="badge badge-live" style={{ fontSize: "0.6rem", padding: "0.1rem 0.45rem" }}>
+                    EN VIVO
+                  </span>
                 </div>
               </div>
+
               <h1 className="stream-title">{live.title}</h1>
-              {live.description && <p className="stream-desc">{live.description}</p>}
+              {live.description ? <p className="stream-desc">{live.description}</p> : null}
             </div>
           </div>
         </div>
@@ -498,7 +504,7 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {showGiftPanel && live?.user?._id && (
+      {showGiftPanel && live?.user?._id ? (
         <GiftPanel
           receiverId={live.user._id}
           liveId={id}
@@ -506,7 +512,7 @@ export default function LiveRoomPage() {
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={handleGiftSent}
         />
-      )}
+      ) : null}
 
       <style jsx>{`
         .room {

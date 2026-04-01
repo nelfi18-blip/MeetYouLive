@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -72,6 +73,7 @@ function formatDate(iso) {
 }
 
 export default function BuyCoinsPage() {
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [balance, setBalance] = useState(null);
@@ -79,7 +81,8 @@ export default function BuyCoinsPage() {
   const [txLoading, setTxLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = localToken || session?.backendToken || null;
     if (!token) { setTxLoading(false); return; }
     const headers = { Authorization: `Bearer ${token}` };
 
@@ -93,13 +96,13 @@ export default function BuyCoinsPage() {
       .then((d) => { if (d) setTransactions(d.transactions || []); })
       .catch(() => {})
       .finally(() => setTxLoading(false));
-  }, []);
+  }, [session?.backendToken]);
 
   const buy = async (pkg) => {
     setError("");
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || session?.backendToken;
       const res = await fetch(`${API_URL}/api/payments/coins`, {
         method: "POST",
         headers: {

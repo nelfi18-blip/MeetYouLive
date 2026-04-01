@@ -3,18 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import GiftPanel from "@/components/GiftPanel";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
-
-const RARITY_STYLES = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"      },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"       },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"      },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"     },
-};
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -25,13 +17,7 @@ export default function LiveRoomPage() {
   const [joinError, setJoinError] = useState("");
 
   // Gift state
-  const [showGiftModal, setShowGiftModal] = useState(false);
-  const [giftCatalog, setGiftCatalog] = useState([]);
-  const [selectedGift, setSelectedGift] = useState(null);
-  const [giftMessage, setGiftMessage] = useState("");
-  const [sendingGift, setSendingGift] = useState(false);
-  const [giftError, setGiftError] = useState("");
-  const [giftSuccess, setGiftSuccess] = useState("");
+  const [showGiftPanel, setShowGiftPanel] = useState(false);
 
   // Private call state
   const [startingCall, setStartingCall] = useState(false);
@@ -90,58 +76,14 @@ export default function LiveRoomPage() {
     setChatInput("");
   };
 
-  const openGiftModal = useCallback(() => {
-    setGiftError("");
-    setGiftSuccess("");
-    setSelectedGift(null);
-    setGiftMessage("");
-    if (giftCatalog.length === 0) {
-      fetch(`${API_URL}/api/gifts`)
-        .then((r) => r.ok ? r.json() : [])
-        .then((data) => setGiftCatalog(data))
-        .catch(() => {});
-    }
-    setShowGiftModal(true);
-  }, [giftCatalog.length]);
-
-  const handleSendGift = async () => {
-    if (!token) { setGiftError("Debes iniciar sesión para enviar regalos."); return; }
-    if (!selectedGift) { setGiftError("Selecciona un regalo."); return; }
-    if (!live?.user?._id) { setGiftError("No se pudo identificar al creador."); return; }
-    setSendingGift(true);
-    setGiftError("");
-    setGiftSuccess("");
-    try {
-      const res = await fetch(`${API_URL}/api/gifts/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          receiverId: live.user._id,
-          giftSlug: selectedGift.slug,
-          context: "live",
-          contextId: id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al enviar el regalo");
-      const giftNotif = `🎁 Tú enviaste ${selectedGift.icon} ${selectedGift.name}`;
-      setChatMessages((prev) => [
-        ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: giftNotif, system: true },
-      ]);
-      setGiftSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name} a @${live.user.username || live.user.name}!`);
-      setSelectedGift(null);
-      setGiftMessage("");
-      setTimeout(() => { setShowGiftModal(false); setGiftSuccess(""); }, 2200);
-    } catch (err) {
-      setGiftError(err.message);
-    } finally {
-      setSendingGift(false);
-    }
-  };
+  const handleGiftSent = useCallback((data) => {
+    const icon = data?.gift?.icon ?? "🎁";
+    const name = data?.gift?.name ?? "regalo";
+    setChatMessages((prev) => [
+      ...prev,
+      { id: ++msgCounterRef.current, user: "Sistema", text: `🎁 Enviaste ${icon} ${name}`, system: true },
+    ]);
+  }, []);
 
   const handleJoin = async () => {
     if (!token) {
@@ -409,7 +351,7 @@ export default function LiveRoomPage() {
                 </>
               ) : (
                 <>
-                  <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
+                  <button className="btn btn-primary btn-sm" onClick={() => setShowGiftPanel(true)}>
                     🎁 Regalos
                   </button>
                   {privateCallEnabled ? (
@@ -497,91 +439,15 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {/* ── Gift Modal ─────────────────────────────── */}
-      {showGiftModal && (
-        <>
-          <div className="gift-overlay" onClick={() => setShowGiftModal(false)} />
-          <div className="gift-modal">
-            <div className="gift-modal-header">
-              <h2 className="gift-modal-title">🎁 Enviar regalo</h2>
-              <button className="gift-modal-close" onClick={() => setShowGiftModal(false)}>✕</button>
-            </div>
-            <p className="gift-modal-sub">Elige un regalo para @{creatorName}</p>
-
-            {giftSuccess && <div className="gift-alert gift-success">{giftSuccess}</div>}
-            {giftError && <div className="gift-alert gift-error">{giftError}</div>}
-
-            {!token && (
-              <div className="gift-alert gift-error">
-                <Link href="/login" style={{ color: "inherit", textDecoration: "underline" }}>Inicia sesión</Link> para enviar regalos.
-              </div>
-            )}
-
-            <div className="gift-catalog">
-              {giftCatalog.map((gift) => {
-                const rs = RARITY_STYLES[gift.rarity] || RARITY_STYLES.common;
-                const isSelected = selectedGift?._id === gift._id;
-                return (
-                  <button
-                    key={gift._id}
-                    type="button"
-                    className={`gift-item${isSelected ? " selected" : ""}`}
-                    style={{ "--rarity-color": rs.color, "--rarity-glow": rs.glow }}
-                    onClick={() => setSelectedGift(gift)}
-                  >
-                    <span className="gift-rarity-dot" title={rs.label} />
-                    <span className="gift-icon">{gift.icon}</span>
-                    <span className="gift-name">{gift.name}</span>
-                    <span className="gift-cost">🪙 {gift.coinCost}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {selectedGift && (
-              <div className="gift-selected-bar">
-                <span className="gift-selected-info">
-                  {selectedGift.icon} <strong>{selectedGift.name}</strong>
-                  <em
-                    className="gift-rarity-label"
-                    style={{ color: (RARITY_STYLES[selectedGift.rarity] || RARITY_STYLES.common).color }}
-                  >
-                    {" "}· {(RARITY_STYLES[selectedGift.rarity] || RARITY_STYLES.common).label}
-                  </em>
-                </span>
-                <span className="gift-selected-cost">{selectedGift.coinCost} 🪙</span>
-              </div>
-            )}
-
-            <div className="gift-message-row">
-              <input
-                type="text"
-                className="gift-message-input"
-                placeholder="Mensaje opcional…"
-                value={giftMessage}
-                onChange={(e) => setGiftMessage(e.target.value)}
-                maxLength={100}
-              />
-            </div>
-
-            <button
-              className="btn btn-primary btn-lg gift-send-btn"
-              onClick={handleSendGift}
-              disabled={sendingGift || !selectedGift || !token}
-            >
-              {sendingGift
-                ? "Enviando…"
-                : selectedGift
-                ? `Enviar ${selectedGift.icon} ${selectedGift.name} — ${selectedGift.coinCost} 🪙`
-                : "Selecciona un regalo"}
-            </button>
-
-            <p className="gift-coins-hint">
-              ¿Necesitas más monedas?{" "}
-              <Link href="/coins" className="gift-coins-link">Comprar monedas</Link>
-            </p>
-          </div>
-        </>
+      {/* ── Gift Panel ─────────────────────────────── */}
+      {showGiftPanel && live?.user?._id && (
+        <GiftPanel
+          receiverId={live.user._id}
+          liveId={id}
+          context="live"
+          onClose={() => setShowGiftPanel(false)}
+          onGiftSent={handleGiftSent}
+        />
       )}
 
       <style jsx>{`
@@ -992,204 +858,6 @@ export default function LiveRoomPage() {
 
         .chat-send-btn:hover:not(:disabled) { opacity: 0.85; transform: scale(1.08); }
         .chat-send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-        /* ── Gift Modal ─────────────────────────── */
-        .gift-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 300;
-          background: rgba(0,0,0,0.65);
-          backdrop-filter: blur(4px);
-        }
-
-        .gift-modal {
-          position: fixed;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          z-index: 400;
-          width: min(480px, 100vw);
-          background: rgba(12,6,28,0.98);
-          border: 1px solid rgba(224,64,251,0.25);
-          border-bottom: none;
-          border-radius: var(--radius) var(--radius) 0 0;
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          box-shadow: var(--shadow), 0 -8px 40px rgba(139,92,246,0.15);
-          animation: slide-up 0.22s ease;
-        }
-
-        @keyframes slide-up {
-          from { transform: translateX(-50%) translateY(100%); }
-          to   { transform: translateX(-50%) translateY(0); }
-        }
-
-        .gift-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .gift-modal-title {
-          font-size: 1.1rem;
-          font-weight: 800;
-          color: var(--text);
-        }
-
-        .gift-modal-close {
-          background: rgba(255,255,255,0.07);
-          border: 1px solid var(--border);
-          border-radius: 50%;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted);
-          cursor: pointer;
-          font-size: 0.85rem;
-          transition: all var(--transition);
-        }
-
-        .gift-modal-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-
-        .gift-modal-sub {
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          margin: -0.5rem 0 0;
-        }
-
-        .gift-alert {
-          padding: 0.6rem 0.875rem;
-          border-radius: var(--radius-sm);
-          font-size: 0.82rem;
-          font-weight: 600;
-        }
-
-        .gift-success {
-          background: rgba(34,197,94,0.08);
-          border: 1px solid rgba(34,197,94,0.3);
-          color: #4ade80;
-        }
-
-        .gift-error {
-          background: rgba(244,67,54,0.08);
-          border: 1px solid var(--error);
-          color: var(--error);
-        }
-
-        .gift-catalog {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-          gap: 0.5rem;
-        }
-
-        .gift-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.65rem 0.25rem 0.5rem;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          position: relative;
-          font-family: inherit;
-        }
-
-        .gift-item:hover {
-          border-color: var(--rarity-color, rgba(224,64,251,0.4));
-          background: rgba(255,255,255,0.05);
-          box-shadow: 0 0 10px var(--rarity-glow, rgba(224,64,251,0.2));
-          transform: translateY(-2px);
-        }
-
-        .gift-item.selected {
-          border-color: var(--rarity-color, var(--accent));
-          background: rgba(255,255,255,0.06);
-          box-shadow: 0 0 16px var(--rarity-glow, rgba(255,15,138,0.3));
-        }
-
-        .gift-rarity-dot {
-          position: absolute;
-          top: 5px;
-          right: 5px;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--rarity-color, #94a3b8);
-          box-shadow: 0 0 4px var(--rarity-glow, rgba(148,163,184,0.4));
-        }
-
-        .gift-icon { font-size: 1.6rem; line-height: 1; }
-        .gift-name { font-size: 0.68rem; font-weight: 700; color: var(--text); text-align: center; }
-        .gift-cost { font-size: 0.63rem; color: #fbbf24; font-weight: 600; }
-
-        .gift-selected-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: var(--radius-sm);
-          padding: 0.5rem 0.75rem;
-        }
-
-        .gift-selected-info {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-
-        .gift-selected-info strong {
-          color: var(--text);
-          font-weight: 700;
-        }
-
-        .gift-rarity-label {
-          font-style: normal;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-
-        .gift-selected-cost {
-          font-size: 0.85rem;
-          font-weight: 800;
-          color: #fbbf24;
-        }
-
-        .gift-message-row { display: flex; }
-
-        .gift-message-input {
-          flex: 1;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          color: var(--text);
-          font-size: 0.875rem;
-          padding: 0.6rem 0.875rem;
-          outline: none;
-          transition: border-color var(--transition);
-        }
-
-        .gift-message-input:focus { border-color: rgba(139,92,246,0.5); }
-        .gift-message-input::placeholder { color: var(--text-dim); }
-
-        .gift-send-btn { align-self: stretch; }
-
-        .gift-coins-hint {
-          text-align: center;
-          font-size: 0.78rem;
-          color: var(--text-dim);
-        }
-
-        .gift-coins-link {
-          color: var(--accent-orange);
-          text-decoration: underline;
-        }
       `}</style>
     </div>
   );

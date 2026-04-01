@@ -61,7 +61,7 @@ export default function CreatorPage() {
   const [lives, setLives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [receivedGifts, setReceivedGifts] = useState([]);
+  const [earnings, setEarnings] = useState(null);
 
   // Private call settings state
   const [callEnabled, setCallEnabled] = useState(false);
@@ -81,9 +81,9 @@ export default function CreatorPage() {
     Promise.all([
       fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${API_URL}/api/lives/mine`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_URL}/api/gifts/received`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/api/creator/earnings`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
-      .then(async ([userRes, livesRes, giftsRes]) => {
+      .then(async ([userRes, livesRes, earningsRes]) => {
         if (userRes.status === 401) {
           clearToken();
           router.replace("/login");
@@ -107,9 +107,8 @@ export default function CreatorPage() {
           setLives(livesData.lives || livesData || []);
         }
 
-        if (giftsRes.ok) {
-          const giftsData = await giftsRes.json();
-          setReceivedGifts(Array.isArray(giftsData) ? giftsData.slice(0, 10) : []);
+        if (earningsRes.ok) {
+          setEarnings(await earningsRes.json());
         }
       })
       .catch(() => setError("No se pudo cargar el estudio"))
@@ -206,7 +205,51 @@ export default function CreatorPage() {
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Earnings Dashboard */}
+      {earnings && (
+        <div className="earnings-dashboard">
+          <div className="earnings-header">
+            <h2 className="section-title" style={{ margin: 0 }}>💰 Dashboard de Ganancias</h2>
+            <span className="earnings-badge">60 / 40</span>
+          </div>
+          <div className="earnings-stats">
+            <div className="earnings-stat e-total">
+              <div className="e-icon">🪙</div>
+              <div className="e-stat-value">{earnings.totalCoinsReceived}</div>
+              <div className="e-stat-label">Total recibido</div>
+            </div>
+            <div className="earnings-stat e-creator">
+              <div className="e-icon">💚</div>
+              <div className="e-stat-value">+{earnings.totalCreatorShare}</div>
+              <div className="e-stat-label">Tu parte (60%)</div>
+            </div>
+            <div className="earnings-stat e-platform">
+              <div className="e-icon">🏦</div>
+              <div className="e-stat-value">{earnings.totalPlatformShare}</div>
+              <div className="e-stat-label">Plataforma (40%)</div>
+            </div>
+            <div className="earnings-stat e-count">
+              <div className="e-icon">🎁</div>
+              <div className="e-stat-value">{earnings.totalGiftCount}</div>
+              <div className="e-stat-label">Regalos totales</div>
+            </div>
+          </div>
+          {earnings.totalCoinsReceived > 0 && (
+            <div className="earnings-bar-wrap">
+              <div className="earnings-bar">
+                <div
+                  className="earnings-bar-creator"
+                  style={{ width: `${Math.round((earnings.totalCreatorShare / earnings.totalCoinsReceived) * 100)}%` }}
+                />
+              </div>
+              <div className="earnings-bar-legend">
+                <span className="ebl-creator">● Tu parte</span>
+                <span className="ebl-platform">● Plataforma</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="creator-tools">
         <h2 className="section-title">Herramientas</h2>
         <div className="tools-grid">
@@ -318,35 +361,36 @@ export default function CreatorPage() {
         </div>
       )}
 
-      {/* Received gifts */}
+      {/* Recent earnings transactions */}
       <div className="creator-recent">
-        <h2 className="section-title">🎁 Regalos recibidos</h2>
-        {receivedGifts.length === 0 ? (
+        <h2 className="section-title">🎁 Actividad de regalos</h2>
+        {(!earnings || earnings.recentTransactions?.length === 0) ? (
           <p className="no-gifts-msg">Aún no has recibido regalos. ¡Comparte tu perfil para que tus fans te regalen!</p>
         ) : (
           <div className="recent-list">
-            {receivedGifts.map((gift) => {
-              const item = gift.giftCatalogItem;
-              const sender = gift.sender;
-              const contextLabel = gift.context === "live" ? "Directo" : gift.context === "private_call" ? "Llamada" : "Perfil";
+            {earnings.recentTransactions.map((tx) => {
+              const contextLabel = tx.context === "live" ? "Directo" : tx.context === "private_call" ? "Llamada" : "Perfil";
               return (
-                <div key={gift._id} className="recent-item gift-row">
-                  <div className="gift-row-icon">{item?.icon || "🎁"}</div>
+                <div key={tx._id} className="recent-item gift-row">
+                  <div className="gift-row-icon">{tx.giftIcon}</div>
                   <div className="recent-item-info">
                     <div className="recent-item-title">
-                      {item?.name || "Regalo"}{" "}
-                      <span className="gift-row-from">de @{sender?.username || sender?.name || "usuario"}</span>
+                      {tx.giftName}{" "}
+                      <span className="gift-row-from">de @{tx.sender?.username || tx.sender?.name || "usuario"}</span>
                     </div>
                     <div className="recent-item-meta">
                       <span className="recent-item-tag">{contextLabel}</span>
                       <span className="recent-item-date">
-                        {new Date(gift.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
+                        {new Date(tx.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
                       </span>
                     </div>
                   </div>
-                  <div className="gift-row-earnings">
-                    <span className="gift-earnings-value">+{gift.creatorShare} 🪙</span>
-                    <span className="gift-earnings-label">ganancia</span>
+                  <div className="tx-breakdown">
+                    <div className="tx-total">🪙 {tx.coinCost}</div>
+                    <div className="tx-shares">
+                      <span className="tx-creator">+{tx.creatorShare} tuyo</span>
+                      <span className="tx-platform">{tx.platformShare} plataforma</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -675,6 +719,154 @@ export default function CreatorPage() {
           color: var(--text-muted);
           text-align: center;
           padding: 1rem 0;
+        }
+
+        /* Earnings Dashboard */
+        .earnings-dashboard {
+          background: linear-gradient(135deg, rgba(15,8,32,0.95) 0%, rgba(22,12,45,0.95) 100%);
+          border: 1px solid rgba(251,191,36,0.2);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .earnings-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .earnings-badge {
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.25);
+          border-radius: var(--radius-pill);
+          padding: 0.2rem 0.75rem;
+        }
+
+        .earnings-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 0.75rem;
+        }
+
+        .earnings-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 1.1rem 0.75rem;
+          text-align: center;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.02);
+          transition: transform var(--transition-slow), border-color var(--transition);
+        }
+
+        .earnings-stat:hover { transform: translateY(-2px); }
+
+        .e-total { border-color: rgba(251,191,36,0.2); }
+        .e-total:hover { border-color: rgba(251,191,36,0.4); box-shadow: 0 0 16px rgba(251,191,36,0.1); }
+
+        .e-creator { border-color: rgba(52,211,153,0.2); }
+        .e-creator:hover { border-color: rgba(52,211,153,0.4); box-shadow: 0 0 16px rgba(52,211,153,0.1); }
+
+        .e-platform { border-color: rgba(129,140,248,0.2); }
+        .e-platform:hover { border-color: rgba(129,140,248,0.4); box-shadow: 0 0 16px rgba(129,140,248,0.1); }
+
+        .e-count { border-color: rgba(224,64,251,0.2); }
+        .e-count:hover { border-color: rgba(224,64,251,0.4); box-shadow: 0 0 16px rgba(224,64,251,0.1); }
+
+        .e-icon { font-size: 1.4rem; line-height: 1; }
+
+        .e-stat-value {
+          font-size: 1.3rem;
+          font-weight: 800;
+          color: var(--text);
+          line-height: 1.2;
+        }
+
+        .e-creator .e-stat-value { color: #34d399; }
+
+        .e-stat-label {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+        }
+
+        /* Earnings split bar */
+        .earnings-bar-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .earnings-bar {
+          width: 100%;
+          height: 8px;
+          background: rgba(129,140,248,0.2);
+          border-radius: 999px;
+          overflow: hidden;
+        }
+
+        .earnings-bar-creator {
+          height: 100%;
+          background: linear-gradient(90deg, #34d399, #059669);
+          border-radius: 999px;
+          transition: width 0.6s ease;
+        }
+
+        .earnings-bar-legend {
+          display: flex;
+          gap: 1.25rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .ebl-creator { color: #34d399; }
+        .ebl-platform { color: #818cf8; }
+
+        /* Transaction breakdown */
+        .tx-breakdown {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          flex-shrink: 0;
+          gap: 0.25rem;
+        }
+
+        .tx-total {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #fbbf24;
+        }
+
+        .tx-shares {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.1rem;
+        }
+
+        .tx-creator {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #34d399;
+        }
+
+        .tx-platform {
+          font-size: 0.68rem;
+          color: var(--text-dim);
         }
 
         /* Private call settings */

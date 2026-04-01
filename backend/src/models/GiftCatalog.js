@@ -12,6 +12,7 @@ const giftCatalogSchema = new mongoose.Schema(
       enum: ["common", "uncommon", "rare", "epic", "legendary", "mythic"],
       default: "common",
     },
+    sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

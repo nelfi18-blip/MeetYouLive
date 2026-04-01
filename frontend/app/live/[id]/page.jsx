@@ -112,7 +112,7 @@ export default function LiveRoomPage() {
     setGiftError("");
     setGiftSuccess("");
     try {
-      const res = await fetch(`${API_URL}/api/gifts`, {
+      const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,11 +120,9 @@ export default function LiveRoomPage() {
         },
         body: JSON.stringify({
           receiverId: live.user._id,
-          giftId: selectedGift._id,
-          liveId: id,
+          giftSlug: selectedGift.slug,
           context: "live",
           contextId: id,
-          message: giftMessage.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -412,7 +410,7 @@ export default function LiveRoomPage() {
               ) : (
                 <>
                   <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
-                    🎁 Regalo
+                    🎁 Regalos
                   </button>
                   {privateCallEnabled ? (
                     <button

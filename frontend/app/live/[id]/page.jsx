@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import GiftEffect from "@/components/GiftEffect";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
@@ -32,6 +33,7 @@ export default function LiveRoomPage() {
   const [sendingGift, setSendingGift] = useState(false);
   const [giftError, setGiftError] = useState("");
   const [giftSuccess, setGiftSuccess] = useState("");
+  const [activeGiftEffect, setActiveGiftEffect] = useState(null);
 
   // Private call state
   const [startingCall, setStartingCall] = useState(false);
@@ -127,11 +129,21 @@ export default function LiveRoomPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al enviar el regalo");
-      const giftNotif = `🎁 Tú enviaste ${selectedGift.icon} ${selectedGift.name}`;
+
+      // Add highlighted gift message to chat
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: giftNotif, system: true },
+        {
+          id: ++msgCounterRef.current,
+          user: "Tú",
+          text: `${selectedGift.icon} ${selectedGift.name}`,
+          giftItem: selectedGift,
+        },
       ]);
+
+      // Trigger gift animation overlay on video
+      setActiveGiftEffect({ gift: selectedGift, senderName: "Tú" });
+
       setGiftSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name} a @${live.user.username || live.user.name}!`);
       setSelectedGift(null);
       setGiftMessage("");
@@ -370,6 +382,16 @@ export default function LiveRoomPage() {
               </div>
             )}
 
+            {/* Gift animation overlay on video */}
+            {activeGiftEffect && (
+              <GiftEffect
+                gift={activeGiftEffect.gift}
+                senderName={activeGiftEffect.senderName}
+                context="live"
+                onDone={() => setActiveGiftEffect(null)}
+              />
+            )}
+
             {/* Overlaid info on video */}
             <div className="video-overlay">
               <div className="overlay-left">
@@ -462,8 +484,24 @@ export default function LiveRoomPage() {
 
           <div className="chat-messages">
             {chatMessages.map((msg) => (
-              <div key={msg.id} className={`chat-msg${msg.system ? " chat-msg-system" : ""}`}>
-                {msg.system ? (
+              <div
+                key={msg.id}
+                className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.giftItem ? " chat-msg-gift" : ""}`}
+                style={msg.giftItem ? {
+                  "--rarity-color": RARITY_STYLES[msg.giftItem.rarity]?.color ?? "#94a3b8",
+                  "--rarity-glow": RARITY_STYLES[msg.giftItem.rarity]?.glow ?? "rgba(148,163,184,0.3)",
+                } : undefined}
+              >
+                {msg.giftItem ? (
+                  <>
+                    <span className="chat-gift-icon">{msg.giftItem.icon}</span>
+                    <span className="chat-gift-body">
+                      <span className="chat-gift-user">{msg.user}</span>
+                      <span className="chat-gift-name">{msg.giftItem.name}</span>
+                    </span>
+                    <span className="chat-gift-cost">{msg.giftItem.coinCost} 🪙</span>
+                  </>
+                ) : msg.system ? (
                   <span className="chat-text-system">{msg.text}</span>
                 ) : (
                   <>
@@ -946,6 +984,56 @@ export default function LiveRoomPage() {
           color: var(--text-dim);
           font-style: italic;
           text-align: center;
+        }
+
+        /* ── Gift chat message ────────────────────── */
+        .chat-msg-gift {
+          flex-wrap: nowrap;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.3rem 0.55rem;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--rarity-color, rgba(224,64,251,0.3));
+          border-radius: var(--radius-sm, 8px);
+          box-shadow: 0 0 8px var(--rarity-glow, rgba(224,64,251,0.15));
+          animation: gift-msg-appear 0.3s ease;
+        }
+
+        @keyframes gift-msg-appear {
+          from { opacity: 0; transform: translateX(-6px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-gift-icon { font-size: 1rem; flex-shrink: 0; }
+
+        .chat-gift-body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.05rem;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .chat-gift-user {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--rarity-color, var(--accent-2));
+          line-height: 1;
+        }
+
+        .chat-gift-name {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text);
+          line-height: 1.2;
+        }
+
+        .chat-gift-cost {
+          font-size: 0.65rem;
+          color: #fbbf24;
+          font-weight: 700;
+          flex-shrink: 0;
+          white-space: nowrap;
         }
 
         .chat-form {

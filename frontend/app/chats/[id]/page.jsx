@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import GiftButton from "@/components/GiftButton";
+import GiftEffect, { GIFT_RARITY_STYLES } from "@/components/GiftEffect";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,6 +22,7 @@ export default function ChatConversationPage() {
   const [isMatch, setIsMatch] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState("");
+  const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const bottomRef = useRef(null);
 
   const otherName = otherUser?.username || otherUser?.name || "Usuario";
@@ -154,6 +157,24 @@ export default function ChatConversationPage() {
   // Show video call button if: matched users (social call) OR talking to a creator (paid call)
   const canVideoCall = isMatch || isCreator;
 
+  const handleGiftSent = (_apiData, catalogItem) => {
+    if (!catalogItem) return;
+    // Add special gift bubble to the local message list
+    setMessages((prev) => [
+      ...prev,
+      {
+        _id: `gift-local-${Date.now()}`,
+        sender: { _id: currentUserId },
+        text: `${catalogItem.icon} ${catalogItem.name}`,
+        createdAt: new Date().toISOString(),
+        isGift: true,
+        giftItem: catalogItem,
+      },
+    ]);
+    // Trigger small chat-context animation
+    setActiveGiftEffect({ gift: catalogItem, senderName: "Tú" });
+  };
+
   return (
     <div className="chat-page">
       <div className="chat-header card">
@@ -216,6 +237,37 @@ export default function ChatConversationPage() {
 
         {!loading && messages.map((msg) => {
           const isMine = msg.sender?._id === currentUserId;
+          if (msg.isGift && msg.giftItem) {
+            return (
+              <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
+                {!isMine && (
+                  <div className="bubble-avatar avatar-placeholder" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
+                    {(msg.sender?.username || msg.sender?.name || "U")[0].toUpperCase()}
+                  </div>
+                )}
+                <div
+                  className="bubble bubble-gift"
+                  style={{
+                    "--gift-color": GIFT_RARITY_STYLES[msg.giftItem.rarity]?.color ?? "#94a3b8",
+                    "--gift-glow": GIFT_RARITY_STYLES[msg.giftItem.rarity]?.glow ?? "rgba(148,163,184,0.3)",
+                  }}
+                >
+                  <div className="gift-bubble-content">
+                    <span className="gift-bubble-icon">{msg.giftItem.icon}</span>
+                    <div className="gift-bubble-info">
+                      <span className="gift-bubble-name">{msg.giftItem.name}</span>
+                      <span className="gift-bubble-meta">
+                        {GIFT_RARITY_STYLES[msg.giftItem.rarity]?.label ?? ""} · {msg.giftItem.coinCost} 🪙
+                      </span>
+                    </div>
+                  </div>
+                  <span className="bubble-time">
+                    {new Date(msg.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
@@ -236,7 +288,24 @@ export default function ChatConversationPage() {
         <div ref={bottomRef} />
       </div>
 
+      {/* Gift animation for chat context */}
+      {activeGiftEffect && (
+        <GiftEffect
+          gift={activeGiftEffect.gift}
+          senderName={activeGiftEffect.senderName}
+          context="chat"
+          onDone={() => setActiveGiftEffect(null)}
+        />
+      )}
+
       <form className="chat-input-bar card" onSubmit={sendMessage}>
+        {otherUser?._id && (
+          <GiftButton
+            receiverId={otherUser._id}
+            context="private"
+            onGiftSent={handleGiftSent}
+          />
+        )}
         <input
           className="input chat-input"
           type="text"
@@ -414,6 +483,57 @@ export default function ChatConversationPage() {
         }
 
         .bubble-theirs .bubble-time { color: var(--text-muted); }
+
+        /* ── Gift bubble ─────────────────────────── */
+        .bubble-gift {
+          background: rgba(12, 6, 28, 0.9);
+          border: 1px solid var(--gift-color, rgba(224,64,251,0.4));
+          border-radius: 14px;
+          padding: 0.55rem 0.85rem;
+          box-shadow: 0 0 14px var(--gift-glow, rgba(224,64,251,0.2)), 0 4px 12px rgba(0,0,0,0.4);
+          animation: gift-bubble-pop 0.3s ease;
+          max-width: 72%;
+        }
+
+        @keyframes gift-bubble-pop {
+          from { opacity: 0; transform: scale(0.88) translateY(6px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .gift-bubble-content {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+        }
+
+        .gift-bubble-icon {
+          font-size: 1.6rem;
+          line-height: 1;
+          flex-shrink: 0;
+          filter: drop-shadow(0 0 6px var(--gift-glow, rgba(224,64,251,0.3)));
+        }
+
+        .gift-bubble-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.1rem;
+          min-width: 0;
+        }
+
+        .gift-bubble-name {
+          font-size: 0.88rem;
+          font-weight: 800;
+          color: var(--gift-color, var(--text));
+          text-shadow: 0 0 8px var(--gift-glow, transparent);
+          line-height: 1.2;
+        }
+
+        .gift-bubble-meta {
+          font-size: 0.65rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
 
         .chat-input-bar {
           display: flex;

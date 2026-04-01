@@ -3,18 +3,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import GiftEffect from "@/components/GiftEffect";
+import { RARITY_STYLES } from "@/lib/giftConstants";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
-
-const RARITY_STYLES = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"      },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"       },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"      },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"     },
-};
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -32,6 +25,10 @@ export default function LiveRoomPage() {
   const [sendingGift, setSendingGift] = useState(false);
   const [giftError, setGiftError] = useState("");
   const [giftSuccess, setGiftSuccess] = useState("");
+
+  // Gift animation overlay
+  const [activeGiftEffect, setActiveGiftEffect] = useState(null); // { gift, senderName }
+  const [recentGift, setRecentGift] = useState(null); // shown in video overlay badge
 
   // Private call state
   const [startingCall, setStartingCall] = useState(false);
@@ -129,11 +126,25 @@ export default function LiveRoomPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al enviar el regalo");
-      const giftNotif = `🎁 Tú enviaste ${selectedGift.icon} ${selectedGift.name}`;
+
+      // Trigger gift animation overlay on video
+      setActiveGiftEffect({ gift: selectedGift, senderName: "Tú" });
+      // Store as recent gift for the video-overlay badge
+      setRecentGift(selectedGift);
+
+      // Add special gift chat bubble
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: giftNotif, system: true },
+        {
+          id: ++msgCounterRef.current,
+          user: "Tú",
+          text: `${selectedGift.icon} ${selectedGift.name}`,
+          gift: selectedGift,
+          system: false,
+          isGift: true,
+        },
       ]);
+
       setGiftSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name} a @${live.user.username || live.user.name}!`);
       setSelectedGift(null);
       setGiftMessage("");
@@ -372,6 +383,16 @@ export default function LiveRoomPage() {
               </div>
             )}
 
+            {/* ── Gift animation overlay (inside video-wrap) ── */}
+            {activeGiftEffect && (
+              <GiftEffect
+                gift={activeGiftEffect.gift}
+                senderName={activeGiftEffect.senderName}
+                context="live"
+                onDone={() => setActiveGiftEffect(null)}
+              />
+            )}
+
             {/* Overlaid info on video */}
             <div className="video-overlay">
               <div className="overlay-left">
@@ -381,6 +402,15 @@ export default function LiveRoomPage() {
                 )}
               </div>
               <div className="overlay-right">
+                {recentGift && (
+                  <div
+                    className="recent-gift-chip"
+                    style={{ "--rc": (RARITY_STYLES[recentGift.rarity] || RARITY_STYLES.common).color }}
+                  >
+                    <span>{recentGift.icon}</span>
+                    <span className="recent-gift-name">{recentGift.name}</span>
+                  </div>
+                )}
                 <div className="creator-chip">
                   <div className="creator-avatar">
                     {creatorName[0].toUpperCase()}
@@ -463,9 +493,25 @@ export default function LiveRoomPage() {
           </div>
 
           <div className="chat-messages">
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`chat-msg${msg.system ? " chat-msg-system" : ""}`}>
-                {msg.system ? (
+            {chatMessages.map((msg) => {
+              const msgRs = msg.isGift ? (RARITY_STYLES[msg.gift?.rarity] || RARITY_STYLES.common) : null;
+              return (
+              <div
+                key={msg.id}
+                className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}`}
+                style={msg.isGift ? { "--rc": msgRs.color, "--rg": msgRs.glow } : undefined}
+              >
+                {msg.isGift ? (
+                  <>
+                    <span className="chat-gift-icon">{msg.gift.icon}</span>
+                    <span className="chat-gift-body">
+                      <span className="chat-gift-sender">{msg.user}</span>
+                      <span className="chat-gift-name">{msg.gift.name}</span>
+                      <span className="chat-gift-rarity" style={{ color: msgRs.color }}>{msgRs.label}</span>
+                    </span>
+                    <span className="chat-gift-coins">🪙{msg.gift.coinCost}</span>
+                  </>
+                ) : msg.system ? (
                   <span className="chat-text-system">{msg.text}</span>
                 ) : (
                   <>
@@ -474,7 +520,8 @@ export default function LiveRoomPage() {
                   </>
                 )}
               </div>
-            ))}
+              );
+            })}
             <div ref={chatEndRef} />
           </div>
 
@@ -948,6 +995,103 @@ export default function LiveRoomPage() {
           color: var(--text-dim);
           font-style: italic;
           text-align: center;
+        }
+
+        /* ── Gift chat bubble ─────────────────────── */
+        .chat-msg-gift {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          background: linear-gradient(90deg, rgba(0,0,0,0.0) 0%, color-mix(in srgb, var(--rc, #94a3b8) 8%, transparent) 100%);
+          border-left: 2px solid var(--rc, #94a3b8);
+          border-radius: 0 6px 6px 0;
+          padding: 0.3rem 0.5rem 0.3rem 0.45rem;
+          margin: 0.15rem 0;
+          box-shadow: -2px 0 8px color-mix(in srgb, var(--rg, rgba(148,163,184,0.35)) 60%, transparent);
+          animation: gift-bubble-in 0.3s ease both;
+        }
+
+        @keyframes gift-bubble-in {
+          from { opacity: 0; transform: translateX(-6px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-gift-icon {
+          font-size: 1.25rem;
+          line-height: 1;
+          flex-shrink: 0;
+          filter: drop-shadow(0 0 4px var(--rg, rgba(148,163,184,0.5)));
+        }
+
+        .chat-gift-body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.05rem;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .chat-gift-sender {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: var(--rc, #94a3b8);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .chat-gift-name {
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: var(--text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .chat-gift-rarity {
+          font-size: 0.6rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          opacity: 0.85;
+        }
+
+        .chat-gift-coins {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: #fbbf24;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+
+        /* ── Recent gift chip in video overlay ─────── */
+        .recent-gift-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(0,0,0,0.6);
+          border: 1px solid var(--rc, rgba(255,255,255,0.2));
+          border-radius: var(--radius-pill);
+          padding: 0.2rem 0.55rem 0.2rem 0.35rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--rc, var(--text));
+          backdrop-filter: blur(6px);
+          box-shadow: 0 0 10px color-mix(in srgb, var(--rc, rgba(255,255,255,0.1)) 40%, transparent);
+          animation: chip-appear 0.3s ease both;
+        }
+
+        @keyframes chip-appear {
+          from { opacity: 0; transform: scale(0.8); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+
+        .recent-gift-name {
+          max-width: 80px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .chat-form {

@@ -1,17 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import GiftEffect from "@/components/GiftEffect";
+import { RARITY_STYLES } from "@/lib/giftConstants";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const RARITY_STYLES = {
-  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"     },
-  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
-  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"      },
-  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"     },
-  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
-  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"    },
-};
 
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +13,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [effectGift, setEffectGift] = useState(null); // gift effect overlay
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +54,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         return;
       }
       setSuccess(`¡Enviaste ${selected.icon} ${selected.name}!`);
+      setEffectGift(selected);
       setSelected(null);
       if (onGiftSent) onGiftSent(data);
       setTimeout(() => {
@@ -136,6 +131,18 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
             </button>
           </div>
         </>
+      )}
+
+      {/* Elegant confirmation animation for profile / private-call context */}
+      {effectGift && (
+        <div className="gift-effect-anchor">
+          <GiftEffect
+            gift={effectGift}
+            senderName="Tú"
+            context={context === "live" ? "live" : "profile"}
+            onDone={() => setEffectGift(null)}
+          />
+        </div>
       )}
 
       <style jsx>{`
@@ -356,6 +363,14 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
             right: 0.75rem;
             width: auto;
           }
+        }
+
+        .gift-effect-anchor {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          z-index: 300;
+          pointer-events: none;
         }
       `}</style>
     </div>

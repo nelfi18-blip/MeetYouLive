@@ -24,6 +24,10 @@ export default function LiveRoomPage() {
   const [giftError, setGiftError] = useState("");
   const [giftSuccess, setGiftSuccess] = useState("");
 
+  // Private call state
+  const [startingCall, setStartingCall] = useState(false);
+  const [callError, setCallError] = useState("");
+
   // Chat state (local only — no backend yet)
   const [chatMessages, setChatMessages] = useState([
     { id: 0, user: "Sistema", text: "¡Bienvenido al directo! 🎉", system: true },
@@ -285,6 +289,32 @@ export default function LiveRoomPage() {
 
   const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
 
+  const privateCallEnabled = live.user?.creatorProfile?.privateCallEnabled;
+  const pricePerMinute = live.user?.creatorProfile?.pricePerMinute ?? 0;
+
+  const handleStartPrivateCall = async () => {
+    if (!token) {
+      setCallError("Debes iniciar sesión para realizar llamadas privadas.");
+      return;
+    }
+    setStartingCall(true);
+    setCallError("");
+    try {
+      const res = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recipientId: live.user._id, type: "paid_creator" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error al iniciar la llamada");
+      router.push(`/call/${data._id}`);
+    } catch (err) {
+      setCallError(err.message);
+    } finally {
+      setStartingCall(false);
+    }
+  };
+
   const handleEndStream = async () => {
     if (!token) return;
     setEndingStream(true);
@@ -374,9 +404,21 @@ export default function LiveRoomPage() {
                   <button className="btn btn-primary btn-sm" onClick={openGiftModal}>
                     🎁 Regalo
                   </button>
-                  <button className="btn btn-secondary btn-sm" disabled title="Próximamente">
-                    📞 Llamada privada
-                  </button>
+                  {privateCallEnabled ? (
+                    <button
+                      className="btn btn-call btn-sm"
+                      onClick={handleStartPrivateCall}
+                      disabled={startingCall}
+                      title={`Llamada privada · 🪙 ${pricePerMinute}/min`}
+                    >
+                      {startingCall ? "Conectando…" : `📞 Llamada · 🪙${pricePerMinute}/min`}
+                    </button>
+                  ) : (
+                    <button className="btn btn-secondary btn-sm" disabled title="El creador no tiene llamadas privadas habilitadas">
+                      📞 Llamada privada
+                    </button>
+                  )}
+                  {callError && <span className="call-error-inline">{callError}</span>}
                 </>
               )}
               <Link href="/live" className="btn btn-ghost btn-sm">
@@ -725,6 +767,32 @@ export default function LiveRoomPage() {
         }
 
         .btn-end-stream:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-call {
+          background: rgba(99,102,241,0.15);
+          border: 1px solid rgba(99,102,241,0.45);
+          color: #a5b4fc;
+          border-radius: var(--radius-pill);
+          padding: 0.35rem 0.9rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all var(--transition);
+        }
+
+        .btn-call:hover:not(:disabled) {
+          background: rgba(99,102,241,0.28);
+          border-color: rgba(99,102,241,0.7);
+          box-shadow: 0 0 12px rgba(99,102,241,0.35);
+        }
+
+        .btn-call:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .call-error-inline {
+          font-size: 0.75rem;
+          color: var(--error);
+          white-space: nowrap;
+        }
 
         /* ── Stream info card ─────────────────────── */
         .stream-info {

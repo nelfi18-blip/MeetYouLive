@@ -150,7 +150,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         isBlocked: false,
         onboardingComplete: true,
       },
-      "username name avatar bio gender interests location role"
+      "username name avatar bio gender interests location role creatorProfile"
     )
       // Sort newest first so recently joined users appear at the top.
       // Future improvement: weight by shared interests or location.

@@ -170,6 +170,26 @@ export default function ExplorePage() {
     router.push(`/call/${userId}`);
   };
 
+  const handlePrivateCall = async (userId) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { router.push("/login"); return; }
+    try {
+      const res = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: userId, type: "paid_creator" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        router.push(`/call/${data._id}`);
+      } else {
+        alert(data.message || "No se pudo iniciar la llamada privada");
+      }
+    } catch {
+      alert("Error de conexión");
+    }
+  };
+
   const loadMore = () => {
     const next = discoverPage + 1;
     setDiscoverPage(next);
@@ -294,6 +314,7 @@ export default function ExplorePage() {
                     onLike={handleLike}
                     onMessage={handleMessage}
                     onVideoCall={handleVideoCall}
+                    onPrivateCall={handlePrivateCall}
                     loading={discoverLoading}
                   />
                 ))}

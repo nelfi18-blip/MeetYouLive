@@ -11,6 +11,7 @@ const {
   submitAnswer,
   addCandidates,
   getCandidates,
+  tickCall,
 } = require("../controllers/videoCall.controller.js");
 
 const router = Router();
@@ -26,6 +27,7 @@ router.get("/incoming", callLimiter, verifyToken, getIncoming);
 router.get("/:id", callLimiter, verifyToken, getCallById);
 router.patch("/:id/respond", callLimiter, verifyToken, respondCall);
 router.patch("/:id/end", callLimiter, verifyToken, endCall);
+router.post("/:id/tick", callLimiter, verifyToken, tickCall);
 router.put("/:id/offer", callLimiter, verifyToken, submitOffer);
 router.put("/:id/answer", callLimiter, verifyToken, submitAnswer);
 router.post("/:id/candidates", callLimiter, verifyToken, addCandidates);

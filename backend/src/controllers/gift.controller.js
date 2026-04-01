@@ -28,7 +28,7 @@ const seedGiftCatalog = async () => {
 // Shared helper: record coin transactions for a completed gift (fire-and-forget)
 const recordGiftTransactions = (senderId, receiverId, amount, creatorShare, giftDocId, extra = {}) => {
   const txMeta = { giftId: giftDocId, ...extra };
-  CoinTransaction.create([
+  const txDocs = [
     {
       userId: senderId,
       type: "gift_sent",
@@ -37,28 +37,43 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorShare, gift
       status: "completed",
       metadata: txMeta,
     },
-    {
+  ];
+  // Only record a credit transaction if the receiver actually earned coins
+  if (creatorShare > 0) {
+    txDocs.push({
       userId: receiverId,
       type: "gift_received",
       amount: creatorShare,
       reason: `Regalo recibido de ${senderId}`,
       status: "completed",
       metadata: txMeta,
-    },
-  ]).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
+    });
+  }
+  CoinTransaction.create(txDocs).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
 };
 
-// Shared helper: transfer coins and credit creator earnings within a session
+// Shared helper: transfer coins and credit creator earnings within a session.
+// Returns {boolean} whether the receiver earns (is an approved creator).
 const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
-  const sender = await User.findById(senderId).session(session);
+  // Cast IDs to ObjectId to prevent NoSQL injection from user-supplied strings
+  const senderObjId = new mongoose.Types.ObjectId(senderId);
+  const receiverObjId = new mongoose.Types.ObjectId(receiverId);
+
+  const sender = await User.findById(senderObjId).session(session);
   if (!sender) throw Object.assign(new Error("Sender no encontrado"), { status: 404 });
   if (sender.coins < amount) throw Object.assign(new Error("Monedas insuficientes"), { status: 400 });
 
-  const receiver = await User.findById(receiverId).session(session);
+  const receiver = await User.findById(receiverObjId).session(session);
   if (!receiver) throw Object.assign(new Error("Receiver no encontrado"), { status: 404 });
 
-  await User.findByIdAndUpdate(senderId, { $inc: { coins: -amount } }, { session });
-  await User.findByIdAndUpdate(receiverId, { $inc: { earningsCoins: creatorShare } }, { session });
+  await User.findByIdAndUpdate(senderObjId, { $inc: { coins: -amount } }, { session });
+
+  // Only credit earningsCoins to approved creators
+  const canEarn = receiver.role === "creator" && receiver.creatorStatus === "approved";
+  if (canEarn) {
+    await User.findByIdAndUpdate(receiverObjId, { $inc: { earningsCoins: creatorShare } }, { session });
+  }
+  return canEarn;
 };
 
 const getGiftCatalog = async (req, res) => {
@@ -111,14 +126,19 @@ const sendGift = async (req, res) => {
   }
 
   const amount = catalogItem.coinCost;
-  const creatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
-  const platformShare = amount - creatorShare;
+  const fullCreatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
 
   const session = await mongoose.startSession();
+  // Declared outside the transaction so it's accessible when building the Gift document
+  let receiverEarns = false;
   try {
-    await session.withTransaction(() =>
-      transferCoins(req.userId, receiverId, amount, creatorShare, session)
-    );
+    await session.withTransaction(async () => {
+      receiverEarns = await transferCoins(req.userId, receiverId, amount, fullCreatorShare, session);
+    });
+
+    // Accurately reflect whether the receiver earned from this gift
+    const creatorShare = receiverEarns ? fullCreatorShare : 0;
+    const platformShare = amount - creatorShare;
 
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;

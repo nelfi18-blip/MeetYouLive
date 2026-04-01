@@ -6,6 +6,8 @@ import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
 import { RARITY_STYLES } from "@/lib/gifts";
 import GiftPanel from "@/components/GiftPanel";
+import GiftEffect from "@/components/GiftEffect";
+import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
@@ -21,6 +23,7 @@ export default function LiveRoomPage() {
   // Gift state
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
+  const [recentGift, setRecentGift] = useState(null);
 
   // Private call state
   const [startingCall, setStartingCall] = useState(false);
@@ -33,6 +36,8 @@ export default function LiveRoomPage() {
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef(null);
   const msgCounterRef = useRef(1);
+  const giftEffectTimeoutRef = useRef(null);
+  const recentGiftTimeoutRef = useRef(null);
 
   // Creator mode state
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -50,7 +55,7 @@ export default function LiveRoomPage() {
       })
       .then((data) => setLive(data))
       .catch(() => setError("Directo no encontrado o ya finalizado"));
-  }, [id]);
+  }, [id, token]);
 
   // Fetch current user to detect creator mode
   useEffect(() => {
@@ -59,7 +64,9 @@ export default function LiveRoomPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (data?._id) setCurrentUserId(String(data._id)); })
+      .then((data) => {
+        if (data?._id) setCurrentUserId(String(data._id));
+      })
       .catch(() => {});
   }, [token]);
 
@@ -68,23 +75,58 @@ export default function LiveRoomPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  useEffect(() => {
+    return () => {
+      if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
+      if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
+    };
+  }, []);
+
   const sendChatMessage = (e) => {
     e.preventDefault();
     const text = chatInput.trim();
     if (!text) return;
+
     setChatMessages((prev) => [
       ...prev,
       { id: ++msgCounterRef.current, user: "Tú", text, system: false },
     ]);
+
     setChatInput("");
   };
 
   const handleGiftSent = useCallback((data) => {
-    const icon = data?.gift?.icon ?? "🎁";
-    const name = data?.gift?.name ?? "regalo";
+    const gift = data?.gift || null;
+    const senderName = data?.senderName || "Tú";
+    const icon = gift?.icon ?? "🎁";
+    const name = gift?.name ?? "regalo";
+
+    if (gift) {
+      setActiveGiftEffect({ gift, senderName });
+      setRecentGift(gift);
+
+      if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
+      if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
+
+      giftEffectTimeoutRef.current = setTimeout(() => {
+        setActiveGiftEffect(null);
+      }, gift?.rarity === "vip" || gift?.rarity === "epic" ? 7000 : gift?.rarity === "premium" ? 4500 : 2200);
+
+      recentGiftTimeoutRef.current = setTimeout(() => {
+        setRecentGift(null);
+      }, 6000);
+    }
+
     setChatMessages((prev) => [
       ...prev,
-      { id: ++msgCounterRef.current, user: "Sistema", text: `🎁 Enviaste ${icon} ${name}`, system: true },
+      {
+        id: ++msgCounterRef.current,
+        user: senderName,
+        text: `${icon} ${name}`,
+        gift,
+        system: false,
+        isGift: true,
+      },
     ]);
     if (data?.gift) {
       setActiveGiftEffect(data.gift);
@@ -98,6 +140,7 @@ export default function LiveRoomPage() {
     }
     setJoining(true);
     setJoinError("");
+
     try {
       const res = await fetch(`${API_URL}/api/lives/${id}/join`, {
         method: "POST",
@@ -255,6 +298,7 @@ export default function LiveRoomPage() {
     }
     setStartingCall(true);
     setCallError("");
+
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
@@ -292,16 +336,13 @@ export default function LiveRoomPage() {
     : null;
 
   const creatorName = live.user?.username || live.user?.name || "Creador";
+  const recentGiftRarity = recentGift?.rarity || "common";
+  const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
 
   return (
     <div className="room">
-      {/* ── Two-column layout ────────────────────── */}
       <div className="room-layout">
-
-        {/* LEFT / TOP — Video + info */}
         <div className="room-main">
-
-          {/* Video area */}
           <div className="video-wrap">
             {playerUrl ? (
               <iframe
@@ -318,12 +359,29 @@ export default function LiveRoomPage() {
               </div>
             )}
 
-            {/* Overlaid info on video */}
+            {activeGiftEffect ? (
+              <GiftEffect
+                gift={activeGiftEffect.gift}
+                senderName={activeGiftEffect.senderName}
+              />
+            ) : null}
+
             <div className="video-overlay">
               <div className="overlay-left">
                 <span className="badge badge-live pulse">● EN VIVO</span>
                 {live.isPrivate && (
                   <span className="badge-private">🔒 PRIVADO</span>
+                )}
+                {recentGift && (
+                  <span
+                    className="recent-gift-badge"
+                    style={{
+                      borderColor: rarityStyle?.borderColor || "rgba(255,255,255,0.12)",
+                      boxShadow: rarityStyle?.boxShadow || "0 0 12px rgba(224,64,251,0.18)",
+                    }}
+                  >
+                    {recentGift.icon} {recentGift.name}
+                  </span>
                 )}
               </div>
               <div className="overlay-right">
@@ -337,7 +395,6 @@ export default function LiveRoomPage() {
             </div>
           </div>
 
-          {/* Action bar */}
           <div className="action-bar">
             <div className="viewers-badge">
               <span>👁</span>
@@ -383,7 +440,6 @@ export default function LiveRoomPage() {
             </div>
           </div>
 
-          {/* Stream title / description */}
           <div className="stream-info card">
             <div className="stream-meta">
               <div className="stream-creator-row">
@@ -401,7 +457,6 @@ export default function LiveRoomPage() {
           </div>
         </div>
 
-        {/* RIGHT / BOTTOM — Live chat */}
         <div className="room-chat">
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
@@ -410,7 +465,10 @@ export default function LiveRoomPage() {
 
           <div className="chat-messages">
             {chatMessages.map((msg) => (
-              <div key={msg.id} className={`chat-msg${msg.system ? " chat-msg-system" : ""}`}>
+              <div
+                key={msg.id}
+                className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}`}
+              >
                 {msg.system ? (
                   <span className="chat-text-system">{msg.text}</span>
                 ) : (
@@ -445,7 +503,6 @@ export default function LiveRoomPage() {
         </div>
       </div>
 
-      {/* ── Gift Panel ─────────────────────────────── */}
       {showGiftPanel && live?.user?._id && (
         <GiftPanel
           receiverId={live.user._id}
@@ -465,7 +522,6 @@ export default function LiveRoomPage() {
       )}
 
       <style jsx>{`
-        /* ── Layout ───────────────────────────────── */
         .room {
           display: flex;
           flex-direction: column;
@@ -483,14 +539,12 @@ export default function LiveRoomPage() {
           .room-layout { grid-template-columns: 1fr; }
         }
 
-        /* ── Room main (left/top) ─────────────────── */
         .room-main {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
         }
 
-        /* ── Video ────────────────────────────────── */
         .video-wrap {
           position: relative;
           width: 100%;
@@ -530,7 +584,6 @@ export default function LiveRoomPage() {
           letter-spacing: 0.05em;
         }
 
-        /* Overlay bar at bottom of video */
         .video-overlay {
           position: absolute;
           bottom: 0;
@@ -541,6 +594,7 @@ export default function LiveRoomPage() {
           justify-content: space-between;
           padding: 0.6rem 0.85rem;
           background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+          z-index: 3;
         }
 
         .overlay-left,
@@ -548,6 +602,7 @@ export default function LiveRoomPage() {
           display: flex;
           align-items: center;
           gap: 0.4rem;
+          flex-wrap: wrap;
         }
 
         .creator-chip {
@@ -578,9 +633,28 @@ export default function LiveRoomPage() {
           flex-shrink: 0;
         }
 
-        /* Pulsing live dot */
+        .recent-gift-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: rgba(12, 8, 26, 0.72);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: var(--radius-pill);
+          padding: 0.18rem 0.6rem;
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #fff;
+          backdrop-filter: blur(8px);
+          animation: giftBadgeGlow 1.8s ease-in-out infinite;
+        }
+
+        @keyframes giftBadgeGlow {
+          0%, 100% { transform: translateY(0); opacity: 0.95; }
+          50% { transform: translateY(-1px); opacity: 1; }
+        }
+
         .pulse::before {
-          content: '';
+          content: "";
           display: inline-block;
           width: 6px;
           height: 6px;
@@ -607,7 +681,6 @@ export default function LiveRoomPage() {
           letter-spacing: 0.05em;
         }
 
-        /* ── Action bar ───────────────────────────── */
         .action-bar {
           display: flex;
           align-items: center;
@@ -636,7 +709,6 @@ export default function LiveRoomPage() {
           flex-wrap: wrap;
         }
 
-        /* ── Creator-mode badge + end-stream button ── */
         .badge-broadcasting {
           display: inline-flex;
           align-items: center;
@@ -703,7 +775,6 @@ export default function LiveRoomPage() {
           white-space: nowrap;
         }
 
-        /* ── Stream info card ─────────────────────── */
         .stream-info {
           background: rgba(20,8,42,0.9);
           border: 1px solid var(--border);
@@ -748,7 +819,6 @@ export default function LiveRoomPage() {
           margin: 0;
         }
 
-        /* ── Chat (right/bottom) ──────────────────── */
         .room-chat {
           display: flex;
           flex-direction: column;
@@ -811,13 +881,21 @@ export default function LiveRoomPage() {
           justify-content: center;
         }
 
+        .chat-msg-gift {
+          background: rgba(224,64,251,0.08);
+          border: 1px solid rgba(224,64,251,0.2);
+          border-radius: 0.85rem;
+          padding: 0.45rem 0.65rem;
+          box-shadow: 0 0 14px rgba(224,64,251,0.08);
+        }
+
         .chat-user {
           font-weight: 700;
           color: var(--accent-2);
           white-space: nowrap;
         }
 
-        .chat-user::after { content: ':'; }
+        .chat-user::after { content: ":"; }
 
         .chat-text { color: var(--text); }
 

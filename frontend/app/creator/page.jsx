@@ -63,6 +63,13 @@ export default function CreatorPage() {
   const [error, setError] = useState("");
   const [receivedGifts, setReceivedGifts] = useState([]);
 
+  // Private call settings state
+  const [callEnabled, setCallEnabled] = useState(false);
+  const [pricePerMinute, setPricePerMinute] = useState(0);
+  const [callSettingsSaving, setCallSettingsSaving] = useState(false);
+  const [callSettingsError, setCallSettingsError] = useState("");
+  const [callSettingsSuccess, setCallSettingsSuccess] = useState("");
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -92,6 +99,8 @@ export default function CreatorPage() {
         }
 
         setUser(userData);
+        setCallEnabled(userData.creatorProfile?.privateCallEnabled ?? false);
+        setPricePerMinute(userData.creatorProfile?.pricePerMinute ?? 0);
 
         if (livesRes.ok) {
           const livesData = await livesRes.json();
@@ -106,6 +115,37 @@ export default function CreatorPage() {
       .catch(() => setError("No se pudo cargar el estudio"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  const handleSaveCallSettings = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const price = parseInt(pricePerMinute, 10);
+    if (isNaN(price) || price < 1) {
+      setCallSettingsError("El precio por minuto debe ser al menos 1 moneda.");
+      return;
+    }
+    setCallSettingsSaving(true);
+    setCallSettingsError("");
+    setCallSettingsSuccess("");
+    try {
+      const res = await fetch(`${API_URL}/api/user/me/creator-profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ privateCallEnabled: callEnabled, pricePerMinute: price }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error al guardar");
+      setUser(data);
+      setCallEnabled(data.creatorProfile?.privateCallEnabled ?? false);
+      setPricePerMinute(data.creatorProfile?.pricePerMinute ?? 0);
+      setCallSettingsSuccess("Configuración guardada correctamente.");
+      setTimeout(() => setCallSettingsSuccess(""), 3000);
+    } catch (err) {
+      setCallSettingsError(err.message);
+    } finally {
+      setCallSettingsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -197,6 +237,56 @@ export default function CreatorPage() {
             <span className="tool-card-arrow"><ArrowIcon /></span>
           </Link>
         </div>
+      </div>
+
+      {/* Private call settings */}
+      <div className="creator-settings-card">
+        <h2 className="section-title">📞 Llamadas privadas de pago</h2>
+        <p className="settings-desc">
+          Permite que tus fans te llamen en privado y paga por minuto. Recibirás el <strong>60%</strong> de cada minuto.
+        </p>
+
+        <div className="settings-row">
+          <div className="settings-toggle-group">
+            <span className="settings-label">Activar llamadas privadas</span>
+            <button
+              type="button"
+              className={`toggle-btn${callEnabled ? " toggle-on" : ""}`}
+              onClick={() => setCallEnabled((v) => !v)}
+              aria-pressed={callEnabled}
+            >
+              <span className="toggle-thumb" />
+            </button>
+          </div>
+        </div>
+
+        {callEnabled && (
+          <div className="settings-row">
+            <label className="settings-label" htmlFor="pricePerMin">
+              Precio por minuto (monedas)
+            </label>
+            <input
+              id="pricePerMin"
+              type="number"
+              min={1}
+              step={1}
+              className="settings-input"
+              value={pricePerMinute}
+              onChange={(e) => setPricePerMinute(e.target.value)}
+            />
+          </div>
+        )}
+
+        {callSettingsError && <div className="settings-alert settings-error">{callSettingsError}</div>}
+        {callSettingsSuccess && <div className="settings-alert settings-success">{callSettingsSuccess}</div>}
+
+        <button
+          className="btn btn-primary settings-save-btn"
+          onClick={handleSaveCallSettings}
+          disabled={callSettingsSaving}
+        >
+          {callSettingsSaving ? "Guardando…" : "Guardar configuración"}
+        </button>
       </div>
 
       {/* Recent lives */}
@@ -585,6 +675,117 @@ export default function CreatorPage() {
           color: var(--text-muted);
           text-align: center;
           padding: 1rem 0;
+        }
+
+        /* Private call settings */
+        .creator-settings-card {
+          background: rgba(15,8,32,0.7);
+          border: 1px solid rgba(99,102,241,0.25);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .settings-desc {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .settings-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .settings-label {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .settings-toggle-group {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 1rem;
+        }
+
+        .toggle-btn {
+          position: relative;
+          width: 44px;
+          height: 24px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.12);
+          border: none;
+          cursor: pointer;
+          transition: background var(--transition);
+          flex-shrink: 0;
+          padding: 0;
+        }
+
+        .toggle-btn.toggle-on {
+          background: var(--accent);
+        }
+
+        .toggle-thumb {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #fff;
+          transition: transform var(--transition);
+          display: block;
+        }
+
+        .toggle-btn.toggle-on .toggle-thumb {
+          transform: translateX(20px);
+        }
+
+        .settings-input {
+          width: 120px;
+          padding: 0.55rem 0.75rem;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.12);
+          color: var(--text);
+          font-size: 0.9rem;
+          outline: none;
+        }
+
+        .settings-input:focus {
+          border-color: rgba(139,92,246,0.5);
+        }
+
+        .settings-alert {
+          padding: 0.6rem 0.875rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.82rem;
+          font-weight: 600;
+        }
+
+        .settings-error {
+          background: rgba(244,67,54,0.1);
+          border: 1px solid var(--error);
+          color: var(--error);
+        }
+
+        .settings-success {
+          background: rgba(34,197,94,0.1);
+          border: 1px solid #22c55e;
+          color: #4ade80;
+        }
+
+        .settings-save-btn {
+          align-self: flex-start;
         }
       `}</style>
     </div>

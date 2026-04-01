@@ -29,13 +29,18 @@ export default function CallPage() {
   const [isCaller, setIsCaller] = useState(false);
   const [remoteName, setRemoteName] = useState("");
   const [remoteAvatar, setRemoteAvatar] = useState("");
+  const [callDuration, setCallDuration] = useState(0); // seconds elapsed while connected
+  const [coinsWarning, setCoinsWarning] = useState("");
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
   const pollRef = useRef(null);
+  const tickRef = useRef(null); // per-minute billing interval
+  const durationRef = useRef(null); // 1-second timer
   const processedCandidatesRef = useRef(0); // tracks how many remote candidates we've processed
+  const callRef = useRef(null); // kept in sync with call state for use inside intervals
 
   const token = useRef(
     typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -53,6 +58,8 @@ export default function CallPage() {
   useEffect(() => {
     return () => {
       clearInterval(pollRef.current);
+      clearInterval(tickRef.current);
+      clearInterval(durationRef.current);
       if (pcRef.current) pcRef.current.close();
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -85,6 +92,7 @@ export default function CallPage() {
         }
         const data = await res.json();
         setCall(data);
+        callRef.current = data;
 
         const me = localStorage.getItem("userId") || "";
         const callerIsMe = String(data.caller._id) === me;
@@ -118,6 +126,54 @@ export default function CallPage() {
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // ── Per-minute billing & duration timer for connected paid calls ──────────
+  useEffect(() => {
+    if (status !== "connected") return;
+    const currentCall = callRef.current;
+    const isPaidCall = currentCall?.type === "paid_creator" && currentCall?.callCoins > 0;
+    const isCallerUser = String(currentCall?.caller?._id || currentCall?.caller) ===
+      (typeof window !== "undefined" ? localStorage.getItem("userId") : "");
+
+    // Duration counter (every second)
+    durationRef.current = setInterval(() => {
+      setCallDuration((d) => d + 1);
+    }, 1000);
+
+    // Coin tick every 60 seconds — only the caller triggers billing
+    if (isPaidCall && isCallerUser) {
+      tickRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/calls/${currentCall._id}/tick`, {
+            method: "POST",
+            headers: apiHeaders(),
+          });
+          const data = await res.json();
+          if (res.status === 402 && data.ended) {
+            // Out of coins — call ended by backend
+            clearInterval(tickRef.current);
+            clearInterval(durationRef.current);
+            if (pcRef.current) pcRef.current.close();
+            if (localStreamRef.current) {
+              localStreamRef.current.getTracks().forEach((t) => t.stop());
+            }
+            setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
+            setStatus("ended");
+          } else if (!res.ok) {
+            setCoinsWarning(data.message || "Error en facturación por minuto.");
+          }
+        } catch {
+          // ignore tick errors silently
+        }
+      }, 60000);
+    }
+
+    return () => {
+      clearInterval(tickRef.current);
+      clearInterval(durationRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // ── Poll until recipient accepts, then start WebRTC ─────────────────────
   const pollForAcceptance = useCallback(
@@ -400,6 +456,7 @@ export default function CallPage() {
           {error ? "Error" : "Llamada finalizada"}
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
+        {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}
         <Link href="/chats" className="btn btn-primary" style={{ marginTop: "1rem" }}>
           Volver a chats
         </Link>
@@ -407,8 +464,21 @@ export default function CallPage() {
     );
   }
 
+  const isPaidCall = call?.type === "paid_creator" && call?.callCoins > 0;
+  const mins = Math.floor(callDuration / 60);
+  const secs = callDuration % 60;
+  const durationLabel = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
   return (
     <div className="call-page">
+      {/* Paid call info banner */}
+      {isPaidCall && isCaller && (
+        <div className="call-paid-banner">
+          🪙 {call.callCoins} monedas/min
+          {status === "connected" && <span className="call-duration"> · {durationLabel}</span>}
+        </div>
+      )}
+
       {/* Remote video */}
       <div className="call-remote-area">
         <video
@@ -432,6 +502,9 @@ export default function CallPage() {
             </p>
             {status === "waiting" && (
               <p className="call-sub-text">{remoteName}</p>
+            )}
+            {status === "waiting" && isPaidCall && (
+              <p className="call-paid-info">🪙 {call.callCoins} monedas/min</p>
             )}
           </div>
         )}
@@ -696,6 +769,32 @@ export default function CallPage() {
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .call-paid-banner {
+          width: 100%;
+          flex-shrink: 0;
+          z-index: 10;
+          background: rgba(99,102,241,0.85);
+          color: #fff;
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-align: center;
+          padding: 0.35rem 1rem;
+          backdrop-filter: blur(8px);
+          letter-spacing: 0.02em;
+        }
+
+        .call-duration {
+          opacity: 0.85;
+          font-weight: 600;
+        }
+
+        .call-paid-info {
+          color: #a5b4fc;
+          font-size: 0.82rem;
+          font-weight: 600;
+          margin: 0;
+        }
 
         @media (max-width: 480px) {
           .call-local-pip {

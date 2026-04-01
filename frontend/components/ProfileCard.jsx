@@ -9,15 +9,17 @@ import GiftButton from "./GiftButton";
  *
  * Props:
  *  - user: { _id, username, name, avatar, bio, role, interests, location,
- *            isLive, liveId, language, languages }
+ *            isLive, liveId, language, languages,
+ *            creatorProfile: { privateCallEnabled, pricePerMinute } }
  *  - liked: boolean
  *  - matched: boolean
  *  - onLike: (userId) => void
  *  - onMessage: (userId) => void  – optional, triggers chat creation + nav
  *  - onVideoCall: (userId) => void  – optional (future use)
+ *  - onPrivateCall: (userId) => void  – optional, triggers a paid creator call
  *  - loading: boolean
  */
-export default function ProfileCard({ user, liked, matched, onLike, onMessage, onVideoCall, loading }) {
+export default function ProfileCard({ user, liked, matched, onLike, onMessage, onVideoCall, onPrivateCall, loading }) {
   const displayName = user.username || user.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator";
@@ -27,6 +29,8 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
     : user.language
     ? [user.language]
     : [];
+  const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
+  const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
 
   return (
     <>
@@ -129,6 +133,21 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
             </svg>
             Mensaje
           </button>
+
+          {/* Private paid call — creators with privateCallEnabled */}
+          {privateCallEnabled && (
+            <button
+              className="action-btn action-paid-call"
+              onClick={() => onPrivateCall?.(user._id)}
+              aria-label={`Llamada privada · 🪙${pricePerMinute}/min`}
+              title={`Llamada privada · 🪙${pricePerMinute}/min`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+              </svg>
+              🪙{pricePerMinute}/min
+            </button>
+          )}
 
           {/* Video call (future use) */}
           <button
@@ -369,6 +388,19 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
           background: rgba(129, 140, 248, 0.12);
           color: var(--accent-3);
           border-color: rgba(129, 140, 248, 0.4);
+        }
+
+        .action-paid-call {
+          flex: 1;
+          min-width: 0;
+          background: rgba(99,102,241,0.08);
+          border-color: rgba(99,102,241,0.3);
+          color: #a5b4fc;
+        }
+        .action-paid-call:hover {
+          background: rgba(99,102,241,0.18);
+          border-color: rgba(99,102,241,0.55);
+          box-shadow: 0 0 12px rgba(99,102,241,0.25);
         }
 
         .action-call {

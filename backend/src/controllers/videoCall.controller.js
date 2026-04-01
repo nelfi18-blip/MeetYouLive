@@ -1,6 +1,10 @@
 const VideoCall = require("../models/VideoCall.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
+
+// 60% goes to the creator, 40% is the platform commission
+const CREATOR_SHARE_RATE = 0.60;
 
 // Helper: refund coins to caller for a paid call
 const refundPaidCall = async (callerId, coins) => {
@@ -21,7 +25,7 @@ const inviteCall = async (req, res) => {
   }
 
   const callType = type === "paid_creator" ? "paid_creator" : "social";
-  const coins = callType === "paid_creator" ? Math.max(0, parseInt(callCoins) || 0) : 0;
+  let coins = callType === "paid_creator" ? Math.max(0, parseInt(callCoins) || 0) : 0;
 
   try {
     // For social calls: require mutual match
@@ -33,23 +37,42 @@ const inviteCall = async (req, res) => {
       }
     }
 
-    // For paid creator calls: recipient must be a creator
+    // For paid creator calls: recipient must be a creator with private calls enabled
     if (callType === "paid_creator") {
-      const creator = await User.findOne({ _id: recipientId, role: "creator" });
+      const creator = await User.findOne({ _id: recipientId, role: "creator", creatorStatus: "approved" });
       if (!creator) {
-        return res.status(403).json({ message: "El usuario no es un creador activo" });
+        return res.status(403).json({ message: "El usuario no es un creador aprobado" });
       }
+      if (!creator.creatorProfile?.privateCallEnabled) {
+        return res.status(403).json({ message: "Este creador no tiene habilitadas las llamadas privadas" });
+      }
+
+      // Enforce callCoins = pricePerMinute (caller cannot set an arbitrary amount)
+      const pricePerMinute = creator.creatorProfile.pricePerMinute || 0;
+      if (pricePerMinute < 1) {
+        return res.status(403).json({ message: "Este creador no ha configurado un precio por minuto" });
+      }
+      coins = pricePerMinute;
+
       // Deduct coins atomically using a conditional update
-      if (coins > 0) {
-        const updated = await User.findOneAndUpdate(
-          { _id: req.userId, coins: { $gte: coins } },
-          { $inc: { coins: -coins } },
-          { new: true }
-        );
-        if (!updated) {
-          return res.status(402).json({ message: `Necesitas ${coins} monedas para esta llamada` });
-        }
+      const updated = await User.findOneAndUpdate(
+        { _id: req.userId, coins: { $gte: coins } },
+        { $inc: { coins: -coins } },
+        { new: true }
+      );
+      if (!updated) {
+        return res.status(402).json({ message: `Necesitas ${coins} monedas para esta llamada` });
       }
+
+      // Record the initial coin deduction transaction (fire-and-forget)
+      CoinTransaction.create({
+        userId: req.userId,
+        type: "private_call",
+        amount: -coins,
+        reason: `Llamada privada con creador ${recipientId} (primer minuto)`,
+        status: "completed",
+        metadata: { recipientId: String(recipientId) },
+      }).catch((err) => console.error("[call tx] Failed to record initial deduction:", err));
     }
 
     // Cancel any existing pending calls between these users; refund coins for paid ones
@@ -149,11 +172,22 @@ const respondCall = async (req, res) => {
     if (action === "accept") {
       call.status = "accepted";
 
-      // Credit creator for paid calls
+      // Credit creator for paid calls — 60% creator share, 40% platform
       if (call.type === "paid_creator" && call.callCoins > 0) {
+        const creatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
         await User.findByIdAndUpdate(call.recipient, {
-          $inc: { earningsCoins: call.callCoins },
+          $inc: { earningsCoins: creatorShare },
         });
+
+        // Record earnings transaction for creator (fire-and-forget)
+        CoinTransaction.create({
+          userId: call.recipient,
+          type: "private_call",
+          amount: creatorShare,
+          reason: `Llamada privada aceptada de ${call.caller}`,
+          status: "completed",
+          metadata: { callId: String(call._id), callerUserId: String(call.caller) },
+        }).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
       }
     } else {
       call.status = "rejected";
@@ -318,6 +352,72 @@ const getCandidates = async (req, res) => {
   }
 };
 
+// POST /api/calls/:id/tick — per-minute billing for active paid calls
+const tickCall = async (req, res) => {
+  try {
+    const call = await VideoCall.findById(req.params.id);
+    if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
+
+    if (String(call.caller) !== String(req.userId)) {
+      return res.status(403).json({ message: "Solo el llamante puede activar el tick de facturación" });
+    }
+
+    if (call.status !== "accepted") {
+      return res.status(400).json({ message: "La llamada no está activa" });
+    }
+
+    if (call.type !== "paid_creator" || call.callCoins <= 0) {
+      return res.status(400).json({ message: "Esta llamada no es de pago" });
+    }
+
+    const pricePerMinute = call.callCoins;
+    const creatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
+
+    // Atomically deduct coins from caller
+    const updatedCaller = await User.findOneAndUpdate(
+      { _id: call.caller, coins: { $gte: pricePerMinute } },
+      { $inc: { coins: -pricePerMinute } },
+      { new: true }
+    );
+
+    if (!updatedCaller) {
+      // Caller ran out of coins — end the call
+      call.status = "ended";
+      call.endedAt = new Date();
+      await call.save();
+      return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
+    }
+
+    // Credit creator (60% share)
+    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorShare } });
+
+    // Record transactions (fire-and-forget)
+    const txMeta = { callId: String(call._id) };
+    CoinTransaction.create([
+      {
+        userId: call.caller,
+        type: "private_call",
+        amount: -pricePerMinute,
+        reason: `Minuto adicional en llamada privada con ${call.recipient}`,
+        status: "completed",
+        metadata: txMeta,
+      },
+      {
+        userId: call.recipient,
+        type: "private_call",
+        amount: creatorShare,
+        reason: `Minuto adicional en llamada privada de ${call.caller}`,
+        status: "completed",
+        metadata: txMeta,
+      },
+    ]).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
+
+    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorShare });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   inviteCall,
   getIncoming,
@@ -328,4 +428,5 @@ module.exports = {
   submitAnswer,
   addCandidates,
   getCandidates,
+  tickCall,
 };

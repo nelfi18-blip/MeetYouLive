@@ -74,7 +74,7 @@ const hasLiveAccess = (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name creatorProfile");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
     const access = hasLiveAccess(live, req.userId);

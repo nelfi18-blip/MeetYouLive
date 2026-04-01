@@ -7,6 +7,15 @@ import Link from "next/link";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 
+const RARITY_STYLES = {
+  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"      },
+  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
+  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"       },
+  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"      },
+  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
+  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"     },
+};
+
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -114,6 +123,7 @@ export default function LiveRoomPage() {
           giftId: selectedGift._id,
           liveId: id,
           context: "live",
+          contextId: id,
           message: giftMessage.trim() || undefined,
         }),
       });
@@ -510,19 +520,40 @@ export default function LiveRoomPage() {
             )}
 
             <div className="gift-catalog">
-              {giftCatalog.map((gift) => (
-                <button
-                  key={gift._id}
-                  type="button"
-                  className={`gift-item${selectedGift?._id === gift._id ? " selected" : ""}`}
-                  onClick={() => setSelectedGift(gift)}
-                >
-                  <span className="gift-icon">{gift.icon}</span>
-                  <span className="gift-name">{gift.name}</span>
-                  <span className="gift-cost">🪙 {gift.coinCost}</span>
-                </button>
-              ))}
+              {giftCatalog.map((gift) => {
+                const rs = RARITY_STYLES[gift.rarity] || RARITY_STYLES.common;
+                const isSelected = selectedGift?._id === gift._id;
+                return (
+                  <button
+                    key={gift._id}
+                    type="button"
+                    className={`gift-item${isSelected ? " selected" : ""}`}
+                    style={{ "--rarity-color": rs.color, "--rarity-glow": rs.glow }}
+                    onClick={() => setSelectedGift(gift)}
+                  >
+                    <span className="gift-rarity-dot" title={rs.label} />
+                    <span className="gift-icon">{gift.icon}</span>
+                    <span className="gift-name">{gift.name}</span>
+                    <span className="gift-cost">🪙 {gift.coinCost}</span>
+                  </button>
+                );
+              })}
             </div>
+
+            {selectedGift && (
+              <div className="gift-selected-bar">
+                <span className="gift-selected-info">
+                  {selectedGift.icon} <strong>{selectedGift.name}</strong>
+                  <em
+                    className="gift-rarity-label"
+                    style={{ color: (RARITY_STYLES[selectedGift.rarity] || RARITY_STYLES.common).color }}
+                  >
+                    {" "}· {(RARITY_STYLES[selectedGift.rarity] || RARITY_STYLES.common).label}
+                  </em>
+                </span>
+                <span className="gift-selected-cost">{selectedGift.coinCost} 🪙</span>
+              </div>
+            )}
 
             <div className="gift-message-row">
               <input
@@ -1053,7 +1084,7 @@ export default function LiveRoomPage() {
 
         .gift-catalog {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
           gap: 0.5rem;
         }
 
@@ -1062,28 +1093,75 @@ export default function LiveRoomPage() {
           flex-direction: column;
           align-items: center;
           gap: 0.25rem;
-          padding: 0.65rem 0.25rem;
+          padding: 0.65rem 0.25rem 0.5rem;
           background: rgba(255,255,255,0.03);
-          border: 1px solid var(--border);
+          border: 1px solid rgba(255,255,255,0.08);
           border-radius: var(--radius-sm);
           cursor: pointer;
-          transition: all var(--transition);
+          transition: all 0.2s ease;
+          position: relative;
+          font-family: inherit;
         }
 
         .gift-item:hover {
-          border-color: rgba(224,64,251,0.35);
-          background: rgba(224,64,251,0.05);
+          border-color: var(--rarity-color, rgba(224,64,251,0.4));
+          background: rgba(255,255,255,0.05);
+          box-shadow: 0 0 10px var(--rarity-glow, rgba(224,64,251,0.2));
+          transform: translateY(-2px);
         }
 
         .gift-item.selected {
-          border-color: var(--accent);
-          background: rgba(255,15,138,0.1);
-          box-shadow: 0 0 12px rgba(255,15,138,0.25);
+          border-color: var(--rarity-color, var(--accent));
+          background: rgba(255,255,255,0.06);
+          box-shadow: 0 0 16px var(--rarity-glow, rgba(255,15,138,0.3));
         }
 
-        .gift-icon { font-size: 1.6rem; }
-        .gift-name { font-size: 0.7rem; font-weight: 700; color: var(--text); }
-        .gift-cost { font-size: 0.65rem; color: var(--accent-orange); font-weight: 600; }
+        .gift-rarity-dot {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--rarity-color, #94a3b8);
+          box-shadow: 0 0 4px var(--rarity-glow, rgba(148,163,184,0.4));
+        }
+
+        .gift-icon { font-size: 1.6rem; line-height: 1; }
+        .gift-name { font-size: 0.68rem; font-weight: 700; color: var(--text); text-align: center; }
+        .gift-cost { font-size: 0.63rem; color: #fbbf24; font-weight: 600; }
+
+        .gift-selected-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: var(--radius-sm);
+          padding: 0.5rem 0.75rem;
+        }
+
+        .gift-selected-info {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+        }
+
+        .gift-selected-info strong {
+          color: var(--text);
+          font-weight: 700;
+        }
+
+        .gift-rarity-label {
+          font-style: normal;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+
+        .gift-selected-cost {
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: #fbbf24;
+        }
 
         .gift-message-row { display: flex; }
 

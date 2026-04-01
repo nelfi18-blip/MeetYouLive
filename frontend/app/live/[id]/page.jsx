@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import GiftAnimation from "@/components/GiftAnimation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
@@ -14,6 +15,13 @@ const RARITY_STYLES = {
   epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"      },
   legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
   mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"     },
+};
+
+// Maps rarity → animation tier (1 = subtle, 2 = visible, 3 = epic)
+const GIFT_TIER = {
+  common: 1, uncommon: 1,
+  rare: 2,   epic: 2,
+  legendary: 3, mythic: 3,
 };
 
 export default function LiveRoomPage() {
@@ -48,6 +56,13 @@ export default function LiveRoomPage() {
   // Creator mode state
   const [currentUserId, setCurrentUserId] = useState(null);
   const [endingStream, setEndingStream] = useState(false);
+
+  // Gift animation queue + sound preference
+  const [giftAnimQueue, setGiftAnimQueue] = useState([]);
+  const [soundMuted, setSoundMuted] = useState(false);
+  // Creator confirmation banner
+  const [creatorConfirm, setCreatorConfirm] = useState(null);
+  const confirmTimerRef = useRef(null);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -90,6 +105,23 @@ export default function LiveRoomPage() {
     setChatInput("");
   };
 
+  // Animation queue handlers
+  const handleAnimationComplete = useCallback(() => {
+    setGiftAnimQueue((prev) => prev.slice(1));
+  }, []);
+
+  const enqueueGiftAnimation = useCallback((giftData) => {
+    const tier = GIFT_TIER[giftData.rarity] || 1;
+    setGiftAnimQueue((prev) => {
+      if (tier === 3 && prev.length > 1) {
+        // Epic gifts jump to position [1] (right after whatever is currently playing)
+        const [current, ...rest] = prev;
+        return [current, giftData, ...rest];
+      }
+      return [...prev, giftData];
+    });
+  }, []);
+
   const openGiftModal = useCallback(() => {
     setGiftError("");
     setGiftSuccess("");
@@ -129,11 +161,43 @@ export default function LiveRoomPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al enviar el regalo");
-      const giftNotif = `🎁 Tú enviaste ${selectedGift.icon} ${selectedGift.name}`;
+
+      const tier = GIFT_TIER[selectedGift.rarity] || 1;
+
+      // Highlighted gift chat message
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: "Sistema", text: giftNotif, system: true },
+        {
+          id: ++msgCounterRef.current,
+          user: "Tú",
+          text: `${selectedGift.icon} ${selectedGift.name}`,
+          system: false,
+          gift: true,
+          giftTier: tier,
+          rarity: selectedGift.rarity,
+          giftIcon: selectedGift.icon,
+          giftName: selectedGift.name,
+          message: giftMessage.trim() || null,
+        },
       ]);
+
+      // Enqueue animation (includes rarity + icon on the data object)
+      enqueueGiftAnimation({
+        ...data,
+        rarity: selectedGift.rarity,
+        icon:   selectedGift.icon,
+        name:   selectedGift.name,
+      });
+
+      // Creator confirmation (visible to the sender on this page as proxy)
+      clearTimeout(confirmTimerRef.current);
+      setCreatorConfirm({
+        icon: selectedGift.icon,
+        name: selectedGift.name,
+        creator: live.user.username || live.user.name,
+      });
+      confirmTimerRef.current = setTimeout(() => setCreatorConfirm(null), 4500);
+
       setGiftSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name} a @${live.user.username || live.user.name}!`);
       setSelectedGift(null);
       setGiftMessage("");
@@ -372,6 +436,22 @@ export default function LiveRoomPage() {
               </div>
             )}
 
+            {/* Gift animation overlay on video */}
+            {giftAnimQueue.length > 0 && (
+              <GiftAnimation
+                gift={giftAnimQueue[0]}
+                onComplete={handleAnimationComplete}
+                soundMuted={soundMuted}
+              />
+            )}
+
+            {/* Video glow ring for Tier 2/3 animations */}
+            {giftAnimQueue.length > 0 && (GIFT_TIER[giftAnimQueue[0].rarity] || 1) >= 2 && (
+              <div
+                className={`video-gift-glow gift-glow-tier-${GIFT_TIER[giftAnimQueue[0].rarity] || 1}`}
+              />
+            )}
+
             {/* Overlaid info on video */}
             <div className="video-overlay">
               <div className="overlay-left">
@@ -390,6 +470,17 @@ export default function LiveRoomPage() {
               </div>
             </div>
           </div>
+
+          {/* Creator confirmation banner */}
+          {creatorConfirm && (
+            <div className="creator-confirm-banner">
+              <span className="cc-icon">{creatorConfirm.icon}</span>
+              <span className="cc-text">
+                Tu regalo <strong>{creatorConfirm.name}</strong> fue enviado a{" "}
+                <strong>@{creatorConfirm.creator}</strong> 🎉
+              </span>
+            </div>
+          )}
 
           {/* Action bar */}
           <div className="action-bar">
@@ -431,6 +522,15 @@ export default function LiveRoomPage() {
                   {callError && <span className="call-error-inline">{callError}</span>}
                 </>
               )}
+              {/* Sound mute toggle for gift animations */}
+              <button
+                className={`btn btn-sound-toggle btn-sm${soundMuted ? " muted" : ""}`}
+                onClick={() => setSoundMuted((v) => !v)}
+                title={soundMuted ? "Activar sonidos de regalo" : "Silenciar sonidos de regalo"}
+                aria-label={soundMuted ? "Activar sonidos de regalo" : "Silenciar sonidos de regalo"}
+              >
+                {soundMuted ? "🔇" : "🔔"}
+              </button>
               <Link href="/live" className="btn btn-ghost btn-sm">
                 ← Directos
               </Link>
@@ -464,9 +564,23 @@ export default function LiveRoomPage() {
 
           <div className="chat-messages">
             {chatMessages.map((msg) => (
-              <div key={msg.id} className={`chat-msg${msg.system ? " chat-msg-system" : ""}`}>
-                {msg.system ? (
+              <div
+                key={msg.id}
+                className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.gift ? ` chat-msg-gift chat-msg-gift-tier-${msg.giftTier || 1}` : ""}`}
+                style={msg.gift ? { "--rarity-color": (RARITY_STYLES[msg.rarity] || RARITY_STYLES.common).color, "--rarity-glow": (RARITY_STYLES[msg.rarity] || RARITY_STYLES.common).glow } : undefined}
+              >
+                {msg.system && !msg.gift ? (
                   <span className="chat-text-system">{msg.text}</span>
+                ) : msg.gift ? (
+                  <span className="chat-gift-bubble">
+                    <span className="chat-gift-icon">{msg.giftIcon}</span>
+                    <span className="chat-gift-content">
+                      <span className="chat-gift-sender">{msg.user}</span>
+                      <span className="chat-gift-verb"> envió </span>
+                      <span className="chat-gift-name">{msg.giftName}</span>
+                      {msg.message && <span className="chat-gift-msg">"{msg.message}"</span>}
+                    </span>
+                  </span>
                 ) : (
                   <>
                     <span className="chat-user">{msg.user}</span>
@@ -1191,6 +1305,172 @@ export default function LiveRoomPage() {
         .gift-coins-link {
           color: var(--accent-orange);
           text-decoration: underline;
+        }
+
+        /* ── Creator confirmation banner ─────────────── */
+        .creator-confirm-banner {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-sm);
+          background: linear-gradient(135deg, rgba(255,45,120,0.12) 0%, rgba(224,64,251,0.12) 100%);
+          border: 1px solid rgba(255,45,120,0.35);
+          animation: cc-slide-in 0.3s ease, cc-fade-out 0.6s ease 3.8s forwards;
+        }
+
+        @keyframes cc-slide-in {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes cc-fade-out {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .creator-confirm-banner { animation: none; }
+        }
+
+        .cc-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+        .cc-text {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+
+        .cc-text strong { color: var(--text); }
+
+        /* ── Sound toggle button ──────────────────────── */
+        .btn-sound-toggle {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          color: var(--text-muted);
+          border-radius: var(--radius-pill);
+          padding: 0.35rem 0.6rem;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all var(--transition);
+        }
+
+        .btn-sound-toggle:hover {
+          background: rgba(255,255,255,0.1);
+          color: var(--text);
+        }
+
+        .btn-sound-toggle.muted {
+          color: var(--error);
+          border-color: rgba(248,113,113,0.3);
+        }
+
+        /* ── Video gift glow ring ─────────────────────── */
+        .video-gift-glow {
+          position: absolute;
+          inset: 0;
+          border-radius: var(--radius);
+          pointer-events: none;
+          z-index: 40;
+          animation: gift-glow-pulse 0.6s ease-in-out infinite alternate;
+        }
+
+        .gift-glow-tier-2 {
+          box-shadow: inset 0 0 0 3px rgba(192,132,252,0.55), 0 0 40px rgba(192,132,252,0.2);
+        }
+
+        .gift-glow-tier-3 {
+          box-shadow: inset 0 0 0 4px rgba(251,191,36,0.7), 0 0 60px rgba(251,191,36,0.25);
+        }
+
+        @keyframes gift-glow-pulse {
+          from { opacity: 0.7; }
+          to   { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .video-gift-glow { animation: none; }
+        }
+
+        /* ── Gift chat messages ───────────────────────── */
+        .chat-msg-gift {
+          border-radius: var(--radius-sm);
+          padding: 0.35rem 0.5rem;
+          border-left: 3px solid var(--rarity-color, var(--accent));
+          background: rgba(255,255,255,0.03);
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .chat-msg-gift-tier-2 {
+          background: rgba(192,132,252,0.07);
+          box-shadow: 0 0 8px var(--rarity-glow, rgba(192,132,252,0.2));
+        }
+
+        .chat-msg-gift-tier-3 {
+          background: rgba(251,191,36,0.08);
+          box-shadow: 0 0 12px var(--rarity-glow, rgba(251,191,36,0.2));
+          border-left-color: #fbbf24;
+          animation: gift-chat-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes gift-chat-glow {
+          from { box-shadow: 0 0 8px rgba(251,191,36,0.2); }
+          to   { box-shadow: 0 0 18px rgba(251,191,36,0.4); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .chat-msg-gift-tier-3 { animation: none; }
+        }
+
+        .chat-gift-bubble {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.4rem;
+          width: 100%;
+        }
+
+        .chat-gift-icon {
+          font-size: 1.1rem;
+          flex-shrink: 0;
+          line-height: 1.2;
+        }
+
+        .chat-gift-content {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          gap: 0.2rem;
+          font-size: 0.8rem;
+          line-height: 1.4;
+        }
+
+        .chat-gift-sender {
+          font-weight: 800;
+          color: var(--rarity-color, var(--accent-2));
+        }
+
+        .chat-gift-verb {
+          color: var(--text-dim);
+          font-size: 0.75rem;
+        }
+
+        .chat-gift-name {
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .chat-msg-gift-tier-3 .chat-gift-name {
+          color: #fbbf24;
+        }
+
+        .chat-gift-msg {
+          display: block;
+          width: 100%;
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-style: italic;
+          margin-top: 0.1rem;
         }
       `}</style>
     </div>

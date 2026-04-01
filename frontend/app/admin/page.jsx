@@ -18,15 +18,24 @@ export default function AdminPage() {
   const [actionError, setActionError] = useState("");
   const [activeTab, setActiveTab] = useState("users");
 
+  // Gift catalog state
+  const [giftCatalog, setGiftCatalog] = useState([]);
+  const [giftForm, setGiftForm] = useState({ name: "", icon: "", coinCost: "", active: true });
+  const [editingGift, setEditingGift] = useState(null);
+  const [giftActionLoading, setGiftActionLoading] = useState(false);
+  const [giftActionError, setGiftActionError] = useState("");
+  const [giftActionSuccess, setGiftActionSuccess] = useState("");
+
   const loadAdminData = async () => {
     const token = localStorage.getItem("admin_token");
     try {
-      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes] = await Promise.all([
+      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes, giftCatalogRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/verifications`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/gifts/catalog`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if ([overviewRes, usersRes, reportsRes, creatorReqRes, verifRes].some((r) => r.status === 401)) {
@@ -52,6 +61,9 @@ export default function AdminPage() {
       setReports(reportsData.reports || []);
       setCreatorRequests(creatorReqData.requests || []);
       setVerificationRequests(verifData.requests || []);
+      if (giftCatalogRes.ok) {
+        setGiftCatalog(await giftCatalogRes.json());
+      }
     } catch (err) {
       if (err.message === "auth") {
         setError("No tienes permisos para acceder al panel de administrador.");
@@ -61,6 +73,72 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadGiftCatalog = async () => {
+    const token = localStorage.getItem("admin_token");
+    const res = await fetch(`${apiUrl}/api/gifts/catalog`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) setGiftCatalog(await res.json());
+  };
+
+  const handleGiftSubmit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("admin_token");
+    setGiftActionLoading(true);
+    setGiftActionError("");
+    setGiftActionSuccess("");
+    try {
+      const isEdit = !!editingGift;
+      const url = isEdit
+        ? `${apiUrl}/api/gifts/catalog/${editingGift._id}`
+        : `${apiUrl}/api/gifts/catalog`;
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: giftForm.name,
+          icon: giftForm.icon,
+          coinCost: Number(giftForm.coinCost),
+          active: giftForm.active,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error");
+      setGiftActionSuccess(isEdit ? "Regalo actualizado" : "Regalo creado");
+      setGiftForm({ name: "", icon: "", coinCost: "", active: true });
+      setEditingGift(null);
+      await loadGiftCatalog();
+    } catch (err) {
+      setGiftActionError(err.message);
+    } finally {
+      setGiftActionLoading(false);
+    }
+  };
+
+  const handleGiftDelete = async (id) => {
+    if (!confirm("¿Eliminar este regalo del catálogo?")) return;
+    const token = localStorage.getItem("admin_token");
+    setGiftActionLoading(true);
+    setGiftActionError("");
+    try {
+      const res = await fetch(`${apiUrl}/api/gifts/catalog/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al eliminar");
+      await loadGiftCatalog();
+    } catch (err) {
+      setGiftActionError(err.message);
+    } finally {
+      setGiftActionLoading(false);
+    }
+  };
+
+  const startEditGift = (item) => {
+    setEditingGift(item);
+    setGiftForm({ name: item.name, icon: item.icon, coinCost: String(item.coinCost), active: item.active });
+    setGiftActionError("");
+    setGiftActionSuccess("");
   };
 
   useEffect(() => {
@@ -212,12 +290,13 @@ export default function AdminPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem", flexWrap: "wrap" }}>
         {[
           { key: "users", label: "Usuarios" },
           { key: "creators", label: `Solicitudes Creador${creatorRequests.length > 0 ? ` (${creatorRequests.length})` : ""}` },
           { key: "verifications", label: `Verificaciones${verificationRequests.length > 0 ? ` (${verificationRequests.length})` : ""}` },
           { key: "reports", label: "Reportes" },
+          { key: "gifts", label: "Catálogo Regalos" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -507,6 +586,124 @@ export default function AdminPage() {
                   <tr>
                     <td colSpan={4} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
                       No hay reportes
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "gifts" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Catálogo de Regalos</h2>
+
+          {/* Form */}
+          <div style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ fontSize: "1rem", marginBottom: "1rem", color: "#e2e8f0" }}>
+              {editingGift ? "Editar regalo" : "Nuevo regalo"}
+            </h3>
+            <form onSubmit={handleGiftSubmit} style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Nombre</label>
+                <input
+                  value={giftForm.name}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                  placeholder="Ej: Rosa"
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Icono (emoji)</label>
+                <input
+                  value={giftForm.icon}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, icon: e.target.value }))}
+                  required
+                  placeholder="🌹"
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "1.2rem", width: "70px", textAlign: "center" }}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Costo (monedas)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={giftForm.coinCost}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, coinCost: e.target.value }))}
+                  required
+                  placeholder="10"
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem", width: "90px" }}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Activo</label>
+                <select
+                  value={giftForm.active ? "true" : "false"}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, active: e.target.value === "true" }))}
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }}
+                >
+                  <option value="true">Sí</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={giftActionLoading}
+                style={{ padding: "0.45rem 1.25rem", background: "#7c3aed", color: "#fff", border: "none", borderRadius: "4px", fontSize: "0.875rem", cursor: giftActionLoading ? "not-allowed" : "pointer", opacity: giftActionLoading ? 0.6 : 1 }}
+              >
+                {editingGift ? "Guardar" : "Crear"}
+              </button>
+              {editingGift && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingGift(null); setGiftForm({ name: "", icon: "", coinCost: "", active: true }); }}
+                  style={{ padding: "0.45rem 1rem", background: "transparent", color: "#94a3b8", border: "1px solid #334155", borderRadius: "4px", fontSize: "0.875rem", cursor: "pointer" }}
+                >
+                  Cancelar
+                </button>
+              )}
+            </form>
+            {giftActionError && <p style={{ marginTop: "0.5rem", color: "#f87171", fontSize: "0.85rem" }}>{giftActionError}</p>}
+            {giftActionSuccess && <p style={{ marginTop: "0.5rem", color: "#34d399", fontSize: "0.85rem" }}>{giftActionSuccess}</p>}
+          </div>
+
+          {/* Table */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead>
+                <tr style={{ background: "#1e293b" }}>
+                  <Th>Icono</Th>
+                  <Th>Nombre</Th>
+                  <Th>Costo</Th>
+                  <Th>Activo</Th>
+                  <Th>Acciones</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {giftCatalog.map((item) => (
+                  <tr key={item._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td><span style={{ fontSize: "1.4rem" }}>{item.icon}</span></Td>
+                    <Td>{item.name}</Td>
+                    <Td>🪙 {item.coinCost}</Td>
+                    <Td>
+                      <span style={{ color: item.active ? "#34d399" : "#f87171", fontWeight: 600 }}>
+                        {item.active ? "Activo" : "Inactivo"}
+                      </span>
+                    </Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <ActionBtn label="Editar" color="#818cf8" onClick={() => startEditGift(item)} disabled={giftActionLoading} />
+                        <ActionBtn label="Eliminar" color="#f87171" onClick={() => handleGiftDelete(item._id)} disabled={giftActionLoading} />
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+                {giftCatalog.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
+                      No hay regalos en el catálogo
                     </td>
                   </tr>
                 )}

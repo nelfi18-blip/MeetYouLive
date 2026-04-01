@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import GiftEffect from "@/components/GiftEffect";
+import { RARITY_STYLES } from "@/lib/gifts";
 import GiftPanel from "@/components/GiftPanel";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +20,7 @@ export default function LiveRoomPage() {
 
   // Gift state
   const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [activeGiftEffect, setActiveGiftEffect] = useState(null);
 
   // Private call state
   const [startingCall, setStartingCall] = useState(false);
@@ -83,6 +86,9 @@ export default function LiveRoomPage() {
       ...prev,
       { id: ++msgCounterRef.current, user: "Sistema", text: `🎁 Enviaste ${icon} ${name}`, system: true },
     ]);
+    if (data?.gift) {
+      setActiveGiftEffect(data.gift);
+    }
   }, []);
 
   const handleJoin = async () => {
@@ -447,6 +453,14 @@ export default function LiveRoomPage() {
           context="live"
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={handleGiftSent}
+        />
+      )}
+
+      {/* ── Gift Effect ─────────────────────────────── */}
+      {activeGiftEffect && (
+        <GiftEffect
+          gift={activeGiftEffect}
+          onDone={() => setActiveGiftEffect(null)}
         />
       )}
 

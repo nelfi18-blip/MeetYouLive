@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import GiftEffect from "@/components/GiftEffect";
-import { RARITY_STYLES } from "@/lib/gifts";
 import GiftPanel from "@/components/GiftPanel";
 import GiftEffect from "@/components/GiftEffect";
 import { RARITY_STYLES } from "@/lib/gifts";
@@ -128,9 +126,6 @@ export default function LiveRoomPage() {
         isGift: true,
       },
     ]);
-    if (data?.gift) {
-      setActiveGiftEffect(data.gift);
-    }
   }, []);
 
   const handleJoin = async () => {
@@ -510,14 +505,6 @@ export default function LiveRoomPage() {
           context="live"
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={handleGiftSent}
-        />
-      )}
-
-      {/* ── Gift Effect ─────────────────────────────── */}
-      {activeGiftEffect && (
-        <GiftEffect
-          gift={activeGiftEffect}
-          onDone={() => setActiveGiftEffect(null)}
         />
       )}
 

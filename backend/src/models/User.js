@@ -57,6 +57,7 @@ const userSchema = new mongoose.Schema(
     isBlocked: { type: Boolean, default: false },
     creatorApprovedAt: { type: Date, default: null },
     coins: { type: Number, default: 0, min: 0 },
+    sparks: { type: Number, default: 0, min: 0 },
     earningsCoins: { type: Number, default: 0, min: 0 },
     isPremium: { type: Boolean, default: false },
     verificationPhoto: { type: String, default: "" },

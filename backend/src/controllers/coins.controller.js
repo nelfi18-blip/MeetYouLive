@@ -3,7 +3,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const COIN_PACKAGES = [
   {
     id: 100,
-    label: "Starter",
+    label: "Starter Pack",
     coins: 100,
     priceUsd: 0.99,
     icon: "🪙",
@@ -12,16 +12,16 @@ const COIN_PACKAGES = [
   },
   {
     id: 250,
-    label: "Básico",
+    label: "Explorer Pack",
     coins: 250,
     priceUsd: 2.29,
     icon: "🎯",
-    description: "Un poco más para disfrutar",
+    description: "Más MYL Coins para disfrutar",
     save: "Ahorra 8%",
   },
   {
     id: 500,
-    label: "Popular",
+    label: "Popular Pack",
     coins: 500,
     priceUsd: 4.49,
     icon: "💰",
@@ -31,11 +31,11 @@ const COIN_PACKAGES = [
   },
   {
     id: 1000,
-    label: "Pro",
+    label: "Elite Pack",
     coins: 1000,
     priceUsd: 7.99,
     icon: "💎",
-    description: "Mejor precio por moneda",
+    description: "Mejor precio por MYL Coin",
     save: "Ahorra 19%",
   },
 ];

@@ -39,7 +39,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/gifts`, {
+      const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,11 +47,9 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         },
         body: JSON.stringify({
           receiverId,
-          giftId: selected._id,
-          liveId,
+          giftSlug: selected.slug,
           context: context || (liveId ? "live" : "profile"),
           contextId: liveId || null,
-          message: selected.name,
         }),
       });
       const data = await res.json();

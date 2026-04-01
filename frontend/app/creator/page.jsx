@@ -61,9 +61,8 @@ export default function CreatorPage() {
   const [lives, setLives] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [receivedGifts, setReceivedGifts] = useState([]);
+  const [earnings, setEarnings] = useState(null);
 
-  // Private call settings state
   const [callEnabled, setCallEnabled] = useState(false);
   const [pricePerMinute, setPricePerMinute] = useState(0);
   const [callSettingsSaving, setCallSettingsSaving] = useState(false);
@@ -81,9 +80,9 @@ export default function CreatorPage() {
     Promise.all([
       fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${API_URL}/api/lives/mine`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_URL}/api/gifts/received`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/api/creator/earnings`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
-      .then(async ([userRes, livesRes, giftsRes]) => {
+      .then(async ([userRes, livesRes, earningsRes]) => {
         if (userRes.status === 401) {
           clearToken();
           router.replace("/login");
@@ -93,8 +92,8 @@ export default function CreatorPage() {
 
         const userData = await userRes.json();
 
-        if (userData.role !== "creator") {
-          router.replace("/profile");
+        if (userData.role !== "creator" || userData.creatorStatus !== "approved") {
+          router.replace("/dashboard");
           return;
         }
 
@@ -107,9 +106,9 @@ export default function CreatorPage() {
           setLives(livesData.lives || livesData || []);
         }
 
-        if (giftsRes.ok) {
-          const giftsData = await giftsRes.json();
-          setReceivedGifts(Array.isArray(giftsData) ? giftsData.slice(0, 10) : []);
+        if (earningsRes.ok) {
+          const earningsData = await earningsRes.json();
+          setEarnings(earningsData);
         }
       })
       .catch(() => setError("No se pudo cargar el estudio"))
@@ -318,35 +317,63 @@ export default function CreatorPage() {
         </div>
       )}
 
-      {/* Received gifts */}
+      {/* Earnings Summary */}
+      <div className="earnings-section">
+        <h2 className="section-title">💰 Resumen de ganancias</h2>
+        <div className="earnings-cards">
+          <div className="earnings-card earnings-card-creator">
+            <div className="earnings-card-icon">🪙</div>
+            <div className="earnings-card-value">{earnings?.totalCreatorShare ?? 0}</div>
+            <div className="earnings-card-label">Tu parte (60%)</div>
+          </div>
+          <div className="earnings-card earnings-card-platform">
+            <div className="earnings-card-icon">🏦</div>
+            <div className="earnings-card-value">{earnings?.totalPlatformShare ?? 0}</div>
+            <div className="earnings-card-label">Plataforma (40%)</div>
+          </div>
+          <div className="earnings-card earnings-card-total">
+            <div className="earnings-card-icon">💎</div>
+            <div className="earnings-card-value">{earnings?.totalCoinsReceived ?? 0}</div>
+            <div className="earnings-card-label">Total recibido</div>
+          </div>
+          <div className="earnings-card earnings-card-gifts">
+            <div className="earnings-card-icon">🎁</div>
+            <div className="earnings-card-value">{earnings?.totalGiftCount ?? 0}</div>
+            <div className="earnings-card-label">Regalos totales</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
       <div className="creator-recent">
-        <h2 className="section-title">🎁 Regalos recibidos</h2>
-        {receivedGifts.length === 0 ? (
+        <h2 className="section-title">🎁 Transacciones recientes</h2>
+        {!earnings || !earnings.recentTransactions || earnings.recentTransactions.length === 0 ? (
           <p className="no-gifts-msg">Aún no has recibido regalos. ¡Comparte tu perfil para que tus fans te regalen!</p>
         ) : (
           <div className="recent-list">
-            {receivedGifts.map((gift) => {
-              const item = gift.giftCatalogItem;
-              const sender = gift.sender;
-              const contextLabel = gift.context === "live" ? "Directo" : gift.context === "private_call" ? "Llamada" : "Perfil";
+            {earnings.recentTransactions.map((tx) => {
+              const contextLabel = tx.context === "live" ? "Directo" : tx.context === "private_call" ? "Llamada" : "Perfil";
+              const senderName = tx.sender?.username || tx.sender?.name || "usuario";
               return (
-                <div key={gift._id} className="recent-item gift-row">
-                  <div className="gift-row-icon">{item?.icon || "🎁"}</div>
+                <div key={tx._id} className="recent-item gift-row">
+                  <div className="gift-row-icon">{tx.giftIcon}</div>
                   <div className="recent-item-info">
                     <div className="recent-item-title">
-                      {item?.name || "Regalo"}{" "}
-                      <span className="gift-row-from">de @{sender?.username || sender?.name || "usuario"}</span>
+                      {tx.giftName}{" "}
+                      <span className="gift-row-from">de @{senderName}</span>
                     </div>
                     <div className="recent-item-meta">
                       <span className="recent-item-tag">{contextLabel}</span>
                       <span className="recent-item-date">
-                        {new Date(gift.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
+                        {new Date(tx.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}
                       </span>
                     </div>
                   </div>
                   <div className="gift-row-earnings">
-                    <span className="gift-earnings-value">+{gift.creatorShare} 🪙</span>
-                    <span className="gift-earnings-label">ganancia</span>
+                    <div className="tx-split">
+                      <span className="tx-creator">+{tx.creatorShare} 🪙</span>
+                      <span className="tx-platform">{tx.platformShare} plataforma</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -786,6 +813,105 @@ export default function CreatorPage() {
 
         .settings-save-btn {
           align-self: flex-start;
+        }
+
+        /* Earnings section */
+        .earnings-section {
+          background: rgba(15,8,32,0.7);
+          border: 1px solid rgba(251,191,36,0.2);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+        }
+
+        .earnings-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 0.875rem;
+        }
+
+        .earnings-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 1.25rem 1rem;
+          text-align: center;
+          border-radius: var(--radius);
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.02);
+          transition: transform var(--transition-slow), border-color var(--transition);
+        }
+
+        .earnings-card:hover { transform: translateY(-2px); }
+
+        .earnings-card-creator {
+          border-color: rgba(251,191,36,0.2);
+        }
+        .earnings-card-creator:hover {
+          border-color: rgba(251,191,36,0.4);
+          box-shadow: 0 0 16px rgba(251,191,36,0.12);
+        }
+
+        .earnings-card-platform {
+          border-color: rgba(129,140,248,0.2);
+        }
+        .earnings-card-platform:hover {
+          border-color: rgba(129,140,248,0.4);
+          box-shadow: 0 0 16px rgba(129,140,248,0.12);
+        }
+
+        .earnings-card-total {
+          border-color: rgba(96,165,250,0.2);
+        }
+        .earnings-card-total:hover {
+          border-color: rgba(96,165,250,0.4);
+          box-shadow: 0 0 16px rgba(96,165,250,0.12);
+        }
+
+        .earnings-card-gifts {
+          border-color: rgba(52,211,153,0.2);
+        }
+        .earnings-card-gifts:hover {
+          border-color: rgba(52,211,153,0.4);
+          box-shadow: 0 0 16px rgba(52,211,153,0.12);
+        }
+
+        .earnings-card-icon { font-size: 1.5rem; line-height: 1; }
+
+        .earnings-card-value {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--text);
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+
+        .earnings-card-label {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+        }
+
+        /* Transaction split */
+        .tx-split {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.2rem;
+        }
+
+        .tx-creator {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #fbbf24;
+        }
+
+        .tx-platform {
+          font-size: 0.68rem;
+          color: var(--text-dim);
+          letter-spacing: 0.02em;
         }
       `}</style>
     </div>

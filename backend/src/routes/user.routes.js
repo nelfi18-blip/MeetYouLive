@@ -14,6 +14,24 @@ const userLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
+// Public profile — returns safe fields for a given user/creator
+router.get("/:id/public", userLimiter, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select(
+      "username name avatar bio role creatorStatus isVerifiedCreator creatorProfile interests location"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const profile = user.toObject();
+    const activeLive = await Live.findOne({ user: user._id, isLive: true }).select("_id");
+    profile.isLive = !!activeLive;
+    profile.liveId = activeLive ? String(activeLive._id) : null;
+    res.json(profile);
+  } catch (err) {
+    if (err.name === "CastError") return res.status(400).json({ message: "ID inválido" });
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.get("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");

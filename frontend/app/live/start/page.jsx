@@ -17,6 +17,7 @@ export default function StartLivePage() {
   const [entryCost, setEntryCost] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isApprovedCreator, setIsApprovedCreator] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -25,7 +26,7 @@ export default function StartLivePage() {
       router.replace("/login");
       return;
     }
-    // Validate token and ensure only approved creators can access this page.
+    // Validate token and check creator status for conditional UI.
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -39,9 +40,7 @@ export default function StartLivePage() {
       })
       .then((data) => {
         if (!data) return;
-        if (data.role !== "creator" || data.creatorStatus !== "approved") {
-          router.replace("/dashboard");
-        }
+        setIsApprovedCreator(data.role === "creator" && data.creatorStatus === "approved");
       })
       .catch(() => {});
   }, [router]);
@@ -100,6 +99,12 @@ export default function StartLivePage() {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+
+      {!isApprovedCreator && (
+        <div className="creator-notice">
+          📡 Transmites como usuario normal. <a href="/creator-request">Solicita acceso creator</a> para monetizar tus directos.
+        </div>
+      )}
 
       <form className="start-form card" onSubmit={startLive}>
           <div className="form-group">
@@ -173,33 +178,55 @@ export default function StartLivePage() {
             </div>
           </div>
 
-          {/* Privacy toggle */}
+          {/* Privacy toggle — paid private streams are creator-only */}
           <div className="form-group">
             <label className="form-label">Privacidad</label>
-            <div className="privacy-toggle">
-              <button
-                type="button"
-                className={`privacy-btn${!isPrivate ? " active" : ""}`}
-                onClick={() => setIsPrivate(false)}
-              >
-                🌐 Público
-              </button>
-              <button
-                type="button"
-                className={`privacy-btn${isPrivate ? " active" : ""}`}
-                onClick={() => setIsPrivate(true)}
-              >
-                🔒 Privado (monedas)
-              </button>
-            </div>
-            {isPrivate && (
-              <p className="privacy-hint">
-                Solo los usuarios que paguen la entrada podrán ver este directo.
-              </p>
+            {isApprovedCreator ? (
+              <>
+                <div className="privacy-toggle">
+                  <button
+                    type="button"
+                    className={`privacy-btn${!isPrivate ? " active" : ""}`}
+                    onClick={() => setIsPrivate(false)}
+                  >
+                    🌐 Público
+                  </button>
+                  <button
+                    type="button"
+                    className={`privacy-btn${isPrivate ? " active" : ""}`}
+                    onClick={() => setIsPrivate(true)}
+                  >
+                    🔒 Privado (monedas)
+                  </button>
+                </div>
+                {isPrivate && (
+                  <p className="privacy-hint">
+                    Solo los usuarios que paguen la entrada podrán ver este directo.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="privacy-toggle">
+                <button
+                  type="button"
+                  className="privacy-btn active"
+                  disabled
+                >
+                  🌐 Público
+                </button>
+                <button
+                  type="button"
+                  className="privacy-btn privacy-btn-locked"
+                  disabled
+                  title="Solo creadores aprobados pueden crear directos privados de pago"
+                >
+                  🔒 Privado (monedas) — solo creadores
+                </button>
+              </div>
             )}
           </div>
 
-          {isPrivate && (
+          {isApprovedCreator && isPrivate && (
             <div className="form-group">
               <label className="form-label">Coste de entrada (monedas) *</label>
               <input
@@ -337,6 +364,27 @@ export default function StartLivePage() {
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
+        }
+
+        .creator-notice {
+          background: rgba(129,140,248,0.08);
+          border: 1px solid rgba(129,140,248,0.25);
+          color: var(--text-muted);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+
+        .creator-notice a {
+          color: var(--accent-3);
+          text-decoration: underline;
+          font-weight: 600;
+        }
+
+        .privacy-btn-locked {
+          opacity: 0.45;
+          cursor: not-allowed;
         }
       `}</style>
     </div>

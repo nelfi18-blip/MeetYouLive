@@ -332,9 +332,14 @@ export default function DashboardPage() {
 
   const isApprovedCreator = isCreator && creatorStatus === "approved";
 
+  // "Transmitir" is available to all authenticated users
+  const streamCard = [
+    { href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" },
+  ];
+
+  // Monetization tools are only available to approved creators
   const creatorCards = isApprovedCreator
     ? [
-        { href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" },
         { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
         { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
         { href: "/private-calls", title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
@@ -344,7 +349,7 @@ export default function DashboardPage() {
 
   const requestCard =
     !isCreator && creatorStatus === "none"
-      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Aplica para transmitir y ganar", icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
+      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Aplica para monetizar tus directos y ganar", icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
       : [];
 
   const pendingCard =
@@ -357,7 +362,7 @@ export default function DashboardPage() {
       ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Rechazada. Vuelve a aplicar.", icon: CreatorRequestIcon, color: "green", size: "normal" }]
       : [];
 
-  const allCards = [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
+  const allCards = [...CARDS, ...streamCard, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
 
   return (
     <div className="dashboard">
@@ -388,6 +393,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Navigation cards grid */}
+      {!isApprovedCreator && (
+        <div className="stream-notice">
+          📡 Transmites como usuario normal.{" "}
+          <a href="/creator-request">Solicita acceso creator</a> para monetizar tus directos.
+        </div>
+      )}
       <div className="cards-grid">
         {allCards.map((card) => {
           const Icon = card.icon;
@@ -544,6 +555,21 @@ export default function DashboardPage() {
         }
 
         /* ── Cards grid ──────── */
+        .stream-notice {
+          background: rgba(129,140,248,0.08);
+          border: 1px solid rgba(129,140,248,0.22);
+          color: var(--text-muted);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1.1rem;
+          font-size: 0.875rem;
+          line-height: 1.5;
+        }
+        .stream-notice a {
+          color: var(--accent-3);
+          text-decoration: underline;
+          font-weight: 600;
+        }
+
         .cards-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));

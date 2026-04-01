@@ -4,6 +4,15 @@ import { useState, useEffect } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const RARITY_STYLES = {
+  common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"     },
+  uncommon:  { color: "#4ade80", glow: "rgba(74,222,128,0.35)",   label: "Poco común" },
+  rare:      { color: "#60a5fa", glow: "rgba(96,165,250,0.4)",    label: "Raro"      },
+  epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"     },
+  legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
+  mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"    },
+};
+
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState([]);
@@ -41,6 +50,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           giftId: selected._id,
           liveId,
           context: context || (liveId ? "live" : "profile"),
+          contextId: liveId || null,
           message: selected.name,
         }),
       });
@@ -63,6 +73,8 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     }
   };
 
+  const rStyle = (g) => RARITY_STYLES[g.rarity] || RARITY_STYLES.common;
+
   return (
     <div className="gift-btn-wrap">
       <button className="gift-trigger-btn" onClick={() => setOpen((v) => !v)} aria-label="Enviar regalo">
@@ -70,43 +82,72 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
       </button>
 
       {open && (
-        <div className="gift-panel">
-          <div className="gift-panel-header">
-            <span className="gift-panel-title">Elige un regalo</span>
-            <button className="gift-close-btn" onClick={() => setOpen(false)} aria-label="Cerrar">✕</button>
+        <>
+          <div className="gift-overlay" onClick={() => setOpen(false)} />
+          <div className="gift-panel">
+            <div className="gift-panel-header">
+              <span className="gift-panel-title">🎁 Enviar regalo</span>
+              <button className="gift-close-btn" onClick={() => setOpen(false)} aria-label="Cerrar">✕</button>
+            </div>
+
+            {error && <div className="gift-feedback gift-feedback-error">{error}</div>}
+            {success && <div className="gift-feedback gift-feedback-success">{success}</div>}
+
+            <div className="gift-catalog">
+              {catalog.map((g) => {
+                const rs = rStyle(g);
+                const isSelected = selected?._id === g._id;
+                return (
+                  <button
+                    key={g._id}
+                    className={`gift-item${isSelected ? " gift-item-selected" : ""}`}
+                    style={{
+                      "--rarity-color": rs.color,
+                      "--rarity-glow": rs.glow,
+                    }}
+                    onClick={() => setSelected(g)}
+                  >
+                    <span className="gift-rarity-dot" title={rs.label} />
+                    <span className="gift-item-icon">{g.icon}</span>
+                    <span className="gift-item-name">{g.name}</span>
+                    <span className="gift-item-cost">🪙 {g.coinCost}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selected && (
+              <div className="gift-confirm-bar">
+                <span className="gift-confirm-text">
+                  {selected.icon} <strong>{selected.name}</strong> — {selected.coinCost} 🪙
+                  <em className="gift-rarity-label" style={{ color: rStyle(selected).color }}>
+                    {" "}· {rStyle(selected).label}
+                  </em>
+                </span>
+              </div>
+            )}
+
+            <button
+              className="gift-send-btn"
+              onClick={send}
+              disabled={!selected || loading}
+            >
+              {loading ? "Enviando…" : selected ? `Enviar ${selected.icon} · ${selected.coinCost} 🪙` : "Selecciona un regalo"}
+            </button>
           </div>
-
-          {error && <div className="gift-error">{error}</div>}
-          {success && <div className="gift-success">{success}</div>}
-
-          <div className="gift-catalog">
-            {catalog.map((g) => (
-              <button
-                key={g._id}
-                className={`gift-item${selected?._id === g._id ? " gift-item-selected" : ""}`}
-                onClick={() => setSelected(g)}
-              >
-                <span className="gift-item-icon">{g.icon}</span>
-                <span className="gift-item-name">{g.name}</span>
-                <span className="gift-item-cost">🪙 {g.coinCost}</span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="gift-send-btn"
-            onClick={send}
-            disabled={!selected || loading}
-          >
-            {loading ? "Enviando…" : selected ? `Enviar ${selected.icon} (${selected.coinCost} 🪙)` : "Selecciona un regalo"}
-          </button>
-        </div>
+        </>
       )}
 
       <style jsx>{`
         .gift-btn-wrap {
           position: relative;
           display: inline-block;
+        }
+
+        .gift-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 98;
         }
 
         .gift-trigger-btn {
@@ -126,24 +167,26 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         }
 
         .gift-trigger-btn:hover {
-          background: rgba(224,64,251,0.2);
-          border-color: rgba(224,64,251,0.6);
+          background: rgba(224,64,251,0.22);
+          border-color: rgba(224,64,251,0.65);
+          box-shadow: 0 0 12px rgba(224,64,251,0.25);
         }
 
         .gift-panel {
           position: absolute;
           bottom: calc(100% + 10px);
           left: 0;
-          z-index: 100;
-          width: 300px;
-          background: var(--bg-2, #1a0f2e);
-          border: 1px solid var(--border);
+          z-index: 99;
+          width: 320px;
+          background: rgba(10,4,24,0.97);
+          border: 1px solid rgba(224,64,251,0.25);
           border-radius: var(--radius);
-          padding: 1rem;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          padding: 1.1rem;
+          box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 30px rgba(139,92,246,0.12);
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          backdrop-filter: blur(12px);
         }
 
         .gift-panel-header {
@@ -153,28 +196,36 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         }
 
         .gift-panel-title {
-          font-size: 0.9rem;
-          font-weight: 700;
+          font-size: 0.95rem;
+          font-weight: 800;
           color: var(--text);
+          letter-spacing: 0.02em;
         }
 
         .gift-close-btn {
-          background: none;
-          border: none;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid var(--border);
           color: var(--text-muted);
           cursor: pointer;
-          font-size: 0.85rem;
-          padding: 0.2rem 0.4rem;
-          border-radius: var(--radius-sm);
-          transition: color var(--transition);
+          font-size: 0.8rem;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all var(--transition);
           font-family: inherit;
         }
 
-        .gift-close-btn:hover { color: var(--text); }
+        .gift-close-btn:hover {
+          background: rgba(255,255,255,0.12);
+          color: var(--text);
+        }
 
         .gift-catalog {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 0.5rem;
         }
 
@@ -182,76 +233,119 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.6rem 0.3rem;
+          gap: 0.2rem;
+          padding: 0.65rem 0.25rem 0.5rem;
           border-radius: var(--radius-sm);
-          border: 1px solid var(--border);
-          background: transparent;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.02);
           cursor: pointer;
-          transition: all var(--transition);
+          transition: all 0.2s ease;
           font-family: inherit;
+          position: relative;
         }
 
         .gift-item:hover {
-          border-color: rgba(224,64,251,0.4);
-          background: rgba(224,64,251,0.08);
+          border-color: var(--rarity-color);
+          background: rgba(255,255,255,0.04);
+          box-shadow: 0 0 10px var(--rarity-glow);
+          transform: translateY(-2px);
         }
 
         .gift-item-selected {
-          border-color: rgba(224,64,251,0.7);
-          background: rgba(224,64,251,0.15);
-          box-shadow: 0 0 12px rgba(224,64,251,0.25);
+          border-color: var(--rarity-color) !important;
+          background: rgba(255,255,255,0.06) !important;
+          box-shadow: 0 0 16px var(--rarity-glow) !important;
         }
 
-        .gift-item-icon { font-size: 1.5rem; }
+        .gift-rarity-dot {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--rarity-color);
+          box-shadow: 0 0 4px var(--rarity-glow);
+        }
+
+        .gift-item-icon { font-size: 1.6rem; line-height: 1; }
 
         .gift-item-name {
-          font-size: 0.65rem;
+          font-size: 0.62rem;
           color: var(--text-muted);
-          font-weight: 600;
+          font-weight: 700;
           text-align: center;
+          line-height: 1.2;
         }
 
         .gift-item-cost {
-          font-size: 0.65rem;
-          color: var(--text-dim);
-          font-weight: 500;
+          font-size: 0.62rem;
+          color: #fbbf24;
+          font-weight: 600;
+        }
+
+        .gift-confirm-bar {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: var(--radius-sm);
+          padding: 0.5rem 0.75rem;
+        }
+
+        .gift-confirm-text {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .gift-confirm-text strong {
+          color: var(--text);
+          font-weight: 700;
+        }
+
+        .gift-rarity-label {
+          font-style: normal;
+          font-weight: 600;
+          font-size: 0.75rem;
         }
 
         .gift-send-btn {
           width: 100%;
-          padding: 0.7rem;
+          padding: 0.75rem;
           border-radius: var(--radius-sm);
           border: none;
           background: var(--grad-primary);
           color: #fff;
-          font-size: 0.875rem;
+          font-size: 0.9rem;
           font-weight: 700;
           cursor: pointer;
-          transition: filter var(--transition);
+          transition: filter 0.2s ease, box-shadow 0.2s ease;
           font-family: inherit;
         }
 
-        .gift-send-btn:hover:not(:disabled) { filter: brightness(1.1); }
-        .gift-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .gift-error {
-          font-size: 0.8rem;
-          color: var(--error, #f87171);
-          background: rgba(248,113,113,0.1);
-          border: 1px solid rgba(248,113,113,0.25);
-          border-radius: var(--radius-sm);
-          padding: 0.4rem 0.65rem;
+        .gift-send-btn:hover:not(:disabled) {
+          filter: brightness(1.12);
+          box-shadow: 0 0 16px rgba(255,15,138,0.4);
         }
 
-        .gift-success {
+        .gift-send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .gift-feedback {
           font-size: 0.8rem;
-          color: var(--accent-green, #34d399);
-          background: rgba(52,211,153,0.1);
-          border: 1px solid rgba(52,211,153,0.25);
+          font-weight: 600;
           border-radius: var(--radius-sm);
-          padding: 0.4rem 0.65rem;
+          padding: 0.45rem 0.7rem;
           text-align: center;
+        }
+
+        .gift-feedback-error {
+          color: #f87171;
+          background: rgba(248,113,113,0.1);
+          border: 1px solid rgba(248,113,113,0.25);
+        }
+
+        .gift-feedback-success {
+          color: #4ade80;
+          background: rgba(74,222,128,0.1);
+          border: 1px solid rgba(74,222,128,0.25);
         }
 
         @media (max-width: 480px) {

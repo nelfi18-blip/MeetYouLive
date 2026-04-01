@@ -9,12 +9,12 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
-  { name: "Neon Heart",   icon: "💗", coinCost: 10 },
-  { name: "Fire Kiss",    icon: "🔥", coinCost: 25 },
-  { name: "Moon Rose",    icon: "🌹", coinCost: 50 },
-  { name: "Diamond Wink", icon: "💎", coinCost: 100 },
-  { name: "Golden Ring",  icon: "💍", coinCost: 200 },
-  { name: "Secret Flame", icon: "🕯️", coinCost: 500 },
+  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common"    },
+  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon"  },
+  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare"      },
+  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic"      },
+  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary" },
+  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic"    },
 ];
 
 const seedGiftCatalog = async () => {
@@ -36,7 +36,7 @@ const getGiftCatalog = async (req, res) => {
 };
 
 const sendGift = async (req, res) => {
-  const { receiverId, giftId, liveId, context, message } = req.body;
+  const { receiverId, giftId, liveId, context, contextId, message } = req.body;
   if (!receiverId || !giftId) {
     return res.status(400).json({ message: "receiverId y giftId son requeridos" });
   }
@@ -70,6 +70,7 @@ const sendGift = async (req, res) => {
     });
 
     const resolvedContext = context || (liveId ? "live" : "profile");
+    const resolvedContextId = contextId || liveId || null;
     const giftDoc = await Gift.create({
       sender: req.userId,
       receiver: receiverId,
@@ -79,6 +80,7 @@ const sendGift = async (req, res) => {
       creatorShare,
       platformShare,
       context: resolvedContext,
+      contextId: resolvedContextId,
       message,
     });
     await giftDoc.populate("sender", "username name");
@@ -139,11 +141,18 @@ const adminGetCatalog = async (req, res) => {
 
 const adminCreateCatalogItem = async (req, res) => {
   try {
-    const { name, icon, coinCost, active } = req.body;
-    if (!name || !icon || !coinCost) {
-      return res.status(400).json({ message: "name, icon y coinCost son requeridos" });
+    const { name, slug, icon, coinCost, active, rarity } = req.body;
+    if (!name || !slug || !icon || !coinCost) {
+      return res.status(400).json({ message: "name, slug, icon y coinCost son requeridos" });
     }
-    const item = await GiftCatalog.create({ name, icon, coinCost, active: active !== false });
+    const item = await GiftCatalog.create({
+      name,
+      slug,
+      icon,
+      coinCost,
+      active: active !== false,
+      rarity: rarity || "common",
+    });
     res.status(201).json(item);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -152,12 +161,14 @@ const adminCreateCatalogItem = async (req, res) => {
 
 const adminUpdateCatalogItem = async (req, res) => {
   try {
-    const { name, icon, coinCost, active } = req.body;
+    const { name, slug, icon, coinCost, active, rarity } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
+    if (slug !== undefined) updates.slug = slug;
     if (icon !== undefined) updates.icon = icon;
     if (coinCost !== undefined) updates.coinCost = coinCost;
     if (active !== undefined) updates.active = active;
+    if (rarity !== undefined) updates.rarity = rarity;
     const item = await GiftCatalog.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,

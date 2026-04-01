@@ -20,7 +20,7 @@ export default function AdminPage() {
 
   // Gift catalog state
   const [giftCatalog, setGiftCatalog] = useState([]);
-  const [giftForm, setGiftForm] = useState({ name: "", icon: "", coinCost: "", active: true });
+  const [giftForm, setGiftForm] = useState({ name: "", slug: "", icon: "", coinCost: "", rarity: "common", active: true });
   const [editingGift, setEditingGift] = useState(null);
   const [giftActionLoading, setGiftActionLoading] = useState(false);
   const [giftActionError, setGiftActionError] = useState("");
@@ -97,15 +97,17 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: giftForm.name,
+          slug: giftForm.slug,
           icon: giftForm.icon,
           coinCost: Number(giftForm.coinCost),
+          rarity: giftForm.rarity,
           active: giftForm.active,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error");
       setGiftActionSuccess(isEdit ? "Regalo actualizado" : "Regalo creado");
-      setGiftForm({ name: "", icon: "", coinCost: "", active: true });
+      setGiftForm({ name: "", slug: "", icon: "", coinCost: "", rarity: "common", active: true });
       setEditingGift(null);
       await loadGiftCatalog();
     } catch (err) {
@@ -136,7 +138,7 @@ export default function AdminPage() {
 
   const startEditGift = (item) => {
     setEditingGift(item);
-    setGiftForm({ name: item.name, icon: item.icon, coinCost: String(item.coinCost), active: item.active });
+    setGiftForm({ name: item.name, slug: item.slug || "", icon: item.icon, coinCost: String(item.coinCost), rarity: item.rarity || "common", active: item.active });
     setGiftActionError("");
     setGiftActionSuccess("");
   };
@@ -611,7 +613,17 @@ export default function AdminPage() {
                   value={giftForm.name}
                   onChange={(e) => setGiftForm((f) => ({ ...f, name: e.target.value }))}
                   required
-                  placeholder="Ej: Rosa"
+                  placeholder="Ej: Neon Heart"
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Slug</label>
+                <input
+                  value={giftForm.slug}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, slug: e.target.value }))}
+                  required
+                  placeholder="neon-heart"
                   style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }}
                 />
               </div>
@@ -621,7 +633,7 @@ export default function AdminPage() {
                   value={giftForm.icon}
                   onChange={(e) => setGiftForm((f) => ({ ...f, icon: e.target.value }))}
                   required
-                  placeholder="🌹"
+                  placeholder="💗"
                   style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "1.2rem", width: "70px", textAlign: "center" }}
                 />
               </div>
@@ -633,9 +645,24 @@ export default function AdminPage() {
                   value={giftForm.coinCost}
                   onChange={(e) => setGiftForm((f) => ({ ...f, coinCost: e.target.value }))}
                   required
-                  placeholder="10"
+                  placeholder="20"
                   style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem", width: "90px" }}
                 />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Rareza</label>
+                <select
+                  value={giftForm.rarity}
+                  onChange={(e) => setGiftForm((f) => ({ ...f, rarity: e.target.value }))}
+                  style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }}
+                >
+                  <option value="common">Común</option>
+                  <option value="uncommon">Poco común</option>
+                  <option value="rare">Raro</option>
+                  <option value="epic">Épico</option>
+                  <option value="legendary">Legendario</option>
+                  <option value="mythic">Mítico</option>
+                </select>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
                 <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Activo</label>
@@ -658,7 +685,7 @@ export default function AdminPage() {
               {editingGift && (
                 <button
                   type="button"
-                  onClick={() => { setEditingGift(null); setGiftForm({ name: "", icon: "", coinCost: "", active: true }); }}
+                  onClick={() => { setEditingGift(null); setGiftForm({ name: "", slug: "", icon: "", coinCost: "", rarity: "common", active: true }); }}
                   style={{ padding: "0.45rem 1rem", background: "transparent", color: "#94a3b8", border: "1px solid #334155", borderRadius: "4px", fontSize: "0.875rem", cursor: "pointer" }}
                 >
                   Cancelar
@@ -676,7 +703,9 @@ export default function AdminPage() {
                 <tr style={{ background: "#1e293b" }}>
                   <Th>Icono</Th>
                   <Th>Nombre</Th>
+                  <Th>Slug</Th>
                   <Th>Costo</Th>
+                  <Th>Rareza</Th>
                   <Th>Activo</Th>
                   <Th>Acciones</Th>
                 </tr>
@@ -686,7 +715,9 @@ export default function AdminPage() {
                   <tr key={item._id} style={{ borderBottom: "1px solid #334155" }}>
                     <Td><span style={{ fontSize: "1.4rem" }}>{item.icon}</span></Td>
                     <Td>{item.name}</Td>
+                    <Td><code style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{item.slug || "—"}</code></Td>
                     <Td>🪙 {item.coinCost}</Td>
+                    <Td><span style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "capitalize" }}>{item.rarity || "common"}</span></Td>
                     <Td>
                       <span style={{ color: item.active ? "#34d399" : "#f87171", fontWeight: 600 }}>
                         {item.active ? "Activo" : "Inactivo"}
@@ -702,7 +733,7 @@ export default function AdminPage() {
                 ))}
                 {giftCatalog.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
+                    <td colSpan={7} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
                       No hay regalos en el catálogo
                     </td>
                   </tr>

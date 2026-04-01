@@ -14,6 +14,7 @@ const giftSchema = new mongoose.Schema(
       enum: ["live", "profile", "private_call"],
       default: "profile",
     },
+    contextId: { type: String, default: null },
     message: { type: String },
   },
   { timestamps: true }

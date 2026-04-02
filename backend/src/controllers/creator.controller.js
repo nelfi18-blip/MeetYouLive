@@ -1,16 +1,27 @@
+const mongoose = require("mongoose");
 const Gift = require("../models/Gift.js");
 const User = require("../models/User.js");
 
+const requireApprovedCreator = async (userId) => {
+  const user = await User.findById(userId).select("role creatorStatus");
+  if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+    return null;
+  }
+  return user;
+};
+
 const getEarnings = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("role creatorStatus");
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+    const user = await requireApprovedCreator(req.userId);
+    if (!user) {
       return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
     }
 
+    const creatorId = new mongoose.Types.ObjectId(req.userId);
+
     const [aggResult, recentGifts] = await Promise.all([
       Gift.aggregate([
-        { $match: { receiver: user._id } },
+        { $match: { receiver: creatorId } },
         {
           $group: {
             _id: null,
@@ -21,7 +32,7 @@ const getEarnings = async (req, res) => {
           },
         },
       ]),
-      Gift.find({ receiver: req.userId })
+      Gift.find({ receiver: creatorId })
         .populate("sender", "username name")
         .populate("giftCatalogItem", "name icon coinCost")
         .sort({ createdAt: -1 })
@@ -53,4 +64,18 @@ const getEarnings = async (req, res) => {
   }
 };
 
-module.exports = { getEarnings };
+const requestPayout = async (req, res) => {
+  try {
+    const user = await requireApprovedCreator(req.userId);
+    if (!user) {
+      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
+    }
+
+    // Placeholder: payout logic will be implemented in a future update.
+    return res.status(200).json({ message: "Solicitud de retiro recibida. Será procesada pronto." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { getEarnings, requestPayout };

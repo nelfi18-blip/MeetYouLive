@@ -55,7 +55,11 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, g
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.
-// Returns { canEarn, agencyShare, creatorNetShare, parentCreatorId }
+// Returns { canEarn, agencyShare, creatorNetShare, parentCreatorId }:
+//   canEarn        – whether the receiver is an approved creator
+//   agencyShare    – coins credited to the parent agency (0 if no agency)
+//   creatorNetShare – coins credited to the creator after agency share
+//   parentCreatorId – ObjectId of the parent agency creator (null if none)
 const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
   // Cast IDs to ObjectId to prevent NoSQL injection from user-supplied strings
   const senderObjId = new mongoose.Types.ObjectId(senderId);

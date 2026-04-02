@@ -29,10 +29,9 @@ const agencyRelationshipSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Enforce uniqueness: a sub-creator can only belong to one active/pending parent.
-// Removed: do NOT place a unique index on subCreator alone — a sub-creator must be
-// able to create a new relationship after a previous one is removed.
-// One-parent enforcement is handled at the controller level.
+// Note: No unique index on the subCreator field so that a sub-creator can create a new
+// relationship after a previous one is removed. One-parent enforcement is handled at the
+// controller level by checking for pending/active/suspended relationships.
 
 const AgencyRelationship = mongoose.model("AgencyRelationship", agencyRelationshipSchema);
 

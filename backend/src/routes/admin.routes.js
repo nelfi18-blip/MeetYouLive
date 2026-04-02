@@ -225,7 +225,8 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
         : "AGY" + Math.floor(10000 + Math.random() * 90000);
     }
 
-    await User.findByIdAndUpdate(req.params.creatorId, {
+    const safeCreatorId = new mongoose.Types.ObjectId(req.params.creatorId);
+    await User.findByIdAndUpdate(safeCreatorId, {
       "agencyProfile.enabled": true,
       "agencyProfile.agencyName": agencyName || creator.agencyProfile?.agencyName || creator.name || creator.username || "",
       "agencyProfile.agencyCode": agencyCode,
@@ -244,7 +245,7 @@ router.patch("/agencies/:creatorId/disable", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) {
       return res.status(400).json({ message: "creatorId inválido" });
     }
-    await User.findByIdAndUpdate(req.params.creatorId, { "agencyProfile.enabled": false });
+    await User.findByIdAndUpdate(new mongoose.Types.ObjectId(req.params.creatorId), { "agencyProfile.enabled": false });
     res.json({ message: "Agencia deshabilitada" });
   } catch (err) {
     res.status(500).json({ message: err.message });

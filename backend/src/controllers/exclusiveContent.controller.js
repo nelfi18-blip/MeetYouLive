@@ -98,6 +98,9 @@ const getContent = async (req, res) => {
 const unlockContent = async (req, res) => {
   let contentDoc;
   let creatorShare;
+  // Declared outside transaction for use in fire-and-forget transactions below
+  let txAgencyShare = 0;
+  let txParentCreatorId = null;
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -167,9 +170,9 @@ const unlockContent = async (req, res) => {
         { session }
       );
 
-      // Store for use outside transaction
-      contentDoc._agencyShare = agencyShare;
-      contentDoc._parentCreatorId = parentCreatorId;
+      // Capture for use after transaction
+      txAgencyShare = agencyShare;
+      txParentCreatorId = parentCreatorId;
     });
 
     // Record coin transactions (fire-and-forget; don't fail the unlock if this errors)
@@ -191,11 +194,11 @@ const unlockContent = async (req, res) => {
         metadata: { contentId: contentDoc._id },
       },
     ];
-    if (contentDoc._agencyShare > 0 && contentDoc._parentCreatorId) {
+    if (txAgencyShare > 0 && txParentCreatorId) {
       txDocs.push({
-        userId: contentDoc._parentCreatorId,
+        userId: txParentCreatorId,
         type: "agency_earned",
-        amount: contentDoc._agencyShare,
+        amount: txAgencyShare,
         reason: `Comisión de agencia por contenido exclusivo`,
         status: "completed",
         metadata: { contentId: contentDoc._id, subCreatorId: String(contentDoc.creator) },

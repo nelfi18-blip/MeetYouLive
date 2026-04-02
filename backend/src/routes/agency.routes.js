@@ -25,7 +25,7 @@ const agencyWriteLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.use(verifyToken);
+router.use(agencyLimiter, verifyToken);
 
 // Agency-creator routes
 router.get("/me", agencyLimiter, getMyAgency);

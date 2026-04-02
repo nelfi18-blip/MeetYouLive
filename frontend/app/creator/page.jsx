@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const MIN_PAYOUT_COINS = 100;
 
 function BroadcastIcon() {
   return (
@@ -62,6 +63,12 @@ export default function CreatorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [earnings, setEarnings] = useState(null);
+  const [stats, setStats] = useState(null);
+
+  // Payout state
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutSuccess, setPayoutSuccess] = useState("");
 
   // Private call settings state
   const [callEnabled, setCallEnabled] = useState(false);
@@ -82,8 +89,9 @@ export default function CreatorPage() {
       fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${API_URL}/api/lives/mine`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${API_URL}/api/creator/earnings`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_URL}/api/creator/stats`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
-      .then(async ([userRes, livesRes, earningsRes]) => {
+      .then(async ([userRes, livesRes, earningsRes, statsRes]) => {
         if (userRes.status === 401) {
           clearToken();
           router.replace("/login");
@@ -109,6 +117,10 @@ export default function CreatorPage() {
 
         if (earningsRes.ok) {
           setEarnings(await earningsRes.json());
+        }
+
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
         }
       })
       .catch(() => setError("No se pudo cargar el estudio"))
@@ -146,6 +158,30 @@ export default function CreatorPage() {
     }
   };
 
+  const handleRequestPayout = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setPayoutLoading(true);
+    setPayoutError("");
+    setPayoutSuccess("");
+    try {
+      const res = await fetch(`${API_URL}/api/creator/payout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error al solicitar el pago");
+      setPayoutSuccess(data.message || "Solicitud enviada correctamente.");
+      setStats((prev) => ({ ...(prev || {}), earningsCoins: 0, pendingPayout: data.payout }));
+      setUser((prev) => ({ ...(prev || {}), earningsCoins: 0 }));
+      setTimeout(() => setPayoutSuccess(""), 5000);
+    } catch (err) {
+      setPayoutError(err.message);
+    } finally {
+      setPayoutLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="creator-page">
@@ -170,6 +206,7 @@ export default function CreatorPage() {
   const initial = displayName[0].toUpperCase();
 
   const recentLives = lives.slice(0, 5);
+  const availableEarnings = stats?.earningsCoins ?? user?.earningsCoins ?? 0;
 
   return (
     <div className="creator-page">
@@ -250,6 +287,46 @@ export default function CreatorPage() {
           )}
         </div>
       )}
+
+      {/* Payout Section */}
+      <div className="payout-card">
+        <div className="payout-header">
+          <h2 className="section-title" style={{ margin: 0 }}>💸 Solicitar pago</h2>
+          {stats?.pendingPayout && (
+            <span className="payout-status-badge">En proceso</span>
+          )}
+        </div>
+        <p className="payout-desc">
+          Retira tus ganancias acumuladas. Mínimo {MIN_PAYOUT_COINS} monedas requeridas.
+        </p>
+        <div className="payout-balance">
+          <span className="payout-balance-label">Saldo disponible</span>
+          <span className="payout-balance-value">
+            🪙 {availableEarnings}
+          </span>
+        </div>
+        {stats?.pendingPayout ? (
+          <div className="payout-pending-notice">
+            ⏳ Tienes una solicitud pendiente de <strong>{stats.pendingPayout.amountCoins} monedas</strong> — te avisaremos cuando sea procesada.
+          </div>
+        ) : (
+          <>
+            {payoutError && <div className="settings-alert settings-error">{payoutError}</div>}
+            {payoutSuccess && <div className="settings-alert settings-success">{payoutSuccess}</div>}
+            <button
+              className="btn btn-primary payout-btn"
+              onClick={handleRequestPayout}
+              disabled={payoutLoading || availableEarnings < MIN_PAYOUT_COINS}
+            >
+              {payoutLoading ? "Enviando…" : "Solicitar pago"}
+            </button>
+            {availableEarnings < MIN_PAYOUT_COINS && (
+              <p className="payout-hint">Necesitas al menos {MIN_PAYOUT_COINS} monedas de ganancias para solicitar un pago.</p>
+            )}
+          </>
+        )}
+      </div>
+
       <div className="creator-tools">
         <h2 className="section-title">Herramientas</h2>
         <div className="tools-grid">
@@ -978,6 +1055,85 @@ export default function CreatorPage() {
 
         .settings-save-btn {
           align-self: flex-start;
+        }
+
+        /* Payout card */
+        .payout-card {
+          background: linear-gradient(135deg, rgba(15,8,32,0.95) 0%, rgba(22,12,45,0.95) 100%);
+          border: 1px solid rgba(52,211,153,0.2);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .payout-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .payout-status-badge {
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.3);
+          border-radius: var(--radius-pill);
+          padding: 0.2rem 0.75rem;
+        }
+
+        .payout-desc {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .payout-balance {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.875rem 1rem;
+          background: rgba(52,211,153,0.06);
+          border: 1px solid rgba(52,211,153,0.15);
+          border-radius: var(--radius-sm);
+        }
+
+        .payout-balance-label {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .payout-balance-value {
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #34d399;
+        }
+
+        .payout-pending-notice {
+          font-size: 0.85rem;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.08);
+          border: 1px solid rgba(251,191,36,0.2);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          line-height: 1.5;
+        }
+
+        .payout-btn {
+          align-self: flex-start;
+        }
+
+        .payout-hint {
+          font-size: 0.78rem;
+          color: var(--text-dim);
+          margin: 0;
         }
       `}</style>
     </div>

@@ -169,7 +169,8 @@ const sendGift = async (req, res) => {
     const { canEarn, agencyShare, creatorNetShare, parentCreatorId } = transferResult;
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-    const platformShare = amount - effectiveCreatorShare - (canEarn ? agencyShare : 0);
+    // Platform always takes fixed 40%; agency share comes from creator's 60% only
+    const platformShare = Math.floor(amount * COMMISSION_RATE);
 
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
@@ -258,7 +259,8 @@ const sendGiftBySlug = async (req, res) => {
 
     const { canEarn, agencyShare, creatorNetShare, parentCreatorId } = transferResult;
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-    const platformShare = amount - effectiveCreatorShare - (canEarn ? agencyShare : 0);
+    // Platform always takes fixed 40%; agency share comes from creator's 60% only
+    const platformShare = Math.floor(amount * COMMISSION_RATE);
 
     const resolvedContext = context || "profile";
     const resolvedContextId = contextId || null;

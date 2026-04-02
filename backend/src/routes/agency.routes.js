@@ -1,4 +1,5 @@
 const { Router } = require("express");
+const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const {
   getMyAgency,
@@ -11,16 +12,29 @@ const {
 
 const router = Router();
 
+const agencyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+});
+
+// Write operations have stricter limits
+const agencyWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+});
+
 router.use(verifyToken);
 
 // Agency-creator routes
-router.get("/me", getMyAgency);
-router.get("/sub-creators", getSubCreators);
-router.post("/invite", inviteSubCreator);
-router.patch("/sub-creators/:id/percentage", updateSubCreatorPercentage);
-router.patch("/sub-creators/:id/remove", removeSubCreator);
+router.get("/me", agencyLimiter, getMyAgency);
+router.get("/sub-creators", agencyLimiter, getSubCreators);
+router.post("/invite", agencyWriteLimiter, inviteSubCreator);
+router.patch("/sub-creators/:id/percentage", agencyWriteLimiter, updateSubCreatorPercentage);
+router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);
 
 // Sub-creator route — any creator can view their own agency relationship
-router.get("/my-relationship", getMyRelationship);
+router.get("/my-relationship", agencyLimiter, getMyRelationship);
 
 module.exports = router;

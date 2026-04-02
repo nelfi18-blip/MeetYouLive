@@ -137,7 +137,8 @@ const unlockContent = async (req, res) => {
       }
 
       creatorShare = creatorNetShare;
-      const platformShare = amount - creatorNetShare - agencyShare;
+      // Platform always takes fixed 40%; agency share comes from creator's 60% only
+      const platformShare = Math.floor(amount * COMMISSION_RATE);
 
       const buyer = await User.findById(req.userId).session(session);
       if (!buyer || buyer.coins < amount) {

@@ -199,15 +199,19 @@ router.get("/agencies", async (req, res) => {
 // PATCH /api/admin/agencies/:creatorId/enable — enable agency for an approved creator
 router.patch("/agencies/:creatorId/enable", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) {
+      return res.status(400).json({ message: "creatorId inválido" });
+    }
     const { agencyName, subCreatorPercentageDefault } = req.body;
     const creator = await User.findById(req.params.creatorId);
     if (!creator) return res.status(404).json({ message: "Creador no encontrado" });
     if (creator.role !== "creator" || creator.creatorStatus !== "approved") {
       return res.status(400).json({ message: "Solo los creadores aprobados pueden tener agencia habilitada" });
     }
-    // Prevent a sub-creator from also becoming an agency
-    if (creator.agencyRelationship?.parentCreatorId) {
-      return res.status(400).json({ message: "Un sub-creador no puede ser también una agencia" });
+    // Prevent an active/pending sub-creator from also becoming an agency
+    const rel = creator.agencyRelationship;
+    if (rel && rel.parentCreatorId && ["active", "pending", "suspended"].includes(rel.status)) {
+      return res.status(400).json({ message: "Un sub-creador activo no puede ser también una agencia" });
     }
 
     const pctDefault = Number(subCreatorPercentageDefault) || 10;
@@ -237,6 +241,9 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
 // PATCH /api/admin/agencies/:creatorId/disable — disable agency (doesn't remove existing links)
 router.patch("/agencies/:creatorId/disable", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) {
+      return res.status(400).json({ message: "creatorId inválido" });
+    }
     await User.findByIdAndUpdate(req.params.creatorId, { "agencyProfile.enabled": false });
     res.json({ message: "Agencia deshabilitada" });
   } catch (err) {
@@ -248,7 +255,10 @@ router.patch("/agencies/:creatorId/disable", async (req, res) => {
 router.get("/agency-links", async (req, res) => {
   try {
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
+    const allowedStatuses = ["pending", "active", "suspended", "removed"];
+    if (req.query.status && allowedStatuses.includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
     const links = await AgencyRelationship.find(filter)
       .populate("parentCreator", "username name avatar")
       .populate("subCreator", "username name avatar creatorStatus")
@@ -264,6 +274,9 @@ router.get("/agency-links", async (req, res) => {
 // PATCH /api/admin/agency-links/:id/approve — approve pending relationship
 router.patch("/agency-links/:id/approve", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
     const rel = await AgencyRelationship.findById(req.params.id);
     if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
     if (rel.status !== "pending") return res.status(400).json({ message: "La relación no está pendiente" });
@@ -295,6 +308,9 @@ router.patch("/agency-links/:id/approve", async (req, res) => {
 // PATCH /api/admin/agency-links/:id/suspend — suspend an active relationship
 router.patch("/agency-links/:id/suspend", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
     const rel = await AgencyRelationship.findById(req.params.id);
     if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
     if (!["pending", "active"].includes(rel.status)) {
@@ -322,6 +338,9 @@ router.patch("/agency-links/:id/suspend", async (req, res) => {
 // PATCH /api/admin/agency-links/:id/remove — permanently remove a relationship
 router.patch("/agency-links/:id/remove", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
     const rel = await AgencyRelationship.findById(req.params.id);
     if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
     if (rel.status === "removed") return res.status(400).json({ message: "La relación ya está eliminada" });

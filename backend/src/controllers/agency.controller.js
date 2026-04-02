@@ -90,9 +90,12 @@ const inviteSubCreator = async (req, res) => {
       return res.status(400).json({ message: "Una agencia no puede ser también sub-creador de otra agencia" });
     }
 
-    // One-parent-only: sub-creator must not already have a relationship
-    const existing = await AgencyRelationship.findOne({ subCreator: subCreatorId });
-    if (existing && ["pending", "active"].includes(existing.status)) {
+    // One-parent-only: sub-creator must not already have an active or pending relationship
+    const existing = await AgencyRelationship.findOne({
+      subCreator: subCreatorId,
+      status: { $in: ["pending", "active", "suspended"] },
+    });
+    if (existing) {
       return res.status(400).json({ message: "Este creador ya está vinculado a una agencia" });
     }
 

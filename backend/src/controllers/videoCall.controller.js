@@ -2,6 +2,7 @@ const VideoCall = require("../models/VideoCall.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { calculateSplit } = require("../services/agency.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const CREATOR_SHARE_RATE = 0.60;
@@ -174,20 +175,56 @@ const respondCall = async (req, res) => {
 
       // Credit creator for paid calls — 60% creator share, 40% platform
       if (call.type === "paid_creator" && call.callCoins > 0) {
-        const creatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
+        const fullCreatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
+
+        // Apply agency split if creator has an active parent agency
+        const recipient = await User.findById(call.recipient);
+        let creatorNetShare = fullCreatorShare;
+        let agencyShare = 0;
+        let parentCreatorId = null;
+
+        if (recipient) {
+          const rel = recipient.agencyRelationship;
+          if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
+            const split = calculateSplit(call.callCoins, rel.parentCreatorPercentage);
+            agencyShare = split.agencyShare;
+            creatorNetShare = split.creatorNetShare;
+            parentCreatorId = rel.parentCreatorId;
+          }
+        }
+
         await User.findByIdAndUpdate(call.recipient, {
-          $inc: { earningsCoins: creatorShare },
+          $inc: { earningsCoins: creatorNetShare },
         });
 
-        // Record earnings transaction for creator (fire-and-forget)
-        CoinTransaction.create({
-          userId: call.recipient,
-          type: "private_call",
-          amount: creatorShare,
-          reason: `Llamada privada aceptada de ${call.caller}`,
-          status: "completed",
-          metadata: { callId: String(call._id), callerUserId: String(call.caller) },
-        }).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
+        if (agencyShare > 0 && parentCreatorId) {
+          await User.findByIdAndUpdate(parentCreatorId, {
+            $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: call.callCoins },
+          });
+        }
+
+        // Record earnings transactions for creator (and agency) — fire-and-forget
+        const txDocs = [
+          {
+            userId: call.recipient,
+            type: "private_call",
+            amount: creatorNetShare,
+            reason: `Llamada privada aceptada de ${call.caller}`,
+            status: "completed",
+            metadata: { callId: String(call._id), callerUserId: String(call.caller) },
+          },
+        ];
+        if (agencyShare > 0 && parentCreatorId) {
+          txDocs.push({
+            userId: parentCreatorId,
+            type: "agency_earned",
+            amount: agencyShare,
+            reason: `Comisión de agencia por llamada privada`,
+            status: "completed",
+            metadata: { callId: String(call._id), subCreatorId: String(call.recipient) },
+          });
+        }
+        CoinTransaction.create(txDocs).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
       }
     } else {
       call.status = "rejected";
@@ -371,7 +408,23 @@ const tickCall = async (req, res) => {
     }
 
     const pricePerMinute = call.callCoins;
-    const creatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
+    const fullCreatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
+
+    // Apply agency split if creator has an active parent agency
+    const creatorUser = await User.findById(call.recipient);
+    let creatorNetShare = fullCreatorShare;
+    let agencyShare = 0;
+    let parentCreatorId = null;
+
+    if (creatorUser) {
+      const rel = creatorUser.agencyRelationship;
+      if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
+        const split = calculateSplit(pricePerMinute, rel.parentCreatorPercentage);
+        agencyShare = split.agencyShare;
+        creatorNetShare = split.creatorNetShare;
+        parentCreatorId = rel.parentCreatorId;
+      }
+    }
 
     // Atomically deduct coins from caller
     const updatedCaller = await User.findOneAndUpdate(
@@ -388,12 +441,18 @@ const tickCall = async (req, res) => {
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
 
-    // Credit creator (60% share)
-    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorShare } });
+    // Credit creator (net share after agency)
+    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } });
+
+    if (agencyShare > 0 && parentCreatorId) {
+      await User.findByIdAndUpdate(parentCreatorId, {
+        $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
+      });
+    }
 
     // Record transactions (fire-and-forget)
     const txMeta = { callId: String(call._id) };
-    CoinTransaction.create([
+    const txDocs = [
       {
         userId: call.caller,
         type: "private_call",
@@ -405,14 +464,25 @@ const tickCall = async (req, res) => {
       {
         userId: call.recipient,
         type: "private_call",
-        amount: creatorShare,
+        amount: creatorNetShare,
         reason: `Minuto adicional en llamada privada de ${call.caller}`,
         status: "completed",
         metadata: txMeta,
       },
-    ]).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
+    ];
+    if (agencyShare > 0 && parentCreatorId) {
+      txDocs.push({
+        userId: parentCreatorId,
+        type: "agency_earned",
+        amount: agencyShare,
+        reason: `Comisión de agencia por minuto de llamada privada`,
+        status: "completed",
+        metadata: { ...txMeta, subCreatorId: String(call.recipient) },
+      });
+    }
+    CoinTransaction.create(txDocs).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
 
-    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorShare });
+    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorNetShare, agencyEarned: agencyShare });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -26,16 +26,25 @@ export default function AdminPage() {
   const [giftActionError, setGiftActionError] = useState("");
   const [giftActionSuccess, setGiftActionSuccess] = useState("");
 
+  // Agency state
+  const [agencies, setAgencies] = useState([]);
+  const [agencyLinks, setAgencyLinks] = useState([]);
+  const [agencyActionLoading, setAgencyActionLoading] = useState(null);
+  const [agencyError, setAgencyError] = useState("");
+  const [enableAgencyForm, setEnableAgencyForm] = useState({ creatorId: "", agencyName: "", percentage: 10 });
+
   const loadAdminData = async () => {
     const token = localStorage.getItem("admin_token");
     try {
-      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes, giftCatalogRes] = await Promise.all([
+      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes, giftCatalogRes, agencyRes, agencyLinksRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/verifications`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/gifts/catalog`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/agencies`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/agency-links`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if ([overviewRes, usersRes, reportsRes, creatorReqRes, verifRes].some((r) => r.status === 401)) {
@@ -63,6 +72,14 @@ export default function AdminPage() {
       setVerificationRequests(verifData.requests || []);
       if (giftCatalogRes.ok) {
         setGiftCatalog(await giftCatalogRes.json());
+      }
+      if (agencyRes.ok) {
+        const d = await agencyRes.json();
+        setAgencies(d.agencies || []);
+      }
+      if (agencyLinksRes.ok) {
+        const d = await agencyLinksRes.json();
+        setAgencyLinks(d.links || []);
       }
     } catch (err) {
       if (err.message === "auth") {
@@ -299,6 +316,7 @@ export default function AdminPage() {
           { key: "verifications", label: `Verificaciones${verificationRequests.length > 0 ? ` (${verificationRequests.length})` : ""}` },
           { key: "reports", label: "Reportes" },
           { key: "gifts", label: "Catálogo Regalos" },
+          { key: "agency", label: "Agencias" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -738,6 +756,146 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "agency" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Gestión de Agencias</h2>
+
+          {agencyError && (
+            <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+              {agencyError}
+            </div>
+          )}
+
+          {/* Enable agency form */}
+          <div style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ color: "#e2e8f0", fontSize: "1rem", marginTop: 0, marginBottom: "1rem" }}>Habilitar Agencia para Creador</h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const token = localStorage.getItem("admin_token");
+                setAgencyActionLoading("enable");
+                setAgencyError("");
+                try {
+                  const res = await fetch(`${apiUrl}/api/admin/agencies/${enableAgencyForm.creatorId}/enable`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ agencyName: enableAgencyForm.agencyName, subCreatorPercentageDefault: Number(enableAgencyForm.percentage) }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.message || "Error");
+                  setEnableAgencyForm({ creatorId: "", agencyName: "", percentage: 10 });
+                  const agR = await fetch(`${apiUrl}/api/admin/agencies`, { headers: { Authorization: `Bearer ${token}` } });
+                  if (agR.ok) { const d = await agR.json(); setAgencies(d.agencies || []); }
+                } catch (err) {
+                  setAgencyError(err.message);
+                } finally {
+                  setAgencyActionLoading(null);
+                }
+              }}
+              style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>ID del Creador</label>
+                <input value={enableAgencyForm.creatorId} onChange={(e) => setEnableAgencyForm((f) => ({ ...f, creatorId: e.target.value }))} required placeholder="ObjectId..." style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem", width: 220 }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Nombre de Agencia</label>
+                <input value={enableAgencyForm.agencyName} onChange={(e) => setEnableAgencyForm((f) => ({ ...f, agencyName: e.target.value }))} placeholder="Nombre..." style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "#94a3b8" }}>% Default (5-30)</label>
+                <input type="number" min={5} max={30} value={enableAgencyForm.percentage} onChange={(e) => setEnableAgencyForm((f) => ({ ...f, percentage: e.target.value }))} style={{ background: "#0f172a", color: "#e2e8f0", border: "1px solid #334155", borderRadius: "4px", padding: "0.4rem 0.6rem", fontSize: "0.875rem", width: 80 }} />
+              </div>
+              <button type="submit" disabled={agencyActionLoading === "enable"} style={{ padding: "0.45rem 1.25rem", background: "#7c3aed", color: "#fff", border: "none", borderRadius: "4px", fontSize: "0.875rem", cursor: "pointer" }}>
+                Habilitar
+              </button>
+            </form>
+          </div>
+
+          {/* Agencies list */}
+          <h3 style={{ color: "#e2e8f0", fontSize: "1rem", marginBottom: "0.75rem" }}>Agencias Habilitadas ({agencies.length})</h3>
+          <div style={{ overflowX: "auto", marginBottom: "2rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <thead><tr style={{ background: "#1e293b" }}><Th>Creador</Th><Th>Agencia</Th><Th>Código</Th><Th>Sub-Creadores</Th><Th>Ganancias Agencia 🪙</Th><Th>Total Generado 🪙</Th><Th>Acciones</Th></tr></thead>
+              <tbody>
+                {agencies.map((a) => (
+                  <tr key={a._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td>{a.name || a.username}</Td>
+                    <Td>{a.agencyProfile?.agencyName || "—"}</Td>
+                    <Td><code style={{ color: "#818cf8", fontSize: "0.75rem" }}>{a.agencyProfile?.agencyCode || "—"}</code></Td>
+                    <Td>{a.agencyProfile?.subCreatorsCount || 0}</Td>
+                    <Td>{a.agencyEarningsCoins || 0}</Td>
+                    <Td>{a.totalAgencyGeneratedCoins || 0}</Td>
+                    <Td>
+                      <ActionBtn label="Deshabilitar" color="#f87171" disabled={!!agencyActionLoading} onClick={async () => {
+                        const token = localStorage.getItem("admin_token");
+                        setAgencyActionLoading(a._id);
+                        const res = await fetch(`${apiUrl}/api/admin/agencies/${a._id}/disable`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+                        if (res.ok) { const agR = await fetch(`${apiUrl}/api/admin/agencies`, { headers: { Authorization: `Bearer ${token}` } }); if (agR.ok) { const d = await agR.json(); setAgencies(d.agencies || []); } }
+                        setAgencyActionLoading(null);
+                      }} />
+                    </Td>
+                  </tr>
+                ))}
+                {agencies.length === 0 && <tr><td colSpan={7} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>No hay agencias habilitadas</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Agency links list */}
+          <h3 style={{ color: "#e2e8f0", fontSize: "1rem", marginBottom: "0.75rem" }}>Relaciones de Agencia ({agencyLinks.length})</h3>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <thead><tr style={{ background: "#1e293b" }}><Th>Agencia</Th><Th>Sub-Creador</Th><Th>%</Th><Th>Estado</Th><Th>Creado</Th><Th>Acciones</Th></tr></thead>
+              <tbody>
+                {agencyLinks.map((link) => (
+                  <tr key={link._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td>{link.parentCreator?.name || link.parentCreator?.username || "—"}</Td>
+                    <Td>{link.subCreator?.name || link.subCreator?.username || "—"}</Td>
+                    <Td>{link.percentage}%</Td>
+                    <Td><span style={{ color: link.status === "active" ? "#4ade80" : link.status === "pending" ? "#fbbf24" : link.status === "suspended" ? "#fb923c" : "#94a3b8", fontWeight: 600 }}>{link.status}</span></Td>
+                    <Td>{new Date(link.createdAt).toLocaleDateString()}</Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        {link.status === "pending" && (
+                          <ActionBtn label="Aprobar" color="#4ade80" disabled={!!agencyActionLoading} onClick={async () => {
+                            const token = localStorage.getItem("admin_token");
+                            setAgencyActionLoading(link._id + "approve");
+                            const res = await fetch(`${apiUrl}/api/admin/agency-links/${link._id}/approve`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+                            if (res.ok) { const r = await fetch(`${apiUrl}/api/admin/agency-links`, { headers: { Authorization: `Bearer ${token}` } }); if (r.ok) { const d = await r.json(); setAgencyLinks(d.links || []); } }
+                            setAgencyActionLoading(null);
+                          }} />
+                        )}
+                        {["pending", "active"].includes(link.status) && (
+                          <ActionBtn label="Suspender" color="#fb923c" disabled={!!agencyActionLoading} onClick={async () => {
+                            const token = localStorage.getItem("admin_token");
+                            setAgencyActionLoading(link._id + "suspend");
+                            const res = await fetch(`${apiUrl}/api/admin/agency-links/${link._id}/suspend`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+                            if (res.ok) { const r = await fetch(`${apiUrl}/api/admin/agency-links`, { headers: { Authorization: `Bearer ${token}` } }); if (r.ok) { const d = await r.json(); setAgencyLinks(d.links || []); } }
+                            setAgencyActionLoading(null);
+                          }} />
+                        )}
+                        {link.status !== "removed" && (
+                          <ActionBtn label="Eliminar" color="#f87171" disabled={!!agencyActionLoading} onClick={async () => {
+                            if (!confirm("¿Eliminar esta relación de agencia?")) return;
+                            const token = localStorage.getItem("admin_token");
+                            setAgencyActionLoading(link._id + "remove");
+                            const res = await fetch(`${apiUrl}/api/admin/agency-links/${link._id}/remove`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+                            if (res.ok) { const r = await fetch(`${apiUrl}/api/admin/agency-links`, { headers: { Authorization: `Bearer ${token}` } }); if (r.ok) { const d = await r.json(); setAgencyLinks(d.links || []); } }
+                            setAgencyActionLoading(null);
+                          }} />
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+                {agencyLinks.length === 0 && <tr><td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>No hay relaciones de agencia</td></tr>}
               </tbody>
             </table>
           </div>

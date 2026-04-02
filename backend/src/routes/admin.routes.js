@@ -8,6 +8,8 @@ const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
+const User = require("../models/User.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 
 const router = Router();
 
@@ -175,6 +177,193 @@ router.delete("/lives/:id", async (req, res) => {
     );
     if (!live) return res.status(404).json({ message: "Live no encontrado" });
     res.json({ message: "Live terminado por admin", live });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── Agency admin routes ─────────────────────────────────────────────────────
+
+// GET /api/admin/agencies — list all agency-enabled creators
+router.get("/agencies", async (req, res) => {
+  try {
+    const agencies = await User.find({ "agencyProfile.enabled": true })
+      .select("username name avatar creatorStatus agencyProfile agencyEarningsCoins totalAgencyGeneratedCoins")
+      .sort({ "agencyProfile.subCreatorsCount": -1 });
+    res.json({ agencies });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agencies/:creatorId/enable — enable agency for an approved creator
+router.patch("/agencies/:creatorId/enable", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) {
+      return res.status(400).json({ message: "creatorId inválido" });
+    }
+    const { agencyName, subCreatorPercentageDefault } = req.body;
+    const creator = await User.findById(req.params.creatorId);
+    if (!creator) return res.status(404).json({ message: "Creador no encontrado" });
+    if (creator.role !== "creator" || creator.creatorStatus !== "approved") {
+      return res.status(400).json({ message: "Solo los creadores aprobados pueden tener agencia habilitada" });
+    }
+    // Prevent an active/pending sub-creator from also becoming an agency
+    const rel = creator.agencyRelationship;
+    if (rel && rel.parentCreatorId && ["active", "pending", "suspended"].includes(rel.status)) {
+      return res.status(400).json({ message: "Un sub-creador activo no puede ser también una agencia" });
+    }
+
+    const pctDefault = Number(subCreatorPercentageDefault) || 10;
+    const safePct = Math.min(30, Math.max(5, pctDefault));
+
+    // Generate unique agency code if not set
+    let agencyCode = creator.agencyProfile?.agencyCode;
+    if (!agencyCode) {
+      agencyCode = creator.username
+        ? creator.username.toUpperCase().slice(0, 6) + Math.floor(1000 + Math.random() * 9000)
+        : "AGY" + Math.floor(10000 + Math.random() * 90000);
+    }
+
+    const safeCreatorId = new mongoose.Types.ObjectId(req.params.creatorId);
+    await User.findByIdAndUpdate(safeCreatorId, {
+      "agencyProfile.enabled": true,
+      "agencyProfile.agencyName": agencyName || creator.agencyProfile?.agencyName || creator.name || creator.username || "",
+      "agencyProfile.agencyCode": agencyCode,
+      "agencyProfile.subCreatorPercentageDefault": safePct,
+    });
+
+    res.json({ message: "Agencia habilitada correctamente" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agencies/:creatorId/disable — disable agency (doesn't remove existing links)
+router.patch("/agencies/:creatorId/disable", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.creatorId)) {
+      return res.status(400).json({ message: "creatorId inválido" });
+    }
+    await User.findByIdAndUpdate(new mongoose.Types.ObjectId(req.params.creatorId), { "agencyProfile.enabled": false });
+    res.json({ message: "Agencia deshabilitada" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/admin/agency-links — list all agency relationships with optional status filter
+router.get("/agency-links", async (req, res) => {
+  try {
+    const filter = {};
+    const allowedStatuses = ["pending", "active", "suspended", "removed"];
+    if (req.query.status && allowedStatuses.includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+    const links = await AgencyRelationship.find(filter)
+      .populate("parentCreator", "username name avatar")
+      .populate("subCreator", "username name avatar creatorStatus")
+      .populate("createdBy", "username name")
+      .populate("approvedBy", "username name")
+      .sort({ createdAt: -1 });
+    res.json({ links });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agency-links/:id/approve — approve pending relationship
+router.patch("/agency-links/:id/approve", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+    const rel = await AgencyRelationship.findById(req.params.id);
+    if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
+    if (rel.status !== "pending") return res.status(400).json({ message: "La relación no está pendiente" });
+
+    rel.status = "active";
+    rel.approvedBy = req.userId;
+    rel.approvedAt = new Date();
+    await rel.save();
+
+    // Update snapshot on sub-creator
+    await User.findByIdAndUpdate(rel.subCreator, {
+      "agencyRelationship.parentCreatorId": rel.parentCreator,
+      "agencyRelationship.parentCreatorPercentage": rel.percentage,
+      "agencyRelationship.joinedAt": new Date(),
+      "agencyRelationship.status": "active",
+    });
+
+    // Increment parent creator sub-creator count
+    await User.findByIdAndUpdate(rel.parentCreator, {
+      $inc: { "agencyProfile.subCreatorsCount": 1 },
+    });
+
+    res.json({ message: "Relación aprobada" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agency-links/:id/suspend — suspend an active relationship
+router.patch("/agency-links/:id/suspend", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+    const rel = await AgencyRelationship.findById(req.params.id);
+    if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
+    if (!["pending", "active"].includes(rel.status)) {
+      return res.status(400).json({ message: "No se puede suspender una relación en estado: " + rel.status });
+    }
+
+    const wasActive = rel.status === "active";
+    rel.status = "suspended";
+    rel.suspendedAt = new Date();
+    await rel.save();
+
+    await User.findByIdAndUpdate(rel.subCreator, { "agencyRelationship.status": "suspended" });
+    if (wasActive) {
+      await User.findByIdAndUpdate(rel.parentCreator, {
+        $inc: { "agencyProfile.subCreatorsCount": -1 },
+      });
+    }
+
+    res.json({ message: "Relación suspendida" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/agency-links/:id/remove — permanently remove a relationship
+router.patch("/agency-links/:id/remove", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+    const rel = await AgencyRelationship.findById(req.params.id);
+    if (!rel) return res.status(404).json({ message: "Relación no encontrada" });
+    if (rel.status === "removed") return res.status(400).json({ message: "La relación ya está eliminada" });
+
+    const wasActive = rel.status === "active";
+    rel.status = "removed";
+    rel.removedAt = new Date();
+    await rel.save();
+
+    await User.findByIdAndUpdate(rel.subCreator, {
+      "agencyRelationship.parentCreatorId": null,
+      "agencyRelationship.parentCreatorPercentage": 0,
+      "agencyRelationship.joinedAt": null,
+      "agencyRelationship.status": "removed",
+    });
+    if (wasActive) {
+      await User.findByIdAndUpdate(rel.parentCreator, {
+        $inc: { "agencyProfile.subCreatorsCount": -1 },
+      });
+    }
+
+    res.json({ message: "Relación eliminada" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -1,5 +1,26 @@
 const mongoose = require("mongoose");
 
+const agencyProfileSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    agencyName: { type: String, default: "" },
+    agencyCode: { type: String, default: "", sparse: true },
+    subCreatorPercentageDefault: { type: Number, default: 10, min: 5, max: 30 },
+    subCreatorsCount: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
+const agencyRelationshipSchema = new mongoose.Schema(
+  {
+    parentCreatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    parentCreatorPercentage: { type: Number, default: 0, min: 0, max: 30 },
+    joinedAt: { type: Date, default: null },
+    status: { type: String, enum: ["none", "pending", "active", "suspended", "removed"], default: "none" },
+  },
+  { _id: false }
+);
+
 const creatorProfileSchema = new mongoose.Schema(
   {
     displayName: { type: String, default: "" },
@@ -59,6 +80,10 @@ const userSchema = new mongoose.Schema(
     coins: { type: Number, default: 0, min: 0 },
     sparks: { type: Number, default: 0, min: 0 },
     earningsCoins: { type: Number, default: 0, min: 0 },
+    agencyEarningsCoins: { type: Number, default: 0, min: 0 },
+    totalAgencyGeneratedCoins: { type: Number, default: 0, min: 0 },
+    agencyProfile: { type: agencyProfileSchema, default: () => ({}) },
+    agencyRelationship: { type: agencyRelationshipSchema, default: () => ({}) },
     isPremium: { type: Boolean, default: false },
     verificationPhoto: { type: String, default: "" },
     verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },

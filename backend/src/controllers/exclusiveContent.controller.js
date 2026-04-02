@@ -3,6 +3,7 @@ const ExclusiveContent = require("../models/ExclusiveContent.js");
 const ExclusiveUnlock = require("../models/ExclusiveUnlock.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { calculateSplit } = require("../services/agency.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -97,6 +98,9 @@ const getContent = async (req, res) => {
 const unlockContent = async (req, res) => {
   let contentDoc;
   let creatorShare;
+  // Declared outside transaction for use in fire-and-forget transactions below
+  let txAgencyShare = 0;
+  let txParentCreatorId = null;
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -117,8 +121,27 @@ const unlockContent = async (req, res) => {
       }
 
       const amount = contentDoc.coinPrice;
-      creatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
-      const platformShare = amount - creatorShare;
+      const fullCreatorSide = Math.floor(amount * (1 - COMMISSION_RATE));
+
+      // Apply agency split if creator has an active parent agency
+      const creatorDoc = await User.findById(contentDoc.creator).session(session);
+      let agencyShare = 0;
+      let creatorNetShare = fullCreatorSide;
+      let parentCreatorId = null;
+
+      if (creatorDoc) {
+        const rel = creatorDoc.agencyRelationship;
+        if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
+          const split = calculateSplit(amount, rel.parentCreatorPercentage);
+          agencyShare = split.agencyShare;
+          creatorNetShare = split.creatorNetShare;
+          parentCreatorId = rel.parentCreatorId;
+        }
+      }
+
+      creatorShare = creatorNetShare;
+      // Platform always takes fixed 40%; agency share comes from creator's 60% only
+      const platformShare = Math.floor(amount * COMMISSION_RATE);
 
       const buyer = await User.findById(req.userId).session(session);
       if (!buyer || buyer.coins < amount) {
@@ -126,21 +149,34 @@ const unlockContent = async (req, res) => {
       }
 
       await User.findByIdAndUpdate(req.userId, { $inc: { coins: -amount } }, { session });
-      await User.findByIdAndUpdate(contentDoc.creator, { $inc: { earningsCoins: creatorShare } }, { session });
+      await User.findByIdAndUpdate(contentDoc.creator, { $inc: { earningsCoins: creatorNetShare } }, { session });
+
+      if (agencyShare > 0 && parentCreatorId) {
+        await User.findByIdAndUpdate(
+          parentCreatorId,
+          { $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: amount } },
+          { session }
+        );
+      }
+
       await ExclusiveContent.findByIdAndUpdate(
         contentDoc._id,
-        { $inc: { totalUnlocks: 1, totalEarnings: creatorShare } },
+        { $inc: { totalUnlocks: 1, totalEarnings: creatorNetShare } },
         { session }
       );
 
       await ExclusiveUnlock.create(
-        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare, platformShare }],
+        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare: creatorNetShare, platformShare }],
         { session }
       );
+
+      // Capture for use after transaction
+      txAgencyShare = agencyShare;
+      txParentCreatorId = parentCreatorId;
     });
 
     // Record coin transactions (fire-and-forget; don't fail the unlock if this errors)
-    CoinTransaction.create([
+    const txDocs = [
       {
         userId: req.userId,
         type: "content_unlock",
@@ -157,7 +193,18 @@ const unlockContent = async (req, res) => {
         status: "completed",
         metadata: { contentId: contentDoc._id },
       },
-    ]).catch((err) => console.error("[exclusive tx] Failed to record transactions:", err));
+    ];
+    if (txAgencyShare > 0 && txParentCreatorId) {
+      txDocs.push({
+        userId: txParentCreatorId,
+        type: "agency_earned",
+        amount: txAgencyShare,
+        reason: `Comisión de agencia por contenido exclusivo`,
+        status: "completed",
+        metadata: { contentId: contentDoc._id, subCreatorId: String(contentDoc.creator) },
+      });
+    }
+    CoinTransaction.create(txDocs).catch((err) => console.error("[exclusive tx] Failed to record transactions:", err));
 
     res.status(201).json({ message: "Contenido desbloqueado" });
   } catch (err) {

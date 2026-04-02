@@ -159,6 +159,13 @@ function PendingIcon() {
     </svg>
   );
 }
+function AgencyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="6" height="13"/><rect x="9" y="4" width="6" height="16"/><rect x="16" y="10" width="6" height="10"/><line x1="2" y1="21" x2="22" y2="21"/>
+    </svg>
+  );
+}
 
 function ArrowIcon() {
   return (
@@ -344,6 +351,9 @@ export default function DashboardPage() {
         { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
         { href: "/private-calls", title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
         { href: "/exclusive",     title: "Contenido exclusivo", sub: "Publica contenido para suscriptores", icon: ExclusiveIcon,   color: "purple", size: "normal" },
+        ...(user?.agencyProfile?.enabled
+          ? [{ href: "/agency", title: "Mi Agencia", sub: "Gestiona sub-creadores y comisiones", icon: AgencyIcon, color: "indigo", size: "normal" }]
+          : []),
       ]
     : [];
 

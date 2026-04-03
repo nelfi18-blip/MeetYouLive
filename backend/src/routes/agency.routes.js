@@ -30,6 +30,8 @@ router.use(agencyLimiter, verifyToken);
 // Agency-creator routes
 router.get("/me", agencyLimiter, getMyAgency);
 router.get("/sub-creators", agencyLimiter, getSubCreators);
+// /link is the canonical endpoint; /invite kept for backward compatibility
+router.post("/link", agencyWriteLimiter, inviteSubCreator);
 router.post("/invite", agencyWriteLimiter, inviteSubCreator);
 router.patch("/sub-creators/:id/percentage", agencyWriteLimiter, updateSubCreatorPercentage);
 router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);

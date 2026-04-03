@@ -3,7 +3,7 @@ const User = require("../models/User.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 
-// GET /api/agency/me — agency profile + earnings summary for agency-enabled creator
+// GET /api/agency/me — agency profile + status for any approved creator
 const getMyAgency = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select(
@@ -13,27 +13,49 @@ const getMyAgency = async (req, res) => {
     if (user.role !== "creator" || user.creatorStatus !== "approved") {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden acceder al perfil de agencia" });
     }
-    if (!user.agencyProfile?.enabled) {
-      return res.status(403).json({ message: "Tu cuenta no tiene habilitada la función de agencia" });
-    }
+
+    const relationships = await AgencyRelationship.find({
+      parentCreator: req.userId,
+      status: { $in: ["pending", "active"] },
+    }).populate("subCreator", "username name avatar creatorStatus earningsCoins");
+
+    const counts = {
+      total: relationships.length,
+      active: relationships.filter((r) => r.status === "active").length,
+      pending: relationships.filter((r) => r.status === "pending").length,
+    };
+
     res.json({
+      agencyEnabled: !!user.agencyProfile?.enabled,
       agencyProfile: user.agencyProfile,
-      agencyEarningsCoins: user.agencyEarningsCoins,
-      totalAgencyGeneratedCoins: user.totalAgencyGeneratedCoins,
+      agencyEarningsCoins: user.agencyEarningsCoins || 0,
+      totalAgencyGeneratedCoins: user.totalAgencyGeneratedCoins || 0,
+      subCreators: relationships,
+      counts,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// GET /api/agency/sub-creators — list all sub-creators linked to this agency creator
+// GET /api/agency/sub-creators — list sub-creators for any approved creator
 const getSubCreators = async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
-    if (!user || !user.agencyProfile?.enabled) {
-      return res.status(403).json({ message: "Agencia no habilitada" });
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden ver sus sub-creadores" });
     }
-    const relationships = await AgencyRelationship.find({ parentCreator: req.userId })
+
+    const allowedStatuses = ["pending", "active", "suspended", "removed"];
+    const filter = { parentCreator: req.userId };
+    const requestedStatus = typeof req.query.status === "string" ? req.query.status : "";
+    if (requestedStatus && allowedStatuses.includes(requestedStatus)) {
+      filter.status = requestedStatus;
+    } else {
+      filter.status = { $in: ["pending", "active"] };
+    }
+
+    const relationships = await AgencyRelationship.find(filter)
       .populate("subCreator", "username name avatar creatorStatus earningsCoins")
       .sort({ createdAt: -1 });
     res.json({ relationships });
@@ -42,10 +64,10 @@ const getSubCreators = async (req, res) => {
   }
 };
 
-// POST /api/agency/invite — agency creator links an approved creator as sub-creator
-// Body: { subCreatorId, percentage }
+// POST /api/agency/link (also /invite for backward compat) — approved creator links another as sub-creator
+// Body: { subCreatorId, percentage, notes? }
 const inviteSubCreator = async (req, res) => {
-  const { subCreatorId, percentage } = req.body;
+  const { subCreatorId, percentage, notes } = req.body;
 
   if (!subCreatorId) {
     return res.status(400).json({ message: "subCreatorId es requerido" });
@@ -65,9 +87,6 @@ const inviteSubCreator = async (req, res) => {
     const agencyCreator = await User.findById(req.userId);
     if (!agencyCreator || agencyCreator.role !== "creator" || agencyCreator.creatorStatus !== "approved") {
       return res.status(403).json({ message: "Solo creadores aprobados pueden actuar como agencia" });
-    }
-    if (!agencyCreator.agencyProfile?.enabled) {
-      return res.status(403).json({ message: "Tu cuenta no tiene habilitada la función de agencia" });
     }
 
     // Self-link prevention
@@ -105,6 +124,7 @@ const inviteSubCreator = async (req, res) => {
       percentage: pct,
       status: "pending",
       createdBy: req.userId,
+      notes: notes || "",
     });
 
     await relationship.populate("subCreator", "username name avatar");
@@ -121,6 +141,7 @@ const inviteSubCreator = async (req, res) => {
 
 // PATCH /api/agency/sub-creators/:id/percentage — update percentage for active sub-creator
 // :id = AgencyRelationship._id
+// Allowed: parent creator or admin
 const updateSubCreatorPercentage = async (req, res) => {
   const { percentage } = req.body;
   const pct = Number(percentage);
@@ -133,7 +154,11 @@ const updateSubCreatorPercentage = async (req, res) => {
   try {
     const relationship = await AgencyRelationship.findById(req.params.id);
     if (!relationship) return res.status(404).json({ message: "Relación no encontrada" });
-    if (String(relationship.parentCreator) !== String(req.userId)) {
+
+    const requestingUser = await User.findById(req.userId).select("role");
+    const isAdmin = requestingUser && requestingUser.role === "admin";
+
+    if (!isAdmin && String(relationship.parentCreator) !== String(req.userId)) {
       return res.status(403).json({ message: "No tienes permiso para modificar esta relación" });
     }
     if (relationship.status !== "active") {

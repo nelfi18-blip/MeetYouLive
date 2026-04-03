@@ -1,15 +1,15 @@
 const { Router } = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin } = require("../middlewares/admin.middleware.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
-const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
-const User = require("../models/User.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
 
 const router = Router();
 

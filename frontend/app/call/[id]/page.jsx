@@ -7,15 +7,7 @@ import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// STUN servers for ICE negotiation (Google public STUN)
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
-
-const POLL_MS = 1000; // polling interval for WebRTC signaling
+const POLL_MS = 1000; // polling interval for call acceptance
 
 export default function CallPage() {
   const { id } = useParams();
@@ -35,12 +27,11 @@ export default function CallPage() {
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const pcRef = useRef(null);
-  const localStreamRef = useRef(null);
+  const agoraClientRef = useRef(null);
+  const localTracksRef = useRef({ audio: null, video: null });
   const pollRef = useRef(null);
   const tickRef = useRef(null); // per-minute billing interval
   const durationRef = useRef(null); // 1-second timer
-  const processedCandidatesRef = useRef(0); // tracks how many remote candidates we've processed
   const callRef = useRef(null); // kept in sync with call state for use inside intervals
 
   const token = useRef(
@@ -61,9 +52,13 @@ export default function CallPage() {
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
-      if (pcRef.current) pcRef.current.close();
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      const { audio, video } = localTracksRef.current;
+      if (audio) audio.close();
+      if (video) video.close();
+      localTracksRef.current = { audio: null, video: null };
+      if (agoraClientRef.current) {
+        agoraClientRef.current.leave().catch(() => {});
+        agoraClientRef.current = null;
       }
     };
   }, []);
@@ -111,14 +106,12 @@ export default function CallPage() {
         if (data.status === "rejected") { setStatus("rejected"); return; }
         if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
         if (data.status === "accepted") {
-          startWebRTC(callerIsMe, data);
+          startAgora(callerIsMe, data);
         } else {
           // status is pending — caller waits for recipient to accept
           setStatus(callerIsMe ? "waiting" : "connecting");
           if (!callerIsMe) {
-            // recipient already accepted by clicking the notification; shouldn't land here
-            // but just in case, wait for caller to send offer
-            startWebRTC(false, data);
+            startAgora(false, data);
           } else {
             pollForAcceptance(data);
           }
@@ -159,9 +152,13 @@ export default function CallPage() {
             // Out of coins — call ended by backend
             clearInterval(tickRef.current);
             clearInterval(durationRef.current);
-            if (pcRef.current) pcRef.current.close();
-            if (localStreamRef.current) {
-              localStreamRef.current.getTracks().forEach((t) => t.stop());
+            const { audio, video } = localTracksRef.current;
+            if (audio) audio.close();
+            if (video) video.close();
+            localTracksRef.current = { audio: null, video: null };
+            if (agoraClientRef.current) {
+              await agoraClientRef.current.leave().catch(() => {});
+              agoraClientRef.current = null;
             }
             setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
             setStatus("ended");
@@ -184,7 +181,7 @@ export default function CallPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // ── Poll until recipient accepts, then start WebRTC ─────────────────────
+  // ── Poll until recipient accepts, then start Agora ─────────────────────
   const pollForAcceptance = useCallback(
     (callData) => {
       pollRef.current = setInterval(async () => {
@@ -197,7 +194,8 @@ export default function CallPage() {
           if (data.status === "accepted") {
             clearInterval(pollRef.current);
             setCall(data);
-            startWebRTC(true, data);
+            callRef.current = data;
+            startAgora(true, data);
           } else if (["rejected", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
             setStatus(data.status === "rejected" ? "rejected" : "ended");
@@ -211,198 +209,76 @@ export default function CallPage() {
     []
   );
 
-  // ── Main WebRTC setup ───────────────────────────────────────────────────
-  const startWebRTC = useCallback(
-    async (asCallerParam, callData) => {
+  // ── Agora RTC setup for private calls ────────────────────────────────────
+  const startAgora = useCallback(
+    async (_asCallerParam, callData) => {
       setStatus("connecting");
 
-      // Get local media
-      let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      } catch {
-        setError("No se pudo acceder a la cámara/micrófono. Por favor, permite el acceso.");
-        setStatus("ended");
-        return;
-      }
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
 
-      // Create peer connection
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      pcRef.current = pc;
-
-      // Add local tracks
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      // Remote stream
-      const remoteStream = new MediaStream();
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-      }
-      pc.ontrack = (event) => {
-        event.streams[0].getTracks().forEach((track) => remoteStream.addTrack(track));
-        setStatus("connected");
-      };
-
-      // ICE candidates
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          try {
-            await fetch(`${API_URL}/api/calls/${callData._id}/candidates`, {
-              method: "POST",
-              headers: apiHeaders(),
-              body: JSON.stringify({ candidates: [event.candidate] }),
-            });
-          } catch {
-            // ignore
-          }
+        // Fetch Agora token from backend — both call participants are publishers
+        const tokenRes = await fetch(
+          `${API_URL}/api/agora/token?channelName=${callData._id}&role=publisher`,
+          { headers: { Authorization: `Bearer ${token.current}` } }
+        );
+        if (!tokenRes.ok) {
+          const err = await tokenRes.json();
+          setError(err.message || "No se pudo obtener token de Agora");
+          setStatus("ended");
+          return;
         }
-      };
+        const { token: agoraToken, uid, appId } = await tokenRes.json();
 
-      if (asCallerParam) {
-        // Caller: create offer, submit, poll for answer
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
+        const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        agoraClientRef.current = client;
 
-        await fetch(`${API_URL}/api/calls/${callData._id}/offer`, {
-          method: "PUT",
-          headers: apiHeaders(),
-          body: JSON.stringify({ offerSdp: JSON.stringify(pc.localDescription) }),
-        });
-
-        pollForAnswer(pc, callData);
-      } else {
-        // Callee: poll for offer, then create answer
-        pollForOffer(pc, callData);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  // Callee polls for the caller's SDP offer
-  const pollForOffer = useCallback(
-    (pc, callData) => {
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/calls/${callData._id}`, {
-            headers: { Authorization: `Bearer ${token.current}` },
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-
-          if (["ended", "rejected", "missed"].includes(data.status)) {
-            clearInterval(pollRef.current);
-            setStatus("ended");
-            return;
-          }
-
-          if (data.offerSdp && !pc.remoteDescription) {
-            clearInterval(pollRef.current);
-            const offer = JSON.parse(data.offerSdp);
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-
-            await fetch(`${API_URL}/api/calls/${callData._id}/answer`, {
-              method: "PUT",
-              headers: apiHeaders(),
-              body: JSON.stringify({ answerSdp: JSON.stringify(pc.localDescription) }),
-            });
-
-            // Start polling for ICE candidates
-            pollForCandidates(pc, callData);
-          }
-        } catch {
-          // ignore
-        }
-      }, POLL_MS);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  // Caller polls for the callee's SDP answer
-  const pollForAnswer = useCallback(
-    (pc, callData) => {
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/calls/${callData._id}`, {
-            headers: { Authorization: `Bearer ${token.current}` },
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-
-          if (["ended", "rejected", "missed"].includes(data.status)) {
-            clearInterval(pollRef.current);
-            setStatus("ended");
-            return;
-          }
-
-          if (data.answerSdp && !pc.remoteDescription) {
-            clearInterval(pollRef.current);
-            const answer = JSON.parse(data.answerSdp);
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-            // Start polling for ICE candidates
-            pollForCandidates(pc, callData);
-          }
-        } catch {
-          // ignore
-        }
-      }, POLL_MS);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  // Both peers poll for remote ICE candidates
-  const pollForCandidates = useCallback(
-    (pc, callData) => {
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/calls/${callData._id}/candidates`, {
-            headers: { Authorization: `Bearer ${token.current}` },
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-
-          if (["ended", "rejected"].includes(data.status)) {
-            clearInterval(pollRef.current);
-            setStatus("ended");
-            return;
-          }
-
-          const newCandidates = data.candidates.slice(processedCandidatesRef.current);
-          for (const c of newCandidates) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(c)));
-            } catch {
-              // ignore invalid candidates
-            }
-          }
-          processedCandidatesRef.current = data.candidates.length;
-
-          if (pc.connectionState === "connected") {
-            clearInterval(pollRef.current);
+        // Subscribe to remote user streams
+        client.on("user-published", async (remoteUser, mediaType) => {
+          await client.subscribe(remoteUser, mediaType);
+          if (mediaType === "video" && remoteVideoRef.current) {
+            remoteUser.videoTrack.play(remoteVideoRef.current);
             setStatus("connected");
           }
-        } catch {
-          // ignore
+          if (mediaType === "audio") {
+            remoteUser.audioTrack.play();
+          }
+        });
+
+        client.on("user-left", () => {
+          setStatus("ended");
+        });
+
+        await client.join(appId, callData._id, agoraToken, uid);
+
+        // Publish local tracks
+        const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        localTracksRef.current = { audio: micTrack, video: camTrack };
+
+        if (localVideoRef.current) {
+          camTrack.play(localVideoRef.current);
         }
-      }, POLL_MS);
+
+        await client.publish([micTrack, camTrack]);
+        setStatus("connecting"); // wait for remote user to appear
+      } catch (err) {
+        setError(err.message || "Error al conectar con Agora");
+        setStatus("ended");
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   const handleEnd = async () => {
     clearInterval(pollRef.current);
-    if (pcRef.current) pcRef.current.close();
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
+    const { audio, video } = localTracksRef.current;
+    if (audio) audio.close();
+    if (video) video.close();
+    localTracksRef.current = { audio: null, video: null };
+    if (agoraClientRef.current) {
+      await agoraClientRef.current.leave().catch(() => {});
+      agoraClientRef.current = null;
     }
 
     try {
@@ -417,18 +293,24 @@ export default function CallPage() {
   };
 
   const toggleMute = () => {
-    if (!localStreamRef.current) return;
-    localStreamRef.current.getAudioTracks().forEach((t) => {
-      t.enabled = !t.enabled;
-    });
+    const { audio } = localTracksRef.current;
+    if (!audio) return;
+    if (muted) {
+      audio.setEnabled(true);
+    } else {
+      audio.setEnabled(false);
+    }
     setMuted((m) => !m);
   };
 
   const toggleCamera = () => {
-    if (!localStreamRef.current) return;
-    localStreamRef.current.getVideoTracks().forEach((t) => {
-      t.enabled = !t.enabled;
-    });
+    const { video } = localTracksRef.current;
+    if (!video) return;
+    if (cameraOff) {
+      video.setEnabled(true);
+    } else {
+      video.setEnabled(false);
+    }
     setCameraOff((c) => !c);
   };
 
@@ -502,12 +384,7 @@ export default function CallPage() {
 
       {/* Remote video */}
       <div className="call-remote-area">
-        <video
-          ref={remoteVideoRef}
-          className="call-remote-video"
-          autoPlay
-          playsInline
-        />
+        <div ref={remoteVideoRef} className="call-remote-video" />
         {status !== "connected" && (
           <div className="call-remote-placeholder">
             <div className="call-remote-avatar">
@@ -536,13 +413,7 @@ export default function CallPage() {
 
       {/* Local video (picture-in-picture) */}
       <div className={`call-local-pip${cameraOff ? " camera-off" : ""}`}>
-        <video
-          ref={localVideoRef}
-          className="call-local-video"
-          autoPlay
-          playsInline
-          muted
-        />
+        <div ref={localVideoRef} className="call-local-video" />
         {cameraOff && (
           <div className="call-local-placeholder">
             <span>📵</span>
@@ -620,6 +491,13 @@ export default function CallPage() {
         }
 
         .call-remote-video {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .call-remote-video video {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -715,6 +593,11 @@ export default function CallPage() {
         .call-local-pip.camera-off { border-color: rgba(248, 113, 113, 0.5); }
 
         .call-local-video {
+          width: 100%;
+          height: 100%;
+        }
+
+        .call-local-video video {
           width: 100%;
           height: 100%;
           object-fit: cover;

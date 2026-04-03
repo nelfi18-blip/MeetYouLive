@@ -106,12 +106,12 @@ export default function CallPage() {
         if (data.status === "rejected") { setStatus("rejected"); return; }
         if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
         if (data.status === "accepted") {
-          startAgora(callerIsMe, data);
+          startAgora(data);
         } else {
           // status is pending — caller waits for recipient to accept
           setStatus(callerIsMe ? "waiting" : "connecting");
           if (!callerIsMe) {
-            startAgora(false, data);
+            startAgora(data);
           } else {
             pollForAcceptance(data);
           }
@@ -195,7 +195,7 @@ export default function CallPage() {
             clearInterval(pollRef.current);
             setCall(data);
             callRef.current = data;
-            startAgora(true, data);
+            startAgora(data);
           } else if (["rejected", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
             setStatus(data.status === "rejected" ? "rejected" : "ended");
@@ -211,7 +211,7 @@ export default function CallPage() {
 
   // ── Agora RTC setup for private calls ────────────────────────────────────
   const startAgora = useCallback(
-    async (_asCallerParam, callData) => {
+    async (callData) => {
       setStatus("connecting");
 
       try {

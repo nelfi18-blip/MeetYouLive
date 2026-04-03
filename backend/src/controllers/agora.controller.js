@@ -51,9 +51,15 @@ const getToken = async (req, res) => {
     }
 
     // Use userId as uid (converted to numeric hash for Agora compatibility)
-    // Agora uid must be a 32-bit unsigned integer; we derive one from the Mongo ObjectId
+    // Agora uid must be a 32-bit unsigned integer; we use FNV-1a hash of the full ObjectId string
+    // to minimise collision probability while staying within uint32 range.
     const uidStr = req.userId.toString();
-    const uid = parseInt(uidStr.slice(-8), 16) >>> 0; // last 4 bytes of ObjectId as uint32
+    let hash = 2166136261; // FNV-1a 32-bit offset basis
+    for (let i = 0; i < uidStr.length; i++) {
+      hash ^= uidStr.charCodeAt(i);
+      hash = (hash * 16777619) >>> 0; // FNV prime, keep as uint32
+    }
+    const uid = hash;
 
     const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + TOKEN_EXPIRY_SECONDS;
 

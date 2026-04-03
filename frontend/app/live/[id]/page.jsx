@@ -40,7 +40,6 @@ export default function LiveRoomPage() {
   // Agora state
   const [agoraStatus, setAgoraStatus] = useState("idle"); // idle | joining | live | error
   const [agoraError, setAgoraError] = useState("");
-  const [viewerCount, setViewerCount] = useState(0);
   const agoraClientRef = useRef(null);
   const localTracksRef = useRef({ audio: null, video: null });
   const localVideoRef = useRef(null);
@@ -97,8 +96,8 @@ export default function LiveRoomPage() {
       try {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
 
-        const isCreatorUser = currentUserId && live.user?._id && currentUserId === String(live.user._id);
-        const roleParam = isCreatorUser ? "publisher" : "subscriber";
+        const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
+        const roleParam = isCreator ? "publisher" : "subscriber";
 
         // Fetch token from backend
         const tokenRes = await fetch(
@@ -118,12 +117,8 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
-        client.setClientRole(isCreatorUser ? "host" : "audience");
+        client.setClientRole(isCreator ? "host" : "audience");
         agoraClientRef.current = client;
-
-        // Track viewer count via connection-state events
-        client.on("user-joined", () => setViewerCount((v) => v + 1));
-        client.on("user-left", () => setViewerCount((v) => Math.max(0, v - 1)));
 
         // Subscribe to remote streams (viewer)
         client.on("user-published", async (remoteUser, mediaType) => {
@@ -135,9 +130,9 @@ export default function LiveRoomPage() {
             remoteUser.audioTrack.play();
           }
         });
-        client.on("user-unpublished", (remoteUser, mediaType) => {
+        client.on("user-unpublished", (_remoteUser, mediaType) => {
           if (mediaType === "video" && remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = null;
+            remoteVideoRef.current.innerHTML = "";
           }
         });
 
@@ -148,7 +143,7 @@ export default function LiveRoomPage() {
           return;
         }
 
-        if (isCreatorUser) {
+        if (isCreator) {
           // Creator: publish audio + video
           const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
           if (cancelled) {
@@ -509,7 +504,7 @@ export default function LiveRoomPage() {
           <div className="action-bar">
             <div className="viewers-badge">
               <span>👁</span>
-              <span>{viewerCount || (live.viewerCount ?? live.viewers ?? 0)} viendo</span>
+              <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
             </div>
 
             <div className="action-buttons">

@@ -7,6 +7,8 @@ const exclusiveUnlockSchema = new mongoose.Schema(
     coinsPaid: { type: Number, required: true },
     creatorShare: { type: Number, required: true },
     platformShare: { type: Number, required: true },
+    agencyShare: { type: Number, default: 0, min: 0 },
+    referrerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

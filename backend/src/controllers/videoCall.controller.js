@@ -212,6 +212,10 @@ const respondCall = async (req, res) => {
         call.totalCoinsCharged = (call.totalCoinsCharged || 0) + call.callCoins;
         call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
         call.platformShare = (call.platformShare || 0) + platformShareFirst;
+        call.agencyShare = (call.agencyShare || 0) + agencyShare;
+        if (parentCreatorId && !call.parentCreatorId) {
+          call.parentCreatorId = parentCreatorId;
+        }
 
         // Record earnings transactions for creator (and agency) — fire-and-forget
         const txDocs = [
@@ -468,13 +472,18 @@ const tickCall = async (req, res) => {
 
     // Increment running billing totals on the call document
     const platformShareTick = pricePerMinute - fullCreatorShare;
-    await VideoCall.findByIdAndUpdate(call._id, {
+    const tickUpdate = {
       $inc: {
         totalCoinsCharged: pricePerMinute,
         creatorShare: creatorNetShare,
         platformShare: platformShareTick,
+        agencyShare,
       },
-    });
+    };
+    if (parentCreatorId && !call.parentCreatorId) {
+      tickUpdate.$set = { parentCreatorId };
+    }
+    await VideoCall.findByIdAndUpdate(call._id, tickUpdate);
 
     // Record transactions (fire-and-forget)
     const txMeta = { callId: String(call._id) };

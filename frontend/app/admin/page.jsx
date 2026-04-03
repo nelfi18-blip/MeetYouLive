@@ -33,10 +33,16 @@ export default function AdminPage() {
   const [agencyError, setAgencyError] = useState("");
   const [enableAgencyForm, setEnableAgencyForm] = useState({ creatorId: "", agencyName: "", percentage: 10 });
 
+  // Payout state
+  const [payouts, setPayouts] = useState([]);
+  const [payoutActionLoading, setPayoutActionLoading] = useState(null);
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutSuccess, setPayoutSuccess] = useState("");
+
   const loadAdminData = async () => {
     const token = localStorage.getItem("admin_token");
     try {
-      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes, giftCatalogRes, agencyRes, agencyLinksRes] = await Promise.all([
+      const [overviewRes, usersRes, reportsRes, creatorReqRes, verifRes, giftCatalogRes, agencyRes, agencyLinksRes, payoutsRes] = await Promise.all([
         fetch(`${apiUrl}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/reports`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -45,6 +51,7 @@ export default function AdminPage() {
         fetch(`${apiUrl}/api/gifts/catalog`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/agencies`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl}/api/admin/agency-links`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/payouts`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if ([overviewRes, usersRes, reportsRes, creatorReqRes, verifRes].some((r) => r.status === 401)) {
@@ -80,6 +87,10 @@ export default function AdminPage() {
       if (agencyLinksRes.ok) {
         const d = await agencyLinksRes.json();
         setAgencyLinks(d.links || []);
+      }
+      if (payoutsRes.ok) {
+        const d = await payoutsRes.json();
+        setPayouts(d.payouts || []);
       }
     } catch (err) {
       if (err.message === "auth") {
@@ -276,6 +287,34 @@ export default function AdminPage() {
     }
   };
 
+  const handlePayoutAction = async (payoutId, status, notes = "") => {
+    const token = localStorage.getItem("admin_token");
+    setPayoutActionLoading(payoutId);
+    setPayoutError("");
+    setPayoutSuccess("");
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/payouts/${payoutId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status, notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error al actualizar");
+      setPayoutSuccess(`Solicitud marcada como: ${status}`);
+      // Refresh payouts
+      const payoutsRes = await fetch(`${apiUrl}/api/admin/payouts`, { headers: { Authorization: `Bearer ${token}` } });
+      if (payoutsRes.ok) {
+        const d = await payoutsRes.json();
+        setPayouts(d.payouts || []);
+      }
+      setTimeout(() => setPayoutSuccess(""), 4000);
+    } catch (err) {
+      setPayoutError(err.message);
+    } finally {
+      setPayoutActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "#fff" }}>
@@ -305,6 +344,7 @@ export default function AdminPage() {
           <StatCard title="Admins" value={stats.admins} />
           <StatCard title="Solicitudes creador" value={creatorRequests.length} highlight={creatorRequests.length > 0} />
           <StatCard title="Verificaciones" value={verificationRequests.length} highlight={verificationRequests.length > 0} />
+          <StatCard title="Pagos pendientes" value={payouts.filter((p) => p.status === "pending" || p.status === "processing").length} highlight={payouts.some((p) => p.status === "pending")} />
         </div>
       )}
 
@@ -317,6 +357,7 @@ export default function AdminPage() {
           { key: "reports", label: "Reportes" },
           { key: "gifts", label: "Catálogo Regalos" },
           { key: "agency", label: "Agencias" },
+          { key: "payouts", label: `Pagos${payouts.filter((p) => p.status === "pending").length > 0 ? ` (${payouts.filter((p) => p.status === "pending").length})` : ""}` },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -896,6 +937,97 @@ export default function AdminPage() {
                   </tr>
                 ))}
                 {agencyLinks.length === 0 && <tr><td colSpan={6} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>No hay relaciones de agencia</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeTab === "payouts" && (
+        <section style={{ marginBottom: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Solicitudes de Pago</h2>
+          {payoutError && (
+            <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+              {payoutError}
+            </div>
+          )}
+          {payoutSuccess && (
+            <div style={{ background: "rgba(74,222,128,0.1)", border: "1px solid #4ade80", color: "#4ade80", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+              {payoutSuccess}
+            </div>
+          )}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+              <thead>
+                <tr style={{ background: "#1e293b" }}>
+                  <Th>Creador</Th>
+                  <Th>Email</Th>
+                  <Th>Monedas</Th>
+                  <Th>Estado</Th>
+                  <Th>Solicitado</Th>
+                  <Th>Notas</Th>
+                  <Th>Acciones</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p._id} style={{ borderBottom: "1px solid #334155" }}>
+                    <Td>{p.creator?.name || p.creator?.username || "—"}</Td>
+                    <Td>{p.creator?.email || "—"}</Td>
+                    <Td><strong style={{ color: "#fbbf24" }}>🪙 {p.amountCoins}</strong></Td>
+                    <Td>
+                      <span style={{
+                        padding: "0.2rem 0.6rem",
+                        borderRadius: "4px",
+                        fontSize: "0.78rem",
+                        fontWeight: "600",
+                        background: p.status === "completed" ? "rgba(74,222,128,0.15)" : p.status === "rejected" ? "rgba(248,113,113,0.15)" : p.status === "processing" ? "rgba(96,165,250,0.15)" : "rgba(251,191,36,0.15)",
+                        color: p.status === "completed" ? "#4ade80" : p.status === "rejected" ? "#f87171" : p.status === "processing" ? "#60a5fa" : "#fbbf24",
+                      }}>
+                        {p.status === "pending" ? "Pendiente" : p.status === "processing" ? "En proceso" : p.status === "completed" ? "Completado" : "Rechazado"}
+                      </span>
+                    </Td>
+                    <Td>{new Date(p.createdAt).toLocaleDateString()}</Td>
+                    <Td style={{ maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.notes || "—"}</Td>
+                    <Td>
+                      {(p.status === "pending" || p.status === "processing") ? (
+                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                          {p.status === "pending" && (
+                            <ActionBtn
+                              label="En proceso"
+                              color="#60a5fa"
+                              disabled={payoutActionLoading === p._id}
+                              onClick={() => handlePayoutAction(p._id, "processing")}
+                            />
+                          )}
+                          <ActionBtn
+                            label="Completar"
+                            color="#4ade80"
+                            disabled={payoutActionLoading === p._id}
+                            onClick={() => handlePayoutAction(p._id, "completed")}
+                          />
+                          <ActionBtn
+                            label="Rechazar"
+                            color="#f87171"
+                            disabled={payoutActionLoading === p._id}
+                            onClick={() => handlePayoutAction(p._id, "rejected")}
+                          />
+                        </div>
+                      ) : (
+                        <span style={{ color: "#475569", fontSize: "0.8rem" }}>
+                          {p.processedAt ? new Date(p.processedAt).toLocaleDateString() : "—"}
+                        </span>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+                {payouts.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: "1rem", textAlign: "center", color: "#94a3b8" }}>
+                      No hay solicitudes de pago
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

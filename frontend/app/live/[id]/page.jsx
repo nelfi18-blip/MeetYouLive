@@ -233,7 +233,7 @@ export default function LiveRoomPage() {
 
       giftEffectTimeoutRef.current = setTimeout(() => {
         setActiveGiftEffect(null);
-      }, gift?.rarity === "vip" || gift?.rarity === "epic" ? 7000 : gift?.rarity === "premium" ? 4500 : 2200);
+      }, ["mythic", "legendary"].includes(gift?.rarity) ? 7000 : ["epic", "rare"].includes(gift?.rarity) ? 4500 : 2200);
 
       recentGiftTimeoutRef.current = setTimeout(() => {
         setRecentGift(null);

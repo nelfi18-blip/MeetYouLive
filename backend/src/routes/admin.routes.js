@@ -8,6 +8,7 @@ const { requireAdmin } = require("../middlewares/admin.middleware.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
+const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
 
@@ -364,6 +365,60 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
     }
 
     res.json({ message: "Relación eliminada" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── Payout admin routes ─────────────────────────────────────────────────────
+
+// GET /api/admin/payouts — list payout requests (optional ?status=pending|processing|completed|rejected)
+router.get("/payouts", async (req, res) => {
+  try {
+    const allowedStatuses = ["pending", "processing", "completed", "rejected"];
+    const filter = {};
+    if (req.query.status && allowedStatuses.includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+    const payouts = await Payout.find(filter)
+      .populate("creator", "username name email avatar earningsCoins")
+      .sort({ createdAt: -1 })
+      .limit(200);
+    res.json({ payouts });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /api/admin/payouts/:id — update payout status (complete or reject)
+// Body: { status: "completed" | "rejected" | "processing", notes? }
+router.patch("/payouts/:id", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+    const { status, notes } = req.body;
+    const allowedTransitions = ["processing", "completed", "rejected"];
+    if (!allowedTransitions.includes(status)) {
+      return res.status(400).json({ message: "Estado inválido. Usa: processing, completed o rejected" });
+    }
+
+    const payout = await Payout.findById(req.params.id);
+    if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
+
+    if (payout.status === "completed" || payout.status === "rejected") {
+      return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
+    }
+
+    payout.status = status;
+    if (notes !== undefined) payout.notes = notes;
+    if (status === "completed" || status === "rejected") {
+      payout.processedAt = new Date();
+    }
+    await payout.save();
+
+    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
+    res.json({ message: "Solicitud actualizada", payout: populated });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

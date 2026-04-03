@@ -8,7 +8,6 @@ import GiftPanel from "@/components/GiftPanel";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const LIVE_PROVIDER_KEY = process.env.NEXT_PUBLIC_LIVE_PROVIDER_KEY;
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -36,7 +35,17 @@ export default function LiveRoomPage() {
   const recentGiftTimeoutRef = useRef(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
+
+  // Agora state
+  const [agoraJoined, setAgoraJoined] = useState(false);
+  const [agoraError, setAgoraError] = useState("");
+  const agoraClientRef = useRef(null);
+  const localVideoTrackRef = useRef(null);
+  const localAudioTrackRef = useRef(null);
+  const localVideoContainerRef = useRef(null);
+  const remoteVideoContainerRef = useRef(null);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -54,7 +63,10 @@ export default function LiveRoomPage() {
   }, [id, token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setMeLoaded(true);
+      return;
+    }
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -62,7 +74,8 @@ export default function LiveRoomPage() {
       .then((data) => {
         if (data?._id) setCurrentUserId(String(data._id));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setMeLoaded(true));
   }, [token]);
 
   useEffect(() => {
@@ -75,6 +88,123 @@ export default function LiveRoomPage() {
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
     };
   }, []);
+
+  // ── Agora join ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!live || !meLoaded) return;
+    if (live.isPrivate && !live.hasAccess) return;
+    if (!token) return;
+
+    const isCreatorCheck =
+      !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
+
+    let client;
+    let localAudio;
+    let localVideo;
+    let cancelled = false;
+
+    const joinAgora = async () => {
+      try {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        if (cancelled) return;
+
+        const role = isCreatorCheck ? "publisher" : "subscriber";
+        const tokenRes = await fetch(
+          `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
+        const { appId, token: agoraToken, uid } = await tokenRes.json();
+        if (cancelled) return;
+
+        client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        agoraClientRef.current = client;
+
+        if (isCreatorCheck) {
+          await client.setClientRole("host");
+          [localAudio, localVideo] =
+            await AgoraRTC.createMicrophoneAndCameraTracks();
+          if (cancelled) {
+            localAudio.close();
+            localVideo.close();
+            return;
+          }
+          localAudioTrackRef.current = localAudio;
+          localVideoTrackRef.current = localVideo;
+
+          await client.join(appId, String(live._id), agoraToken, uid);
+          await client.publish([localAudio, localVideo]);
+
+          if (localVideoContainerRef.current) {
+            localVideo.play(localVideoContainerRef.current);
+          }
+        } else {
+          await client.setClientRole("audience");
+          await client.join(appId, String(live._id), agoraToken, uid);
+
+          // Subscribe to existing remote users
+          for (const user of client.remoteUsers) {
+            if (user.hasVideo) {
+              await client.subscribe(user, "video");
+              if (remoteVideoContainerRef.current) {
+                user.videoTrack?.play(remoteVideoContainerRef.current);
+              }
+            }
+            if (user.hasAudio) {
+              await client.subscribe(user, "audio");
+              user.audioTrack?.play();
+            }
+          }
+
+          client.on("user-published", async (user, mediaType) => {
+            await client.subscribe(user, mediaType);
+            if (mediaType === "video" && remoteVideoContainerRef.current) {
+              user.videoTrack?.play(remoteVideoContainerRef.current);
+            }
+            if (mediaType === "audio") {
+              user.audioTrack?.play();
+            }
+          });
+
+          client.on("user-unpublished", (user, mediaType) => {
+            if (mediaType === "video") {
+              user.videoTrack?.stop();
+            }
+          });
+        }
+
+        if (!cancelled) setAgoraJoined(true);
+      } catch (err) {
+        if (!cancelled) {
+          setAgoraError(
+            err?.message?.includes("cámara") || err?.message?.includes("mic")
+              ? "Permite el acceso a cámara/micrófono para transmitir"
+              : "No se pudo conectar al canal de video"
+          );
+        }
+      }
+    };
+
+    joinAgora();
+
+    return () => {
+      cancelled = true;
+      if (localAudioTrackRef.current) {
+        localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
+      }
+      if (localVideoTrackRef.current) {
+        localVideoTrackRef.current.close();
+        localVideoTrackRef.current = null;
+      }
+      if (agoraClientRef.current) {
+        agoraClientRef.current.leave().catch(() => {});
+        agoraClientRef.current = null;
+      }
+      setAgoraJoined(false);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, meLoaded, token, currentUserId]);
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -321,9 +451,6 @@ export default function LiveRoomPage() {
     }
   };
 
-  // Video provider is in demo mode — external player disabled until real provider is configured.
-  const playerUrl = null;
-
   const creatorName = live.user?.username || live.user?.name || "Creador";
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
@@ -333,19 +460,45 @@ export default function LiveRoomPage() {
       <div className="room-layout">
         <div className="room-main">
           <div className="video-wrap">
-            {playerUrl ? (
-              <iframe
-                src={playerUrl}
-                allow="autoplay; fullscreen"
-                allowFullScreen
-                title={live.title}
-                className="player-frame"
+            {/* Agora video containers */}
+            {isCreator ? (
+              <div
+                ref={localVideoContainerRef}
+                className="agora-video-container"
               />
             ) : (
-              <div className="video-placeholder">
-                <div className="video-placeholder-icon">🎥</div>
-                <p className="video-placeholder-text">Transmisión en vivo (modo demo)</p>
-                <span className="demo-badge">DEMO</span>
+              <div
+                ref={remoteVideoContainerRef}
+                className="agora-video-container"
+              />
+            )}
+
+            {/* Loading / error overlay (shown before Agora joins) */}
+            {!agoraJoined && !agoraError && token && (
+              <div className="video-joining">
+                <div className="video-spinner" />
+                <p className="video-joining-text">
+                  {isCreator ? "Iniciando transmisión…" : "Conectando al directo…"}
+                </p>
+              </div>
+            )}
+
+            {/* Agora error overlay */}
+            {agoraError && (
+              <div className="video-joining">
+                <span style={{ fontSize: "2.5rem" }}>📡</span>
+                <p className="video-joining-text video-error-text">{agoraError}</p>
+              </div>
+            )}
+
+            {/* No token overlay */}
+            {!token && (
+              <div className="video-joining">
+                <span style={{ fontSize: "2.5rem" }}>🔐</span>
+                <p className="video-joining-text">
+                  <Link href="/login" className="link-accent">Inicia sesión</Link>{" "}
+                  para ver el directo
+                </p>
               </div>
             )}
 
@@ -548,15 +701,15 @@ export default function LiveRoomPage() {
           box-shadow: 0 0 40px rgba(255,15,138,0.15), var(--shadow);
         }
 
-        .player-frame {
+        .agora-video-container {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
-          border: none;
+          background: #000;
         }
 
-        .video-placeholder {
+        .video-joining {
           position: absolute;
           inset: 0;
           display: flex;
@@ -565,27 +718,31 @@ export default function LiveRoomPage() {
           justify-content: center;
           gap: 0.75rem;
           background: radial-gradient(ellipse at center, rgba(30,8,60,0.95) 0%, rgba(6,2,15,0.98) 100%);
+          z-index: 2;
         }
 
-        .video-placeholder-icon { font-size: 3.5rem; opacity: 0.6; }
+        .video-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid rgba(255,15,138,0.15);
+          border-top-color: var(--accent);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
 
-        .video-placeholder-text {
-          font-size: 1rem;
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .video-joining-text {
+          font-size: 0.9rem;
           font-weight: 600;
           color: var(--text-muted);
-          letter-spacing: 0.05em;
+          text-align: center;
+          padding: 0 1rem;
         }
 
-        .demo-badge {
-          font-size: 0.65rem;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          color: #e040fb;
-          border: 1px solid rgba(224,64,251,0.45);
-          border-radius: var(--radius-pill);
-          padding: 0.15rem 0.65rem;
-          background: rgba(224,64,251,0.1);
-        }
+        .video-error-text { color: var(--error); }
+
+        .link-accent { color: var(--accent); text-decoration: underline; }
 
         .video-overlay {
           position: absolute;

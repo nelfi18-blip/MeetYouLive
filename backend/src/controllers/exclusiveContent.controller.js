@@ -46,7 +46,7 @@ const listByCreator = async (req, res) => {
     const annotated = content.map((item) => {
       const obj = item.toObject();
       const isOwner = req.userId && String(item.creator._id) === String(req.userId);
-      obj.hasAccess = isOwner || unlockedSet.has(String(item._id));
+      obj.hasAccess = !item.isExclusive || isOwner || unlockedSet.has(String(item._id));
       if (!obj.hasAccess) delete obj.mediaUrl;
       return obj;
     });
@@ -112,8 +112,9 @@ const getContent = async (req, res) => {
       return res.status(404).json({ message: "Contenido no encontrado" });
     }
 
-    let hasAccess = false;
-    if (req.userId) {
+    // Non-exclusive content is freely accessible; exclusive content requires unlock
+    let hasAccess = !content.isExclusive;
+    if (!hasAccess && req.userId) {
       if (String(content.creator._id) === String(req.userId)) {
         hasAccess = true; // Creator always has access to their own content
       } else {
@@ -146,6 +147,9 @@ const unlockContent = async (req, res) => {
       contentDoc = await ExclusiveContent.findById(req.params.id).session(session);
       if (!contentDoc || !contentDoc.isActive) {
         throw Object.assign(new Error("Contenido no encontrado"), { status: 404 });
+      }
+      if (!contentDoc.isExclusive) {
+        throw Object.assign(new Error("Este contenido es de acceso libre"), { status: 400 });
       }
       if (String(contentDoc.creator) === String(req.userId)) {
         throw Object.assign(new Error("No puedes desbloquear tu propio contenido"), { status: 400 });
@@ -260,6 +264,7 @@ const checkAccess = async (req, res) => {
     const content = await ExclusiveContent.findById(req.params.id);
     if (!content) return res.status(404).json({ message: "Contenido no encontrado" });
 
+    if (!content.isExclusive) return res.json({ hasAccess: true });
     if (String(content.creator) === String(req.userId)) {
       return res.json({ hasAccess: true });
     }

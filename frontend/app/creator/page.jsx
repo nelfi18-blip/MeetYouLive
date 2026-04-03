@@ -339,6 +339,15 @@ export default function CreatorPage() {
             <span className="tool-card-arrow"><ArrowIcon /></span>
           </Link>
 
+          <Link href="/creator/content" className="tool-card tool-exclusive">
+            <div className="tool-card-icon">💎</div>
+            <div className="tool-card-body">
+              <div className="tool-card-title">Contenido exclusivo</div>
+              <div className="tool-card-sub">Publica y gestiona tu contenido premium</div>
+            </div>
+            <span className="tool-card-arrow"><ArrowIcon /></span>
+          </Link>
+
           <Link href="/videos/upload" className="tool-card tool-video">
             <div className="tool-card-icon"><VideoIcon /></div>
             <div className="tool-card-body">
@@ -646,6 +655,7 @@ export default function CreatorPage() {
         .tool-live { border-color: rgba(248,113,113,0.2); }
         .tool-video { border-color: rgba(52,211,153,0.2); }
         .tool-archive { border-color: rgba(129,140,248,0.2); }
+        .tool-exclusive { border-color: rgba(224,64,251,0.2); }
 
         .tool-card:hover {
           transform: translateY(-2px);
@@ -655,6 +665,7 @@ export default function CreatorPage() {
         .tool-live:hover { border-color: rgba(248,113,113,0.4); box-shadow: 0 0 16px rgba(248,113,113,0.15); }
         .tool-video:hover { border-color: rgba(52,211,153,0.4); box-shadow: 0 0 16px rgba(52,211,153,0.15); }
         .tool-archive:hover { border-color: rgba(129,140,248,0.4); box-shadow: 0 0 16px rgba(129,140,248,0.15); }
+        .tool-exclusive:hover { border-color: rgba(224,64,251,0.45); box-shadow: 0 0 16px rgba(224,64,251,0.18); }
 
         .tool-card-icon {
           width: 42px;
@@ -676,6 +687,11 @@ export default function CreatorPage() {
         .tool-archive .tool-card-icon {
           background: rgba(129,140,248,0.08);
           color: #818cf8;
+        }
+
+        .tool-exclusive .tool-card-icon {
+          background: rgba(162,28,175,0.1);
+          font-size: 1.25rem;
         }
 
         .tool-card-icon :global(svg) { width: 20px; height: 20px; }

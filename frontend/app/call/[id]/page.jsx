@@ -227,7 +227,7 @@ export default function CallPage() {
           `${API_URL}/api/agora/token?channelName=${encodeURIComponent(String(callId))}&role=publisher`,
           { headers: { Authorization: `Bearer ${token.current}` } }
         );
-        if (!tokenRes.ok) throw new Error("token");
+        if (!tokenRes.ok) throw new Error("agora_token_failed");
         const { appId, token: agoraToken, uid } = await tokenRes.json();
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
@@ -277,7 +277,7 @@ export default function CallPage() {
         }
       } catch (err) {
         const msg = err?.message || "";
-        if (msg === "token") {
+        if (msg === "agora_token_failed") {
           setError("No se pudo obtener autorización para la videollamada.");
         } else {
           setError("Error al conectar la videollamada.");

@@ -28,7 +28,8 @@ const videocallSchema = new mongoose.Schema(
     creatorShare: { type: Number, default: 0, min: 0 },
     platformShare: { type: Number, default: 0, min: 0 },
     agencyShare: { type: Number, default: 0, min: 0 },
-    parentCreatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    referrerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    agencyPercentageApplied: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

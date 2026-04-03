@@ -2,6 +2,7 @@ const VideoCall = require("../models/VideoCall.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
@@ -181,28 +182,27 @@ const respondCall = async (req, res) => {
       if (call.type === "paid_creator" && call.callCoins > 0) {
         const fullCreatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
 
-        // Apply agency split if creator has an active parent agency
-        const recipient = await User.findById(call.recipient);
+        // Look up the canonical AgencyRelationship for the percentage at this moment
+        const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
         let creatorNetShare = fullCreatorShare;
         let agencyShare = 0;
-        let parentCreatorId = null;
+        let referrerId = null;
+        let agencyPercentageApplied = 0;
 
-        if (recipient) {
-          const rel = recipient.agencyRelationship;
-          if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
-            const split = calculateSplit(call.callCoins, rel.parentCreatorPercentage);
-            agencyShare = split.agencyShare;
-            creatorNetShare = split.creatorNetShare;
-            parentCreatorId = rel.parentCreatorId;
-          }
+        if (agencyRel && agencyRel.percentage > 0) {
+          const split = calculateSplit(call.callCoins, agencyRel.percentage);
+          agencyShare = split.agencyShare;
+          creatorNetShare = split.creatorNetShare;
+          referrerId = agencyRel.parentCreator;
+          agencyPercentageApplied = agencyRel.percentage;
         }
 
         await User.findByIdAndUpdate(call.recipient, {
           $inc: { earningsCoins: creatorNetShare },
         });
 
-        if (agencyShare > 0 && parentCreatorId) {
-          await User.findByIdAndUpdate(parentCreatorId, {
+        if (agencyShare > 0 && referrerId) {
+          await User.findByIdAndUpdate(referrerId, {
             $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: call.callCoins },
           });
         }
@@ -213,8 +213,11 @@ const respondCall = async (req, res) => {
         call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
         call.platformShare = (call.platformShare || 0) + platformShareFirst;
         call.agencyShare = (call.agencyShare || 0) + agencyShare;
-        if (parentCreatorId && !call.parentCreatorId) {
-          call.parentCreatorId = parentCreatorId;
+        if (referrerId && !call.referrerId) {
+          call.referrerId = referrerId;
+        }
+        if (agencyPercentageApplied > 0 && !call.agencyPercentageApplied) {
+          call.agencyPercentageApplied = agencyPercentageApplied;
         }
 
         // Record earnings transactions for creator (and agency) — fire-and-forget
@@ -228,9 +231,9 @@ const respondCall = async (req, res) => {
             metadata: { callId: String(call._id), callerUserId: String(call.caller) },
           },
         ];
-        if (agencyShare > 0 && parentCreatorId) {
+        if (agencyShare > 0 && referrerId) {
           txDocs.push({
-            userId: parentCreatorId,
+            userId: referrerId,
             type: "agency_earned",
             amount: agencyShare,
             reason: `Comisión de agencia por llamada privada`,
@@ -427,20 +430,19 @@ const tickCall = async (req, res) => {
     const pricePerMinute = call.callCoins;
     const fullCreatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
 
-    // Apply agency split if creator has an active parent agency
-    const creatorUser = await User.findById(call.recipient);
+    // Look up the canonical AgencyRelationship for the percentage at this moment
+    const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
     let creatorNetShare = fullCreatorShare;
     let agencyShare = 0;
-    let parentCreatorId = null;
+    let referrerId = null;
+    let agencyPercentageApplied = 0;
 
-    if (creatorUser) {
-      const rel = creatorUser.agencyRelationship;
-      if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
-        const split = calculateSplit(pricePerMinute, rel.parentCreatorPercentage);
-        agencyShare = split.agencyShare;
-        creatorNetShare = split.creatorNetShare;
-        parentCreatorId = rel.parentCreatorId;
-      }
+    if (agencyRel && agencyRel.percentage > 0) {
+      const split = calculateSplit(pricePerMinute, agencyRel.percentage);
+      agencyShare = split.agencyShare;
+      creatorNetShare = split.creatorNetShare;
+      referrerId = agencyRel.parentCreator;
+      agencyPercentageApplied = agencyRel.percentage;
     }
 
     // Atomically deduct coins from caller
@@ -464,8 +466,8 @@ const tickCall = async (req, res) => {
     // Credit creator (net share after agency)
     await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } });
 
-    if (agencyShare > 0 && parentCreatorId) {
-      await User.findByIdAndUpdate(parentCreatorId, {
+    if (agencyShare > 0 && referrerId) {
+      await User.findByIdAndUpdate(referrerId, {
         $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
       });
     }
@@ -480,8 +482,8 @@ const tickCall = async (req, res) => {
         agencyShare,
       },
     };
-    if (parentCreatorId && !call.parentCreatorId) {
-      tickUpdate.$set = { parentCreatorId };
+    if (referrerId && !call.referrerId) {
+      tickUpdate.$set = { referrerId, agencyPercentageApplied };
     }
     await VideoCall.findByIdAndUpdate(call._id, tickUpdate);
 
@@ -505,9 +507,9 @@ const tickCall = async (req, res) => {
         metadata: txMeta,
       },
     ];
-    if (agencyShare > 0 && parentCreatorId) {
+    if (agencyShare > 0 && referrerId) {
       txDocs.push({
-        userId: parentCreatorId,
+        userId: referrerId,
         type: "agency_earned",
         amount: agencyShare,
         reason: `Comisión de agencia por minuto de llamada privada`,

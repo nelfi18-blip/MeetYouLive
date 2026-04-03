@@ -13,8 +13,9 @@ export default function ExclusiveUploadPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [type, setType] = useState("video");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
-  const [contentUrl, setContentUrl] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [coinPrice, setCoinPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -59,7 +60,7 @@ export default function ExclusiveUploadPage() {
     setError("");
     setSuccess("");
 
-    if (!title.trim() || !contentUrl.trim()) {
+    if (!title.trim() || !mediaUrl.trim()) {
       setError("El título y la URL del contenido son obligatorios");
       return;
     }
@@ -87,8 +88,9 @@ export default function ExclusiveUploadPage() {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
+          type,
           thumbnailUrl: thumbnailUrl.trim(),
-          contentUrl: contentUrl.trim(),
+          mediaUrl: mediaUrl.trim(),
           coinPrice: parsedPrice,
         }),
       });
@@ -157,6 +159,21 @@ export default function ExclusiveUploadPage() {
         </div>
 
         <div className="form-group">
+          <label className="form-label">
+            Tipo de contenido <span className="required">*</span>
+          </label>
+          <select
+            className="form-input"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            required
+          >
+            <option value="video">🎬 Vídeo</option>
+            <option value="photo">📷 Foto</option>
+          </select>
+        </div>
+
+        <div className="form-group">
           <label className="form-label">URL de miniatura (opcional)</label>
           <input
             type="url"
@@ -175,9 +192,9 @@ export default function ExclusiveUploadPage() {
           <input
             type="url"
             className="form-input"
-            placeholder="https://… (vídeo, audio, imagen, etc.)"
-            value={contentUrl}
-            onChange={(e) => setContentUrl(e.target.value)}
+            placeholder="https://… (vídeo, imagen, etc.)"
+            value={mediaUrl}
+            onChange={(e) => setMediaUrl(e.target.value)}
             required
           />
           <span className="form-hint">

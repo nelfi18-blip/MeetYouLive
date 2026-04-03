@@ -11,7 +11,7 @@ const COMMISSION_RATE = 0.40;
 // GET /api/exclusive – list all published exclusive content
 const listContent = async (req, res) => {
   try {
-    const content = await ExclusiveContent.find({ isPublished: true })
+    const content = await ExclusiveContent.find({ isActive: true })
       .populate("creator", "username name avatar")
       .sort({ createdAt: -1 })
       .limit(100);
@@ -26,7 +26,7 @@ const listByCreator = async (req, res) => {
   try {
     const content = await ExclusiveContent.find({
       creator: req.params.creatorId,
-      isPublished: true,
+      isActive: true,
     })
       .populate("creator", "username name avatar")
       .sort({ createdAt: -1 })
@@ -47,7 +47,7 @@ const listByCreator = async (req, res) => {
       const obj = item.toObject();
       const isOwner = req.userId && String(item.creator._id) === String(req.userId);
       obj.hasAccess = isOwner || unlockedSet.has(String(item._id));
-      if (!obj.hasAccess) delete obj.contentUrl;
+      if (!obj.hasAccess) delete obj.mediaUrl;
       return obj;
     });
     res.json(annotated);
@@ -75,9 +75,12 @@ const createContent = async (req, res) => {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden publicar contenido exclusivo" });
     }
 
-    const { title, description, thumbnailUrl, contentUrl, coinPrice } = req.body;
-    if (!title || !contentUrl) {
-      return res.status(400).json({ message: "title y contentUrl son requeridos" });
+    const { title, description, type, thumbnailUrl, mediaUrl, coinPrice } = req.body;
+    if (!title || !mediaUrl || !type) {
+      return res.status(400).json({ message: "title, type y mediaUrl son requeridos" });
+    }
+    if (!["photo", "video"].includes(type)) {
+      return res.status(400).json({ message: "type debe ser 'photo' o 'video'" });
     }
     const parsedPrice = Number(coinPrice);
     if (isNaN(parsedPrice) || parsedPrice < 1) {
@@ -88,8 +91,9 @@ const createContent = async (req, res) => {
       creator: req.userId,
       title: title.trim(),
       description: description ? description.trim() : "",
+      type,
       thumbnailUrl: thumbnailUrl ? thumbnailUrl.trim() : "",
-      contentUrl: contentUrl.trim(),
+      mediaUrl: mediaUrl.trim(),
       coinPrice: parsedPrice,
     });
     await content.populate("creator", "username name avatar");
@@ -99,12 +103,12 @@ const createContent = async (req, res) => {
   }
 };
 
-// GET /api/exclusive/:id – get content by id (contentUrl hidden unless access granted)
+// GET /api/exclusive/:id – get content by id (mediaUrl hidden unless access granted)
 const getContent = async (req, res) => {
   try {
     const content = await ExclusiveContent.findById(req.params.id)
       .populate("creator", "username name avatar");
-    if (!content || !content.isPublished) {
+    if (!content || !content.isActive) {
       return res.status(404).json({ message: "Contenido no encontrado" });
     }
 
@@ -120,7 +124,7 @@ const getContent = async (req, res) => {
 
     const response = content.toObject();
     if (!hasAccess) {
-      delete response.contentUrl;
+      delete response.mediaUrl;
     }
     response.hasAccess = hasAccess;
     res.json(response);
@@ -140,7 +144,7 @@ const unlockContent = async (req, res) => {
   try {
     await session.withTransaction(async () => {
       contentDoc = await ExclusiveContent.findById(req.params.id).session(session);
-      if (!contentDoc || !contentDoc.isPublished) {
+      if (!contentDoc || !contentDoc.isActive) {
         throw Object.assign(new Error("Contenido no encontrado"), { status: 404 });
       }
       if (String(contentDoc.creator) === String(req.userId)) {

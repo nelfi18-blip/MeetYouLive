@@ -23,6 +23,7 @@ const callSchema = new mongoose.Schema(
     totalCoinsCharged: { type: Number, default: 0, min: 0 },
     creatorShare: { type: Number, default: 0, min: 0 },
     platformShare: { type: Number, default: 0, min: 0 },
+    agencyShare: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

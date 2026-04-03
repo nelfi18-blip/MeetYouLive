@@ -207,6 +207,12 @@ const respondCall = async (req, res) => {
           });
         }
 
+        // Track billing totals on the call document
+        const platformShareFirst = call.callCoins - fullCreatorShare;
+        call.totalCoinsCharged = (call.totalCoinsCharged || 0) + call.callCoins;
+        call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
+        call.platformShare = (call.platformShare || 0) + platformShareFirst;
+
         // Record earnings transactions for creator (and agency) — fire-and-forget
         const txDocs = [
           {
@@ -275,6 +281,9 @@ const endCall = async (req, res) => {
 
     call.status = "ended";
     call.endedAt = new Date();
+    if (call.startedAt) {
+      call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+    }
     await call.save();
 
     res.json(call);
@@ -441,6 +450,9 @@ const tickCall = async (req, res) => {
       // Caller ran out of coins — end the call
       call.status = "ended";
       call.endedAt = new Date();
+      if (call.startedAt) {
+        call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+      }
       await call.save();
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
@@ -453,6 +465,16 @@ const tickCall = async (req, res) => {
         $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
       });
     }
+
+    // Increment running billing totals on the call document
+    const platformShareTick = pricePerMinute - fullCreatorShare;
+    await VideoCall.findByIdAndUpdate(call._id, {
+      $inc: {
+        totalCoinsCharged: pricePerMinute,
+        creatorShare: creatorNetShare,
+        platformShare: platformShareTick,
+      },
+    });
 
     // Record transactions (fire-and-forget)
     const txMeta = { callId: String(call._id) };

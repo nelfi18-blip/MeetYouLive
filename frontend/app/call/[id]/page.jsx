@@ -30,6 +30,7 @@ export default function CallPage() {
   const [remoteName, setRemoteName] = useState("");
   const [remoteAvatar, setRemoteAvatar] = useState("");
   const [callDuration, setCallDuration] = useState(0); // seconds elapsed while connected
+  const [totalCharged, setTotalCharged] = useState(0); // coins charged so far this call
   const [coinsWarning, setCoinsWarning] = useState("");
 
   const localVideoRef = useRef(null);
@@ -98,6 +99,11 @@ export default function CallPage() {
         const callerIsMe = String(data.caller._id) === me;
         setIsCaller(callerIsMe);
 
+        // Seed totalCharged from already-recorded billing totals on the call
+        if (callerIsMe && data.type === "paid_creator") {
+          setTotalCharged(data.totalCoinsCharged || 0);
+        }
+
         const remote = callerIsMe ? data.recipient : data.caller;
         setRemoteName(remote?.username || remote?.name || "Usuario");
         setRemoteAvatar(remote?.avatar || "");
@@ -159,6 +165,9 @@ export default function CallPage() {
             }
             setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
             setStatus("ended");
+          } else if (res.ok && data.coinsDeducted) {
+            setTotalCharged((prev) => prev + data.coinsDeducted);
+            setCoinsWarning("");
           } else if (!res.ok) {
             setCoinsWarning(data.message || "Error en facturación por minuto.");
           }
@@ -475,8 +484,20 @@ export default function CallPage() {
       {isPaidCall && isCaller && (
         <div className="call-paid-banner">
           🪙 {call.callCoins} monedas/min
-          {status === "connected" && <span className="call-duration"> · {durationLabel}</span>}
+          {status === "connected" && (
+            <>
+              <span className="call-duration"> · {durationLabel}</span>
+              {totalCharged > 0 && (
+                <span className="call-charged"> · Total: {totalCharged} 🪙</span>
+              )}
+            </>
+          )}
         </div>
+      )}
+
+      {/* Inline low-balance warning during active call */}
+      {coinsWarning && status === "connected" && (
+        <div className="call-balance-warning">⚠️ {coinsWarning}</div>
       )}
 
       {/* Remote video */}
@@ -787,6 +808,27 @@ export default function CallPage() {
         .call-duration {
           opacity: 0.85;
           font-weight: 600;
+        }
+
+        .call-charged {
+          opacity: 0.9;
+          font-weight: 700;
+          color: #fbbf24;
+        }
+
+        .call-balance-warning {
+          width: 100%;
+          flex-shrink: 0;
+          z-index: 10;
+          background: rgba(220, 38, 38, 0.85);
+          color: #fff;
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-align: center;
+          padding: 0.35rem 1rem;
+          backdrop-filter: blur(8px);
+          letter-spacing: 0.02em;
+          animation: fade-pulse 1.5s ease-in-out infinite;
         }
 
         .call-paid-info {

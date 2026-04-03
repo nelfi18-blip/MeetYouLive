@@ -43,7 +43,7 @@ export default function ExclusiveDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al desbloquear el contenido");
 
-      // Re-fetch to get the contentUrl now that access is granted
+      // Re-fetch to get the mediaUrl now that access is granted
       const updated = await fetch(`${API_URL}/api/exclusive/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -214,14 +214,22 @@ export default function ExclusiveDetailPage() {
   return (
     <div className="exclusive-detail">
       <div className="player-wrap">
-        <video
-          src={item.contentUrl}
-          controls
-          className="content-player"
-          autoPlay={false}
-        >
-          Tu navegador no soporta la reproducción de vídeo.
-        </video>
+        {item.type === "photo" ? (
+          <img
+            src={item.mediaUrl}
+            alt={item.title}
+            className="content-player content-photo"
+          />
+        ) : (
+          <video
+            src={item.mediaUrl}
+            controls
+            className="content-player"
+            autoPlay={false}
+          >
+            Tu navegador no soporta la reproducción de vídeo.
+          </video>
+        )}
       </div>
 
       <div className="content-info card">

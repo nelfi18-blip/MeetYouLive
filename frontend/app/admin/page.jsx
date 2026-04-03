@@ -331,6 +331,9 @@ export default function AdminPage() {
     );
   }
 
+  const pendingPayoutsCount = payouts.filter((p) => p.status === "pending").length;
+  const activePayoutsCount = payouts.filter((p) => p.status === "pending" || p.status === "processing").length;
+
   return (
     <div style={{ padding: "2rem", maxWidth: "1100px", margin: "0 auto", color: "#fff" }}>
       <h1 style={{ fontSize: "1.8rem", marginBottom: "1.5rem" }}>Panel de Administrador</h1>
@@ -344,7 +347,7 @@ export default function AdminPage() {
           <StatCard title="Admins" value={stats.admins} />
           <StatCard title="Solicitudes creador" value={creatorRequests.length} highlight={creatorRequests.length > 0} />
           <StatCard title="Verificaciones" value={verificationRequests.length} highlight={verificationRequests.length > 0} />
-          <StatCard title="Pagos pendientes" value={payouts.filter((p) => p.status === "pending" || p.status === "processing").length} highlight={payouts.some((p) => p.status === "pending")} />
+          <StatCard title="Pagos pendientes" value={activePayoutsCount} highlight={pendingPayoutsCount > 0} />
         </div>
       )}
 
@@ -357,7 +360,7 @@ export default function AdminPage() {
           { key: "reports", label: "Reportes" },
           { key: "gifts", label: "Catálogo Regalos" },
           { key: "agency", label: "Agencias" },
-          { key: "payouts", label: `Pagos${payouts.filter((p) => p.status === "pending").length > 0 ? ` (${payouts.filter((p) => p.status === "pending").length})` : ""}` },
+          { key: "payouts", label: `Pagos${pendingPayoutsCount > 0 ? ` (${pendingPayoutsCount})` : ""}` },
         ].map((tab) => (
           <button
             key={tab.key}

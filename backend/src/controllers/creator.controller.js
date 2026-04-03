@@ -2,12 +2,14 @@ const Gift = require("../models/Gift.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const User = require("../models/User.js");
+const ExclusiveContent = require("../models/ExclusiveContent.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 
 const MIN_PAYOUT_COINS = 100;
 
 const requireApprovedCreator = async (userId) => {
   const user = await User.findById(userId).select(
-    "role creatorStatus earningsCoins coins"
+    "role creatorStatus earningsCoins coins agencyEarningsCoins agencyProfile"
   );
   if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
     return { error: "Acceso restringido a creadores aprobados.", user: null };
@@ -179,7 +181,7 @@ const getCreatorDashboard = async (req, res) => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [aggResult, todayAgg, recentGifts, activeLive] = await Promise.all([
+    const [aggResult, todayAgg, recentGifts, activeLive, pendingPayout, agencyCountsAgg, exclusiveContentCount] = await Promise.all([
       Gift.aggregate([
         { $match: { receiver: user._id } },
         {
@@ -203,10 +205,25 @@ const getCreatorDashboard = async (req, res) => {
       Live.findOne({ user: user._id, isLive: true })
         .select("_id title viewerCount isPrivate chatEnabled giftsEnabled createdAt")
         .lean(),
+      Payout.findOne({ creator: user._id, status: { $in: ["pending", "processing"] } })
+        .sort({ createdAt: -1 })
+        .lean(),
+      AgencyRelationship.aggregate([
+        { $match: { parentCreator: user._id, status: { $in: ["pending", "active"] } } },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      ExclusiveContent.countDocuments({ creator: user._id }),
     ]);
 
     const totals = aggResult[0] || { totalCreatorShare: 0, totalGiftCount: 0 };
     const todayCoins = todayAgg[0]?.todayCoins || 0;
+
+    const agencyCounts = { total: 0, active: 0, pending: 0 };
+    for (const row of agencyCountsAgg) {
+      agencyCounts.total += row.count;
+      if (row._id === "active") agencyCounts.active = row.count;
+      if (row._id === "pending") agencyCounts.pending = row.count;
+    }
 
     const gifts = recentGifts.map((g) => ({
       _id: g._id,
@@ -220,12 +237,24 @@ const getCreatorDashboard = async (req, res) => {
     res.json({
       // earningsCoins: current withdrawable balance (decreases after payout requests)
       earningsCoins: user.earningsCoins,
+      agencyEarningsCoins: user.agencyEarningsCoins || 0,
       todayCoins,
       // totalCreatorShare: historical cumulative earnings from gifts (never decreases)
       totalCreatorShare: totals.totalCreatorShare,
       totalGifts: totals.totalGiftCount,
       activeLive: activeLive || null,
       recentGifts: gifts,
+      pendingPayout: pendingPayout
+        ? {
+            _id: pendingPayout._id,
+            amountCoins: pendingPayout.amountCoins,
+            status: pendingPayout.status,
+            createdAt: pendingPayout.createdAt,
+          }
+        : null,
+      agencyEnabled: !!user.agencyProfile?.enabled,
+      agencyCounts,
+      exclusiveContentCount,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -420,12 +420,13 @@ export default function DashboardPage() {
 
   const isApprovedCreator = isCreator && creatorStatus === "approved";
 
-  // "Transmitir" is available to all authenticated users
-  const streamCard = [
-    { href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" },
-  ];
+  // "Transmitir" is available to all authenticated users (not shown to approved creators – they use the Live Control Panel)
+  const streamCard = !isApprovedCreator
+    ? [{ href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" }]
+    : [];
 
   // Monetization tools are only available to approved creators
+  // (approved creators now see these in the panels + quick actions, not the cards grid)
   const creatorCards = isApprovedCreator
     ? [
         { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
@@ -453,33 +454,71 @@ export default function DashboardPage() {
       ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Rechazada. Vuelve a aplicar.", icon: CreatorRequestIcon, color: "green", size: "normal" }]
       : [];
 
-  const allCards = [...CARDS, ...streamCard, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
+  // Approved creators get their tool access via the Quick Actions section; show only nav cards below
+  const allCards = isApprovedCreator
+    ? [...CARDS]
+    : [...CARDS, ...streamCard, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
 
   return (
     <div className="dashboard">
       {/* Hero welcome card */}
-      <div className="hero-card">
+      <div className={`hero-card${isApprovedCreator ? " hero-card-creator" : ""}`}>
         <div className="hero-bg-orb hero-orb-1" />
         <div className="hero-bg-orb hero-orb-2" />
+        {isApprovedCreator && <div className="hero-bg-orb hero-orb-3" />}
         <div className="hero-content">
-          <div className="hero-avatar">
+          <div className={`hero-avatar${isApprovedCreator ? " hero-avatar-creator" : ""}`}>
             {displayName[0].toUpperCase()}
           </div>
           <div className="hero-text">
+            <div className="hero-badges">
+              {isApprovedCreator && (
+                <>
+                  <span className="badge-creator">⭐ CREATOR</span>
+                  <span className="badge-status">✓ APROBADO</span>
+                </>
+              )}
+            </div>
             <h1 className="hero-title">
-              ¡Hola, <span className="hero-name">{displayName}</span>! 👋
+              {isApprovedCreator ? (
+                <>¡Hola, <span className="hero-name">{displayName}</span>! 🎬</>
+              ) : (
+                <>¡Hola, <span className="hero-name">{displayName}</span>! 👋</>
+              )}
             </h1>
-            <p className="hero-sub">Bienvenido/a de nuevo a MeetYouLive</p>
+            <p className="hero-sub">
+              {isApprovedCreator ? "Tu centro de control de creador" : "Bienvenido/a de nuevo a MeetYouLive"}
+            </p>
           </div>
-          {user && (
-            <Link href="/coins" className="coins-pill">
-              <span className="coins-pill-icon">
-                <CoinIcon />
-              </span>
-              <span className="coins-pill-value">{user.coins ?? 0}</span>
-              <span className="coins-pill-label">monedas</span>
-            </Link>
-          )}
+          <div className="hero-pills">
+            {user && (
+              <Link href="/coins" className="coins-pill">
+                <span className="coins-pill-icon"><CoinIcon /></span>
+                <span className="coins-pill-value">{user.coins ?? 0}</span>
+                <span className="coins-pill-label">monedas</span>
+              </Link>
+            )}
+            {isApprovedCreator && user && (
+              <div className="earnings-pill">
+                <span className="earnings-pill-icon">💰</span>
+                <span className="earnings-pill-value">{user.earningsCoins ?? 0}</span>
+                <span className="earnings-pill-label">ganancias</span>
+              </div>
+            )}
+            {isApprovedCreator && (user?.agencyEarningsCoins ?? 0) > 0 && (
+              <div className="agency-pill">
+                <span className="agency-pill-icon">🏢</span>
+                <span className="agency-pill-value">{user.agencyEarningsCoins}</span>
+                <span className="agency-pill-label">agencia</span>
+              </div>
+            )}
+            {isApprovedCreator && (
+              <Link href="/live/start" className="hero-start-live-btn">
+                <BroadcastIcon />
+                Iniciar live
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -591,15 +630,15 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Total monedas</span>
+                    <span className="stat-label">Total ganancias</span>
                     <span className="stat-value">
                       🪙 {creatorDash?.earningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Est. USD</span>
-                    <span className="stat-value stat-usd">
-                      ${((creatorDash?.earningsCoins ?? 0) * USD_PER_COIN).toFixed(2)}
+                    <span className="stat-label">Ganancias agencia</span>
+                    <span className="stat-value stat-agency">
+                      🏢 {creatorDash?.agencyEarningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
@@ -607,6 +646,16 @@ export default function DashboardPage() {
                     <span className="stat-value">{creatorDash?.totalGifts ?? 0}</span>
                   </div>
                 </div>
+
+                {creatorDash?.pendingPayout && (
+                  <div className="payout-status">
+                    <span className="payout-dot" />
+                    <span className="payout-text">
+                      Pago pendiente: <strong>🪙 {creatorDash.pendingPayout.amountCoins}</strong>
+                      {" "}— <span className="payout-state">{creatorDash.pendingPayout.status}</span>
+                    </span>
+                  </div>
+                )}
 
                 {creatorDash?.recentGifts?.length > 0 && (
                   <div className="recent-gifts">
@@ -633,8 +682,109 @@ export default function DashboardPage() {
               </>
             )}
           </div>
+
+          {/* ── AGENCY PANEL ── */}
+          <div className="panel agency-panel">
+            <div className="panel-header">
+              <AgencyIcon />
+              <h2 className="panel-title">Agencia</h2>
+              {creatorDash?.agencyEnabled ? (
+                <span className="agency-badge-on">ACTIVA</span>
+              ) : (
+                <span className="agency-badge-off">INACTIVA</span>
+              )}
+            </div>
+            {dashLoading && !creatorDash ? (
+              <div className="panel-loading">
+                <div className="skeleton" style={{ width: "100%", height: 40, borderRadius: 8 }} />
+              </div>
+            ) : (
+              <>
+                <div className="agency-stats">
+                  <div className="stat-box">
+                    <span className="stat-label">Total</span>
+                    <span className="stat-value">{creatorDash?.agencyCounts?.total ?? 0}</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Activos</span>
+                    <span className="stat-value stat-agency-active">
+                      {creatorDash?.agencyCounts?.active ?? 0}
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Pendientes</span>
+                    <span className="stat-value stat-agency-pending">
+                      {creatorDash?.agencyCounts?.pending ?? 0}
+                    </span>
+                  </div>
+                </div>
+                <Link href="/agency" className="btn-panel-action">
+                  Gestionar agency →
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* ── EXCLUSIVE CONTENT PANEL ── */}
+          <div className="panel exclusive-panel">
+            <div className="panel-header">
+              <ExclusiveIcon />
+              <h2 className="panel-title">Contenido Exclusivo</h2>
+            </div>
+            {dashLoading && !creatorDash ? (
+              <div className="panel-loading">
+                <div className="skeleton" style={{ width: "100%", height: 40, borderRadius: 8 }} />
+              </div>
+            ) : (
+              <>
+                <div className="exclusive-stat">
+                  <span className="exclusive-count">{creatorDash?.exclusiveContentCount ?? 0}</span>
+                  <span className="exclusive-label">
+                    {creatorDash?.exclusiveContentCount === 1 ? "elemento premium" : "elementos premium"}
+                  </span>
+                </div>
+                <Link href="/exclusive" className="btn-panel-action btn-panel-exclusive">
+                  Gestionar contenido exclusivo →
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
+
+      {/* ── QUICK ACTIONS (approved creators only) ── */}
+      {isApprovedCreator && (
+        <div className="quick-actions-section">
+          <h2 className="section-label">Acciones rápidas</h2>
+          <div className="quick-actions-grid">
+            <Link href="/live/start" className="qa-tile qa-live">
+              <span className="qa-icon"><BroadcastIcon /></span>
+              <span className="qa-title">Iniciar live</span>
+            </Link>
+            <Link href="/creator" className="qa-tile qa-earnings">
+              <span className="qa-icon"><EarningsIcon /></span>
+              <span className="qa-title">Ganancias</span>
+            </Link>
+            <Link href="/creator" className="qa-tile qa-payouts">
+              <span className="qa-icon"><CoinIcon /></span>
+              <span className="qa-title">Pagos</span>
+            </Link>
+            <Link href="/agency" className="qa-tile qa-agency">
+              <span className="qa-icon"><AgencyIcon /></span>
+              <span className="qa-title">Agency</span>
+            </Link>
+            <Link href="/exclusive" className="qa-tile qa-exclusive">
+              <span className="qa-icon"><ExclusiveIcon /></span>
+              <span className="qa-title">Exclusivo</span>
+            </Link>
+            <Link href="/private-calls" className="qa-tile qa-calls">
+              <span className="qa-icon"><PrivateCallIcon /></span>
+              <span className="qa-title">Llamadas</span>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="cards-grid">
         {allCards.map((card) => {
           const Icon = card.icon;
@@ -692,6 +842,11 @@ export default function DashboardPage() {
           box-shadow: var(--shadow), 0 0 60px rgba(139,92,246,0.08);
         }
 
+        .hero-card-creator {
+          border-color: rgba(244,114,182,0.3);
+          box-shadow: var(--shadow), 0 0 80px rgba(224,64,251,0.12);
+        }
+
         .hero-bg-orb {
           position: absolute;
           border-radius: 50%;
@@ -707,6 +862,11 @@ export default function DashboardPage() {
           width: 200px; height: 200px;
           background: radial-gradient(circle, rgba(129,140,248,0.12), transparent 70%);
           bottom: -60px; left: 30%;
+        }
+        .hero-orb-3 {
+          width: 160px; height: 160px;
+          background: radial-gradient(circle, rgba(244,114,182,0.1), transparent 70%);
+          top: 20px; left: -40px;
         }
 
         .hero-content {
@@ -732,7 +892,49 @@ export default function DashboardPage() {
           box-shadow: 0 0 0 3px rgba(224,64,251,0.25), 0 0 20px rgba(224,64,251,0.3);
         }
 
+        .hero-avatar-creator {
+          width: 72px;
+          height: 72px;
+          font-size: 1.8rem;
+          box-shadow: 0 0 0 3px rgba(244,114,182,0.5), 0 0 28px rgba(224,64,251,0.5);
+          animation: avatar-glow 3s ease-in-out infinite;
+        }
+
+        @keyframes avatar-glow {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(244,114,182,0.5), 0 0 28px rgba(224,64,251,0.5); }
+          50%       { box-shadow: 0 0 0 3px rgba(244,114,182,0.8), 0 0 40px rgba(224,64,251,0.7); }
+        }
+
         .hero-text { flex: 1; min-width: 180px; }
+
+        .hero-badges {
+          display: flex;
+          gap: 0.4rem;
+          flex-wrap: wrap;
+          margin-bottom: 0.4rem;
+        }
+
+        .badge-creator {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          color: #fff;
+          background: linear-gradient(135deg, #e040fb, #a855f7);
+          padding: 0.2rem 0.6rem;
+          border-radius: 100px;
+          box-shadow: 0 0 12px rgba(224,64,251,0.4);
+        }
+
+        .badge-status {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          color: #34d399;
+          background: rgba(52,211,153,0.12);
+          border: 1px solid rgba(52,211,153,0.3);
+          padding: 0.2rem 0.6rem;
+          border-radius: 100px;
+        }
 
         .hero-title {
           font-size: 1.6rem;
@@ -754,6 +956,15 @@ export default function DashboardPage() {
           font-size: 0.9rem;
           font-weight: 500;
           margin-top: 0.25rem;
+        }
+
+        /* Pills row */
+        .hero-pills {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          flex-shrink: 0;
         }
 
         .coins-pill {
@@ -779,16 +990,83 @@ export default function DashboardPage() {
           display: flex;
         }
         .coins-pill-value {
-          font-size: 1.15rem;
+          font-size: 1.05rem;
           font-weight: 800;
           color: var(--accent-orange);
           line-height: 1;
         }
         .coins-pill-label {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--text-muted);
           font-weight: 500;
         }
+
+        .earnings-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(52,211,153,0.08);
+          border: 1px solid rgba(52,211,153,0.2);
+          border-radius: var(--radius-pill);
+          padding: 0.55rem 1.1rem;
+          flex-shrink: 0;
+        }
+        .earnings-pill-icon { font-size: 0.9rem; line-height: 1; }
+        .earnings-pill-value {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #34d399;
+          line-height: 1;
+        }
+        .earnings-pill-label {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .agency-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(129,140,248,0.08);
+          border: 1px solid rgba(129,140,248,0.2);
+          border-radius: var(--radius-pill);
+          padding: 0.55rem 1.1rem;
+          flex-shrink: 0;
+        }
+        .agency-pill-icon { font-size: 0.9rem; line-height: 1; }
+        .agency-pill-value {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #818cf8;
+          line-height: 1;
+        }
+        .agency-pill-label {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .hero-start-live-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.6rem 1.3rem;
+          border-radius: var(--radius-pill);
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.875rem;
+          letter-spacing: -0.01em;
+          transition: all var(--transition);
+          box-shadow: 0 0 20px rgba(239,68,68,0.4);
+          flex-shrink: 0;
+        }
+        .hero-start-live-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 0 28px rgba(239,68,68,0.6);
+        }
+        .hero-start-live-btn :global(svg) { width: 16px; height: 16px; }
 
         /* ── Cards grid ──────── */
         .stream-notice {
@@ -908,8 +1186,9 @@ export default function DashboardPage() {
 
         @media (max-width: 480px) {
           .hero-title { font-size: 1.3rem; }
-          .coins-pill { margin-left: 0; }
           .hero-card { padding: 1.5rem; }
+          .hero-pills { gap: 0.4rem; }
+          .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
         }
 
         /* ── Creator Panels ────────────────────────── */
@@ -930,6 +1209,7 @@ export default function DashboardPage() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
+          backdrop-filter: blur(8px);
         }
 
         .panel-header {
@@ -963,6 +1243,27 @@ export default function DashboardPage() {
         @keyframes pulse-live {
           0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
           50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+
+        .agency-badge-on {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: #34d399;
+          background: rgba(52,211,153,0.1);
+          border: 1px solid rgba(52,211,153,0.3);
+          padding: 0.2rem 0.55rem;
+          border-radius: 100px;
+        }
+        .agency-badge-off {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          background: rgba(156,163,175,0.08);
+          border: 1px solid rgba(156,163,175,0.2);
+          padding: 0.2rem 0.55rem;
+          border-radius: 100px;
         }
 
         .panel-loading { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1137,8 +1438,29 @@ export default function DashboardPage() {
           font-weight: 700;
           color: var(--text);
         }
-        .stat-today { color: #f59e0b; }
-        .stat-usd   { color: #34d399; }
+        .stat-today   { color: #f59e0b; }
+        .stat-usd     { color: #34d399; }
+        .stat-agency  { color: #818cf8; }
+
+        .payout-status {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(245,158,11,0.07);
+          border: 1px solid rgba(245,158,11,0.2);
+          border-radius: var(--radius-sm);
+          padding: 0.55rem 0.85rem;
+        }
+        .payout-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #f59e0b;
+          flex-shrink: 0;
+          animation: pulse-live 2s ease-in-out infinite;
+        }
+        .payout-text { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+        .payout-state { color: #f59e0b; font-weight: 600; }
 
         .recent-gifts { display: flex; flex-direction: column; gap: 0.5rem; }
         .recent-gifts-label {
@@ -1199,6 +1521,157 @@ export default function DashboardPage() {
           background: rgba(139,92,246,0.14);
           box-shadow: 0 0 12px rgba(139,92,246,0.18);
         }
+
+        /* ── Agency Panel ──────────────────────── */
+        .agency-panel { border-color: rgba(99,102,241,0.2); }
+        .agency-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.55rem;
+        }
+        .stat-agency-active { color: #34d399; }
+        .stat-agency-pending { color: #f59e0b; }
+
+        /* ── Exclusive Panel ───────────────────── */
+        .exclusive-panel { border-color: rgba(139,92,246,0.25); }
+        .exclusive-stat {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+        }
+        .exclusive-count {
+          font-size: 2.5rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, #e040fb, #a855f7);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          line-height: 1;
+        }
+        .exclusive-label {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .btn-panel-action {
+          display: block;
+          text-align: center;
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(99,102,241,0.3);
+          color: #818cf8;
+          font-size: 0.85rem;
+          font-weight: 600;
+          background: rgba(99,102,241,0.07);
+          transition: all var(--transition);
+          margin-top: auto;
+        }
+        .btn-panel-action:hover {
+          background: rgba(99,102,241,0.15);
+          box-shadow: 0 0 14px rgba(99,102,241,0.2);
+        }
+        .btn-panel-exclusive {
+          border-color: rgba(139,92,246,0.3);
+          color: var(--accent-3);
+          background: rgba(139,92,246,0.07);
+        }
+        .btn-panel-exclusive:hover {
+          background: rgba(139,92,246,0.15);
+          box-shadow: 0 0 14px rgba(139,92,246,0.22);
+        }
+
+        /* ── Quick Actions ─────────────────────── */
+        .quick-actions-section { display: flex; flex-direction: column; gap: 0.75rem; }
+
+        .section-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          margin: 0;
+        }
+
+        .quick-actions-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 0.65rem;
+        }
+        @media (max-width: 700px) {
+          .quick-actions-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 400px) {
+          .quick-actions-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .qa-tile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 1rem 0.5rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(139,92,246,0.15);
+          background: rgba(15,8,32,0.7);
+          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition), background var(--transition);
+          cursor: pointer;
+          text-align: center;
+          backdrop-filter: blur(6px);
+        }
+        .qa-tile:hover {
+          transform: translateY(-3px);
+          border-color: rgba(244,114,182,0.4);
+          background: rgba(244,114,182,0.06);
+          box-shadow: 0 0 20px rgba(244,114,182,0.15);
+        }
+
+        .qa-icon {
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .qa-icon :global(svg) { width: 22px; height: 22px; }
+
+        .qa-title {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          letter-spacing: -0.01em;
+        }
+
+        .qa-live { border-color: rgba(239,68,68,0.2); }
+        .qa-live:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.06); box-shadow: 0 0 20px rgba(239,68,68,0.15); }
+        .qa-live .qa-icon { color: #f87171; }
+        .qa-live:hover .qa-title { color: #f87171; }
+
+        .qa-earnings { border-color: rgba(52,211,153,0.2); }
+        .qa-earnings:hover { border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.06); box-shadow: 0 0 20px rgba(52,211,153,0.15); }
+        .qa-earnings .qa-icon { color: #34d399; }
+        .qa-earnings:hover .qa-title { color: #34d399; }
+
+        .qa-payouts { border-color: rgba(245,158,11,0.2); }
+        .qa-payouts:hover { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.06); box-shadow: 0 0 20px rgba(245,158,11,0.15); }
+        .qa-payouts .qa-icon { color: #f59e0b; }
+        .qa-payouts:hover .qa-title { color: #f59e0b; }
+
+        .qa-agency { border-color: rgba(99,102,241,0.2); }
+        .qa-agency:hover { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); box-shadow: 0 0 20px rgba(99,102,241,0.15); }
+        .qa-agency .qa-icon { color: #818cf8; }
+        .qa-agency:hover .qa-title { color: #818cf8; }
+
+        .qa-exclusive { border-color: rgba(139,92,246,0.2); }
+        .qa-exclusive:hover { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.06); box-shadow: 0 0 20px rgba(139,92,246,0.15); }
+        .qa-exclusive .qa-icon { color: var(--accent-3); }
+        .qa-exclusive:hover .qa-title { color: var(--accent-3); }
+
+        .qa-calls { border-color: rgba(34,211,238,0.2); }
+        .qa-calls:hover { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.06); box-shadow: 0 0 20px rgba(34,211,238,0.15); }
+        .qa-calls .qa-icon { color: #22d3ee; }
+        .qa-calls:hover .qa-title { color: #22d3ee; }
       `}</style>
     </div>
   );

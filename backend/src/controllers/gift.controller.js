@@ -1,5 +1,6 @@
 const Gift = require("../models/Gift.js");
 const GiftCatalog = require("../models/GiftCatalog.js");
+const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
@@ -167,6 +168,17 @@ const sendGift = async (req, res) => {
   }
   if (!catalogItem) {
     return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
+  }
+
+  // If sending a gift during a live, check that gifts are enabled for that live
+  if (liveId) {
+    if (!mongoose.Types.ObjectId.isValid(liveId)) {
+      return res.status(400).json({ message: "liveId inválido" });
+    }
+    const live = await Live.findOne({ _id: liveId, isLive: true }).select("giftsEnabled");
+    if (live && live.giftsEnabled === false) {
+      return res.status(403).json({ message: "Los regalos están desactivados en este directo" });
+    }
   }
 
   const amount = catalogItem.coinCost;

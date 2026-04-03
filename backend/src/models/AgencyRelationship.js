@@ -25,13 +25,23 @@ const agencyRelationshipSchema = new mongoose.Schema(
     ],
     suspendedAt: { type: Date, default: null },
     removedAt: { type: Date, default: null },
+    notes: { type: String, default: "" },
   },
   { timestamps: true }
 );
 
-// Note: No unique index on the subCreator field so that a sub-creator can create a new
-// relationship after a previous one is removed. One-parent enforcement is handled at the
-// controller level by checking for pending/active/suspended relationships.
+// Partial unique index: a subCreator may only have one non-removed link at a time.
+// Only "removed" records are excluded so a new link can be created after full removal.
+agencyRelationshipSchema.index(
+  { subCreator: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ["pending", "active", "suspended"] } },
+    name: "unique_active_pending_subCreator",
+  }
+);
+
+agencyRelationshipSchema.index({ status: 1 });
 
 const AgencyRelationship = mongoose.model("AgencyRelationship", agencyRelationshipSchema);
 

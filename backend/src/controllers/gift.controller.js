@@ -150,10 +150,6 @@ const sendGift = async (req, res) => {
     return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
   }
 
-  if (String(req.userId) === String(receiverId)) {
-    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
-  }
-
   let catalogItem;
   try {
     if (giftSlug) {

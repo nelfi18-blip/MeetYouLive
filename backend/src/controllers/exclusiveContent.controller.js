@@ -209,7 +209,7 @@ const unlockContent = async (req, res) => {
       );
 
       await ExclusiveUnlock.create(
-        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare: creatorNetShare, platformShare }],
+        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare: creatorNetShare, platformShare, agencyShare, referrerId: parentCreatorId }],
         { session }
       );
 

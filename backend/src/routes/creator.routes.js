@@ -7,6 +7,7 @@ const {
   getCreatorStats,
   getCreatorEarnings,
   requestPayout,
+  getCreatorDashboard,
 } = require("../controllers/creator.controller");
 
 const creatorLimiter = rateLimit({
@@ -17,6 +18,7 @@ const creatorLimiter = rateLimit({
 
 router.get("/stats", creatorLimiter, verifyToken, getCreatorStats);
 router.get("/earnings", creatorLimiter, verifyToken, getCreatorEarnings);
+router.get("/dashboard", creatorLimiter, verifyToken, getCreatorDashboard);
 router.post("/payout", creatorLimiter, verifyToken, requestPayout);
 
 module.exports = router;

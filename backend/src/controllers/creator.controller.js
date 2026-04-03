@@ -171,4 +171,65 @@ const requestPayout = async (req, res) => {
   }
 };
 
-module.exports = { getCreatorStats, getCreatorEarnings, requestPayout };
+const getCreatorDashboard = async (req, res) => {
+  try {
+    const { error, user } = await requireApprovedCreator(req.userId);
+    if (error) return res.status(403).json({ message: error });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [aggResult, todayAgg, recentGifts, activeLive] = await Promise.all([
+      Gift.aggregate([
+        { $match: { receiver: user._id } },
+        {
+          $group: {
+            _id: null,
+            totalCreatorShare: { $sum: "$creatorShare" },
+            totalGiftCount: { $sum: 1 },
+          },
+        },
+      ]),
+      Gift.aggregate([
+        { $match: { receiver: user._id, createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, todayCoins: { $sum: "$creatorShare" } } },
+      ]),
+      Gift.find({ receiver: user._id })
+        .populate("sender", "username name")
+        .populate("giftCatalogItem", "name icon coinCost")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      Live.findOne({ user: user._id, isLive: true })
+        .select("_id title viewerCount isPrivate chatEnabled giftsEnabled createdAt")
+        .lean(),
+    ]);
+
+    const totals = aggResult[0] || { totalCreatorShare: 0, totalGiftCount: 0 };
+    const todayCoins = todayAgg[0]?.todayCoins || 0;
+
+    const gifts = recentGifts.map((g) => ({
+      _id: g._id,
+      senderName: g.sender?.username || g.sender?.name || "Anónimo",
+      giftName: g.giftCatalogItem?.name || "Regalo",
+      giftIcon: g.giftCatalogItem?.icon || "🎁",
+      creatorShare: g.creatorShare,
+      createdAt: g.createdAt,
+    }));
+
+    res.json({
+      // earningsCoins: current withdrawable balance (decreases after payout requests)
+      earningsCoins: user.earningsCoins,
+      todayCoins,
+      // totalCreatorShare: historical cumulative earnings from gifts (never decreases)
+      totalCreatorShare: totals.totalCreatorShare,
+      totalGifts: totals.totalGiftCount,
+      activeLive: activeLive || null,
+      recentGifts: gifts,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { getCreatorStats, getCreatorEarnings, requestPayout, getCreatorDashboard };

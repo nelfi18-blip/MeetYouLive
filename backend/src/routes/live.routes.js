@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
-const { startLive, endLive, getLives, getLiveById, joinLive, getMyLives } = require("../controllers/live.controller.js");
+const { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings } = require("../controllers/live.controller.js");
 
 const router = Router();
 
@@ -17,5 +17,6 @@ router.get("/mine", liveLimiter, verifyToken, getMyLives);
 router.get("/:id", liveLimiter, optionalVerifyToken, getLiveById);
 router.post("/:id/join", liveLimiter, verifyToken, joinLive);
 router.patch("/:id/end", liveLimiter, verifyToken, endLive);
+router.patch("/:id/settings", liveLimiter, verifyToken, updateLiveSettings);
 
 module.exports = router;

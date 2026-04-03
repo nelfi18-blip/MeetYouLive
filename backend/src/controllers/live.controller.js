@@ -172,4 +172,32 @@ const getMyLives = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives };
+const updateLiveSettings = async (req, res) => {
+  try {
+    const { chatEnabled, giftsEnabled, isPrivate } = req.body;
+    const update = {};
+    if (typeof chatEnabled === "boolean") update.chatEnabled = chatEnabled;
+    if (typeof giftsEnabled === "boolean") update.giftsEnabled = giftsEnabled;
+    if (typeof isPrivate === "boolean") update.isPrivate = isPrivate;
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: "No hay cambios válidos para aplicar" });
+    }
+
+    const live = await Live.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, isLive: true },
+      update,
+      { new: true }
+    );
+    if (!live) return res.status(404).json({ message: "Directo no encontrado, ya finalizado, o sin permisos" });
+
+    const liveObj = live.toObject();
+    delete liveObj.paidViewers;
+    delete liveObj.streamKey;
+    res.json(liveObj);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings };

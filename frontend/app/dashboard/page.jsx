@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -167,6 +167,28 @@ function AgencyIcon() {
   );
 }
 
+function EyeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+}
+function ChatBubbleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+    </svg>
+  );
+}
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+  );
+}
+
 function ArrowIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -185,11 +207,18 @@ const COLOR_MAP = {
   green:  { bg: "rgba(52,211,153,0.08)",  border: "rgba(52,211,153,0.2)",  glow: "rgba(52,211,153,0.3)",  icon: "#34d399" },
 };
 
+// Approximate USD value per earned coin (based on retail coin packages)
+const USD_PER_COIN = 0.008;
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  const [creatorDash, setCreatorDash] = useState(null);
+  const [dashLoading, setDashLoading] = useState(false);
+  const [endingLive, setEndingLive] = useState(false);
+  const [togglingKey, setTogglingKey] = useState(null);
   // Prevents a second recovery attempt if the first one is already in flight.
   const backendTokenAttempted = useRef(false);
 
@@ -302,6 +331,58 @@ export default function DashboardPage() {
       .finally(() => setUserLoading(false));
   }, [status, session, router]);
 
+  useEffect(() => {
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    setDashLoading(true);
+    fetch(`${API_URL}/api/creator/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setCreatorDash(data); })
+      .catch(() => {})
+      .finally(() => setDashLoading(false));
+  }, [user]);
+
+  const handleEndLive = useCallback(async () => {
+    if (!creatorDash?.activeLive?._id) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    setEndingLive(true);
+    try {
+      const r = await fetch(`${API_URL}/api/lives/${creatorDash.activeLive._id}/end`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) setCreatorDash((prev) => ({ ...prev, activeLive: null }));
+    } catch {}
+    setEndingLive(false);
+  }, [creatorDash]);
+
+  const handleToggle = useCallback(async (key) => {
+    if (!creatorDash?.activeLive?._id) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    setTogglingKey(key);
+    const currentVal = creatorDash.activeLive[key];
+    try {
+      const r = await fetch(`${API_URL}/api/lives/${creatorDash.activeLive._id}/settings`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: !currentVal }),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        setCreatorDash((prev) => ({
+          ...prev,
+          activeLive: { ...prev.activeLive, [key]: updated[key] },
+        }));
+      }
+    } catch {}
+    setTogglingKey(null);
+  }, [creatorDash]);
+
   if (status === "loading" || userLoading) {
     return (
       <div className="dashboard">
@@ -407,6 +488,151 @@ export default function DashboardPage() {
         <div className="stream-notice">
           📡 Transmites como usuario normal.{" "}
           <a href="/creator-request">Solicita acceso creator</a> para monetizar tus directos.
+        </div>
+      )}
+
+      {/* ── LIVE CONTROL PANEL (approved creators only) ── */}
+      {isApprovedCreator && (
+        <div className="creator-panels">
+          <div className="panel live-control-panel">
+            <div className="panel-header">
+              <span className="panel-dot" style={{ background: creatorDash?.activeLive ? "#ef4444" : "#6b7280" }} />
+              <h2 className="panel-title">Control del Directo</h2>
+              {creatorDash?.activeLive && (
+                <span className="live-badge-label">EN DIRECTO</span>
+              )}
+            </div>
+
+            {dashLoading && !creatorDash ? (
+              <div className="panel-loading">
+                <div className="skeleton" style={{ width: "100%", height: 48, borderRadius: 8 }} />
+              </div>
+            ) : creatorDash?.activeLive ? (
+              <div className="live-active">
+                <div className="live-info-row">
+                  <span className="live-title-text">{creatorDash.activeLive.title}</span>
+                  <span className="viewer-chip">
+                    <EyeIcon />
+                    {creatorDash.activeLive.viewerCount ?? 0} espectadores
+                  </span>
+                </div>
+
+                <div className="live-toggles">
+                  <button
+                    className={`toggle-btn ${creatorDash.activeLive.chatEnabled ? "toggle-on" : "toggle-off"}`}
+                    onClick={() => handleToggle("chatEnabled")}
+                    disabled={togglingKey === "chatEnabled"}
+                  >
+                    <ChatBubbleIcon />
+                    Chat {creatorDash.activeLive.chatEnabled ? "ON" : "OFF"}
+                  </button>
+                  <button
+                    className={`toggle-btn ${creatorDash.activeLive.giftsEnabled ? "toggle-on" : "toggle-off"}`}
+                    onClick={() => handleToggle("giftsEnabled")}
+                    disabled={togglingKey === "giftsEnabled"}
+                  >
+                    <GiftIcon />
+                    Regalos {creatorDash.activeLive.giftsEnabled ? "ON" : "OFF"}
+                  </button>
+                  <button
+                    className={`toggle-btn ${creatorDash.activeLive.isPrivate ? "toggle-on" : "toggle-off"}`}
+                    onClick={() => handleToggle("isPrivate")}
+                    disabled={togglingKey === "isPrivate"}
+                  >
+                    <LockIcon />
+                    Privado {creatorDash.activeLive.isPrivate ? "ON" : "OFF"}
+                  </button>
+                </div>
+
+                <div className="live-actions-row">
+                  <Link href={`/live/${creatorDash.activeLive._id}`} className="btn-view-live">
+                    Ver directo
+                  </Link>
+                  <button
+                    className="btn-end-live"
+                    onClick={handleEndLive}
+                    disabled={endingLive}
+                  >
+                    {endingLive ? "Finalizando…" : "Finalizar directo"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="live-idle">
+                <p className="live-idle-text">No estás en directo ahora mismo</p>
+                <Link href="/live/start" className="btn-start-live">
+                  <BroadcastIcon />
+                  Iniciar directo
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* ── EARNINGS PANEL ── */}
+          <div className="panel earnings-panel">
+            <div className="panel-header">
+              <EarningsIcon />
+              <h2 className="panel-title">Ganancias</h2>
+            </div>
+
+            {dashLoading && !creatorDash ? (
+              <div className="panel-loading">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="skeleton" style={{ width: "100%", height: 40, borderRadius: 8 }} />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="earnings-stats">
+                  <div className="stat-box">
+                    <span className="stat-label">Hoy</span>
+                    <span className="stat-value stat-today">
+                      🪙 {creatorDash?.todayCoins ?? 0}
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Total monedas</span>
+                    <span className="stat-value">
+                      🪙 {creatorDash?.earningsCoins ?? 0}
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Est. USD</span>
+                    <span className="stat-value stat-usd">
+                      ${((creatorDash?.earningsCoins ?? 0) * USD_PER_COIN).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">Regalos totales</span>
+                    <span className="stat-value">{creatorDash?.totalGifts ?? 0}</span>
+                  </div>
+                </div>
+
+                {creatorDash?.recentGifts?.length > 0 && (
+                  <div className="recent-gifts">
+                    <p className="recent-gifts-label">Últimos regalos</p>
+                    <ul className="gifts-list">
+                      {creatorDash.recentGifts.map((g) => (
+                        <li key={g._id} className="gift-item">
+                          <span className="gift-icon-label">{g.giftIcon}</span>
+                          <span className="gift-detail">
+                            <span className="gift-name">{g.giftName}</span>
+                            <span className="gift-sender">de {g.senderName}</span>
+                          </span>
+                          <span className="gift-coins">+{g.creatorShare} 🪙</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="earnings-actions">
+                  <Link href="/creator" className="btn-earnings-link">Ver ganancias completas</Link>
+                  <Link href="/exclusive" className="btn-earnings-link">Contenido exclusivo</Link>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
       <div className="cards-grid">
@@ -684,6 +910,294 @@ export default function DashboardPage() {
           .hero-title { font-size: 1.3rem; }
           .coins-pill { margin-left: 0; }
           .hero-card { padding: 1.5rem; }
+        }
+
+        /* ── Creator Panels ────────────────────────── */
+        .creator-panels {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        @media (max-width: 768px) {
+          .creator-panels { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+          background: linear-gradient(135deg, rgba(22,12,45,0.95) 0%, rgba(15,8,32,0.98) 100%);
+          border: 1px solid rgba(139,92,246,0.18);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .panel-header {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+        .panel-header :global(svg) { width: 18px; height: 18px; color: var(--accent-3); }
+        .panel-dot {
+          width: 10px; height: 10px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+        .panel-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text);
+          letter-spacing: -0.01em;
+          flex: 1;
+        }
+        .live-badge-label {
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: #fff;
+          background: #ef4444;
+          padding: 0.2rem 0.55rem;
+          border-radius: 100px;
+          animation: pulse-live 2s ease-in-out infinite;
+        }
+        @keyframes pulse-live {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+
+        .panel-loading { display: flex; flex-direction: column; gap: 0.6rem; }
+
+        /* Live active state */
+        .live-active { display: flex; flex-direction: column; gap: 0.9rem; }
+        .live-info-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .live-title-text {
+          font-weight: 600;
+          color: var(--text);
+          font-size: 0.9rem;
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .viewer-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(239,68,68,0.12);
+          border: 1px solid rgba(239,68,68,0.25);
+          color: #f87171;
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 0.25rem 0.65rem;
+          border-radius: 100px;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .viewer-chip :global(svg) { flex-shrink: 0; }
+
+        .live-toggles {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .toggle-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.35rem 0.85rem;
+          border-radius: 100px;
+          border: 1px solid;
+          cursor: pointer;
+          transition: all var(--transition);
+          background: transparent;
+        }
+        .toggle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .toggle-on {
+          border-color: rgba(52,211,153,0.4);
+          color: #34d399;
+          background: rgba(52,211,153,0.08);
+        }
+        .toggle-on:hover:not(:disabled) {
+          background: rgba(52,211,153,0.16);
+          box-shadow: 0 0 12px rgba(52,211,153,0.2);
+        }
+        .toggle-off {
+          border-color: rgba(156,163,175,0.3);
+          color: var(--text-muted);
+          background: rgba(156,163,175,0.05);
+        }
+        .toggle-off:hover:not(:disabled) {
+          background: rgba(156,163,175,0.1);
+        }
+
+        .live-actions-row {
+          display: flex;
+          gap: 0.65rem;
+          flex-wrap: wrap;
+        }
+        .btn-view-live {
+          flex: 1;
+          text-align: center;
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(129,140,248,0.3);
+          color: #818cf8;
+          font-size: 0.85rem;
+          font-weight: 600;
+          transition: all var(--transition);
+          background: rgba(129,140,248,0.07);
+        }
+        .btn-view-live:hover {
+          background: rgba(129,140,248,0.15);
+          box-shadow: 0 0 14px rgba(129,140,248,0.2);
+        }
+        .btn-end-live {
+          flex: 1;
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(239,68,68,0.35);
+          color: #f87171;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          background: rgba(239,68,68,0.08);
+          transition: all var(--transition);
+        }
+        .btn-end-live:hover:not(:disabled) {
+          background: rgba(239,68,68,0.18);
+          box-shadow: 0 0 14px rgba(239,68,68,0.25);
+        }
+        .btn-end-live:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Live idle state */
+        .live-idle {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.5rem 0;
+        }
+        .live-idle-text {
+          color: var(--text-muted);
+          font-size: 0.875rem;
+        }
+        .btn-start-live {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.75rem;
+          border-radius: var(--radius-sm);
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.95rem;
+          letter-spacing: -0.01em;
+          transition: all var(--transition);
+          box-shadow: 0 0 24px rgba(239,68,68,0.35);
+        }
+        .btn-start-live:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 0 32px rgba(239,68,68,0.5);
+        }
+        .btn-start-live :global(svg) { width: 18px; height: 18px; }
+
+        /* ── Earnings Panel ──────────────────────── */
+        .earnings-stats {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.65rem;
+        }
+        .stat-box {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .stat-label {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .stat-value {
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .stat-today { color: #f59e0b; }
+        .stat-usd   { color: #34d399; }
+
+        .recent-gifts { display: flex; flex-direction: column; gap: 0.5rem; }
+        .recent-gifts-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .gifts-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+        .gift-item {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          padding: 0.45rem 0.75rem;
+          background: rgba(244,114,182,0.05);
+          border: 1px solid rgba(244,114,182,0.12);
+          border-radius: var(--radius-sm);
+        }
+        .gift-icon-label { font-size: 1.1rem; flex-shrink: 0; }
+        .gift-detail { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+        .gift-name {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .gift-sender { font-size: 0.72rem; color: var(--text-muted); }
+        .gift-coins {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #f59e0b;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+
+        .earnings-actions {
+          display: flex;
+          gap: 0.65rem;
+          flex-wrap: wrap;
+        }
+        .btn-earnings-link {
+          flex: 1;
+          text-align: center;
+          padding: 0.55rem 0.75rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(139,92,246,0.25);
+          color: var(--accent-3);
+          font-size: 0.8rem;
+          font-weight: 600;
+          background: rgba(139,92,246,0.06);
+          transition: all var(--transition);
+          white-space: nowrap;
+        }
+        .btn-earnings-link:hover {
+          background: rgba(139,92,246,0.14);
+          box-shadow: 0 0 12px rgba(139,92,246,0.18);
         }
       `}</style>
     </div>

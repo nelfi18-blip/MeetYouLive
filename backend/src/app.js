@@ -101,6 +101,6 @@ app.use("/api/sparks", sparksRoutes);
 app.use("/api/passes", passesRoutes);
 app.use("/api/creator", creatorRoutes);
 app.use("/api/agency", agencyRoutes);
-app.use("/api/private-calls", callRoutes);
+app.use("/api/calls", callRoutes);
 
 module.exports = app;

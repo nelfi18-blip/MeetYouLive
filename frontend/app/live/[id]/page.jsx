@@ -8,6 +8,7 @@ import GiftPanel from "@/components/GiftPanel";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -105,6 +106,7 @@ export default function LiveRoomPage() {
 
     const joinAgora = async () => {
       try {
+        if (!AGORA_APP_ID) throw new Error("No se pudo obtener token de Agora");
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
 
@@ -114,7 +116,7 @@ export default function LiveRoomPage() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
-        const { appId, token: agoraToken, uid } = await tokenRes.json();
+        const { token: agoraToken, uid } = await tokenRes.json();
         if (cancelled) return;
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
@@ -132,7 +134,7 @@ export default function LiveRoomPage() {
           localAudioTrackRef.current = localAudio;
           localVideoTrackRef.current = localVideo;
 
-          await client.join(appId, String(live._id), agoraToken, uid);
+          await client.join(AGORA_APP_ID, String(live._id), agoraToken, uid);
           await client.publish([localAudio, localVideo]);
 
           if (localVideoContainerRef.current) {
@@ -140,7 +142,7 @@ export default function LiveRoomPage() {
           }
         } else {
           await client.setClientRole("audience");
-          await client.join(appId, String(live._id), agoraToken, uid);
+          await client.join(AGORA_APP_ID, String(live._id), agoraToken, uid);
 
           // Subscribe to existing remote users
           for (const user of client.remoteUsers) {

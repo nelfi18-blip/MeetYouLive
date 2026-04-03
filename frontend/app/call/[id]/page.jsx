@@ -6,6 +6,7 @@ import Link from "next/link";
 import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const POLL_MS = 1000; // polling interval for call acceptance
 
@@ -221,6 +222,7 @@ export default function CallPage() {
       setStatus("connecting");
 
       try {
+        if (!AGORA_APP_ID) throw new Error("agora_token_failed");
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
 
         const tokenRes = await fetch(
@@ -228,7 +230,7 @@ export default function CallPage() {
           { headers: { Authorization: `Bearer ${token.current}` } }
         );
         if (!tokenRes.ok) throw new Error("agora_token_failed");
-        const { appId, token: agoraToken, uid } = await tokenRes.json();
+        const { token: agoraToken, uid } = await tokenRes.json();
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         agoraClientRef.current = client;
@@ -268,7 +270,7 @@ export default function CallPage() {
         localAudioTrackRef.current = audioTrack;
         localVideoTrackRef.current = videoTrack;
 
-        await client.join(appId, String(callId), agoraToken, uid);
+        await client.join(AGORA_APP_ID, String(callId), agoraToken, uid);
         await client.publish([audioTrack, videoTrack]);
 
         // Play local preview

@@ -321,10 +321,8 @@ export default function LiveRoomPage() {
     }
   };
 
-  const playerUrl =
-    LIVE_PROVIDER_KEY && live.streamKey
-      ? `https://wl.cinectar.com/player/${encodeURIComponent(LIVE_PROVIDER_KEY)}/${encodeURIComponent(live.streamKey)}`
-      : null;
+  // Video provider is in demo mode — external player disabled until real provider is configured.
+  const playerUrl = null;
 
   const creatorName = live.user?.username || live.user?.name || "Creador";
   const recentGiftRarity = recentGift?.rarity || "common";
@@ -346,7 +344,8 @@ export default function LiveRoomPage() {
             ) : (
               <div className="video-placeholder">
                 <div className="video-placeholder-icon">🎥</div>
-                <p className="video-placeholder-text">Transmisión en vivo</p>
+                <p className="video-placeholder-text">Transmisión en vivo (modo demo)</p>
+                <span className="demo-badge">DEMO</span>
               </div>
             )}
 
@@ -575,6 +574,17 @@ export default function LiveRoomPage() {
           font-weight: 600;
           color: var(--text-muted);
           letter-spacing: 0.05em;
+        }
+
+        .demo-badge {
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          color: #e040fb;
+          border: 1px solid rgba(224,64,251,0.45);
+          border-radius: var(--radius-pill);
+          padding: 0.15rem 0.65rem;
+          background: rgba(224,64,251,0.1);
         }
 
         .video-overlay {

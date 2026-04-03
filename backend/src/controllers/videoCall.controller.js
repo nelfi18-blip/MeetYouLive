@@ -27,6 +27,7 @@ const inviteCall = async (req, res) => {
 
   const callType = type === "paid_creator" ? "paid_creator" : "social";
   let coins = callType === "paid_creator" ? Math.max(0, parseInt(callCoins) || 0) : 0;
+  let creatorPricePerMinute = 0;
 
   try {
     // For social calls: require mutual match
@@ -49,12 +50,11 @@ const inviteCall = async (req, res) => {
       }
 
       // Enforce callCoins = pricePerMinute (caller cannot set an arbitrary amount)
-      const pricePerMinute = creator.creatorProfile.pricePerMinute || 0;
-      if (pricePerMinute < 1) {
+      creatorPricePerMinute = creator.creatorProfile.pricePerMinute || 0;
+      if (creatorPricePerMinute < 1) {
         return res.status(403).json({ message: "Este creador no ha configurado un precio por minuto" });
       }
-      coins = pricePerMinute;
-
+      coins = creatorPricePerMinute;
       // Deduct coins atomically using a conditional update
       const updated = await User.findOneAndUpdate(
         { _id: req.userId, coins: { $gte: coins } },
@@ -100,6 +100,7 @@ const inviteCall = async (req, res) => {
       recipient: recipientId,
       type: callType,
       callCoins: coins,
+      pricePerMinute: creatorPricePerMinute,
     });
 
     const populated = await VideoCall.findById(call._id)
@@ -172,6 +173,9 @@ const respondCall = async (req, res) => {
 
     if (action === "accept") {
       call.status = "accepted";
+      if (!call.startedAt) {
+        call.startedAt = new Date();
+      }
 
       // Credit creator for paid calls — 60% creator share, 40% platform
       if (call.type === "paid_creator" && call.callCoins > 0) {

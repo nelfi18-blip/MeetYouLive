@@ -15,6 +15,8 @@ const videocallSchema = new mongoose.Schema(
       default: "social",
     },
     callCoins: { type: Number, default: 0, min: 0 },
+    pricePerMinute: { type: Number, default: 0, min: 0 },
+    startedAt: { type: Date, default: null },
     offerSdp: { type: String, default: null },
     answerSdp: { type: String, default: null },
     // ICE candidates stored as JSON-stringified objects

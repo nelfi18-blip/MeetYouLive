@@ -56,13 +56,14 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, g
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.
-// Returns { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied }:
+// Returns { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied }:
 //   canEarn                 – whether the receiver is an approved creator
+//   platformShare           – coins retained by the platform (fixed 40%)
 //   agencyShare             – coins credited to the parent agency (0 if no agency)
 //   creatorNetShare         – coins credited to the creator after agency share
 //   referrerId              – ObjectId of the parent agency creator (null if none)
 //   agencyPercentageApplied – the percentage used at this moment (0 if no agency)
-const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
+const transferCoins = async (senderId, receiverId, amount, session) => {
   // Cast IDs to ObjectId to prevent NoSQL injection from user-supplied strings
   const senderObjId = new mongoose.Types.ObjectId(senderId);
   const receiverObjId = new mongoose.Types.ObjectId(receiverId);
@@ -79,18 +80,24 @@ const transferCoins = async (senderId, receiverId, amount, creatorShare, session
   // Only credit earningsCoins to approved creators
   const canEarn = receiver.role === "creator" && receiver.creatorStatus === "approved";
 
-  // Determine agency split from the canonical AgencyRelationship document
+  // Always derive creatorSide as totalCoins - platformShare so all shares sum to totalCoins.
+  // Agency percentage (if any) is applied only to creatorSide per business rules.
   let agencyShare = 0;
-  let creatorNetShare = creatorShare;
+  let creatorNetShare = 0;
   let referrerId = null;
   let agencyPercentageApplied = 0;
+  let platformShare = 0;
 
   if (canEarn) {
     const rel = await AgencyRelationship.findOne({ subCreator: receiverObjId, status: "active" }).session(session);
-    if (rel && rel.percentage > 0) {
-      const split = calculateSplit(amount, rel.percentage);
-      agencyShare = split.agencyShare;
-      creatorNetShare = split.creatorNetShare;
+    const agencyPct = (rel && rel.percentage > 0) ? rel.percentage : null;
+    const split = calculateSplit(amount, agencyPct);
+
+    platformShare = split.platformShare;
+    agencyShare = split.agencyShare;
+    creatorNetShare = split.creatorNetShare;
+
+    if (agencyPct) {
       referrerId = rel.parentCreator;
       agencyPercentageApplied = rel.percentage;
     }
@@ -109,9 +116,12 @@ const transferCoins = async (senderId, receiverId, amount, creatorShare, session
         { session }
       );
     }
+  } else {
+    // Non-creator receivers: platform still takes its share but earningsCoins are not credited
+    platformShare = Math.floor(amount * COMMISSION_RATE);
   }
 
-  return { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied };
+  return { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied };
 };
 
 const getGiftCatalog = async (req, res) => {
@@ -164,21 +174,18 @@ const sendGift = async (req, res) => {
   }
 
   const amount = catalogItem.coinCost;
-  const fullCreatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
 
   const session = await mongoose.startSession();
   // Declared outside the transaction so it's accessible when building the Gift document
-  let transferResult = { canEarn: false, agencyShare: 0, creatorNetShare: 0, parentCreatorId: null };
+  let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
   try {
     await session.withTransaction(async () => {
-      transferResult = await transferCoins(req.userId, receiverId, amount, fullCreatorShare, session);
+      transferResult = await transferCoins(req.userId, receiverId, amount, session);
     });
 
-    const { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
+    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-    // Platform always takes fixed 40%; agency share comes from creator's 60% only
-    const platformShare = Math.floor(amount * COMMISSION_RATE);
 
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
@@ -257,19 +264,16 @@ const sendGiftBySlug = async (req, res) => {
   }
 
   const amount = catalogItem.coinCost;
-  const creatorSideShare = Math.floor(amount * (1 - COMMISSION_RATE));
 
   const session = await mongoose.startSession();
-  let transferResult = { canEarn: false, agencyShare: 0, creatorNetShare: 0, parentCreatorId: null };
+  let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
   try {
     await session.withTransaction(async () => {
-      transferResult = await transferCoins(req.userId, receiverId, amount, creatorSideShare, session);
+      transferResult = await transferCoins(req.userId, receiverId, amount, session);
     });
 
-    const { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
+    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-    // Platform always takes fixed 40%; agency share comes from creator's 60% only
-    const platformShare = Math.floor(amount * COMMISSION_RATE);
 
     const resolvedContext = context || "profile";
     const resolvedContextId = contextId || null;

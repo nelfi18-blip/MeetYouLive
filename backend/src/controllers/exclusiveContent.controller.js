@@ -32,32 +32,25 @@ const listByCreator = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
-    // If user is authenticated, annotate each item with hasAccess
+    // Build a set of unlocked content IDs for the authenticated user
+    let unlockedSet = new Set();
     if (req.userId) {
       const contentIds = content.map((c) => c._id);
       const unlocks = await ExclusiveUnlock.find({
         user: req.userId,
         content: { $in: contentIds },
       }).select("content");
-      const unlockedSet = new Set(unlocks.map((u) => String(u.content)));
-
-      const annotated = content.map((item) => {
-        const obj = item.toObject();
-        const isOwner = String(item.creator._id) === String(req.userId);
-        obj.hasAccess = isOwner || unlockedSet.has(String(item._id));
-        if (!obj.hasAccess) delete obj.contentUrl;
-        return obj;
-      });
-      return res.json(annotated);
+      unlockedSet = new Set(unlocks.map((u) => String(u.content)));
     }
 
-    // Unauthenticated – strip contentUrls
-    res.json(content.map((item) => {
+    const annotated = content.map((item) => {
       const obj = item.toObject();
-      obj.hasAccess = false;
-      delete obj.contentUrl;
+      const isOwner = req.userId && String(item.creator._id) === String(req.userId);
+      obj.hasAccess = isOwner || unlockedSet.has(String(item._id));
+      if (!obj.hasAccess) delete obj.contentUrl;
       return obj;
-    }));
+    });
+    res.json(annotated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

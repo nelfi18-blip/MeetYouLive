@@ -74,7 +74,7 @@ export default function ExclusivePage() {
             })
               .then((r) => (r.ok ? r.json() : []))
               .then((data) => setMyItems(data))
-              .catch(() => {})
+              .catch((err) => console.error("[exclusive] Failed to fetch creator content:", err))
               .finally(() => setMyItemsLoading(false));
           }
         })

@@ -52,7 +52,7 @@ export default function CreatorProfilePage() {
     })
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setExclusiveItems(data))
-      .catch(() => {});
+      .catch((err) => console.error("[creator profile] Failed to fetch exclusive content:", err));
   }, [id]);
 
   const handleUnlock = async (contentId, coinPrice) => {

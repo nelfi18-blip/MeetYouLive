@@ -6,9 +6,6 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 
-// 60% goes to the creator, 40% is the platform commission
-const COMMISSION_RATE = 0.40;
-
 // GET /api/exclusive – list all published exclusive content
 const listContent = async (req, res) => {
   try {
@@ -165,26 +162,20 @@ const unlockContent = async (req, res) => {
       }
 
       const amount = contentDoc.coinPrice;
-      const fullCreatorSide = Math.floor(amount * (1 - COMMISSION_RATE));
 
       // Look up the canonical AgencyRelationship for the percentage at this moment
       const agencyRel = await AgencyRelationship.findOne({ subCreator: contentDoc.creator, status: "active" }).session(session);
-      let agencyShare = 0;
-      let creatorNetShare = fullCreatorSide;
-      let referrerId = null;
-      let agencyPercentageApplied = 0;
+      const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
 
-      if (agencyRel && agencyRel.percentage > 0) {
-        const split = calculateSplit(amount, agencyRel.percentage);
-        agencyShare = split.agencyShare;
-        creatorNetShare = split.creatorNetShare;
-        referrerId = agencyRel.parentCreator;
-        agencyPercentageApplied = agencyRel.percentage;
-      }
+      // Platform always takes fixed 40%; agency share comes from creator's 60% only.
+      // calculateSplit uses creatorSide = totalCoins - floor(totalCoins*0.40) to avoid
+      // rounding loss vs floor(totalCoins*0.60).
+      const split = calculateSplit(amount, agencyPercentage);
+      const { platformShare, agencyShare, creatorNetShare } = split;
+      const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
+      const agencyPercentageApplied = agencyPercentage || 0;
 
       creatorShare = creatorNetShare;
-      // Platform always takes fixed 40%; agency share comes from creator's 60% only
-      const platformShare = Math.floor(amount * COMMISSION_RATE);
 
       const buyer = await User.findById(req.userId).session(session);
       if (!buyer || buyer.coins < amount) {

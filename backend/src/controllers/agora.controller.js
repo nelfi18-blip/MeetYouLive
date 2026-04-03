@@ -38,7 +38,7 @@ const getToken = (req, res) => {
     privilegeExpiredTs
   );
 
-  return res.json({ appId, token, channelName, uid });
+  return res.json({ token, channelName, uid });
 };
 
 module.exports = { getToken };

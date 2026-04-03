@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -127,6 +128,9 @@ export default function ExclusiveDetailPage() {
           <p className="paywall-creator">
             por @{item.creator?.username || item.creator?.name || "creador"}
           </p>
+          <div className="paywall-type-badge">
+            {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+          </div>
           {item.description && (
             <p className="paywall-desc">{item.description}</p>
           )}
@@ -180,6 +184,18 @@ export default function ExclusiveDetailPage() {
           .paywall-icon { font-size: 2.5rem; margin-top: -0.5rem; }
           .paywall-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
           .paywall-creator { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+          .paywall-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: var(--radius-pill);
+            padding: 0.2rem 0.65rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.7);
+          }
           .paywall-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; }
           .paywall-price {
             display: flex;
@@ -236,6 +252,9 @@ export default function ExclusiveDetailPage() {
         <div className="content-info-top">
           <div>
             <h1 className="content-main-title">{item.title}</h1>
+            <div className="content-type-badge">
+              {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+            </div>
             {item.description && (
               <p className="content-main-desc">{item.description}</p>
             )}
@@ -310,6 +329,20 @@ export default function ExclusiveDetailPage() {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
+        }
+
+        .content-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--radius-pill);
+          padding: 0.15rem 0.55rem;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.65);
+          margin-top: 0.3rem;
         }
 
         .content-main-desc {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -144,6 +145,9 @@ export default function ExclusivePage() {
                       <LockIcon />
                       <span>{item.coinPrice} 🪙</span>
                     </div>
+                    <div className="type-badge">
+                      {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
+                    </div>
                   </div>
                   <div className="exclusive-info">
                     <h3 className="exclusive-item-title">{item.title}</h3>
@@ -193,6 +197,9 @@ export default function ExclusivePage() {
                     <div className="price-badge">
                       <LockIcon />
                       <span>{item.coinPrice} 🪙</span>
+                    </div>
+                    <div className="type-badge">
+                      {item.type === "video" ? <><VideoIcon /><span>Vídeo</span></> : <><PhotoIcon /><span>Foto</span></>}
                     </div>
                   </div>
                   <div className="exclusive-info">
@@ -384,6 +391,23 @@ export default function ExclusivePage() {
         .price-badge :global(svg) {
           width: 11px;
           height: 11px;
+        }
+
+        .type-badge {
+          position: absolute;
+          bottom: 0.45rem;
+          left: 0.45rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          background: rgba(0,0,0,0.65);
+          backdrop-filter: blur(6px);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: var(--radius-pill);
+          padding: 0.15rem 0.5rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.8);
         }
 
         .exclusive-info {

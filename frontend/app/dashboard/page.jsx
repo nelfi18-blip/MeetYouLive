@@ -217,6 +217,7 @@ export default function DashboardPage() {
   const [userLoading, setUserLoading] = useState(true);
   const [creatorDash, setCreatorDash] = useState(null);
   const [dashLoading, setDashLoading] = useState(false);
+  const [rankStats, setRankStats] = useState(null);
   const [endingLive, setEndingLive] = useState(false);
   const [togglingKey, setTogglingKey] = useState(null);
   // Prevents a second recovery attempt if the first one is already in flight.
@@ -343,6 +344,18 @@ export default function DashboardPage() {
       .then((data) => { if (data) setCreatorDash(data); })
       .catch(() => {})
       .finally(() => setDashLoading(false));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    fetch(`${API_URL}/api/rankings/my-stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setRankStats(data); })
+      .catch(() => {});
   }, [user]);
 
   const handleEndLive = useCallback(async () => {
@@ -747,6 +760,53 @@ export default function DashboardPage() {
                   Gestionar contenido exclusivo →
                 </Link>
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── RANKING PANEL (approved creators only) ── */}
+      {isApprovedCreator && (
+        <div className="ranking-panel">
+          <div className="panel-header">
+            <span style={{ fontSize: "1.1rem" }}>🏆</span>
+            <h2 className="panel-title">Mi Ranking</h2>
+            {rankStats?.rankWeek && (
+              <span className="rank-badge-label">
+                #{rankStats.rankWeek} esta semana
+              </span>
+            )}
+          </div>
+          <div className="ranking-stats">
+            <div className="stat-box">
+              <span className="stat-label">Posición semana</span>
+              <span className="stat-value stat-rank">
+                {rankStats?.rankWeek
+                  ? `#${rankStats.rankWeek}${rankStats.totalRanked ? ` / ${rankStats.totalRanked}` : ""}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="stat-box">
+              <span className="stat-label">Regalos hoy</span>
+              <span className="stat-value stat-today">
+                🪙 {rankStats?.todayCoins ?? 0}
+              </span>
+            </div>
+            <div className="stat-box">
+              <span className="stat-label">Top fan hoy</span>
+              <span className="stat-value stat-fan">
+                {rankStats?.topFanToday
+                  ? `@${rankStats.topFanToday.username || rankStats.topFanToday.name}`
+                  : "—"}
+              </span>
+            </div>
+            {rankStats?.topFanToday && (
+              <div className="stat-box">
+                <span className="stat-label">Coins del top fan</span>
+                <span className="stat-value">
+                  🪙 {rankStats.topFanToday.totalCoins}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -1672,6 +1732,37 @@ export default function DashboardPage() {
         .qa-calls:hover { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.06); box-shadow: 0 0 20px rgba(34,211,238,0.15); }
         .qa-calls .qa-icon { color: #22d3ee; }
         .qa-calls:hover .qa-title { color: #22d3ee; }
+
+        /* ── Ranking Panel ── */
+        .ranking-panel {
+          background: linear-gradient(135deg, rgba(22,12,45,0.95) 0%, rgba(15,8,32,0.98) 100%);
+          border: 1px solid rgba(255,215,0,0.25);
+          border-radius: var(--radius);
+          padding: 1.5rem 1.75rem;
+          box-shadow: var(--shadow), 0 0 40px rgba(255,215,0,0.06);
+        }
+
+        .rank-badge-label {
+          margin-left: auto;
+          font-size: 0.7rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          color: #ffd700;
+          background: rgba(255,215,0,0.1);
+          border: 1px solid rgba(255,215,0,0.3);
+          border-radius: var(--radius-pill);
+          padding: 0.2rem 0.65rem;
+        }
+
+        .ranking-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 0.75rem;
+          margin-top: 1rem;
+        }
+
+        .stat-rank { color: #ffd700; }
+        .stat-fan { color: #a78bfa; font-size: 0.85rem; }
       `}</style>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
+import FeaturedCreators from "@/components/FeaturedCreators";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -73,6 +74,8 @@ export default function LivePage() {
           ))}
         </div>
       )}
+
+      <FeaturedCreators />
 
       <style jsx>{`
         .live-page { display: flex; flex-direction: column; gap: 1.75rem; }

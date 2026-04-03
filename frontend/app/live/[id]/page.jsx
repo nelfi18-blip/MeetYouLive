@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
 import GiftPanel from "@/components/GiftPanel";
+import TopGifters from "@/components/TopGifters";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -613,6 +614,7 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
+          <TopGifters liveId={id} />
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>

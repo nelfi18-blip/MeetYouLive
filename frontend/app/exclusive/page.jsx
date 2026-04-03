@@ -42,6 +42,11 @@ export default function ExclusivePage() {
   const [error, setError] = useState("");
   const [isCreator, setIsCreator] = useState(false);
 
+  // Creator-specific state
+  const [myItems, setMyItems] = useState([]);
+  const [myItemsLoading, setMyItemsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("browse"); // "browse" | "mine"
+
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -60,7 +65,18 @@ export default function ExclusivePage() {
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (d?.role === "creator" && d?.creatorStatus === "approved") setIsCreator(true);
+          if (d?.role === "creator" && d?.creatorStatus === "approved") {
+            setIsCreator(true);
+            // Fetch creator's own content
+            setMyItemsLoading(true);
+            return fetch(`${API_URL}/api/exclusive/mine`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then((r) => (r.ok ? r.json() : []))
+              .then((data) => setMyItems(data))
+              .catch((err) => console.error("[exclusive] Failed to fetch creator content:", err))
+              .finally(() => setMyItemsLoading(false));
+          }
         })
         .catch(() => {});
     }
@@ -81,57 +97,127 @@ export default function ExclusivePage() {
         )}
       </div>
 
-      {error && <div className="alert-error">{error}</div>}
+      {/* Tabs for approved creators */}
+      {isCreator && (
+        <div className="tabs-row">
+          <button
+            className={`tab-btn${activeTab === "browse" ? " tab-active" : ""}`}
+            onClick={() => setActiveTab("browse")}
+          >
+            Explorar contenido
+          </button>
+          <button
+            className={`tab-btn${activeTab === "mine" ? " tab-active" : ""}`}
+            onClick={() => setActiveTab("mine")}
+          >
+            Mi contenido
+            {myItems.length > 0 && <span className="tab-badge">{myItems.length}</span>}
+          </button>
+        </div>
+      )}
 
-      {loading ? (
-        <div className="exclusive-grid">
-          {[...Array(6)].map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+      {/* ── My Content tab ── */}
+      {activeTab === "mine" && isCreator && (
+        <div className="my-content-section">
+          {myItemsLoading ? (
+            <div className="exclusive-grid">
+              {[...Array(3)].map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : myItems.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">💎</span>
+              <h2>Sin contenido publicado</h2>
+              <p>Aún no has publicado ningún contenido exclusivo.</p>
+              <Link href="/exclusive/upload" className="btn btn-primary">+ Publicar contenido</Link>
+            </div>
+          ) : (
+            <div className="exclusive-grid">
+              {myItems.map((item) => (
+                <Link key={item._id} href={`/exclusive/${item._id}`} className="exclusive-card my-card">
+                  <div className="exclusive-thumb">
+                    {item.thumbnailUrl ? (
+                      <img src={item.thumbnailUrl} alt={item.title} className="thumb-img" />
+                    ) : (
+                      <div className="thumb-placeholder">💎</div>
+                    )}
+                    <div className="price-badge">
+                      <LockIcon />
+                      <span>{item.coinPrice} 🪙</span>
+                    </div>
+                  </div>
+                  <div className="exclusive-info">
+                    <h3 className="exclusive-item-title">{item.title}</h3>
+                    <div className="exclusive-meta">
+                      <span className="my-unlocks">🔓 {item.totalUnlocks || 0} desbloqueos</span>
+                      <span className="my-earnings">🪙 {item.totalEarnings || 0} ganados</span>
+                    </div>
+                    {item.description && (
+                      <p className="exclusive-desc">{item.description}</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-      ) : items.length === 0 ? (
-        <div className="empty-state">
-          <span className="empty-icon">💎</span>
-          <h2>Sin contenido exclusivo todavía</h2>
-          <p>Los creadores aún no han publicado contenido exclusivo. ¡Vuelve más tarde!</p>
-          <Link href="/live" className="btn btn-primary">Ver directos en vivo</Link>
-        </div>
-      ) : (
-        <div className="exclusive-grid">
-          {items.map((item) => (
-            <Link key={item._id} href={`/exclusive/${item._id}`} className="exclusive-card">
-              <div className="exclusive-thumb">
-                {item.thumbnailUrl ? (
-                  <img src={item.thumbnailUrl} alt={item.title} className="thumb-img" />
-                ) : (
-                  <div className="thumb-placeholder">💎</div>
-                )}
-                <div className="price-badge">
-                  <LockIcon />
-                  <span>{item.coinPrice} 🪙</span>
-                </div>
-              </div>
-              <div className="exclusive-info">
-                <h3 className="exclusive-item-title">{item.title}</h3>
-                <div className="exclusive-meta">
-                  <span className="exclusive-creator">
-                    @{item.creator?.username || item.creator?.name || "creador"}
-                  </span>
-                  <span className="exclusive-date">
-                    {new Date(item.createdAt).toLocaleDateString("es-ES", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-                {item.description && (
-                  <p className="exclusive-desc">{item.description}</p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
+      )}
+
+      {/* ── Browse tab (default) ── */}
+      {activeTab === "browse" && (
+        <>
+          {error && <div className="alert-error">{error}</div>}
+
+          {loading ? (
+            <div className="exclusive-grid">
+              {[...Array(6)].map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">💎</span>
+              <h2>Sin contenido exclusivo todavía</h2>
+              <p>Los creadores aún no han publicado contenido exclusivo. ¡Vuelve más tarde!</p>
+              <Link href="/live" className="btn btn-primary">Ver directos en vivo</Link>
+            </div>
+          ) : (
+            <div className="exclusive-grid">
+              {items.map((item) => (
+                <Link key={item._id} href={`/exclusive/${item._id}`} className="exclusive-card">
+                  <div className="exclusive-thumb">
+                    {item.thumbnailUrl ? (
+                      <img src={item.thumbnailUrl} alt={item.title} className="thumb-img" />
+                    ) : (
+                      <div className="thumb-placeholder">💎</div>
+                    )}
+                    <div className="price-badge">
+                      <LockIcon />
+                      <span>{item.coinPrice} 🪙</span>
+                    </div>
+                  </div>
+                  <div className="exclusive-info">
+                    <h3 className="exclusive-item-title">{item.title}</h3>
+                    <div className="exclusive-meta">
+                      <span className="exclusive-creator">
+                        @{item.creator?.username || item.creator?.name || "creador"}
+                      </span>
+                      <span className="exclusive-date">
+                        {new Date(item.createdAt).toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    {item.description && (
+                      <p className="exclusive-desc">{item.description}</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <style jsx>{`
@@ -174,6 +260,49 @@ export default function ExclusivePage() {
           height: 16px;
         }
 
+        .tabs-row {
+          display: flex;
+          gap: 0.5rem;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 0;
+          margin-bottom: -0.5rem;
+        }
+
+        .tab-btn {
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
+          padding: 0.6rem 1.1rem;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: color var(--transition), border-color var(--transition);
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-bottom: -1px;
+        }
+
+        .tab-btn:hover {
+          color: var(--text);
+        }
+
+        .tab-active {
+          color: #e040fb;
+          border-bottom-color: #e040fb;
+        }
+
+        .tab-badge {
+          background: rgba(224,64,251,0.18);
+          color: #e040fb;
+          font-size: 0.7rem;
+          font-weight: 700;
+          border-radius: 999px;
+          padding: 0.1rem 0.45rem;
+          line-height: 1.4;
+        }
+
         .alert-error {
           padding: 0.75rem 1rem;
           background: rgba(244, 67, 54, 0.08);
@@ -203,6 +332,10 @@ export default function ExclusivePage() {
           border-color: rgba(162, 28, 175, 0.5);
           transform: translateY(-3px);
           box-shadow: 0 8px 32px rgba(162, 28, 175, 0.2);
+        }
+
+        .my-card {
+          border-color: rgba(224, 64, 251, 0.2);
         }
 
         .exclusive-thumb {
@@ -287,6 +420,18 @@ export default function ExclusivePage() {
         .exclusive-date {
           font-size: 0.75rem;
           color: var(--text-dim);
+        }
+
+        .my-unlocks {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .my-earnings {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #34d399;
         }
 
         .exclusive-desc {

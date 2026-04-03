@@ -21,6 +21,41 @@ const listContent = async (req, res) => {
   }
 };
 
+// GET /api/exclusive/creator/:creatorId – published content for a specific creator (public)
+const listByCreator = async (req, res) => {
+  try {
+    const content = await ExclusiveContent.find({
+      creator: req.params.creatorId,
+      isPublished: true,
+    })
+      .populate("creator", "username name avatar")
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Build a set of unlocked content IDs for the authenticated user
+    let unlockedSet = new Set();
+    if (req.userId) {
+      const contentIds = content.map((c) => c._id);
+      const unlocks = await ExclusiveUnlock.find({
+        user: req.userId,
+        content: { $in: contentIds },
+      }).select("content");
+      unlockedSet = new Set(unlocks.map((u) => String(u.content)));
+    }
+
+    const annotated = content.map((item) => {
+      const obj = item.toObject();
+      const isOwner = req.userId && String(item.creator._id) === String(req.userId);
+      obj.hasAccess = isOwner || unlockedSet.has(String(item._id));
+      if (!obj.hasAccess) delete obj.contentUrl;
+      return obj;
+    });
+    res.json(annotated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // GET /api/exclusive/mine – creator's own exclusive content
 const myContent = async (req, res) => {
   try {
@@ -233,6 +268,7 @@ const checkAccess = async (req, res) => {
 
 module.exports = {
   listContent,
+  listByCreator,
   myContent,
   createContent,
   getContent,

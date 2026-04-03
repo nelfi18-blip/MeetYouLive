@@ -12,6 +12,6 @@ const callLimiter = rateLimit({
 });
 
 router.post("/", callLimiter, verifyToken, createCall);
-router.patch("/:id/end", callLimiter, verifyToken, endCall);
+router.post("/:id/end", callLimiter, verifyToken, endCall);
 
 module.exports = router;

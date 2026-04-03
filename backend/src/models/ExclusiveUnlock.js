@@ -9,6 +9,7 @@ const exclusiveUnlockSchema = new mongoose.Schema(
     platformShare: { type: Number, required: true },
     agencyShare: { type: Number, default: 0, min: 0 },
     referrerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    agencyPercentageApplied: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

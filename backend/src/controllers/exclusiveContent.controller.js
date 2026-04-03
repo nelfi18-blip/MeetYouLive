@@ -3,6 +3,7 @@ const ExclusiveContent = require("../models/ExclusiveContent.js");
 const ExclusiveUnlock = require("../models/ExclusiveUnlock.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
@@ -166,20 +167,19 @@ const unlockContent = async (req, res) => {
       const amount = contentDoc.coinPrice;
       const fullCreatorSide = Math.floor(amount * (1 - COMMISSION_RATE));
 
-      // Apply agency split if creator has an active parent agency
-      const creatorDoc = await User.findById(contentDoc.creator).session(session);
+      // Look up the canonical AgencyRelationship for the percentage at this moment
+      const agencyRel = await AgencyRelationship.findOne({ subCreator: contentDoc.creator, status: "active" }).session(session);
       let agencyShare = 0;
       let creatorNetShare = fullCreatorSide;
-      let parentCreatorId = null;
+      let referrerId = null;
+      let agencyPercentageApplied = 0;
 
-      if (creatorDoc) {
-        const rel = creatorDoc.agencyRelationship;
-        if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
-          const split = calculateSplit(amount, rel.parentCreatorPercentage);
-          agencyShare = split.agencyShare;
-          creatorNetShare = split.creatorNetShare;
-          parentCreatorId = rel.parentCreatorId;
-        }
+      if (agencyRel && agencyRel.percentage > 0) {
+        const split = calculateSplit(amount, agencyRel.percentage);
+        agencyShare = split.agencyShare;
+        creatorNetShare = split.creatorNetShare;
+        referrerId = agencyRel.parentCreator;
+        agencyPercentageApplied = agencyRel.percentage;
       }
 
       creatorShare = creatorNetShare;
@@ -194,9 +194,9 @@ const unlockContent = async (req, res) => {
       await User.findByIdAndUpdate(req.userId, { $inc: { coins: -amount } }, { session });
       await User.findByIdAndUpdate(contentDoc.creator, { $inc: { earningsCoins: creatorNetShare } }, { session });
 
-      if (agencyShare > 0 && parentCreatorId) {
+      if (agencyShare > 0 && referrerId) {
         await User.findByIdAndUpdate(
-          parentCreatorId,
+          referrerId,
           { $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: amount } },
           { session }
         );
@@ -209,13 +209,13 @@ const unlockContent = async (req, res) => {
       );
 
       await ExclusiveUnlock.create(
-        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare: creatorNetShare, platformShare, agencyShare, referrerId: parentCreatorId }],
+        [{ user: req.userId, content: contentDoc._id, coinsPaid: amount, creatorShare: creatorNetShare, platformShare, agencyShare, referrerId, agencyPercentageApplied }],
         { session }
       );
 
       // Capture for use after transaction
       txAgencyShare = agencyShare;
-      txParentCreatorId = parentCreatorId;
+      txParentCreatorId = referrerId;
     });
 
     // Record coin transactions (fire-and-forget; don't fail the unlock if this errors)

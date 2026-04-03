@@ -2,6 +2,7 @@ const Gift = require("../models/Gift.js");
 const GiftCatalog = require("../models/GiftCatalog.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
 
@@ -55,11 +56,12 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, g
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.
-// Returns { canEarn, agencyShare, creatorNetShare, parentCreatorId }:
-//   canEarn        – whether the receiver is an approved creator
-//   agencyShare    – coins credited to the parent agency (0 if no agency)
-//   creatorNetShare – coins credited to the creator after agency share
-//   parentCreatorId – ObjectId of the parent agency creator (null if none)
+// Returns { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied }:
+//   canEarn                 – whether the receiver is an approved creator
+//   agencyShare             – coins credited to the parent agency (0 if no agency)
+//   creatorNetShare         – coins credited to the creator after agency share
+//   referrerId              – ObjectId of the parent agency creator (null if none)
+//   agencyPercentageApplied – the percentage used at this moment (0 if no agency)
 const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
   // Cast IDs to ObjectId to prevent NoSQL injection from user-supplied strings
   const senderObjId = new mongoose.Types.ObjectId(senderId);
@@ -77,25 +79,27 @@ const transferCoins = async (senderId, receiverId, amount, creatorShare, session
   // Only credit earningsCoins to approved creators
   const canEarn = receiver.role === "creator" && receiver.creatorStatus === "approved";
 
-  // Determine agency split if receiver has an active parent agency
+  // Determine agency split from the canonical AgencyRelationship document
   let agencyShare = 0;
   let creatorNetShare = creatorShare;
-  let parentCreatorId = null;
+  let referrerId = null;
+  let agencyPercentageApplied = 0;
 
   if (canEarn) {
-    const rel = receiver.agencyRelationship;
-    if (rel && rel.status === "active" && rel.parentCreatorId && rel.parentCreatorPercentage > 0) {
-      const split = calculateSplit(amount, rel.parentCreatorPercentage);
+    const rel = await AgencyRelationship.findOne({ subCreator: receiverObjId, status: "active" }).session(session);
+    if (rel && rel.percentage > 0) {
+      const split = calculateSplit(amount, rel.percentage);
       agencyShare = split.agencyShare;
       creatorNetShare = split.creatorNetShare;
-      parentCreatorId = rel.parentCreatorId;
+      referrerId = rel.parentCreator;
+      agencyPercentageApplied = rel.percentage;
     }
 
     await User.findByIdAndUpdate(receiverObjId, { $inc: { earningsCoins: creatorNetShare } }, { session });
 
-    if (agencyShare > 0 && parentCreatorId) {
+    if (agencyShare > 0 && referrerId) {
       await User.findByIdAndUpdate(
-        parentCreatorId,
+        referrerId,
         {
           $inc: {
             agencyEarningsCoins: agencyShare,
@@ -107,7 +111,7 @@ const transferCoins = async (senderId, receiverId, amount, creatorShare, session
     }
   }
 
-  return { canEarn, agencyShare, creatorNetShare, parentCreatorId };
+  return { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied };
 };
 
 const getGiftCatalog = async (req, res) => {
@@ -170,7 +174,7 @@ const sendGift = async (req, res) => {
       transferResult = await transferCoins(req.userId, receiverId, amount, fullCreatorShare, session);
     });
 
-    const { canEarn, agencyShare, creatorNetShare, parentCreatorId } = transferResult;
+    const { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
     // Platform always takes fixed 40%; agency share comes from creator's 60% only
@@ -187,7 +191,8 @@ const sendGift = async (req, res) => {
       creatorShare: effectiveCreatorShare,
       platformShare,
       agencyShare: agencyShare || 0,
-      parentCreatorId: parentCreatorId || undefined,
+      referrerId: referrerId || undefined,
+      agencyPercentageApplied: agencyPercentageApplied || 0,
       context: resolvedContext,
       contextId: resolvedContextId,
       message,
@@ -198,9 +203,9 @@ const sendGift = async (req, res) => {
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
 
     // Record agency earnings transaction (fire-and-forget)
-    if (agencyShare > 0 && parentCreatorId) {
+    if (agencyShare > 0 && referrerId) {
       CoinTransaction.create({
-        userId: parentCreatorId,
+        userId: referrerId,
         type: "agency_earned",
         amount: agencyShare,
         reason: `Comisión de agencia por regalo de ${req.userId}`,
@@ -261,7 +266,7 @@ const sendGiftBySlug = async (req, res) => {
       transferResult = await transferCoins(req.userId, receiverId, amount, creatorSideShare, session);
     });
 
-    const { canEarn, agencyShare, creatorNetShare, parentCreatorId } = transferResult;
+    const { canEarn, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
     // Platform always takes fixed 40%; agency share comes from creator's 60% only
     const platformShare = Math.floor(amount * COMMISSION_RATE);
@@ -276,7 +281,8 @@ const sendGiftBySlug = async (req, res) => {
       creatorShare: effectiveCreatorShare,
       platformShare,
       agencyShare: agencyShare || 0,
-      parentCreatorId: parentCreatorId || undefined,
+      referrerId: referrerId || undefined,
+      agencyPercentageApplied: agencyPercentageApplied || 0,
       context: resolvedContext,
       contextId: resolvedContextId,
     });
@@ -285,9 +291,9 @@ const sendGiftBySlug = async (req, res) => {
 
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id);
 
-    if (agencyShare > 0 && parentCreatorId) {
+    if (agencyShare > 0 && referrerId) {
       CoinTransaction.create({
-        userId: parentCreatorId,
+        userId: referrerId,
         type: "agency_earned",
         amount: agencyShare,
         reason: `Comisión de agencia por regalo de ${req.userId}`,

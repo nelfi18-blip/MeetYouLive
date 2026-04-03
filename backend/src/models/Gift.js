@@ -10,7 +10,8 @@ const giftSchema = new mongoose.Schema(
     creatorShare: { type: Number, required: true, min: 0 },
     platformShare: { type: Number, required: true, min: 0 },
     agencyShare: { type: Number, default: 0, min: 0 },
-    parentCreatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    referrerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    agencyPercentageApplied: { type: Number, default: 0, min: 0 },
     context: {
       type: String,
       enum: ["live", "profile", "private_call"],

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Call = require("../models/Call");
 const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
@@ -11,6 +12,10 @@ exports.createCall = async (req, res) => {
 
     if (!recipientId) {
       return res.status(400).json({ message: "Falta recipientId" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+      return res.status(400).json({ message: "recipientId inválido" });
     }
 
     if (callerId === recipientId) {
@@ -96,9 +101,19 @@ exports.endCall = async (req, res) => {
     call.creatorShare = creatorNetShare;
     call.agencyShare = agencyShare;
 
-    await User.findByIdAndUpdate(call.caller, {
-      $inc: { coins: -totalCoins },
-    });
+    // Atomically deduct coins; prevent negative balance
+    const updatedCaller = await User.findOneAndUpdate(
+      { _id: call.caller, coins: { $gte: totalCoins } },
+      { $inc: { coins: -totalCoins } },
+      { new: true }
+    );
+
+    if (!updatedCaller) {
+      // Deduct whatever the caller has left (floor at 0)
+      await User.findByIdAndUpdate(call.caller, [
+        { $set: { coins: { $max: [{ $subtract: ["$coins", totalCoins] }, 0] } } },
+      ]);
+    }
 
     await User.findByIdAndUpdate(call.receiver, {
       $inc: { earningsCoins: creatorNetShare },
@@ -150,3 +165,4 @@ exports.endCall = async (req, res) => {
     res.status(500).json({ message: "Error finalizando llamada" });
   }
 };
+

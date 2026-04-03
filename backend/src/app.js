@@ -25,6 +25,7 @@ const passesRoutes = require("./routes/passes.routes.js");
 const creatorRoutes = require("./routes/creator.routes.js");
 const agencyRoutes = require("./routes/agency.routes.js");
 const agoraRoutes = require("./routes/agora.routes.js");
+const rankingsRoutes = require("./routes/rankings.routes.js");
 
 const app = express();
 
@@ -104,5 +105,6 @@ app.use("/api/passes", passesRoutes);
 app.use("/api/creator", creatorRoutes);
 app.use("/api/agency", agencyRoutes);
 app.use("/api/agora", agoraRoutes);
+app.use("/api/rankings", rankingsRoutes);
 
 module.exports = app;

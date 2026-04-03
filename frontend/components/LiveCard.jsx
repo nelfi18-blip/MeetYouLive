@@ -29,7 +29,7 @@ export default function LiveCard({ live }) {
           </div>
 
           {live.isPrivate && (
-            <span className="live-private-badge">🔒 {live.entryCost} 🪙</span>
+            <span className="live-private-badge">🔒 PRIVADO</span>
           )}
 
           {live.viewerCount != null && (
@@ -56,7 +56,9 @@ export default function LiveCard({ live }) {
               )}
             </div>
             <span className="live-username">@{username}</span>
-            <Badge variant="creator" style={{ marginLeft: "auto" }}>CREATOR</Badge>
+            {live.isPrivate && live.entryCost != null && (
+              <span className="live-entry-cost" style={{ marginLeft: "auto" }}>🪙 {live.entryCost}</span>
+            )}
           </div>
           <div className="live-title">{live.title}</div>
           {live.description && (
@@ -77,12 +79,18 @@ export default function LiveCard({ live }) {
                       border-color 0.2s ease;
           display: block;
           text-decoration: none;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .live-card:hover {
-          border-color: rgba(139, 92, 246, 0.45);
-          box-shadow: var(--shadow), 0 0 32px rgba(139, 92, 246, 0.22);
-          transform: translateY(-4px);
+          border-color: rgba(139, 92, 246, 0.55);
+          box-shadow: var(--shadow), 0 0 40px rgba(139, 92, 246, 0.28);
+          transform: translateY(-5px);
+        }
+
+        .live-card:active {
+          transform: scale(0.97) translateY(-2px);
+          box-shadow: var(--shadow), 0 0 20px rgba(139, 92, 246, 0.18);
         }
 
         /* Thumbnail */
@@ -209,6 +217,17 @@ export default function LiveCard({ live }) {
           font-size: 0.78rem;
           color: var(--text-muted);
           font-weight: 600;
+        }
+
+        .live-entry-cost {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #a78bfa;
+          background: rgba(139,92,246,0.12);
+          border: 1px solid rgba(139,92,246,0.28);
+          border-radius: 999px;
+          padding: 0.18rem 0.55rem;
+          white-space: nowrap;
         }
 
         .live-title {

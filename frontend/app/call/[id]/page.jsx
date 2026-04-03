@@ -295,22 +295,14 @@ export default function CallPage() {
   const toggleMute = () => {
     const { audio } = localTracksRef.current;
     if (!audio) return;
-    if (muted) {
-      audio.setEnabled(true);
-    } else {
-      audio.setEnabled(false);
-    }
+    audio.setEnabled(muted);
     setMuted((m) => !m);
   };
 
   const toggleCamera = () => {
     const { video } = localTracksRef.current;
     if (!video) return;
-    if (cameraOff) {
-      video.setEnabled(true);
-    } else {
-      video.setEnabled(false);
-    }
+    video.setEnabled(cameraOff);
     setCameraOff((c) => !c);
   };
 

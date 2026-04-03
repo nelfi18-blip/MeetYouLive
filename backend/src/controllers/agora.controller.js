@@ -22,31 +22,21 @@ const getToken = async (req, res) => {
     // Determine role: publisher for creator, subscriber for viewer
     let role = RtcRole.SUBSCRIBER;
 
-    if (roleParam === "publisher") {
-      // Verify the requester is the live creator or call participant
-      const isLiveCreator = await Live.exists({ _id: channelName, user: req.userId, isLive: true });
-      const isCallParticipant = await VideoCall.exists({
-        _id: channelName,
-        $or: [{ caller: req.userId }, { recipient: req.userId }],
-        status: { $in: ["pending", "accepted"] },
-      });
+    if (roleParam !== "subscriber") {
+      // Check once whether the requester is the live creator or a call participant
+      const [isLiveCreator, isCallParticipant] = await Promise.all([
+        Live.exists({ _id: channelName, user: req.userId, isLive: true }),
+        VideoCall.exists({
+          _id: channelName,
+          $or: [{ caller: req.userId }, { recipient: req.userId }],
+          status: { $in: ["pending", "accepted"] },
+        }),
+      ]);
 
-      if (isLiveCreator || isCallParticipant) {
-        role = RtcRole.PUBLISHER;
-      }
-    } else if (roleParam === "subscriber") {
-      role = RtcRole.SUBSCRIBER;
-    } else {
-      // Auto-detect: check if the requester is the live creator
-      const isLiveCreator = await Live.exists({ _id: channelName, user: req.userId, isLive: true });
-      const isCallParticipant = await VideoCall.exists({
-        _id: channelName,
-        $or: [{ caller: req.userId }, { recipient: req.userId }],
-        status: { $in: ["pending", "accepted"] },
-      });
-
-      if (isLiveCreator || isCallParticipant) {
-        role = RtcRole.PUBLISHER;
+      if (roleParam === "publisher" || roleParam === undefined) {
+        if (isLiveCreator || isCallParticipant) {
+          role = RtcRole.PUBLISHER;
+        }
       }
     }
 

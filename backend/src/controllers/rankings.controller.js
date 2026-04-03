@@ -72,9 +72,9 @@ const getTopCreators = async (req, res) => {
         : null;
 
     if (type === "viewed") {
-      const matchStage = startDate ? { $match: { createdAt: { $gte: startDate } } } : { $match: {} };
+      const dateFilter = startDate ? { $match: { createdAt: { $gte: startDate } } } : { $match: {} };
       const topCreators = await Live.aggregate([
-        matchStage,
+        dateFilter,
         { $group: { _id: "$user", totalViews: { $sum: "$viewerCount" } } },
         { $sort: { totalViews: -1 } },
         { $limit: 10 },

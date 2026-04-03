@@ -36,7 +36,7 @@ export default function TopGifters({ liveId }) {
       {loading ? (
         <div className="tg-list">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="tg-skeleton" />
+            <div key={`tg-skeleton-${i}`} className="tg-skeleton" />
           ))}
         </div>
       ) : (

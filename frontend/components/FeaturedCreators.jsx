@@ -57,7 +57,7 @@ export default function FeaturedCreators() {
       {loading && (
         <div className="fc-grid">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="fc-skeleton" />
+            <div key={`fc-skeleton-${i}`} className="fc-skeleton" />
           ))}
         </div>
       )}

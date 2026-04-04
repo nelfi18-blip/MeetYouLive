@@ -84,5 +84,3 @@ export default function Providers({ children }) {
     </SessionProvider>
   );
 }
-
-

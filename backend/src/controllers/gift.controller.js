@@ -6,6 +6,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
+const { getIO } = require("../lib/socket.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -227,6 +228,20 @@ const sendGift = async (req, res) => {
         status: "completed",
         metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
       }).catch((err) => console.error("[agency tx] Failed to record agency earning:", err));
+    }
+
+    // Notify the gift receiver in real time
+    const io = getIO();
+    if (io) {
+      const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+      io.to(String(receiverId)).emit("GIFT_SENT", {
+        senderName,
+        receiverId: String(receiverId),
+        giftName: giftDoc.giftCatalogItem?.name || "",
+        giftIcon: giftDoc.giftCatalogItem?.icon || "🎁",
+        coinCost: amount,
+        liveId: liveId || null,
+      });
     }
 
     res.status(201).json(giftDoc);

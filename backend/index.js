@@ -1,12 +1,17 @@
 require("dotenv").config();
+const http = require("http");
 const path = require("path");
 
 const app = require(path.join(__dirname, "src", "app"));
 const connectDB = require(path.join(__dirname, "src", "config", "db"));
 const createAdminIfNotExists = require(path.join(__dirname, "src", "utils", "createAdminIfNotExists"));
 const migrateCreatorPending = require(path.join(__dirname, "src", "utils", "migrateCreatorPending"));
+const { initSocket } = require(path.join(__dirname, "src", "lib", "socket"));
 
 const PORT = process.env.PORT || 10000;
+
+const server = http.createServer(app);
+initSocket(server);
 
 // Iniciar base de datos y luego el servidor
 connectDB()
@@ -14,7 +19,7 @@ connectDB()
     await createAdminIfNotExists();
     await migrateCreatorPending();
 
-    app.listen(PORT, "0.0.0.0", () => {
+    server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Servidor MeetYouLive listo en puerto ${PORT}`);
     });
   })

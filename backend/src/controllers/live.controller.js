@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
+const { getIo } = require("../socket.js");
 
 const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost } = req.body;
@@ -40,6 +41,18 @@ const startLive = async (req, res) => {
       isPrivate: Boolean(isPrivate),
       entryCost: costCoins,
     });
+
+    // Notify all connected clients about the new live stream
+    const io = getIo();
+    if (io) {
+      io.emit("LIVE_STARTED", {
+        liveId: live._id,
+        title: live.title,
+        creatorId: req.userId,
+        isPrivate: live.isPrivate,
+      });
+    }
+
     res.status(201).json(live);
   } catch (err) {
     res.status(500).json({ message: err.message });

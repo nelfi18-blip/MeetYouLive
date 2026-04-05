@@ -1,5 +1,6 @@
 const Like = require("../models/Like.js");
 const Chat = require("../models/Chat.js");
+const { getIo } = require("../socket.js");
 
 // Like a user. Returns whether it's a mutual match.
 exports.likeUser = async (req, res) => {
@@ -27,6 +28,14 @@ exports.likeUser = async (req, res) => {
         { $setOnInsert: { participants } },
         { upsert: true }
       );
+
+      // Notify both users about the new match in real-time
+      const io = getIo();
+      if (io) {
+        const matchPayload = { userId1: req.userId, userId2: userId };
+        io.to(`user:${req.userId}`).emit("MATCH_CREATED", matchPayload);
+        io.to(`user:${userId}`).emit("MATCH_CREATED", matchPayload);
+      }
     }
 
     res.json({ match: !!mutual });

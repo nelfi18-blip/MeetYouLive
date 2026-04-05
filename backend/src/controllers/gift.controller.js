@@ -5,6 +5,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
+const { getIo } = require("../socket.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -209,6 +210,21 @@ const sendGift = async (req, res) => {
 
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
 
+    // Notify the gift receiver in real-time
+    const io = getIo();
+    if (io) {
+      io.to(`user:${receiverId}`).emit("GIFT_SENT", {
+        giftId: giftDoc._id,
+        senderId: req.userId,
+        senderName: giftDoc.sender?.username || giftDoc.sender?.name,
+        giftName: giftDoc.giftCatalogItem?.name,
+        giftIcon: giftDoc.giftCatalogItem?.icon,
+        coinCost: amount,
+        liveId: liveId || null,
+        context: resolvedContext,
+      });
+    }
+
     // Record agency earnings transaction (fire-and-forget)
     if (agencyShare > 0 && referrerId) {
       CoinTransaction.create({
@@ -294,6 +310,21 @@ const sendGiftBySlug = async (req, res) => {
     await giftDoc.populate("giftCatalogItem", "name icon coinCost");
 
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id);
+
+    // Notify the gift receiver in real-time
+    const io = getIo();
+    if (io) {
+      io.to(`user:${receiverId}`).emit("GIFT_SENT", {
+        giftId: giftDoc._id,
+        senderId: req.userId,
+        senderName: giftDoc.sender?.username || giftDoc.sender?.name,
+        giftName: giftDoc.giftCatalogItem?.name,
+        giftIcon: giftDoc.giftCatalogItem?.icon,
+        coinCost: amount,
+        liveId: null,
+        context: resolvedContext,
+      });
+    }
 
     if (agencyShare > 0 && referrerId) {
       CoinTransaction.create({

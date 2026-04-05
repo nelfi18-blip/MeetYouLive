@@ -4,6 +4,7 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
+const { getIo } = require("../socket.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const CREATOR_SHARE_RATE = 0.60;
@@ -107,6 +108,19 @@ const inviteCall = async (req, res) => {
     const populated = await VideoCall.findById(call._id)
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
+
+    // Notify the recipient of the incoming call in real-time
+    const io = getIo();
+    if (io) {
+      io.to(`user:${recipientId}`).emit("CALL_INCOMING", {
+        callId: call._id,
+        callerId: req.userId,
+        callerName: populated.caller?.username || populated.caller?.name,
+        callerAvatar: populated.caller?.avatar,
+        type: callType,
+        callCoins: coins,
+      });
+    }
 
     res.status(201).json(populated);
   } catch (err) {

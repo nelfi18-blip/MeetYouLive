@@ -1,5 +1,7 @@
 const Like = require("../models/Like.js");
 const Chat = require("../models/Chat.js");
+const User = require("../models/User.js");
+const { getIO } = require("../lib/socket.js");
 
 // Like a user. Returns whether it's a mutual match.
 exports.likeUser = async (req, res) => {
@@ -27,6 +29,26 @@ exports.likeUser = async (req, res) => {
         { $setOnInsert: { participants } },
         { upsert: true }
       );
+
+      // Notify both users about the new match
+      const io = getIO();
+      if (io) {
+        const [liker, liked] = await Promise.all([
+          User.findById(req.userId).select("username name"),
+          User.findById(userId).select("username name"),
+        ]);
+        const likerName = liker?.username || liker?.name || "";
+        const likedName = liked?.username || liked?.name || "";
+
+        io.to(String(userId)).emit("MATCH_CREATED", {
+          matchedUserId: String(req.userId),
+          matchedUsername: likerName,
+        });
+        io.to(String(req.userId)).emit("MATCH_CREATED", {
+          matchedUserId: String(userId),
+          matchedUsername: likedName,
+        });
+      }
     }
 
     res.json({ match: !!mutual });

@@ -176,6 +176,9 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `SMTP_USER`                   | SMTP username                                           |
 | `SMTP_PASS`                   | SMTP password                                           |
 | `SMTP_FROM`                   | From address for outgoing email                         |
+| `ADMIN_NAME`                  | Admin username for the seed script (default `meetyoulive`) |
+| `ADMIN_EMAIL`                 | Admin email for the seed script                         |
+| `ADMIN_PASSWORD`              | Admin password for the seed script                      |
 
 ## Initial admin setup
 
@@ -197,7 +200,7 @@ The script connects to MongoDB using `MONGODB_URI` from your `.env` file, then *
 
 ### Changing the admin password later
 
-Log in, go to **Profile → 🔑 Contraseña**, enter your current password and choose a new one.
+Log in, go to **Profile → Change Password**, enter your current password and choose a new one.
 
 ## Google login flow
 

@@ -1,56 +1,66 @@
-const Gift = require("../models/Gift.js");
-const Live = require("../models/Live.js");
-const Payout = require("../models/Payout.js");
-const User = require("../models/User.js");
-
-const MIN_PAYOUT_COINS = 100;
+const mongoose = require("mongoose");
+const Gift = require("../models/Gift");
+const User = require("../models/User");
+const Payout = require("../models/Payout");
 
 const requireApprovedCreator = async (userId) => {
   const user = await User.findById(userId).select(
-    "role creatorStatus earningsCoins coins"
+    "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins"
   );
+
   if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
     return { error: "Acceso restringido a creadores aprobados.", user: null };
   }
+
   return { error: null, user };
 };
 
-const getCreatorStats = async (req, res) => {
+exports.getCreatorStats = async (req, res) => {
   try {
-    const { error, user } = await requireApprovedCreator(req.userId);
-    if (error) return res.status(403).json({ message: error });
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreator(userId);
 
-    const [aggResult, totalLives, pendingPayout] = await Promise.all([
-      Gift.aggregate([
-        { $match: { receiver: user._id } },
-        {
-          $group: {
-            _id: null,
-            totalCoinsReceived: { $sum: "$coinCost" },
-            totalCreatorShare: { $sum: "$creatorShare" },
-            totalGiftCount: { $sum: 1 },
-          },
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const aggregateResult = await Gift.aggregate([
+      { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
+      {
+        $group: {
+          _id: null,
+          totalCoinsReceived: { $sum: "$coinCost" },
+          totalCreatorShare: { $sum: "$creatorShare" },
+          totalGiftCount: { $sum: 1 },
         },
-      ]),
-      Live.countDocuments({ user: user._id }),
-      Payout.findOne({ creator: user._id, status: { $in: ["pending", "processing"] } })
-        .sort({ createdAt: -1 })
-        .lean(),
+      },
     ]);
 
-    const totals = aggResult[0] || {
+    const liveCount = await mongoose.model("Live").countDocuments({
+      user: user._id,
+      status: { $in: ["live", "active"] },
+    }).catch(() => 0);
+
+    const pendingPayout = await Payout.findOne({
+      creator: user._id,
+      status: { $in: ["pending", "processing"] },
+    }).sort({ createdAt: -1 });
+
+    const totals = aggregateResult[0] || {
       totalCoinsReceived: 0,
       totalCreatorShare: 0,
       totalGiftCount: 0,
     };
 
-    res.json({
-      earningsCoins: user.earningsCoins,
-      coins: user.coins,
-      totalLives,
-      totalGifts: totals.totalGiftCount,
-      totalCoinsReceived: totals.totalCoinsReceived,
-      totalCreatorShare: totals.totalCreatorShare,
+    return res.json({
+      ok: true,
+      earningsCoins: user.earningsCoins || 0,
+      agencyEarningsCoins: user.agencyEarningsCoins || 0,
+      coins: user.coins || 0,
+      totalLives: liveCount,
+      totalGifts: totals.totalGiftCount || 0,
+      totalCoinsReceived: totals.totalCoinsReceived || 0,
+      totalCreatorShare: totals.totalCreatorShare || 0,
       pendingPayout: pendingPayout
         ? {
             _id: pendingPayout._id,
@@ -61,104 +71,132 @@ const getCreatorStats = async (req, res) => {
         : null,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("getCreatorStats error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Error interno del servidor" });
   }
 };
 
-const getCreatorEarnings = async (req, res) => {
+exports.getCreatorEarnings = async (req, res) => {
   try {
-    const { error, user } = await requireApprovedCreator(req.userId);
-    if (error) return res.status(403).json({ message: error });
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreator(userId);
 
-    const [aggResult, recentGifts] = await Promise.all([
-      Gift.aggregate([
-        { $match: { receiver: user._id } },
-        {
-          $group: {
-            _id: null,
-            totalCoinsReceived: { $sum: "$coinCost" },
-            totalCreatorShare: { $sum: "$creatorShare" },
-            totalPlatformShare: { $sum: "$platformShare" },
-            totalGiftCount: { $sum: 1 },
-          },
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const aggregateResult = await Gift.aggregate([
+      { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
+      {
+        $group: {
+          _id: null,
+          totalCoinsReceived: { $sum: "$coinCost" },
+          totalCreatorShare: { $sum: "$creatorShare" },
+          totalPlatformShare: { $sum: "$platformShare" },
+          totalGiftCount: { $sum: 1 },
         },
-      ]),
-      Gift.find({ receiver: req.userId })
-        .populate("sender", "username name")
-        .populate("giftCatalogItem", "name icon coinCost")
-        .sort({ createdAt: -1 })
-        .limit(20),
+      },
     ]);
 
-    const totals = aggResult[0] || {
+    const recentTransactions = await Gift.find({ receiver: user._id })
+      .populate("sender", "username name avatar")
+      .populate("giftCatalogItem")
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    const totals = aggregateResult[0] || {
       totalCoinsReceived: 0,
       totalCreatorShare: 0,
       totalPlatformShare: 0,
       totalGiftCount: 0,
     };
 
-    const recentTransactions = recentGifts.map((g) => ({
-      _id: g._id,
-      sender: g.sender ? { username: g.sender.username, name: g.sender.name } : null,
-      giftName: g.giftCatalogItem?.name || "Regalo",
-      giftIcon: g.giftCatalogItem?.icon || "🎁",
-      coinCost: g.coinCost,
-      creatorShare: g.creatorShare,
-      platformShare: g.platformShare,
-      context: g.context,
-      createdAt: g.createdAt,
-    }));
-
-    res.json({ ...totals, recentTransactions });
+    return res.json({
+      ok: true,
+      totalCoinsReceived: totals.totalCoinsReceived,
+      totalCreatorShare: totals.totalCreatorShare,
+      totalPlatformShare: totals.totalPlatformShare,
+      totalGiftCount: totals.totalGiftCount,
+      recentTransactions,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("getCreatorEarnings error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Error interno del servidor" });
   }
 };
 
-const requestPayout = async (req, res) => {
+exports.requestPayout = async (req, res) => {
   try {
-    const { error, user } = await requireApprovedCreator(req.userId);
-    if (error) return res.status(403).json({ message: error });
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreator(userId);
 
-    if (user.earningsCoins < MIN_PAYOUT_COINS) {
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const MIN_PAYOUT_COINS = 100;
+    const available = user.earningsCoins || 0;
+
+    if (available < MIN_PAYOUT_COINS) {
       return res.status(400).json({
-        message: `Necesitas al menos ${MIN_PAYOUT_COINS} monedas de ganancias para solicitar un pago.`,
+        ok: false,
+        message: "No tienes el mínimo requerido para solicitar retiro.",
         minRequired: MIN_PAYOUT_COINS,
-        current: user.earningsCoins,
+        current: available,
       });
     }
 
-    const existingPayout = await Payout.findOne({
+    const existingPending = await Payout.findOne({
       creator: user._id,
       status: { $in: ["pending", "processing"] },
     });
-    if (existingPayout) {
+
+    if (existingPending) {
       return res.status(409).json({
-        message: "Ya tienes una solicitud de pago en proceso.",
+        ok: false,
+        message: "Ya tienes una solicitud de retiro pendiente.",
         payout: {
-          _id: existingPayout._id,
-          amountCoins: existingPayout.amountCoins,
-          status: existingPayout.status,
-          createdAt: existingPayout.createdAt,
+          _id: existingPending._id,
+          amountCoins: existingPending.amountCoins,
+          status: existingPending.status,
+          createdAt: existingPending.createdAt,
         },
       });
     }
 
-    const amount = user.earningsCoins;
-
     const updatedUser = await User.findOneAndUpdate(
-      { _id: user._id, earningsCoins: amount },
-      { $set: { earningsCoins: 0 } },
+      {
+        _id: user._id,
+        earningsCoins: available,
+      },
+      {
+        $set: { earningsCoins: 0 },
+      },
       { new: true }
     );
+
     if (!updatedUser) {
-      return res.status(409).json({ message: "Las ganancias cambiaron, intenta de nuevo." });
+      return res.status(409).json({
+        ok: false,
+        message:
+          "No se pudo procesar el retiro porque tu balance cambió. Inténtalo de nuevo.",
+      });
     }
 
-    const payout = await Payout.create({ creator: user._id, amountCoins: amount });
+    const payout = await Payout.create({
+      creator: user._id,
+      amountCoins: available,
+      status: "pending",
+      notes: "Solicitud creada automáticamente desde creator dashboard.",
+    });
 
-    res.status(201).json({
-      message: "Solicitud de pago enviada correctamente.",
+    return res.json({
+      ok: true,
+      message: "Solicitud de retiro registrada correctamente.",
       payout: {
         _id: payout._id,
         amountCoins: payout.amountCoins,
@@ -167,8 +205,9 @@ const requestPayout = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("requestPayout error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Error interno del servidor" });
   }
 };
-
-module.exports = { getCreatorStats, getCreatorEarnings, requestPayout };

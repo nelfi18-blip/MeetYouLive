@@ -6,6 +6,7 @@ import Link from "next/link";
 import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const POLL_MS = 1000; // polling interval for call acceptance
 
@@ -28,7 +29,11 @@ export default function CallPage() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const agoraClientRef = useRef(null);
+copilot/implement-real-video-streaming
   const localTracksRef = useRef({ audio: null, video: null });
+  const localAudioTrackRef = useRef(null);
+  const localVideoTrackRef = useRef(null);
+ main
   const pollRef = useRef(null);
   const tickRef = useRef(null); // per-minute billing interval
   const durationRef = useRef(null); // 1-second timer
@@ -46,12 +51,29 @@ export default function CallPage() {
     []
   );
 
+  // ── Agora cleanup helper ────────────────────────────────────────────────
+  const cleanupAgora = useCallback(async () => {
+    if (localAudioTrackRef.current) {
+      localAudioTrackRef.current.close();
+      localAudioTrackRef.current = null;
+    }
+    if (localVideoTrackRef.current) {
+      localVideoTrackRef.current.close();
+      localVideoTrackRef.current = null;
+    }
+    if (agoraClientRef.current) {
+      try { await agoraClientRef.current.leave(); } catch { /* ignore */ }
+      agoraClientRef.current = null;
+    }
+  }, []);
+
   // ── Clean up on unmount ────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
+copilot/implement-real-video-streaming
       const { audio, video } = localTracksRef.current;
       if (audio) audio.close();
       if (video) video.close();
@@ -60,6 +82,11 @@ export default function CallPage() {
         agoraClientRef.current.leave().catch(() => {});
         agoraClientRef.current = null;
       }
+
+      if (localAudioTrackRef.current) localAudioTrackRef.current.close();
+      if (localVideoTrackRef.current) localVideoTrackRef.current.close();
+      if (agoraClientRef.current) agoraClientRef.current.leave().catch(() => {});
+ main
     };
   }, []);
 
@@ -106,12 +133,21 @@ export default function CallPage() {
         if (data.status === "rejected") { setStatus("rejected"); return; }
         if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
         if (data.status === "accepted") {
+ copilot/implement-real-video-streaming
           startAgora(data);
+
+          startAgora(data._id);
+ main
         } else {
-          // status is pending — caller waits for recipient to accept
+          // status is pending
           setStatus(callerIsMe ? "waiting" : "connecting");
           if (!callerIsMe) {
+copilot/implement-real-video-streaming
             startAgora(data);
+
+            // callee just accepted via notification — join Agora now
+            startAgora(data._id);
+ main
           } else {
             pollForAcceptance(data);
           }
@@ -152,6 +188,7 @@ export default function CallPage() {
             // Out of coins — call ended by backend
             clearInterval(tickRef.current);
             clearInterval(durationRef.current);
+copilot/implement-real-video-streaming
             const { audio, video } = localTracksRef.current;
             if (audio) audio.close();
             if (video) video.close();
@@ -160,6 +197,9 @@ export default function CallPage() {
               await agoraClientRef.current.leave().catch(() => {});
               agoraClientRef.current = null;
             }
+
+            cleanupAgora();
+ main
             setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
             setStatus("ended");
           } else if (res.ok && data.coinsDeducted) {
@@ -195,7 +235,11 @@ export default function CallPage() {
             clearInterval(pollRef.current);
             setCall(data);
             callRef.current = data;
+ copilot/implement-real-video-streaming
             startAgora(data);
+
+            startAgora(callData._id);
+ main
           } else if (["rejected", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
             setStatus(data.status === "rejected" ? "rejected" : "ended");
@@ -209,6 +253,7 @@ export default function CallPage() {
     []
   );
 
+ copilot/implement-real-video-streaming
   // ── Agora RTC setup for private calls ────────────────────────────────────
   const startAgora = useCallback(
     async (callData) => {
@@ -230,9 +275,27 @@ export default function CallPage() {
         }
         const { token: agoraToken, uid, appId } = await tokenRes.json();
 
+  // ── Join Agora channel ──────────────────────────────────────────────────
+  const startAgora = useCallback(
+    async (callId) => {
+      setStatus("connecting");
+
+      try {
+        if (!AGORA_APP_ID) throw new Error("agora_token_failed");
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+
+        const tokenRes = await fetch(
+          `${API_URL}/api/agora/token?channelName=${encodeURIComponent(String(callId))}&role=publisher`,
+          { headers: { Authorization: `Bearer ${token.current}` } }
+        );
+        if (!tokenRes.ok) throw new Error("agora_token_failed");
+        const { token: agoraToken, uid } = await tokenRes.json();
+ main
+
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         agoraClientRef.current = client;
 
+ copilot/implement-real-video-streaming
         // Subscribe to remote user streams
         client.on("user-published", async (remoteUser, mediaType) => {
           await client.subscribe(remoteUser, mediaType);
@@ -242,12 +305,29 @@ export default function CallPage() {
           }
           if (mediaType === "audio") {
             remoteUser.audioTrack.play();
+
+        client.on("user-published", async (user, mediaType) => {
+          await client.subscribe(user, mediaType);
+          if (mediaType === "video" && remoteVideoRef.current) {
+            user.videoTrack?.play(remoteVideoRef.current);
+          }
+          if (mediaType === "audio") {
+            user.audioTrack?.play();
+          }
+          setStatus("connected");
+        });
+
+        client.on("user-unpublished", (user, mediaType) => {
+          if (mediaType === "video") {
+            user.videoTrack?.stop();
+ main
           }
         });
 
         client.on("user-left", () => {
           setStatus("ended");
         });
+ copilot/implement-real-video-streaming
 
         await client.join(appId, callData._id, agoraToken, uid);
 
@@ -281,6 +361,49 @@ export default function CallPage() {
       agoraClientRef.current = null;
     }
 
+
+        // Get local camera and mic
+        let audioTrack, videoTrack;
+        try {
+          [audioTrack, videoTrack] =
+            await AgoraRTC.createMicrophoneAndCameraTracks();
+        } catch {
+          setError("No se pudo acceder a la cámara/micrófono. Por favor, permite el acceso.");
+          setStatus("ended");
+          return;
+        }
+
+        localAudioTrackRef.current = audioTrack;
+        localVideoTrackRef.current = videoTrack;
+
+        await client.join(AGORA_APP_ID, String(callId), agoraToken, uid);
+        await client.publish([audioTrack, videoTrack]);
+
+        // Play local preview
+        if (localVideoRef.current) {
+          videoTrack.play(localVideoRef.current);
+        }
+      } catch (err) {
+        const msg = err?.message || "";
+        if (msg === "agora_token_failed") {
+          setError("No se pudo obtener autorización para la videollamada.");
+        } else {
+          setError("Error al conectar la videollamada.");
+        }
+        setStatus("ended");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const handleEnd = async () => {
+    clearInterval(pollRef.current);
+    clearInterval(tickRef.current);
+    clearInterval(durationRef.current);
+    await cleanupAgora();
+main
+
     try {
       await fetch(`${API_URL}/api/calls/${id}/end`, {
         method: "PATCH",
@@ -293,6 +416,7 @@ export default function CallPage() {
   };
 
   const toggleMute = () => {
+ copilot/implement-real-video-streaming
     const { audio } = localTracksRef.current;
     if (!audio) return;
     audio.setEnabled(muted);
@@ -304,6 +428,21 @@ export default function CallPage() {
     if (!video) return;
     video.setEnabled(cameraOff);
     setCameraOff((c) => !c);
+
+    if (localAudioTrackRef.current) {
+      const newMuted = !muted;
+      localAudioTrackRef.current.setEnabled(!newMuted);
+      setMuted(newMuted);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (localVideoTrackRef.current) {
+      const newCameraOff = !cameraOff;
+      localVideoTrackRef.current.setEnabled(!newCameraOff);
+      setCameraOff(newCameraOff);
+    }
+main
   };
 
   // ── Render ─────────────────────────────────────────────────────────────

@@ -1,10 +1,26 @@
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
+ copilot/implement-real-video-streaming
 const Live = require("../models/Live.js");
 const VideoCall = require("../models/VideoCall.js");
 
 const TOKEN_EXPIRY_SECONDS = 3600; // 1 hour
 
 const getToken = async (req, res) => {
+
+
+// FNV-1a 32-bit hash — converts a MongoDB ObjectId string to a stable uint32 UID
+function fnv1aHash(str) {
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash || 1; // ensure non-zero
+}
+
+// GET /api/agora/token
+const getToken = (req, res) => {
+ main
   const appId = process.env.AGORA_APP_ID;
   const appCertificate = process.env.AGORA_APP_CERTIFICATE;
 
@@ -12,12 +28,17 @@ const getToken = async (req, res) => {
     return res.status(503).json({ message: "Agora no configurado en el servidor" });
   }
 
+ copilot/implement-real-video-streaming
   const { channelName, role: roleParam } = req.query;
+
+  const { channelName, role } = req.query;
+main
 
   if (!channelName) {
     return res.status(400).json({ message: "channelName es requerido" });
   }
 
+ copilot/implement-real-video-streaming
   try {
     // Determine role: publisher for creator, subscriber for viewer
     let role = RtcRole.SUBSCRIBER;
@@ -66,6 +87,22 @@ const getToken = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+
+  const rtcRole = role === "subscriber" ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
+  const uid = fnv1aHash(String(req.userId));
+  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+
+  const token = RtcTokenBuilder.buildTokenWithUid(
+    appId,
+    appCertificate,
+    channelName,
+    uid,
+    rtcRole,
+    privilegeExpiredTs
+  );
+
+  return res.json({ token, channelName, uid });
+ main
 };
 
 module.exports = { getToken };

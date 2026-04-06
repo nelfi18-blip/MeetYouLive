@@ -1,6 +1,6 @@
 const express = require("express");
-const router = express.Router();
 const rateLimit = require("express-rate-limit");
+const router = express.Router();
 
 const { verifyToken } = require("../middlewares/auth.middleware");
 const {
@@ -10,13 +10,14 @@ const {
 } = require("../controllers/creator.controller");
 
 const creatorLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: 60,
-  message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-router.get("/stats", creatorLimiter, verifyToken, getCreatorStats);
-router.get("/earnings", creatorLimiter, verifyToken, getCreatorEarnings);
-router.post("/payout", creatorLimiter, verifyToken, requestPayout);
+router.get("/stats", verifyToken, creatorLimiter, getCreatorStats);
+router.get("/earnings", verifyToken, creatorLimiter, getCreatorEarnings);
+router.post("/payout", verifyToken, creatorLimiter, requestPayout);
 
 module.exports = router;

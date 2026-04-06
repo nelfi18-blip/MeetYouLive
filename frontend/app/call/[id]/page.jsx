@@ -29,11 +29,8 @@ export default function CallPage() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const agoraClientRef = useRef(null);
-copilot/implement-real-video-streaming
-  const localTracksRef = useRef({ audio: null, video: null });
   const localAudioTrackRef = useRef(null);
   const localVideoTrackRef = useRef(null);
- main
   const pollRef = useRef(null);
   const tickRef = useRef(null); // per-minute billing interval
   const durationRef = useRef(null); // 1-second timer
@@ -73,20 +70,9 @@ copilot/implement-real-video-streaming
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
-copilot/implement-real-video-streaming
-      const { audio, video } = localTracksRef.current;
-      if (audio) audio.close();
-      if (video) video.close();
-      localTracksRef.current = { audio: null, video: null };
-      if (agoraClientRef.current) {
-        agoraClientRef.current.leave().catch(() => {});
-        agoraClientRef.current = null;
-      }
-
       if (localAudioTrackRef.current) localAudioTrackRef.current.close();
       if (localVideoTrackRef.current) localVideoTrackRef.current.close();
       if (agoraClientRef.current) agoraClientRef.current.leave().catch(() => {});
- main
     };
   }, []);
 
@@ -133,21 +119,13 @@ copilot/implement-real-video-streaming
         if (data.status === "rejected") { setStatus("rejected"); return; }
         if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
         if (data.status === "accepted") {
- copilot/implement-real-video-streaming
-          startAgora(data);
-
           startAgora(data._id);
- main
         } else {
           // status is pending
           setStatus(callerIsMe ? "waiting" : "connecting");
           if (!callerIsMe) {
-copilot/implement-real-video-streaming
-            startAgora(data);
-
             // callee just accepted via notification — join Agora now
             startAgora(data._id);
- main
           } else {
             pollForAcceptance(data);
           }
@@ -188,18 +166,7 @@ copilot/implement-real-video-streaming
             // Out of coins — call ended by backend
             clearInterval(tickRef.current);
             clearInterval(durationRef.current);
-copilot/implement-real-video-streaming
-            const { audio, video } = localTracksRef.current;
-            if (audio) audio.close();
-            if (video) video.close();
-            localTracksRef.current = { audio: null, video: null };
-            if (agoraClientRef.current) {
-              await agoraClientRef.current.leave().catch(() => {});
-              agoraClientRef.current = null;
-            }
-
             cleanupAgora();
- main
             setCoinsWarning("Sin monedas suficientes. La llamada ha terminado.");
             setStatus("ended");
           } else if (res.ok && data.coinsDeducted) {
@@ -235,11 +202,7 @@ copilot/implement-real-video-streaming
             clearInterval(pollRef.current);
             setCall(data);
             callRef.current = data;
- copilot/implement-real-video-streaming
-            startAgora(data);
-
             startAgora(callData._id);
- main
           } else if (["rejected", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
             setStatus(data.status === "rejected" ? "rejected" : "ended");
@@ -252,28 +215,6 @@ copilot/implement-real-video-streaming
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-
- copilot/implement-real-video-streaming
-  // ── Agora RTC setup for private calls ────────────────────────────────────
-  const startAgora = useCallback(
-    async (callData) => {
-      setStatus("connecting");
-
-      try {
-        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-
-        // Fetch Agora token from backend — both call participants are publishers
-        const tokenRes = await fetch(
-          `${API_URL}/api/agora/token?channelName=${callData._id}&role=publisher`,
-          { headers: { Authorization: `Bearer ${token.current}` } }
-        );
-        if (!tokenRes.ok) {
-          const err = await tokenRes.json();
-          setError(err.message || "No se pudo obtener token de Agora");
-          setStatus("ended");
-          return;
-        }
-        const { token: agoraToken, uid, appId } = await tokenRes.json();
 
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
@@ -290,21 +231,9 @@ copilot/implement-real-video-streaming
         );
         if (!tokenRes.ok) throw new Error("agora_token_failed");
         const { token: agoraToken, uid } = await tokenRes.json();
- main
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         agoraClientRef.current = client;
-
- copilot/implement-real-video-streaming
-        // Subscribe to remote user streams
-        client.on("user-published", async (remoteUser, mediaType) => {
-          await client.subscribe(remoteUser, mediaType);
-          if (mediaType === "video" && remoteVideoRef.current) {
-            remoteUser.videoTrack.play(remoteVideoRef.current);
-            setStatus("connected");
-          }
-          if (mediaType === "audio") {
-            remoteUser.audioTrack.play();
 
         client.on("user-published", async (user, mediaType) => {
           await client.subscribe(user, mediaType);
@@ -320,47 +249,12 @@ copilot/implement-real-video-streaming
         client.on("user-unpublished", (user, mediaType) => {
           if (mediaType === "video") {
             user.videoTrack?.stop();
- main
           }
         });
 
         client.on("user-left", () => {
           setStatus("ended");
         });
- copilot/implement-real-video-streaming
-
-        await client.join(appId, callData._id, agoraToken, uid);
-
-        // Publish local tracks
-        const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        localTracksRef.current = { audio: micTrack, video: camTrack };
-
-        if (localVideoRef.current) {
-          camTrack.play(localVideoRef.current);
-        }
-
-        await client.publish([micTrack, camTrack]);
-        setStatus("connecting"); // wait for remote user to appear
-      } catch (err) {
-        setError(err.message || "Error al conectar con Agora");
-        setStatus("ended");
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  const handleEnd = async () => {
-    clearInterval(pollRef.current);
-    const { audio, video } = localTracksRef.current;
-    if (audio) audio.close();
-    if (video) video.close();
-    localTracksRef.current = { audio: null, video: null };
-    if (agoraClientRef.current) {
-      await agoraClientRef.current.leave().catch(() => {});
-      agoraClientRef.current = null;
-    }
-
 
         // Get local camera and mic
         let audioTrack, videoTrack;
@@ -402,7 +296,6 @@ copilot/implement-real-video-streaming
     clearInterval(tickRef.current);
     clearInterval(durationRef.current);
     await cleanupAgora();
-main
 
     try {
       await fetch(`${API_URL}/api/calls/${id}/end`, {
@@ -416,19 +309,6 @@ main
   };
 
   const toggleMute = () => {
- copilot/implement-real-video-streaming
-    const { audio } = localTracksRef.current;
-    if (!audio) return;
-    audio.setEnabled(muted);
-    setMuted((m) => !m);
-  };
-
-  const toggleCamera = () => {
-    const { video } = localTracksRef.current;
-    if (!video) return;
-    video.setEnabled(cameraOff);
-    setCameraOff((c) => !c);
-
     if (localAudioTrackRef.current) {
       const newMuted = !muted;
       localAudioTrackRef.current.setEnabled(!newMuted);
@@ -442,7 +322,6 @@ main
       localVideoTrackRef.current.setEnabled(!newCameraOff);
       setCameraOff(newCameraOff);
     }
-main
   };
 
   // ── Render ─────────────────────────────────────────────────────────────

@@ -29,6 +29,11 @@ export default function AgencyPage() {
   const [editingPct, setEditingPct] = useState(null);
   const [pctValue, setPctValue] = useState(10);
   const [pctLoading, setPctLoading] = useState(false);
+  const [pctError, setPctError] = useState("");
+
+  // Remove sub-creator
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+  const [removeError, setRemoveError] = useState("");
 
   const loadData = useCallback(async () => {
     const token = getToken();
@@ -94,6 +99,7 @@ export default function AgencyPage() {
 
   const handleUpdatePct = async (relId) => {
     setPctLoading(true);
+    setPctError("");
     const token = getToken();
     try {
       const res = await fetch(`${apiUrl}/api/agency/sub-creators/${relId}/percentage`, {
@@ -103,23 +109,27 @@ export default function AgencyPage() {
       });
       const data = await res.json();
       if (res.ok) { setEditingPct(null); loadData(); }
-      else alert(data.message || "Error al actualizar");
+      else setPctError(data.message || "Error al actualizar");
     } catch {
-      alert("Error de conexión");
+      setPctError("Error de conexión");
     } finally {
       setPctLoading(false);
     }
   };
 
   const handleRemoveSub = async (relId) => {
-    if (!confirm("¿Eliminar este sub-creador de la agencia?")) return;
+    setRemoveError("");
     const token = getToken();
     const res = await fetch(`${apiUrl}/api/agency/sub-creators/${relId}/remove`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) loadData();
-    else { const d = await res.json(); alert(d.message || "Error"); }
+    if (res.ok) { setConfirmRemoveId(null); loadData(); }
+    else {
+      const d = await res.json();
+      setRemoveError(d.message || "Error al eliminar");
+      setConfirmRemoveId(null);
+    }
   };
 
   const statusColor = (s) => {
@@ -233,6 +243,8 @@ export default function AgencyPage() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {removeError && <div style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: 12, color: "#fca5a5", fontSize: 13 }}>{removeError}</div>}
+                    {pctError && <div style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: 12, color: "#fca5a5", fontSize: 13 }}>{pctError}</div>}
                     {subCreators.map((rel) => (
                       <div key={rel._id} style={{ background: "#111118", border: "1px solid #222", borderRadius: 12, padding: 18, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                         {rel.subCreator?.avatar && (
@@ -248,7 +260,7 @@ export default function AgencyPage() {
                               <input type="number" value={pctValue} onChange={(e) => setPctValue(e.target.value)} min={5} max={30}
                                 style={{ width: 60, background: "#1a1a2e", border: "1px solid #a855f7", borderRadius: 6, color: "#fff", padding: "4px 8px", textAlign: "center" }} />
                               <button onClick={() => handleUpdatePct(rel._id)} disabled={pctLoading} style={{ background: "#a855f7", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✓</button>
-                              <button onClick={() => setEditingPct(null)} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✕</button>
+                              <button onClick={() => { setEditingPct(null); setPctError(""); }} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✕</button>
                             </div>
                           ) : (
                             <div>
@@ -263,8 +275,16 @@ export default function AgencyPage() {
                           </div>
                           {rel.status === "active" && (
                             <>
-                              <button onClick={() => { setEditingPct(rel._id); setPctValue(rel.percentage); }} style={{ background: "#1e1b4b", border: "1px solid #4338ca", color: "#818cf8", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-                              <button onClick={() => handleRemoveSub(rel._id)} style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>🗑</button>
+                              <button onClick={() => { setEditingPct(rel._id); setPctValue(rel.percentage); setPctError(""); }} style={{ background: "#1e1b4b", border: "1px solid #4338ca", color: "#818cf8", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+                              {confirmRemoveId === rel._id ? (
+                                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                  <span style={{ color: "#fca5a5", fontSize: 12 }}>¿Eliminar?</span>
+                                  <button onClick={() => handleRemoveSub(rel._id)} style={{ background: "#7f1d1d", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Sí</button>
+                                  <button onClick={() => setConfirmRemoveId(null)} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>No</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { setConfirmRemoveId(rel._id); setRemoveError(""); }} style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>🗑</button>
+                              )}
                             </>
                           )}
                         </div>

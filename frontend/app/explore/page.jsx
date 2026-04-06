@@ -60,6 +60,7 @@ export default function ExplorePage() {
   const [hasMore, setHasMore] = useState(true);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
+  const [callError, setCallError] = useState("");
 
   // ── Load lives ─────────────────────────────────────────────
   useEffect(() => {
@@ -173,6 +174,7 @@ export default function ExplorePage() {
   const handlePrivateCall = async (userId) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) { router.push("/login"); return; }
+    setCallError("");
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
@@ -183,10 +185,10 @@ export default function ExplorePage() {
       if (res.ok) {
         router.push(`/call/${data._id}`);
       } else {
-        alert(data.message || "No se pudo iniciar la llamada privada");
+        setCallError(data.message || "No se pudo iniciar la llamada privada");
       }
     } catch {
-      alert("Error de conexión");
+      setCallError("Error de conexión");
     }
   };
 
@@ -283,6 +285,7 @@ export default function ExplorePage() {
       {/* ── Discover tab ── */}
       {tab === "discover" && (
         <>
+          {callError && <div className="banner-error">{callError}</div>}
           {discoverError && <div className="banner-error">{discoverError}</div>}
 
           {discoverLoading && users.length === 0 && (

@@ -9,7 +9,10 @@ import TopGifters from "@/components/TopGifters";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+ copilot/implement-real-video-streaming
+
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
+ main
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -41,13 +44,21 @@ export default function LiveRoomPage() {
   const [endingStream, setEndingStream] = useState(false);
 
   // Agora state
+copilot/implement-real-video-streaming
+  const [agoraStatus, setAgoraStatus] = useState("idle"); // idle | joining | live | error
+  const [agoraError, setAgoraError] = useState("");
+  const agoraClientRef = useRef(null);
+  const localTracksRef = useRef({ audio: null, video: null });
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
   const agoraClientRef = useRef(null);
   const localVideoTrackRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const localVideoContainerRef = useRef(null);
-  const remoteVideoContainerRef = useRef(null);
+  const remoteVideoContainerRef = useRef(null); main
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -90,6 +101,89 @@ export default function LiveRoomPage() {
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
     };
   }, []);
+
+ copilot/implement-real-video-streaming
+  // ── Agora join/leave when live + access granted ────────────────────────
+  useEffect(() => {
+    if (!live || !live.hasAccess) return;
+
+    let cancelled = false;
+
+    const joinAgora = async () => {
+      if (!token) return;
+      setAgoraStatus("joining");
+
+      try {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+
+        const isCreator = !!(currentUserId && live.user?._id && currentUserId === String(live.user._id));
+        const roleParam = isCreator ? "publisher" : "subscriber";
+
+        // Fetch token from backend
+        const tokenRes = await fetch(
+          `${API_URL}/api/agora/token?channelName=${id}&role=${roleParam}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!tokenRes.ok) {
+          const err = await tokenRes.json();
+          if (!cancelled) {
+            setAgoraError(err.message || "No se pudo obtener token de Agora");
+            setAgoraStatus("error");
+          }
+          return;
+        }
+        const { token: agoraToken, uid, appId } = await tokenRes.json();
+
+        if (cancelled) return;
+
+        const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        client.setClientRole(isCreator ? "host" : "audience");
+        agoraClientRef.current = client;
+
+        // Subscribe to remote streams (viewer)
+        client.on("user-published", async (remoteUser, mediaType) => {
+          await client.subscribe(remoteUser, mediaType);
+          if (mediaType === "video" && remoteVideoRef.current) {
+            remoteUser.videoTrack.play(remoteVideoRef.current);
+          }
+          if (mediaType === "audio") {
+            remoteUser.audioTrack.play();
+          }
+        });
+        client.on("user-unpublished", (_remoteUser, mediaType) => {
+          if (mediaType === "video" && remoteVideoRef.current) {
+            remoteVideoRef.current.innerHTML = "";
+          }
+        });
+
+        await client.join(appId, id, agoraToken, uid);
+
+        if (cancelled) {
+          await client.leave();
+          return;
+        }
+
+        if (isCreator) {
+          // Creator: publish audio + video
+          const [micTrack, camTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+          if (cancelled) {
+            micTrack.close();
+            camTrack.close();
+            await client.leave();
+            return;
+          }
+          localTracksRef.current = { audio: micTrack, video: camTrack };
+          if (localVideoRef.current) {
+            camTrack.play(localVideoRef.current);
+          }
+          await client.publish([micTrack, camTrack]);
+        }
+
+        if (!cancelled) setAgoraStatus("live");
+      } catch (err) {
+        if (!cancelled) {
+          setAgoraError(err.message || "Error al conectar con Agora");
+          setAgoraStatus("error");
 
   // ── Agora join ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -184,6 +278,7 @@ export default function LiveRoomPage() {
               ? "Permite el acceso a cámara/micrófono para transmitir"
               : "No se pudo conectar al canal de video"
           );
+ main
         }
       }
     };
@@ -192,6 +287,21 @@ export default function LiveRoomPage() {
 
     return () => {
       cancelled = true;
+copilot/implement-real-video-streaming
+      const client = agoraClientRef.current;
+      const { audio, video } = localTracksRef.current;
+      if (audio) audio.close();
+      if (video) video.close();
+      localTracksRef.current = { audio: null, video: null };
+      if (client) {
+        client.leave().catch(() => {});
+        agoraClientRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live?.hasAccess, currentUserId]);
+  // ── End Agora ──────────────────────────────────────────────────────────
+
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
@@ -208,6 +318,7 @@ export default function LiveRoomPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, meLoaded, token, currentUserId]);
+ main
 
   const sendChatMessage = (e) => {
     e.preventDefault();
@@ -463,6 +574,31 @@ export default function LiveRoomPage() {
       <div className="room-layout">
         <div className="room-main">
           <div className="video-wrap">
+copilot/implement-real-video-streaming
+            {/* Creator's local video (self-preview when broadcasting) */}
+            {isCreator ? (
+              <div ref={localVideoRef} className="agora-video-container" />
+            ) : (
+              /* Viewer: remote stream from creator */
+              <div ref={remoteVideoRef} className="agora-video-container" />
+            )}
+
+            {/* Overlay while Agora is connecting */}
+            {(agoraStatus === "idle" || agoraStatus === "joining") && (
+              <div className="video-placeholder">
+                <div className="video-placeholder-icon">🎥</div>
+                <p className="video-placeholder-text">
+                  {agoraStatus === "joining" ? "Conectando al directo…" : "Iniciando…"}
+                </p>
+                {agoraStatus === "joining" && <div className="agora-spinner" />}
+              </div>
+            )}
+
+            {agoraStatus === "error" && (
+              <div className="video-placeholder">
+                <div className="video-placeholder-icon">⚠️</div>
+                <p className="video-placeholder-text">{agoraError || "Error de conexión"}</p>
+
             {/* Agora video containers */}
             {isCreator ? (
               <div
@@ -502,6 +638,7 @@ export default function LiveRoomPage() {
                   <Link href="/login" className="link-accent">Inicia sesión</Link>{" "}
                   para ver el directo
                 </p>
+main
               </div>
             )}
 
@@ -747,6 +884,31 @@ export default function LiveRoomPage() {
         .video-error-text { color: var(--error); }
 
         .link-accent { color: var(--accent); text-decoration: underline; }
+
+        .agora-video-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          background: #000;
+        }
+
+        .agora-video-container video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .agora-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid rgba(255,15,138,0.15);
+          border-top-color: var(--accent);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .video-overlay {
           position: absolute;

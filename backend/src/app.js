@@ -25,7 +25,10 @@ const passesRoutes = require("./routes/passes.routes.js");
 const creatorRoutes = require("./routes/creator.routes.js");
 const agencyRoutes = require("./routes/agency.routes.js");
 const agoraRoutes = require("./routes/agora.routes.js");
+copilot/implement-real-video-streaming
+
 const rankingsRoutes = require("./routes/rankings.routes.js");
+ main
 
 const app = express();
 

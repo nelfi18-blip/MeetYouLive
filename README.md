@@ -46,15 +46,23 @@ MeetYouLive/
 
 ## Features
 
-- ✅ Register / Login (JWT)
-- ✅ Google OAuth login
-- ✅ Roles (user / creator / admin)
-- ✅ Videos (public & private with payment)
-- ✅ Live streaming
-- ✅ Gifts / Regalos
-- ✅ Stripe payments (one-time + subscriptions)
-- ✅ Moderation & reporting
-- ✅ Admin panel
+- ✅ Register / Login (email + password)
+- ✅ Google OAuth login (NextAuth.js)
+- ✅ Roles: user / creator / admin
+- ✅ Creator onboarding and approval flow
+- ✅ Live streaming (Agora RTC — host/audience)
+- ✅ Gift system with branded catalog and coin deductions
+- ✅ MYL Coins (purchase via Stripe, send gifts, unlock content, private calls)
+- ✅ Exclusive content (upload, paywall unlock, creator earnings)
+- ✅ Private paid video calls (per-minute billing, auto-end on low balance)
+- ✅ Creator earnings dashboard and payout requests
+- ✅ Agency system (parent creator → sub-creator commission splits)
+- ✅ Sparks and Access Passes (boosts, VIP passes)
+- ✅ Real-time notifications (Socket.io — live started, gift sent, match, incoming call)
+- ✅ Matches and social discovery
+- ✅ Chat (direct messages)
+- ✅ Stripe payments (one-time coin purchases + subscriptions)
+- ✅ Admin panel (moderation, creator approval, gift catalog, agency management)
 
 ## Local development
 
@@ -91,6 +99,7 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
    NEXTAUTH_SECRET=your_nextauth_secret
    INTERNAL_API_SECRET=your_internal_api_secret
    NEXT_PUBLIC_API_URL=https://api.meetyoulive.net
+   NEXT_PUBLIC_AGORA_APP_ID=your_agora_app_id
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
@@ -115,6 +124,8 @@ A `render.yaml` is included so Render can auto-configure the service.
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    GOOGLE_CALLBACK_URL=https://api.meetyoulive.net/api/auth/google/callback
+   AGORA_APP_ID=your_agora_app_id
+   AGORA_APP_CERTIFICATE=your_agora_app_certificate
    STRIPE_SECRET_KEY=your_stripe_secret_key
    STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
    STRIPE_SUBSCRIPTION_PRICE_ID=your_stripe_price_id
@@ -136,9 +147,10 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | Variable                      | Description                                             |
 |-------------------------------|---------------------------------------------------------|
 | `NEXTAUTH_URL`                | Canonical URL of the frontend                           |
-| `NEXTAUTH_SECRET`             | Secret used by NextAuth to sign session cookies (frontend only) |
+| `NEXTAUTH_SECRET`             | Secret used by NextAuth to sign session cookies         |
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header) |
 | `NEXT_PUBLIC_API_URL`         | Backend API base URL                                    |
+| `NEXT_PUBLIC_AGORA_APP_ID`    | Agora App ID (exposed to browser for RTC SDK)           |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID (used by NextAuth)               |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret (used by NextAuth)           |
 
@@ -147,16 +159,23 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | Variable                      | Description                                              |
 |-------------------------------|----------------------------------------------------------|
 | `PORT`                        | Server port (default 10000)                             |
-| `MONGODB_URI`                 | MongoDB connection string                               |
+| `MONGODB_URI`                 | MongoDB Atlas connection string                         |
 | `JWT_SECRET`                  | Secret for signing JWT tokens                           |
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header); must match frontend |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID                                  |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret                              |
 | `GOOGLE_CALLBACK_URL`         | `https://api.meetyoulive.net/api/auth/google/callback`  |
 | `FRONTEND_URL`                | `https://www.meetyoulive.net`                           |
+| `AGORA_APP_ID`                | Agora App ID for RTC token generation                   |
+| `AGORA_APP_CERTIFICATE`       | Agora App Certificate for RTC token signing             |
 | `STRIPE_SECRET_KEY`           | Stripe secret key (`sk_test_…` or `sk_live_…`)          |
 | `STRIPE_WEBHOOK_SECRET`       | Stripe webhook signing secret                           |
 | `STRIPE_SUBSCRIPTION_PRICE_ID`| Stripe Price ID for the subscription plan               |
+| `SMTP_HOST`                   | SMTP host for email verification (leave blank to log codes to console) |
+| `SMTP_PORT`                   | SMTP port (default 587)                                 |
+| `SMTP_USER`                   | SMTP username                                           |
+| `SMTP_PASS`                   | SMTP password                                           |
+| `SMTP_FROM`                   | From address for outgoing email                         |
 
 ## Initial admin setup
 

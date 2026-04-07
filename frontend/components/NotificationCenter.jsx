@@ -254,5 +254,31 @@ export function useNotifications() {
     [push]
   );
 
-  return { notifications, dismiss, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming };
+  const handleCrushReceived = useCallback(
+    (data) => {
+      push({
+        icon: "💖",
+        message: `${data.fromUsername || "Alguien"} te dio Like`,
+        href: "/crush",
+        actionLabel: "Ver Crush",
+        duration: 5000,
+      });
+    },
+    [push]
+  );
+
+  const handleSuperCrushReceived = useCallback(
+    (data) => {
+      push({
+        icon: "⚡",
+        message: `${data.fromUsername || "Alguien"} te envió un Super Crush ✨`,
+        href: "/crush",
+        actionLabel: "Ver Crush",
+        duration: 7000,
+      });
+    },
+    [push]
+  );
+
+  return { notifications, dismiss, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived };
 }

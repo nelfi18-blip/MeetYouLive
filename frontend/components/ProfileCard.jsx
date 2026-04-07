@@ -14,12 +14,14 @@ import GiftButton from "./GiftButton";
  *  - liked: boolean
  *  - matched: boolean
  *  - onLike: (userId) => void
+ *  - onSuperCrush: (userId) => void – optional
+ *  - superCrushPrice: number – coin cost shown on button
  *  - onMessage: (userId) => void  – optional, triggers chat creation + nav
  *  - onVideoCall: (userId) => void  – optional (future use)
  *  - onPrivateCall: (userId) => void  – optional, triggers a paid creator call
  *  - loading: boolean
  */
-export default function ProfileCard({ user, liked, matched, onLike, onMessage, onVideoCall, onPrivateCall, loading }) {
+export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush, superCrushPrice, onMessage, onVideoCall, onPrivateCall, loading }) {
   const displayName = user.username || user.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator";
@@ -115,6 +117,22 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
               </svg>
               Ver en vivo
             </Link>
+          )}
+
+          {/* Super Crush */}
+          {onSuperCrush && (
+            <button
+              className="action-btn action-super-crush"
+              onClick={() => onSuperCrush?.(user._id)}
+              aria-label={`Super Crush · 🪙${superCrushPrice ?? 50}`}
+              title={`Super Crush · 🪙${superCrushPrice ?? 50}`}
+              disabled={loading}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              ⚡ {superCrushPrice ?? 50}🪙
+            </button>
           )}
 
           {/* Like */}
@@ -355,6 +373,22 @@ export default function ProfileCard({ user, liked, matched, onLike, onMessage, o
           background: none;
           white-space: nowrap;
           text-decoration: none;
+        }
+
+        .action-super-crush {
+          width: 100%;
+          flex: none;
+          background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(224,64,251,0.08));
+          border-color: rgba(251,191,36,0.35);
+          color: #fbbf24;
+        }
+        .action-super-crush:hover {
+          background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(224,64,251,0.16));
+          box-shadow: 0 0 14px rgba(251,191,36,0.25);
+        }
+        .action-super-crush:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .action-watch {

@@ -1,19 +1,56 @@
+const mongoose = require("mongoose");
 const Like = require("../models/Like.js");
 const Chat = require("../models/Chat.js");
 const User = require("../models/User.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
+const CrushTransaction = require("../models/CrushTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 
-// Like a user. Returns whether it's a mutual match.
+const SUPER_CRUSH_PRICE = 50; // coins
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+/** Create a chat room (idempotent) and notify both users of a match. */
+const handleMatch = async (userId, matchedUserId, io) => {
+  const participants = [String(userId), String(matchedUserId)].sort();
+  await Chat.findOneAndUpdate(
+    { participants: { $all: participants, $size: 2 } },
+    { $setOnInsert: { participants } },
+    { upsert: true }
+  );
+
+  if (io) {
+    const [userA, userB] = await Promise.all([
+      User.findById(userId).select("username name"),
+      User.findById(matchedUserId).select("username name"),
+    ]);
+    const nameA = userA?.username || userA?.name || "";
+    const nameB = userB?.username || userB?.name || "";
+
+    io.to(String(matchedUserId)).emit("MATCH_CREATED", {
+      matchedUserId: String(userId),
+      matchedUsername: nameA,
+    });
+    io.to(String(userId)).emit("MATCH_CREATED", {
+      matchedUserId: String(matchedUserId),
+      matchedUsername: nameB,
+    });
+  }
+};
+
+// ─── Like a user ──────────────────────────────────────────────────────────────
 exports.likeUser = async (req, res) => {
   const { userId } = req.params;
   if (String(userId) === String(req.userId)) {
     return res.status(400).json({ message: "No puedes dar like a ti mismo" });
   }
   try {
-    // Upsert the like (idempotent)
+    // Upsert the like (idempotent) – standard like only
     await Like.findOneAndUpdate(
       { from: req.userId, to: userId },
-      { from: req.userId, to: userId },
+      { from: req.userId, to: userId, crushType: "standard" },
       { upsert: true }
     );
 
@@ -21,40 +58,24 @@ exports.likeUser = async (req, res) => {
     const mutual = await Like.findOne({ from: userId, to: req.userId });
 
     if (mutual) {
-      // Sort participant IDs so [A,B] and [B,A] always produce the same array.
-      // This prevents creating duplicate chat rooms for the same pair of users.
-      const participants = [req.userId, userId].sort();
-      await Chat.findOneAndUpdate(
-        { participants: { $all: participants, $size: 2 } },
-        { $setOnInsert: { participants } },
-        { upsert: true }
-      );
+      await handleMatch(req.userId, userId, getIO());
+    }
 
-      // Notify both users about the new match
-      const io = getIO();
-      if (io) {
-        const [liker, liked] = await Promise.all([
-          User.findById(req.userId).select("username name"),
-          User.findById(userId).select("username name"),
-        ]);
-        const likerName = liker?.username || liker?.name || "";
-        const likedName = liked?.username || liked?.name || "";
-
-        io.to(String(userId)).emit("MATCH_CREATED", {
-          matchedUserId: String(req.userId),
-          matchedUsername: likerName,
-        });
-        io.to(String(req.userId)).emit("MATCH_CREATED", {
-          matchedUserId: String(userId),
-          matchedUsername: likedName,
-        });
-      }
+    // Notify target of the like
+    const io = getIO();
+    if (io) {
+      const liker = await User.findById(req.userId).select("username name");
+      const likerName = liker?.username || liker?.name || "";
+      io.to(String(userId)).emit("CRUSH_RECEIVED", {
+        fromUserId: String(req.userId),
+        fromUsername: likerName,
+        crushType: "standard",
+      });
     }
 
     res.json({ match: !!mutual });
   } catch (err) {
     if (err.code === 11000) {
-      // Duplicate – already liked, just return current match status
       const mutual = await Like.findOne({ from: userId, to: req.userId });
       return res.json({ match: !!mutual });
     }
@@ -62,7 +83,7 @@ exports.likeUser = async (req, res) => {
   }
 };
 
-// Remove a like (pass)
+// ─── Remove a like (pass) ─────────────────────────────────────────────────────
 exports.unlikeUser = async (req, res) => {
   const { userId } = req.params;
   try {
@@ -73,18 +94,202 @@ exports.unlikeUser = async (req, res) => {
   }
 };
 
-// Get all mutual matches for the current user
+// ─── Super Crush ──────────────────────────────────────────────────────────────
+exports.superCrushUser = async (req, res) => {
+  const { userId } = req.params;
+  if (String(userId) === String(req.userId)) {
+    return res.status(400).json({ message: "No puedes enviarte un Super Crush a ti mismo" });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: "userId inválido" });
+  }
+
+  const fromObjId = new mongoose.Types.ObjectId(req.userId);
+  const toObjId   = new mongoose.Types.ObjectId(userId);
+
+  const session = await mongoose.startSession();
+  try {
+    let matchCreated = false;
+
+    await session.withTransaction(async () => {
+      const sender = await User.findById(fromObjId).session(session);
+      if (!sender) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+      if (sender.coins < SUPER_CRUSH_PRICE) {
+        throw Object.assign(
+          new Error(`Necesitas al menos ${SUPER_CRUSH_PRICE} monedas para enviar un Super Crush`),
+          { status: 400 }
+        );
+      }
+
+      const target = await User.findById(toObjId).session(session);
+      if (!target) throw Object.assign(new Error("Perfil de destino no encontrado"), { status: 404 });
+
+      // Deduct coins from sender
+      await User.findByIdAndUpdate(fromObjId, { $inc: { coins: -SUPER_CRUSH_PRICE } }, { session });
+
+      // Revenue split
+      const isCreatorTarget =
+        target.role === "creator" && target.creatorStatus === "approved";
+
+      let platformShare = 0;
+      let creatorNetShare = 0;
+      let agencyShare = 0;
+      let referrerId = null;
+      let agencyPercentageApplied = 0;
+
+      if (isCreatorTarget) {
+        const rel = await AgencyRelationship.findOne({
+          subCreator: toObjId,
+          status: "active",
+        }).session(session);
+        const agencyPct = rel?.percentage > 0 ? rel.percentage : null;
+        const split = calculateSplit(SUPER_CRUSH_PRICE, agencyPct);
+
+        platformShare   = split.platformShare;
+        agencyShare     = split.agencyShare;
+        creatorNetShare = split.creatorNetShare;
+
+        if (agencyPct) {
+          referrerId              = rel.parentCreator;
+          agencyPercentageApplied = rel.percentage;
+        }
+
+        await User.findByIdAndUpdate(
+          toObjId,
+          { $inc: { earningsCoins: creatorNetShare } },
+          { session }
+        );
+
+        if (agencyShare > 0 && referrerId) {
+          await User.findByIdAndUpdate(
+            referrerId,
+            { $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: SUPER_CRUSH_PRICE } },
+            { session }
+          );
+        }
+      } else {
+        platformShare = SUPER_CRUSH_PRICE;
+      }
+
+      // Upsert like with super_crush type
+      await Like.findOneAndUpdate(
+        { from: fromObjId, to: toObjId },
+        { from: fromObjId, to: toObjId, crushType: "super_crush" },
+        { upsert: true, session }
+      );
+
+      // Check mutual match
+      const mutual = await Like.findOne({ from: toObjId, to: fromObjId }).session(session);
+      if (mutual) {
+        matchCreated = true;
+        const participants = [String(fromObjId), String(toObjId)].sort();
+        await Chat.findOneAndUpdate(
+          { participants: { $all: participants, $size: 2 } },
+          { $setOnInsert: { participants } },
+          { upsert: true, session }
+        );
+      }
+
+      // Save CrushTransaction
+      await CrushTransaction.create(
+        [
+          {
+            fromUser: fromObjId,
+            toUser: toObjId,
+            coinsSpent: SUPER_CRUSH_PRICE,
+            isCreatorTarget,
+            platformShare,
+            creatorShare: creatorNetShare,
+            agencyShare,
+            referrerId,
+            agencyPercentageApplied,
+            matchCreated,
+          },
+        ],
+        { session }
+      );
+
+      // CoinTransaction records
+      await CoinTransaction.create(
+        [
+          {
+            userId: fromObjId,
+            type: "crush_sent",
+            amount: -SUPER_CRUSH_PRICE,
+            reason: `Super Crush enviado a ${userId}`,
+            status: "completed",
+            metadata: { toUserId: String(toObjId), crushType: "super_crush" },
+          },
+        ],
+        { session }
+      );
+
+      if (isCreatorTarget && creatorNetShare > 0) {
+        await CoinTransaction.create(
+          [
+            {
+              userId: toObjId,
+              type: "crush_received",
+              amount: creatorNetShare,
+              reason: `Super Crush recibido de ${req.userId}`,
+              status: "completed",
+              metadata: { fromUserId: String(fromObjId), crushType: "super_crush" },
+            },
+          ],
+          { session }
+        );
+      }
+    });
+
+    // Socket notifications (outside transaction)
+    const io = getIO();
+    if (io) {
+      const [senderDoc, targetDoc] = await Promise.all([
+        User.findById(fromObjId).select("username name"),
+        User.findById(toObjId).select("username name"),
+      ]);
+      const senderName = senderDoc?.username || senderDoc?.name || "";
+      const targetName = targetDoc?.username || targetDoc?.name || "";
+
+      io.to(String(toObjId)).emit("SUPER_CRUSH_RECEIVED", {
+        fromUserId: String(fromObjId),
+        fromUsername: senderName,
+        crushType: "super_crush",
+        coinsSpent: SUPER_CRUSH_PRICE,
+      });
+
+      if (matchCreated) {
+        io.to(String(toObjId)).emit("MATCH_CREATED", {
+          matchedUserId: String(fromObjId),
+          matchedUsername: senderName,
+        });
+        io.to(String(fromObjId)).emit("MATCH_CREATED", {
+          matchedUserId: String(toObjId),
+          matchedUsername: targetName,
+        });
+      }
+    }
+
+    res.json({ match: matchCreated, superCrushPrice: SUPER_CRUSH_PRICE });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    await session.endSession();
+  }
+};
+
+// ─── Get all mutual matches ───────────────────────────────────────────────────
 exports.getMatches = async (req, res) => {
   try {
-    // Users the current user liked
     const myLikes = await Like.find({ from: req.userId }).select("to");
     const myLikedIds = myLikes.map((l) => String(l.to));
 
-    // Among those, find who also liked the current user back
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role");
+    }).populate("from", "username name avatar bio role isLive liveId creatorProfile");
 
     const matches = mutualLikes.map((l) => l.from);
     res.json({ matches });
@@ -93,14 +298,50 @@ exports.getMatches = async (req, res) => {
   }
 };
 
-// Check if a specific user is a mutual match
+// ─── Check if a specific user is a mutual match ───────────────────────────────
 exports.checkMatch = async (req, res) => {
   const { userId } = req.params;
   try {
-    const iLiked   = await Like.findOne({ from: req.userId, to: userId });
+    const iLiked    = await Like.findOne({ from: req.userId, to: userId });
     const theyLiked = await Like.findOne({ from: userId, to: req.userId });
     res.json({ iLiked: !!iLiked, theyLiked: !!theyLiked, match: !!iLiked && !!theyLiked });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+// ─── Crush stats for the current user ────────────────────────────────────────
+exports.getCrushStats = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const [
+      likesReceived,
+      superCrushesReceived,
+      matchCount,
+      revenueAgg,
+    ] = await Promise.all([
+      Like.countDocuments({ to: userId }),
+      Like.countDocuments({ to: userId, crushType: "super_crush" }),
+      (async () => {
+        const myLikes = await Like.find({ from: userId }).select("to");
+        const myLikedIds = myLikes.map((l) => String(l.to));
+        return Like.countDocuments({ from: { $in: myLikedIds }, to: userId });
+      })(),
+      CrushTransaction.aggregate([
+        { $match: { toUser: new mongoose.Types.ObjectId(userId) } },
+        { $group: { _id: null, total: { $sum: "$creatorShare" } } },
+      ]),
+    ]);
+
+    const crushRevenue = revenueAgg[0]?.total ?? 0;
+    res.json({ likesReceived, superCrushesReceived, matchCount, crushRevenue });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── Expose crush config (price) to the frontend ─────────────────────────────
+exports.getCrushConfig = async (_req, res) => {
+  res.json({ superCrushPrice: SUPER_CRUSH_PRICE });
 };

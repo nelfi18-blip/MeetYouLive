@@ -61,6 +61,7 @@ export default function ExplorePage() {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
   const [callError, setCallError] = useState("");
+  const [superCrushPrice, setSuperCrushPrice] = useState(50);
 
   // ── Load lives ─────────────────────────────────────────────
   useEffect(() => {
@@ -68,6 +69,15 @@ export default function ExplorePage() {
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => setLives(Array.isArray(d) ? d : []))
       .catch(() => setLiveError("No se pudo cargar los directos"));
+
+    // Fetch crush config for super crush price
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) {
+      fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d?.superCrushPrice) setSuperCrushPrice(d.superCrushPrice); })
+        .catch(() => {});
+    }
   }, []);
 
   // ── Filter lives ───────────────────────────────────────────
@@ -198,6 +208,29 @@ export default function ExplorePage() {
     loadUsers(next);
   };
 
+  const handleSuperCrush = async (userId) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { router.push("/login"); return; }
+    setCallError("");
+    try {
+      const res = await fetch(`${API_URL}/api/matches/super-crush/${userId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLikedIds((prev) => new Set([...prev, userId]));
+        if (data.match) {
+          setMatchIds((prev) => new Set([...prev, userId]));
+        }
+      } else {
+        setCallError(data.message || "No se pudo enviar el Super Crush");
+      }
+    } catch {
+      setCallError("Error de conexión");
+    }
+  };
+
   return (
     <div className="explore">
       {/* ── Header ── */}
@@ -239,6 +272,9 @@ export default function ExplorePage() {
         >
           <PeopleIcon /> Descubrir personas
         </button>
+        <Link href="/crush" className="explore-tab crush-link">
+          ⚡ Crush
+        </Link>
         <Link href="/matches" className="explore-tab matches-link">
           <MatchTabIcon /> Mis Matches
         </Link>
@@ -315,6 +351,8 @@ export default function ExplorePage() {
                     liked={likedIds.has(user._id)}
                     matched={matchIds.has(user._id)}
                     onLike={handleLike}
+                    onSuperCrush={handleSuperCrush}
+                    superCrushPrice={superCrushPrice}
                     onMessage={handleMessage}
                     onVideoCall={handleVideoCall}
                     onPrivateCall={handlePrivateCall}
@@ -368,6 +406,8 @@ export default function ExplorePage() {
         .explore-tab.active { background: var(--grad-primary); border-color: transparent; color: #fff; box-shadow: 0 2px 14px rgba(224,64,251,0.4); }
         .matches-link { background: rgba(255,45,120,0.08); border-color: rgba(255,45,120,0.2); color: var(--accent) !important; }
         .matches-link:hover { background: rgba(255,45,120,0.15); }
+        .crush-link { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.2); color: #fbbf24 !important; }
+        .crush-link:hover { background: rgba(251,191,36,0.15); }
 
         .search-wrap { position: relative; width: 280px; max-width: 100%; }
         .search-icon-inner { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-dim); display: flex; pointer-events: none; }

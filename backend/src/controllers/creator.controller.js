@@ -1,44 +1,4 @@
 const mongoose = require("mongoose");
- copilot/clean-creator-earnings-implementation
-const Gift = require("../models/Gift.js");
-const User = require("../models/User.js");
-
-const requireApprovedCreator = async (userId) => {
-  const user = await User.findById(userId).select("role creatorStatus");
-  if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
-    return null;
-  }
-  return user;
-};
-
-const getEarnings = async (req, res) => {
-  try {
-    const user = await requireApprovedCreator(req.userId);
-    if (!user) {
-      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
-    }
-
-    const creatorId = new mongoose.Types.ObjectId(req.userId);
-
-    const [aggResult, recentGifts] = await Promise.all([
-      Gift.aggregate([
-        { $match: { receiver: creatorId } },
-        {
-          $group: {
-            _id: null,
-            totalCoinsReceived: { $sum: "$coinCost" },
-            totalCreatorShare: { $sum: "$creatorShare" },
-            totalPlatformShare: { $sum: "$platformShare" },
-            totalGiftCount: { $sum: 1 },
-          },
-        },
-      ]),
-      Gift.find({ receiver: creatorId })
-        .populate("sender", "username name")
-        .populate("giftCatalogItem", "name icon coinCost")
-        .sort({ createdAt: -1 })
-        .limit(20),
-    
 const Gift = require("../models/Gift");
 const User = require("../models/User");
 const Payout = require("../models/Payout");
@@ -74,7 +34,6 @@ exports.getCreatorStats = async (req, res) => {
           totalGiftCount: { $sum: 1 },
         },
       },
- main
     ]);
 
     const liveCount = await mongoose.model("Live").countDocuments({
@@ -170,23 +129,6 @@ exports.getCreatorEarnings = async (req, res) => {
   }
 };
 
- copilot/clean-creator-earnings-implementation
-const requestPayout = async (req, res) => {
-  try {
-    const user = await requireApprovedCreator(req.userId);
-    if (!user) {
-      return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
-    }
-
-    // Placeholder: payout logic will be implemented in a future update.
-    return res.status(200).json({ message: "Solicitud de retiro recibida. Será procesada pronto." });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-module.exports = { getEarnings, requestPayout };
-
 exports.requestPayout = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
@@ -269,4 +211,3 @@ exports.requestPayout = async (req, res) => {
       .json({ ok: false, message: "Error interno del servidor" });
   }
 };
-main

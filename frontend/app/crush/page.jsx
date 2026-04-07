@@ -9,6 +9,8 @@ import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
+const ACTION_FEEDBACK_DURATION_MS = 700;
+const ACTIVITY_BANNER_DURATION_MS = 3500;
 
 /** Calculate age from a birthdate string/Date. Returns null if not available. */
 function calcAge(birthdate) {
@@ -258,7 +260,7 @@ function SuperCrushConfirmModal({ user, price, coins, loading, onConfirm, onCanc
 // ─── CrushActivityBanner ──────────────────────────────────────────────────────
 function CrushActivityBanner({ event, onDismiss }) {
   useEffect(() => {
-    const t = setTimeout(onDismiss, 3500);
+    const t = setTimeout(onDismiss, ACTIVITY_BANNER_DURATION_MS);
     return () => clearTimeout(t);
   }, [onDismiss]);
 
@@ -424,7 +426,7 @@ function SwipeCard({ user, onPass, onLike }) {
           </div>
           <div className="card-badges-row">
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
-            {user.isVerifiedCreator && <Badge variant="verified">✓</Badge>}
+            {user.isVerified && <Badge variant="verified">✓</Badge>}
           </div>
         </div>
 
@@ -787,7 +789,7 @@ export default function CrushPage() {
 
   const showFeedback = (type) => {
     setActionFeedback(type);
-    setTimeout(() => setActionFeedback(null), 700);
+    setTimeout(() => setActionFeedback(null), ACTION_FEEDBACK_DURATION_MS);
   };
 
   const advance = useCallback(() => {

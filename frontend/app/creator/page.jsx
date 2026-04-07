@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
@@ -11,7 +11,7 @@ const MIN_PAYOUT_COINS = 100;
 /* ─── Icons ─────────────────────────────────────────────── */
 function BroadcastIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="2"/>
       <path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49m11.31-2.82a10 10 0 010 14.14m-14.14 0a10 10 0 010-14.14"/>
     </svg>
@@ -19,21 +19,21 @@ function BroadcastIcon() {
 }
 function StopIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="none">
       <rect x="4" y="4" width="16" height="16" rx="2"/>
     </svg>
   );
 }
 function CoinIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/>
     </svg>
   );
 }
 function TrophyIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="8 21 12 17 16 21"/>
       <path d="M19 3H5v10a7 7 0 0014 0V3z"/>
       <line x1="9" y1="3" x2="9" y2="13"/><line x1="15" y1="3" x2="15" y2="13"/>
@@ -42,21 +42,21 @@ function TrophyIcon() {
 }
 function VideoIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   );
 }
 function ArrowIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
     </svg>
   );
 }
 function EyeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
       <circle cx="12" cy="12" r="3"/>
     </svg>
@@ -64,7 +64,7 @@ function EyeIcon() {
 }
 function AgencyIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
       <circle cx="9" cy="7" r="4"/>
       <path d="M23 21v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75"/>
@@ -189,16 +189,16 @@ export default function CreatorPage() {
       return;
     }
 
-    const h = { Authorization: `Bearer ${token}` };
+    const headers = { Authorization: `Bearer ${token}` };
 
     Promise.all([
-      fetch(`${API_URL}/api/user/me`, { headers: h }),
-      fetch(`${API_URL}/api/lives/mine`, { headers: h }),
-      fetch(`${API_URL}/api/creator/earnings`, { headers: h }),
-      fetch(`${API_URL}/api/creator/stats`, { headers: h }),
-      fetch(`${API_URL}/api/agency/me`, { headers: h }),
-      fetch(`${API_URL}/api/agency/sub-creators`, { headers: h }),
-      fetch(`${API_URL}/api/exclusive/mine`, { headers: h }),
+      fetch(`${API_URL}/api/user/me`, { headers }),
+      fetch(`${API_URL}/api/lives/mine`, { headers }),
+      fetch(`${API_URL}/api/creator/earnings`, { headers }),
+      fetch(`${API_URL}/api/creator/stats`, { headers }),
+      fetch(`${API_URL}/api/agency/me`, { headers }),
+      fetch(`${API_URL}/api/agency/sub-creators`, { headers }),
+      fetch(`${API_URL}/api/exclusive/mine`, { headers }),
     ])
       .then(async ([userRes, livesRes, earningsRes, statsRes, agencyRes, subRes, exclusiveRes]) => {
         if (userRes.status === 401) {
@@ -241,7 +241,7 @@ export default function CreatorPage() {
   }, [router]);
 
   /* ── Live control handlers ─────────────────────────── */
-  const activeLive = lives.find((l) => l.isLive) || null;
+  const activeLive = useMemo(() => lives.find((l) => l.isLive) || null, [lives]);
 
   const handleEndLive = async () => {
     if (!activeLive) return;
@@ -372,17 +372,25 @@ export default function CreatorPage() {
   const availableEarnings = stats?.earningsCoins ?? user?.earningsCoins ?? 0;
   const recentLives = lives.slice(0, 5);
 
-  const todayEarnings = (() => {
+  const todayEarnings = useMemo(() => {
     if (!earnings?.recentTransactions?.length) return 0;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     return earnings.recentTransactions
       .filter((tx) => new Date(tx.createdAt) >= todayStart)
       .reduce((sum, tx) => sum + (tx.creatorShare || 0), 0);
-  })();
+  }, [earnings]);
 
-  const activeSubCount = subCreators.filter((r) => r.status === "active").length;
-  const pendingSubCount = subCreators.filter((r) => r.status === "pending").length;
+  const { activeSubCount, pendingSubCount } = useMemo(() => {
+    return subCreators.reduce(
+      (acc, r) => {
+        if (r.status === "active") acc.activeSubCount += 1;
+        else if (r.status === "pending") acc.pendingSubCount += 1;
+        return acc;
+      },
+      { activeSubCount: 0, pendingSubCount: 0 }
+    );
+  }, [subCreators]);
   const agencyEnabled = agencyData?.agencyProfile?.enabled ?? false;
 
   /* ─────────────────────────────────────────────────────
@@ -536,20 +544,20 @@ export default function CreatorPage() {
           </div>
         </div>
 
-        {earnings && earnings.totalCoinsReceived > 0 && (
-          <div className="earnings-bar-wrap">
-            <div className="earnings-bar">
-              <div
-                className="earnings-bar-fill"
-                style={{ width: `${Math.round((earnings.totalCreatorShare / earnings.totalCoinsReceived) * 100)}%` }}
-              />
+        {earnings && earnings.totalCoinsReceived > 0 && (() => {
+          const pct = Math.round((earnings.totalCreatorShare / earnings.totalCoinsReceived) * 100);
+          return (
+            <div className="earnings-bar-wrap">
+              <div className="earnings-bar">
+                <div className="earnings-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="earnings-bar-legend">
+                <span className="ebl-creator">● Tu parte ({pct}%)</span>
+                <span className="ebl-platform">● Plataforma</span>
+              </div>
             </div>
-            <div className="earnings-bar-legend">
-              <span className="ebl-creator">● Tu parte ({Math.round((earnings.totalCreatorShare / earnings.totalCoinsReceived) * 100)}%)</span>
-              <span className="ebl-platform">● Plataforma</span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Payout status inline */}
         <div className="payout-inline">

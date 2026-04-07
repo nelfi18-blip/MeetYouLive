@@ -6,6 +6,8 @@ const coinTransactionSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: [
+        "crush_sent",
+        "crush_received",
         "purchase",
         "gift_sent",
         "gift_received",

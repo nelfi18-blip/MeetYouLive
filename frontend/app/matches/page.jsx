@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import GiftButton from "@/components/GiftButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,8 +18,16 @@ function HeartIcon() {
 
 function ChatIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+    </svg>
+  );
+}
+
+function CallIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   );
 }
@@ -28,6 +37,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [callError, setCallError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -75,6 +85,28 @@ export default function MatchesPage() {
     }
   };
 
+  const startPrivateCall = async (userId) => {
+    const token = localStorage.getItem("token");
+    setCallError("");
+    try {
+      const res = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recipientId: userId, type: "paid_creator" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        router.push(`/call/${data._id}`);
+      } else {
+        setCallError(data.message || "No se pudo iniciar la llamada");
+        setTimeout(() => setCallError(""), 4000);
+      }
+    } catch {
+      setCallError("Error de conexión");
+      setTimeout(() => setCallError(""), 4000);
+    }
+  };
+
   return (
     <div className="matches-page">
       <div className="matches-header">
@@ -85,9 +117,13 @@ export default function MatchesPage() {
           <h1 className="page-title">Tus Matches</h1>
           <p className="page-subtitle">Conexiones mutuas con otros usuarios</p>
         </div>
+        <Link href="/crush" className="crush-link-btn">
+          ⚡ Crush
+        </Link>
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+      {callError && <div className="banner-error">{callError}</div>}
 
       {loading && (
         <div className="matches-grid">
@@ -104,8 +140,8 @@ export default function MatchesPage() {
           </div>
           <h3>Sin matches aún</h3>
           <p>Explora perfiles y dale like a quienes te llamen la atención. ¡Cuando sea mutuo, aparecerán aquí!</p>
-          <Link href="/explore" className="btn btn-primary">
-            Explorar perfiles
+          <Link href="/crush" className="btn btn-primary">
+            ⚡ Ir al Crush
           </Link>
         </div>
       )}
@@ -115,7 +151,10 @@ export default function MatchesPage() {
           {matches.map((user) => {
             const displayName = user.username || user.name || "Usuario";
             const initial = displayName[0].toUpperCase();
-            const roleLabel = user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : "Usuario";
+            const isCreator = user.role === "creator";
+            const roleLabel = isCreator ? "Creador" : user.role === "admin" ? "Admin" : "Usuario";
+            const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
+            const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
             return (
               <div key={user._id} className="match-card">
                 <div className="match-avatar-wrap">
@@ -130,7 +169,7 @@ export default function MatchesPage() {
                 </div>
                 <div className="match-body">
                   <div className="match-name">{displayName}</div>
-                  {user.role === "creator" && (
+                  {isCreator && (
                     <span className="badge badge-creator">{roleLabel}</span>
                   )}
                   {user.bio && <p className="match-bio">{user.bio}</p>}
@@ -142,12 +181,32 @@ export default function MatchesPage() {
                     </div>
                   )}
                 </div>
-                <button
-                  className="btn btn-primary match-chat-btn"
-                  onClick={() => startChat(user._id)}
-                >
-                  <ChatIcon /> Chatear
-                </button>
+
+                {/* Action buttons */}
+                <div className="match-actions">
+                  <button
+                    className="btn btn-primary match-action-btn"
+                    onClick={() => startChat(user._id)}
+                  >
+                    <ChatIcon /> Chat
+                  </button>
+
+                  {privateCallEnabled && (
+                    <button
+                      className="match-action-btn match-call-btn"
+                      onClick={() => startPrivateCall(user._id)}
+                      title={`Llamada privada · 🪙${pricePerMinute}/min`}
+                    >
+                      <CallIcon /> 🪙{pricePerMinute}/min
+                    </button>
+                  )}
+
+                  {isCreator && (
+                    <div className="match-gift-wrap">
+                      <GiftButton receiverId={user._id} context="match" />
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -161,6 +220,7 @@ export default function MatchesPage() {
           display: flex;
           align-items: center;
           gap: 1rem;
+          flex-wrap: wrap;
         }
         .matches-header-icon {
           width: 48px;
@@ -173,6 +233,25 @@ export default function MatchesPage() {
           justify-content: center;
           color: var(--accent);
           flex-shrink: 0;
+        }
+        .crush-link-btn {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.45rem 1.1rem;
+          border-radius: 999px;
+          border: 1px solid rgba(251,191,36,0.35);
+          background: rgba(251,191,36,0.07);
+          color: #fbbf24;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.2s;
+        }
+        .crush-link-btn:hover {
+          background: rgba(251,191,36,0.14);
+          box-shadow: 0 0 12px rgba(251,191,36,0.2);
         }
 
         .matches-grid {
@@ -272,15 +351,47 @@ export default function MatchesPage() {
           font-weight: 600;
         }
 
-        .match-chat-btn {
+        .match-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
           width: 100%;
-          padding: 0.65rem;
+        }
+
+        .match-action-btn {
+          width: 100%;
+          padding: 0.6rem;
           font-size: 0.82rem;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
         }
+
+        .match-call-btn {
+          width: 100%;
+          padding: 0.6rem;
+          font-size: 0.8rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          background: rgba(99,102,241,0.08);
+          border: 1px solid rgba(99,102,241,0.3);
+          border-radius: var(--radius-sm);
+          color: #a5b4fc;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-weight: 600;
+        }
+        .match-call-btn:hover {
+          background: rgba(99,102,241,0.18);
+          box-shadow: 0 0 12px rgba(99,102,241,0.2);
+        }
+
+        .match-gift-wrap { width: 100%; }
+        .match-gift-wrap :global(.gift-btn-wrap) { width: 100%; }
+        .match-gift-wrap :global(.gift-trigger-btn) { width: 100%; justify-content: center; }
 
         .badge-creator {
           display: inline-block;

@@ -26,6 +26,8 @@ function SocketManager() {
     handleGiftSent,
     handleMatchCreated,
     handleCallIncoming,
+    handleCrushReceived,
+    handleSuperCrushReceived,
   } = useNotifications();
 
   useEffect(() => {
@@ -60,6 +62,8 @@ function SocketManager() {
     socket.on("GIFT_SENT", handleGiftSent);
     socket.on("MATCH_CREATED", handleMatchCreated);
     socket.on("CALL_INCOMING", handleCallIncoming);
+    socket.on("CRUSH_RECEIVED", handleCrushReceived);
+    socket.on("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
 
     return () => {
       joinedRef.current = false;
@@ -68,8 +72,10 @@ function SocketManager() {
       socket.off("GIFT_SENT", handleGiftSent);
       socket.off("MATCH_CREATED", handleMatchCreated);
       socket.off("CALL_INCOMING", handleCallIncoming);
+      socket.off("CRUSH_RECEIVED", handleCrushReceived);
+      socket.off("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
     };
-  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming]);
+  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived]);
 
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }

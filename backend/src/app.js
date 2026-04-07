@@ -19,9 +19,13 @@ const matchRoutes = require("./routes/match.routes.js");
 const videoRoutes = require("./routes/video.routes.js");
 const videoCallRoutes = require("./routes/videoCall.routes.js");
 const exclusiveContentRoutes = require("./routes/exclusiveContent.routes.js");
+const exclusiveRoutes = require("./routes/exclusive.routes.js");
 const sparksRoutes = require("./routes/sparks.routes.js");
 const passesRoutes = require("./routes/passes.routes.js");
 const creatorRoutes = require("./routes/creator.routes.js");
+const agencyRoutes = require("./routes/agency.routes.js");
+const agoraRoutes = require("./routes/agora.routes.js");
+const rankingsRoutes = require("./routes/rankings.routes.js");
 
 const app = express();
 
@@ -95,8 +99,12 @@ app.use("/api/matches", matchRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/calls", videoCallRoutes);
 app.use("/api/exclusive", exclusiveContentRoutes);
+app.use("/api/exclusive-content", exclusiveRoutes);
 app.use("/api/sparks", sparksRoutes);
 app.use("/api/passes", passesRoutes);
 app.use("/api/creator", creatorRoutes);
+app.use("/api/agency", agencyRoutes);
+app.use("/api/agora", agoraRoutes);
+app.use("/api/rankings", rankingsRoutes);
 
 module.exports = app;

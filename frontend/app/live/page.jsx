@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
+import FeaturedCreators from "@/components/FeaturedCreators";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -60,7 +61,7 @@ export default function LivePage() {
               <rect x="1" y="5" width="15" height="14" rx="2"/>
             </svg>
           </div>
-          <h3>Sin directos ahora mismo</h3>
+          <h3>No hay directos activos</h3>
           <p>Vuelve más tarde o explora el contenido disponible.</p>
           <Link href="/explore" className="btn btn-primary">Explorar</Link>
         </div>
@@ -73,6 +74,8 @@ export default function LivePage() {
           ))}
         </div>
       )}
+
+      <FeaturedCreators />
 
       <style jsx>{`
         .live-page { display: flex; flex-direction: column; gap: 1.75rem; }
@@ -87,8 +90,20 @@ export default function LivePage() {
 
         .streams-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+          grid-template-columns: 1fr;
           gap: 1.25rem;
+        }
+
+        @media (min-width: 640px) {
+          .streams-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .streams-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
         }
 
         /* Error / empty */

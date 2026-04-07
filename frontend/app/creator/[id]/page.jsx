@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import GiftButton from "@/components/GiftButton";
+import ExclusiveContent from "@/components/ExclusiveContent";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -126,6 +127,9 @@ export default function CreatorProfilePage() {
               />
             )}
           </div>
+
+          {/* Exclusive content section */}
+          <ExclusiveContent creatorId={id} />
 
           <Link href="/explore" className="cp-back-link">← Volver a Explorar</Link>
         </div>

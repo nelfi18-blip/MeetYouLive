@@ -1,18 +1,21 @@
 const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
+const { getIO } = require("../lib/socket.js");
 
 const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
 
   let canEarn = false;
+  let creatorUsername = "";
   try {
-    const user = await User.findById(req.userId).select("role creatorStatus");
+    const user = await User.findById(req.userId).select("role creatorStatus username name");
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado" });
     }
     canEarn = user.role === "creator" && user.creatorStatus === "approved";
+    creatorUsername = user.username || user.name || "";
     // Private paid streams require monetization rights (approved creator)
     if (isPrivate && !canEarn) {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos privados de pago" });
@@ -40,6 +43,18 @@ const startLive = async (req, res) => {
       isPrivate: Boolean(isPrivate),
       entryCost: costCoins,
     });
+
+    // Notify all connected users — client decides whether to display the toast.
+    const io = getIO();
+    if (io) {
+      io.emit("LIVE_STARTED", {
+        creatorId: String(req.userId),
+        creatorUsername,
+        liveId: String(live._id),
+        title: live.title,
+      });
+    }
+
     res.status(201).json(live);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -172,4 +187,32 @@ const getMyLives = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives };
+const updateLiveSettings = async (req, res) => {
+  try {
+    const { chatEnabled, giftsEnabled, isPrivate } = req.body;
+    const update = {};
+    if (typeof chatEnabled === "boolean") update.chatEnabled = chatEnabled;
+    if (typeof giftsEnabled === "boolean") update.giftsEnabled = giftsEnabled;
+    if (typeof isPrivate === "boolean") update.isPrivate = isPrivate;
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: "No hay cambios válidos para aplicar" });
+    }
+
+    const live = await Live.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, isLive: true },
+      update,
+      { new: true }
+    );
+    if (!live) return res.status(404).json({ message: "Directo no encontrado, ya finalizado, o sin permisos" });
+
+    const liveObj = live.toObject();
+    delete liveObj.paidViewers;
+    delete liveObj.streamKey;
+    res.json(liveObj);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings };

@@ -15,12 +15,21 @@ const videocallSchema = new mongoose.Schema(
       default: "social",
     },
     callCoins: { type: Number, default: 0, min: 0 },
+    pricePerMinute: { type: Number, default: 0, min: 0 },
+    startedAt: { type: Date, default: null },
     offerSdp: { type: String, default: null },
     answerSdp: { type: String, default: null },
     // ICE candidates stored as JSON-stringified objects
     callerCandidates: [{ type: String }],
     calleeCandidates: [{ type: String }],
     endedAt: { type: Date, default: null },
+    totalDurationSeconds: { type: Number, default: 0, min: 0 },
+    totalCoinsCharged: { type: Number, default: 0, min: 0 },
+    creatorShare: { type: Number, default: 0, min: 0 },
+    platformShare: { type: Number, default: 0, min: 0 },
+    agencyShare: { type: Number, default: 0, min: 0 },
+    referrerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    agencyPercentageApplied: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

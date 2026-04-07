@@ -2,6 +2,9 @@ const VideoCall = require("../models/VideoCall.js");
 const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
+const { calculateSplit } = require("../services/agency.service.js");
+const { getIO } = require("../lib/socket.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const CREATOR_SHARE_RATE = 0.60;
@@ -26,6 +29,7 @@ const inviteCall = async (req, res) => {
 
   const callType = type === "paid_creator" ? "paid_creator" : "social";
   let coins = callType === "paid_creator" ? Math.max(0, parseInt(callCoins) || 0) : 0;
+  let creatorPricePerMinute = 0;
 
   try {
     // For social calls: require mutual match
@@ -48,12 +52,11 @@ const inviteCall = async (req, res) => {
       }
 
       // Enforce callCoins = pricePerMinute (caller cannot set an arbitrary amount)
-      const pricePerMinute = creator.creatorProfile.pricePerMinute || 0;
-      if (pricePerMinute < 1) {
+      creatorPricePerMinute = creator.creatorProfile.pricePerMinute || 0;
+      if (creatorPricePerMinute < 1) {
         return res.status(403).json({ message: "Este creador no ha configurado un precio por minuto" });
       }
-      coins = pricePerMinute;
-
+      coins = creatorPricePerMinute;
       // Deduct coins atomically using a conditional update
       const updated = await User.findOneAndUpdate(
         { _id: req.userId, coins: { $gte: coins } },
@@ -99,11 +102,23 @@ const inviteCall = async (req, res) => {
       recipient: recipientId,
       type: callType,
       callCoins: coins,
+      pricePerMinute: creatorPricePerMinute,
     });
 
     const populated = await VideoCall.findById(call._id)
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
+
+    // Notify the recipient in real time
+    const io = getIO();
+    if (io) {
+      const callerName = populated.caller?.username || populated.caller?.name || "";
+      io.to(String(recipientId)).emit("CALL_INCOMING", {
+        callId: String(call._id),
+        callerId: String(req.userId),
+        callerName,
+      });
+    }
 
     res.status(201).json(populated);
   } catch (err) {
@@ -171,23 +186,74 @@ const respondCall = async (req, res) => {
 
     if (action === "accept") {
       call.status = "accepted";
+      if (!call.startedAt) {
+        call.startedAt = new Date();
+      }
 
       // Credit creator for paid calls — 60% creator share, 40% platform
       if (call.type === "paid_creator" && call.callCoins > 0) {
-        const creatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
+        const fullCreatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
+
+        // Look up the canonical AgencyRelationship for the percentage at this moment
+        const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
+        let creatorNetShare = fullCreatorShare;
+        let agencyShare = 0;
+        let referrerId = null;
+        let agencyPercentageApplied = 0;
+
+        if (agencyRel && agencyRel.percentage > 0) {
+          const split = calculateSplit(call.callCoins, agencyRel.percentage);
+          agencyShare = split.agencyShare;
+          creatorNetShare = split.creatorNetShare;
+          referrerId = agencyRel.parentCreator;
+          agencyPercentageApplied = agencyRel.percentage;
+        }
+
         await User.findByIdAndUpdate(call.recipient, {
-          $inc: { earningsCoins: creatorShare },
+          $inc: { earningsCoins: creatorNetShare },
         });
 
-        // Record earnings transaction for creator (fire-and-forget)
-        CoinTransaction.create({
-          userId: call.recipient,
-          type: "private_call",
-          amount: creatorShare,
-          reason: `Llamada privada aceptada de ${call.caller}`,
-          status: "completed",
-          metadata: { callId: String(call._id), callerUserId: String(call.caller) },
-        }).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
+        if (agencyShare > 0 && referrerId) {
+          await User.findByIdAndUpdate(referrerId, {
+            $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: call.callCoins },
+          });
+        }
+
+        // Track billing totals on the call document
+        const platformShareFirst = call.callCoins - fullCreatorShare;
+        call.totalCoinsCharged = (call.totalCoinsCharged || 0) + call.callCoins;
+        call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
+        call.platformShare = (call.platformShare || 0) + platformShareFirst;
+        call.agencyShare = (call.agencyShare || 0) + agencyShare;
+        if (referrerId && !call.referrerId) {
+          call.referrerId = referrerId;
+        }
+        if (agencyPercentageApplied > 0 && !call.agencyPercentageApplied) {
+          call.agencyPercentageApplied = agencyPercentageApplied;
+        }
+
+        // Record earnings transactions for creator (and agency) — fire-and-forget
+        const txDocs = [
+          {
+            userId: call.recipient,
+            type: "private_call",
+            amount: creatorNetShare,
+            reason: `Llamada privada aceptada de ${call.caller}`,
+            status: "completed",
+            metadata: { callId: String(call._id), callerUserId: String(call.caller) },
+          },
+        ];
+        if (agencyShare > 0 && referrerId) {
+          txDocs.push({
+            userId: referrerId,
+            type: "agency_earned",
+            amount: agencyShare,
+            reason: `Comisión de agencia por llamada privada`,
+            status: "completed",
+            metadata: { callId: String(call._id), subCreatorId: String(call.recipient) },
+          });
+        }
+        CoinTransaction.create(txDocs).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
       }
     } else {
       call.status = "rejected";
@@ -234,6 +300,9 @@ const endCall = async (req, res) => {
 
     call.status = "ended";
     call.endedAt = new Date();
+    if (call.startedAt) {
+      call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+    }
     await call.save();
 
     res.json(call);
@@ -371,7 +440,22 @@ const tickCall = async (req, res) => {
     }
 
     const pricePerMinute = call.callCoins;
-    const creatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
+    const fullCreatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
+
+    // Look up the canonical AgencyRelationship for the percentage at this moment
+    const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
+    let creatorNetShare = fullCreatorShare;
+    let agencyShare = 0;
+    let referrerId = null;
+    let agencyPercentageApplied = 0;
+
+    if (agencyRel && agencyRel.percentage > 0) {
+      const split = calculateSplit(pricePerMinute, agencyRel.percentage);
+      agencyShare = split.agencyShare;
+      creatorNetShare = split.creatorNetShare;
+      referrerId = agencyRel.parentCreator;
+      agencyPercentageApplied = agencyRel.percentage;
+    }
 
     // Atomically deduct coins from caller
     const updatedCaller = await User.findOneAndUpdate(
@@ -384,16 +468,40 @@ const tickCall = async (req, res) => {
       // Caller ran out of coins — end the call
       call.status = "ended";
       call.endedAt = new Date();
+      if (call.startedAt) {
+        call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+      }
       await call.save();
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
 
-    // Credit creator (60% share)
-    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorShare } });
+    // Credit creator (net share after agency)
+    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } });
+
+    if (agencyShare > 0 && referrerId) {
+      await User.findByIdAndUpdate(referrerId, {
+        $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
+      });
+    }
+
+    // Increment running billing totals on the call document
+    const platformShareTick = pricePerMinute - fullCreatorShare;
+    const tickUpdate = {
+      $inc: {
+        totalCoinsCharged: pricePerMinute,
+        creatorShare: creatorNetShare,
+        platformShare: platformShareTick,
+        agencyShare,
+      },
+    };
+    if (referrerId && !call.referrerId) {
+      tickUpdate.$set = { referrerId, agencyPercentageApplied };
+    }
+    await VideoCall.findByIdAndUpdate(call._id, tickUpdate);
 
     // Record transactions (fire-and-forget)
     const txMeta = { callId: String(call._id) };
-    CoinTransaction.create([
+    const txDocs = [
       {
         userId: call.caller,
         type: "private_call",
@@ -405,14 +513,25 @@ const tickCall = async (req, res) => {
       {
         userId: call.recipient,
         type: "private_call",
-        amount: creatorShare,
+        amount: creatorNetShare,
         reason: `Minuto adicional en llamada privada de ${call.caller}`,
         status: "completed",
         metadata: txMeta,
       },
-    ]).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
+    ];
+    if (agencyShare > 0 && referrerId) {
+      txDocs.push({
+        userId: referrerId,
+        type: "agency_earned",
+        amount: agencyShare,
+        reason: `Comisión de agencia por minuto de llamada privada`,
+        status: "completed",
+        metadata: { ...txMeta, subCreatorId: String(call.recipient) },
+      });
+    }
+    CoinTransaction.create(txDocs).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
 
-    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorShare });
+    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorNetShare, agencyEarned: agencyShare });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

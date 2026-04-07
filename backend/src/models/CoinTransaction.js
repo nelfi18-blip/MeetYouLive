@@ -17,6 +17,8 @@ const coinTransactionSchema = new mongoose.Schema(
         "content_earned",
         "refund",
         "admin_adjustment",
+        "agency_earned",
+        "agency_distributed",
       ],
       required: true,
     },

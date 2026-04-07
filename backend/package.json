@@ -12,6 +12,7 @@
     "node": "24.x"
   },
   "dependencies": {
+    "agora-access-token": "^2.0.4",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -24,6 +25,7 @@
     "nodemailer": "^8.0.4",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "socket.io": "^4.8.3",
     "stripe": "^20.4.1"
   }
 }

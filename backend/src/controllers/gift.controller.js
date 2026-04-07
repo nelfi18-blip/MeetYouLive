@@ -1,8 +1,12 @@
 const Gift = require("../models/Gift.js");
 const GiftCatalog = require("../models/GiftCatalog.js");
+const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
+const { calculateSplit } = require("../services/agency.service.js");
+const { getIO } = require("../lib/socket.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -26,7 +30,7 @@ const seedGiftCatalog = async () => {
 };
 
 // Shared helper: record coin transactions for a completed gift (fire-and-forget)
-const recordGiftTransactions = (senderId, receiverId, amount, creatorShare, giftDocId, extra = {}) => {
+const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, giftDocId, extra = {}) => {
   const txMeta = { giftId: giftDocId, ...extra };
   const txDocs = [
     {
@@ -39,22 +43,29 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorShare, gift
     },
   ];
   // Only record a credit transaction if the receiver actually earned coins
-  if (creatorShare > 0) {
+  if (creatorNetShare > 0) {
     txDocs.push({
       userId: receiverId,
       type: "gift_received",
-      amount: creatorShare,
+      amount: creatorNetShare,
       reason: `Regalo recibido de ${senderId}`,
       status: "completed",
       metadata: txMeta,
     });
   }
+  // Agency earning transaction is recorded separately in the send flow
   CoinTransaction.create(txDocs).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.
-// Returns {boolean} whether the receiver earns (is an approved creator).
-const transferCoins = async (senderId, receiverId, amount, creatorShare, session) => {
+// Returns { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied }:
+//   canEarn                 – whether the receiver is an approved creator
+//   platformShare           – coins retained by the platform (fixed 40%)
+//   agencyShare             – coins credited to the parent agency (0 if no agency)
+//   creatorNetShare         – coins credited to the creator after agency share
+//   referrerId              – ObjectId of the parent agency creator (null if none)
+//   agencyPercentageApplied – the percentage used at this moment (0 if no agency)
+const transferCoins = async (senderId, receiverId, amount, session) => {
   // Cast IDs to ObjectId to prevent NoSQL injection from user-supplied strings
   const senderObjId = new mongoose.Types.ObjectId(senderId);
   const receiverObjId = new mongoose.Types.ObjectId(receiverId);
@@ -70,10 +81,49 @@ const transferCoins = async (senderId, receiverId, amount, creatorShare, session
 
   // Only credit earningsCoins to approved creators
   const canEarn = receiver.role === "creator" && receiver.creatorStatus === "approved";
+
+  // Always derive creatorSide as totalCoins - platformShare so all shares sum to totalCoins.
+  // Agency percentage (if any) is applied only to creatorSide per business rules.
+  let agencyShare = 0;
+  let creatorNetShare = 0;
+  let referrerId = null;
+  let agencyPercentageApplied = 0;
+  let platformShare = 0;
+
   if (canEarn) {
-    await User.findByIdAndUpdate(receiverObjId, { $inc: { earningsCoins: creatorShare } }, { session });
+    const rel = await AgencyRelationship.findOne({ subCreator: receiverObjId, status: "active" }).session(session);
+    const agencyPct = (rel && rel.percentage > 0) ? rel.percentage : null;
+    const split = calculateSplit(amount, agencyPct);
+
+    platformShare = split.platformShare;
+    agencyShare = split.agencyShare;
+    creatorNetShare = split.creatorNetShare;
+
+    if (agencyPct) {
+      referrerId = rel.parentCreator;
+      agencyPercentageApplied = rel.percentage;
+    }
+
+    await User.findByIdAndUpdate(receiverObjId, { $inc: { earningsCoins: creatorNetShare } }, { session });
+
+    if (agencyShare > 0 && referrerId) {
+      await User.findByIdAndUpdate(
+        referrerId,
+        {
+          $inc: {
+            agencyEarningsCoins: agencyShare,
+            totalAgencyGeneratedCoins: amount,
+          },
+        },
+        { session }
+      );
+    }
+  } else {
+    // Non-creator receivers: platform still takes its share but earningsCoins are not credited
+    platformShare = Math.floor(amount * COMMISSION_RATE);
   }
-  return canEarn;
+
+  return { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied };
 };
 
 const getGiftCatalog = async (req, res) => {
@@ -102,10 +152,6 @@ const sendGift = async (req, res) => {
     return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
   }
 
-  if (String(req.userId) === String(receiverId)) {
-    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
-  }
-
   let catalogItem;
   try {
     if (giftSlug) {
@@ -125,20 +171,30 @@ const sendGift = async (req, res) => {
     return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
   }
 
+  // If sending a gift during a live, check that gifts are enabled for that live
+  if (liveId) {
+    if (!mongoose.Types.ObjectId.isValid(liveId)) {
+      return res.status(400).json({ message: "liveId inválido" });
+    }
+    const live = await Live.findOne({ _id: liveId, isLive: true }).select("giftsEnabled");
+    if (live && live.giftsEnabled === false) {
+      return res.status(403).json({ message: "Los regalos están desactivados en este directo" });
+    }
+  }
+
   const amount = catalogItem.coinCost;
-  const fullCreatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
 
   const session = await mongoose.startSession();
   // Declared outside the transaction so it's accessible when building the Gift document
-  let receiverEarns = false;
+  let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
   try {
     await session.withTransaction(async () => {
-      receiverEarns = await transferCoins(req.userId, receiverId, amount, fullCreatorShare, session);
+      transferResult = await transferCoins(req.userId, receiverId, amount, session);
     });
 
+    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
     // Accurately reflect whether the receiver earned from this gift
-    const creatorShare = receiverEarns ? fullCreatorShare : 0;
-    const platformShare = amount - creatorShare;
+    const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
 
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
@@ -148,8 +204,11 @@ const sendGift = async (req, res) => {
       giftCatalogItem: catalogItem._id,
       live: liveId || undefined,
       coinCost: amount,
-      creatorShare,
+      creatorShare: effectiveCreatorShare,
       platformShare,
+      agencyShare: agencyShare || 0,
+      referrerId: referrerId || undefined,
+      agencyPercentageApplied: agencyPercentageApplied || 0,
       context: resolvedContext,
       contextId: resolvedContextId,
       message,
@@ -157,7 +216,33 @@ const sendGift = async (req, res) => {
     await giftDoc.populate("sender", "username name");
     await giftDoc.populate("giftCatalogItem", "name icon coinCost");
 
-    recordGiftTransactions(req.userId, receiverId, amount, creatorShare, giftDoc._id, { liveId: liveId || null });
+    recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
+
+    // Record agency earnings transaction (fire-and-forget)
+    if (agencyShare > 0 && referrerId) {
+      CoinTransaction.create({
+        userId: referrerId,
+        type: "agency_earned",
+        amount: agencyShare,
+        reason: `Comisión de agencia por regalo de ${req.userId}`,
+        status: "completed",
+        metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
+      }).catch((err) => console.error("[agency tx] Failed to record agency earning:", err));
+    }
+
+    // Notify the gift receiver in real time
+    const io = getIO();
+    if (io) {
+      const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+      io.to(String(receiverId)).emit("GIFT_SENT", {
+        senderName,
+        receiverId: String(receiverId),
+        giftName: giftDoc.giftCatalogItem?.name || "",
+        giftIcon: giftDoc.giftCatalogItem?.icon || "🎁",
+        coinCost: amount,
+        liveId: liveId || null,
+      });
+    }
 
     res.status(201).json(giftDoc);
   } catch (err) {
@@ -202,14 +287,16 @@ const sendGiftBySlug = async (req, res) => {
   }
 
   const amount = catalogItem.coinCost;
-  const creatorShare = Math.floor(amount * (1 - COMMISSION_RATE));
-  const platformShare = amount - creatorShare;
 
   const session = await mongoose.startSession();
+  let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
   try {
-    await session.withTransaction(() =>
-      transferCoins(req.userId, receiverId, amount, creatorShare, session)
-    );
+    await session.withTransaction(async () => {
+      transferResult = await transferCoins(req.userId, receiverId, amount, session);
+    });
+
+    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
+    const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
 
     const resolvedContext = context || "profile";
     const resolvedContextId = contextId || null;
@@ -218,15 +305,29 @@ const sendGiftBySlug = async (req, res) => {
       receiver: receiverId,
       giftCatalogItem: catalogItem._id,
       coinCost: amount,
-      creatorShare,
+      creatorShare: effectiveCreatorShare,
       platformShare,
+      agencyShare: agencyShare || 0,
+      referrerId: referrerId || undefined,
+      agencyPercentageApplied: agencyPercentageApplied || 0,
       context: resolvedContext,
       contextId: resolvedContextId,
     });
     await giftDoc.populate("sender", "username name");
     await giftDoc.populate("giftCatalogItem", "name icon coinCost");
 
-    recordGiftTransactions(req.userId, receiverId, amount, creatorShare, giftDoc._id);
+    recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id);
+
+    if (agencyShare > 0 && referrerId) {
+      CoinTransaction.create({
+        userId: referrerId,
+        type: "agency_earned",
+        amount: agencyShare,
+        reason: `Comisión de agencia por regalo de ${req.userId}`,
+        status: "completed",
+        metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
+      }).catch((err) => console.error("[agency tx] Failed to record agency earning:", err));
+    }
 
     res.status(201).json(giftDoc);
   } catch (err) {

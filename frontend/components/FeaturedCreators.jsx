@@ -6,14 +6,42 @@ import Link from "next/link";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TABS = [
-  { key: "live", label: "🔴 En Vivo" },
-  { key: "today", label: "⭐ Top Hoy" },
-  { key: "week", label: "📈 Esta Semana" },
+  { key: "live",  label: "🔴 En Vivo",      period: null },
+  { key: "today", label: "⭐ Top Hoy",       period: "DAILY" },
+  { key: "week",  label: "📈 Esta Semana",   period: "WEEKLY" },
+];
+
+// Podium styling per position (0-indexed)
+const PODIUM = [
+  {
+    border: "rgba(255,215,0,0.6)",
+    glow: "rgba(255,215,0,0.22)",
+    avatarBg: "linear-gradient(135deg,#ffd700 0%,#ff8c00 100%)",
+    avatarShadow: "0 0 14px rgba(255,215,0,0.5)",
+    coinColor: "#ffd700",
+    medal: "🥇",
+  },
+  {
+    border: "rgba(192,192,192,0.5)",
+    glow: "rgba(192,192,192,0.18)",
+    avatarBg: "linear-gradient(135deg,#c0c0c0 0%,#9ca3af 100%)",
+    avatarShadow: "0 0 10px rgba(192,192,192,0.4)",
+    coinColor: "#c0c0c0",
+    medal: "🥈",
+  },
+  {
+    border: "rgba(205,127,50,0.5)",
+    glow: "rgba(205,127,50,0.18)",
+    avatarBg: "linear-gradient(135deg,#cd7f32 0%,#92400e 100%)",
+    avatarShadow: "0 0 10px rgba(205,127,50,0.4)",
+    coinColor: "#cd7f32",
+    medal: "🥉",
+  },
 ];
 
 export default function FeaturedCreators() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState("live");
 
   useEffect(() => {
@@ -26,18 +54,22 @@ export default function FeaturedCreators() {
 
   const items =
     activeTab === "live"
-      ? data?.liveNow || []
+      ? data?.liveNow  || []
       : activeTab === "today"
       ? data?.topToday || []
-      : data?.topWeek || [];
+      : data?.topWeek  || [];
 
-  const isEmpty = !loading && items.length === 0;
+  const isEmpty        = !loading && items.length === 0;
+  const activePeriod   = TABS.find((t) => t.key === activeTab)?.period;
 
   return (
     <div className="fc-section">
       <div className="fc-header">
         <div>
-          <h2 className="fc-title">Creadores Destacados</h2>
+          <h2 className="fc-title">
+            <span className="fc-title-icon">🏆</span>
+            Creadores Destacados
+          </h2>
           <p className="fc-sub">Descubre quién está triunfando ahora mismo</p>
         </div>
       </div>
@@ -50,6 +82,11 @@ export default function FeaturedCreators() {
             onClick={() => setActiveTab(t.key)}
           >
             {t.label}
+            {t.period && (
+              <span className={`fc-period-badge fc-period-${t.period.toLowerCase()}`}>
+                {t.period}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -76,22 +113,41 @@ export default function FeaturedCreators() {
       {!loading && !isEmpty && (
         <div className="fc-grid">
           {items.map((item, i) => {
+            const pod = PODIUM[i] || null;
+
             if (activeTab === "live") {
               const live = item;
               const name = live.user?.username || live.user?.name || "Creador";
               return (
-                <Link key={live._id} href={`/live/${live._id}`} className="fc-card fc-card-live">
-                  {i < 3 && (
-                    <span className="fc-rank-badge">
-                      {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
-                    </span>
+                <Link
+                  key={live._id}
+                  href={`/live/${live._id}`}
+                  className={`fc-card fc-card-live${pod ? " fc-card-podium" : ""}`}
+                  style={pod ? {
+                    borderColor: pod.border,
+                    boxShadow: `0 0 18px ${pod.glow}`,
+                  } : {}}
+                >
+                  {pod && <span className="fc-medal-float">{pod.medal}</span>}
+                  {pod ? (
+                    <div
+                      className="fc-avatar"
+                      style={{ background: pod.avatarBg, boxShadow: pod.avatarShadow }}
+                    >
+                      {(name || "?")[0].toUpperCase()}
+                    </div>
+                  ) : (
+                    <div className="fc-avatar">
+                      {(name || "?")[0].toUpperCase()}
+                    </div>
                   )}
-                  <div className="fc-avatar">{name[0].toUpperCase()}</div>
                   <div className="fc-card-body">
-                    <span className="fc-creator-name">@{name}</span>
-                    {live.user?.isVerifiedCreator && (
-                      <span className="fc-verified">✓</span>
-                    )}
+                    <div className="fc-creator-row">
+                      <span className="fc-creator-name">@{name}</span>
+                      {live.user?.isVerifiedCreator && (
+                        <span className="fc-verified">✓</span>
+                      )}
+                    </div>
                     <p className="fc-card-title">{live.title}</p>
                     <div className="fc-meta">
                       <span className="fc-live-dot" />
@@ -109,25 +165,48 @@ export default function FeaturedCreators() {
             const creator = item;
             const name = creator.username || creator.name || "Creador";
             return (
-              <div key={String(creator.userId)} className="fc-card fc-card-creator">
-                {i < 3 && (
-                  <span className="fc-rank-badge">
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
-                  </span>
+              <div
+                key={String(creator.userId)}
+                className={`fc-card fc-card-creator${pod ? " fc-card-podium" : ""}`}
+                style={pod ? {
+                  borderColor: pod.border,
+                  boxShadow: `0 0 18px ${pod.glow}`,
+                } : {}}
+              >
+                {pod && <span className="fc-medal-float">{pod.medal}</span>}
+                {pod ? (
+                  <div
+                    className="fc-avatar"
+                    style={{ background: pod.avatarBg, boxShadow: pod.avatarShadow }}
+                  >
+                    {(name || "?")[0].toUpperCase()}
+                  </div>
+                ) : (
+                  <div className={`fc-avatar${creator.isPremium ? " fc-avatar-premium" : ""}`}>
+                    {(name || "?")[0].toUpperCase()}
+                  </div>
                 )}
-                <div className={`fc-avatar${creator.isPremium ? " fc-avatar-premium" : ""}`}>
-                  {name[0].toUpperCase()}
-                </div>
                 <div className="fc-card-body">
                   <div className="fc-creator-row">
                     <span className="fc-creator-name">@{name}</span>
-                    {creator.isPremium && <span className="fc-premium-badge">⭐</span>}
+                    {creator.isPremium && !pod && <span className="fc-premium-badge">⭐</span>}
                     {creator.isVerifiedCreator && <span className="fc-verified">✓</span>}
                   </div>
                   <div className="fc-meta">
-                    <span className="fc-coins">🪙 {creator.totalCoins} monedas</span>
+                    <span
+                      className="fc-coins"
+                      style={pod ? { color: pod.coinColor } : {}}
+                    >
+                      🪙 {(creator.totalCoins ?? 0).toLocaleString()}
+                    </span>
+                    {activePeriod && (
+                      <span className={`fc-period-chip fc-period-${activePeriod.toLowerCase()}`}>
+                        {activePeriod === "DAILY" ? "HOY" : "SEMANA"}
+                      </span>
+                    )}
                   </div>
                 </div>
+                {pod && i === 0 && <span className="fc-crown-glow" />}
               </div>
             );
           })}
@@ -152,6 +231,19 @@ export default function FeaturedCreators() {
           font-weight: 800;
           color: var(--text);
           margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .fc-title-icon {
+          font-size: 1.1rem;
+          animation: trophyBob 3s ease-in-out infinite;
+        }
+
+        @keyframes trophyBob {
+          0%, 100% { transform: rotate(-8deg) scale(1); }
+          50%       { transform: rotate(8deg) scale(1.08); }
         }
 
         .fc-sub {
@@ -167,6 +259,9 @@ export default function FeaturedCreators() {
         }
 
         .fc-tab {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
           padding: 0.35rem 0.9rem;
           border-radius: var(--radius-pill);
           border: 1px solid rgba(139,92,246,0.25);
@@ -188,6 +283,26 @@ export default function FeaturedCreators() {
           background: rgba(224,64,251,0.12);
           color: #e040fb;
           box-shadow: 0 0 12px rgba(224,64,251,0.2);
+        }
+
+        .fc-period-badge {
+          font-size: 0.55rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          padding: 0.1rem 0.35rem;
+          border-radius: 100px;
+        }
+
+        .fc-period-daily {
+          color: #fbbf24;
+          background: rgba(251,191,36,0.15);
+          border: 1px solid rgba(251,191,36,0.3);
+        }
+
+        .fc-period-weekly {
+          color: #a78bfa;
+          background: rgba(167,139,250,0.15);
+          border: 1px solid rgba(167,139,250,0.3);
         }
 
         .fc-grid {
@@ -237,11 +352,12 @@ export default function FeaturedCreators() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.75rem 0.9rem;
+          padding: 0.8rem 0.9rem;
           border-radius: var(--radius-sm);
-          background: rgba(15,8,32,0.6);
+          background: linear-gradient(135deg, rgba(15,8,32,0.75) 0%, rgba(20,10,40,0.7) 100%);
           border: 1px solid rgba(139,92,246,0.18);
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+          overflow: hidden;
         }
 
         .fc-card-live {
@@ -252,20 +368,34 @@ export default function FeaturedCreators() {
         .fc-card-live:hover,
         .fc-card-creator:hover {
           border-color: rgba(224,64,251,0.4);
-          box-shadow: 0 0 18px rgba(224,64,251,0.12);
+          box-shadow: 0 0 20px rgba(224,64,251,0.14);
+          transform: translateY(-2px);
         }
 
-        .fc-rank-badge {
+        .fc-card-podium:hover {
+          transform: translateY(-3px);
+        }
+
+        .fc-medal-float {
           position: absolute;
-          top: -8px;
-          left: -6px;
-          font-size: 1rem;
+          top: -7px;
+          left: -4px;
+          font-size: 1.05rem;
           line-height: 1;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+
+        .fc-crown-glow {
+          position: absolute;
+          inset: 0;
+          border-radius: var(--radius-sm);
+          background: radial-gradient(ellipse at top left, rgba(255,215,0,0.07) 0%, transparent 65%);
+          pointer-events: none;
         }
 
         .fc-avatar {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
           background: var(--grad-warm);
           display: flex;
@@ -358,7 +488,15 @@ export default function FeaturedCreators() {
           font-weight: 600;
         }
 
-        .fc-coins { color: #a78bfa; }
+        .fc-coins { color: #a78bfa; font-weight: 800; }
+
+        .fc-period-chip {
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          padding: 0.1rem 0.35rem;
+          border-radius: 100px;
+        }
       `}</style>
     </div>
   );

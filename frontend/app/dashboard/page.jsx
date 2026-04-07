@@ -768,46 +768,63 @@ export default function DashboardPage() {
       {/* ── RANKING PANEL (approved creators only) ── */}
       {isApprovedCreator && (
         <div className="ranking-panel">
-          <div className="panel-header">
-            <span style={{ fontSize: "1.1rem" }}>🏆</span>
+          {/* decorative background orb */}
+          <div className="rp-orb" />
+
+          <div className="panel-header rp-header">
+            <span className="rp-trophy">🏆</span>
             <h2 className="panel-title">Mi Ranking</h2>
             {rankStats?.rankWeek && (
-              <span className="rank-badge-label">
+              <span className={`rank-badge-label${rankStats.rankWeek <= 3 ? " rank-badge-podium" : ""}`}>
+                {rankStats.rankWeek === 1 ? "👑 " : ""}
                 #{rankStats.rankWeek} esta semana
               </span>
             )}
           </div>
-          <div className="ranking-stats">
-            <div className="stat-box">
-              <span className="stat-label">Posición semana</span>
-              <span className="stat-value stat-rank">
-                {rankStats?.rankWeek
-                  ? `#${rankStats.rankWeek}${rankStats.totalRanked ? ` / ${rankStats.totalRanked}` : ""}`
-                  : "—"}
+
+          <div className="rp-body">
+            {/* Big rank number */}
+            <div className="rp-rank-block">
+              <div className={`rp-rank-number${rankStats?.rankWeek === 1 ? " rp-rank-gold" : rankStats?.rankWeek === 2 ? " rp-rank-silver" : rankStats?.rankWeek === 3 ? " rp-rank-bronze" : ""}`}>
+                {rankStats?.rankWeek ? `#${rankStats.rankWeek}` : "—"}
+              </div>
+              <span className="rp-rank-sub">
+                {rankStats?.totalRanked ? `de ${rankStats.totalRanked} creadores` : "posición semanal"}
               </span>
             </div>
-            <div className="stat-box">
-              <span className="stat-label">Regalos hoy</span>
-              <span className="stat-value stat-today">
-                🪙 {rankStats?.todayCoins ?? 0}
-              </span>
-            </div>
-            <div className="stat-box">
-              <span className="stat-label">Top fan hoy</span>
-              <span className="stat-value stat-fan">
-                {rankStats?.topFanToday
-                  ? `@${rankStats.topFanToday.username || rankStats.topFanToday.name}`
-                  : "—"}
-              </span>
-            </div>
-            {rankStats?.topFanToday && (
-              <div className="stat-box">
-                <span className="stat-label">Coins del top fan</span>
-                <span className="stat-value">
-                  🪙 {rankStats.topFanToday.totalCoins}
+
+            {/* Stats row */}
+            <div className="rp-stats-row">
+              <div className="rp-stat-card rp-stat-gifts">
+                <span className="rp-stat-icon">🪙</span>
+                <span className="rp-stat-value">
+                  {(rankStats?.todayCoins ?? 0).toLocaleString()}
+                </span>
+                <span className="rp-stat-label">
+                  regalos hoy
+                  <span className="rp-period-chip rp-period-daily">HOY</span>
                 </span>
               </div>
-            )}
+
+              {rankStats?.topFanToday ? (
+                <div className="rp-stat-card rp-stat-fan">
+                  <span className="rp-stat-icon">💜</span>
+                  <span className="rp-fan-name">
+                    @{rankStats.topFanToday.username || rankStats.topFanToday.name}
+                  </span>
+                  <span className="rp-stat-label">
+                    top fan hoy
+                    <span className="rp-fan-coins">🪙 {rankStats.topFanToday.totalCoins}</span>
+                  </span>
+                </div>
+              ) : (
+                <div className="rp-stat-card rp-stat-fan rp-stat-empty">
+                  <span className="rp-stat-icon">💜</span>
+                  <span className="rp-fan-name rp-empty-dash">—</span>
+                  <span className="rp-stat-label">top fan hoy</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1735,11 +1752,37 @@ export default function DashboardPage() {
 
         /* ── Ranking Panel ── */
         .ranking-panel {
-          background: linear-gradient(135deg, rgba(22,12,45,0.95) 0%, rgba(15,8,32,0.98) 100%);
-          border: 1px solid rgba(255,215,0,0.25);
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(135deg, rgba(22,12,45,0.97) 0%, rgba(15,8,32,0.99) 100%);
+          border: 1px solid rgba(255,215,0,0.3);
           border-radius: var(--radius);
           padding: 1.5rem 1.75rem;
-          box-shadow: var(--shadow), 0 0 40px rgba(255,215,0,0.06);
+          box-shadow: var(--shadow), 0 0 50px rgba(255,215,0,0.08);
+        }
+
+        .rp-orb {
+          position: absolute;
+          top: -60px;
+          right: -60px;
+          width: 220px;
+          height: 220px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%);
+          filter: blur(30px);
+          pointer-events: none;
+        }
+
+        .rp-header { position: relative; }
+
+        .rp-trophy {
+          font-size: 1.15rem;
+          animation: trophyBob 4s ease-in-out infinite;
+        }
+
+        @keyframes trophyBob {
+          0%, 100% { transform: rotate(-8deg) scale(1); }
+          50%       { transform: rotate(8deg) scale(1.1); }
         }
 
         .rank-badge-label {
@@ -1754,15 +1797,163 @@ export default function DashboardPage() {
           padding: 0.2rem 0.65rem;
         }
 
-        .ranking-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-          gap: 0.75rem;
-          margin-top: 1rem;
+        .rank-badge-podium {
+          background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,140,0,0.15));
+          border-color: rgba(255,215,0,0.6);
+          box-shadow: 0 0 12px rgba(255,215,0,0.25);
+          animation: rankGlow 2s ease-in-out infinite;
         }
 
-        .stat-rank { color: #ffd700; }
-        .stat-fan { color: #a78bfa; font-size: 0.85rem; }
+        @keyframes rankGlow {
+          0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.2); }
+          50%       { box-shadow: 0 0 18px rgba(255,215,0,0.4); }
+        }
+
+        .rp-body {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          margin-top: 1.25rem;
+          flex-wrap: wrap;
+        }
+
+        .rp-rank-block {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.25rem;
+          flex-shrink: 0;
+        }
+
+        .rp-rank-number {
+          font-size: 3rem;
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          line-height: 1;
+          color: var(--text-muted);
+          transition: color 0.3s;
+        }
+
+        .rp-rank-gold {
+          background: linear-gradient(135deg, #ffd700, #ff8c00);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          filter: drop-shadow(0 0 10px rgba(255,215,0,0.4));
+          animation: rankPulse 2.5s ease-in-out infinite;
+        }
+
+        .rp-rank-silver {
+          background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .rp-rank-bronze {
+          background: linear-gradient(135deg, #cd7f32, #92400e);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        @keyframes rankPulse {
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.35)); }
+          50%       { filter: drop-shadow(0 0 18px rgba(255,215,0,0.6)); }
+        }
+
+        .rp-rank-sub {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .rp-stats-row {
+          display: flex;
+          flex: 1;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .rp-stat-card {
+          flex: 1;
+          min-width: 130px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          padding: 0.9rem 1rem;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .rp-stat-gifts {
+          border-color: rgba(255,215,0,0.2);
+          background: rgba(255,215,0,0.05);
+        }
+
+        .rp-stat-fan {
+          border-color: rgba(167,139,250,0.25);
+          background: rgba(167,139,250,0.05);
+        }
+
+        .rp-stat-empty { opacity: 0.6; }
+
+        .rp-stat-icon { font-size: 1rem; line-height: 1; }
+
+        .rp-stat-value {
+          font-size: 1.4rem;
+          font-weight: 900;
+          color: #ffd700;
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+
+        .rp-fan-name {
+          font-size: 0.88rem;
+          font-weight: 800;
+          color: #a78bfa;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .rp-empty-dash {
+          color: var(--text-muted);
+        }
+
+        .rp-stat-label {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          flex-wrap: wrap;
+        }
+
+        .rp-period-chip {
+          font-size: 0.55rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          padding: 0.1rem 0.35rem;
+          border-radius: 100px;
+        }
+
+        .rp-period-daily {
+          color: #fbbf24;
+          background: rgba(251,191,36,0.15);
+          border: 1px solid rgba(251,191,36,0.3);
+        }
+
+        .rp-fan-coins {
+          color: #fbbf24;
+          font-weight: 700;
+        }
       `}</style>
     </div>
   );

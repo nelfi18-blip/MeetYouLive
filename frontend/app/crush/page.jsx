@@ -919,12 +919,27 @@ export default function CrushPage() {
           </div>
         ) : isDone ? (
           <div className="done-state">
-            <div className="done-icon">🌟</div>
-            <h3>¡Has visto todos los perfiles!</h3>
-            <p>Vuelve más tarde para descubrir más personas.</p>
-            <div className="done-actions">
-              <Link href="/matches" className="btn btn-primary">Ver mis matches</Link>
-              <Link href="/explore" className="btn">Explorar directos</Link>
+            <div className="done-glow" aria-hidden="true" />
+            <div className="done-icon">🔥</div>
+            <h3>No hay más perfiles por ahora</h3>
+            <p>Sigue descubriendo o desbloquea más conexiones</p>
+
+            <Link href="/coins" className="done-btn-primary">
+              ✨ Desbloquear más perfiles
+            </Link>
+
+            <div className="done-actions-secondary">
+              <Link href="/matches" className="done-btn-secondary">💖 Ver mis matches</Link>
+              <Link href="/live" className="done-btn-secondary">🔴 Ver directos en vivo</Link>
+            </div>
+
+            <div className="done-promo-card">
+              <div className="done-promo-icon">🚀</div>
+              <div className="done-promo-body">
+                <p className="done-promo-title">Consigue más matches con Super Crush</p>
+                <p className="done-promo-desc">Mayor visibilidad · Más conexiones · Destácate entre todos</p>
+              </div>
+              <Link href="/coins" className="done-promo-cta">Usar Super Crush</Link>
             </div>
           </div>
         ) : (
@@ -1325,23 +1340,134 @@ export default function CrushPage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.75rem;
+          gap: 0.65rem;
           text-align: center;
-          border: 1px dashed rgba(224,64,251,0.18);
+          border: 1px solid rgba(224,64,251,0.22);
           border-radius: 24px;
-          background: rgba(10,2,24,0.6);
-          padding: 2rem;
-          backdrop-filter: blur(8px);
+          background: linear-gradient(160deg, rgba(20,4,50,0.92), rgba(8,2,22,0.96));
+          padding: 1.75rem 1.5rem;
+          backdrop-filter: blur(12px);
+          overflow: hidden;
         }
-        .done-icon { font-size: 3.5rem; }
-        .done-state h3 { color: var(--text); font-size: 1.1rem; margin: 0; }
-        .done-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
-        .done-actions {
+        .done-glow {
+          position: absolute;
+          top: -60px; left: 50%;
+          transform: translateX(-50%);
+          width: 280px; height: 280px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,45,120,0.18) 0%, rgba(224,64,251,0.1) 50%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .done-state > * { position: relative; z-index: 1; }
+        .done-icon { font-size: 3rem; animation: done-pulse 2.2s ease-in-out infinite; }
+        @keyframes done-pulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(255,45,120,0.5)); }
+          50% { transform: scale(1.12); filter: drop-shadow(0 0 20px rgba(255,45,120,0.9)); }
+        }
+        .done-state h3 {
+          color: #fff;
+          font-size: 1.15rem;
+          font-weight: 800;
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+        .done-state > p {
+          color: rgba(255,255,255,0.52);
+          font-size: 0.8rem;
+          margin: 0;
+        }
+        .done-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.65rem 1.6rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #ff2d78, #e040fb);
+          color: #fff;
+          font-size: 0.9rem;
+          font-weight: 800;
+          text-decoration: none;
+          letter-spacing: 0.01em;
+          box-shadow: 0 0 22px rgba(255,45,120,0.55), 0 0 6px rgba(224,64,251,0.35);
+          transition: box-shadow 0.2s, transform 0.15s;
+          margin-top: 0.3rem;
+        }
+        .done-btn-primary:hover {
+          box-shadow: 0 0 34px rgba(255,45,120,0.75), 0 0 12px rgba(224,64,251,0.5);
+          transform: translateY(-1px);
+        }
+        .done-actions-secondary {
           display: flex;
-          gap: 0.75rem;
+          gap: 0.55rem;
           flex-wrap: wrap;
           justify-content: center;
-          margin-top: 0.5rem;
+        }
+        .done-btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.48rem 1.05rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,45,120,0.3);
+          background: rgba(255,45,120,0.07);
+          color: rgba(255,255,255,0.75);
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.2s;
+          backdrop-filter: blur(4px);
+        }
+        .done-btn-secondary:hover {
+          background: rgba(255,45,120,0.16);
+          border-color: rgba(255,45,120,0.55);
+          color: #fff;
+          box-shadow: 0 0 12px rgba(255,45,120,0.22);
+        }
+        .done-promo-card {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          width: 100%;
+          padding: 0.75rem 1rem;
+          border-radius: 14px;
+          background: rgba(224,64,251,0.06);
+          border: 1px solid rgba(224,64,251,0.2);
+          text-align: left;
+          margin-top: 0.3rem;
+        }
+        .done-promo-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .done-promo-body { flex: 1; min-width: 0; }
+        .done-promo-title {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #e8b4ff;
+          margin: 0;
+          line-height: 1.3;
+        }
+        .done-promo-desc {
+          font-size: 0.68rem;
+          color: rgba(255,255,255,0.4);
+          margin: 0.15rem 0 0;
+          line-height: 1.3;
+        }
+        .done-promo-cta {
+          flex-shrink: 0;
+          padding: 0.38rem 0.85rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #e040fb, #ff2d78);
+          color: #fff;
+          font-size: 0.72rem;
+          font-weight: 800;
+          text-decoration: none;
+          white-space: nowrap;
+          box-shadow: 0 0 12px rgba(224,64,251,0.4);
+          transition: box-shadow 0.2s, transform 0.15s;
+        }
+        .done-promo-cta:hover {
+          box-shadow: 0 0 20px rgba(224,64,251,0.65);
+          transform: translateY(-1px);
         }
 
         @media (max-width: 480px) {

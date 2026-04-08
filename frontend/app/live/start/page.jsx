@@ -19,7 +19,6 @@ export default function StartLivePage() {
   const [error, setError] = useState("");
   const [isApprovedCreator, setIsApprovedCreator] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [creatorStatus, setCreatorStatus] = useState("none");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -43,7 +42,6 @@ export default function StartLivePage() {
         if (!data) return;
         const approved = data.role === "creator" && data.creatorStatus === "approved";
         setIsApprovedCreator(approved);
-        setCreatorStatus(data.creatorStatus || "none");
         if (!approved) {
           // Non-approved creators cannot start streams; redirect to dashboard
           router.replace("/dashboard");

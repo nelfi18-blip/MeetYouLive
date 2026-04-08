@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Gift = require("../models/Gift");
 const User = require("../models/User");
 const Payout = require("../models/Payout");
+const Live = require("../models/Live");
 
 const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
@@ -221,8 +222,6 @@ exports.getCreatorDashboard = async (req, res) => {
     if (error) {
       return res.status(403).json({ ok: false, message: error });
     }
-
-    const Live = mongoose.model("Live");
 
     const [giftAgg, activeLive, pendingPayout] = await Promise.all([
       Gift.aggregate([

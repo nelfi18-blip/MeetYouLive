@@ -2,8 +2,9 @@ const mongoose = require("mongoose");
 const Gift = require("../models/Gift");
 const User = require("../models/User");
 const Payout = require("../models/Payout");
+const Live = require("../models/Live");
 
-const requireApprovedCreator = async (userId) => {
+const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
     "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins"
   );
@@ -18,7 +19,7 @@ const requireApprovedCreator = async (userId) => {
 exports.getCreatorStats = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
-    const { error, user } = await requireApprovedCreator(userId);
+    const { error, user } = await requireApprovedCreatorHelper(userId);
 
     if (error) {
       return res.status(403).json({ ok: false, message: error });
@@ -81,7 +82,7 @@ exports.getCreatorStats = async (req, res) => {
 exports.getCreatorEarnings = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
-    const { error, user } = await requireApprovedCreator(userId);
+    const { error, user } = await requireApprovedCreatorHelper(userId);
 
     if (error) {
       return res.status(403).json({ ok: false, message: error });
@@ -132,7 +133,7 @@ exports.getCreatorEarnings = async (req, res) => {
 exports.requestPayout = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
-    const { error, user } = await requireApprovedCreator(userId);
+    const { error, user } = await requireApprovedCreatorHelper(userId);
 
     if (error) {
       return res.status(403).json({ ok: false, message: error });
@@ -209,5 +210,160 @@ exports.requestPayout = async (req, res) => {
     return res
       .status(500)
       .json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
+// GET /api/creator/dashboard — consolidated creator dashboard data (approved creators only)
+exports.getCreatorDashboard = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const [giftAgg, activeLive, pendingPayout] = await Promise.all([
+      Gift.aggregate([
+        { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
+        {
+          $group: {
+            _id: null,
+            totalCoinsReceived: { $sum: "$coinCost" },
+            totalCreatorShare: { $sum: "$creatorShare" },
+            totalGiftCount: { $sum: 1 },
+          },
+        },
+      ]),
+      Live.findOne({ user: user._id, isLive: true }).select(
+        "_id title viewerCount chatEnabled giftsEnabled isPrivate entryCost"
+      ),
+      Payout.findOne({
+        creator: user._id,
+        status: { $in: ["pending", "processing"] },
+      }).sort({ createdAt: -1 }),
+    ]);
+
+    const totals = giftAgg[0] || {
+      totalCoinsReceived: 0,
+      totalCreatorShare: 0,
+      totalGiftCount: 0,
+    };
+
+    return res.json({
+      ok: true,
+      activeLive: activeLive || null,
+      earningsCoins: user.earningsCoins || 0,
+      agencyEarningsCoins: user.agencyEarningsCoins || 0,
+      coins: user.coins || 0,
+      totalGifts: totals.totalGiftCount || 0,
+      totalCoinsReceived: totals.totalCoinsReceived || 0,
+      totalCreatorShare: totals.totalCreatorShare || 0,
+      pendingPayout: pendingPayout
+        ? {
+            _id: pendingPayout._id,
+            amountCoins: pendingPayout.amountCoins,
+            status: pendingPayout.status,
+            createdAt: pendingPayout.createdAt,
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("getCreatorDashboard error:", err);
+    return res
+      .status(500)
+      .json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
+// POST /api/creator/request — submit a creator access request (normal users only)
+exports.submitCreatorRequest = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    if (user.role !== "user") {
+      return res.status(400).json({ ok: false, message: "Solo los usuarios normales pueden solicitar ser creadores" });
+    }
+
+    if (user.creatorStatus === "pending") {
+      return res.status(400).json({ ok: false, message: "Ya tienes una solicitud de creador pendiente" });
+    }
+
+    if (user.creatorStatus === "approved") {
+      return res.status(400).json({ ok: false, message: "Ya eres un creador aprobado" });
+    }
+
+    const { displayName, bio, category, country, languages, socialLinks } = req.body;
+
+    if (!displayName || !displayName.trim()) {
+      return res.status(400).json({ ok: false, message: "El nombre de creador es requerido" });
+    }
+    if (!bio || !bio.trim()) {
+      return res.status(400).json({ ok: false, message: "La biografía es requerida" });
+    }
+    if (!category || !category.trim()) {
+      return res.status(400).json({ ok: false, message: "La categoría es requerida" });
+    }
+    if (!country || !country.trim()) {
+      return res.status(400).json({ ok: false, message: "El país es requerido" });
+    }
+    if (!languages || !Array.isArray(languages) || languages.length === 0) {
+      return res.status(400).json({ ok: false, message: "Debes seleccionar al menos un idioma" });
+    }
+
+    const filteredLanguages = languages.filter((l) => l && l.trim());
+    if (filteredLanguages.length === 0) {
+      return res.status(400).json({ ok: false, message: "Debes seleccionar al menos un idioma válido" });
+    }
+
+    const sanitizedSocialLinks = {
+      twitter: (socialLinks?.twitter || "").trim(),
+      instagram: (socialLinks?.instagram || "").trim(),
+      tiktok: (socialLinks?.tiktok || "").trim(),
+      youtube: (socialLinks?.youtube || "").trim(),
+    };
+
+    user.creatorApplication = {
+      displayName: displayName.trim(),
+      bio: bio.trim(),
+      category: category.trim(),
+      country: country.trim(),
+      languages: filteredLanguages.map((l) => l.trim()),
+      socialLinks: sanitizedSocialLinks,
+      submittedAt: new Date(),
+    };
+    user.creatorStatus = "pending";
+    await user.save();
+
+    return res.json({
+      ok: true,
+      message: "Solicitud enviada correctamente. Un administrador la revisará pronto.",
+      creatorStatus: user.creatorStatus,
+    });
+  } catch (err) {
+    console.error("submitCreatorRequest error:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
+// GET /api/creator/request-status — get current user's creator request status
+exports.getCreatorRequestStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select(
+      "role creatorStatus creatorApplication creatorApprovedAt"
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    return res.json({
+      ok: true,
+      role: user.role,
+      creatorStatus: user.creatorStatus,
+      submittedAt: user.creatorApplication?.submittedAt || null,
+      approvedAt: user.creatorApprovedAt || null,
+    });
+  } catch (err) {
+    console.error("getCreatorRequestStatus error:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
   }
 };

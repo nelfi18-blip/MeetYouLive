@@ -39,7 +39,11 @@ export default function VideoUploadPage() {
       })
       .then((data) => {
         if (!data) return;
-        if (data.role !== "creator" && data.role !== "admin") {
+        if (data.role !== "creator" || data.creatorStatus !== "approved") {
+          if (data.role === "admin") {
+            setUser(data);
+            return;
+          }
           router.replace("/profile");
           return;
         }

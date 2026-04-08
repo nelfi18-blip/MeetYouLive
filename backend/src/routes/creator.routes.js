@@ -4,10 +4,14 @@ const rateLimit = require("express-rate-limit");
 const router = express.Router();
 
 const { verifyToken } = require("../middlewares/auth.middleware");
+const { requireApprovedCreator } = require("../middlewares/creator.middleware");
 const {
   getCreatorStats,
   getCreatorEarnings,
   requestPayout,
+  getCreatorDashboard,
+  submitCreatorRequest,
+  getCreatorRequestStatus,
 } = require("../controllers/creator.controller");
 
 const creatorLimiter = rateLimit({
@@ -17,8 +21,14 @@ const creatorLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.get("/stats", verifyToken, creatorLimiter, getCreatorStats);
-router.get("/earnings", verifyToken, creatorLimiter, getCreatorEarnings);
-router.post("/payout", verifyToken, creatorLimiter, requestPayout);
+// Creator request endpoints (any authenticated user)
+router.post("/request", creatorLimiter, verifyToken, submitCreatorRequest);
+router.get("/request-status", creatorLimiter, verifyToken, getCreatorRequestStatus);
+
+// Approved-creator-only endpoints
+router.get("/dashboard", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorDashboard);
+router.get("/stats", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorStats);
+router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorEarnings);
+router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, requestPayout);
 
 module.exports = router;

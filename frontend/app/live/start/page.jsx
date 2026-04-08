@@ -18,6 +18,7 @@ export default function StartLivePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isApprovedCreator, setIsApprovedCreator] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -26,7 +27,6 @@ export default function StartLivePage() {
       router.replace("/login");
       return;
     }
-    // Validate token and check creator status for conditional UI.
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -40,9 +40,15 @@ export default function StartLivePage() {
       })
       .then((data) => {
         if (!data) return;
-        setIsApprovedCreator(data.role === "creator" && data.creatorStatus === "approved");
+        const approved = data.role === "creator" && data.creatorStatus === "approved";
+        setIsApprovedCreator(approved);
+        if (!approved) {
+          // Non-approved creators cannot start streams; redirect to dashboard
+          router.replace("/dashboard");
+        }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCheckingAuth(false));
   }, [router]);
 
   const startLive = async (e) => {
@@ -87,6 +93,25 @@ export default function StartLivePage() {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="start-page">
+        <div className="checking-auth">
+          <div className="spinner" />
+        </div>
+        <style jsx>{`
+          .start-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 600px; margin: 0 auto; }
+          .checking-auth { display: flex; justify-content: center; padding: 4rem; }
+          .spinner { width: 36px; height: 36px; border: 3px solid rgba(255,15,138,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (!isApprovedCreator) {
+    return null;
+  }
 
   return (
     <div className="start-page">
@@ -100,11 +125,6 @@ export default function StartLivePage() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      {!isApprovedCreator && (
-        <div className="creator-notice">
-          📡 Transmites como usuario normal. <a href="/creator-request">Solicita acceso creator</a> para monetizar tus directos.
-        </div>
-      )}
 
       <form className="start-form card" onSubmit={startLive}>
           <div className="form-group">
@@ -178,55 +198,33 @@ export default function StartLivePage() {
             </div>
           </div>
 
-          {/* Privacy toggle — paid private streams are creator-only */}
+          {/* Privacy toggle — all users reaching this page are approved creators */}
           <div className="form-group">
             <label className="form-label">Privacidad</label>
-            {isApprovedCreator ? (
-              <>
-                <div className="privacy-toggle">
-                  <button
-                    type="button"
-                    className={`privacy-btn${!isPrivate ? " active" : ""}`}
-                    onClick={() => setIsPrivate(false)}
-                  >
-                    🌐 Público
-                  </button>
-                  <button
-                    type="button"
-                    className={`privacy-btn${isPrivate ? " active" : ""}`}
-                    onClick={() => setIsPrivate(true)}
-                  >
-                    🔒 Privado (monedas)
-                  </button>
-                </div>
-                {isPrivate && (
-                  <p className="privacy-hint">
-                    Solo los usuarios que paguen la entrada podrán ver este directo.
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="privacy-toggle">
-                <button
-                  type="button"
-                  className="privacy-btn active"
-                  disabled
-                >
-                  🌐 Público
-                </button>
-                <button
-                  type="button"
-                  className="privacy-btn privacy-btn-locked"
-                  disabled
-                  title="Solo creadores aprobados pueden crear directos privados de pago"
-                >
-                  🔒 Privado (monedas) — solo creadores
-                </button>
-              </div>
+            <div className="privacy-toggle">
+              <button
+                type="button"
+                className={`privacy-btn${!isPrivate ? " active" : ""}`}
+                onClick={() => setIsPrivate(false)}
+              >
+                🌐 Público
+              </button>
+              <button
+                type="button"
+                className={`privacy-btn${isPrivate ? " active" : ""}`}
+                onClick={() => setIsPrivate(true)}
+              >
+                🔒 Privado (monedas)
+              </button>
+            </div>
+            {isPrivate && (
+              <p className="privacy-hint">
+                Solo los usuarios que paguen la entrada podrán ver este directo.
+              </p>
             )}
           </div>
 
-          {isApprovedCreator && isPrivate && (
+          {isPrivate && (
             <div className="form-group">
               <label className="form-label">Coste de entrada (monedas) *</label>
               <input
@@ -364,27 +362,6 @@ export default function StartLivePage() {
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
-        }
-
-        .creator-notice {
-          background: rgba(129,140,248,0.08);
-          border: 1px solid rgba(129,140,248,0.25);
-          color: var(--text-muted);
-          border-radius: var(--radius-sm);
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          line-height: 1.5;
-        }
-
-        .creator-notice a {
-          color: var(--accent-3);
-          text-decoration: underline;
-          font-weight: 600;
-        }
-
-        .privacy-btn-locked {
-          opacity: 0.45;
-          cursor: not-allowed;
         }
       `}</style>
     </div>

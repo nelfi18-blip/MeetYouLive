@@ -22,13 +22,13 @@ const creatorLimiter = rateLimit({
 });
 
 // Creator request endpoints (any authenticated user)
-router.post("/request", verifyToken, creatorLimiter, submitCreatorRequest);
-router.get("/request-status", verifyToken, creatorLimiter, getCreatorRequestStatus);
+router.post("/request", creatorLimiter, verifyToken, submitCreatorRequest);
+router.get("/request-status", creatorLimiter, verifyToken, getCreatorRequestStatus);
 
 // Approved-creator-only endpoints
-router.get("/dashboard", verifyToken, requireApprovedCreator, creatorLimiter, getCreatorDashboard);
-router.get("/stats", verifyToken, requireApprovedCreator, creatorLimiter, getCreatorStats);
-router.get("/earnings", verifyToken, requireApprovedCreator, creatorLimiter, getCreatorEarnings);
-router.post("/payout", verifyToken, requireApprovedCreator, creatorLimiter, requestPayout);
+router.get("/dashboard", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorDashboard);
+router.get("/stats", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorStats);
+router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorEarnings);
+router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, requestPayout);
 
 module.exports = router;

@@ -95,7 +95,7 @@ export default function StartLivePage() {
     }
   };
 
-  if (checkingAuth || !isApprovedCreator) {
+  if (checkingAuth) {
     return (
       <div className="start-page">
         <div className="checking-auth">
@@ -109,6 +109,10 @@ export default function StartLivePage() {
         `}</style>
       </div>
     );
+  }
+
+  if (!isApprovedCreator) {
+    return null;
   }
 
   return (

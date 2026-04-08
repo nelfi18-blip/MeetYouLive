@@ -26,7 +26,7 @@ const createVideo = async (req, res) => {
   }
   try {
     const user = await User.findById(req.userId).select("role creatorStatus");
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+    if (!user || (user.role !== "admin" && (user.role !== "creator" || user.creatorStatus !== "approved"))) {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden subir vídeos" });
     }
     const video = await Video.create({

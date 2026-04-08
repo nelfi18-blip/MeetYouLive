@@ -7,17 +7,17 @@ const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
 
-  let canEarn = false;
+  let isApprovedCreator = false;
   let creatorUsername = "";
   try {
     const user = await User.findById(req.userId).select("role creatorStatus username name");
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado" });
     }
-    canEarn = user.role === "creator" && user.creatorStatus === "approved";
+    isApprovedCreator = user.role === "creator" && user.creatorStatus === "approved";
     creatorUsername = user.username || user.name || "";
     // Only approved creators can start live streams
-    if (!canEarn) {
+    if (!isApprovedCreator) {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos" });
     }
   } catch (err) {
@@ -25,7 +25,7 @@ const startLive = async (req, res) => {
   }
 
   let costCoins = 0;
-  if (isPrivate && canEarn) {
+  if (isPrivate) {
     const parsed = Number(entryCost);
     costCoins = Number.isInteger(parsed) && parsed >= 1 ? parsed : 0;
   }

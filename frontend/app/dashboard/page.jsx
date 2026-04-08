@@ -432,14 +432,9 @@ export default function DashboardPage() {
   const creatorStatus = user?.creatorStatus || "none";
 
   const isApprovedCreator = isCreator && creatorStatus === "approved";
-
-  // "Transmitir" is available to all authenticated users (not shown to approved creators – they use the Live Control Panel)
-  const streamCard = !isApprovedCreator
-    ? [{ href: "/live/start", title: "Transmitir", sub: "Inicia tu directo ahora", icon: BroadcastIcon, color: "red", size: "normal" }]
-    : [];
+  const isSuspended = creatorStatus === "suspended";
 
   // Monetization tools are only available to approved creators
-  // (approved creators now see these in the panels + quick actions, not the cards grid)
   const creatorCards = isApprovedCreator
     ? [
         { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
@@ -467,10 +462,15 @@ export default function DashboardPage() {
       ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Rechazada. Vuelve a aplicar.", icon: CreatorRequestIcon, color: "green", size: "normal" }]
       : [];
 
+  const suspendedCard =
+    isSuspended
+      ? [{ href: "#", title: "Cuenta suspendida", sub: "Tu acceso de creador ha sido suspendido. Contacta al soporte.", icon: PendingIcon, color: "red", size: "normal", _disabled: true }]
+      : [];
+
   // Approved creators get their tool access via the Quick Actions section; show only nav cards below
   const allCards = isApprovedCreator
     ? [...CARDS]
-    : [...CARDS, ...streamCard, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard];
+    : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
 
   return (
     <div className="dashboard">
@@ -536,10 +536,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Navigation cards grid */}
-      {!isApprovedCreator && (
-        <div className="stream-notice">
-          📡 Transmites como usuario normal.{" "}
-          <a href="/creator-request">Solicita acceso creator</a> para monetizar tus directos.
+      {!isApprovedCreator && creatorStatus === "none" && (
+        <div className="creator-cta-banner">
+          <div className="creator-cta-icon">🚀</div>
+          <div className="creator-cta-text">
+            <strong>Gana dinero transmitiendo en vivo</strong>
+            <span>Conviértete en creador aprobado y accede a monetización, directos privados y más.</span>
+          </div>
+          <a href="/creator-request" className="creator-cta-btn">Solicitar acceso a creador</a>
+        </div>
+      )}
+      {!isApprovedCreator && creatorStatus === "pending" && (
+        <div className="creator-status-banner creator-status-pending">
+          <span className="creator-status-icon">⏳</span>
+          <div className="creator-status-text">
+            <strong>Tu solicitud de creador está en revisión</strong>
+            <span>El equipo de MeetYouLive revisará tu solicitud pronto. Te notificaremos cuando haya novedades.</span>
+          </div>
+        </div>
+      )}
+      {!isApprovedCreator && creatorStatus === "rejected" && (
+        <div className="creator-status-banner creator-status-rejected">
+          <span className="creator-status-icon">❌</span>
+          <div className="creator-status-text">
+            <strong>Tu solicitud fue rechazada</strong>
+            <span>Puedes volver a solicitar acceso de creador con información actualizada.</span>
+          </div>
+          <a href="/creator-request" className="creator-cta-btn">Volver a solicitar</a>
+        </div>
+      )}
+      {isSuspended && (
+        <div className="creator-status-banner creator-status-suspended">
+          <span className="creator-status-icon">🚫</span>
+          <div className="creator-status-text">
+            <strong>Tu cuenta de creador ha sido suspendida</strong>
+            <span>El acceso a funciones de creador está temporalmente deshabilitado. Contacta al soporte para más información.</span>
+          </div>
         </div>
       )}
 
@@ -1146,19 +1178,86 @@ export default function DashboardPage() {
         .hero-start-live-btn :global(svg) { width: 16px; height: 16px; }
 
         /* ── Cards grid ──────── */
-        .stream-notice {
-          background: rgba(129,140,248,0.08);
-          border: 1px solid rgba(129,140,248,0.22);
+        .creator-cta-banner {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          background: linear-gradient(135deg, rgba(255,15,138,0.08) 0%, rgba(139,92,246,0.08) 100%);
+          border: 1px solid rgba(255,15,138,0.3);
+          border-radius: var(--radius);
+          padding: 1.25rem 1.5rem;
+          flex-wrap: wrap;
+        }
+        .creator-cta-icon { font-size: 2rem; flex-shrink: 0; }
+        .creator-cta-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .creator-cta-text strong {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .creator-cta-text span {
+          font-size: 0.85rem;
           color: var(--text-muted);
-          border-radius: var(--radius-sm);
-          padding: 0.75rem 1.1rem;
-          font-size: 0.875rem;
           line-height: 1.5;
         }
-        .stream-notice a {
-          color: var(--accent-3);
-          text-decoration: underline;
-          font-weight: 600;
+        .creator-cta-btn {
+          display: inline-block;
+          padding: 0.6rem 1.25rem;
+          background: linear-gradient(135deg, var(--accent), var(--accent-2));
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 700;
+          border-radius: var(--radius-pill);
+          text-decoration: none;
+          white-space: nowrap;
+          flex-shrink: 0;
+          transition: opacity 0.15s;
+        }
+        .creator-cta-btn:hover { opacity: 0.88; }
+
+        .creator-status-banner {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          border-radius: var(--radius);
+          padding: 1.1rem 1.5rem;
+          flex-wrap: wrap;
+        }
+        .creator-status-pending {
+          background: rgba(251,146,60,0.08);
+          border: 1px solid rgba(251,146,60,0.25);
+        }
+        .creator-status-rejected {
+          background: rgba(244,67,54,0.08);
+          border: 1px solid rgba(244,67,54,0.25);
+        }
+        .creator-status-suspended {
+          background: rgba(239,68,68,0.08);
+          border: 1px solid rgba(239,68,68,0.3);
+        }
+        .creator-status-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .creator-status-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .creator-status-text strong {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .creator-status-text span {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          line-height: 1.5;
         }
 
         .cards-grid {

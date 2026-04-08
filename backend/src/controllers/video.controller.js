@@ -1,5 +1,6 @@
 const Video = require("../models/Video.js");
 const Purchase = require("../models/Purchase.js");
+const User = require("../models/User.js");
 
 const getVideos = async (req, res) => {
   try {
@@ -24,6 +25,10 @@ const createVideo = async (req, res) => {
     return res.status(400).json({ message: "price debe ser un número mayor o igual a 0" });
   }
   try {
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden subir vídeos" });
+    }
     const video = await Video.create({
       user: req.userId,
       title: title.trim(),

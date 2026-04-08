@@ -16,9 +16,9 @@ const startLive = async (req, res) => {
     }
     canEarn = user.role === "creator" && user.creatorStatus === "approved";
     creatorUsername = user.username || user.name || "";
-    // Private paid streams require monetization rights (approved creator)
-    if (isPrivate && !canEarn) {
-      return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos privados de pago" });
+    // Only approved creators can start live streams
+    if (!canEarn) {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos" });
     }
   } catch (err) {
     return res.status(500).json({ message: err.message });

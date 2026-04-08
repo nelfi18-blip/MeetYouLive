@@ -4,8 +4,34 @@ import NavbarWrapper from "../components/NavbarWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 
 export const metadata = {
-  title: "MeetYouLive",
-  description: "Dating, Live streaming y VR",
+  title: "MeetYouLive 🔥 | Citas, Video en Vivo y Conexiones Reales",
+  description:
+    "Descubre personas reales cerca de ti, haz match y conecta en video en vivo. 💖 Envía regalos, chatea y gana dinero como creador en MeetYouLive.",
+  keywords: [
+    "dating app",
+    "video chat",
+    "live streaming",
+    "citas online",
+    "app para conocer personas",
+    "ganar dinero streaming",
+    "video en vivo citas",
+  ],
+  openGraph: {
+    title: "MeetYouLive 💖",
+    description:
+      "Haz match, conecta en vivo y gana dinero como creador.",
+    url: "https://meetyoulive.net",
+    siteName: "MeetYouLive",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: "es_US",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }) {

@@ -439,6 +439,8 @@ function LoginForm() {
           Continuar con Google
         </button>
 
+        <p className="urgency-msg">🔥 Más de 1,000 usuarios conectando ahora mismo</p>
+
         <div className="divider-text">o continúa con email</div>
 
         <div className="login-form">
@@ -473,6 +475,8 @@ function LoginForm() {
             ) : "Iniciar sesión →"}
           </button>
         </div>
+
+        <p className="differentiator-msg">🎥 No solo deslices… conéctate en vivo</p>
 
         <div className="login-footer">
           <p className="footer-link">
@@ -737,6 +741,25 @@ function LoginForm() {
           border-color: rgba(66,133,244,0.45);
           box-shadow: 0 4px 20px rgba(66,133,244,0.18);
           transform: translateY(-1px);
+        }
+
+        /* ── Urgency & differentiator messages ── */
+        .urgency-msg {
+          text-align: center;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: rgba(255,165,0,0.85);
+          margin: 0.6rem 0 0;
+          letter-spacing: 0.01em;
+        }
+
+        .differentiator-msg {
+          text-align: center;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: rgba(224,64,251,0.85);
+          margin: 0.75rem 0 0;
+          letter-spacing: 0.01em;
         }
 
         /* ── Footer ── */

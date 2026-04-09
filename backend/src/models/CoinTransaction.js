@@ -21,6 +21,8 @@ const coinTransactionSchema = new mongoose.Schema(
         "admin_adjustment",
         "agency_earned",
         "agency_distributed",
+        "boost_crush",
+        "swipe_unlock",
       ],
       required: true,
     },

@@ -11,6 +11,48 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
 const ACTION_FEEDBACK_DURATION_MS = 700;
 const ACTIVITY_BANNER_DURATION_MS = 3500;
+const DAILY_FREE_SWIPES = 20;
+const EXTRA_SWIPES_BATCH = 10;
+
+// ─── localStorage swipe limit helpers ────────────────────────────────────────
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+}
+function getSwipeState() {
+  if (typeof window === "undefined") return { date: getTodayKey(), count: 0, extra: 0 };
+  try {
+    const raw = localStorage.getItem("crush_swipes");
+    const parsed = raw ? JSON.parse(raw) : null;
+    const today = getTodayKey();
+    if (parsed?.date === today) return parsed;
+    return { date: today, count: 0, extra: 0 };
+  } catch {
+    return { date: getTodayKey(), count: 0, extra: 0 };
+  }
+}
+function saveSwipeState(state) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("crush_swipes", JSON.stringify(state));
+}
+function incrementSwipeCount() {
+  const s = getSwipeState();
+  s.count += 1;
+  saveSwipeState(s);
+  return s;
+}
+function addExtraSwipes(n) {
+  const s = getSwipeState();
+  s.extra = (s.extra || 0) + n;
+  saveSwipeState(s);
+  return s;
+}
+function getRemainingSwipes() {
+  const s = getSwipeState();
+  const used = s.count || 0;
+  const extra = s.extra || 0;
+  const total = DAILY_FREE_SWIPES + extra;
+  return Math.max(0, total - used);
+}
 
 /** Calculate age from a birthdate string/Date. Returns null if not available. */
 function calcAge(birthdate) {
@@ -311,6 +353,308 @@ function CrushActivityBanner({ event, onDismiss }) {
         }
         .cab-close:hover { color: rgba(255,255,255,0.65); }
       `}</style>
+    </div>
+  );
+}
+
+// ─── SwipeLimitModal ──────────────────────────────────────────────────────────
+function SwipeLimitModal({ coins, extraSwipesPrice, extraSwipesBatch, loading, onUnlock, onClose }) {
+  const hasCoins = coins !== null && coins >= extraSwipesPrice;
+  const msUntilMidnight = () => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    return midnight - now;
+  };
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const ms = msUntilMidnight();
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return `${h}h ${m}m`;
+  });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const ms = msUntilMidnight();
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      setTimeLeft(`${h}h ${m}m`);
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="sl-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="sl-modal">
+        <div className="sl-glow" aria-hidden="true" />
+        <div className="sl-icon">🔥</div>
+        <h3 className="sl-title">¡Límite diario alcanzado!</h3>
+        <p className="sl-desc">Has usado tus {DAILY_FREE_SWIPES} swipes diarios gratuitos.</p>
+
+        <div className="sl-options">
+          <div className="sl-option sl-option-coins">
+            <div className="sl-opt-icon">🪙</div>
+            <div className="sl-opt-body">
+              <p className="sl-opt-title">Desbloquear {extraSwipesBatch} swipes</p>
+              <p className="sl-opt-price">{extraSwipesPrice} monedas</p>
+            </div>
+            <button
+              className="sl-opt-btn sl-btn-coins"
+              onClick={onUnlock}
+              disabled={loading || !hasCoins}
+            >
+              {loading ? "…" : hasCoins ? "Usar" : "Sin saldo"}
+            </button>
+          </div>
+          {!hasCoins && (
+            <Link href="/coins" className="sl-buy-link" onClick={onClose}>
+              + Comprar monedas →
+            </Link>
+          )}
+          <div className="sl-option sl-option-timer">
+            <div className="sl-opt-icon">⏳</div>
+            <div className="sl-opt-body">
+              <p className="sl-opt-title">Esperar reset gratuito</p>
+              <p className="sl-opt-price">Disponible en {timeLeft}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="sl-alt-actions">
+          <Link href="/live" className="sl-alt-btn" onClick={onClose}>🎥 Ver directos</Link>
+          <Link href="/matches" className="sl-alt-btn" onClick={onClose}>💖 Ver matches</Link>
+        </div>
+
+        <button className="sl-close-btn" onClick={onClose} aria-label="Cerrar">✕</button>
+
+        <style jsx>{`
+          .sl-overlay {
+            position: fixed; inset: 0; z-index: 3000;
+            background: rgba(4,0,14,0.88);
+            backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 1.25rem;
+          }
+          .sl-modal {
+            position: relative;
+            background: linear-gradient(155deg, #130525 0%, #0b0219 100%);
+            border: 1px solid rgba(255,45,120,0.35);
+            border-radius: 22px;
+            padding: 2rem 1.75rem 1.5rem;
+            max-width: 360px; width: 100%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(255,45,120,0.15), 0 0 120px rgba(224,64,251,0.08);
+            animation: sl-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+            overflow: hidden;
+          }
+          @keyframes sl-pop {
+            from { transform: scale(0.75); opacity: 0; }
+            to   { transform: scale(1); opacity: 1; }
+          }
+          .sl-glow {
+            position: absolute; top: -40%; left: 50%;
+            transform: translateX(-50%);
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,45,120,0.15) 0%, transparent 70%);
+            pointer-events: none;
+          }
+          .sl-icon { font-size: 2.8rem; margin-bottom: 0.5rem; animation: sl-pulse 2s ease-in-out infinite; }
+          @keyframes sl-pulse {
+            0%,100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+          }
+          .sl-title { font-size: 1.2rem; font-weight: 900; color: #fff; margin: 0 0 0.4rem; }
+          .sl-desc { font-size: 0.82rem; color: rgba(255,255,255,0.52); margin: 0 0 1.25rem; }
+          .sl-options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem; }
+          .sl-option {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.75rem 1rem; border-radius: 14px; text-align: left;
+          }
+          .sl-option-coins { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.22); }
+          .sl-option-timer { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+          .sl-opt-icon { font-size: 1.4rem; flex-shrink: 0; }
+          .sl-opt-body { flex: 1; min-width: 0; }
+          .sl-opt-title { font-size: 0.82rem; font-weight: 700; color: rgba(255,255,255,0.85); margin: 0; }
+          .sl-opt-price { font-size: 0.72rem; color: rgba(255,255,255,0.45); margin: 0.1rem 0 0; }
+          .sl-opt-btn {
+            flex-shrink: 0; padding: 0.42rem 0.9rem;
+            border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+            cursor: pointer; border: 1px solid; transition: all 0.2s;
+          }
+          .sl-opt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .sl-btn-coins {
+            background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.45); color: #fbbf24;
+          }
+          .sl-btn-coins:hover:not(:disabled) {
+            background: rgba(251,191,36,0.22); box-shadow: 0 0 14px rgba(251,191,36,0.3);
+          }
+          .sl-buy-link {
+            display: block; font-size: 0.75rem; font-weight: 700;
+            color: #fbbf24; text-decoration: none; text-align: center; margin-top: -0.2rem;
+          }
+          .sl-buy-link:hover { text-decoration: underline; }
+          .sl-alt-actions {
+            display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;
+          }
+          .sl-alt-btn {
+            padding: 0.45rem 1rem; border-radius: 999px;
+            border: 1px solid rgba(255,45,120,0.28);
+            background: rgba(255,45,120,0.07);
+            color: rgba(255,255,255,0.7); font-size: 0.78rem; font-weight: 700;
+            text-decoration: none; transition: all 0.2s;
+          }
+          .sl-alt-btn:hover { background: rgba(255,45,120,0.16); color: #fff; }
+          .sl-close-btn {
+            position: absolute; top: 0.85rem; right: 0.9rem;
+            background: none; border: none; color: rgba(255,255,255,0.3);
+            cursor: pointer; font-size: 0.85rem; line-height: 1; padding: 0.25rem;
+          }
+          .sl-close-btn:hover { color: rgba(255,255,255,0.65); }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+// ─── BoostModal ───────────────────────────────────────────────────────────────
+function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost, onClose }) {
+  const hasCoins = coins !== null && coins >= boostPrice;
+  const timeLeftLabel = boostUntil ? (() => {
+    const ms = new Date(boostUntil) - Date.now();
+    if (ms <= 0) return null;
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return `${h}h ${m}m`;
+  })() : null;
+
+  return (
+    <div className="bm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bm-modal">
+        <div className="bm-glow" aria-hidden="true" />
+        <div className="bm-icon">🚀</div>
+        <h3 className="bm-title">Boost Crush</h3>
+        <p className="bm-desc">
+          Aparece primero en la lista de perfiles · Más visibilidad · Más matches en 24h
+        </p>
+
+        {isBoosted && timeLeftLabel ? (
+          <div className="bm-active">
+            <span className="bm-active-icon">✅</span>
+            <span>Boost activo — queda {timeLeftLabel}</span>
+          </div>
+        ) : (
+          <>
+            <div className="bm-price-row">
+              <span className="bm-price-label">Costo</span>
+              <span className="bm-price-value">🪙 {boostPrice} monedas</span>
+            </div>
+            {coins !== null && (
+              <div className="bm-balance-row">
+                <span className="bm-balance-label">Tu saldo</span>
+                <span className={`bm-balance-value${!hasCoins ? " bm-low" : ""}`}>
+                  🪙 {coins} monedas
+                </span>
+              </div>
+            )}
+            {!hasCoins && (
+              <div className="bm-insufficient">
+                <span>⚠️ Saldo insuficiente</span>
+                <Link href="/coins" className="bm-buy-link" onClick={onClose}>Comprar monedas →</Link>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="bm-actions">
+          <button className="bm-btn bm-btn-cancel" onClick={onClose} disabled={loading}>Cancelar</button>
+          {!isBoosted && (
+            <button
+              className="bm-btn bm-btn-confirm"
+              onClick={onBoost}
+              disabled={loading || !hasCoins}
+            >
+              {loading ? "Activando…" : `🚀 Boost · 🪙${boostPrice}`}
+            </button>
+          )}
+        </div>
+
+        <style jsx>{`
+          .bm-overlay {
+            position: fixed; inset: 0; z-index: 3000;
+            background: rgba(4,0,14,0.85); backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+          }
+          .bm-modal {
+            position: relative;
+            background: linear-gradient(155deg, #130525 0%, #0b0219 100%);
+            border: 1px solid rgba(224,64,251,0.4); border-radius: 22px;
+            padding: 2rem 1.75rem 1.5rem; max-width: 360px; width: 100%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(224,64,251,0.18), 0 0 120px rgba(255,45,120,0.08);
+            animation: bm-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+            overflow: hidden;
+          }
+          @keyframes bm-pop {
+            from { transform: scale(0.75); opacity: 0; }
+            to   { transform: scale(1); opacity: 1; }
+          }
+          .bm-glow {
+            position: absolute; top: -40%; left: 50%; transform: translateX(-50%);
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(224,64,251,0.18) 0%, transparent 70%);
+            pointer-events: none;
+          }
+          .bm-icon { font-size: 2.8rem; margin-bottom: 0.5rem; animation: bm-pulse 1.8s ease-in-out infinite; }
+          @keyframes bm-pulse {
+            0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(224,64,251,0.5)); }
+            50% { transform: scale(1.15); filter: drop-shadow(0 0 18px rgba(224,64,251,0.9)); }
+          }
+          .bm-title { font-size: 1.35rem; font-weight: 900; color: #e040fb; margin: 0 0 0.5rem; }
+          .bm-desc { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin: 0 0 1.25rem; line-height: 1.5; }
+          .bm-active {
+            display: flex; align-items: center; gap: 0.5rem; justify-content: center;
+            padding: 0.75rem; border-radius: 12px;
+            background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.3);
+            color: #34d399; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem;
+          }
+          .bm-price-row, .bm-balance-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.5rem 0.75rem; border-radius: 10px; margin-bottom: 0.4rem;
+          }
+          .bm-price-row { background: rgba(224,64,251,0.07); border: 1px solid rgba(224,64,251,0.2); }
+          .bm-balance-row { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); }
+          .bm-price-label, .bm-balance-label { font-size: 0.75rem; color: rgba(255,255,255,0.45); font-weight: 600; }
+          .bm-price-value { font-size: 0.9rem; font-weight: 800; color: #e040fb; }
+          .bm-balance-value { font-size: 0.85rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+          .bm-low { color: #f87171 !important; }
+          .bm-insufficient {
+            display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+            padding: 0.6rem 0.75rem; border-radius: 10px; margin: 0.5rem 0;
+            background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.25);
+            font-size: 0.78rem; color: #f87171;
+          }
+          .bm-buy-link { color: #fbbf24; text-decoration: none; font-weight: 700; margin-left: auto; }
+          .bm-buy-link:hover { text-decoration: underline; }
+          .bm-actions { display: flex; gap: 0.6rem; margin-top: 1.25rem; }
+          .bm-btn {
+            flex: 1; padding: 0.75rem 0.5rem; border-radius: 12px;
+            font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid; transition: all 0.2s;
+          }
+          .bm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .bm-btn-cancel {
+            background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);
+          }
+          .bm-btn-cancel:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
+          .bm-btn-confirm {
+            background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(255,45,120,0.2));
+            border-color: rgba(224,64,251,0.6); color: #e040fb;
+            box-shadow: 0 0 18px rgba(224,64,251,0.25);
+          }
+          .bm-btn-confirm:hover:not(:disabled) {
+            background: linear-gradient(135deg, rgba(224,64,251,0.35), rgba(255,45,120,0.35));
+            box-shadow: 0 0 32px rgba(224,64,251,0.45);
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
@@ -684,14 +1028,28 @@ export default function CrushPage() {
   const [actionFeedback, setActionFeedback] = useState(null); // "like" | "pass" | "super"
   const [matchData, setMatchData] = useState(null); // { user, isSuperCrush }
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
+  const [extraSwipesPrice, setExtraSwipesPrice] = useState(5);
+  const [boostPrice, setBoostPrice] = useState(100);
   const [coins, setCoins] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [superCrushConfirm, setSuperCrushConfirm] = useState(false);
   const [crushActivity, setCrushActivity] = useState(null); // { type: "crush"|"super", username }
+  const [swipeLimitModal, setSwipeLimitModal] = useState(false);
+  const [boostModal, setBoostModal] = useState(false);
+  const [isBoosted, setIsBoosted] = useState(false);
+  const [boostUntil, setBoostUntil] = useState(null);
+  const [boostLoading, setBoostLoading] = useState(false);
+  const [swipeUnlockLoading, setSwipeUnlockLoading] = useState(false);
+  const [remainingSwipes, setRemainingSwipes] = useState(DAILY_FREE_SWIPES);
 
   const currentUser = users[currentIndex] || null;
   const nextUser = users[currentIndex + 1] || null;
+
+  // Sync remaining swipes from localStorage on mount
+  useEffect(() => {
+    setRemainingSwipes(getRemainingSwipes());
+  }, []);
 
   const fetchUsers = useCallback(async (pageNum = 1) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -722,17 +1080,25 @@ export default function CrushPage() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     try {
-      const [cfgRes, meRes] = await Promise.all([
+      const [cfgRes, meRes, boostRes] = await Promise.all([
         fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/matches/boost-status`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
         setSuperCrushPrice(cfg.superCrushPrice ?? 50);
+        setExtraSwipesPrice(cfg.extraSwipesPrice ?? 5);
+        setBoostPrice(cfg.boostPrice ?? 100);
       }
       if (meRes.ok) {
         const me = await meRes.json();
         setCoins(me.coins ?? 0);
+      }
+      if (boostRes.ok) {
+        const boost = await boostRes.json();
+        setIsBoosted(boost.isBoosted ?? false);
+        setBoostUntil(boost.boostUntil ?? null);
       }
     } catch { /* ignore */ }
   }, []);
@@ -796,8 +1162,21 @@ export default function CrushPage() {
     setCurrentIndex((prev) => prev + 1);
   }, []);
 
+  // Track a swipe; returns false if limit hit (shows modal instead)
+  const trackSwipe = useCallback(() => {
+    const state = incrementSwipeCount();
+    const remaining = Math.max(0, DAILY_FREE_SWIPES + (state.extra || 0) - state.count);
+    setRemainingSwipes(remaining);
+    if (remaining <= 0) {
+      setSwipeLimitModal(true);
+      return false;
+    }
+    return true;
+  }, []);
+
   const handlePass = useCallback(async (userId) => {
     if (actionLoading) return;
+    if (!trackSwipe()) return;
     showFeedback("pass");
     const token = localStorage.getItem("token");
     if (token) {
@@ -807,10 +1186,11 @@ export default function CrushPage() {
       }).catch(() => {});
     }
     advance();
-  }, [actionLoading, advance]);
+  }, [actionLoading, advance, trackSwipe]);
 
   const handleLike = useCallback(async (userId) => {
     if (actionLoading) return;
+    if (!trackSwipe()) return;
     const token = localStorage.getItem("token");
     if (!token) { router.push("/login"); return; }
     setActionLoading(true);
@@ -831,7 +1211,7 @@ export default function CrushPage() {
       setActionLoading(false);
       advance();
     }
-  }, [actionLoading, advance, users, router]);
+  }, [actionLoading, advance, users, router, trackSwipe]);
 
   const requestSuperCrush = useCallback(() => {
     if (actionLoading || !currentUser) return;
@@ -871,6 +1251,68 @@ export default function CrushPage() {
     }
   }, [actionLoading, advance, coins, superCrushPrice, users, router, currentUser]);
 
+  const handleBoost = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) { router.push("/login"); return; }
+    setBoostLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/matches/boost`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCoins((c) => (c !== null ? c - boostPrice : c));
+        setIsBoosted(true);
+        setBoostUntil(data.boostUntil);
+      } else {
+        setError(data.message || "No se pudo activar el Boost");
+        setTimeout(() => setError(""), 5000);
+      }
+    } catch {
+      setError("Error de conexión");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setBoostLoading(false);
+    }
+  }, [boostPrice, router]);
+
+  const handleUnlockSwipes = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) { router.push("/login"); return; }
+    setSwipeUnlockLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/matches/unlock-swipes`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCoins((c) => (c !== null ? c - extraSwipesPrice : c));
+        const newState = addExtraSwipes(data.unlockedSwipes ?? EXTRA_SWIPES_BATCH);
+        const remaining = Math.max(0, DAILY_FREE_SWIPES + (newState.extra || 0) - newState.count);
+        setRemainingSwipes(remaining);
+        setSwipeLimitModal(false);
+      } else {
+        setError(data.message || "No se pudo desbloquear swipes");
+        setTimeout(() => setError(""), 5000);
+      }
+    } catch {
+      setError("Error de conexión");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setSwipeUnlockLoading(false);
+    }
+  }, [extraSwipesPrice, router]);
+
+  const handleExploreMore = useCallback(() => {
+    setUsers([]);
+    setCurrentIndex(0);
+    setPage(1);
+    setHasMore(true);
+    fetchUsers(1);
+  }, [fetchUsers]);
+
   const isDone = !loading && currentIndex >= users.length;
   const canSuperCrush = coins === null || coins >= superCrushPrice;
 
@@ -895,6 +1337,16 @@ export default function CrushPage() {
               <span className="coin-value">{coins}</span>
             </div>
           )}
+          <div className="swipe-counter" title={`${remainingSwipes} swipes restantes hoy`}>
+            🔥 {remainingSwipes}
+          </div>
+          <button
+            className={`boost-btn${isBoosted ? " boost-btn-active" : ""}`}
+            onClick={() => setBoostModal(true)}
+            title={isBoosted ? "Boost activo" : "Activar Boost Crush"}
+          >
+            🚀 {isBoosted ? "Boosted" : "Boost"}
+          </button>
           <Link href="/matches" className="matches-link-btn">
             💗 Matches
           </Link>
@@ -920,26 +1372,26 @@ export default function CrushPage() {
         ) : isDone ? (
           <div className="done-state">
             <div className="done-glow" aria-hidden="true" />
-            <div className="done-icon">🔥</div>
-            <h3>No hay más perfiles por ahora</h3>
-            <p>Sigue descubriendo o desbloquea más conexiones</p>
+            <div className="done-icon">💖</div>
+            <h3>¡Te estás acercando a tu match perfecto!</h3>
+            <p>🔥 Desbloquea más perfiles o conecta en vivo</p>
 
-            <Link href="/coins" className="done-btn-primary">
-              ✨ Desbloquear más perfiles
-            </Link>
+            <button className="done-btn-primary" onClick={handleExploreMore}>
+              🔥 Seguir explorando
+            </button>
 
             <div className="done-actions-secondary">
+              <Link href="/live" className="done-btn-secondary">🎥 Ver directos</Link>
               <Link href="/matches" className="done-btn-secondary">💖 Ver mis matches</Link>
-              <Link href="/live" className="done-btn-secondary">🔴 Ver directos en vivo</Link>
             </div>
 
             <div className="done-promo-card">
               <div className="done-promo-icon">🚀</div>
               <div className="done-promo-body">
-                <p className="done-promo-title">Consigue más matches con Super Crush</p>
-                <p className="done-promo-desc">Mayor visibilidad · Más conexiones · Destácate entre todos</p>
+                <p className="done-promo-title">Boost Crush — más visibilidad</p>
+                <p className="done-promo-desc">Aparece primero · Más matches · 24h de boost activo</p>
               </div>
-              <Link href="/coins" className="done-promo-cta">Usar Super Crush</Link>
+              <button className="done-promo-cta" onClick={() => setBoostModal(true)}>Boost</button>
             </div>
           </div>
         ) : (
@@ -1040,6 +1492,29 @@ export default function CrushPage() {
         />
       )}
 
+      {swipeLimitModal && (
+        <SwipeLimitModal
+          coins={coins}
+          extraSwipesPrice={extraSwipesPrice}
+          extraSwipesBatch={EXTRA_SWIPES_BATCH}
+          loading={swipeUnlockLoading}
+          onUnlock={handleUnlockSwipes}
+          onClose={() => setSwipeLimitModal(false)}
+        />
+      )}
+
+      {boostModal && (
+        <BoostModal
+          coins={coins}
+          boostPrice={boostPrice}
+          isBoosted={isBoosted}
+          boostUntil={boostUntil}
+          loading={boostLoading}
+          onBoost={handleBoost}
+          onClose={() => setBoostModal(false)}
+        />
+      )}
+
       <style jsx>{`
         .crush-page {
           display: flex;
@@ -1130,6 +1605,49 @@ export default function CrushPage() {
         .matches-link-btn:hover {
           background: rgba(255,45,120,0.14);
           box-shadow: 0 0 16px rgba(255,45,120,0.22);
+        }
+
+        .swipe-counter {
+          display: flex;
+          align-items: center;
+          padding: 0.38rem 0.75rem;
+          border-radius: 999px;
+          background: rgba(255,100,0,0.07);
+          border: 1px solid rgba(255,100,0,0.22);
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #fb923c;
+          backdrop-filter: blur(6px);
+        }
+
+        .boost-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.38rem 0.9rem;
+          border-radius: 999px;
+          border: 1px solid rgba(224,64,251,0.35);
+          background: rgba(224,64,251,0.07);
+          color: #e040fb;
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+          backdrop-filter: blur(6px);
+        }
+        .boost-btn:hover {
+          background: rgba(224,64,251,0.16);
+          box-shadow: 0 0 16px rgba(224,64,251,0.3);
+        }
+        .boost-btn-active {
+          border-color: rgba(52,211,153,0.5);
+          background: rgba(52,211,153,0.08);
+          color: #34d399;
+          box-shadow: 0 0 12px rgba(52,211,153,0.2);
+        }
+        .boost-btn-active:hover {
+          background: rgba(52,211,153,0.14);
+          box-shadow: 0 0 20px rgba(52,211,153,0.35);
         }
 
         .banner-error {
@@ -1377,27 +1895,6 @@ export default function CrushPage() {
           font-size: 0.8rem;
           margin: 0;
         }
-        .done-btn-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0.65rem 1.6rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, #ff2d78, #e040fb);
-          color: #fff;
-          font-size: 0.9rem;
-          font-weight: 800;
-          text-decoration: none;
-          letter-spacing: 0.01em;
-          box-shadow: 0 0 22px rgba(255,45,120,0.55), 0 0 6px rgba(224,64,251,0.35);
-          transition: box-shadow 0.2s, transform 0.15s;
-          margin-top: 0.3rem;
-        }
-        .done-btn-primary:hover {
-          box-shadow: 0 0 34px rgba(255,45,120,0.75), 0 0 12px rgba(224,64,251,0.5);
-          transform: translateY(-1px);
-        }
         .done-actions-secondary {
           display: flex;
           gap: 0.55rem;
@@ -1464,9 +1961,34 @@ export default function CrushPage() {
           white-space: nowrap;
           box-shadow: 0 0 12px rgba(224,64,251,0.4);
           transition: box-shadow 0.2s, transform 0.15s;
+          border: none;
+          cursor: pointer;
         }
         .done-promo-cta:hover {
           box-shadow: 0 0 20px rgba(224,64,251,0.65);
+          transform: translateY(-1px);
+        }
+        .done-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.65rem 1.6rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #ff2d78, #e040fb);
+          color: #fff;
+          font-size: 0.9rem;
+          font-weight: 800;
+          text-decoration: none;
+          letter-spacing: 0.01em;
+          box-shadow: 0 0 22px rgba(255,45,120,0.55), 0 0 6px rgba(224,64,251,0.35);
+          transition: box-shadow 0.2s, transform 0.15s;
+          margin-top: 0.3rem;
+          border: none;
+          cursor: pointer;
+        }
+        .done-btn-primary:hover {
+          box-shadow: 0 0 34px rgba(255,45,120,0.75), 0 0 12px rgba(224,64,251,0.5);
           transform: translateY(-1px);
         }
 

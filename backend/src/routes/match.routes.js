@@ -9,6 +9,9 @@ const {
   superCrushUser,
   getCrushStats,
   getCrushConfig,
+  boostCrush,
+  unlockSwipes,
+  getBoostStatus,
 } = require("../controllers/match.controller.js");
 
 const router = Router();
@@ -33,5 +36,8 @@ router.get("/",                      matchLimiter,      verifyToken, getMatches)
 router.get("/config",                matchLimiter,      verifyToken, getCrushConfig);
 router.get("/stats",                 matchLimiter,      verifyToken, getCrushStats);
 router.get("/check/:userId",         matchLimiter,      verifyToken, checkMatch);
+router.post("/boost",                matchLimiter,      verifyToken, boostCrush);
+router.post("/unlock-swipes",        matchLimiter,      verifyToken, unlockSwipes);
+router.get("/boost-status",          matchLimiter,      verifyToken, getBoostStatus);
 
 module.exports = router;

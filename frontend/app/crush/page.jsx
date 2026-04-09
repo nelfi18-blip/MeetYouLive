@@ -16,7 +16,8 @@ const EXTRA_SWIPES_BATCH = 10;
 
 // ─── localStorage swipe limit helpers ────────────────────────────────────────
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function getSwipeState() {
   if (typeof window === "undefined") return { date: getTodayKey(), count: 0, extra: 0 };
@@ -363,7 +364,8 @@ function SwipeLimitModal({ coins, extraSwipesPrice, extraSwipesBatch, loading, o
   const msUntilMidnight = () => {
     const now = new Date();
     const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
     return midnight - now;
   };
   const [timeLeft, setTimeLeft] = useState(() => {

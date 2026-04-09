@@ -9,6 +9,11 @@ const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
+const DAILY_FREE_SWIPES = 20; // free swipes per day
+const EXTRA_SWIPES_PRICE = 5; // coins to unlock extra swipes batch
+const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
+const BOOST_PRICE = 100; // coins to boost crush profile
+const BOOST_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -343,5 +348,117 @@ exports.getCrushStats = async (req, res) => {
 
 // ─── Expose crush config (price) to the frontend ─────────────────────────────
 exports.getCrushConfig = async (_req, res) => {
-  res.json({ superCrushPrice: SUPER_CRUSH_PRICE });
+  res.json({
+    superCrushPrice: SUPER_CRUSH_PRICE,
+    dailyFreeSwipes: DAILY_FREE_SWIPES,
+    extraSwipesPrice: EXTRA_SWIPES_PRICE,
+    extraSwipesBatch: EXTRA_SWIPES_BATCH,
+    boostPrice: BOOST_PRICE,
+    boostDurationHours: BOOST_DURATION_MS / (60 * 60 * 1000),
+  });
+};
+
+// ─── Boost Crush (increase visibility for 24h) ───────────────────────────────
+exports.boostCrush = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    let boostUntil;
+
+    await session.withTransaction(async () => {
+      const user = await User.findById(req.userId).session(session);
+      if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+      if (user.coins < BOOST_PRICE) {
+        throw Object.assign(
+          new Error(`Necesitas al menos ${BOOST_PRICE} monedas para activar el Boost Crush`),
+          { status: 400 }
+        );
+      }
+
+      boostUntil = new Date(Date.now() + BOOST_DURATION_MS);
+
+      await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { coins: -BOOST_PRICE }, $set: { crushBoostUntil: boostUntil } },
+        { session }
+      );
+
+      await CoinTransaction.create(
+        [
+          {
+            userId: req.userId,
+            amount: -BOOST_PRICE,
+            type: "boost_crush",
+            reason: "Boost Crush activado (24h)",
+          },
+        ],
+        { session }
+      );
+    });
+
+    res.json({ ok: true, boostUntil, boostPrice: BOOST_PRICE });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    await session.endSession();
+  }
+};
+
+// ─── Unlock extra swipes with coins ──────────────────────────────────────────
+exports.unlockSwipes = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findById(req.userId).session(session);
+      if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+      if (user.coins < EXTRA_SWIPES_PRICE) {
+        throw Object.assign(
+          new Error(`Necesitas al menos ${EXTRA_SWIPES_PRICE} monedas para desbloquear más swipes`),
+          { status: 400 }
+        );
+      }
+
+      await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { coins: -EXTRA_SWIPES_PRICE } },
+        { session }
+      );
+
+      await CoinTransaction.create(
+        [
+          {
+            userId: req.userId,
+            amount: -EXTRA_SWIPES_PRICE,
+            type: "swipe_unlock",
+            reason: `Desbloqueados ${EXTRA_SWIPES_BATCH} swipes extra`,
+          },
+        ],
+        { session }
+      );
+    });
+
+    res.json({ ok: true, unlockedSwipes: EXTRA_SWIPES_BATCH, price: EXTRA_SWIPES_PRICE });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    await session.endSession();
+  }
+};
+
+// ─── Get boost status for the current user ───────────────────────────────────
+exports.getBoostStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("crushBoostUntil coins");
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const isBoosted = user.crushBoostUntil && user.crushBoostUntil > new Date();
+    res.json({
+      isBoosted: !!isBoosted,
+      boostUntil: isBoosted ? user.crushBoostUntil : null,
+      coins: user.coins,
+      boostPrice: BOOST_PRICE,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

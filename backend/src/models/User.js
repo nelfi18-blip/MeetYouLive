@@ -92,6 +92,7 @@ const userSchema = new mongoose.Schema(
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
     preferredLanguage: { type: String, enum: ["es", "en", "pt"], default: "es" },
+    crushBoostUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

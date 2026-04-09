@@ -190,11 +190,30 @@ export default function CreatorRequestPage() {
           <CreatorIcon />
         </div>
 
-        <h1 className="title">Conviértete en Creador</h1>
+        <h1 className="title">💰 Gana dinero en MeetYouLive</h1>
         <p className="sub">
-          Como creador tendrás acceso a transmisiones en vivo, regalos, sesiones
-          privadas de pago, contenido exclusivo y un panel de ganancias.
+          Únete a nuestra comunidad de creadores y empieza a generar ingresos reales.
+          Solicita acceso ahora y desbloquea todas las herramientas de monetización.
         </p>
+
+        <div className="features-grid">
+          <div className="feature-item">
+            <span className="feature-icon">🎥</span>
+            <span className="feature-label">Transmite en vivo</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">💖</span>
+            <span className="feature-label">Recibe regalos</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">💬</span>
+            <span className="feature-label">Chats privados pagados</span>
+          </div>
+          <div className="feature-item">
+            <span className="feature-icon">🔥</span>
+            <span className="feature-label">Llamadas 1 a 1</span>
+          </div>
+        </div>
 
         {isPending || success ? (
           <div className="status-box status-pending">
@@ -350,7 +369,7 @@ export default function CreatorRequestPage() {
               type="submit"
               disabled={submitting}
             >
-              {submitting ? "Enviando…" : "Solicitar ser creador"}
+              {submitting ? "Enviando…" : "Aplicar ahora"}
             </button>
           </form>
         )}
@@ -401,6 +420,34 @@ export default function CreatorRequestPage() {
           line-height: 1.6;
           max-width: 480px;
         }
+
+        .features-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.75rem;
+          width: 100%;
+        }
+
+        .feature-item {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          padding: 0.75rem 1rem;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(139,92,246,0.18);
+          border-radius: var(--radius-sm);
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text);
+        }
+
+        .feature-icon {
+          font-size: 1.25rem;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+
+        .feature-label { line-height: 1.3; }
 
         .form {
           width: 100%;
@@ -586,6 +633,7 @@ export default function CreatorRequestPage() {
         @media (max-width: 480px) {
           .card { padding: 1.75rem 1.25rem; }
           .title { font-size: 1.35rem; }
+          .features-grid { grid-template-columns: 1fr; }
           .social-row { flex-direction: column; align-items: flex-start; }
           .social-label { width: auto; }
         }

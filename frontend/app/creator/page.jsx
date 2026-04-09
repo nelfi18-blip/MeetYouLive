@@ -701,10 +701,29 @@ export default function CreatorPage() {
 
       {/* ── 7. PRIVATE CALL SETTINGS ───────────────────── */}
       <div className="panel panel-calls" id="call-settings">
-        <h2 className="section-title">📞 Llamadas privadas</h2>
+        <div className="panel-header">
+          <h2 className="section-title" style={{ margin: 0 }}>📞 Llamadas privadas</h2>
+        </div>
         <p className="settings-desc">
           Permite que tus fans te llamen en privado. Recibirás el <strong>60%</strong> de cada minuto.
         </p>
+
+        {(stats?.totalCalls > 0) && (
+          <div className="call-stats-grid">
+            <div className="call-stat-item">
+              <div className="call-stat-value">{stats.totalCalls ?? 0}</div>
+              <div className="call-stat-label">Llamadas</div>
+            </div>
+            <div className="call-stat-item">
+              <div className="call-stat-value">{Math.round((stats.totalCallDurationSeconds ?? 0) / 60)} min</div>
+              <div className="call-stat-label">Duración total</div>
+            </div>
+            <div className="call-stat-item">
+              <div className="call-stat-value" style={{ color: "#34d399" }}>🪙 {stats.totalCallEarnings ?? 0}</div>
+              <div className="call-stat-label">Ganado en llamadas</div>
+            </div>
+          </div>
+        )}
 
         <div className="settings-row">
           <div className="settings-toggle-group">
@@ -1370,6 +1389,27 @@ export default function CreatorPage() {
 
         /* ── Calls panel ───────────────────────────────── */
         .panel-calls { border-color: rgba(99,102,241,0.2); }
+
+        .call-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.75rem;
+        }
+
+        .call-stat-item {
+          display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+          padding: 0.875rem 0.5rem;
+          background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18);
+          border-radius: var(--radius-sm); text-align: center;
+        }
+
+        .call-stat-value {
+          font-size: 1.15rem; font-weight: 800; color: var(--text);
+        }
+
+        .call-stat-label {
+          font-size: 0.72rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em;
+        }
 
         /* ── Toggle ────────────────────────────────────── */
         .toggle-btn {

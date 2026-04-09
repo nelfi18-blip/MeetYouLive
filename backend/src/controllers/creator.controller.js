@@ -44,7 +44,7 @@ exports.getCreatorStats = async (req, res) => {
           $group: {
             _id: null,
             totalCalls: { $sum: 1 },
-            totalDurationSeconds: { $sum: "$totalDurationSeconds" },
+            totalCallDurationSeconds: { $sum: "$totalDurationSeconds" },
             totalCallEarnings: { $sum: "$creatorShare" },
           },
         },
@@ -67,7 +67,7 @@ exports.getCreatorStats = async (req, res) => {
 
     const callTotals = callAgg[0] || {
       totalCalls: 0,
-      totalDurationSeconds: 0,
+      totalCallDurationSeconds: 0,
       totalCallEarnings: 0,
     };
 
@@ -81,7 +81,7 @@ exports.getCreatorStats = async (req, res) => {
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
       totalCalls: callTotals.totalCalls || 0,
-      totalCallDurationSeconds: callTotals.totalDurationSeconds || 0,
+      totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
       totalCallEarnings: callTotals.totalCallEarnings || 0,
       pendingPayout: pendingPayout
         ? {
@@ -262,7 +262,7 @@ exports.getCreatorDashboard = async (req, res) => {
           $group: {
             _id: null,
             totalCalls: { $sum: 1 },
-            totalDurationSeconds: { $sum: "$totalDurationSeconds" },
+            totalCallDurationSeconds: { $sum: "$totalDurationSeconds" },
             totalCallEarnings: { $sum: "$creatorShare" },
           },
         },
@@ -284,7 +284,7 @@ exports.getCreatorDashboard = async (req, res) => {
 
     const callTotals = callAgg[0] || {
       totalCalls: 0,
-      totalDurationSeconds: 0,
+      totalCallDurationSeconds: 0,
       totalCallEarnings: 0,
     };
 
@@ -298,7 +298,7 @@ exports.getCreatorDashboard = async (req, res) => {
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
       totalCalls: callTotals.totalCalls || 0,
-      totalCallDurationSeconds: callTotals.totalDurationSeconds || 0,
+      totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
       totalCallEarnings: callTotals.totalCallEarnings || 0,
       pendingPayout: pendingPayout
         ? {

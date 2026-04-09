@@ -47,7 +47,7 @@ export default function GiftEffect({ gift, senderName }) {
           border: style.border,
           boxShadow: style.glow,
           animationDuration: style.duration,
-          transform: `scale(${style.scale})`,
+          transform: `translateX(-50%) scale(${style.scale})`,
         }}
       >
         <div className="gift-icon">{gift.icon || "🎁"}</div>
@@ -64,7 +64,6 @@ export default function GiftEffect({ gift, senderName }) {
           position: absolute;
           left: 50%;
           top: 18%;
-          transform: translateX(-50%);
           z-index: 4;
           display: flex;
           align-items: center;
@@ -78,22 +77,29 @@ export default function GiftEffect({ gift, senderName }) {
 
         .gift-icon {
           font-size: 1.75rem;
+          line-height: 1;
+          flex-shrink: 0;
         }
 
         .gift-copy {
           display: flex;
           flex-direction: column;
+          min-width: 0;
         }
 
         .gift-title {
           font-size: 0.95rem;
           font-weight: 800;
           color: #fff;
+          line-height: 1.1;
         }
 
         .gift-subtitle {
           font-size: 0.72rem;
           color: rgba(255,255,255,0.8);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         @keyframes gift-pop {
@@ -107,10 +113,26 @@ export default function GiftEffect({ gift, senderName }) {
           }
           85% {
             opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
           }
           100% {
             opacity: 0;
-            transform: translateX(-50%) translateY(-10px);
+            transform: translateX(-50%) translateY(-10px) scale(0.98);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .gift-effect {
+            top: 12%;
+            padding: 0.75rem 0.85rem;
+          }
+
+          .gift-icon {
+            font-size: 1.45rem;
+          }
+
+          .gift-title {
+            font-size: 0.88rem;
           }
         }
       `}</style>

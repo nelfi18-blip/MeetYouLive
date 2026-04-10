@@ -5,6 +5,7 @@ const { verifyToken } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
+const { calculateCompatibility } = require("../services/compatibility.service.js");
 
 const router = Router();
 
@@ -202,12 +203,9 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       obj.liveId = liveId;
 
       // Compatibility score
-      const theirInterests = obj.interests || [];
-      const sharedInterests = myInterests.filter((i) => theirInterests.includes(i));
-      const totalInterests = new Set([...myInterests, ...theirInterests]).size;
-      const interestScore = totalInterests > 0 ? (sharedInterests.length / totalInterests) * 80 : 0;
-      const intentBonus = myIntent && obj.intent && myIntent === obj.intent ? 20 : 0;
-      const compatibilityScore = Math.round(Math.min(100, interestScore + intentBonus));
+      const { compatibilityScore, sharedInterests } = calculateCompatibility(
+        myInterests, myIntent, obj.interests, obj.intent
+      );
 
       obj.sharedInterests = sharedInterests;
       obj.compatibilityScore = compatibilityScore;

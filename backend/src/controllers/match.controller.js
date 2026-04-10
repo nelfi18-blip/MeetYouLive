@@ -6,6 +6,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const CrushTransaction = require("../models/CrushTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
+const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
@@ -302,12 +303,9 @@ exports.getMatches = async (req, res) => {
 
     const matches = mutualLikes.map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
-      const theirInterests = user.interests || [];
-      const sharedInterests = myInterests.filter((i) => theirInterests.includes(i));
-      const totalInterests = new Set([...myInterests, ...theirInterests]).size;
-      const interestScore = totalInterests > 0 ? (sharedInterests.length / totalInterests) * 80 : 0;
-      const intentBonus = myIntent && user.intent && myIntent === user.intent ? 20 : 0;
-      const compatibilityScore = Math.round(Math.min(100, interestScore + intentBonus));
+      const { compatibilityScore, sharedInterests } = calculateCompatibility(
+        myInterests, myIntent, user.interests, user.intent
+      );
       return { ...user, sharedInterests, compatibilityScore };
     });
 

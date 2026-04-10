@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
+const Gift = require("../models/Gift.js");
 const { getIO } = require("../lib/socket.js");
 
 const startLive = async (req, res) => {
@@ -77,7 +78,27 @@ const endLive = async (req, res) => {
 
 const getLives = async (req, res) => {
   try {
-    const lives = await Live.find({ isLive: true }).populate("user", "username name").select("-streamKey -paidViewers");
+    const lives = await Live.find({ isLive: true })
+      .populate("user", "username name avatar")
+      .select("-streamKey -paidViewers")
+      .lean();
+
+    if (lives.length > 0) {
+      const liveIds = lives.map((l) => l._id);
+      const giftTotals = await Gift.aggregate([
+        { $match: { live: { $in: liveIds } } },
+        { $group: { _id: "$live", giftsTotal: { $sum: "$coinCost" }, giftsCount: { $sum: 1 } } },
+      ]);
+      const giftMap = {};
+      for (const g of giftTotals) giftMap[String(g._id)] = g;
+
+      for (const live of lives) {
+        const stats = giftMap[String(live._id)];
+        live.giftsTotal = stats?.giftsTotal ?? 0;
+        live.giftsCount = stats?.giftsCount ?? 0;
+      }
+    }
+
     res.json(lives);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -95,7 +116,7 @@ const hasLiveAccess = (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name creatorProfile");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
     const access = hasLiveAccess(live, req.userId);

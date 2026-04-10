@@ -7,11 +7,11 @@ import Badge from "./Badge";
  * Reusable LiveCard component for live-stream listings.
  *
  * Props:
- *  - live: { _id, title, description, viewerCount, isPrivate, entryCost,
- *            user: { username, avatar }, category }
+ *  - live: { _id, title, description, viewerCount, giftsTotal, giftsCount,
+ *            isPrivate, entryCost, user: { username, avatar }, category }
  */
 export default function LiveCard({ live }) {
-  const username = live.user?.username || "anónimo";
+  const username = live.user?.username || live.user?.name || "anónimo";
   const initial = username[0].toUpperCase();
 
   return (
@@ -32,15 +32,22 @@ export default function LiveCard({ live }) {
             <span className="live-private-badge">🔒 PRIVADO</span>
           )}
 
-          {live.viewerCount != null && (
-            <span className="live-viewer-count">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              {live.viewerCount}
-            </span>
-          )}
+          <div className="live-thumb-stats">
+            {live.viewerCount != null && (
+              <span className="live-stat-chip">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                {live.viewerCount}
+              </span>
+            )}
+            {live.giftsTotal > 0 && (
+              <span className="live-stat-chip live-stat-gifts">
+                🎁 {live.giftsTotal}
+              </span>
+            )}
+          </div>
 
           <div className="live-thumb-play">▶</div>
         </div>
@@ -54,6 +61,7 @@ export default function LiveCard({ live }) {
               ) : (
                 initial
               )}
+              <span className="live-avatar-dot" />
             </div>
             <span className="live-username">@{username}</span>
             {live.isPrivate && live.entryCost != null && (
@@ -64,6 +72,9 @@ export default function LiveCard({ live }) {
           {live.description && (
             <div className="live-desc">{live.description}</div>
           )}
+          <div className="live-join-row">
+            <span className="live-join-btn">🎥 Entrar</span>
+          </div>
         </div>
       </Link>
 
@@ -153,10 +164,17 @@ export default function LiveCard({ live }) {
           border: 1px solid rgba(139,92,246,0.5);
         }
 
-        .live-viewer-count {
+        .live-thumb-stats {
           position: absolute;
           bottom: 0.65rem;
           right: 0.65rem;
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          z-index: 2;
+        }
+
+        .live-stat-chip {
           display: flex;
           align-items: center;
           gap: 0.3rem;
@@ -166,9 +184,13 @@ export default function LiveCard({ live }) {
           font-weight: 600;
           padding: 0.22rem 0.6rem;
           border-radius: 999px;
-          z-index: 2;
           backdrop-filter: blur(8px);
           border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .live-stat-gifts {
+          color: #f9a8d4;
+          border-color: rgba(244,114,182,0.2);
         }
 
         .live-thumb-play {
@@ -182,13 +204,15 @@ export default function LiveCard({ live }) {
         /* Body */
         .live-body {
           padding: 1rem 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
         }
 
         .live-user-row {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          margin-bottom: 0.5rem;
         }
 
         .live-avatar {
@@ -204,6 +228,8 @@ export default function LiveCard({ live }) {
           font-size: 0.75rem;
           flex-shrink: 0;
           overflow: hidden;
+          position: relative;
+          border: 1.5px solid rgba(224,64,251,0.4);
         }
 
         .live-avatar-img {
@@ -211,6 +237,23 @@ export default function LiveCard({ live }) {
           height: 100%;
           object-fit: cover;
           border-radius: 50%;
+        }
+
+        .live-avatar-dot {
+          position: absolute;
+          bottom: 0;
+          right: 0;
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #ef4444;
+          border: 1.5px solid rgba(12,5,25,0.95);
+          animation: liveDotPulse 1.4s infinite;
+        }
+
+        @keyframes liveDotPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.8); }
         }
 
         .live-username {
@@ -240,12 +283,36 @@ export default function LiveCard({ live }) {
         .live-desc {
           color: var(--text-muted);
           font-size: 0.8rem;
-          margin-top: 0.3rem;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
           line-height: 1.4;
+        }
+
+        .live-join-row {
+          margin-top: 0.15rem;
+        }
+
+        .live-join-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
+          border: 1px solid rgba(224,64,251,0.35);
+          color: #e040fb;
+          font-size: 0.75rem;
+          font-weight: 800;
+          padding: 0.3rem 0.85rem;
+          border-radius: 999px;
+          letter-spacing: 0.02em;
+          transition: all 0.18s;
+        }
+
+        .live-card:hover .live-join-btn {
+          background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
+          border-color: rgba(224,64,251,0.6);
+          box-shadow: 0 0 12px rgba(224,64,251,0.25);
         }
       `}</style>
     </>

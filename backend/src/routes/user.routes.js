@@ -382,7 +382,7 @@ router.post("/daily-reward", userLimiter, verifyToken, async (req, res) => {
       reason: "Recompensa diaria",
     });
 
-    res.json({ message: "¡Recompensa reclamada!", coins: user.coins, earned: DAILY_COINS });
+    res.json({ message: "¡Recompensa reclamada!", coins: user.coins, earned: DAILY_COINS, lastDailyReward: user.lastDailyReward });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

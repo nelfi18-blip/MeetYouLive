@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -398,12 +398,12 @@ export default function DashboardPage() {
     setTogglingKey(null);
   }, [creatorDash]);
 
-  const isDailyRewardClaimed = (() => {
+  const isDailyRewardClaimed = useMemo(() => {
     if (!user?.lastDailyReward) return false;
     const now = new Date();
     const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     return new Date(user.lastDailyReward) >= todayUTC;
-  })();
+  }, [user?.lastDailyReward]);
 
   const handleClaimDailyReward = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -417,7 +417,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setUser((prev) => ({ ...prev, coins: data.coins, lastDailyReward: new Date().toISOString() }));
+        setUser((prev) => ({ ...prev, coins: data.coins, lastDailyReward: data.lastDailyReward }));
         setDailyRewardMsg(`+${data.earned} 🪙 monedas reclamadas`);
       } else {
         setDailyRewardMsg(data.message || "No se pudo reclamar");

@@ -309,9 +309,9 @@ export default function ExplorePage() {
               </p>
               {!search && category === "Todos" && (
                 <div className="empty-actions">
-                  <Link href="/explore?tab=discover" className="btn btn-primary empty-action-btn" onClick={() => setTab("discover")}>
+                  <button className="btn btn-primary empty-action-btn" onClick={() => setTab("discover")}>
                     💖 Ver perfiles
-                  </Link>
+                  </button>
                   <Link href="/crush" className="btn empty-action-btn">
                     ⚡ Ir a Crush
                   </Link>
@@ -348,9 +348,9 @@ export default function ExplorePage() {
               <h3>Sin perfiles disponibles</h3>
               <p>Aún no hay usuarios con perfil completo. ¡Sé el primero en completar el tuyo!</p>
               <div className="empty-actions">
-                <Link href="/explore" className="btn btn-primary empty-action-btn" onClick={() => setTab("live")}>
+                <button className="btn btn-primary empty-action-btn" onClick={() => setTab("live")}>
                   🎥 Conecta en vivo
-                </Link>
+                </button>
                 <Link href="/matches" className="btn empty-action-btn">
                   💖 Ver matches
                 </Link>

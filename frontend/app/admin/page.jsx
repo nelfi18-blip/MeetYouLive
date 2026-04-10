@@ -1021,7 +1021,9 @@ function CreatorsTab({ creatorRequests, setCreatorRequests, setUsers, actionLoad
           ? "Error al aprobar la solicitud"
           : action === "reject"
           ? "Error al rechazar la solicitud"
-          : "Error al suspender el creador"
+          : action === "suspend"
+          ? "Error al suspender el creador"
+          : "Error al reactivar el creador"
       );
     } finally {
       setActionLoading(null);
@@ -1120,7 +1122,7 @@ function CreatorsTab({ creatorRequests, setCreatorRequests, setUsers, actionLoad
                         onClick={() => handleAction(u._id, "approve")}
                       />
                     )}
-                    {u.creatorStatus !== "rejected" && u.creatorStatus !== "suspended" && (
+                    {["pending", "approved"].includes(u.creatorStatus) && (
                       <ActionBtn
                         label="✗ Rechazar"
                         color="#f87171"

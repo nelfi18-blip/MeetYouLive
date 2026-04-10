@@ -498,3 +498,29 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 769px) {
   .hide-desktop { display: none !important; }
 }
+
+/* =========================================================
+   Micro-animations — global monetization effects
+   ========================================================= */
+
+/* Pulsing glow for primary CTA buttons */
+@keyframes btn-cta-pulse {
+  0%, 100% { box-shadow: var(--shadow-accent); }
+  50%       { box-shadow: var(--glow-pink), var(--shadow-accent); }
+}
+
+.btn-primary {
+  animation: btn-cta-pulse 3s ease-in-out infinite;
+}
+
+/* Floating animation for icons */
+@keyframes float-icon {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+/* Lock icon breathe */
+@keyframes lock-breathe {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(224,64,251,0.4)); }
+  50%       { filter: drop-shadow(0 0 14px rgba(224,64,251,0.75)); }
+}

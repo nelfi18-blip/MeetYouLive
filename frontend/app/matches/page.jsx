@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 import GiftButton from "@/components/GiftButton";
+import UrgencyBanner from "@/components/UrgencyBanner";
+import PremiumLockCard from "@/components/PremiumLockCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -109,6 +111,9 @@ export default function MatchesPage() {
 
   return (
     <div className="matches-page">
+      {/* Urgency banner */}
+      <UrgencyBanner />
+
       <div className="matches-header">
         <div className="matches-header-icon">
           <HeartIcon />
@@ -134,27 +139,51 @@ export default function MatchesPage() {
       )}
 
       {!loading && matches.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-icon" style={{ color: "var(--accent)" }}>
-            <HeartIcon />
+        <>
+          {/* Locked likes teaser */}
+          <div className="locked-likes-section">
+            <div className="ll-header">
+              <span className="ll-badge">👀 Personas que te dieron like</span>
+              <span className="ll-count-badge">+7 nuevos</span>
+            </div>
+            <div className="ll-blurred-grid">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="ll-blurred-card">
+                  <div className="ll-avatar-blur" />
+                  <div className="ll-name-blur" />
+                </div>
+              ))}
+            </div>
+            <PremiumLockCard
+              label="Descubre quién te dio like"
+              cta="🔥 Ver quién te dio like"
+              href="/coins"
+              compact
+            />
           </div>
-          <h3>Sin matches aún</h3>
-          <p>Explora perfiles y dale like a quienes te llamen la atención. ¡Cuando sea mutuo, aparecerán aquí!</p>
-          <Link href="/crush" className="btn btn-primary">
-            ⚡ Ir al Crush
-          </Link>
-          <div className="empty-upsell">
-            <p className="empty-upsell-label">💎 Desbloquea más con monedas</p>
-            <div className="empty-upsell-actions">
-              <Link href="/coins" className="empty-upsell-btn">
-                🪙 Comprar monedas
-              </Link>
-              <Link href="/matches" className="empty-upsell-btn empty-upsell-btn-ghost">
-                👀 Ver quién te dio like
-              </Link>
+
+          <div className="empty-state">
+            <div className="empty-icon" style={{ color: "var(--accent)" }}>
+              <HeartIcon />
+            </div>
+            <h3>Sin matches aún</h3>
+            <p>Explora perfiles y dale like a quienes te llamen la atención. ¡Cuando sea mutuo, aparecerán aquí!</p>
+            <Link href="/crush" className="btn btn-primary">
+              ⚡ Ir al Crush
+            </Link>
+            <div className="empty-upsell">
+              <p className="empty-upsell-label">💎 Desbloquea más con monedas</p>
+              <div className="empty-upsell-actions">
+                <Link href="/coins" className="empty-upsell-btn">
+                  💎 Desbloquear ahora
+                </Link>
+                <Link href="/explore" className="empty-upsell-btn empty-upsell-btn-ghost">
+                  🔍 Explorar perfiles
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {!loading && matches.length > 0 && (
@@ -218,14 +247,14 @@ export default function MatchesPage() {
                       onClick={() => startPrivateCall(user._id)}
                       title={`Llamada privada · 🪙${pricePerMinute}/min`}
                     >
-                      <CallIcon /> 🪙{pricePerMinute}/min
+                      <CallIcon /> ⚡ Llamar ahora · 🪙{pricePerMinute}/min
                     </button>
                   ) : (
                     <button
                       className="match-action-btn match-call-btn match-call-instant"
                       onClick={() => startPrivateCall(user._id)}
                     >
-                      <CallIcon /> Llamar ahora
+                      <CallIcon /> ⚡ Llamar ahora
                     </button>
                   )}
 
@@ -243,6 +272,81 @@ export default function MatchesPage() {
 
       <style jsx>{`
         .matches-page { display: flex; flex-direction: column; gap: 1.75rem; }
+
+        /* Locked likes teaser */
+        .locked-likes-section {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          padding: 1.25rem;
+          border-radius: var(--radius);
+          background: rgba(15,8,32,0.7);
+          border: 1px solid rgba(255,45,120,0.2);
+        }
+
+        .ll-header {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          flex-wrap: wrap;
+        }
+
+        .ll-badge {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .ll-count-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.18rem 0.65rem;
+          border-radius: var(--radius-pill);
+          background: rgba(255,45,120,0.15);
+          border: 1px solid rgba(255,45,120,0.35);
+          color: #ff6ba8;
+          font-size: 0.72rem;
+          font-weight: 800;
+          animation: ll-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes ll-pulse {
+          0%, 100% { box-shadow: 0 0 0 rgba(255,45,120,0); }
+          50%       { box-shadow: 0 0 10px rgba(255,45,120,0.4); }
+        }
+
+        .ll-blurred-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+        }
+
+        .ll-blurred-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 0.5rem;
+          border-radius: var(--radius-sm);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .ll-avatar-blur {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, rgba(255,45,120,0.3), rgba(224,64,251,0.3));
+          filter: blur(6px);
+        }
+
+        .ll-name-blur {
+          width: 60%;
+          height: 10px;
+          border-radius: var(--radius-pill);
+          background: rgba(255,255,255,0.15);
+          filter: blur(4px);
+        }
 
         .matches-header {
           display: flex;
@@ -444,10 +548,15 @@ export default function MatchesPage() {
           cursor: pointer;
           transition: all 0.2s;
           font-weight: 600;
+          animation: call-btn-glow 3s ease-in-out infinite;
+        }
+        @keyframes call-btn-glow {
+          0%, 100% { box-shadow: 0 0 0 rgba(99,102,241,0); }
+          50%       { box-shadow: 0 0 14px rgba(99,102,241,0.25); }
         }
         .match-call-btn:hover {
           background: rgba(99,102,241,0.18);
-          box-shadow: 0 0 12px rgba(99,102,241,0.2);
+          box-shadow: 0 0 18px rgba(99,102,241,0.35);
         }
 
         .match-gift-wrap { width: 100%; }

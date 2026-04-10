@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import UrgencyBanner from "@/components/UrgencyBanner";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -119,6 +120,27 @@ export default function BuyCoinsPage() {
 
   return (
     <div className="coins-page">
+      {/* Urgency banner */}
+      <UrgencyBanner />
+
+      {/* Social proof strip */}
+      <div className="social-proof-strip">
+        <div className="sp-item sp-item-fire">
+          <span className="sp-icon">🔥</span>
+          <span className="sp-text">120 usuarios compraron monedas hoy</span>
+        </div>
+        <div className="sp-divider" aria-hidden="true" />
+        <div className="sp-item">
+          <span className="sp-icon">⭐</span>
+          <span className="sp-text">Popular ahora</span>
+        </div>
+        <div className="sp-divider" aria-hidden="true" />
+        <div className="sp-item">
+          <span className="sp-icon">👥</span>
+          <span className="sp-text">+2.4k activos esta semana</span>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="coins-header">
         <h1 className="page-title">MYL Coins</h1>
@@ -171,7 +193,7 @@ export default function BuyCoinsPage() {
             >
               {loading ? (
                 <><span className="spinner" />Redirigiendo…</>
-              ) : "Comprar ahora"}
+              ) : pkg.highlight ? "💎 Desbloquear ahora" : "🪙 Comprar ahora"}
             </button>
           </div>
         ))}
@@ -270,6 +292,39 @@ export default function BuyCoinsPage() {
           gap: 2.5rem;
           max-width: 900px;
           margin: 0 auto;
+        }
+
+        /* Social proof strip */
+        .social-proof-strip {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+          padding: 0.65rem 1.25rem;
+          background: rgba(255,45,120,0.05);
+          border: 1px solid rgba(255,45,120,0.15);
+          border-radius: var(--radius-sm);
+        }
+
+        .sp-item {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .sp-item-fire { color: rgba(251,191,36,0.9); }
+
+        .sp-icon { font-size: 0.95rem; }
+
+        .sp-divider {
+          width: 1px;
+          height: 14px;
+          background: rgba(255,255,255,0.1);
+          flex-shrink: 0;
         }
 
         .coins-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }

@@ -150,7 +150,7 @@ export default function CreatorRequestPage() {
     setSubmitting(true);
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
+      const res = await fetch(`${API_URL}/api/creator/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -182,6 +182,7 @@ export default function CreatorRequestPage() {
 
   const isPending = user?.creatorStatus === "pending";
   const isApproved = user?.creatorStatus === "approved";
+  const isSuspended = user?.creatorStatus === "suspended";
 
   return (
     <div className="page">
@@ -231,6 +232,14 @@ export default function CreatorRequestPage() {
             <div>
               <div className="status-title">¡Ya eres creador!</div>
               <div className="status-desc">Tu solicitud fue aprobada. Accede a tus herramientas de creador desde el panel.</div>
+            </div>
+          </div>
+        ) : isSuspended ? (
+          <div className="status-box status-suspended">
+            <span className="status-icon">🚫</span>
+            <div>
+              <div className="status-title">Cuenta suspendida</div>
+              <div className="status-desc">Tu acceso como creador ha sido suspendido. Contacta al soporte para más información.</div>
             </div>
           </div>
         ) : (
@@ -369,7 +378,7 @@ export default function CreatorRequestPage() {
               type="submit"
               disabled={submitting}
             >
-              {submitting ? "Enviando…" : "Aplicar ahora"}
+              {submitting ? "Enviando…" : "Aplicar como creador"}
             </button>
           </form>
         )}
@@ -613,6 +622,11 @@ export default function CreatorRequestPage() {
         .status-rejected {
           background: rgba(248,113,113,0.08);
           border: 1px solid rgba(248,113,113,0.25);
+        }
+
+        .status-suspended {
+          background: rgba(251,146,60,0.08);
+          border: 1px solid rgba(251,146,60,0.4);
         }
 
         .status-icon { font-size: 1.4rem; flex-shrink: 0; }

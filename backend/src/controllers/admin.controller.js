@@ -3,6 +3,9 @@ const Live = require("../models/Live.js");
 const Report = require("../models/Report.js");
 const Subscription = require("../models/Subscription.js");
 
+const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
+const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
+
 exports.getOverview = async (req, res) => {
   try {
     const [users, lives, reports, subscriptions, admins] = await Promise.all([
@@ -82,9 +85,20 @@ exports.makeAdmin = async (req, res) => {
 
 exports.getCreatorRequests = async (req, res) => {
   try {
-    const requests = await User.find({ creatorStatus: "pending" }, "-password")
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const requestedStatus = req.query.status;
+    // Validate against whitelist before using in query to prevent injection
+    const statusFilter = requestedStatus && ALLOWED_CREATOR_STATUSES.includes(requestedStatus)
+      ? requestedStatus
+      : null;
+
+    // Default view excludes "rejected" since those are resolved; pass ?status=rejected to view them
+    const query = statusFilter
+      ? { creatorStatus: statusFilter }
+      : { creatorStatus: { $in: DEFAULT_CREATOR_STATUSES } };
+
+    const requests = await User.find(query, "-password")
+      .sort({ "creatorApplication.submittedAt": -1, createdAt: -1 })
+      .limit(200);
     return res.json({ ok: true, requests });
   } catch (error) {
     console.error("Creator requests error:", error);

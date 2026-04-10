@@ -155,6 +155,8 @@ export default function MatchesPage() {
             const roleLabel = isCreator ? "Creador" : user.role === "admin" ? "Admin" : "Usuario";
             const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
             const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
+            const compatibilityScore = user.compatibilityScore ?? null;
+            const sharedInterests = user.sharedInterests || [];
             return (
               <div key={user._id} className="match-card">
                 <div className="match-avatar-wrap">
@@ -169,16 +171,24 @@ export default function MatchesPage() {
                 </div>
                 <div className="match-body">
                   <div className="match-name">{displayName}</div>
-                  {isCreator && (
-                    <span className="badge badge-creator">{roleLabel}</span>
-                  )}
+                  <div className="match-meta-row">
+                    {isCreator && (
+                      <span className="badge badge-creator">{roleLabel}</span>
+                    )}
+                    {compatibilityScore !== null && compatibilityScore > 0 && (
+                      <span className="match-compat-badge">🔥 {compatibilityScore}%</span>
+                    )}
+                  </div>
                   {user.bio && <p className="match-bio">{user.bio}</p>}
                   {user.interests?.length > 0 && (
                     <div className="match-interests">
                       {user.interests.slice(0, 3).map((i) => (
-                        <span key={i} className="match-interest-tag">{i}</span>
+                        <span key={i} className={`match-interest-tag${sharedInterests.includes(i) ? " match-interest-shared" : ""}`}>{i}</span>
                       ))}
                     </div>
+                  )}
+                  {sharedInterests.length > 0 && (
+                    <p className="match-shared-label">✨ {sharedInterests.length} interés{sharedInterests.length !== 1 ? "es" : ""} en común</p>
                   )}
                 </div>
 
@@ -349,6 +359,39 @@ export default function MatchesPage() {
           border: 1px solid rgba(224,64,251,0.18);
           color: var(--accent-2);
           font-weight: 600;
+        }
+        .match-interest-shared {
+          background: rgba(255,45,120,0.12);
+          border-color: rgba(255,45,120,0.4);
+          color: #ff2d78;
+          box-shadow: 0 0 6px rgba(255,45,120,0.15);
+        }
+        .match-meta-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
+          flex-wrap: wrap;
+          margin-bottom: 0.15rem;
+        }
+        .match-compat-badge {
+          font-size: 0.68rem;
+          font-weight: 800;
+          padding: 0.18rem 0.55rem;
+          border-radius: var(--radius-pill);
+          background: linear-gradient(135deg, rgba(255,45,120,0.15), rgba(251,191,36,0.15));
+          border: 1px solid rgba(255,45,120,0.4);
+          color: #fbbf24;
+          letter-spacing: 0.02em;
+          box-shadow: 0 0 8px rgba(255,45,120,0.18);
+          white-space: nowrap;
+        }
+        .match-shared-label {
+          font-size: 0.67rem;
+          color: rgba(255,45,120,0.75);
+          font-weight: 600;
+          margin: 0.3rem 0 0;
+          text-align: center;
         }
 
         .match-actions {

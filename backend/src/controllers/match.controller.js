@@ -6,6 +6,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const CrushTransaction = require("../models/CrushTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
+const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
@@ -288,15 +289,26 @@ exports.superCrushUser = async (req, res) => {
 // ─── Get all mutual matches ───────────────────────────────────────────────────
 exports.getMatches = async (req, res) => {
   try {
+    const me = await User.findById(req.userId).select("interests intent");
+    const myInterests = me?.interests || [];
+    const myIntent = me?.intent || "";
+
     const myLikes = await Like.find({ from: req.userId }).select("to");
     const myLikedIds = myLikes.map((l) => String(l.to));
 
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role isLive liveId creatorProfile");
+    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent");
 
-    const matches = mutualLikes.map((l) => l.from);
+    const matches = mutualLikes.map((l) => {
+      const user = l.from.toObject ? l.from.toObject() : l.from;
+      const { compatibilityScore, sharedInterests } = calculateCompatibility(
+        myInterests, myIntent, user.interests, user.intent
+      );
+      return { ...user, sharedInterests, compatibilityScore };
+    });
+
     res.json({ matches });
   } catch (err) {
     res.status(500).json({ message: err.message });

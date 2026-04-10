@@ -405,6 +405,31 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Interests & Intent */}
+          {(user.interests?.length > 0 || user.intent) && (
+            <div className="form-card">
+              <h2 className="form-card-title">✨ Intereses e intención</h2>
+              {user.intent && (
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <span className="profile-intent-badge">
+                    {user.intent === "dating" && "💖 Conocer personas"}
+                    {user.intent === "casual" && "😊 Amistades"}
+                    {user.intent === "live" && "🎥 Ver directos"}
+                    {user.intent === "creator" && "🌟 Creador"}
+                    {!["dating","casual","live","creator"].includes(user.intent) && user.intent}
+                  </span>
+                </div>
+              )}
+              {user.interests?.length > 0 && (
+                <div className="profile-interests-wrap">
+                  {user.interests.map((interest) => (
+                    <span key={interest} className="profile-interest-chip">{interest}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Stats */}
           <div className="stats-grid">
             <div className="stat-card">
@@ -878,6 +903,41 @@ export default function ProfilePage() {
           color: var(--success);
           border-color: rgba(52,211,153,0.3);
           margin-left: 0.35rem;
+        }
+
+        /* Interests & Intent */
+        .profile-interests-wrap {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+        }
+        .profile-interest-chip {
+          font-size: 0.73rem;
+          font-weight: 700;
+          padding: 0.28rem 0.75rem;
+          border-radius: 999px;
+          background: rgba(224,64,251,0.09);
+          border: 1px solid rgba(224,64,251,0.25);
+          color: #e040fb;
+          letter-spacing: 0.01em;
+          transition: background 0.18s, border-color 0.18s;
+        }
+        .profile-interest-chip:hover {
+          background: rgba(224,64,251,0.18);
+          border-color: rgba(224,64,251,0.45);
+        }
+        .profile-intent-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.76rem;
+          font-weight: 800;
+          padding: 0.3rem 0.85rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(255,45,120,0.12), rgba(251,191,36,0.1));
+          border: 1px solid rgba(255,45,120,0.35);
+          color: #fbbf24;
+          letter-spacing: 0.02em;
         }
       `}</style>
     </div>

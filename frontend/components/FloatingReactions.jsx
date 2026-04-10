@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const REACTIONS = [
   { emoji: "❤️", label: "love" },
@@ -18,18 +18,25 @@ let reactionIdCounter = 0;
  */
 export default function FloatingReactions() {
   const [floating, setFloating] = useState([]);
-  const cleanupRef = useRef(null);
+  const timeoutsRef = useRef(new Map());
+
+  useEffect(() => {
+    // Clear all timeouts on unmount
+    return () => {
+      for (const t of timeoutsRef.current.values()) clearTimeout(t);
+    };
+  }, []);
 
   const sendReaction = useCallback((emoji) => {
     const id = ++reactionIdCounter;
     const xOffset = Math.random() * 60 - 30; // ±30px horizontal drift
     setFloating((prev) => [...prev, { id, emoji, xOffset }]);
 
-    // Remove after animation completes
     const timeout = setTimeout(() => {
       setFloating((prev) => prev.filter((r) => r.id !== id));
+      timeoutsRef.current.delete(id);
     }, 2200);
-    cleanupRef.current = timeout;
+    timeoutsRef.current.set(id, timeout);
   }, []);
 
   return (

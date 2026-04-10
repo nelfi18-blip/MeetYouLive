@@ -410,14 +410,16 @@ router.post("/:id/follow", userLimiter, verifyToken, async (req, res) => {
 router.delete("/:id/follow", userLimiter, verifyToken, async (req, res) => {
   try {
     const targetId = req.params.id;
+    const target = await User.findById(targetId).select("followersCount");
+    if (!target) return res.status(404).json({ message: "Usuario no encontrado" });
+
     await User.updateOne({ _id: req.userId }, { $pull: { following: targetId } });
     await User.updateOne(
       { _id: targetId },
       { $pull: { followers: req.userId }, $inc: { followersCount: -1 } }
     );
     const updated = await User.findById(targetId).select("followersCount");
-    const count = updated ? Math.max(0, updated.followersCount) : 0;
-    res.json({ following: false, followersCount: count });
+    res.json({ following: false, followersCount: updated?.followersCount ?? 0 });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

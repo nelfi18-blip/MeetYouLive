@@ -1637,7 +1637,10 @@ export default function CrushPage() {
 
             <div className="done-icon">💖</div>
             <h3>¡Te estás acercando a tu match perfecto!</h3>
-            <p className="done-return-msg">🗓️ Regresa mañana · o <Link href="/coins" className="done-unlock-link">desbloquea más ahora →</Link></p>
+            <div className="done-return-row">
+              <span className="done-return-msg">🗓️ Regresa mañana ·</span>
+              <Link href="/coins" className="done-unlock-link">desbloquea más ahora →</Link>
+            </div>
 
             <button className="done-btn-primary" onClick={handleExploreMore}>
               🔥 Seguir explorando
@@ -2363,10 +2366,19 @@ export default function CrushPage() {
           margin: 0;
         }
 
+        .done-return-row {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
         .done-unlock-link {
           color: #e040fb;
           font-weight: 700;
           text-decoration: none;
+          font-size: 0.72rem;
         }
 
         .done-unlock-link:hover { text-decoration: underline; }

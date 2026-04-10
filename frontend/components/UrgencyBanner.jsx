@@ -21,7 +21,7 @@ export default function UrgencyBanner({ className = "" }) {
     const timer = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setIndex((i) => (i + 1) % URGENCY_MESSAGES.length);
+        setIndex((prev) => (prev + 1) % URGENCY_MESSAGES.length);
         setVisible(true);
       }, 350);
     }, ROTATE_INTERVAL_MS);

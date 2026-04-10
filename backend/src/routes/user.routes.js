@@ -394,11 +394,10 @@ router.post("/:id/follow", userLimiter, verifyToken, async (req, res) => {
       return res.json({ following: true, followersCount: target.followersCount });
     }
 
-    await User.updateOne({ _id: req.userId }, { $addToSet: { following: targetId } });
-    await User.updateOne(
-      { _id: targetId },
-      { $addToSet: { followers: req.userId }, $inc: { followersCount: 1 } }
-    );
+    await User.bulkWrite([
+      { updateOne: { filter: { _id: req.userId }, update: { $addToSet: { following: targetId } } } },
+      { updateOne: { filter: { _id: targetId }, update: { $addToSet: { followers: req.userId }, $inc: { followersCount: 1 } } } },
+    ]);
     const updated = await User.findById(targetId).select("followersCount");
     res.json({ following: true, followersCount: updated.followersCount });
   } catch (err) {
@@ -413,11 +412,10 @@ router.delete("/:id/follow", userLimiter, verifyToken, async (req, res) => {
     const target = await User.findById(targetId).select("followersCount");
     if (!target) return res.status(404).json({ message: "Usuario no encontrado" });
 
-    await User.updateOne({ _id: req.userId }, { $pull: { following: targetId } });
-    await User.updateOne(
-      { _id: targetId },
-      { $pull: { followers: req.userId }, $inc: { followersCount: -1 } }
-    );
+    await User.bulkWrite([
+      { updateOne: { filter: { _id: req.userId }, update: { $pull: { following: targetId } } } },
+      { updateOne: { filter: { _id: targetId }, update: { $pull: { followers: req.userId }, $inc: { followersCount: -1 } } } },
+    ]);
     const updated = await User.findById(targetId).select("followersCount");
     res.json({ following: false, followersCount: updated?.followersCount ?? 0 });
   } catch (err) {

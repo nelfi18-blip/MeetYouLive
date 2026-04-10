@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
+const Gift = require("../models/Gift.js");
 const { getIO } = require("../lib/socket.js");
 
 const startLive = async (req, res) => {
@@ -83,7 +84,6 @@ const getLives = async (req, res) => {
       .lean();
 
     if (lives.length > 0) {
-      const Gift = require("../models/Gift.js");
       const liveIds = lives.map((l) => l._id);
       const giftTotals = await Gift.aggregate([
         { $match: { live: { $in: liveIds } } },

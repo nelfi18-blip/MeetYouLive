@@ -7,6 +7,8 @@ import FeaturedCreators from "@/components/FeaturedCreators";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const TRENDING_COUNT = 3;
+
 export default function LivePage() {
   const [lives, setLives] = useState([]);
   const [error, setError] = useState("");
@@ -23,8 +25,8 @@ export default function LivePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const trendingLives = lives.slice(0, 3);
-  const restLives = lives.slice(3);
+  const trendingLives = lives.slice(0, TRENDING_COUNT);
+  const restLives = lives.slice(TRENDING_COUNT);
 
   return (
     <div className="live-page">

@@ -16,6 +16,7 @@ export default function FollowButton({ targetId, token, initialFollowing = false
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [error, setError] = useState("");
 
   // Check initial follow state from API
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function FollowButton({ targetId, token, initialFollowing = false
   const handleToggle = useCallback(async () => {
     if (!token || loading) return;
     setLoading(true);
+    setError("");
     try {
       const method = following ? "DELETE" : "POST";
       const res = await fetch(`${API_URL}/api/user/${targetId}/follow`, {
@@ -42,8 +44,14 @@ export default function FollowButton({ targetId, token, initialFollowing = false
         const data = await res.json();
         setFollowing(data.following);
         onFollowChange?.(data.following);
+      } else {
+        setError("No se pudo completar la acción");
+        setTimeout(() => setError(""), 3000);
       }
-    } catch {}
+    } catch {
+      setError("Error de conexión");
+      setTimeout(() => setError(""), 3000);
+    }
     setLoading(false);
   }, [following, loading, targetId, token, onFollowChange]);
 
@@ -57,6 +65,7 @@ export default function FollowButton({ targetId, token, initialFollowing = false
         disabled={loading}
         type="button"
         aria-label={following ? "Dejar de seguir" : "Seguir creador"}
+        title={error || undefined}
       >
         {loading ? (
           <span className="follow-spinner" />
@@ -66,6 +75,7 @@ export default function FollowButton({ targetId, token, initialFollowing = false
           "+ Seguir"
         )}
       </button>
+      {error && <span className="follow-error">{error}</span>}
 
       <style jsx>{`
         .follow-btn {
@@ -125,6 +135,18 @@ export default function FollowButton({ targetId, token, initialFollowing = false
         }
 
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .follow-error {
+          font-size: 0.7rem;
+          color: var(--error, #f87171);
+          white-space: nowrap;
+          animation: fadeInErr 0.2s ease;
+        }
+
+        @keyframes fadeInErr {
+          from { opacity: 0; transform: translateY(-2px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </>
   );

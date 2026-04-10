@@ -6,6 +6,8 @@ import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
 import GiftPanel from "@/components/GiftPanel";
 import TopGifters from "@/components/TopGifters";
+import FloatingReactions from "@/components/FloatingReactions";
+import FollowButton from "@/components/FollowButton";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -40,6 +42,7 @@ export default function LiveRoomPage() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
+  const [showEntryAnim, setShowEntryAnim] = useState(true);
 
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
@@ -177,7 +180,10 @@ export default function LiveRoomPage() {
           });
         }
 
-        if (!cancelled) setAgoraJoined(true);
+        if (!cancelled) {
+          setAgoraJoined(true);
+          setTimeout(() => setShowEntryAnim(false), 2000);
+        }
       } catch (err) {
         if (!cancelled) {
           setAgoraError(
@@ -534,6 +540,17 @@ export default function LiveRoomPage() {
               />
             ) : null}
 
+            {/* Entry join animation */}
+            {agoraJoined && showEntryAnim && !isCreator && (
+              <div className="entry-anim">
+                <span className="entry-anim-icon">🎉</span>
+                <span className="entry-anim-text">¡Conectado al directo!</span>
+              </div>
+            )}
+
+            {/* Floating reactions (viewer only) */}
+            {agoraJoined && !isCreator && <FloatingReactions />}
+
             <div className="video-overlay">
               <div className="overlay-left">
                 <span className="badge badge-live pulse">● EN VIVO</span>
@@ -618,15 +635,22 @@ export default function LiveRoomPage() {
           <div className="stream-info card">
             <div className="stream-meta">
               <div className="stream-creator-row">
-                <div className="avatar-placeholder" style={{ width: 40, height: 40, fontSize: "1rem" }}>
-                  {creatorName[0].toUpperCase()}
+                <div className="avatar-placeholder" style={{ width: 40, height: 40, fontSize: "1rem", overflow: "hidden", flexShrink: 0 }}>
+                  {live.user?.avatar ? (
+                    <img src={live.user.avatar} alt={creatorName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                  ) : (
+                    creatorName[0].toUpperCase()
+                  )}
                 </div>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="stream-creator-name">@{creatorName}</div>
                   <span className="badge badge-live" style={{ fontSize: "0.6rem", padding: "0.1rem 0.45rem" }}>
                     EN VIVO
                   </span>
                 </div>
+                {!isCreator && live.user?._id && (
+                  <FollowButton targetId={String(live.user._id)} token={token} />
+                )}
               </div>
 
               <h1 className="stream-title">{live.title}</h1>
@@ -769,6 +793,50 @@ export default function LiveRoomPage() {
         .video-error-text { color: var(--error); }
 
         .link-accent { color: var(--accent); text-decoration: underline; }
+
+        /* Entry animation */
+        .entry-anim {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 8;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          animation: entryFade 2s ease-out forwards;
+          pointer-events: none;
+        }
+
+        .entry-anim-icon {
+          font-size: 3rem;
+          animation: entryBounce 0.6s ease-out;
+        }
+
+        .entry-anim-text {
+          font-size: 1rem;
+          font-weight: 800;
+          color: #fff;
+          background: rgba(0,0,0,0.55);
+          backdrop-filter: blur(8px);
+          border-radius: 999px;
+          padding: 0.4rem 1.2rem;
+          border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        @keyframes entryFade {
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+          20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          70%  { opacity: 1; }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        @keyframes entryBounce {
+          0%   { transform: scale(0.5); }
+          60%  { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
 
         .agora-video-container {
           position: absolute;

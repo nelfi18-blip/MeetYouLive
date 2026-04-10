@@ -94,6 +94,9 @@ const userSchema = new mongoose.Schema(
     emailVerificationExpires: { type: Date, default: null },
     preferredLanguage: { type: String, enum: ["es", "en", "pt"], default: "es" },
     crushBoostUntil: { type: Date, default: null },
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    followersCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

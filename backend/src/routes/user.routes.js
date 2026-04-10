@@ -379,4 +379,60 @@ router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next)
   }
 });
 
+// Follow a creator/user
+router.post("/:id/follow", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (targetId === req.userId.toString()) {
+      return res.status(400).json({ message: "No puedes seguirte a ti mismo" });
+    }
+    const target = await User.findById(targetId).select("_id followersCount");
+    if (!target) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const alreadyFollowing = await User.exists({ _id: req.userId, following: targetId });
+    if (alreadyFollowing) {
+      return res.json({ following: true, followersCount: target.followersCount });
+    }
+
+    await User.updateOne({ _id: req.userId }, { $addToSet: { following: targetId } });
+    await User.updateOne(
+      { _id: targetId },
+      { $addToSet: { followers: req.userId }, $inc: { followersCount: 1 } }
+    );
+    const updated = await User.findById(targetId).select("followersCount");
+    res.json({ following: true, followersCount: updated.followersCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Unfollow a creator/user
+router.delete("/:id/follow", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    await User.updateOne({ _id: req.userId }, { $pull: { following: targetId } });
+    await User.updateOne(
+      { _id: targetId },
+      { $pull: { followers: req.userId }, $inc: { followersCount: -1 } }
+    );
+    const updated = await User.findById(targetId).select("followersCount");
+    const count = updated ? Math.max(0, updated.followersCount) : 0;
+    res.json({ following: false, followersCount: count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Check follow status
+router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const isFollowing = await User.exists({ _id: req.userId, following: targetId });
+    const target = await User.findById(targetId).select("followersCount");
+    res.json({ following: !!isFollowing, followersCount: target?.followersCount ?? 0 });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

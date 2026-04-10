@@ -535,6 +535,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── 🎥 Live CTA banner (for non-creators and viewers) ── */}
+      {!isApprovedCreator && (
+        <Link href="/live" className="live-entry-banner">
+          <div className="live-entry-glow" />
+          <div className="live-entry-left">
+            <span className="live-entry-dot" />
+            <div className="live-entry-text">
+              <strong>🎥 Entrar en directo ahora</strong>
+              <span>Descubre creadores en vivo, envía regalos y únete a la conversación</span>
+            </div>
+          </div>
+          <span className="live-entry-cta">Ver directos →</span>
+        </Link>
+      )}
+
       {/* Navigation cards grid */}
       {!isApprovedCreator && creatorStatus === "none" && (
         <div className="creator-cta-banner">
@@ -1176,6 +1191,100 @@ export default function DashboardPage() {
           box-shadow: 0 0 28px rgba(239,68,68,0.6);
         }
         .hero-start-live-btn :global(svg) { width: 16px; height: 16px; }
+
+        /* ── Live entry CTA banner ── */
+        .live-entry-banner {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 1.1rem 1.5rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(239,68,68,0.3);
+          background: linear-gradient(135deg, rgba(30,8,55,0.95) 0%, rgba(14,4,32,0.98) 100%);
+          text-decoration: none;
+          overflow: hidden;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          flex-wrap: wrap;
+        }
+
+        .live-entry-banner:hover {
+          border-color: rgba(239,68,68,0.55);
+          box-shadow: 0 0 24px rgba(239,68,68,0.18);
+        }
+
+        .live-entry-glow {
+          position: absolute;
+          top: -50px;
+          right: -30px;
+          width: 200px;
+          height: 200px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 65%);
+          pointer-events: none;
+        }
+
+        .live-entry-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .live-entry-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ef4444;
+          animation: liveEntryPulse 1.4s infinite;
+          flex-shrink: 0;
+        }
+
+        @keyframes liveEntryPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50%       { opacity: 0.7; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+
+        .live-entry-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+
+        .live-entry-text strong {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+        }
+
+        .live-entry-text span {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+
+        .live-entry-cta {
+          position: relative;
+          z-index: 1;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #ef4444;
+          white-space: nowrap;
+          padding: 0.35rem 0.9rem;
+          border-radius: 999px;
+          border: 1px solid rgba(239,68,68,0.4);
+          background: rgba(239,68,68,0.1);
+          transition: all 0.18s;
+        }
+
+        .live-entry-banner:hover .live-entry-cta {
+          background: rgba(239,68,68,0.2);
+          box-shadow: 0 0 10px rgba(239,68,68,0.25);
+        }
 
         /* ── Cards grid ──────── */
         .creator-cta-banner {

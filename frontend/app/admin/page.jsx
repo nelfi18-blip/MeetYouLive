@@ -304,6 +304,7 @@ export default function AdminPage() {
 
   const pendingPayoutsCount = payouts.filter((p) => p.status === "pending").length;
   const activePayoutsCount = payouts.filter((p) => p.status === "pending" || p.status === "processing").length;
+  const pendingCreatorCount = creatorRequests.filter((r) => r.creatorStatus === "pending").length;
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1100px", margin: "0 auto", color: "#fff" }}>
@@ -316,7 +317,7 @@ export default function AdminPage() {
           <StatCard title="Reportes" value={stats.reports} />
           <StatCard title="Suscripciones" value={stats.subscriptions} />
           <StatCard title="Admins" value={stats.admins} />
-          <StatCard title="Solicitudes creador" value={creatorRequests.filter((r) => r.creatorStatus === "pending").length} highlight={creatorRequests.filter((r) => r.creatorStatus === "pending").length > 0} />
+          <StatCard title="Solicitudes creador" value={pendingCreatorCount} highlight={pendingCreatorCount > 0} />
           <StatCard title="Verificaciones" value={verificationRequests.length} highlight={verificationRequests.length > 0} />
           <StatCard title="Pagos pendientes" value={activePayoutsCount} highlight={pendingPayoutsCount > 0} />
         </div>
@@ -326,7 +327,7 @@ export default function AdminPage() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem", flexWrap: "wrap" }}>
         {[
           { key: "users", label: "Usuarios" },
-          { key: "creators", label: `Creadores${creatorRequests.filter((r) => r.creatorStatus === "pending").length > 0 ? ` (${creatorRequests.filter((r) => r.creatorStatus === "pending").length})` : ""}` },
+          { key: "creators", label: `Creadores${pendingCreatorCount > 0 ? ` (${pendingCreatorCount})` : ""}` },
           { key: "verifications", label: `Verificaciones${verificationRequests.length > 0 ? ` (${verificationRequests.length})` : ""}` },
           { key: "reports", label: "Reportes" },
           { key: "gifts", label: "Catálogo Regalos" },

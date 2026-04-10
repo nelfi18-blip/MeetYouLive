@@ -83,13 +83,17 @@ exports.makeAdmin = async (req, res) => {
 exports.getCreatorRequests = async (req, res) => {
   try {
     const allowedStatuses = ["pending", "approved", "rejected", "suspended"];
-    const statusFilter = req.query.status && allowedStatuses.includes(req.query.status)
-      ? req.query.status
+    const requestedStatus = req.query.status;
+    // Validate against whitelist before using in query to prevent injection
+    const statusFilter = requestedStatus && allowedStatuses.includes(requestedStatus)
+      ? requestedStatus
       : null;
 
+    // Default view excludes "rejected" since those are resolved; pass ?status=rejected to view them
+    const defaultStatuses = ["pending", "approved", "suspended"];
     const query = statusFilter
       ? { creatorStatus: statusFilter }
-      : { creatorStatus: { $in: ["pending", "approved", "suspended"] } };
+      : { creatorStatus: { $in: defaultStatuses } };
 
     const requests = await User.find(query, "-password")
       .sort({ "creatorApplication.submittedAt": -1, createdAt: -1 })

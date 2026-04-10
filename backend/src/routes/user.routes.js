@@ -5,6 +5,7 @@ const { verifyToken } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
 
 const router = Router();
 
@@ -351,6 +352,37 @@ router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next)
     user.verificationStatus = "pending";
     await user.save();
     res.json({ message: "Foto de verificación enviada. Un administrador la revisará pronto.", verificationStatus: user.verificationStatus });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Daily reward — awards 10 coins once per calendar day (UTC)
+router.post("/daily-reward", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const DAILY_COINS = 10;
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    if (user.lastDailyReward && user.lastDailyReward >= todayUTC) {
+      return res.status(400).json({ message: "Ya reclamaste tu recompensa de hoy", alreadyClaimed: true });
+    }
+
+    user.coins += DAILY_COINS;
+    user.lastDailyReward = now;
+    await user.save();
+
+    await CoinTransaction.create({
+      userId: user._id,
+      type: "daily_reward",
+      amount: DAILY_COINS,
+      reason: "Recompensa diaria",
+    });
+
+    res.json({ message: "¡Recompensa reclamada!", coins: user.coins, earned: DAILY_COINS });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

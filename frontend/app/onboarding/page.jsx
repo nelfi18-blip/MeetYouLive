@@ -18,7 +18,7 @@ const INTERESTS = [
   "Meditación", "Humor", "Idiomas", "Ciencia", "Historia",
 ];
 
-const STEPS = ["Sobre ti", "Intereses", "Tu foto"];
+const STEPS = ["Sobre ti", "Intereses", "Tu foto", "¡Bienvenido!"];
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -145,7 +145,8 @@ export default function OnboardingPage() {
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      router.replace("/dashboard");
+      // Advance to the welcome step instead of redirecting immediately
+      setStep(3);
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
@@ -350,6 +351,50 @@ export default function OnboardingPage() {
 
             <button className="ob-skip" onClick={handleSkipFinish} disabled={loading}>
               Omitir por ahora
+            </button>
+          </div>
+        )}
+      </div>
+
+        {/* Step 3 – Welcome */}
+        {step === 3 && (
+          <div className="ob-section ob-welcome">
+            <div className="ob-welcome-icon">🎉</div>
+            <h2 className="ob-title" style={{ textAlign: "center" }}>¡Ya estás dentro!</h2>
+            <p className="ob-subtitle" style={{ textAlign: "center" }}>
+              Tu perfil está listo. Descubre todo lo que puedes hacer en MeetYouLive.
+            </p>
+
+            <div className="ob-feature-cards">
+              <div className="ob-feature-card ob-feature-crush">
+                <span className="ob-feature-icon">⚡</span>
+                <div>
+                  <div className="ob-feature-title">Crush</div>
+                  <div className="ob-feature-desc">Da like y conecta con personas afines</div>
+                </div>
+              </div>
+              <div className="ob-feature-card ob-feature-live">
+                <span className="ob-feature-icon">🎥</span>
+                <div>
+                  <div className="ob-feature-title">Directos en vivo</div>
+                  <div className="ob-feature-desc">Ve o crea streams en tiempo real</div>
+                </div>
+              </div>
+              <div className="ob-feature-card ob-feature-matches">
+                <span className="ob-feature-icon">💖</span>
+                <div>
+                  <div className="ob-feature-title">Matches</div>
+                  <div className="ob-feature-desc">Chatea con tus conexiones mutuas</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn btn-primary ob-btn-next"
+              style={{ marginTop: "1rem" }}
+              onClick={() => router.replace("/explore")}
+            >
+              Empezar a explorar →
             </button>
           </div>
         )}
@@ -662,6 +707,28 @@ export default function OnboardingPage() {
           .onboarding-card { padding: 2rem 1.25rem; }
           .ob-row { flex-direction: column; }
         }
+
+        /* Welcome step */
+        .ob-welcome { align-items: center; }
+        .ob-welcome-icon { font-size: 3rem; margin-bottom: 0.5rem; animation: ob-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+        @keyframes ob-pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .ob-feature-cards { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; margin-top: 0.5rem; }
+        .ob-feature-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.9rem 1.1rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.03);
+          transition: border-color 0.18s;
+        }
+        .ob-feature-crush { border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.05); }
+        .ob-feature-live  { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.05); }
+        .ob-feature-matches { border-color: rgba(255,45,120,0.25); background: rgba(255,45,120,0.05); }
+        .ob-feature-icon { font-size: 1.6rem; flex-shrink: 0; }
+        .ob-feature-title { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+        .ob-feature-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
       `}</style>
     </div>
   );

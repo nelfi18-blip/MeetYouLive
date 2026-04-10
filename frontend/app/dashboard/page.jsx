@@ -220,6 +220,8 @@ export default function DashboardPage() {
   const [rankStats, setRankStats] = useState(null);
   const [endingLive, setEndingLive] = useState(false);
   const [togglingKey, setTogglingKey] = useState(null);
+  const [dailyRewardClaiming, setDailyRewardClaiming] = useState(false);
+  const [dailyRewardMsg, setDailyRewardMsg] = useState("");
   // Prevents a second recovery attempt if the first one is already in flight.
   const backendTokenAttempted = useRef(false);
 
@@ -396,6 +398,37 @@ export default function DashboardPage() {
     setTogglingKey(null);
   }, [creatorDash]);
 
+  const isDailyRewardClaimed = (() => {
+    if (!user?.lastDailyReward) return false;
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    return new Date(user.lastDailyReward) >= todayUTC;
+  })();
+
+  const handleClaimDailyReward = useCallback(async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    setDailyRewardClaiming(true);
+    setDailyRewardMsg("");
+    try {
+      const res = await fetch(`${API_URL}/api/user/daily-reward`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser((prev) => ({ ...prev, coins: data.coins, lastDailyReward: new Date().toISOString() }));
+        setDailyRewardMsg(`+${data.earned} 🪙 monedas reclamadas`);
+      } else {
+        setDailyRewardMsg(data.message || "No se pudo reclamar");
+      }
+    } catch {
+      setDailyRewardMsg("Error de conexión");
+    } finally {
+      setDailyRewardClaiming(false);
+    }
+  }, []);
+
   if (status === "loading" || userLoading) {
     return (
       <div className="dashboard">
@@ -538,12 +571,12 @@ export default function DashboardPage() {
       {/* Navigation cards grid */}
       {!isApprovedCreator && creatorStatus === "none" && (
         <div className="creator-cta-banner">
-          <div className="creator-cta-icon">🚀</div>
+          <div className="creator-cta-icon">💰</div>
           <div className="creator-cta-text">
-            <strong>Gana dinero transmitiendo en vivo</strong>
-            <span>Conviértete en creador aprobado y accede a monetización, directos privados y más.</span>
+            <strong>Gana dinero como creador</strong>
+            <span>Transmite en vivo, recibe regalos y cobra por contenido exclusivo. ¡Empieza gratis hoy!</span>
           </div>
-          <a href="/creator-request" className="creator-cta-btn">Solicitar acceso a creador</a>
+          <a href="/creator-request" className="creator-cta-btn">Solicitar ahora →</a>
         </div>
       )}
       {!isApprovedCreator && creatorStatus === "pending" && (
@@ -571,6 +604,53 @@ export default function DashboardPage() {
           <div className="creator-status-text">
             <strong>Tu cuenta de creador ha sido suspendida</strong>
             <span>El acceso a funciones de creador está temporalmente deshabilitado. Contacta al soporte para más información.</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── DAILY REWARD ── */}
+      <div className={`daily-reward-card${isDailyRewardClaimed ? " daily-reward-claimed" : ""}`}>
+        <div className="daily-reward-left">
+          <span className="daily-reward-icon">{isDailyRewardClaimed ? "✅" : "🎁"}</span>
+          <div className="daily-reward-text">
+            <strong>{isDailyRewardClaimed ? "Recompensa reclamada" : "Recompensa diaria disponible"}</strong>
+            <span>{isDailyRewardClaimed ? "Vuelve mañana para reclamar más monedas" : "Reclama tus 10 monedas de hoy gratis"}</span>
+          </div>
+        </div>
+        {!isDailyRewardClaimed ? (
+          <button
+            className="daily-reward-btn"
+            onClick={handleClaimDailyReward}
+            disabled={dailyRewardClaiming}
+          >
+            {dailyRewardClaiming ? "Reclamando…" : "Reclamar 🪙 10"}
+          </button>
+        ) : (
+          <span className="daily-reward-done">+10 🪙</span>
+        )}
+        {dailyRewardMsg && <span className="daily-reward-msg">{dailyRewardMsg}</span>}
+      </div>
+
+      {/* ── ENGAGEMENT PROMPTS (non-creator users) ── */}
+      {!isApprovedCreator && (
+        <div className="engagement-section">
+          <h2 className="section-label">¿Qué quieres hacer hoy?</h2>
+          <div className="engagement-grid">
+            <Link href="/explore?tab=live" className="engagement-tile engagement-live">
+              <span className="engagement-icon">🎥</span>
+              <span className="engagement-title">Conecta en vivo</span>
+              <span className="engagement-desc">Ve directos ahora</span>
+            </Link>
+            <Link href="/crush" className="engagement-tile engagement-crush">
+              <span className="engagement-icon">⚡</span>
+              <span className="engagement-title">Crush</span>
+              <span className="engagement-desc">Conecta con alguien nuevo</span>
+            </Link>
+            <Link href="/matches" className="engagement-tile engagement-matches">
+              <span className="engagement-icon">💖</span>
+              <span className="engagement-title">Ver matches</span>
+              <span className="engagement-desc">Chatea con tus conexiones</span>
+            </Link>
           </div>
         </div>
       )}
@@ -2053,6 +2133,124 @@ export default function DashboardPage() {
           color: #fbbf24;
           font-weight: 700;
         }
+
+        /* ── Daily Reward ─────────────────────── */
+        .daily-reward-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          background: linear-gradient(135deg, rgba(251,146,60,0.1) 0%, rgba(251,191,36,0.08) 100%);
+          border: 1px solid rgba(251,146,60,0.3);
+          border-radius: var(--radius);
+          padding: 1.1rem 1.5rem;
+          flex-wrap: wrap;
+          position: relative;
+          overflow: hidden;
+          animation: rewardPulse 3s ease-in-out infinite;
+        }
+        .daily-reward-card::before {
+          content: '';
+          position: absolute;
+          top: -40px; right: -40px;
+          width: 160px; height: 160px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(251,191,36,0.12), transparent 70%);
+          pointer-events: none;
+        }
+        @keyframes rewardPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(251,146,60,0); }
+          50%       { box-shadow: 0 0 16px 2px rgba(251,146,60,0.15); }
+        }
+        .daily-reward-claimed {
+          animation: none;
+          background: rgba(255,255,255,0.03);
+          border-color: rgba(255,255,255,0.08);
+        }
+        .daily-reward-left {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .daily-reward-icon { font-size: 1.75rem; flex-shrink: 0; }
+        .daily-reward-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .daily-reward-text strong {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .daily-reward-text span {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+        }
+        .daily-reward-btn {
+          padding: 0.6rem 1.3rem;
+          background: linear-gradient(135deg, #fb923c, #f59e0b);
+          color: #fff;
+          font-size: 0.88rem;
+          font-weight: 700;
+          border-radius: var(--radius-pill);
+          border: none;
+          cursor: pointer;
+          transition: opacity 0.15s, transform 0.15s;
+          white-space: nowrap;
+          flex-shrink: 0;
+          box-shadow: 0 0 16px rgba(251,146,60,0.4);
+        }
+        .daily-reward-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .daily-reward-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .daily-reward-done {
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          flex-shrink: 0;
+        }
+        .daily-reward-msg {
+          width: 100%;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #f59e0b;
+          padding-top: 0.25rem;
+        }
+
+        /* ── Engagement Prompts ─────────────────── */
+        .engagement-section { display: flex; flex-direction: column; gap: 0.75rem; }
+        .engagement-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.75rem;
+        }
+        @media (max-width: 500px) {
+          .engagement-grid { grid-template-columns: 1fr; }
+        }
+        .engagement-tile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 1.25rem 0.75rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(15,8,32,0.6);
+          text-align: center;
+          transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition);
+          cursor: pointer;
+        }
+        .engagement-tile:hover { transform: translateY(-3px); }
+        .engagement-live { border-color: rgba(239,68,68,0.2); }
+        .engagement-live:hover { border-color: rgba(239,68,68,0.45); box-shadow: 0 0 18px rgba(239,68,68,0.14); }
+        .engagement-crush { border-color: rgba(251,191,36,0.2); }
+        .engagement-crush:hover { border-color: rgba(251,191,36,0.45); box-shadow: 0 0 18px rgba(251,191,36,0.14); }
+        .engagement-matches { border-color: rgba(255,45,120,0.2); }
+        .engagement-matches:hover { border-color: rgba(255,45,120,0.45); box-shadow: 0 0 18px rgba(255,45,120,0.14); }
+        .engagement-icon { font-size: 1.6rem; }
+        .engagement-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+        .engagement-desc { font-size: 0.74rem; color: var(--text-muted); line-height: 1.4; }
       `}</style>
     </div>
   );

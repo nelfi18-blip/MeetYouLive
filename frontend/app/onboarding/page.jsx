@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -18,35 +18,95 @@ const INTERESTS = [
   "Meditación", "Humor", "Idiomas", "Ciencia", "Historia",
 ];
 
-const STEPS = ["Sobre ti", "Intereses", "Tu foto"];
+// Step indices: 0=Welcome, 1=Path, 2=Profile, 3=Interests, 4=Photo
+const STEPS = ["Bienvenida", "Tu camino", "Sobre ti", "Intereses", "Tu foto"];
+
+const VALUE_PROPS = [
+  { emoji: "💖", title: "Haz match", desc: "Conecta con personas que comparten tus intereses" },
+  { emoji: "🎥", title: "Conecta en vivo", desc: "Videollamadas y streams en tiempo real" },
+  { emoji: "🎁", title: "Envía y recibe regalos", desc: "Sorprende a tus conexiones con regalos virtuales" },
+  { emoji: "💰", title: "Gana como creador", desc: "Monetiza tu audiencia haciendo lo que amas" },
+];
+
+const PATHS = [
+  {
+    id: "crush",
+    emoji: "💖",
+    title: "Conocer personas",
+    desc: "Encuentra tu match ideal y conecta con gente real cerca de ti.",
+    hook: "🪙 Los coins te dan acceso a interacciones exclusivas",
+    route: "/crush",
+    color: "#ff2d78",
+    glow: "rgba(255,45,120,0.35)",
+  },
+  {
+    id: "live",
+    emoji: "🎥",
+    title: "Ver directos",
+    desc: "Únete a streams en vivo, envía regalos y conéctate en tiempo real.",
+    hook: "🎁 Con coins puedes enviar regalos y entrar a salas VIP",
+    route: "/live",
+    color: "#818cf8",
+    glow: "rgba(129,140,248,0.35)",
+  },
+  {
+    id: "creator",
+    emoji: "🌟",
+    title: "Ganar como creador",
+    desc: "Crea tu perfil de creador, transmite en vivo y cobra por tu contenido.",
+    hook: "💵 Los creadores aprobados reciben pagos reales",
+    route: "/creator-request",
+    color: "#fbbf24",
+    glow: "rgba(251,191,36,0.35)",
+  },
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const animTimerRef = useRef(null);
 
-  // Step 0 fields
+  // Step 1: chosen path
+  const [selectedPath, setSelectedPath] = useState(null);
+
+  // Step 2 fields (profile)
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [location, setLocation] = useState("");
 
-  // Step 1 fields
+  // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
 
-  // Step 2 fields
+  // Step 4 fields (avatar)
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
+  // Safe avatar src for display: only http(s) URLs or FileReader data: URLs are allowed
+  const [safeAvatarDisplayUrl, setSafeAvatarDisplayUrl] = useState("");
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
       router.replace("/login");
     }
+    return () => {
+      if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    };
   }, [router]);
+
+  const goToStep = (next) => {
+    setAnimating(true);
+    if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    animTimerRef.current = setTimeout(() => {
+      setStep(next);
+      setAnimating(false);
+    }, 220);
+  };
 
   const toggleInterest = (interest) => {
     setInterests((prev) =>
@@ -65,17 +125,22 @@ export default function OnboardingPage() {
     reader.onload = (e) => setAvatarPreview(e.target.result);
     reader.readAsDataURL(file);
     setAvatarUrl("");
+    setSafeAvatarDisplayUrl("");
   };
 
   const handleNext = () => {
     setError("");
-    if (step === 0) {
+    if (step === 1 && !selectedPath) {
+      setError("Elige tu camino para continuar");
+      return;
+    }
+    if (step === 2) {
       if (!name.trim()) {
         setError("El nombre es obligatorio");
         return;
       }
     }
-    setStep((s) => s + 1);
+    goToStep(step + 1);
   };
 
   const handleSkipFinish = async () => {
@@ -145,7 +210,8 @@ export default function OnboardingPage() {
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      router.replace("/dashboard");
+      const destination = PATHS.find((p) => p.id === selectedPath)?.route || "/dashboard";
+      router.replace(destination);
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
@@ -162,197 +228,312 @@ export default function OnboardingPage() {
           <span className="ob-logo-text">Meet You<span className="ob-logo-accent">Live</span></span>
         </div>
 
-        {/* Progress */}
-        <div className="ob-progress">
-          {STEPS.map((label, i) => (
-            <div key={label} className={`ob-step${i === step ? " active" : i < step ? " done" : ""}`}>
-              <div className="ob-step-dot">{i < step ? "✓" : i + 1}</div>
-              <span className="ob-step-label">{label}</span>
+        {/* Progress — hide on welcome step */}
+        {step > 0 && (
+          <div className="ob-progress">
+            {STEPS.slice(1).map((label, i) => {
+              const idx = i + 1;
+              return (
+                <div key={label} className={`ob-step${idx === step ? " active" : idx < step ? " done" : ""}`}>
+                  <div className="ob-step-dot">{idx < step ? "✓" : idx}</div>
+                  <span className="ob-step-label">{label}</span>
+                </div>
+              );
+            })}
+            <div className="ob-progress-bar">
+              <div className="ob-progress-fill" style={{ width: `${((step - 1) / (STEPS.length - 2)) * 100}%` }} />
             </div>
-          ))}
-          <div className="ob-progress-bar">
-            <div className="ob-progress-fill" style={{ width: `${((step) / (STEPS.length - 1)) * 100}%` }} />
           </div>
-        </div>
+        )}
 
         {/* Error */}
         {error && <div className="banner-error" style={{ marginBottom: "1rem" }}>{error}</div>}
 
-        {/* Step 0 – About you */}
-        {step === 0 && (
-          <div className="ob-section">
-            <h2 className="ob-title">Cuéntanos sobre ti</h2>
-            <p className="ob-subtitle">Esta información ayuda a otros usuarios a conocerte</p>
+        <div className={`ob-step-content${animating ? " ob-fade-out" : " ob-fade-in"}`}>
 
-            <div className="ob-field">
-              <label className="ob-label">Tu nombre *</label>
-              <input
-                className="input"
-                placeholder="¿Cómo quieres que te llamen?"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={60}
-              />
-            </div>
-
-            <div className="ob-field">
-              <label className="ob-label">Sobre ti</label>
-              <textarea
-                className="input ob-textarea"
-                placeholder="Cuéntanos algo interesante sobre ti…"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                maxLength={300}
-                rows={3}
-              />
-              <span className="ob-char-count">{bio.length}/300</span>
-            </div>
-
-            <div className="ob-row">
-              <div className="ob-field ob-field-half">
-                <label className="ob-label">Género</label>
-                <select
-                  className="input"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                >
-                  <option value="">Prefiero no decirlo</option>
-                  <option value="man">Hombre</option>
-                  <option value="woman">Mujer</option>
-                  <option value="nonbinary">No binario</option>
-                  <option value="other">Otro</option>
-                </select>
+          {/* ──────────────────────────────────────────
+              Step 0 – Welcome / Value Proposition
+          ────────────────────────────────────────── */}
+          {step === 0 && (
+            <div className="ob-section">
+              <div className="ob-hero">
+                <h1 className="ob-hero-title">Bienvenido a <span className="ob-hero-accent">MeetYouLive</span></h1>
+                <p className="ob-hero-sub">La plataforma donde conexiones reales se convierten en momentos únicos</p>
               </div>
 
-              <div className="ob-field ob-field-half">
-                <label className="ob-label">Fecha de nacimiento</label>
+              <div className="ob-value-grid">
+                {VALUE_PROPS.map((vp) => (
+                  <div key={vp.title} className="ob-value-card">
+                    <span className="ob-value-emoji">{vp.emoji}</span>
+                    <div>
+                      <div className="ob-value-title">{vp.title}</div>
+                      <div className="ob-value-desc">{vp.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="ob-actions">
+                <button className="btn btn-primary ob-btn-next ob-btn-hero" onClick={() => goToStep(1)}>
+                  Empezar ahora ✨
+                </button>
+              </div>
+              <p className="ob-legal-hint">Gratis para siempre · Sin tarjeta de crédito</p>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────
+              Step 1 – Choose Your Path
+          ────────────────────────────────────────── */}
+          {step === 1 && (
+            <div className="ob-section">
+              <h2 className="ob-title">¿Qué quieres hacer?</h2>
+              <p className="ob-subtitle">Elige tu camino — podrás cambiar después</p>
+
+              <div className="ob-paths">
+                {PATHS.map((path) => (
+                  <button
+                    key={path.id}
+                    className={`ob-path-card${selectedPath === path.id ? " selected" : ""}`}
+                    style={selectedPath === path.id ? { "--path-color": path.color, "--path-glow": path.glow } : {}}
+                    onClick={() => { setSelectedPath(path.id); setError(""); }}
+                  >
+                    <span className="ob-path-emoji">{path.emoji}</span>
+                    <div className="ob-path-body">
+                      <div className="ob-path-title">{path.title}</div>
+                      <div className="ob-path-desc">{path.desc}</div>
+                      <div className="ob-path-hook">{path.hook}</div>
+                    </div>
+                    {selectedPath === path.id && <span className="ob-path-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ob-actions ob-actions-row" style={{ marginTop: "1.5rem" }}>
+                <button className="btn ob-btn-back" onClick={() => goToStep(0)}>
+                  ← Atrás
+                </button>
+                <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
+                  Continuar →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────
+              Step 2 – About You (profile)
+          ────────────────────────────────────────── */}
+          {step === 2 && (
+            <div className="ob-section">
+              <h2 className="ob-title">Cuéntanos sobre ti</h2>
+              <p className="ob-subtitle">Esta información ayuda a otros usuarios a conocerte</p>
+
+              <div className="ob-field">
+                <label className="ob-label">Tu nombre *</label>
                 <input
                   className="input"
-                  type="date"
-                  value={birthdate}
-                  onChange={(e) => setBirthdate(e.target.value)}
-                  max={MIN_AGE_DATE}
+                  placeholder="¿Cómo quieres que te llamen?"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={60}
                 />
               </div>
-            </div>
 
-            <div className="ob-field">
-              <label className="ob-label">Ciudad / País</label>
-              <input
-                className="input"
-                placeholder="Ej: Madrid, España"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                maxLength={80}
-              />
-            </div>
-
-            <div className="ob-actions">
-              <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
-                Continuar →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 1 – Interests */}
-        {step === 1 && (
-          <div className="ob-section">
-            <h2 className="ob-title">¿Qué te gusta?</h2>
-            <p className="ob-subtitle">Selecciona hasta 10 intereses para conectar mejor</p>
-
-            <div className="ob-interests-grid">
-              {INTERESTS.map((interest) => (
-                <button
-                  key={interest}
-                  className={`ob-interest-pill${interests.includes(interest) ? " selected" : ""}`}
-                  onClick={() => toggleInterest(interest)}
-                >
-                  {interest}
-                </button>
-              ))}
-            </div>
-
-            <div className="ob-selected-count">
-              {interests.length}/{MAX_INTERESTS} seleccionados
-            </div>
-
-            <div className="ob-actions ob-actions-row">
-              <button className="btn ob-btn-back" onClick={() => setStep(0)}>
-                ← Atrás
-              </button>
-              <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
-                Continuar →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2 – Avatar */}
-        {step === 2 && (
-          <div className="ob-section">
-            <h2 className="ob-title">Añade una foto</h2>
-            <p className="ob-subtitle">Una foto de perfil ayuda a que otros te reconozcan</p>
-
-            <div className="ob-avatar-preview">
-              {avatarPreview || avatarUrl ? (
-                <img
-                  src={avatarPreview || avatarUrl}
-                  alt="Avatar"
-                  className="ob-avatar-img"
-                  onError={() => { setAvatarUrl(""); setAvatarPreview(""); }}
+              <div className="ob-field">
+                <label className="ob-label">Sobre ti</label>
+                <textarea
+                  className="input ob-textarea"
+                  placeholder="Cuéntanos algo interesante sobre ti…"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  maxLength={300}
+                  rows={3}
                 />
-              ) : (
-                <div className="ob-avatar-placeholder">
-                  {name ? name[0].toUpperCase() : "?"}
+                <span className="ob-char-count">{bio.length}/300</span>
+              </div>
+
+              <div className="ob-row">
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Género</label>
+                  <select
+                    className="input"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                  >
+                    <option value="">Prefiero no decirlo</option>
+                    <option value="man">Hombre</option>
+                    <option value="woman">Mujer</option>
+                    <option value="nonbinary">No binario</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </div>
+
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Fecha de nacimiento</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={birthdate}
+                    onChange={(e) => setBirthdate(e.target.value)}
+                    max={MIN_AGE_DATE}
+                  />
+                </div>
+              </div>
+
+              <div className="ob-field">
+                <label className="ob-label">Ciudad / País</label>
+                <input
+                  className="input"
+                  placeholder="Ej: Madrid, España"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  maxLength={80}
+                />
+              </div>
+
+              <div className="ob-actions ob-actions-row">
+                <button className="btn ob-btn-back" onClick={() => goToStep(1)}>
+                  ← Atrás
+                </button>
+                <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
+                  Continuar →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────
+              Step 3 – Interests
+          ────────────────────────────────────────── */}
+          {step === 3 && (
+            <div className="ob-section">
+              <h2 className="ob-title">¿Qué te gusta?</h2>
+              <p className="ob-subtitle">Selecciona hasta 10 intereses para conectar mejor</p>
+
+              <div className="ob-interests-grid">
+                {INTERESTS.map((interest) => (
+                  <button
+                    key={interest}
+                    className={`ob-interest-pill${interests.includes(interest) ? " selected" : ""}`}
+                    onClick={() => toggleInterest(interest)}
+                  >
+                    {interest}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ob-selected-count">
+                {interests.length}/{MAX_INTERESTS} seleccionados
+              </div>
+
+              <div className="ob-actions ob-actions-row">
+                <button className="btn ob-btn-back" onClick={() => goToStep(2)}>
+                  ← Atrás
+                </button>
+                <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
+                  Continuar →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────
+              Step 4 – Avatar
+          ────────────────────────────────────────── */}
+          {step === 4 && (
+            <div className="ob-section">
+              <h2 className="ob-title">Añade una foto</h2>
+              <p className="ob-subtitle">Una foto de perfil ayuda a que otros te reconozcan</p>
+
+              <div className="ob-avatar-preview">
+                {(avatarPreview || safeAvatarDisplayUrl) ? (
+                  <img
+                    src={avatarPreview || safeAvatarDisplayUrl}
+                    alt="Avatar"
+                    className="ob-avatar-img"
+                    onError={() => { setAvatarUrl(""); setAvatarPreview(""); setSafeAvatarDisplayUrl(""); }}
+                  />
+                ) : (
+                  <div className="ob-avatar-placeholder">
+                    {name ? name[0].toUpperCase() : "?"}
+                  </div>
+                )}
+              </div>
+
+              <div className="ob-field">
+                <label className="ob-label">Sube una foto desde tu dispositivo</label>
+                <label className="ob-upload-btn">
+                  📷 {avatarFile ? avatarFile.name : "Elegir archivo"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleAvatarFileChange(e.target.files[0])}
+                  />
+                </label>
+              </div>
+
+              <div className="divider-text">o pega una URL</div>
+
+              <div className="ob-field">
+                <label className="ob-label">URL de tu foto de perfil</label>
+                <input
+                  className="input"
+                  placeholder="https://ejemplo.com/tu-foto.jpg"
+                  value={avatarUrl}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAvatarUrl(val);
+                    setAvatarFile(null);
+                    setAvatarPreview("");
+                    try {
+                      const parsed = new URL(val);
+                      setSafeAvatarDisplayUrl(
+                        parsed.protocol === "https:" || parsed.protocol === "http:"
+                          ? parsed.href
+                          : ""
+                      );
+                    } catch {
+                      setSafeAvatarDisplayUrl("");
+                    }
+                  }}
+                />
+                <span className="ob-hint">Pega la URL de una imagen pública (Gravatar, LinkedIn, etc.)</span>
+              </div>
+
+              {/* Coin / Creator destination hook */}
+              {selectedPath && (
+                <div className="ob-destination-hint">
+                  {selectedPath === "creator" ? (
+                    <>🌟 Al terminar irás a <strong>solicitar ser creador</strong> — aprobación rápida</>
+                  ) : selectedPath === "live" ? (
+                    <>🎥 Al terminar explorarás los <strong>directos en vivo</strong></>
+                  ) : (
+                    <>💖 Al terminar encontrarás tu <strong>Crush</strong></>
+                  )}
                 </div>
               )}
-            </div>
 
-            <div className="ob-field">
-              <label className="ob-label">Sube una foto desde tu dispositivo</label>
-              <label className="ob-upload-btn">
-                📷 {avatarFile ? avatarFile.name : "Elegir archivo"}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  style={{ display: "none" }}
-                  onChange={(e) => handleAvatarFileChange(e.target.files[0])}
-                />
-              </label>
-            </div>
+              <div className="ob-actions ob-actions-row">
+                <button className="btn ob-btn-back" onClick={() => goToStep(3)}>
+                  ← Atrás
+                </button>
+                <button
+                  className="btn btn-primary ob-btn-next"
+                  onClick={finish}
+                  disabled={loading}
+                >
+                  {loading ? "Guardando…" : "¡Listo! Entrar →"}
+                </button>
+              </div>
 
-            <div className="divider-text">o pega una URL</div>
-
-            <div className="ob-field">
-              <label className="ob-label">URL de tu foto de perfil</label>
-              <input
-                className="input"
-                placeholder="https://ejemplo.com/tu-foto.jpg"
-                value={avatarUrl}
-                onChange={(e) => { setAvatarUrl(e.target.value); setAvatarFile(null); setAvatarPreview(""); }}
-              />
-              <span className="ob-hint">Pega la URL de una imagen pública (Gravatar, LinkedIn, etc.)</span>
-            </div>
-
-            <div className="ob-actions ob-actions-row">
-              <button className="btn ob-btn-back" onClick={() => setStep(1)}>
-                ← Atrás
-              </button>
-              <button
-                className="btn btn-primary ob-btn-next"
-                onClick={finish}
-                disabled={loading}
-              >
-                {loading ? "Guardando…" : "¡Listo! Entrar →"}
+              <button className="ob-skip" onClick={handleSkipFinish} disabled={loading}>
+                Omitir foto por ahora
               </button>
             </div>
+          )}
 
-            <button className="ob-skip" onClick={handleSkipFinish} disabled={loading}>
-              Omitir por ahora
-            </button>
-          </div>
-        )}
+        </div>{/* end ob-step-content */}
       </div>
 
       <style>{`
@@ -374,7 +555,20 @@ export default function OnboardingPage() {
           box-shadow: var(--shadow), 0 0 80px rgba(139,92,246,0.1);
         }
 
-        /* Logo */
+        /* ── Transitions ── */
+        .ob-step-content {
+          transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .ob-fade-out {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        .ob-fade-in {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        /* ── Logo ── */
         .ob-logo {
           display: flex;
           align-items: center;
@@ -396,7 +590,7 @@ export default function OnboardingPage() {
           background-clip: text;
         }
 
-        /* Progress */
+        /* ── Progress ── */
         .ob-progress {
           display: flex;
           align-items: center;
@@ -459,7 +653,7 @@ export default function OnboardingPage() {
         .ob-step.active .ob-step-label { color: var(--text); }
         .ob-step.done .ob-step-label { color: var(--success); }
 
-        /* Section */
+        /* ── Section ── */
         .ob-section { display: flex; flex-direction: column; gap: 0; }
         .ob-title {
           font-size: 1.45rem;
@@ -474,7 +668,164 @@ export default function OnboardingPage() {
           margin-bottom: 1.75rem;
         }
 
-        /* Fields */
+        /* ── Welcome / Hero (Step 0) ── */
+        .ob-hero {
+          text-align: center;
+          margin-bottom: 2rem;
+        }
+        .ob-hero-title {
+          font-size: 1.9rem;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          color: var(--text);
+          line-height: 1.15;
+          margin-bottom: 0.65rem;
+        }
+        .ob-hero-accent {
+          background: linear-gradient(135deg, #ff2d78 0%, #e040fb 60%, #818cf8 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .ob-hero-sub {
+          color: var(--text-muted);
+          font-size: 0.95rem;
+          line-height: 1.5;
+        }
+        .ob-value-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+        }
+        .ob-value-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 1rem;
+          padding: 0.95rem 1.1rem;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: var(--radius-sm);
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .ob-value-card:hover {
+          border-color: rgba(224,64,251,0.25);
+          background: rgba(224,64,251,0.05);
+        }
+        .ob-value-emoji {
+          font-size: 1.6rem;
+          flex-shrink: 0;
+          line-height: 1;
+          margin-top: 2px;
+        }
+        .ob-value-title {
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.15rem;
+        }
+        .ob-value-desc {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+        .ob-btn-hero {
+          font-size: 1.05rem !important;
+          padding: 1rem !important;
+          letter-spacing: 0.01em;
+          box-shadow: 0 0 32px rgba(255,45,120,0.35);
+        }
+        .ob-legal-hint {
+          text-align: center;
+          font-size: 0.74rem;
+          color: var(--text-dim);
+          margin-top: 0.85rem;
+        }
+
+        /* ── Path Selection (Step 1) ── */
+        .ob-paths {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .ob-path-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 1rem;
+          padding: 1.1rem 1.2rem;
+          background: rgba(255,255,255,0.03);
+          border: 1.5px solid rgba(255,255,255,0.08);
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.2s;
+          position: relative;
+          width: 100%;
+        }
+        .ob-path-card:hover {
+          border-color: rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.05);
+        }
+        .ob-path-card.selected {
+          border-color: var(--path-color, #ff2d78);
+          background: rgba(255,255,255,0.06);
+          box-shadow: 0 0 20px var(--path-glow, rgba(255,45,120,0.3));
+        }
+        .ob-path-emoji {
+          font-size: 2rem;
+          flex-shrink: 0;
+          line-height: 1;
+          margin-top: 2px;
+        }
+        .ob-path-body { flex: 1; min-width: 0; }
+        .ob-path-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.25rem;
+        }
+        .ob-path-desc {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-bottom: 0.5rem;
+          line-height: 1.4;
+        }
+        .ob-path-hook {
+          font-size: 0.76rem;
+          color: var(--accent-green);
+          font-weight: 600;
+        }
+        .ob-path-check {
+          position: absolute;
+          top: 0.9rem;
+          right: 1rem;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--path-color, #ff2d78);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 800;
+          flex-shrink: 0;
+        }
+
+        /* ── Destination hint (Step 4) ── */
+        .ob-destination-hint {
+          margin-bottom: 1rem;
+          padding: 0.75rem 1rem;
+          background: rgba(52,211,153,0.07);
+          border: 1px solid rgba(52,211,153,0.2);
+          border-radius: var(--radius-sm);
+          font-size: 0.82rem;
+          color: var(--accent-green);
+          line-height: 1.4;
+        }
+        .ob-destination-hint strong { color: #fff; }
+
+        /* ── Fields ── */
         .ob-field {
           display: flex;
           flex-direction: column;
@@ -507,7 +858,7 @@ export default function OnboardingPage() {
         }
         .ob-field-half { flex: 1; }
 
-        /* Interests */
+        /* ── Interests ── */
         .ob-interests-grid {
           display: flex;
           flex-wrap: wrap;
@@ -541,7 +892,7 @@ export default function OnboardingPage() {
           margin-bottom: 1.25rem;
         }
 
-        /* Avatar */
+        /* ── Avatar ── */
         .ob-avatar-preview {
           display: flex;
           justify-content: center;
@@ -569,7 +920,7 @@ export default function OnboardingPage() {
           box-shadow: 0 0 24px rgba(224,64,251,0.3);
         }
 
-        /* Actions */
+        /* ── Actions ── */
         .ob-actions {
           margin-top: 0.5rem;
         }
@@ -615,7 +966,7 @@ export default function OnboardingPage() {
         }
         .ob-skip:hover { color: var(--text-muted); }
 
-        /* File upload button */
+        /* ── File upload button ── */
         .ob-upload-btn {
           display: inline-flex;
           align-items: center;
@@ -661,6 +1012,7 @@ export default function OnboardingPage() {
         @media (max-width: 480px) {
           .onboarding-card { padding: 2rem 1.25rem; }
           .ob-row { flex-direction: column; }
+          .ob-hero-title { font-size: 1.55rem; }
         }
       `}</style>
     </div>

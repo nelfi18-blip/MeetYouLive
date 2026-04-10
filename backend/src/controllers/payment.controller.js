@@ -10,10 +10,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Coin packages: { coins, priceUsd }
 const COIN_PACKAGES = {
-  100: { coins: 100, priceUsd: 0.99 },
-  250: { coins: 250, priceUsd: 2.29 },
-  500: { coins: 500, priceUsd: 4.49 },
-  1000: { coins: 1000, priceUsd: 7.99 },
+  100: { coins: 100, priceUsd: 4.99 },
+  250: { coins: 250, priceUsd: 9.99 },
+  700: { coins: 700, priceUsd: 19.99 },
 };
 
 // Build lookup map from the canonical SPARK_PACKAGES list
@@ -26,7 +25,7 @@ const createCoinCheckoutSession = async (req, res) => {
   const { package: pkg } = req.body;
   const coinPackage = COIN_PACKAGES[pkg];
   if (!coinPackage) {
-    return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 250, 500 o 1000" });
+    return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 250 o 700" });
   }
   try {
     const session = await stripe.checkout.sessions.create({

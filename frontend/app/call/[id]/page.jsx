@@ -342,8 +342,11 @@ export default function CallPage() {
         <span style={{ fontSize: "3rem" }}>📵</span>
         <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>Llamada rechazada</h2>
         <p style={{ color: "var(--text-muted)" }}>{remoteName} no pudo atender en este momento.</p>
-        <Link href="/chats" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-          Volver a chats
+        <Link href="/matches" className="btn btn-primary" style={{ marginTop: "1rem" }}>
+          ⚡ Llamar ahora a otro match
+        </Link>
+        <Link href="/coins" style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
+          🪙 Comprar monedas
         </Link>
       </div>
     );
@@ -358,9 +361,17 @@ export default function CallPage() {
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
         {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}
-        <Link href="/chats" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-          Volver a chats
+        <Link href="/matches" className="btn btn-primary" style={{ marginTop: "1rem" }}>
+          💖 Ver mis matches
         </Link>
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+          <Link href="/coins" style={{ fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
+            🪙 Comprar monedas
+          </Link>
+          <Link href="/crush" style={{ fontSize: "0.85rem", color: "var(--text-muted)", textDecoration: "none", fontWeight: 600 }}>
+            ⚡ Volver al Crush
+          </Link>
+        </div>
       </div>
     );
   }

@@ -1653,6 +1653,13 @@ export default function CrushPage() {
                   <p className="done-monetize-desc">Más visibilidad · 24h activo</p>
                 </div>
               </button>
+              <Link href="/matches" className="done-monetize-card">
+                <span className="done-monetize-icon">👀</span>
+                <div>
+                  <p className="done-monetize-title">Ver quién te dio like</p>
+                  <p className="done-monetize-desc">💎 Desbloquea más con monedas</p>
+                </div>
+              </Link>
             </div>
           </div>
         ) : (

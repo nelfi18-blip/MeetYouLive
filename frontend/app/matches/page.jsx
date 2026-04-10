@@ -143,6 +143,17 @@ export default function MatchesPage() {
           <Link href="/crush" className="btn btn-primary">
             ⚡ Ir al Crush
           </Link>
+          <div className="empty-upsell">
+            <p className="empty-upsell-label">💎 Desbloquea más con monedas</p>
+            <div className="empty-upsell-actions">
+              <Link href="/coins" className="empty-upsell-btn">
+                🪙 Comprar monedas
+              </Link>
+              <Link href="/matches" className="empty-upsell-btn empty-upsell-btn-ghost">
+                👀 Ver quién te dio like
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 
@@ -201,13 +212,20 @@ export default function MatchesPage() {
                     <ChatIcon /> Chat
                   </button>
 
-                  {privateCallEnabled && (
+                  {privateCallEnabled ? (
                     <button
                       className="match-action-btn match-call-btn"
                       onClick={() => startPrivateCall(user._id)}
                       title={`Llamada privada · 🪙${pricePerMinute}/min`}
                     >
                       <CallIcon /> 🪙{pricePerMinute}/min
+                    </button>
+                  ) : (
+                    <button
+                      className="match-action-btn match-call-btn match-call-instant"
+                      onClick={() => startPrivateCall(user._id)}
+                    >
+                      <CallIcon /> Llamar ahora
                     </button>
                   )}
 
@@ -446,6 +464,67 @@ export default function MatchesPage() {
           color: var(--accent-green);
           font-weight: 700;
           margin-bottom: 0.25rem;
+        }
+
+        .match-call-instant {
+          background: rgba(255,45,120,0.08);
+          border-color: rgba(255,45,120,0.28);
+          color: #ff6ba8;
+        }
+        .match-call-instant:hover {
+          background: rgba(255,45,120,0.18);
+          box-shadow: 0 0 12px rgba(255,45,120,0.2);
+        }
+
+        /* Empty state upsell */
+        .empty-upsell {
+          margin-top: 1.25rem;
+          padding: 1.25rem 1.5rem;
+          border: 1px solid rgba(251,191,36,0.25);
+          background: rgba(251,191,36,0.04);
+          border-radius: var(--radius);
+          text-align: center;
+          max-width: 380px;
+          width: 100%;
+        }
+        .empty-upsell-label {
+          font-size: 0.85rem;
+          color: #fbbf24;
+          font-weight: 700;
+          margin: 0 0 0.85rem;
+        }
+        .empty-upsell-actions {
+          display: flex;
+          gap: 0.65rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        .empty-upsell-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.5rem 1.1rem;
+          border-radius: 999px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-decoration: none;
+          background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(224,64,251,0.1));
+          border: 1px solid rgba(251,191,36,0.35);
+          color: #fbbf24;
+          transition: all 0.2s;
+        }
+        .empty-upsell-btn:hover {
+          background: linear-gradient(135deg, rgba(251,191,36,0.28), rgba(224,64,251,0.18));
+          box-shadow: 0 0 14px rgba(251,191,36,0.2);
+        }
+        .empty-upsell-btn-ghost {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.12);
+          color: var(--text-muted);
+        }
+        .empty-upsell-btn-ghost:hover {
+          background: rgba(255,255,255,0.08);
+          box-shadow: none;
         }
       `}</style>
     </div>

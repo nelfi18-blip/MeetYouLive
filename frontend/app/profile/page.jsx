@@ -540,6 +540,28 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Premium upsell */}
+          <div className="premium-upsell-card">
+            <div className="premium-upsell-header">
+              <span className="premium-upsell-gem">💎</span>
+              <div>
+                <h2 className="premium-upsell-title">Desbloquea más con monedas</h2>
+                <p className="premium-upsell-sub">Accede a funciones exclusivas y destaca entre todos</p>
+              </div>
+            </div>
+            <div className="premium-upsell-actions">
+              <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
+                🪙 Comprar monedas
+              </Link>
+              <Link href="/matches" className="premium-upsell-btn premium-upsell-btn-ghost">
+                👀 Ver quién te dio like
+              </Link>
+              <Link href="/matches" className="premium-upsell-btn premium-upsell-btn-ghost">
+                ⚡ Llamar ahora
+              </Link>
+            </div>
+          </div>
+
           {/* Quick actions */}
           <div className="actions-card">
             <h2 className="actions-title">Acciones rápidas</h2>
@@ -784,6 +806,69 @@ export default function ProfilePage() {
 
         .stat-value { font-size: 1.2rem; font-weight: 800; color: var(--text); }
         .stat-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.04em; }
+
+        /* Premium upsell */
+        .premium-upsell-card {
+          background: linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(224,64,251,0.06) 100%);
+          border: 1px solid rgba(251,191,36,0.28);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .premium-upsell-header {
+          display: flex;
+          align-items: center;
+          gap: 0.9rem;
+        }
+        .premium-upsell-gem { font-size: 1.8rem; flex-shrink: 0; }
+        .premium-upsell-title {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+          margin: 0 0 0.15rem;
+        }
+        .premium-upsell-sub {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin: 0;
+        }
+        .premium-upsell-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.6rem;
+        }
+        .premium-upsell-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.5rem 1.1rem;
+          border-radius: 999px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.2s;
+          border: 1px solid transparent;
+        }
+        .premium-upsell-btn-primary {
+          background: linear-gradient(135deg, rgba(251,191,36,0.22), rgba(224,64,251,0.14));
+          border-color: rgba(251,191,36,0.45);
+          color: #fbbf24;
+        }
+        .premium-upsell-btn-primary:hover {
+          background: linear-gradient(135deg, rgba(251,191,36,0.32), rgba(224,64,251,0.22));
+          box-shadow: 0 0 14px rgba(251,191,36,0.22);
+        }
+        .premium-upsell-btn-ghost {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.12);
+          color: var(--text-muted);
+        }
+        .premium-upsell-btn-ghost:hover {
+          background: rgba(255,255,255,0.08);
+          color: var(--text);
+        }
 
         /* Actions */
         .actions-card {

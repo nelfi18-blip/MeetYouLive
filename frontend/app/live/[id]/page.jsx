@@ -361,6 +361,9 @@ export default function LiveRoomPage() {
               <Link href="/login" className="link-accent">Inicia sesión</Link> para comprar la entrada.
             </p>
           )}
+          <Link href="/coins" className="paywall-buy-coins">
+            🪙 Comprar monedas
+          </Link>
           <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
         </div>
 
@@ -403,6 +406,24 @@ export default function LiveRoomPage() {
           }
           .paywall-login-hint { font-size: 0.8rem; color: var(--text-muted); }
           .link-accent { color: var(--accent); text-decoration: underline; }
+          .paywall-buy-coins {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.45rem 1.25rem;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.3);
+            color: #fbbf24;
+            transition: all 0.2s;
+          }
+          .paywall-buy-coins:hover {
+            background: rgba(251,191,36,0.2);
+            box-shadow: 0 0 12px rgba(251,191,36,0.2);
+          }
         `}</style>
       </div>
     );

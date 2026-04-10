@@ -188,6 +188,11 @@ export default function OnboardingPage() {
     }
 
     const token = localStorage.getItem("token");
+
+    // Map selected path to intent
+    const intentMap = { crush: "dating", live: "live", creator: "creator" };
+    const intent = intentMap[selectedPath] || "";
+
     try {
       const res = await fetch(`${API_URL}/api/user/me/onboarding`, {
         method: "PATCH",
@@ -203,6 +208,7 @@ export default function OnboardingPage() {
           interests,
           location: location.trim() || undefined,
           avatar: finalAvatarUrl || undefined,
+          intent: intent || undefined,
         }),
       });
       if (!res.ok) {

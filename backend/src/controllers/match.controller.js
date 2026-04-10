@@ -288,15 +288,29 @@ exports.superCrushUser = async (req, res) => {
 // ─── Get all mutual matches ───────────────────────────────────────────────────
 exports.getMatches = async (req, res) => {
   try {
+    const me = await User.findById(req.userId).select("interests intent");
+    const myInterests = me?.interests || [];
+    const myIntent = me?.intent || "";
+
     const myLikes = await Like.find({ from: req.userId }).select("to");
     const myLikedIds = myLikes.map((l) => String(l.to));
 
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role isLive liveId creatorProfile");
+    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent");
 
-    const matches = mutualLikes.map((l) => l.from);
+    const matches = mutualLikes.map((l) => {
+      const user = l.from.toObject ? l.from.toObject() : l.from;
+      const theirInterests = user.interests || [];
+      const sharedInterests = myInterests.filter((i) => theirInterests.includes(i));
+      const totalInterests = new Set([...myInterests, ...theirInterests]).size;
+      const interestScore = totalInterests > 0 ? (sharedInterests.length / totalInterests) * 80 : 0;
+      const intentBonus = myIntent && user.intent && myIntent === user.intent ? 20 : 0;
+      const compatibilityScore = Math.round(Math.min(100, interestScore + intentBonus));
+      return { ...user, sharedInterests, compatibilityScore };
+    });
+
     res.json({ matches });
   } catch (err) {
     res.status(500).json({ message: err.message });

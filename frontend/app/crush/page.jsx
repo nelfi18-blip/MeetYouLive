@@ -833,6 +833,8 @@ function SwipeCard({ user, onPass, onLike }) {
   const isLive = isCreator && user.isLive && user.liveId;
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
+  const compatibilityScore = user.compatibilityScore ?? null;
+  const sharedInterests = user.sharedInterests || [];
 
   const getClientX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 
@@ -928,6 +930,11 @@ function SwipeCard({ user, onPass, onLike }) {
             {user.location && <span className="card-location">📍 {user.location}</span>}
           </div>
           <div className="card-badges-row">
+            {compatibilityScore !== null && compatibilityScore > 0 && (
+              <span className="card-compat-badge">
+                🔥 {compatibilityScore}%
+              </span>
+            )}
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
             {user.isVerified && <Badge variant="verified">✓</Badge>}
           </div>
@@ -938,7 +945,7 @@ function SwipeCard({ user, onPass, onLike }) {
         {user.interests?.length > 0 && (
           <div className="card-tags">
             {user.interests.slice(0, 4).map((t) => (
-              <span key={t} className="card-tag">{t}</span>
+              <span key={t} className={`card-tag${sharedInterests.includes(t) ? " card-tag-shared" : ""}`}>{t}</span>
             ))}
           </div>
         )}
@@ -1144,6 +1151,25 @@ function SwipeCard({ user, onPass, onLike }) {
           color: #e040fb;
           font-weight: 600;
           backdrop-filter: blur(4px);
+        }
+        .card-tag-shared {
+          background: rgba(255,45,120,0.15);
+          border-color: rgba(255,45,120,0.45);
+          color: #ff2d78;
+          box-shadow: 0 0 8px rgba(255,45,120,0.2);
+        }
+        .card-compat-badge {
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 0.22rem 0.65rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(255,45,120,0.2), rgba(251,191,36,0.2));
+          border: 1px solid rgba(255,45,120,0.5);
+          color: #fbbf24;
+          letter-spacing: 0.02em;
+          box-shadow: 0 0 12px rgba(255,45,120,0.25);
+          backdrop-filter: blur(4px);
+          white-space: nowrap;
         }
         .card-creator-row {
           display: flex;

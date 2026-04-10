@@ -54,7 +54,7 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
 
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio, avatar, preferredLanguage } = req.body;
+    const { username, name, bio, avatar, preferredLanguage, intent } = req.body;
     const updates = {};
     if (username !== undefined) {
       const trimmed = username.trim();
@@ -71,6 +71,10 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (allowedLangs.includes(preferredLanguage)) {
         updates.preferredLanguage = preferredLanguage;
       }
+    }
+    if (intent !== undefined) {
+      const allowedIntents = ["dating", "casual", "live", "creator", ""];
+      if (allowedIntents.includes(intent)) updates.intent = intent;
     }
 
     if (updates.username) {
@@ -116,7 +120,7 @@ const MAX_INTERESTS = 10;
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { avatar, gender, birthdate, interests, location, name, bio } = req.body;
+    const { avatar, gender, birthdate, interests, location, name, bio, intent } = req.body;
     const updates = { onboardingComplete: true };
 
     if (avatar !== undefined) updates.avatar = avatar.trim();
@@ -129,6 +133,10 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (trimmed.length > 0) updates.name = trimmed;
     }
     if (bio !== undefined) updates.bio = bio.trim();
+    if (intent !== undefined) {
+      const allowedIntents = ["dating", "casual", "live", "creator", ""];
+      if (allowedIntents.includes(intent)) updates.intent = intent;
+    }
 
     const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -162,13 +170,18 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (page - 1) * limit;
 
+    // Fetch the current user's interests and intent for compatibility scoring
+    const me = await User.findById(req.userId).select("interests intent");
+    const myInterests = me?.interests || [];
+    const myIntent = me?.intent || "";
+
     const users = await User.find(
       {
         _id: { $ne: req.userId },
         isBlocked: false,
         onboardingComplete: true,
       },
-      "username name avatar bio gender interests location role creatorProfile"
+      "username name avatar bio gender interests intent location role creatorProfile birthdate"
     )
       // Sort newest first so recently joined users appear at the top.
       // Future improvement: weight by shared interests or location.
@@ -187,6 +200,18 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       const liveId = liveByUser[String(u._id)] || null;
       obj.isLive = !!liveId;
       obj.liveId = liveId;
+
+      // Compatibility score
+      const theirInterests = obj.interests || [];
+      const sharedInterests = myInterests.filter((i) => theirInterests.includes(i));
+      const totalInterests = new Set([...myInterests, ...theirInterests]).size;
+      const interestScore = totalInterests > 0 ? (sharedInterests.length / totalInterests) * 80 : 0;
+      const intentBonus = myIntent && obj.intent && myIntent === obj.intent ? 20 : 0;
+      const compatibilityScore = Math.round(Math.min(100, interestScore + intentBonus));
+
+      obj.sharedInterests = sharedInterests;
+      obj.compatibilityScore = compatibilityScore;
+
       return obj;
     });
 

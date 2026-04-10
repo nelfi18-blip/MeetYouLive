@@ -3,6 +3,7 @@ const Gift = require("../models/Gift");
 const User = require("../models/User");
 const Payout = require("../models/Payout");
 const Live = require("../models/Live");
+const VideoCall = require("../models/VideoCall");
 
 const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
@@ -25,32 +26,49 @@ exports.getCreatorStats = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
-    const aggregateResult = await Gift.aggregate([
-      { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
-      {
-        $group: {
-          _id: null,
-          totalCoinsReceived: { $sum: "$coinCost" },
-          totalCreatorShare: { $sum: "$creatorShare" },
-          totalGiftCount: { $sum: 1 },
+    const [aggregateResult, callAgg, liveCount, pendingPayout] = await Promise.all([
+      Gift.aggregate([
+        { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
+        {
+          $group: {
+            _id: null,
+            totalCoinsReceived: { $sum: "$coinCost" },
+            totalCreatorShare: { $sum: "$creatorShare" },
+            totalGiftCount: { $sum: 1 },
+          },
         },
-      },
+      ]),
+      VideoCall.aggregate([
+        { $match: { recipient: new mongoose.Types.ObjectId(user._id), status: "ended", type: "paid_creator" } },
+        {
+          $group: {
+            _id: null,
+            totalCalls: { $sum: 1 },
+            totalCallDurationSeconds: { $sum: "$totalDurationSeconds" },
+            totalCallEarnings: { $sum: "$creatorShare" },
+          },
+        },
+      ]),
+      mongoose.model("Live").countDocuments({
+        user: user._id,
+        status: { $in: ["live", "active"] },
+      }).catch(() => 0),
+      Payout.findOne({
+        creator: user._id,
+        status: { $in: ["pending", "processing"] },
+      }).sort({ createdAt: -1 }),
     ]);
-
-    const liveCount = await mongoose.model("Live").countDocuments({
-      user: user._id,
-      status: { $in: ["live", "active"] },
-    }).catch(() => 0);
-
-    const pendingPayout = await Payout.findOne({
-      creator: user._id,
-      status: { $in: ["pending", "processing"] },
-    }).sort({ createdAt: -1 });
 
     const totals = aggregateResult[0] || {
       totalCoinsReceived: 0,
       totalCreatorShare: 0,
       totalGiftCount: 0,
+    };
+
+    const callTotals = callAgg[0] || {
+      totalCalls: 0,
+      totalCallDurationSeconds: 0,
+      totalCallEarnings: 0,
     };
 
     return res.json({
@@ -62,6 +80,9 @@ exports.getCreatorStats = async (req, res) => {
       totalGifts: totals.totalGiftCount || 0,
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
+      totalCalls: callTotals.totalCalls || 0,
+      totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
+      totalCallEarnings: callTotals.totalCallEarnings || 0,
       pendingPayout: pendingPayout
         ? {
             _id: pendingPayout._id,
@@ -223,7 +244,7 @@ exports.getCreatorDashboard = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
-    const [giftAgg, activeLive, pendingPayout] = await Promise.all([
+    const [giftAgg, callAgg, activeLive, pendingPayout] = await Promise.all([
       Gift.aggregate([
         { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
         {
@@ -232,6 +253,17 @@ exports.getCreatorDashboard = async (req, res) => {
             totalCoinsReceived: { $sum: "$coinCost" },
             totalCreatorShare: { $sum: "$creatorShare" },
             totalGiftCount: { $sum: 1 },
+          },
+        },
+      ]),
+      VideoCall.aggregate([
+        { $match: { recipient: new mongoose.Types.ObjectId(user._id), status: "ended", type: "paid_creator" } },
+        {
+          $group: {
+            _id: null,
+            totalCalls: { $sum: 1 },
+            totalCallDurationSeconds: { $sum: "$totalDurationSeconds" },
+            totalCallEarnings: { $sum: "$creatorShare" },
           },
         },
       ]),
@@ -250,6 +282,12 @@ exports.getCreatorDashboard = async (req, res) => {
       totalGiftCount: 0,
     };
 
+    const callTotals = callAgg[0] || {
+      totalCalls: 0,
+      totalCallDurationSeconds: 0,
+      totalCallEarnings: 0,
+    };
+
     return res.json({
       ok: true,
       activeLive: activeLive || null,
@@ -259,6 +297,9 @@ exports.getCreatorDashboard = async (req, res) => {
       totalGifts: totals.totalGiftCount || 0,
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
+      totalCalls: callTotals.totalCalls || 0,
+      totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
+      totalCallEarnings: callTotals.totalCallEarnings || 0,
       pendingPayout: pendingPayout
         ? {
             _id: pendingPayout._id,

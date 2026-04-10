@@ -307,6 +307,16 @@ export default function ExplorePage() {
                   ? "No hay directos que coincidan con tu búsqueda."
                   : "No hay directos activos en este momento. ¡Vuelve más tarde!"}
               </p>
+              {!search && category === "Todos" && (
+                <div className="empty-actions">
+                  <button className="btn btn-primary empty-action-btn" onClick={() => setTab("discover")}>
+                    💖 Ver perfiles
+                  </button>
+                  <Link href="/crush" className="btn empty-action-btn">
+                    ⚡ Ir a Crush
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <div className="streams-grid">
@@ -337,7 +347,17 @@ export default function ExplorePage() {
               <div className="empty-icon">👥</div>
               <h3>Sin perfiles disponibles</h3>
               <p>Aún no hay usuarios con perfil completo. ¡Sé el primero en completar el tuyo!</p>
-              <Link href="/profile" className="btn btn-primary">Completar perfil</Link>
+              <div className="empty-actions">
+                <button className="btn btn-primary empty-action-btn" onClick={() => setTab("live")}>
+                  🎥 Conecta en vivo
+                </button>
+                <Link href="/matches" className="btn empty-action-btn">
+                  💖 Ver matches
+                </Link>
+                <Link href="/crush" className="btn empty-action-btn">
+                  🔥 Desbloquear más perfiles
+                </Link>
+              </div>
             </div>
           )}
 
@@ -429,6 +449,8 @@ export default function ExplorePage() {
         .empty-icon { font-size: 2.5rem; }
         .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }
         .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
+        .empty-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; margin-top: 0.25rem; }
+        .empty-action-btn { padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-pill); }
 
         @media (max-width: 600px) {
           .explore-header { flex-direction: column; align-items: flex-start; }

@@ -234,35 +234,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleCreatorAction = async (userId, action) => {
-    const token = localStorage.getItem("admin_token");
-    setActionLoading(userId + action);
-    setActionError("");
-    try {
-      const res = await fetch(`${apiUrl}/api/admin/creator-requests/${userId}/${action}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Error");
-      // Refresh creator requests and user list to reflect updated roles
-      const [reqRes, usersRes] = await Promise.all([
-        fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (reqRes.ok) {
-        const data = await reqRes.json();
-        setCreatorRequests(data.requests || []);
-      }
-      if (usersRes.ok) {
-        const data = await usersRes.json();
-        setUsers(data.users || []);
-      }
-    } catch {
-      setActionError(action === "approve" ? "Error al aprobar la solicitud" : "Error al rechazar la solicitud");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const handleVerificationAction = async (userId, action) => {
     const token = localStorage.getItem("admin_token");
@@ -345,7 +316,7 @@ export default function AdminPage() {
           <StatCard title="Reportes" value={stats.reports} />
           <StatCard title="Suscripciones" value={stats.subscriptions} />
           <StatCard title="Admins" value={stats.admins} />
-          <StatCard title="Solicitudes creador" value={creatorRequests.length} highlight={creatorRequests.length > 0} />
+          <StatCard title="Solicitudes creador" value={creatorRequests.filter((r) => r.creatorStatus === "pending").length} highlight={creatorRequests.filter((r) => r.creatorStatus === "pending").length > 0} />
           <StatCard title="Verificaciones" value={verificationRequests.length} highlight={verificationRequests.length > 0} />
           <StatCard title="Pagos pendientes" value={activePayoutsCount} highlight={pendingPayoutsCount > 0} />
         </div>
@@ -355,7 +326,7 @@ export default function AdminPage() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem", flexWrap: "wrap" }}>
         {[
           { key: "users", label: "Usuarios" },
-          { key: "creators", label: `Solicitudes Creador${creatorRequests.length > 0 ? ` (${creatorRequests.length})` : ""}` },
+          { key: "creators", label: `Creadores${creatorRequests.filter((r) => r.creatorStatus === "pending").length > 0 ? ` (${creatorRequests.filter((r) => r.creatorStatus === "pending").length})` : ""}` },
           { key: "verifications", label: `Verificaciones${verificationRequests.length > 0 ? ` (${verificationRequests.length})` : ""}` },
           { key: "reports", label: "Reportes" },
           { key: "gifts", label: "Catálogo Regalos" },
@@ -468,105 +439,16 @@ export default function AdminPage() {
       )}
 
       {activeTab === "creators" && (
-        <section style={{ marginBottom: "2.5rem" }}>
-          <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem" }}>Solicitudes para ser Creador</h2>
-          {actionError && (
-            <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
-              {actionError}
-            </div>
-          )}
-          {creatorRequests.length === 0 ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", background: "#1e293b", borderRadius: "0.75rem" }}>
-              No hay solicitudes pendientes
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              {creatorRequests.map((u) => {
-                const app = u.creatorApplication || {};
-                const langs = app.languages?.length ? app.languages.join(", ") : null;
-                const socialEntries = app.socialLinks
-                  ? Object.entries(app.socialLinks).filter(([, v]) => v)
-                  : [];
-                return (
-                  <div key={u._id} style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", border: "1px solid #334155" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "1rem" }}>
-                          {u.name || "—"}
-                          {u.username && <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: "0.5rem", fontSize: "0.85rem" }}>@{u.username}</span>}
-                        </div>
-                        <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginTop: "0.2rem" }}>{u.email}</div>
-                        <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.15rem" }}>
-                          Registrado: {new Date(u.createdAt).toLocaleDateString()}
-                          {app.submittedAt && (
-                            <span style={{ marginLeft: "0.75rem" }}>
-                              Solicitud enviada: {new Date(app.submittedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-                        <ActionBtn
-                          label="✓ Aprobar"
-                          color="#4ade80"
-                          disabled={!!actionLoading}
-                          onClick={() => handleCreatorAction(u._id, "approve")}
-                        />
-                        <ActionBtn
-                          label="✗ Rechazar"
-                          color="#f87171"
-                          disabled={!!actionLoading}
-                          onClick={() => handleCreatorAction(u._id, "reject")}
-                        />
-                      </div>
-                    </div>
-
-                    {(app.displayName || app.category || app.country || langs) && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: app.bio ? "0.75rem" : 0 }}>
-                        {app.displayName && (
-                          <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#c4b5fd" }}>
-                            🎭 {app.displayName}
-                          </span>
-                        )}
-                        {app.category && (
-                          <span style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#67e8f9" }}>
-                            🏷 {app.category}
-                          </span>
-                        )}
-                        {app.country && (
-                          <span style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#6ee7b7" }}>
-                            🌍 {app.country}
-                          </span>
-                        )}
-                        {langs && (
-                          <span style={{ background: "rgba(251,146,60,0.1)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#fed7aa" }}>
-                            🗣 {langs}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {app.bio && (
-                      <div style={{ color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.55, marginBottom: socialEntries.length ? "0.75rem" : 0, background: "rgba(255,255,255,0.03)", borderRadius: "0.5rem", padding: "0.6rem 0.875rem" }}>
-                        {app.bio}
-                      </div>
-                    )}
-
-                    {socialEntries.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                        {socialEntries.map(([net, val]) => (
-                          <span key={net} style={{ fontSize: "0.78rem", color: "#94a3b8", background: "#0f172a", borderRadius: "0.375rem", padding: "0.2rem 0.6rem", border: "1px solid #1e293b" }}>
-                            {net}: {val}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <CreatorsTab
+          creatorRequests={creatorRequests}
+          setCreatorRequests={setCreatorRequests}
+          setUsers={setUsers}
+          actionLoading={actionLoading}
+          setActionLoading={setActionLoading}
+          actionError={actionError}
+          setActionError={setActionError}
+          apiUrl={apiUrl}
+        />
       )}
 
       {activeTab === "verifications" && (
@@ -1093,6 +975,223 @@ function ActionBtn({ label, color, onClick, disabled }) {
     >
       {label}
     </button>
+  );
+}
+
+const CREATOR_STATUS_LABELS = {
+  pending: { label: "Pendiente", color: "#fbbf24" },
+  approved: { label: "Aprobado", color: "#4ade80" },
+  rejected: { label: "Rechazado", color: "#f87171" },
+  suspended: { label: "Suspendido", color: "#fb923c" },
+};
+
+function CreatorsTab({ creatorRequests, setCreatorRequests, setUsers, actionLoading, setActionLoading, actionError, setActionError, apiUrl }) {
+  const [statusFilter, setStatusFilter] = useState("pending");
+
+  const filtered = creatorRequests.filter((u) =>
+    statusFilter === "all" ? true : u.creatorStatus === statusFilter
+  );
+
+  const handleAction = async (userId, action) => {
+    const token = localStorage.getItem("admin_token");
+    setActionLoading(userId + action);
+    setActionError("");
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/creator-requests/${userId}/${action}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error");
+      const [reqRes, usersRes] = await Promise.all([
+        fetch(`${apiUrl}/api/admin/creator-requests`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${apiUrl}/api/admin/users`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (reqRes.ok) {
+        const data = await reqRes.json();
+        setCreatorRequests(data.requests || []);
+      }
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setUsers(data.users || []);
+      }
+    } catch {
+      setActionError(
+        action === "approve"
+          ? "Error al aprobar la solicitud"
+          : action === "reject"
+          ? "Error al rechazar la solicitud"
+          : "Error al suspender el creador"
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  return (
+    <section style={{ marginBottom: "2.5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+        <h2 style={{ fontSize: "1.3rem", margin: 0 }}>Creadores</h2>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {[
+            { key: "pending", label: "Pendientes" },
+            { key: "approved", label: "Aprobados" },
+            { key: "suspended", label: "Suspendidos" },
+            { key: "all", label: "Todos" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setStatusFilter(f.key)}
+              style={{
+                background: statusFilter === f.key ? "#7c3aed" : "transparent",
+                color: statusFilter === f.key ? "#fff" : "#94a3b8",
+                border: "1px solid",
+                borderColor: statusFilter === f.key ? "#7c3aed" : "#334155",
+                borderRadius: "6px",
+                padding: "0.25rem 0.75rem",
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                fontWeight: statusFilter === f.key ? "700" : "500",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {actionError && (
+        <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid #f87171", color: "#f87171", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1rem", fontSize: "0.875rem" }}>
+          {actionError}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8", background: "#1e293b", borderRadius: "0.75rem" }}>
+          No hay creadores con este estado
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {filtered.map((u) => {
+            const app = u.creatorApplication || {};
+            const langs = app.languages?.length ? app.languages.join(", ") : null;
+            const socialEntries = app.socialLinks
+              ? Object.entries(app.socialLinks).filter(([, v]) => v)
+              : [];
+            const statusInfo = CREATOR_STATUS_LABELS[u.creatorStatus] || {};
+            return (
+              <div key={u._id} style={{ background: "#1e293b", borderRadius: "0.75rem", padding: "1.25rem", border: "1px solid #334155" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: "1rem" }}>
+                        {u.name || "—"}
+                      </span>
+                      {u.username && (
+                        <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: "0.85rem" }}>@{u.username}</span>
+                      )}
+                      {statusInfo.label && (
+                        <span style={{ fontSize: "0.72rem", fontWeight: 700, color: statusInfo.color, border: `1px solid ${statusInfo.color}`, borderRadius: "999px", padding: "0.1rem 0.55rem" }}>
+                          {statusInfo.label}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginTop: "0.2rem" }}>{u.email}</div>
+                    <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+                      Registrado: {new Date(u.createdAt).toLocaleDateString()}
+                      {app.submittedAt && (
+                        <span style={{ marginLeft: "0.75rem" }}>
+                          Solicitud enviada: {new Date(app.submittedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                      {u.creatorApprovedAt && (
+                        <span style={{ marginLeft: "0.75rem" }}>
+                          Aprobado: {new Date(u.creatorApprovedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, flexWrap: "wrap" }}>
+                    {u.creatorStatus !== "approved" && (
+                      <ActionBtn
+                        label="✓ Aprobar"
+                        color="#4ade80"
+                        disabled={!!actionLoading}
+                        onClick={() => handleAction(u._id, "approve")}
+                      />
+                    )}
+                    {u.creatorStatus !== "rejected" && u.creatorStatus !== "suspended" && (
+                      <ActionBtn
+                        label="✗ Rechazar"
+                        color="#f87171"
+                        disabled={!!actionLoading}
+                        onClick={() => handleAction(u._id, "reject")}
+                      />
+                    )}
+                    {u.creatorStatus !== "suspended" && (
+                      <ActionBtn
+                        label="⏸ Suspender"
+                        color="#fb923c"
+                        disabled={!!actionLoading}
+                        onClick={() => handleAction(u._id, "suspend")}
+                      />
+                    )}
+                    {u.creatorStatus === "suspended" && (
+                      <ActionBtn
+                        label="↩ Reactivar"
+                        color="#4ade80"
+                        disabled={!!actionLoading}
+                        onClick={() => handleAction(u._id, "approve")}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {(app.displayName || app.category || app.country || langs) && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: app.bio ? "0.75rem" : 0 }}>
+                    {app.displayName && (
+                      <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#c4b5fd" }}>
+                        🎭 {app.displayName}
+                      </span>
+                    )}
+                    {app.category && (
+                      <span style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#67e8f9" }}>
+                        🏷 {app.category}
+                      </span>
+                    )}
+                    {app.country && (
+                      <span style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#6ee7b7" }}>
+                        🌍 {app.country}
+                      </span>
+                    )}
+                    {langs && (
+                      <span style={{ background: "rgba(251,146,60,0.1)", border: "1px solid rgba(251,146,60,0.25)", borderRadius: "999px", padding: "0.2rem 0.7rem", fontSize: "0.78rem", color: "#fed7aa" }}>
+                        🗣 {langs}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {app.bio && (
+                  <div style={{ color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.55, marginBottom: socialEntries.length ? "0.75rem" : 0, background: "rgba(255,255,255,0.03)", borderRadius: "0.5rem", padding: "0.6rem 0.875rem" }}>
+                    {app.bio}
+                  </div>
+                )}
+
+                {socialEntries.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                    {socialEntries.map(([net, val]) => (
+                      <span key={net} style={{ fontSize: "0.78rem", color: "#94a3b8", background: "#0f172a", borderRadius: "0.375rem", padding: "0.2rem 0.6rem", border: "1px solid #1e293b" }}>
+                        {net}: {val}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

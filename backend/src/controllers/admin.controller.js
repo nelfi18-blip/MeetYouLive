@@ -82,9 +82,18 @@ exports.makeAdmin = async (req, res) => {
 
 exports.getCreatorRequests = async (req, res) => {
   try {
-    const requests = await User.find({ creatorStatus: "pending" }, "-password")
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const allowedStatuses = ["pending", "approved", "rejected", "suspended"];
+    const statusFilter = req.query.status && allowedStatuses.includes(req.query.status)
+      ? req.query.status
+      : null;
+
+    const query = statusFilter
+      ? { creatorStatus: statusFilter }
+      : { creatorStatus: { $in: ["pending", "approved", "suspended"] } };
+
+    const requests = await User.find(query, "-password")
+      .sort({ "creatorApplication.submittedAt": -1, createdAt: -1 })
+      .limit(200);
     return res.json({ ok: true, requests });
   } catch (error) {
     console.error("Creator requests error:", error);

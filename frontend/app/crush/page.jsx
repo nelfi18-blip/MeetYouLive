@@ -13,6 +13,14 @@ const ACTION_FEEDBACK_DURATION_MS = 700;
 const ACTIVITY_BANNER_DURATION_MS = 3500;
 const DAILY_FREE_SWIPES = 20;
 const EXTRA_SWIPES_BATCH = 10;
+const DAILY_LOGIN_REWARD_COINS = 5;
+
+// Messages that rotate in the done-state
+const DONE_MESSAGES = [
+  { icon: "🔥", text: "Nuevas personas pronto" },
+  { icon: "💎", text: "Desbloquea más perfiles" },
+  { icon: "🎥", text: "Entra a directos mientras tanto" },
+];
 
 // ─── localStorage swipe limit helpers ────────────────────────────────────────
 function getTodayKey() {
@@ -53,6 +61,16 @@ function getRemainingSwipes() {
   const extra = s.extra || 0;
   const total = DAILY_FREE_SWIPES + extra;
   return Math.max(0, total - used);
+}
+
+// ─── Daily login reward helpers ───────────────────────────────────────────────
+function getDailyRewardKey() { return `crush_daily_reward_${getTodayKey()}`; }
+function checkAndClaimDailyReward() {
+  if (typeof window === "undefined") return false;
+  const key = getDailyRewardKey();
+  if (localStorage.getItem(key)) return false;
+  localStorage.setItem(key, "1");
+  return true;
 }
 
 /** Calculate age from a birthdate string/Date. Returns null if not available. */
@@ -661,6 +679,145 @@ function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost
   );
 }
 
+// ─── DailyRewardBanner ───────────────────────────────────────────────────────
+function DailyRewardBanner({ onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="drb" role="status" aria-live="polite">
+      <span className="drb-icon">🎁</span>
+      <div className="drb-body">
+        <span className="drb-title">¡Recompensa diaria!</span>
+        <span className="drb-desc">+{DAILY_LOGIN_REWARD_COINS} monedas por volver hoy · ¡Regresa mañana para más matches!</span>
+      </div>
+      <button className="drb-close" onClick={onDismiss} aria-label="Cerrar">✕</button>
+
+      <style jsx>{`
+        .drb {
+          display: flex; align-items: center; gap: 0.65rem;
+          padding: 0.7rem 1rem;
+          border-radius: 14px;
+          background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(224,64,251,0.08));
+          border: 1px solid rgba(251,191,36,0.32);
+          position: relative; z-index: 1;
+          animation: drb-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes drb-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .drb-icon { font-size: 1.5rem; flex-shrink: 0; animation: drb-bounce 1.5s ease-in-out infinite; }
+        @keyframes drb-bounce {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2) rotate(-5deg); }
+        }
+        .drb-body { flex: 1; min-width: 0; }
+        .drb-title { display: block; font-size: 0.85rem; font-weight: 800; color: #fbbf24; line-height: 1.2; }
+        .drb-desc { display: block; font-size: 0.72rem; color: rgba(255,255,255,0.52); margin-top: 0.15rem; line-height: 1.3; }
+        .drb-close { background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 0.8rem; padding: 0.2rem; flex-shrink: 0; }
+        .drb-close:hover { color: rgba(255,255,255,0.65); }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── FeaturedCreatorsStrip ────────────────────────────────────────────────────
+function FeaturedCreatorsStrip({ creators }) {
+  if (!creators || creators.length === 0) return null;
+
+  return (
+    <div className="fcs" aria-label="Creadores destacados">
+      <div className="fcs-header">
+        <span className="fcs-title">⚡ En vivo y destacados</span>
+        <Link href="/explore" className="fcs-see-all">Ver todos →</Link>
+      </div>
+      <div className="fcs-scroll">
+        {creators.map((c) => (
+          <Link
+            key={c._id || c.userId}
+            href={c.isLive && c.liveId ? `/live/${c.liveId}` : `/profile/${c._id || c.userId}`}
+            className="fcs-card"
+          >
+            <div className="fcs-avatar-wrap">
+              {c.avatar ? (
+                <img src={c.avatar} alt={c.username || c.name || "Creator"} className="fcs-avatar" />
+              ) : (
+                <div className="fcs-avatar fcs-avatar-fallback">
+                  {(c.username || c.name || "?")[0]?.toUpperCase()}
+                </div>
+              )}
+              {c.isLive && <span className="fcs-live-dot" aria-label="En vivo" />}
+            </div>
+            <span className="fcs-name">{c.username || c.name || "Creator"}</span>
+            {c.isLive ? (
+              <span className="fcs-badge fcs-badge-live">🔴 VIVO</span>
+            ) : c.totalCoins ? (
+              <span className="fcs-badge fcs-badge-hot">🔥 Top</span>
+            ) : (
+              <span className="fcs-badge fcs-badge-premium">💎 Premium</span>
+            )}
+          </Link>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .fcs { position: relative; z-index: 1; }
+        .fcs-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+        .fcs-title { font-size: 0.82rem; font-weight: 800; color: rgba(255,255,255,0.75); letter-spacing: 0.01em; }
+        .fcs-see-all { font-size: 0.72rem; font-weight: 700; color: #e040fb; text-decoration: none; }
+        .fcs-see-all:hover { text-decoration: underline; }
+        .fcs-scroll {
+          display: flex; gap: 0.75rem;
+          overflow-x: auto; padding-bottom: 0.35rem;
+          scrollbar-width: none;
+        }
+        .fcs-scroll::-webkit-scrollbar { display: none; }
+        .fcs-card {
+          display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+          flex-shrink: 0; width: 72px; text-decoration: none;
+          transition: transform 0.18s;
+        }
+        .fcs-card:hover { transform: translateY(-3px); }
+        .fcs-avatar-wrap { position: relative; }
+        .fcs-avatar {
+          width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+          border: 2px solid rgba(224,64,251,0.4);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .fcs-avatar-fallback {
+          background: linear-gradient(135deg, #1c0938, #2a0d4f);
+          font-size: 1.4rem; font-weight: 900; color: rgba(255,255,255,0.3);
+        }
+        .fcs-live-dot {
+          position: absolute; bottom: 1px; right: 1px;
+          width: 12px; height: 12px; border-radius: 50%;
+          background: #ff2d78; border: 2px solid #060112;
+          animation: fcs-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes fcs-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,45,120,0.55); }
+          50% { box-shadow: 0 0 0 5px rgba(255,45,120,0); }
+        }
+        .fcs-name {
+          font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.7);
+          text-align: center; max-width: 68px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .fcs-badge {
+          font-size: 0.55rem; font-weight: 800; padding: 0.15rem 0.45rem;
+          border-radius: 999px; letter-spacing: 0.04em;
+        }
+        .fcs-badge-live { background: rgba(255,45,120,0.14); border: 1px solid rgba(255,45,120,0.4); color: #ff2d78; }
+        .fcs-badge-hot { background: rgba(251,113,36,0.12); border: 1px solid rgba(251,113,36,0.35); color: #fb923c; }
+        .fcs-badge-premium { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── SwipeCard ────────────────────────────────────────────────────────────────
 function SwipeCard({ user, onPass, onLike }) {
   const cardRef = useRef(null);
@@ -1044,6 +1201,9 @@ export default function CrushPage() {
   const [boostLoading, setBoostLoading] = useState(false);
   const [swipeUnlockLoading, setSwipeUnlockLoading] = useState(false);
   const [remainingSwipes, setRemainingSwipes] = useState(DAILY_FREE_SWIPES);
+  const [showDailyReward, setShowDailyReward] = useState(false);
+  const [featuredCreators, setFeaturedCreators] = useState([]);
+  const [doneMsgIndex, setDoneMsgIndex] = useState(0);
 
   const currentUser = users[currentIndex] || null;
   const nextUser = users[currentIndex + 1] || null;
@@ -1051,6 +1211,10 @@ export default function CrushPage() {
   // Sync remaining swipes from localStorage on mount
   useEffect(() => {
     setRemainingSwipes(getRemainingSwipes());
+    // Daily login reward
+    if (checkAndClaimDailyReward()) {
+      setShowDailyReward(true);
+    }
   }, []);
 
   const fetchUsers = useCallback(async (pageNum = 1) => {
@@ -1119,6 +1283,54 @@ export default function CrushPage() {
       fetchUsers(nextPage);
     }
   }, [currentIndex, users.length, hasMore, loadingMore, loading, page, fetchUsers]);
+
+  // Fetch featured / live creators
+  useEffect(() => {
+    fetch(`${API_URL}/api/rankings/featured`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        // Merge liveNow + topWeek, deduplicate, cap at 10
+        const live = (d.liveNow || []).map((l) => ({
+          _id: l.userId || l._id,
+          userId: l.userId,
+          username: l.username || l.user?.username,
+          name: l.name || l.user?.name,
+          avatar: l.avatar || l.user?.avatar,
+          isLive: true,
+          liveId: l._id || l.liveId,
+          totalCoins: 0,
+        }));
+        const top = (d.topWeek || []).map((c) => ({
+          _id: c.userId,
+          userId: c.userId,
+          username: c.username,
+          name: c.name,
+          avatar: c.avatar,
+          isLive: false,
+          liveId: null,
+          totalCoins: c.totalCoins || 0,
+        }));
+        const seen = new Set();
+        const merged = [...live, ...top].filter((c) => {
+          const id = String(c._id || c.userId || "");
+          if (!id || seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+        setFeaturedCreators(merged.slice(0, 10));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Rotate done-state message every 3s
+  useEffect(() => {
+    if (!isDone) return;
+    const id = setInterval(() => {
+      setDoneMsgIndex((i) => (i + 1) % DONE_MESSAGES.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [isDone]);
 
   // ─── Socket: page-level crush events ──────────────────────────────────────
   useEffect(() => {
@@ -1363,6 +1575,11 @@ export default function CrushPage() {
         />
       )}
 
+      {/* Daily login reward banner */}
+      {showDailyReward && (
+        <DailyRewardBanner onDismiss={() => setShowDailyReward(false)} />
+      )}
+
       {error && <div className="banner-error">{error}</div>}
 
       {/* Card stack */}
@@ -1374,26 +1591,42 @@ export default function CrushPage() {
         ) : isDone ? (
           <div className="done-state">
             <div className="done-glow" aria-hidden="true" />
+
+            {/* Rotating engaging message */}
+            <div className="done-rotating-msg" key={doneMsgIndex}>
+              <span className="done-rotating-icon">{DONE_MESSAGES[doneMsgIndex].icon}</span>
+              <span className="done-rotating-text">{DONE_MESSAGES[doneMsgIndex].text}</span>
+            </div>
+
             <div className="done-icon">💖</div>
             <h3>¡Te estás acercando a tu match perfecto!</h3>
-            <p>🔥 Desbloquea más perfiles o conecta en vivo</p>
+            <p className="done-return-msg">🗓️ Regresa mañana para más matches · Tus likes se guardan</p>
 
             <button className="done-btn-primary" onClick={handleExploreMore}>
               🔥 Seguir explorando
             </button>
 
             <div className="done-actions-secondary">
-              <Link href="/live" className="done-btn-secondary">🎥 Ver directos</Link>
+              <Link href="/live" className="done-btn-secondary">🎥 Explorar directos</Link>
               <Link href="/matches" className="done-btn-secondary">💖 Ver mis matches</Link>
+              <Link href="/coins" className="done-btn-secondary done-btn-coins">🪙 Comprar monedas</Link>
             </div>
 
-            <div className="done-promo-card">
-              <div className="done-promo-icon">🚀</div>
-              <div className="done-promo-body">
-                <p className="done-promo-title">Boost Crush — más visibilidad</p>
-                <p className="done-promo-desc">Aparece primero · Más matches · 24h de boost activo</p>
-              </div>
-              <button className="done-promo-cta" onClick={() => setBoostModal(true)}>Boost</button>
+            <div className="done-monetize-row">
+              <Link href="/coins" className="done-monetize-card">
+                <span className="done-monetize-icon">💎</span>
+                <div>
+                  <p className="done-monetize-title">Ver perfiles premium</p>
+                  <p className="done-monetize-desc">Desbloquea acceso exclusivo</p>
+                </div>
+              </Link>
+              <button className="done-monetize-card" onClick={() => setBoostModal(true)}>
+                <span className="done-monetize-icon">🚀</span>
+                <div>
+                  <p className="done-monetize-title">Boost Crush</p>
+                  <p className="done-monetize-desc">Más visibilidad · 24h activo</p>
+                </div>
+              </button>
             </div>
           </div>
         ) : (
@@ -1515,6 +1748,11 @@ export default function CrushPage() {
           onBoost={handleBoost}
           onClose={() => setBoostModal(false)}
         />
+      )}
+
+      {/* Featured creators strip — always visible */}
+      {featuredCreators.length > 0 && (
+        <FeaturedCreatorsStrip creators={featuredCreators} />
       )}
 
       <style jsx>{`
@@ -1992,6 +2230,74 @@ export default function CrushPage() {
         .done-btn-primary:hover {
           box-shadow: 0 0 34px rgba(255,45,120,0.75), 0 0 12px rgba(224,64,251,0.5);
           transform: translateY(-1px);
+        }
+
+        .done-rotating-msg {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1.1rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          animation: done-msg-in 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes done-msg-in {
+          from { opacity: 0; transform: scale(0.85) translateY(-4px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .done-rotating-icon { font-size: 1rem; }
+        .done-rotating-text { font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+
+        .done-return-msg {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.38);
+          margin: 0;
+        }
+
+        .done-btn-coins {
+          background: rgba(251,191,36,0.08) !important;
+          border-color: rgba(251,191,36,0.3) !important;
+          color: #fbbf24 !important;
+        }
+        .done-btn-coins:hover {
+          background: rgba(251,191,36,0.18) !important;
+          box-shadow: 0 0 14px rgba(251,191,36,0.25) !important;
+        }
+
+        .done-monetize-row {
+          display: flex;
+          gap: 0.55rem;
+          width: 100%;
+          flex-wrap: wrap;
+        }
+        .done-monetize-card {
+          flex: 1;
+          min-width: 130px;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: 14px;
+          background: rgba(224,64,251,0.05);
+          border: 1px solid rgba(224,64,251,0.18);
+          text-decoration: none;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .done-monetize-card:hover {
+          background: rgba(224,64,251,0.12);
+          border-color: rgba(224,64,251,0.38);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 18px rgba(224,64,251,0.18);
+        }
+        .done-monetize-icon { font-size: 1.3rem; flex-shrink: 0; }
+        .done-monetize-title {
+          font-size: 0.75rem; font-weight: 800; color: #e8b4ff; margin: 0; line-height: 1.2;
+        }
+        .done-monetize-desc {
+          font-size: 0.62rem; color: rgba(255,255,255,0.38); margin: 0.1rem 0 0; line-height: 1.25;
         }
 
         @media (max-width: 480px) {

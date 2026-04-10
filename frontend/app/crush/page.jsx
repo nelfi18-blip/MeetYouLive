@@ -1320,7 +1320,7 @@ export default function CrushPage() {
         });
         setFeaturedCreators(merged.slice(0, 10));
       })
-      .catch(() => {});
+      .catch(() => { /* featured creators are optional — fail silently */ });
   }, []);
 
   // Rotate done-state message every 3s
@@ -1593,7 +1593,7 @@ export default function CrushPage() {
             <div className="done-glow" aria-hidden="true" />
 
             {/* Rotating engaging message */}
-            <div className="done-rotating-msg" key={doneMsgIndex}>
+            <div className="done-rotating-msg" key={DONE_MESSAGES[doneMsgIndex].text}>
               <span className="done-rotating-icon">{DONE_MESSAGES[doneMsgIndex].icon}</span>
               <span className="done-rotating-text">{DONE_MESSAGES[doneMsgIndex].text}</span>
             </div>

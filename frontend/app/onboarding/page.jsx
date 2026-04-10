@@ -355,7 +355,7 @@ export default function OnboardingPage() {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .onboarding-root {
           min-height: 100vh;
           display: flex;

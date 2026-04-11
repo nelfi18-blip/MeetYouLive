@@ -1608,6 +1608,17 @@ export default function CrushPage() {
 
       {error && <div className="banner-error">{error}</div>}
 
+      {/* Remaining likes indicator */}
+      {!loading && !isDone && currentUser && remainingSwipes <= 5 && (
+        <div className="likes-warning">
+          <span className="likes-warning-icon">⚡</span>
+          <span className="likes-warning-text">
+            Te quedan <strong>{remainingSwipes}</strong> like{remainingSwipes !== 1 ? "s" : ""} hoy
+          </span>
+          <Link href="/coins" className="likes-warning-cta">Comprar monedas →</Link>
+        </div>
+      )}
+
       {/* Card stack */}
       <div className="card-stack-wrap">
         {loading ? (
@@ -1626,7 +1637,10 @@ export default function CrushPage() {
 
             <div className="done-icon">💖</div>
             <h3>¡Te estás acercando a tu match perfecto!</h3>
-            <p className="done-return-msg">🗓️ Regresa mañana para más matches · Tus likes se guardan</p>
+            <div className="done-return-row">
+              <span className="done-return-msg">🗓️ Regresa mañana ·</span>
+              <Link href="/coins" className="done-unlock-link">desbloquea más ahora →</Link>
+            </div>
 
             <button className="done-btn-primary" onClick={handleExploreMore}>
               🔥 Seguir explorando
@@ -1891,6 +1905,70 @@ export default function CrushPage() {
           font-weight: 700;
           color: #fb923c;
           backdrop-filter: blur(6px);
+          animation: swipe-counter-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes swipe-counter-pulse {
+          0%, 100% { box-shadow: 0 0 0 rgba(255,100,0,0); }
+          50%       { box-shadow: 0 0 10px rgba(255,100,0,0.2); }
+        }
+
+        .likes-warning {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+          padding: 0.6rem 1rem;
+          border-radius: var(--radius-sm);
+          background: linear-gradient(135deg, rgba(255,100,0,0.1), rgba(251,191,36,0.07));
+          border: 1px solid rgba(255,100,0,0.3);
+          position: relative;
+          z-index: 1;
+          animation: likes-warn-in 0.4s ease both;
+        }
+
+        @keyframes likes-warn-in {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .likes-warning-icon {
+          font-size: 1rem;
+          animation: likes-icon-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes likes-icon-pulse {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.2); }
+        }
+
+        .likes-warning-text {
+          flex: 1;
+          font-size: 0.8rem;
+          color: rgba(255,255,255,0.75);
+          font-weight: 500;
+        }
+
+        .likes-warning-text strong {
+          color: #fb923c;
+          font-weight: 800;
+        }
+
+        .likes-warning-cta {
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: #fbbf24;
+          text-decoration: none;
+          white-space: nowrap;
+          padding: 0.25rem 0.7rem;
+          border-radius: var(--radius-pill);
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.3);
+          transition: all 0.2s;
+        }
+
+        .likes-warning-cta:hover {
+          background: rgba(251,191,36,0.2);
+          box-shadow: 0 0 10px rgba(251,191,36,0.3);
         }
 
         .boost-btn {
@@ -2287,6 +2365,23 @@ export default function CrushPage() {
           color: rgba(255,255,255,0.38);
           margin: 0;
         }
+
+        .done-return-row {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .done-unlock-link {
+          color: #e040fb;
+          font-weight: 700;
+          text-decoration: none;
+          font-size: 0.72rem;
+        }
+
+        .done-unlock-link:hover { text-decoration: underline; }
 
         .done-btn-coins {
           background: rgba(251,191,36,0.08) !important;

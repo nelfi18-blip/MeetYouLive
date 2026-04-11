@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ProfileCard from "@/components/ProfileCard";
 import LiveCard from "@/components/LiveCard";
+import UrgencyBanner from "@/components/UrgencyBanner";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -233,6 +234,9 @@ export default function ExplorePage() {
 
   return (
     <div className="explore">
+      {/* ── Urgency banner ── */}
+      <UrgencyBanner />
+
       {/* ── Header ── */}
       <div className="explore-header">
         <div className="explore-header-left">

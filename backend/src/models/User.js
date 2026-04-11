@@ -97,6 +97,8 @@ const userSchema = new mongoose.Schema(
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followersCount: { type: Number, default: 0, min: 0 },
+    lastDailyRewardClaimAt: { type: Date, default: null },
+    dailyRewardStreak: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const SESSION_KEY = "dr_dismissed";
+const DAILY_REWARD_DISMISSED_SESSION_KEY = "daily_reward_dismissed";
 
 /**
  * DailyRewardPopup
@@ -25,6 +25,7 @@ export default function DailyRewardPopup({ onClaimed }) {
   const [claiming, setClaiming] = useState(false);
   const [claimResult, setClaimResult] = useState(null); // { coinsAwarded, newBalance, streak }
   const [claimed, setClaimed] = useState(false); // true after successful claim in this session
+  const [claimError, setClaimError] = useState(""); // error message shown to user after failed claim
   const hasFetched = useRef(false);
 
   /* ── Fetch daily reward status once ─────────────────────────────────── */
@@ -46,7 +47,7 @@ export default function DailyRewardPopup({ onClaimed }) {
         setRewardData(data);
         if (data.canClaim) {
           // Only auto-open if not already dismissed this browser session
-          const dismissed = sessionStorage.getItem(SESSION_KEY);
+          const dismissed = sessionStorage.getItem(DAILY_REWARD_DISMISSED_SESSION_KEY);
           setStatus("can_claim");
           if (!dismissed) setOpen(true);
         } else {
@@ -64,6 +65,7 @@ export default function DailyRewardPopup({ onClaimed }) {
     if (!token) return;
 
     setClaiming(true);
+    setClaimError("");
     try {
       const r = await fetch(`${API_URL}/api/daily-reward/claim`, {
         method: "POST",
@@ -75,15 +77,20 @@ export default function DailyRewardPopup({ onClaimed }) {
         setClaimed(true);
         setStatus("claimed");
         if (onClaimed) onClaimed(data);
+      } else {
+        const err = await r.json().catch(() => ({}));
+        setClaimError(err.message || "No se pudo reclamar la recompensa. Intenta de nuevo.");
       }
-    } catch {}
+    } catch {
+      setClaimError("Error de conexión. Comprueba tu red e inténtalo de nuevo.");
+    }
     setClaiming(false);
   };
 
   /* ── Dismiss / close ─────────────────────────────────────────────────── */
   const handleClose = () => {
     setOpen(false);
-    sessionStorage.setItem(SESSION_KEY, "1");
+    sessionStorage.setItem(DAILY_REWARD_DISMISSED_SESSION_KEY, "1");
   };
 
   /* ── Nothing to render yet ───────────────────────────────────────────── */
@@ -103,8 +110,8 @@ export default function DailyRewardPopup({ onClaimed }) {
           <span className="dr-claimed-sub">Vuelve mañana para seguir ganando</span>
         </div>
         <div className="dr-claimed-links">
-          <Link href="/crush" className="dr-link">💖 Crush</Link>
-          <Link href="/live" className="dr-link">🎥 Directos</Link>
+          <Link href="/crush" className="dr-link" aria-label="Ir a Crush">💖 Crush</Link>
+          <Link href="/live" className="dr-link" aria-label="Ver directos">🎥 Directos</Link>
         </div>
 
         <style jsx>{`
@@ -206,6 +213,10 @@ export default function DailyRewardPopup({ onClaimed }) {
 
             <p className="dr-sub">Vuelve cada día para ganar más</p>
 
+            {claimError && (
+              <p className="dr-error" role="alert">{claimError}</p>
+            )}
+
             <button
               className="dr-claim-btn"
               onClick={handleClaim}
@@ -244,9 +255,9 @@ export default function DailyRewardPopup({ onClaimed }) {
             <p className="dr-sub">¿Qué quieres hacer ahora?</p>
 
             <div className="dr-cta-group">
-              <Link href="/crush" className="dr-cta-btn dr-cta-crush" onClick={handleClose}>💖 Ir a Crush</Link>
-              <Link href="/live"  className="dr-cta-btn dr-cta-live"  onClick={handleClose}>🎥 Ver directos</Link>
-              <Link href="/matches" className="dr-cta-btn dr-cta-matches" onClick={handleClose}>💬 Ver matches</Link>
+              <Link href="/crush"   className="dr-cta-btn dr-cta-crush"   onClick={handleClose} aria-label="Ir a Crush">💖 Ir a Crush</Link>
+              <Link href="/live"    className="dr-cta-btn dr-cta-live"    onClick={handleClose} aria-label="Ver directos">🎥 Ver directos</Link>
+              <Link href="/matches" className="dr-cta-btn dr-cta-matches" onClick={handleClose} aria-label="Ver matches">💬 Ver matches</Link>
             </div>
           </>
         )}
@@ -445,6 +456,17 @@ export default function DailyRewardPopup({ onClaimed }) {
             font-size: 0.83rem;
             color: var(--text-muted);
             margin: 0 0 1.4rem;
+          }
+
+          /* ── Error message ──────────────────────────────── */
+          .dr-error {
+            font-size: 0.8rem;
+            color: var(--error);
+            background: var(--error-bg);
+            border: 1px solid rgba(248,113,113,0.3);
+            border-radius: var(--radius-xs);
+            padding: 0.45rem 0.75rem;
+            margin: -0.8rem 0 0.9rem;
           }
 
           /* ── Balance line ───────────────────────────────── */

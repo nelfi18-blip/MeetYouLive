@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
+import DailyRewardPopup from "@/components/DailyRewardPopup";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -472,8 +473,17 @@ export default function DashboardPage() {
     ? [...CARDS]
     : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
 
+  const handleRewardClaimed = ({ newBalance }) => {
+    if (newBalance !== undefined) {
+      setUser((prev) => prev ? { ...prev, coins: newBalance } : prev);
+    }
+  };
+
   return (
     <div className="dashboard">
+      {/* Daily reward popup — auto-opens when reward is available */}
+      {user && <DailyRewardPopup onClaimed={handleRewardClaimed} />}
+
       {/* Hero welcome card */}
       <div className={`hero-card${isApprovedCreator ? " hero-card-creator" : ""}`}>
         <div className="hero-bg-orb hero-orb-1" />

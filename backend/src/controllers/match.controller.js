@@ -14,7 +14,7 @@ const DAILY_FREE_SWIPES = 20; // free swipes per day
 const EXTRA_SWIPES_PRICE = 5; // coins to unlock extra swipes batch
 const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile
-const BOOST_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -374,11 +374,11 @@ exports.getCrushConfig = async (_req, res) => {
     extraSwipesPrice: EXTRA_SWIPES_PRICE,
     extraSwipesBatch: EXTRA_SWIPES_BATCH,
     boostPrice: BOOST_PRICE,
-    boostDurationHours: BOOST_DURATION_MS / (60 * 60 * 1000),
+    boostDurationMinutes: BOOST_DURATION_MS / (60 * 1000),
   });
 };
 
-// ─── Boost Crush (increase visibility for 24h) ───────────────────────────────
+// ─── Boost Crush (increase visibility for 30 min) ────────────────────────────
 exports.boostCrush = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -408,7 +408,7 @@ exports.boostCrush = async (req, res) => {
             userId: req.userId,
             amount: -BOOST_PRICE,
             type: "boost_crush",
-            reason: "Boost Crush activado (24h)",
+            reason: "Boost Crush activado (30 min)",
           },
         ],
         { session }

@@ -2,6 +2,20 @@ const { Server } = require("socket.io");
 
 let io = null;
 
+// In-memory map of currently online users: userId (string) → { lastSeen: Date, socketId: string }
+const onlineUsers = new Map();
+
+/**
+ * Return a snapshot of currently online users as an array of { userId, lastSeen } objects.
+ */
+const getOnlineUsers = () => {
+  const result = [];
+  for (const [userId, info] of onlineUsers.entries()) {
+    result.push({ userId, lastSeen: info.lastSeen });
+  }
+  return result;
+};
+
 /**
  * Attach Socket.io to the given HTTP server and store the instance.
  * Call once during server bootstrap.
@@ -35,6 +49,19 @@ const initSocket = (httpServer) => {
     socket.on("join_user_room", (userId) => {
       if (userId && typeof userId === "string" && /^[a-f0-9]{24}$/.test(userId)) {
         socket.join(userId);
+        socket._userId = userId;
+        onlineUsers.set(userId, { lastSeen: new Date(), socketId: socket.id });
+        // Notify all connected clients that this user is now online
+        io.emit("USER_ONLINE", { userId });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      const userId = socket._userId;
+      if (userId) {
+        onlineUsers.delete(userId);
+        // Notify all connected clients that this user went offline
+        io.emit("USER_OFFLINE", { userId });
       }
     });
   });
@@ -48,4 +75,4 @@ const initSocket = (httpServer) => {
  */
 const getIO = () => io;
 
-module.exports = { initSocket, getIO };
+module.exports = { initSocket, getIO, getOnlineUsers };

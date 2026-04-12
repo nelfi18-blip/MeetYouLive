@@ -6,6 +6,7 @@ const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
+const { getOnlineUsers } = require("../lib/socket.js");
 
 const router = Router();
 
@@ -430,6 +431,39 @@ router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
     const isFollowing = await User.exists({ _id: req.userId, following: targetId });
     const target = await User.findById(targetId).select("followersCount");
     res.json({ following: !!isFollowing, followersCount: target?.followersCount ?? 0 });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Online users — returns basic profiles of users currently connected via socket
+router.get("/online", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const snapshot = getOnlineUsers();
+    const otherUserIds = snapshot
+      .map((e) => e.userId)
+      .filter((id) => id !== String(req.userId));
+
+    if (otherUserIds.length === 0) {
+      return res.json({ users: [] });
+    }
+
+    const users = await User.find(
+      { _id: { $in: otherUserIds }, isBlocked: false },
+      "username name avatar role creatorStatus interests location intent"
+    ).lean();
+
+    // Attach lastSeen from the in-memory snapshot
+    const lastSeenMap = {};
+    snapshot.forEach((e) => { lastSeenMap[e.userId] = e.lastSeen; });
+
+    const enriched = users.map((u) => ({
+      ...u,
+      lastSeen: lastSeenMap[String(u._id)] ?? null,
+      isOnline: true,
+    }));
+
+    res.json({ users: enriched });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

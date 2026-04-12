@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { notify } from "@/lib/notify";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -76,6 +77,15 @@ export default function DailyRewardPopup({ onClaimed }) {
         setClaimResult(data);
         setClaimed(true);
         setStatus("claimed");
+        // Fire a premium notification toast
+        notify({
+          icon: "✅",
+          message: `Reclamaste tus monedas de hoy${data.coinsAwarded ? ` · +${data.coinsAwarded} monedas` : ""}${data.streak > 1 ? ` · Racha ${data.streak} 🔥` : ""}`,
+          href: "/crush",
+          actionLabel: "Ir a Crush",
+          duration: 7000,
+          dedupKey: `daily_reward_${new Date().toDateString()}`,
+        });
         if (onClaimed) onClaimed(data);
       } else {
         const err = await r.json().catch(() => ({}));

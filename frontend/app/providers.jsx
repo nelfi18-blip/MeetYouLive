@@ -5,6 +5,7 @@ import { SessionProvider, useSession } from "next-auth/react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
+import { registerPush } from "@/lib/notify";
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -21,6 +22,7 @@ function SocketManager() {
   const joinedRef = useRef(false);
   const {
     notifications,
+    push,
     dismiss,
     handleLiveStarted,
     handleGiftSent,
@@ -29,6 +31,11 @@ function SocketManager() {
     handleCrushReceived,
     handleSuperCrushReceived,
   } = useNotifications();
+
+  // Register push globally so any component (e.g. DailyRewardPopup) can call notify()
+  useEffect(() => {
+    registerPush(push);
+  }, [push]);
 
   useEffect(() => {
     // Resolve the backend JWT: OAuth users have it on session, email/password

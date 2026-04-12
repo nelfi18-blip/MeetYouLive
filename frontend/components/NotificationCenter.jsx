@@ -5,15 +5,23 @@ import { useRouter } from "next/navigation";
 
 let notifCounter = 0;
 
+/** Max notifications shown at once to avoid blocking the screen. */
+const MAX_VISIBLE = 5;
+
+/** Deduplication window in ms — same key won't fire twice within this period. */
+const DEDUP_WINDOW_MS = 8000;
+
 export default function NotificationCenter({ notifications, onDismiss }) {
   const router = useRouter();
 
   if (!notifications || notifications.length === 0) return null;
 
+  const visible = notifications.slice(-MAX_VISIBLE);
+
   return (
     <>
       <div className="notif-container">
-        {notifications.map((n) => (
+        {visible.map((n) => (
           <NotifToast key={n.id} notif={n} onDismiss={onDismiss} router={router} />
         ))}
       </div>
@@ -44,7 +52,9 @@ export default function NotificationCenter({ notifications, onDismiss }) {
 
         .notif-toast {
           pointer-events: all;
-          background: linear-gradient(135deg, #1a0a2e 0%, #16082b 100%);
+          background: linear-gradient(135deg, rgba(26, 10, 46, 0.92) 0%, rgba(22, 8, 43, 0.92) 100%);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
           border: 1px solid rgba(200, 100, 255, 0.35);
           border-radius: 14px;
           padding: 12px 14px;
@@ -89,11 +99,25 @@ export default function NotificationCenter({ notifications, onDismiss }) {
           100% { background-position: -200% 0; }
         }
 
+        .notif-lead {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 1px;
+        }
+
+        .notif-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 1.5px solid rgba(192, 64, 255, 0.5);
+        }
+
         .notif-icon {
           font-size: 22px;
           line-height: 1;
-          flex-shrink: 0;
-          margin-top: 1px;
         }
 
         .notif-body {
@@ -172,7 +196,13 @@ function NotifToast({ notif, onDismiss, router }) {
 
   return (
     <div className={`notif-toast${exiting ? " notif-exiting" : ""}`}>
-      <span className="notif-icon">{notif.icon}</span>
+      <span className="notif-lead">
+        {notif.avatarUrl ? (
+          <img src={notif.avatarUrl} alt="" className="notif-avatar" />
+        ) : (
+          <span className="notif-icon">{notif.icon}</span>
+        )}
+      </span>
       <div className="notif-body">
         <p className="notif-text">{notif.message}</p>
         {notif.href && notif.actionLabel && (
@@ -194,8 +224,21 @@ function NotifToast({ notif, onDismiss, router }) {
  */
 export function useNotifications() {
   const [notifications, setNotifications] = useState([]);
+  /** Deduplication: maps a string key → timestamp of last push. */
+  const dedupRef = useRef({});
 
+  /**
+   * Attempt to push a notification.
+   * If `dedupKey` is provided and the same key was pushed within
+   * DEDUP_WINDOW_MS, the notification is silently dropped.
+   */
   const push = useCallback((notif) => {
+    if (notif.dedupKey) {
+      const last = dedupRef.current[notif.dedupKey];
+      const now = Date.now();
+      if (last && now - last < DEDUP_WINDOW_MS) return;
+      dedupRef.current[notif.dedupKey] = now;
+    }
     const id = ++notifCounter;
     setNotifications((prev) => [...prev, { id, ...notif }]);
   }, []);
@@ -210,8 +253,9 @@ export function useNotifications() {
         icon: "🔴",
         message: `${data.creatorUsername || "Un creador"} está en vivo ahora`,
         href: `/live/${data.liveId}`,
-        actionLabel: "Ver directo",
+        actionLabel: "Entrar al live",
         duration: 7000,
+        dedupKey: `live_${data.liveId}`,
       });
     },
     [push]
@@ -221,8 +265,9 @@ export function useNotifications() {
     (data) => {
       push({
         icon: data.giftIcon || "🎁",
-        message: `${data.senderName} envió ${data.giftIcon} ${data.giftName}`,
+        message: `${data.senderName || "Alguien"} te envió ${data.giftName || "un regalo"}`,
         duration: 5000,
+        dedupKey: `gift_${data.senderName}_${Date.now() >> 10}`,
       });
     },
     [push]
@@ -230,12 +275,14 @@ export function useNotifications() {
 
   const handleMatchCreated = useCallback(
     (data) => {
+      const href = data.chatId ? `/chats/${data.chatId}` : "/matches";
       push({
-        icon: "💘",
-        message: `Nuevo match con ${data.matchedUsername}`,
-        href: "/matches",
-        actionLabel: "Ver matches",
-        duration: 6000,
+        icon: "💖",
+        message: `¡Nuevo match con ${data.matchedUsername}!`,
+        href,
+        actionLabel: "Abrir chat",
+        duration: 8000,
+        dedupKey: `match_${data.matchedUserId}`,
       });
     },
     [push]
@@ -245,10 +292,11 @@ export function useNotifications() {
     (data) => {
       push({
         icon: "📞",
-        message: `Llamada entrante de ${data.callerName}`,
+        message: `Llamada entrante de ${data.callerName || "Alguien"}`,
         href: `/call/${data.callId}`,
-        actionLabel: "Contestar",
+        actionLabel: "Ver llamada",
         duration: 15000,
+        dedupKey: `call_${data.callId}`,
       });
     },
     [push]
@@ -262,6 +310,7 @@ export function useNotifications() {
         href: "/crush",
         actionLabel: "Ver Crush",
         duration: 5000,
+        dedupKey: `crush_${data.fromUserId || data.fromUsername}`,
       });
     },
     [push]
@@ -275,10 +324,39 @@ export function useNotifications() {
         href: "/crush",
         actionLabel: "Ver Crush",
         duration: 7000,
+        dedupKey: `supercrush_${data.fromUserId || data.fromUsername}`,
       });
     },
     [push]
   );
 
-  return { notifications, dismiss, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived };
+  const handleDailyReward = useCallback(
+    (data) => {
+      const coins = data?.coinsAwarded ?? data?.coins ?? "";
+      const streak = data?.streak ?? 0;
+      const streakText = streak > 1 ? ` · Racha ${streak} 🔥` : "";
+      push({
+        icon: "✅",
+        message: `Reclamaste tus monedas de hoy${coins ? ` · +${coins} monedas` : ""}${streakText}`,
+        href: "/crush",
+        actionLabel: "Ir a Crush",
+        duration: 7000,
+        dedupKey: `daily_reward_${new Date().toDateString()}`,
+      });
+    },
+    [push]
+  );
+
+  return {
+    notifications,
+    push,
+    dismiss,
+    handleLiveStarted,
+    handleGiftSent,
+    handleMatchCreated,
+    handleCallIncoming,
+    handleCrushReceived,
+    handleSuperCrushReceived,
+    handleDailyReward,
+  };
 }

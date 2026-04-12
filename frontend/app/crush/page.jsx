@@ -1613,12 +1613,15 @@ export default function CrushPage() {
     fetchConfig();
   }, [fetchUsers, fetchConfig]);
 
-  // Poll boost status every 30s while boost is active to detect expiry and show results
+  // Fire a single fetchConfig just after boost expires to detect expiry and show results
   useEffect(() => {
-    if (!isBoosted) return;
-    const id = setInterval(fetchConfig, 30000);
-    return () => clearInterval(id);
-  }, [isBoosted, fetchConfig]);
+    if (!isBoosted || !boostUntil) return;
+    const msLeft = new Date(boostUntil) - Date.now();
+    if (msLeft <= 0) return;
+    // Add a small buffer (2s) so the server has finished expiring the boost
+    const id = setTimeout(fetchConfig, msLeft + 2000);
+    return () => clearTimeout(id);
+  }, [isBoosted, boostUntil, fetchConfig]);
 
   // Pre-load more when nearing the end
   useEffect(() => {
@@ -1855,8 +1858,10 @@ export default function CrushPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setCoins(data.coins ?? ((c) => (c !== null ? c - (data.coinsSpent || 0) : c)));
-        setStoredBoosts(data.storedBoosts ?? ((s) => s + quantity));
+        if (typeof data.coins === "number") setCoins(data.coins);
+        else if (data.coinsSpent) setCoins((c) => (c !== null ? c - data.coinsSpent : c));
+        if (typeof data.storedBoosts === "number") setStoredBoosts(data.storedBoosts);
+        else setStoredBoosts((s) => s + quantity);
       } else {
         setError(data.message || "No se pudo comprar el pack");
         setTimeout(() => setError(""), 5000);

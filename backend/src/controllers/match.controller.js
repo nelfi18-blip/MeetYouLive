@@ -598,7 +598,11 @@ exports.getBoostStatus = async (req, res) => {
       });
       const matchesDelta = Math.max(0, matchesNow - (session.matchesBefore || 0));
 
-      // Deterministic simulation for profile views and chats based on userId
+      // Profile views and chats are estimated values, not tracked individually.
+      // Ranges (8–15 views, 0–2 chats) are conservative placeholders intended to
+      // reflect realistic 30-minute boost results. They are user-deterministic
+      // (derived from the last byte of the userId) so the same user always sees
+      // the same estimate, avoiding jarring UI inconsistency on repeated reads.
       const uidByte = parseInt(String(user._id).slice(-2), 16) || 0;
       const viewsEstimate = 8 + (uidByte % 8);   // 8–15
       const chatsEstimate = uidByte % 3;           // 0–2
@@ -628,7 +632,9 @@ exports.getBoostStatus = async (req, res) => {
 exports.getBoostActiveCount = async (_req, res) => {
   try {
     const realCount = await User.countDocuments({ crushBoostUntil: { $gt: new Date() } });
-    // Apply a floor for social proof even when few real users are boosting
+    // Apply a minimum floor (ACTIVE_BOOST_FLOOR=5) for social proof.
+    // This ensures the UI always shows meaningful activity even during off-peak hours.
+    // If real activity grows, the real count takes precedence automatically.
     const count = Math.max(realCount, ACTIVE_BOOST_FLOOR);
     res.json({ count });
   } catch (err) {

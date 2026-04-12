@@ -5,7 +5,7 @@ const JOB_INTERVAL_MS = parseInt(process.env.REACTIVATION_JOB_INTERVAL_MS || "",
 
 /**
  * Start the reactivation background job.
- * Runs immediately on startup, then repeats on the configured interval.
+ * First run is 5 minutes after startup; then repeats on the configured interval.
  */
 function startReactivationJob() {
   const run = async () => {

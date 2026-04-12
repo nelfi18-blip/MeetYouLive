@@ -66,6 +66,7 @@ async function runReactivationJob() {
         Chat.countDocuments({ participants: user._id }),
       ]);
 
+      // displayName may be empty; sendReactivationEmail falls back to "amigo" when empty.
       const displayName = user.username || user.name || "";
 
       await sendReactivationEmail(user.email, displayName, day, likesCount, matchesCount);

@@ -110,9 +110,11 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
 
   let personalNote = "";
   if (day === 1 && likesCount > 0) {
-    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Tienes <strong style="color:#e040fb">${likesCount} like${likesCount > 1 ? "s" : ""}</strong> esperándote.</p>`;
+    const count = Number(likesCount);
+    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Tienes <strong style="color:#e040fb">${count} like${count > 1 ? "s" : ""}</strong> esperándote.</p>`;
   } else if (day === 2 && matchesCount > 0) {
-    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Ya tienes <strong style="color:#e040fb">${matchesCount} match${matchesCount > 1 ? "es" : ""}</strong>. ¡No los dejes enfriar!</p>`;
+    const count = Number(matchesCount);
+    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Ya tienes <strong style="color:#e040fb">${count} match${count > 1 ? "es" : ""}</strong>. ¡No los dejes enfriar!</p>`;
   }
 
   const html = `

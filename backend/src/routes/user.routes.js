@@ -203,7 +203,8 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         $project: {
           username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
           interests: 1, intent: 1, location: 1, role: 1,
-          creatorProfile: 1, birthdate: 1, crushBoostUntil: 1,
+          creatorProfile: 1, birthdate: 1,
+          isBoosted: { $gt: ["$crushBoostUntil", now] },
         },
       },
     ]);
@@ -218,7 +219,6 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       const liveId = liveByUser[String(u._id)] || null;
       u.isLive = !!liveId;
       u.liveId = liveId;
-      u.isBoosted = !!(u.crushBoostUntil && u.crushBoostUntil > now);
 
       // Compatibility score
       const { compatibilityScore, sharedInterests } = calculateCompatibility(

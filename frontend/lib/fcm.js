@@ -82,12 +82,15 @@ export async function initPushNotifications(backendToken) {
     onMessage(messaging, (payload) => {
       const { title, body } = payload.notification || {};
       const link = payload.data?.link || "/";
+      const pushEventId = payload.data?.pushEventId;
 
       if (title && "Notification" in window && Notification.permission === "granted") {
         const notif = new Notification(title, { body, icon: "/icons/icon-192.png" });
-        // window.location.assign is the correct navigation API here because
-        // this callback runs outside React's component tree (no router hook available).
         notif.onclick = () => {
+          // Track open on foreground click
+          if (pushEventId) {
+            fetch(`${API_URL}/api/push/opened/${pushEventId}`, { method: "POST" }).catch(() => {});
+          }
           window.focus();
           window.location.assign(link);
         };

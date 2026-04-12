@@ -43,12 +43,13 @@ if (config.projectId) {
   messaging.onBackgroundMessage((payload) => {
     const { title = "MeetYouLive", body = "" } = payload.notification || {};
     const link = (payload.data && payload.data.link) || "/";
+    const pushEventId = (payload.data && payload.data.pushEventId) || null;
 
     self.registration.showNotification(title, {
       body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { link },
+      data: { link, pushEventId },
     });
   });
 }
@@ -56,6 +57,15 @@ if (config.projectId) {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
+  const pushEventId = event.notification.data && event.notification.data.pushEventId;
+
+  // Track the open (fire-and-forget, no auth required)
+  if (pushEventId) {
+    const apiUrl = self.location.origin + "/api/push/opened/" + pushEventId;
+    event.waitUntil(
+      fetch(apiUrl, { method: "POST" }).catch(() => {})
+    );
+  }
 
   event.waitUntil(
     clients

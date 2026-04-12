@@ -13,7 +13,7 @@
 
 const User = require("../models/User.js");
 
-const PUSH_DAILY_LIMIT = 2;
+const PUSH_DAILY_LIMIT = 8;
 
 let adminApp = null;
 
@@ -129,16 +129,26 @@ async function sendPush(userId, token, title, body, data = {}) {
  * @param {string}                 title
  * @param {string}                 body
  * @param {Object}                 [data]
+ * @param {string}                 [type]  – optional event category used to
+ *                                           filter users whose pushSettings
+ *                                           exclude this type.
  * @returns {Promise<void>}
  */
-async function sendMulticastPush(userIds, title, body, data = {}) {
+async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
   if (!userIds || userIds.length === 0) return;
 
   const app = getAdmin();
   if (!app) return;
 
+  const query = { _id: { $in: userIds }, pushToken: { $ne: null } };
+  // When a category type is provided, skip users who have disabled it
+  if (type) {
+    query["pushSettings.enabled"] = { $ne: false };
+    query["pushSettings.categories"] = type;
+  }
+
   const users = await User.find(
-    { _id: { $in: userIds }, pushToken: { $ne: null } },
+    query,
     "_id pushToken pushRateLimit"
   ).lean();
 

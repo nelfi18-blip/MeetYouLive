@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { queueEvent } = require("../services/push.service.js");
 
 const DAILY_REWARD_COINS = 20;
 
@@ -73,6 +74,18 @@ const claimDailyReward = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // Queue a reward push (fire-and-forget)
+    queueEvent(
+      user._id,
+      "reward",
+      {
+        title: "🎁 ¡Recompensa diaria reclamada!",
+        body: `+${DAILY_REWARD_COINS} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
+        data: { link: "/daily-reward" },
+      },
+      { streak: newStreak, coins: DAILY_REWARD_COINS }
+    ).catch(() => {});
 
     res.json({
       coinsAwarded: DAILY_REWARD_COINS,

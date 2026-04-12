@@ -21,11 +21,12 @@ const BOOST_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 /** Create a chat room (idempotent) and notify both users of a match. */
 const handleMatch = async (userId, matchedUserId, io) => {
   const participants = [String(userId), String(matchedUserId)].sort();
-  await Chat.findOneAndUpdate(
+  const chat = await Chat.findOneAndUpdate(
     { participants: { $all: participants, $size: 2 } },
     { $setOnInsert: { participants } },
-    { upsert: true }
+    { upsert: true, new: true }
   );
+  const chatId = chat ? String(chat._id) : null;
 
   if (io) {
     const [userA, userB] = await Promise.all([
@@ -38,10 +39,12 @@ const handleMatch = async (userId, matchedUserId, io) => {
     io.to(String(matchedUserId)).emit("MATCH_CREATED", {
       matchedUserId: String(userId),
       matchedUsername: nameA,
+      chatId,
     });
     io.to(String(userId)).emit("MATCH_CREATED", {
       matchedUserId: String(matchedUserId),
       matchedUsername: nameB,
+      chatId,
     });
   }
 };
@@ -117,6 +120,7 @@ exports.superCrushUser = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     let matchCreated = false;
+    let matchChatId = null;
 
     await session.withTransaction(async () => {
       const sender = await User.findById(fromObjId).session(session);
@@ -190,11 +194,12 @@ exports.superCrushUser = async (req, res) => {
       if (mutual) {
         matchCreated = true;
         const participants = [String(fromObjId), String(toObjId)].sort();
-        await Chat.findOneAndUpdate(
+        const chatDoc = await Chat.findOneAndUpdate(
           { participants: { $all: participants, $size: 2 } },
           { $setOnInsert: { participants } },
-          { upsert: true, session }
+          { upsert: true, new: true, session }
         );
+        matchChatId = chatDoc ? String(chatDoc._id) : null;
       }
 
       // Save CrushTransaction
@@ -269,10 +274,12 @@ exports.superCrushUser = async (req, res) => {
         io.to(String(toObjId)).emit("MATCH_CREATED", {
           matchedUserId: String(fromObjId),
           matchedUsername: senderName,
+          chatId: matchChatId,
         });
         io.to(String(fromObjId)).emit("MATCH_CREATED", {
           matchedUserId: String(toObjId),
           matchedUsername: targetName,
+          chatId: matchChatId,
         });
       }
     }

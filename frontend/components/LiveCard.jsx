@@ -64,6 +64,9 @@ export default function LiveCard({ live }) {
               <span className="live-avatar-dot" />
             </div>
             <span className="live-username">@{username}</span>
+            {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
+              <span className="live-creator-badge">⭐</span>
+            )}
             {live.isPrivate && live.entryCost != null && (
               <span className="live-entry-cost" style={{ marginLeft: "auto" }}>🪙 {live.entryCost}</span>
             )}
@@ -260,6 +263,12 @@ export default function LiveCard({ live }) {
           font-size: 0.78rem;
           color: var(--text-muted);
           font-weight: 600;
+        }
+
+        .live-creator-badge {
+          font-size: 0.72rem;
+          line-height: 1;
+          margin-left: 0.1rem;
         }
 
         .live-entry-cost {

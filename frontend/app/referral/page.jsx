@@ -58,15 +58,7 @@ export default function ReferralPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      // fallback
-      const el = document.createElement("textarea");
-      el.value = referralLink;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setCopied(false);
     }
   };
 

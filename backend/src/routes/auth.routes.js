@@ -7,15 +7,20 @@ const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail } = require("../services/email.service.js");
 
-/** Generate a unique 6-character alphanumeric referral code (uppercase). */
+/**
+ * Generate a unique 6-character alphanumeric referral code (uppercase).
+ * Excludes I, O, 0, 1 to prevent visual confusion between similar characters.
+ * The alphabet has exactly 32 characters (2^5), so the bitmask `b & 0x1f` is
+ * completely unbiased (256 = 8 × 32) and avoids modulo bias on random bytes.
+ */
 async function generateReferralCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars (2^5)
   const MAX_ATTEMPTS = 10;
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     let code = "";
     const bytes = crypto.randomBytes(6);
     for (const b of bytes) {
-      code += chars[b % chars.length];
+      code += chars[b & 0x1f]; // unbiased: 256 / 32 = 8 exactly
     }
     const exists = await User.exists({ referralCode: code });
     if (!exists) return code;
@@ -128,7 +133,9 @@ router.post("/login", authLimiter, async (req, res) => {
     }
 
     // Track login count (fire-and-forget)
-    User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch(() => {});
+    User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch((err) =>
+      console.error("[login] Failed to increment loginCount:", err)
+    );
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.json({ token });
@@ -322,7 +329,9 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
       if (changed) await user.save();
       // Track login count (fire-and-forget)
-      User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch(() => {});
+      User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch((err) =>
+        console.error("[google-session] Failed to increment loginCount:", err)
+      );
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });

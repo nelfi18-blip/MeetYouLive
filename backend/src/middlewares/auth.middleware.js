@@ -20,6 +20,18 @@ const verifyToken = async (req, res, next) => {
     if (!user) return res.status(401).json({ message: "Token inválido" });
     if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada" });
     req.userId = decoded.id;
+
+    // Stamp lastActiveAt and clear any pending reactivation notifications (fire-and-forget)
+    User.updateOne(
+      { _id: decoded.id },
+      {
+        lastActiveAt: new Date(),
+        "reactivation.day1SentAt": null,
+        "reactivation.day2SentAt": null,
+        "reactivation.day3SentAt": null,
+      }
+    ).catch(() => {});
+
     next();
   } catch (err) {
     return res.status(401).json({ message: "Token inválido" });

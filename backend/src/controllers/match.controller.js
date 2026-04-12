@@ -491,17 +491,18 @@ exports.getLikesReceived = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.userId);
 
-    // IDs that the current user has already liked back (mutual candidates)
-    const myLikes = await Like.find({ from: userId }).select("to");
+    // Run both queries in parallel: user's outgoing likes + incoming likes
+    const [myLikes, incomingLikes] = await Promise.all([
+      Like.find({ from: userId }).select("to"),
+      Like.find({ to: userId })
+        .populate("from", "username name avatar")
+        .sort({ createdAt: -1 }),
+    ]);
+
     const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
 
-    // All incoming likes, excluding users the current user already liked back
-    const incomingLikes = await Like.find({ to: userId })
-      .populate("from", "username name avatar")
-      .sort({ createdAt: -1 });
-
     const nonMutual = incomingLikes.filter(
-      (l) => !myLikedSet.has(String(l.from._id || l.from))
+      (l) => !myLikedSet.has(String(l.from._id))
     );
 
     const revealed = [];
@@ -539,13 +540,11 @@ exports.unlockAllLikes = async (req, res) => {
       if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
 
       // Count currently locked incoming likes (excluding mutual matches)
-      const myLikes = await Like.find({ from: req.userId }).select("to");
+      const [myLikes, lockedLikes] = await Promise.all([
+        Like.find({ from: req.userId }).select("to"),
+        Like.find({ to: req.userId, revealed: false }).session(session),
+      ]);
       const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
-
-      const lockedLikes = await Like.find({
-        to: req.userId,
-        revealed: false,
-      }).session(session);
 
       const lockedNonMutual = lockedLikes.filter(
         (l) => !myLikedSet.has(String(l.from))

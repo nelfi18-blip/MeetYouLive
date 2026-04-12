@@ -37,9 +37,12 @@ export default function HiddenLikesSection({ compact = false }) {
     fetch(`${API_URL}/api/matches/likes-received`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al cargar los likes");
+        return r.json();
+      })
       .then((d) => { if (d) setData(d); })
-      .catch(() => {})
+      .catch(() => setError("No se pudieron cargar los likes"))
       .finally(() => setLoading(false));
   }, []);
 

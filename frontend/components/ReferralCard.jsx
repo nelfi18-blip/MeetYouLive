@@ -13,6 +13,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function ReferralCard() {
   const [referralCode, setReferralCode] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && !!navigator.share);
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -45,6 +50,22 @@ export default function ReferralCard() {
     }
   };
 
+  const handleShare = async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.share({
+        title: "Únete a MeetYouLive",
+        text: "🎁 Regístrate con mi enlace y consigue monedas gratis en MeetYouLive",
+        url: referralLink,
+      });
+    } catch (err) {
+      // AbortError means the user dismissed the share sheet — ignore it.
+      if (err?.name !== "AbortError") {
+        console.error("[ReferralCard] share failed:", err);
+      }
+    }
+  };
+
   return (
     <div className="rc-wrap">
       <div className="rc-orb" />
@@ -60,6 +81,11 @@ export default function ReferralCard() {
         {referralLink ? (
           <button className="rc-btn-copy" onClick={handleCopy} title="Copiar enlace">
             {copied ? "✓ Copiado" : "Copiar enlace"}
+          </button>
+        ) : null}
+        {canShare && referralLink ? (
+          <button className="rc-btn-share" onClick={handleShare} title="Compartir">
+            📤 Compartir
           </button>
         ) : null}
         <Link href="/referral" className="rc-btn-full">
@@ -161,6 +187,25 @@ export default function ReferralCard() {
           color: #e9d5ff;
         }
 
+        .rc-btn-share {
+          background: rgba(224,64,251,0.12);
+          border: 1px solid rgba(224,64,251,0.3);
+          color: #e879f9;
+          border-radius: 8px;
+          padding: 0.38rem 0.75rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s;
+          white-space: nowrap;
+        }
+
+        .rc-btn-share:hover {
+          background: rgba(224,64,251,0.22);
+          color: #f0abfc;
+        }
+
         .rc-btn-full {
           background: linear-gradient(135deg, #8b5cf6, #e040fb);
           color: #fff;
@@ -180,7 +225,7 @@ export default function ReferralCard() {
         @media (max-width: 480px) {
           .rc-wrap { flex-direction: column; align-items: flex-start; }
           .rc-actions { width: 100%; }
-          .rc-btn-copy, .rc-btn-full { flex: 1; text-align: center; }
+          .rc-btn-copy, .rc-btn-share, .rc-btn-full { flex: 1; text-align: center; }
         }
       `}</style>
     </div>

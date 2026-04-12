@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const URGENCY_MESSAGES = [
-  { icon: "🔥", text: "3 personas vieron tu perfil", cta: "Desbloquear ahora" },
-  { icon: "👀", text: "Alguien te dio like", cta: "Ver quién fue" },
-  { icon: "💖", text: "Tienes matches esperando", cta: "Desbloquear ahora" },
-  { icon: "⚡", text: "Tu perfil está en tendencia", cta: "Aprovechar ahora" },
-  { icon: "💎", text: "5 personas te enviaron un Super Crush", cta: "Ver ahora" },
+  { icon: "🔥", text: "3 personas vieron tu perfil", cta: "Desbloquear ahora", href: "/coins" },
+  { icon: "👀", text: "Alguien te dio like", cta: "Ver quién fue", href: "/coins" },
+  { icon: "💖", text: "Tienes matches esperando", cta: "Desbloquear ahora", href: "/matches" },
+  { icon: "⚡", text: "Tu perfil está en tendencia", cta: "Aprovechar ahora", href: "/coins" },
+  { icon: "💎", text: "5 personas te enviaron un Super Crush", cta: "Ver ahora", href: "/coins" },
+  { icon: "🚀", text: "Hay personas activas ahora mismo", cta: "Explorar ahora", href: "/explore" },
+  { icon: "⏳", text: "No te quedes fuera — conecta hoy", cta: "Ver directos", href: "/live" },
 ];
 
 const ROTATE_INTERVAL_MS = 5000;
@@ -35,7 +37,7 @@ export default function UrgencyBanner({ className = "" }) {
       <div className={`urgency-inner${visible ? " ub-visible" : " ub-hidden"}`}>
         <span className="ub-icon">{msg.icon}</span>
         <span className="ub-text">{msg.text}</span>
-        <Link href="/coins" className="ub-cta">
+        <Link href={msg.href} className="ub-cta">
           {msg.cta} →
         </Link>
       </div>

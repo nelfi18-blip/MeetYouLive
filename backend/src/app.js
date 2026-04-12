@@ -30,6 +30,7 @@ const dailyRewardRoutes = require("./routes/dailyReward.routes.js");
 const socialRoomRoutes = require("./routes/socialRoom.routes.js");
 const simulationRoutes = require("./routes/simulation.routes.js");
 const pushRoutes = require("./routes/push.routes.js");
+const referralRoutes = require("./routes/referral.routes.js");
 
 const app = express();
 
@@ -114,5 +115,6 @@ app.use("/api/daily-reward", dailyRewardRoutes);
 app.use("/api/rooms", socialRoomRoutes);
 app.use("/api/simulation", simulationRoutes);
 app.use("/api/push", pushRoutes);
+app.use("/api/referral", referralRoutes);
 
 module.exports = app;

@@ -64,4 +64,86 @@ async function sendVerificationEmail(to, code) {
   return info;
 }
 
-module.exports = { sendVerificationEmail };
+const REACTIVATION_MESSAGES = [
+  null, // index 0 unused
+  {
+    subject: "💖 Tienes nuevos likes esperándote — MeetYouLive",
+    headline: "Tienes nuevos likes esperándote",
+    body: "Mientras estuviste fuera, alguien se fijó en ti. ¡No los hagas esperar más!",
+    cta: "Ver mis likes",
+    href: "/matches",
+    emoji: "💖",
+  },
+  {
+    subject: "🔥 Estás perdiendo matches ahora mismo — MeetYouLive",
+    headline: "Estás perdiendo matches ahora mismo",
+    body: "Cada minuto que pasa es una conexión que se enfría. Vuelve y descubre quién espera por ti.",
+    cta: "Ver mis matches",
+    href: "/crush",
+    emoji: "🔥",
+  },
+  {
+    subject: "🚀 Vuelve ahora y destaca tu perfil — MeetYouLive",
+    headline: "¡Es hora de volver!",
+    body: "Tu perfil está perdiendo visibilidad. Regresa ahora, destaca entre la multitud y no te pierdas nada.",
+    cta: "Destacar mi perfil",
+    href: "/profile",
+    emoji: "🚀",
+  },
+];
+
+/**
+ * Send a reactivation email to an inactive user.
+ * @param {string}  to           - recipient email
+ * @param {string}  displayName  - user name or username shown in the email
+ * @param {1|2|3}   day          - inactivity window (1 = 24 h, 2 = 48 h, 3 = 72 h)
+ * @param {number}  likesCount   - pending likes count (for personalisation)
+ * @param {number}  matchesCount - matches count (for personalisation)
+ */
+async function sendReactivationEmail(to, displayName, day, likesCount = 0, matchesCount = 0) {
+  const transport = getTransporter();
+  const msg = REACTIVATION_MESSAGES[day];
+  if (!msg) return;
+
+  const name = displayName || "amigo";
+  const appUrl = process.env.FRONTEND_URL || "https://meetyoulive.net";
+
+  let personalNote = "";
+  if (day === 1 && likesCount > 0) {
+    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Tienes <strong style="color:#e040fb">${likesCount} like${likesCount > 1 ? "s" : ""}</strong> esperándote.</p>`;
+  } else if (day === 2 && matchesCount > 0) {
+    personalNote = `<p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">Ya tienes <strong style="color:#e040fb">${matchesCount} match${matchesCount > 1 ? "es" : ""}</strong>. ¡No los dejes enfriar!</p>`;
+  }
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f0821;color:#e2e8f0;border-radius:12px">
+      <p style="font-size:2rem;margin:0 0 8px;line-height:1">${msg.emoji}</p>
+      <h1 style="font-size:1.4rem;margin:0 0 8px;color:#fff">${msg.headline}</h1>
+      <p style="color:#94a3b8;margin:0 0 16px">Hola ${name},</p>
+      <p style="color:#c8a2f8;font-size:0.95rem;margin:0 0 20px">${msg.body}</p>
+      ${personalNote}
+      <a href="${appUrl}${msg.href}"
+         style="display:inline-block;background:linear-gradient(135deg,#c040ff,#ff4fa3);color:#fff;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:1rem;margin-bottom:24px">
+        ${msg.cta}
+      </a>
+      <p style="color:#64748b;font-size:0.8rem;margin:0">Si no quieres recibir más recordatorios, simplemente ignora este mensaje. Te echamos de menos 💜</p>
+    </div>
+  `;
+
+  const info = await transport.sendMail({
+    from: FROM,
+    to,
+    subject: msg.subject,
+    text: `${msg.headline}\n\n${msg.body}\n\nVuelve ahora: ${appUrl}${msg.href}`,
+    html,
+  });
+
+  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+    console.log(`\n📧 [DEV EMAIL] Reactivation day ${day} → ${to}`);
+    console.log(`   Subject: ${msg.subject}\n`);
+  }
+
+  return info;
+}
+
+module.exports = { sendVerificationEmail, sendReactivationEmail };

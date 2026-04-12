@@ -97,6 +97,18 @@ const userSchema = new mongoose.Schema(
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followersCount: { type: Number, default: 0, min: 0 },
+    lastActiveAt: { type: Date, default: null },
+    reactivation: {
+      type: new mongoose.Schema(
+        {
+          day1SentAt: { type: Date, default: null },
+          day2SentAt: { type: Date, default: null },
+          day3SentAt: { type: Date, default: null },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
     storedBoosts: { type: Number, default: 0, min: 0 },

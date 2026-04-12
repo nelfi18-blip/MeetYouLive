@@ -9,6 +9,8 @@ const likeSchema = new mongoose.Schema(
       enum: ["standard", "super_crush"],
       default: "standard",
     },
+    // true once the receiving user has paid to reveal this liker's identity
+    revealed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

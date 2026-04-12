@@ -15,6 +15,7 @@ const EXTRA_SWIPES_PRICE = 5; // coins to unlock extra swipes batch
 const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile
 const BOOST_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -479,5 +480,124 @@ exports.getBoostStatus = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── Get received likes (hidden monetization) ─────────────────────────────────
+// Returns people who liked the current user. Revealed likes include the full
+// profile; locked likes only expose the document _id (for unlock tracking).
+// Mutual matches are excluded – those users are already visible in /matches.
+exports.getLikesReceived = async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.userId);
+
+    // Run both queries in parallel: user's outgoing likes + incoming likes
+    const [myLikes, incomingLikes] = await Promise.all([
+      Like.find({ from: userId }).select("to"),
+      Like.find({ to: userId })
+        .populate("from", "username name avatar")
+        .sort({ createdAt: -1 }),
+    ]);
+
+    const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
+
+    const nonMutual = incomingLikes.filter(
+      (l) => !myLikedSet.has(String(l.from._id))
+    );
+
+    const revealed = [];
+    const locked = [];
+
+    for (const like of nonMutual) {
+      if (like.revealed) {
+        const u = like.from.toObject ? like.from.toObject() : like.from;
+        revealed.push({ likeId: String(like._id), user: u, crushType: like.crushType });
+      } else {
+        // Only expose the likeId so the client can count locked items
+        locked.push({ likeId: String(like._id), crushType: like.crushType });
+      }
+    }
+
+    res.json({
+      revealed,
+      locked,
+      lockedCount: locked.length,
+      unlockPrice: UNLOCK_ALL_LIKES_PRICE,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── Unlock all hidden likes with coins ───────────────────────────────────────
+exports.unlockAllLikes = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    let revealedCount = 0;
+
+    await session.withTransaction(async () => {
+      const user = await User.findById(req.userId).session(session);
+      if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+
+      // Count currently locked incoming likes (excluding mutual matches)
+      const [myLikes, lockedLikes] = await Promise.all([
+        Like.find({ from: req.userId }).select("to"),
+        Like.find({ to: req.userId, revealed: false }).session(session),
+      ]);
+      const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
+
+      const lockedNonMutual = lockedLikes.filter(
+        (l) => !myLikedSet.has(String(l.from))
+      );
+
+      if (lockedNonMutual.length === 0) {
+        throw Object.assign(
+          new Error("No tienes likes bloqueados que desbloquear"),
+          { status: 400 }
+        );
+      }
+
+      if (user.coins < UNLOCK_ALL_LIKES_PRICE) {
+        throw Object.assign(
+          new Error(`Necesitas al menos ${UNLOCK_ALL_LIKES_PRICE} monedas para desbloquear tus likes`),
+          { status: 400 }
+        );
+      }
+
+      await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { coins: -UNLOCK_ALL_LIKES_PRICE } },
+        { session }
+      );
+
+      const likeIds = lockedNonMutual.map((l) => l._id);
+      const result = await Like.updateMany(
+        { _id: { $in: likeIds } },
+        { $set: { revealed: true } },
+        { session }
+      );
+      revealedCount = result.modifiedCount;
+
+      await CoinTransaction.create(
+        [
+          {
+            userId: req.userId,
+            type: "like_unlock",
+            amount: -UNLOCK_ALL_LIKES_PRICE,
+            reason: `Desbloqueados ${revealedCount} like(s) ocultos`,
+            status: "completed",
+            metadata: { revealedCount },
+          },
+        ],
+        { session }
+      );
+    });
+
+    res.json({ ok: true, revealedCount, price: UNLOCK_ALL_LIKES_PRICE });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    await session.endSession();
   }
 };

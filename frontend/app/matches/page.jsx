@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 import GiftButton from "@/components/GiftButton";
 import UrgencyBanner from "@/components/UrgencyBanner";
-import PremiumLockCard from "@/components/PremiumLockCard";
+import HiddenLikesSection from "@/components/HiddenLikesSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -140,27 +140,8 @@ export default function MatchesPage() {
 
       {!loading && matches.length === 0 && (
         <>
-          {/* Locked likes teaser */}
-          <div className="locked-likes-section">
-            <div className="ll-header">
-              <span className="ll-badge">👀 Personas que te dieron like</span>
-              <span className="ll-count-badge">+7 nuevos</span>
-            </div>
-            <div className="ll-blurred-grid">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="ll-blurred-card">
-                  <div className="ll-avatar-blur" />
-                  <div className="ll-name-blur" />
-                </div>
-              ))}
-            </div>
-            <PremiumLockCard
-              label="Descubre quién te dio like"
-              cta="🔥 Ver quién te dio like"
-              href="/coins"
-              compact
-            />
-          </div>
+          {/* Real hidden likes section */}
+          <HiddenLikesSection />
 
           <div className="empty-state">
             <div className="empty-icon" style={{ color: "var(--accent)" }}>
@@ -200,7 +181,10 @@ export default function MatchesPage() {
       )}
 
       {!loading && matches.length > 0 && (
-        <div className="matches-grid">
+        <>
+          {/* Hidden likes section also shown when user has matches */}
+          <HiddenLikesSection />
+          <div className="matches-grid">
           {matches.map((user) => {
             const displayName = user.username || user.name || "Usuario";
             const initial = displayName[0].toUpperCase();
@@ -281,85 +265,11 @@ export default function MatchesPage() {
             );
           })}
         </div>
+        </>
       )}
 
       <style jsx>{`
         .matches-page { display: flex; flex-direction: column; gap: 1.75rem; }
-
-        /* Locked likes teaser */
-        .locked-likes-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          padding: 1.25rem;
-          border-radius: var(--radius);
-          background: rgba(15,8,32,0.7);
-          border: 1px solid rgba(255,45,120,0.2);
-        }
-
-        .ll-header {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          flex-wrap: wrap;
-        }
-
-        .ll-badge {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--text);
-        }
-
-        .ll-count-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.18rem 0.65rem;
-          border-radius: var(--radius-pill);
-          background: rgba(255,45,120,0.15);
-          border: 1px solid rgba(255,45,120,0.35);
-          color: #ff6ba8;
-          font-size: 0.72rem;
-          font-weight: 800;
-          animation: ll-pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes ll-pulse {
-          0%, 100% { box-shadow: 0 0 0 rgba(255,45,120,0); }
-          50%       { box-shadow: 0 0 10px rgba(255,45,120,0.4); }
-        }
-
-        .ll-blurred-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.75rem;
-        }
-
-        .ll-blurred-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 0.5rem;
-          border-radius: var(--radius-sm);
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.07);
-        }
-
-        .ll-avatar-blur {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, rgba(255,45,120,0.3), rgba(224,64,251,0.3));
-          filter: blur(6px);
-        }
-
-        .ll-name-blur {
-          width: 60%;
-          height: 10px;
-          border-radius: var(--radius-pill);
-          background: rgba(255,255,255,0.15);
-          filter: blur(4px);
-        }
 
         .matches-header {
           display: flex;

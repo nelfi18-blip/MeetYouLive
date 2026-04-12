@@ -6,6 +6,7 @@ import Link from "next/link";
 import Badge from "@/components/Badge";
 import MatchModal from "@/components/MatchModal";
 import socket from "@/lib/socket";
+import HiddenLikesSection from "@/components/HiddenLikesSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -1811,6 +1812,9 @@ export default function CrushPage() {
       {featuredCreators.length > 0 && (
         <FeaturedCreatorsStrip creators={featuredCreators} />
       )}
+
+      {/* Hidden likes monetization section */}
+      <HiddenLikesSection compact />
 
       <style jsx>{`
         .crush-page {

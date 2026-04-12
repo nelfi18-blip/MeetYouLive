@@ -267,7 +267,7 @@ export function useNotifications() {
         icon: data.giftIcon || "🎁",
         message: `${data.senderName || "Alguien"} te envió ${data.giftName || "un regalo"}`,
         duration: 5000,
-        dedupKey: `gift_${data.senderName}_${Date.now() >> 10}`,
+        dedupKey: `gift_${data.senderName}`,
       });
     },
     [push]
@@ -330,23 +330,6 @@ export function useNotifications() {
     [push]
   );
 
-  const handleDailyReward = useCallback(
-    (data) => {
-      const coins = data?.coinsAwarded ?? data?.coins ?? "";
-      const streak = data?.streak ?? 0;
-      const streakText = streak > 1 ? ` · Racha ${streak} 🔥` : "";
-      push({
-        icon: "✅",
-        message: `Reclamaste tus monedas de hoy${coins ? ` · +${coins} monedas` : ""}${streakText}`,
-        href: "/crush",
-        actionLabel: "Ir a Crush",
-        duration: 7000,
-        dedupKey: `daily_reward_${new Date().toDateString()}`,
-      });
-    },
-    [push]
-  );
-
   return {
     notifications,
     push,
@@ -357,6 +340,5 @@ export function useNotifications() {
     handleCallIncoming,
     handleCrushReceived,
     handleSuperCrushReceived,
-    handleDailyReward,
   };
 }

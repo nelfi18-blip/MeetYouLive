@@ -561,6 +561,19 @@ export default function DashboardPage() {
         </Link>
       )}
 
+      {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
+      <Link href="/rooms" className="confidence-entry-card">
+        <div className="confidence-entry-glow" />
+        <div className="confidence-entry-left">
+          <span className="confidence-entry-emoji">💖</span>
+          <div className="confidence-entry-text">
+            <strong>¿Te cuesta romper el hielo?</strong>
+            <span>Practica conversación antes de hablar con alguien · Mejora tu confianza en el amor</span>
+          </div>
+        </div>
+        <span className="confidence-entry-cta">Entrar ahora →</span>
+      </Link>
+
       {/* ── 🟢 ONLINE USERS SECTION ── */}
       <OnlineUsers />
 
@@ -1298,6 +1311,77 @@ export default function DashboardPage() {
         .live-entry-banner:hover .live-entry-cta {
           background: rgba(239,68,68,0.2);
           box-shadow: 0 0 10px rgba(239,68,68,0.25);
+        }
+
+        /* ── Confidence room entry card ── */
+        .confidence-entry-card {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 1.1rem 1.5rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(244,114,182,0.3);
+          background: linear-gradient(135deg, rgba(30,8,55,0.95) 0%, rgba(14,4,32,0.98) 100%);
+          text-decoration: none;
+          overflow: hidden;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          flex-wrap: wrap;
+        }
+        .confidence-entry-card:hover {
+          border-color: rgba(244,114,182,0.55);
+          box-shadow: 0 0 28px rgba(244,114,182,0.18);
+        }
+        .confidence-entry-glow {
+          position: absolute;
+          top: -50px; right: -30px;
+          width: 220px; height: 220px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(244,114,182,0.18) 0%, transparent 65%);
+          pointer-events: none;
+        }
+        .confidence-entry-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          min-width: 0;
+        }
+        .confidence-entry-emoji { font-size: 1.6rem; flex-shrink: 0; }
+        .confidence-entry-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .confidence-entry-text strong {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+        }
+        .confidence-entry-text span {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+        .confidence-entry-cta {
+          position: relative;
+          z-index: 1;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #f472b6;
+          white-space: nowrap;
+          padding: 0.35rem 0.9rem;
+          border-radius: 999px;
+          border: 1px solid rgba(244,114,182,0.4);
+          background: rgba(244,114,182,0.1);
+          transition: all 0.18s;
+        }
+        .confidence-entry-card:hover .confidence-entry-cta {
+          background: rgba(244,114,182,0.2);
+          box-shadow: 0 0 12px rgba(244,114,182,0.3);
         }
 
         /* ── Cards grid ──────── */

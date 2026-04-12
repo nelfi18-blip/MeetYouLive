@@ -1652,6 +1652,16 @@ export default function CrushPage() {
               <Link href="/coins" className="done-btn-secondary done-btn-coins">🪙 Comprar monedas</Link>
             </div>
 
+            {/* Confidence room tie-in */}
+            <Link href="/rooms" className="done-confidence-card">
+              <span className="done-confidence-icon">💬</span>
+              <div className="done-confidence-body">
+                <p className="done-confidence-title">Practica conversación mientras llegan más perfiles</p>
+                <p className="done-confidence-desc">Mejora tu confianza en el amor · Sala segura y amigable</p>
+              </div>
+              <span className="done-confidence-cta">Entrar ahora</span>
+            </Link>
+
             <div className="done-monetize-row">
               <Link href="/coins" className="done-monetize-card">
                 <span className="done-monetize-icon">💎</span>
@@ -2426,6 +2436,44 @@ export default function CrushPage() {
         }
         .done-monetize-desc {
           font-size: 0.62rem; color: rgba(255,255,255,0.38); margin: 0.1rem 0 0; line-height: 1.25;
+        }
+
+        /* Confidence room tie-in card */
+        .done-confidence-card {
+          display: flex; align-items: center; gap: 0.75rem;
+          width: 100%; padding: 0.85rem 1rem;
+          border-radius: 14px;
+          background: rgba(244,114,182,0.07);
+          border: 1px solid rgba(244,114,182,0.25);
+          text-decoration: none; text-align: left; cursor: pointer;
+          transition: all 0.2s;
+        }
+        .done-confidence-card:hover {
+          background: rgba(244,114,182,0.14);
+          border-color: rgba(244,114,182,0.45);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 18px rgba(244,114,182,0.2);
+        }
+        .done-confidence-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .done-confidence-body { flex: 1; min-width: 0; }
+        .done-confidence-title {
+          font-size: 0.78rem; font-weight: 800; color: #fce7f3; margin: 0; line-height: 1.3;
+        }
+        .done-confidence-desc {
+          font-size: 0.65rem; color: rgba(255,255,255,0.4); margin: 0.1rem 0 0; line-height: 1.25;
+        }
+        .done-confidence-cta {
+          flex-shrink: 0; padding: 0.35rem 0.8rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #f472b6, #a855f7);
+          color: #fff; font-size: 0.7rem; font-weight: 800;
+          white-space: nowrap;
+          box-shadow: 0 0 10px rgba(244,114,182,0.35);
+          transition: box-shadow 0.2s, transform 0.15s;
+        }
+        .done-confidence-card:hover .done-confidence-cta {
+          box-shadow: 0 0 18px rgba(244,114,182,0.55);
+          transform: translateY(-1px);
         }
 
         @media (max-width: 480px) {

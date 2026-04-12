@@ -376,14 +376,44 @@ export default function SimulationPanel({ currentUser }) {
             </div>
           )}
 
-          {/* After submission CTAs */}
+          {/* After submission: reward state + conversion panel */}
           {postedResponse && (
-            <div className="after-sim-cta">
-              <div className="after-sim-label">¿Listo/a para poner en práctica?</div>
-              <div className="after-sim-btns">
-                <Link href="/crush" className="after-btn after-btn--pink">💘 Ir a Crush</Link>
-                <Link href="/chats" className="after-btn after-btn--purple">💬 Iniciar chat</Link>
-                <Link href="/explore" className="after-btn after-btn--orange">🔴 Ver lives</Link>
+            <div className="after-sim-panel">
+              {/* Reward badge */}
+              <div className="after-sim-reward">
+                <span className="after-sim-reward-icon">🔥</span>
+                <div className="after-sim-reward-text">
+                  <strong>¡Ya estás listo/a para hablar con alguien!</strong>
+                  <span>Usa lo que aprendiste en Crush, Live o Chats</span>
+                </div>
+              </div>
+
+              {/* Premium scenario unlock reinforcement */}
+              {selected?.isPremium && selected?.isUnlocked && (
+                <div className="after-sim-premium-note">
+                  💖 Desbloqueaste un escenario premium · Lleva esta confianza a interacciones reales
+                </div>
+              )}
+
+              {/* Conversion CTAs */}
+              <div className="after-sim-cta-label">¿Listo/a para poner en práctica?</div>
+              <div className="after-sim-grid">
+                <Link href="/crush" className="after-sim-tile after-sim-tile--pink">
+                  <span className="after-sim-tile-icon">💖</span>
+                  <span className="after-sim-tile-label">Ir a Crush</span>
+                </Link>
+                <Link href="/chats" className="after-sim-tile after-sim-tile--purple">
+                  <span className="after-sim-tile-icon">💬</span>
+                  <span className="after-sim-tile-label">Abrir chat</span>
+                </Link>
+                <Link href="/live" className="after-sim-tile after-sim-tile--red">
+                  <span className="after-sim-tile-icon">🎥</span>
+                  <span className="after-sim-tile-label">Entrar a directos</span>
+                </Link>
+                <Link href="/explore" className="after-sim-tile after-sim-tile--orange">
+                  <span className="after-sim-tile-icon">🔍</span>
+                  <span className="after-sim-tile-label">Explorar perfiles</span>
+                </Link>
               </div>
             </div>
           )}
@@ -515,19 +545,76 @@ export default function SimulationPanel({ currentUser }) {
         .posted-label { font-size: 0.78rem; font-weight: 800; color: #34d399; margin-bottom: 0.2rem; }
         .posted-text { font-size: 0.82rem; color: var(--text-muted, #ccc); margin: 0; }
 
-        /* After sim CTAs */
-        .after-sim-cta { display: flex; flex-direction: column; gap: 0.6rem; }
-        .after-sim-label { font-size: 0.78rem; font-weight: 800; color: var(--text-muted, #aaa); }
-        .after-sim-btns { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .after-btn {
-          font-size: 0.78rem; font-weight: 800; padding: 0.45rem 0.9rem;
-          border-radius: 999px; text-decoration: none; border: 1px solid transparent;
-          transition: all 0.18s;
+        /* After sim panel */
+        .after-sim-panel {
+          display: flex; flex-direction: column; gap: 0.75rem;
+          padding: 1rem 1.1rem;
+          border-radius: var(--radius-sm, 10px);
+          border: 1px solid rgba(244,114,182,0.2);
+          background: linear-gradient(135deg, rgba(30,8,55,0.9) 0%, rgba(14,4,32,0.95) 100%);
         }
-        .after-btn--pink   { color: #f472b6; background: rgba(244,114,182,0.12); border-color: rgba(244,114,182,0.3); }
-        .after-btn--purple { color: #a78bfa; background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.3); }
-        .after-btn--orange { color: #fb923c; background: rgba(251,146,60,0.12);  border-color: rgba(251,146,60,0.3);  }
-        .after-btn:hover { opacity: 0.8; transform: translateY(-1px); }
+        .after-sim-reward {
+          display: flex; align-items: center; gap: 0.65rem;
+          padding: 0.7rem 0.85rem;
+          border-radius: 10px;
+          border: 1px solid rgba(251,146,60,0.25);
+          background: rgba(251,146,60,0.07);
+        }
+        .after-sim-reward-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .after-sim-reward-text { display: flex; flex-direction: column; gap: 0.1rem; }
+        .after-sim-reward-text strong { font-size: 0.82rem; font-weight: 900; color: #fed7aa; }
+        .after-sim-reward-text span { font-size: 0.72rem; color: rgba(255,255,255,0.5); }
+        .after-sim-premium-note {
+          font-size: 0.75rem; font-weight: 700; color: #e879f9;
+          padding: 0.5rem 0.75rem;
+          border-radius: 8px;
+          background: rgba(232,121,249,0.08);
+          border: 1px solid rgba(232,121,249,0.2);
+        }
+        .after-sim-cta-label {
+          font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em;
+          color: var(--text-muted, #aaa); text-transform: uppercase;
+        }
+        .after-sim-grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;
+        }
+        .after-sim-tile {
+          display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+          padding: 0.75rem 0.5rem;
+          border-radius: 10px; border: 1px solid transparent;
+          text-decoration: none; transition: all 0.18s;
+          text-align: center;
+        }
+        .after-sim-tile-icon { font-size: 1.3rem; }
+        .after-sim-tile-label { font-size: 0.72rem; font-weight: 800; }
+        .after-sim-tile--pink {
+          color: #f472b6; background: rgba(244,114,182,0.1); border-color: rgba(244,114,182,0.25);
+        }
+        .after-sim-tile--pink:hover {
+          background: rgba(244,114,182,0.2); border-color: rgba(244,114,182,0.5);
+          box-shadow: 0 0 12px rgba(244,114,182,0.2);
+        }
+        .after-sim-tile--purple {
+          color: #a78bfa; background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.25);
+        }
+        .after-sim-tile--purple:hover {
+          background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.5);
+          box-shadow: 0 0 12px rgba(167,139,250,0.2);
+        }
+        .after-sim-tile--red {
+          color: #f87171; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25);
+        }
+        .after-sim-tile--red:hover {
+          background: rgba(248,113,113,0.2); border-color: rgba(248,113,113,0.5);
+          box-shadow: 0 0 12px rgba(248,113,113,0.2);
+        }
+        .after-sim-tile--orange {
+          color: #fb923c; background: rgba(251,146,60,0.1); border-color: rgba(251,146,60,0.25);
+        }
+        .after-sim-tile--orange:hover {
+          background: rgba(251,146,60,0.2); border-color: rgba(251,146,60,0.5);
+          box-shadow: 0 0 12px rgba(251,146,60,0.2);
+        }
 
         /* Community */
         .community-section { display: flex; flex-direction: column; gap: 0.75rem; }

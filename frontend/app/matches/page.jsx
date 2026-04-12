@@ -183,6 +183,19 @@ export default function MatchesPage() {
               </div>
             </div>
           </div>
+
+          {/* Confidence room suggestion for users with no matches */}
+          <Link href="/rooms" className="confidence-matches-card">
+            <div className="confidence-matches-glow" />
+            <div className="confidence-matches-inner">
+              <span className="confidence-matches-emoji">🎯</span>
+              <div className="confidence-matches-text">
+                <strong>Practica conversación antes de hablar con alguien</strong>
+                <span>🔥 Mejora tu confianza en el amor · Sala segura y amigable</span>
+              </div>
+              <span className="confidence-matches-cta">Entrar ahora →</span>
+            </div>
+          </Link>
         </>
       )}
 
@@ -634,6 +647,56 @@ export default function MatchesPage() {
         .empty-upsell-btn-ghost:hover {
           background: rgba(255,255,255,0.08);
           box-shadow: none;
+        }
+
+        /* Confidence room card in matches empty state */
+        .confidence-matches-card {
+          position: relative;
+          display: block;
+          text-decoration: none;
+          border-radius: var(--radius);
+          border: 1px solid rgba(244,114,182,0.28);
+          background: linear-gradient(135deg, rgba(30,8,55,0.95) 0%, rgba(14,4,32,0.98) 100%);
+          overflow: hidden;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .confidence-matches-card:hover {
+          border-color: rgba(244,114,182,0.55);
+          box-shadow: 0 0 28px rgba(244,114,182,0.2);
+        }
+        .confidence-matches-glow {
+          position: absolute; top: -50px; right: -30px;
+          width: 200px; height: 200px; border-radius: 50%;
+          background: radial-gradient(circle, rgba(244,114,182,0.18) 0%, transparent 65%);
+          pointer-events: none;
+        }
+        .confidence-matches-inner {
+          display: flex; align-items: center; gap: 0.85rem;
+          padding: 1.1rem 1.25rem;
+          position: relative; z-index: 1; flex-wrap: wrap;
+        }
+        .confidence-matches-emoji { font-size: 1.8rem; flex-shrink: 0; }
+        .confidence-matches-text {
+          flex: 1; min-width: 0;
+          display: flex; flex-direction: column; gap: 0.15rem;
+        }
+        .confidence-matches-text strong {
+          font-size: 0.92rem; font-weight: 800; color: var(--text);
+        }
+        .confidence-matches-text span {
+          font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;
+        }
+        .confidence-matches-cta {
+          font-size: 0.82rem; font-weight: 800; color: #f472b6;
+          white-space: nowrap; padding: 0.35rem 0.9rem;
+          border-radius: 999px;
+          border: 1px solid rgba(244,114,182,0.4);
+          background: rgba(244,114,182,0.1);
+          transition: all 0.18s;
+        }
+        .confidence-matches-card:hover .confidence-matches-cta {
+          background: rgba(244,114,182,0.2);
+          box-shadow: 0 0 12px rgba(244,114,182,0.3);
         }
       `}</style>
     </div>

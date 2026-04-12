@@ -520,6 +520,11 @@ export default function OnboardingPage() {
                 </div>
               )}
 
+              {/* Confidence room hint */}
+              <div className="ob-confidence-hint">
+                💬 ¿Te cuesta romper el hielo? Practica en nuestra <strong>Sala de Confianza</strong> antes de conectar con alguien real.
+              </div>
+
               <div className="ob-actions ob-actions-row">
                 <button className="btn ob-btn-back" onClick={() => goToStep(3)}>
                   ← Atrás
@@ -830,6 +835,18 @@ export default function OnboardingPage() {
           line-height: 1.4;
         }
         .ob-destination-hint strong { color: #fff; }
+
+        .ob-confidence-hint {
+          margin-bottom: 1rem;
+          padding: 0.65rem 1rem;
+          background: rgba(244,114,182,0.07);
+          border: 1px solid rgba(244,114,182,0.2);
+          border-radius: var(--radius-sm);
+          font-size: 0.78rem;
+          color: #fce7f3;
+          line-height: 1.4;
+        }
+        .ob-confidence-hint strong { color: #f472b6; }
 
         /* ── Fields ── */
         .ob-field {

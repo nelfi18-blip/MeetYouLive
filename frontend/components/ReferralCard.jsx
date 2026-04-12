@@ -24,7 +24,9 @@ export default function ReferralCard() {
       .then((data) => {
         if (data?.referralCode) setReferralCode(data.referralCode);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[ReferralCard] failed to load referral data:", err);
+      });
   }, []);
 
   const referralLink =

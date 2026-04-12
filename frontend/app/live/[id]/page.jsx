@@ -490,6 +490,48 @@ export default function LiveRoomPage() {
     <div className="room">
       <div className="room-layout">
         <div className="room-main">
+          {/* ── Premium creator header bar ── */}
+          <div className="creator-header-bar">
+            <div className="chr-left">
+              <div className="chr-avatar">
+                {live.user?.avatar ? (
+                  <img src={live.user.avatar} alt={creatorName} className="chr-avatar-img" />
+                ) : (
+                  creatorName[0].toUpperCase()
+                )}
+                <span className="chr-live-dot" />
+              </div>
+              <div className="chr-info">
+                <div className="chr-name-row">
+                  <span className="chr-name">@{creatorName}</span>
+                  {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
+                    <span className="chr-creator-badge">⭐ Creador</span>
+                  )}
+                </div>
+                <div className="chr-meta-row">
+                  <span className="chr-live-badge">🔴 EN VIVO</span>
+                  <span className="chr-viewers">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    {live.viewerCount ?? live.viewers ?? 0}
+                  </span>
+                  {live.isPrivate && <span className="chr-private-tag">🔒 Privado</span>}
+                </div>
+              </div>
+            </div>
+            <div className="chr-right">
+              {!isCreator && live.user?._id && (
+                <FollowButton targetId={String(live.user._id)} token={token} />
+              )}
+              <Link href="/live" className="chr-back-btn" title="Volver a directos">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </Link>
+            </div>
+          </div>
+
           <div className="video-wrap">
             {/* Agora video containers */}
             {isCreator ? (
@@ -581,7 +623,9 @@ export default function LiveRoomPage() {
 
           <div className="action-bar">
             <div className="viewers-badge">
-              <span>👁</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
               <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
             </div>
 
@@ -599,8 +643,9 @@ export default function LiveRoomPage() {
                 </>
               ) : (
                 <>
-                  <button className="btn btn-primary btn-sm" onClick={() => setShowGiftPanel(true)}>
-                    🎁 Regalos
+                  <button className="btn-gift-cta" onClick={() => setShowGiftPanel(true)}>
+                    <span className="btn-gift-cta-icon">🎁</span>
+                    <span>Enviar regalo</span>
                   </button>
 
                   {privateCallEnabled ? (
@@ -610,7 +655,7 @@ export default function LiveRoomPage() {
                       disabled={startingCall}
                       title={`Llamada privada · 🪙 ${pricePerMinute}/min`}
                     >
-                      {startingCall ? "Conectando…" : `📞 Llamada · 🪙${pricePerMinute}/min`}
+                      {startingCall ? "Conectando…" : `📞 Llamar · 🪙${pricePerMinute}/min`}
                     </button>
                   ) : (
                     <button
@@ -622,7 +667,18 @@ export default function LiveRoomPage() {
                     </button>
                   )}
 
-                  {callError ? <span className="call-error-inline">{callError}</span> : null}
+                  {callError ? (
+                    <div className="call-error-banner">
+                      <span>{callError}</span>
+                      {(callError.toLowerCase().includes("balance") ||
+                        callError.toLowerCase().includes("moneda") ||
+                        callError.toLowerCase().includes("coin") ||
+                        callError.toLowerCase().includes("saldo") ||
+                        callError.toLowerCase().includes("insufficient")) && (
+                        <Link href="/coins" className="call-error-coins-link">🪙 Comprar monedas</Link>
+                      )}
+                    </div>
+                  ) : null}
                 </>
               )}
 
@@ -664,9 +720,27 @@ export default function LiveRoomPage() {
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>
+            <span className="chat-header-live-dot" />
           </div>
 
           <div className="chat-messages">
+            {/* Low-activity prompts */}
+            {chatMessages.length <= 1 && !isCreator && (
+              <div className="chat-prompts">
+                <button className="chat-prompt-item" onClick={() => setShowGiftPanel(true)}>
+                  🎁 Sé el primero en enviar un regalo
+                </button>
+                <div className="chat-prompt-item chat-prompt-static">
+                  💬 Escribe en el chat y saluda
+                </div>
+                {privateCallEnabled && (
+                  <button className="chat-prompt-item" onClick={handleStartPrivateCall} disabled={startingCall}>
+                    📞 Conecta en privado
+                  </button>
+                )}
+              </div>
+            )}
+
             {chatMessages.map((msg) => (
               <div
                 key={msg.id}
@@ -674,6 +748,15 @@ export default function LiveRoomPage() {
               >
                 {msg.system ? (
                   <span className="chat-text-system">{msg.text}</span>
+                ) : msg.isGift ? (
+                  <>
+                    <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
+                    <span className="chat-user chat-user-gift">{msg.user}</span>
+                    <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
+                    {msg.gift?.cost && (
+                      <span className="chat-gift-coins">🪙 {msg.gift.cost}</span>
+                    )}
+                  </>
                 ) : (
                   <>
                     <span className="chat-user">{msg.user}</span>
@@ -705,6 +788,33 @@ export default function LiveRoomPage() {
           </form>
         </div>
       </div>
+
+      {/* ── Sticky quick dock (viewers only, mobile-friendly) ── */}
+      {!isCreator && (
+        <div className="quick-dock">
+          <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
+            <span className="dock-icon">🎁</span>
+            <span className="dock-label">Regalo</span>
+          </button>
+          {privateCallEnabled ? (
+            <button
+              className="dock-btn dock-call"
+              onClick={handleStartPrivateCall}
+              disabled={startingCall}
+            >
+              <span className="dock-icon">📞</span>
+              <span className="dock-label">{startingCall ? "…" : "Privado"}</span>
+            </button>
+          ) : null}
+          <button
+            className="dock-btn dock-chat"
+            onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <span className="dock-icon">💬</span>
+            <span className="dock-label">Chat</span>
+          </button>
+        </div>
+      )}
 
       {showGiftPanel && live?.user?._id ? (
         <GiftPanel
@@ -738,6 +848,176 @@ export default function LiveRoomPage() {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+        }
+
+        /* ── Premium Creator Header Bar ── */
+        .creator-header-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          background: linear-gradient(135deg, rgba(22,8,48,0.97) 0%, rgba(14,4,32,0.99) 100%);
+          border: 1px solid rgba(224,64,251,0.22);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
+          box-shadow: 0 0 28px rgba(224,64,251,0.08), var(--shadow);
+        }
+
+        .chr-left {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .chr-avatar {
+          position: relative;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          font-weight: 900;
+          color: #fff;
+          flex-shrink: 0;
+          border: 2px solid rgba(224,64,251,0.5);
+          box-shadow: 0 0 14px rgba(224,64,251,0.3);
+          overflow: hidden;
+        }
+
+        .chr-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+
+        .chr-live-dot {
+          position: absolute;
+          bottom: 1px;
+          right: 1px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ef4444;
+          border: 2px solid rgba(14,4,32,0.99);
+          animation: liveDotAnim 1.4s infinite;
+        }
+
+        @keyframes liveDotAnim {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.8); }
+        }
+
+        .chr-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          min-width: 0;
+        }
+
+        .chr-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          flex-wrap: wrap;
+        }
+
+        .chr-name {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .chr-creator-badge {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.12);
+          border: 1px solid rgba(251,191,36,0.35);
+          border-radius: 999px;
+          padding: 0.1rem 0.45rem;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .chr-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .chr-live-badge {
+          font-size: 0.62rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          color: #fff;
+          background: #ef4444;
+          border-radius: 999px;
+          padding: 0.12rem 0.48rem;
+          animation: liveBadgePulse 1.6s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+
+        @keyframes liveBadgePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+        }
+
+        .chr-viewers {
+          display: flex;
+          align-items: center;
+          gap: 0.28rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .chr-private-tag {
+          font-size: 0.62rem;
+          font-weight: 700;
+          color: #a78bfa;
+          background: rgba(139,92,246,0.12);
+          border: 1px solid rgba(139,92,246,0.3);
+          border-radius: 999px;
+          padding: 0.1rem 0.45rem;
+        }
+
+        .chr-right {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
+
+        .chr-back-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          color: var(--text-muted);
+          text-decoration: none;
+          transition: all 0.18s;
+          flex-shrink: 0;
+        }
+
+        .chr-back-btn:hover {
+          background: rgba(255,255,255,0.1);
+          color: var(--text);
         }
 
         .video-wrap {
@@ -1048,10 +1328,266 @@ export default function LiveRoomPage() {
 
         .btn-call:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .call-error-inline {
+        /* Glowing gift CTA */
+        .btn-gift-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.45rem 1.2rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(224,64,251,0.25), rgba(139,92,246,0.25));
+          border: 1px solid rgba(224,64,251,0.55);
+          color: #f0abfc;
+          font-size: 0.85rem;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.2s;
+          animation: giftCtaGlow 2.5s ease-in-out infinite;
+          letter-spacing: 0.02em;
+        }
+
+        .btn-gift-cta-icon { font-size: 1.05rem; }
+
+        .btn-gift-cta:hover {
+          background: linear-gradient(135deg, rgba(224,64,251,0.4), rgba(139,92,246,0.4));
+          border-color: rgba(224,64,251,0.8);
+          box-shadow: 0 0 24px rgba(224,64,251,0.45);
+          transform: scale(1.04);
+        }
+
+        @keyframes giftCtaGlow {
+          0%, 100% { box-shadow: 0 0 8px rgba(224,64,251,0.2), 0 0 20px rgba(224,64,251,0.08); }
+          50% { box-shadow: 0 0 16px rgba(224,64,251,0.45), 0 0 36px rgba(224,64,251,0.18); }
+        }
+
+        /* Call error banner */
+        .call-error-banner {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          background: rgba(244,67,54,0.08);
+          border: 1px solid rgba(244,67,54,0.3);
+          border-radius: var(--radius-pill);
+          padding: 0.3rem 0.85rem;
           font-size: 0.75rem;
           color: var(--error);
+          flex-wrap: wrap;
+        }
+
+        .call-error-coins-link {
+          color: #fbbf24;
+          font-weight: 700;
+          text-decoration: none;
+          border-bottom: 1px solid rgba(251,191,36,0.4);
+          transition: color 0.15s;
           white-space: nowrap;
+        }
+
+        .call-error-coins-link:hover { color: #fde68a; }
+
+        /* Quick dock */
+        .quick-dock {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          padding: 0.85rem 1rem;
+          margin-top: 0.5rem;
+          background: linear-gradient(135deg, rgba(14,6,30,0.97) 0%, rgba(22,8,48,0.95) 100%);
+          border: 1px solid rgba(224,64,251,0.18);
+          border-radius: var(--radius);
+          backdrop-filter: blur(16px);
+          box-shadow: 0 0 24px rgba(224,64,251,0.06), var(--shadow);
+        }
+
+        @media (max-width: 900px) {
+          .quick-dock {
+            position: sticky;
+            bottom: 0.5rem;
+            z-index: 20;
+            border-radius: var(--radius);
+            margin-top: 0.75rem;
+          }
+        }
+
+        .dock-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.2rem;
+          padding: 0.55rem 1.1rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.18s;
+          min-width: 64px;
+        }
+
+        .dock-icon { font-size: 1.35rem; line-height: 1; }
+        .dock-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; }
+
+        .dock-gift {
+          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
+          border-color: rgba(224,64,251,0.45);
+          color: #f0abfc;
+          animation: dockGiftGlow 2.8s ease-in-out infinite;
+        }
+
+        @keyframes dockGiftGlow {
+          0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
+          50% { box-shadow: 0 0 18px rgba(224,64,251,0.45), 0 0 36px rgba(224,64,251,0.12); }
+        }
+
+        .dock-gift:hover {
+          background: linear-gradient(135deg, rgba(224,64,251,0.35), rgba(139,92,246,0.35));
+          border-color: rgba(224,64,251,0.75);
+          box-shadow: 0 0 24px rgba(224,64,251,0.5);
+          transform: translateY(-2px);
+          color: #f5d0fe;
+        }
+
+        .dock-call {
+          background: rgba(99,102,241,0.12);
+          border-color: rgba(99,102,241,0.4);
+          color: #a5b4fc;
+        }
+
+        .dock-call:hover:not(:disabled) {
+          background: rgba(99,102,241,0.25);
+          border-color: rgba(99,102,241,0.7);
+          box-shadow: 0 0 16px rgba(99,102,241,0.35);
+          transform: translateY(-2px);
+        }
+
+        .dock-call:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .dock-chat {
+          background: rgba(34,211,238,0.08);
+          border-color: rgba(34,211,238,0.25);
+          color: #67e8f9;
+        }
+
+        .dock-chat:hover {
+          background: rgba(34,211,238,0.18);
+          border-color: rgba(34,211,238,0.5);
+          box-shadow: 0 0 14px rgba(34,211,238,0.25);
+          transform: translateY(-2px);
+        }
+
+        /* Chat prompts (low-activity) */
+        .chat-prompts {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          margin-bottom: 0.5rem;
+          border: 1px dashed rgba(224,64,251,0.2);
+          border-radius: var(--radius-sm);
+          background: rgba(224,64,251,0.03);
+          animation: promptsFadeIn 0.4s ease;
+        }
+
+        @keyframes promptsFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-prompt-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0.65rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s;
+          width: 100%;
+        }
+
+        .chat-prompt-item:hover {
+          background: rgba(224,64,251,0.08);
+          border-color: rgba(224,64,251,0.25);
+          color: var(--text);
+        }
+
+        .chat-prompt-static {
+          cursor: default;
+        }
+
+        .chat-prompt-static:hover {
+          background: rgba(255,255,255,0.03);
+          border-color: rgba(255,255,255,0.06);
+          color: var(--text-muted);
+        }
+
+        /* Enhanced chat messages */
+        .chat-header-live-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #ef4444;
+          animation: chatLiveDot 1.4s infinite;
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+
+        @keyframes chatLiveDot {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+        }
+
+        .chat-user-gift {
+          color: #f9a8d4 !important;
+          font-size: 0.8rem;
+        }
+
+        .chat-user-gift::after { content: ""; }
+
+        .chat-text-gift {
+          color: var(--text-muted);
+          font-size: 0.78rem;
+        }
+
+        .chat-gift-icon {
+          font-size: 1rem;
+          line-height: 1;
+          align-self: center;
+        }
+
+        .chat-gift-coins {
+          font-size: 0.7rem;
+          font-weight: 800;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.25);
+          border-radius: 999px;
+          padding: 0.08rem 0.4rem;
+          align-self: center;
+          flex-shrink: 0;
+          margin-left: auto;
+        }
+
+        .chat-msg-gift {
+          background: linear-gradient(135deg, rgba(224,64,251,0.08), rgba(244,63,94,0.06));
+          border: 1px solid rgba(224,64,251,0.25);
+          border-radius: 0.85rem;
+          padding: 0.5rem 0.7rem;
+          box-shadow: 0 0 16px rgba(224,64,251,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+          animation: giftMsgSlide 0.35s ease;
+        }
+
+        @keyframes giftMsgSlide {
+          from { opacity: 0; transform: translateX(-8px); }
+          to { opacity: 1; transform: translateX(0); }
         }
 
         .stream-info {
@@ -1158,14 +1694,6 @@ export default function LiveRoomPage() {
 
         .chat-msg-system {
           justify-content: center;
-        }
-
-        .chat-msg-gift {
-          background: rgba(224,64,251,0.08);
-          border: 1px solid rgba(224,64,251,0.2);
-          border-radius: 0.85rem;
-          padding: 0.45rem 0.65rem;
-          box-shadow: 0 0 14px rgba(224,64,251,0.08);
         }
 
         .chat-user {

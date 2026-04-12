@@ -59,11 +59,12 @@ export default function LivePage() {
 
       {error && <div className="banner-error">{error}</div>}
 
-      {/* ── Trending — top 3 highlighted ── */}
+      {/* ── En vivo ahora — top 3 highlighted ── */}
       {(loading || trendingLives.length > 0) && (
         <section className="section-block">
           <div className="section-header">
-            <h2 className="section-title">🔥 Trending ahora</h2>
+            <h2 className="section-title">🔴 En vivo ahora</h2>
+            <span className="section-count">{loading ? "" : `${trendingLives.length} stream${trendingLives.length !== 1 ? "s" : ""}`}</span>
           </div>
 
           <div className="trending-grid">
@@ -78,11 +79,11 @@ export default function LivePage() {
         </section>
       )}
 
-      {/* ── All streams ── */}
+      {/* ── Nuevos creadores / rest ── */}
       {!loading && restLives.length > 0 && (
         <section className="section-block">
           <div className="section-header">
-            <h2 className="section-title">📡 Todos los directos</h2>
+            <h2 className="section-title">🚀 Nuevos creadores</h2>
           </div>
           <div className="streams-grid">
             {restLives.map((live) => (
@@ -107,7 +108,12 @@ export default function LivePage() {
       )}
 
       {/* ── Creator rankings / featured ── */}
-      <FeaturedCreators />
+      <section className="section-block">
+        <div className="section-header">
+          <h2 className="section-title">⭐ Creadores destacados</h2>
+        </div>
+        <FeaturedCreators />
+      </section>
 
       <style jsx>{`
         .live-page { display: flex; flex-direction: column; gap: 2rem; }
@@ -235,6 +241,12 @@ export default function LivePage() {
           font-weight: 800;
           color: var(--text);
           margin: 0;
+        }
+
+        .section-count {
+          font-size: 0.75rem;
+          color: var(--text-dim);
+          font-weight: 500;
         }
 
         /* Trending grid (3 cols desktop) */

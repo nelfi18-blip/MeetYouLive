@@ -7,36 +7,60 @@ export default function GiftEffect({ gift, senderName }) {
 
   const stylesByRarity = {
     common: {
-      glow: "0 0 18px rgba(255, 77, 216, 0.35)",
+      glow: "0 0 18px rgba(148,163,184,0.4)",
       border: "1px solid rgba(255,255,255,0.12)",
       bg: "rgba(12, 8, 26, 0.72)",
       duration: "2.2s",
       scale: "1",
     },
-    premium: {
-      glow: "0 0 24px rgba(168, 85, 247, 0.45)",
-      border: "1px solid rgba(168,85,247,0.35)",
-      bg: "rgba(28, 12, 52, 0.8)",
-      duration: "4.5s",
+    uncommon: {
+      glow: "0 0 22px rgba(74,222,128,0.45)",
+      border: "1px solid rgba(74,222,128,0.3)",
+      bg: "rgba(8, 24, 16, 0.8)",
+      duration: "2.8s",
+      scale: "1.02",
+    },
+    rare: {
+      glow: "0 0 26px rgba(96,165,250,0.5)",
+      border: "1px solid rgba(96,165,250,0.4)",
+      bg: "rgba(8, 16, 38, 0.82)",
+      duration: "3.5s",
       scale: "1.04",
     },
-    vip: {
-      glow: "0 0 30px rgba(250, 204, 21, 0.5)",
-      border: "1px solid rgba(250,204,21,0.45)",
-      bg: "rgba(45, 30, 5, 0.82)",
-      duration: "7s",
-      scale: "1.08",
-    },
     epic: {
-      glow: "0 0 30px rgba(250, 204, 21, 0.5)",
-      border: "1px solid rgba(250,204,21,0.45)",
-      bg: "rgba(45, 30, 5, 0.82)",
+      glow: "0 0 30px rgba(192,132,252,0.55)",
+      border: "1px solid rgba(192,132,252,0.45)",
+      bg: "rgba(28, 12, 52, 0.85)",
+      duration: "4.5s",
+      scale: "1.06",
+    },
+    legendary: {
+      glow: "0 0 36px rgba(251,191,36,0.6)",
+      border: "1px solid rgba(251,191,36,0.5)",
+      bg: "rgba(45, 30, 5, 0.88)",
+      duration: "6s",
+      scale: "1.1",
+    },
+    mythic: {
+      glow: "0 0 42px rgba(244,63,94,0.65)",
+      border: "1px solid rgba(244,63,94,0.55)",
+      bg: "rgba(40, 6, 18, 0.9)",
       duration: "7s",
-      scale: "1.08",
+      scale: "1.12",
     },
   };
 
   const style = stylesByRarity[rarity] || stylesByRarity.common;
+
+  const RARITY_ICON_SIZE = {
+    common: "1.75rem",
+    uncommon: "1.75rem",
+    rare: "2rem",
+    epic: "2rem",
+    legendary: "2.4rem",
+    mythic: "2.4rem",
+  };
+  const iconSize = RARITY_ICON_SIZE[rarity] || "1.75rem";
 
   return (
     <>
@@ -77,7 +101,14 @@ export default function GiftEffect({ gift, senderName }) {
         }
 
         .gift-icon {
-          font-size: 1.75rem;
+          font-size: ${iconSize};
+          animation: giftIconPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes giftIconPop {
+          0%   { transform: scale(0.4) rotate(-10deg); }
+          60%  { transform: scale(1.25) rotate(5deg); }
+          100% { transform: scale(1) rotate(0deg); }
         }
 
         .gift-copy {

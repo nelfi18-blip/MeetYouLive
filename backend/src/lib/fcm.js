@@ -14,7 +14,6 @@
 const User = require("../models/User.js");
 
 const PUSH_DAILY_LIMIT = 2;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 let adminApp = null;
 
@@ -60,8 +59,11 @@ async function checkAndIncrementRateLimit(userId) {
 
   const rl = user.pushRateLimit || {};
   const lastDate = rl.date ? new Date(rl.date) : null;
-  const isToday = lastDate && now - lastDate < MS_PER_DAY && lastDate.getUTCDate() === now.getUTCDate() &&
-    lastDate.getUTCMonth() === now.getUTCMonth() && lastDate.getUTCFullYear() === now.getUTCFullYear();
+  const isToday =
+    lastDate !== null &&
+    lastDate.getUTCFullYear() === now.getUTCFullYear() &&
+    lastDate.getUTCMonth() === now.getUTCMonth() &&
+    lastDate.getUTCDate() === now.getUTCDate();
   const count = isToday ? (rl.count || 0) : 0;
 
   if (count >= PUSH_DAILY_LIMIT) return false;

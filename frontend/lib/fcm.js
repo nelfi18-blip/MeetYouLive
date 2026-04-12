@@ -85,9 +85,11 @@ export async function initPushNotifications(backendToken) {
 
       if (title && "Notification" in window && Notification.permission === "granted") {
         const notif = new Notification(title, { body, icon: "/icons/icon-192.png" });
+        // window.location.assign is the correct navigation API here because
+        // this callback runs outside React's component tree (no router hook available).
         notif.onclick = () => {
           window.focus();
-          window.location.href = link;
+          window.location.assign(link);
         };
       }
     });

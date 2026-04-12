@@ -64,6 +64,24 @@ const initSocket = (httpServer) => {
       }
     });
 
+    // ── Social Room presence ────────────────────────────────────────────
+    socket.on("join_social_room", ({ roomId, user }) => {
+      if (!roomId || typeof roomId !== "string" || !/^[a-f0-9]{24}$/.test(roomId)) return;
+      const roomKey = `social_room:${roomId}`;
+      socket.join(roomKey);
+      socket._socialRoomId = roomId;
+      // Notify others in the room
+      socket.to(roomKey).emit("ROOM_USER_JOINED", { user, roomId });
+    });
+
+    socket.on("leave_social_room", ({ roomId }) => {
+      if (!roomId || typeof roomId !== "string") return;
+      const roomKey = `social_room:${roomId}`;
+      socket.leave(roomKey);
+      socket._socialRoomId = null;
+      socket.to(roomKey).emit("ROOM_USER_LEFT", { userId: socket._userId, roomId });
+    });
+
     socket.on("disconnect", () => {
       const userId = socket._userId;
       if (userId) {
@@ -76,6 +94,11 @@ const initSocket = (httpServer) => {
             io.emit("USER_OFFLINE", { userId });
           }
         }
+      }
+      // Leave social room if user was in one
+      const socialRoomId = socket._socialRoomId;
+      if (socialRoomId) {
+        socket.to(`social_room:${socialRoomId}`).emit("ROOM_USER_LEFT", { userId, roomId: socialRoomId });
       }
     });
   });

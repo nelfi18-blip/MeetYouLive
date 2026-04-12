@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,7 @@ import { setToken } from "@/lib/token";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { status } = useSession();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +21,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   // Prevents flashing the register form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
+
+  const refCode = searchParams.get("ref") || null;
 
   useEffect(() => {
     if (status === "loading") return;
@@ -63,7 +66,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const data = await signUp({ username, email, password });
+      const data = await signUp({ username, email, password, ...(refCode ? { ref: refCode } : {}) });
 
       if (data.error) {
         const lowerMsg = data.error.toLowerCase();
@@ -121,6 +124,9 @@ export default function RegisterPage() {
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
+        {refCode && !error && !success && (
+          <div className="banner-referral">🎁 Fuiste invitado con un código. ¡Recibirás monedas al completar tu perfil!</div>
+        )}
 
         <form className="register-form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -333,6 +339,17 @@ export default function RegisterPage() {
           background: var(--success-bg);
           border: 1px solid rgba(52,211,153,0.35);
           color: var(--success);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          margin-bottom: 1.25rem;
+        }
+
+        .banner-referral {
+          background: rgba(139,92,246,0.12);
+          border: 1px solid rgba(139,92,246,0.35);
+          color: #c4b5fd;
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;

@@ -7,6 +7,23 @@ const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail } = require("../services/email.service.js");
 
+/** Generate a unique 6-character alphanumeric referral code (uppercase). */
+async function generateReferralCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const MAX_ATTEMPTS = 10;
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    let code = "";
+    const bytes = crypto.randomBytes(6);
+    for (const b of bytes) {
+      code += chars[b % chars.length];
+    }
+    const exists = await User.exists({ referralCode: code });
+    if (!exists) return code;
+  }
+  // Fallback: longer code guaranteed unique via timestamp suffix
+  return "MYL" + Date.now().toString(36).toUpperCase().slice(-5);
+}
+
 const router = Router();
 
 const authLimiter = rateLimit({
@@ -27,7 +44,7 @@ function generateVerificationCode() {
 }
 
 router.post("/register", authLimiter, async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, ref } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
     return res.status(400).json({ message: "username, email y password son requeridos" });
@@ -36,9 +53,17 @@ router.post("/register", authLimiter, async (req, res) => {
     return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
   }
   try {
+    // Resolve referrer if a ref code was provided
+    let referredBy = null;
+    if (ref) {
+      const referrer = await User.findOne({ referralCode: ref.trim().toUpperCase() }).select("_id").lean();
+      if (referrer) referredBy = referrer._id;
+    }
+
     const code = generateVerificationCode();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
+    const referralCode = await generateReferralCode();
     const user = await User.create({
       username,
       email,
@@ -46,6 +71,8 @@ router.post("/register", authLimiter, async (req, res) => {
       emailVerified: false,
       emailVerificationCode: code,
       emailVerificationExpires: expires,
+      referralCode,
+      referredBy,
     });
 
     // Send verification email (non-blocking — don't fail registration if email fails)
@@ -99,6 +126,9 @@ router.post("/login", authLimiter, async (req, res) => {
         email: user.email,
       });
     }
+
+    // Track login count (fire-and-forget)
+    User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch(() => {});
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
     res.json({ token });
@@ -242,6 +272,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const ref = req.body.ref || null;
   if (!email) {
     console.warn("[google-session] Missing email in request body");
     return res.status(400).json({ message: "email es requerido" });
@@ -257,11 +288,21 @@ router.post("/google-session", authLimiter, async (req, res) => {
     if (!user) {
       console.log(`[google-session] Creating new user for email: ${email}`);
       const username = await generateUniqueUsername(email);
+      const referralCode = await generateReferralCode();
+
+      let referredBy = null;
+      if (ref) {
+        const referrer = await User.findOne({ referralCode: ref.trim().toUpperCase() }).select("_id").lean();
+        if (referrer) referredBy = referrer._id;
+      }
+
       user = await User.create({
         name: name || email.split("@")[0],
         username,
         email,
         password: crypto.randomBytes(32).toString("hex"),
+        referralCode,
+        referredBy,
       });
     } else {
       console.log(`[google-session] Existing user found for email: ${email}`);
@@ -275,7 +316,13 @@ router.post("/google-session", authLimiter, async (req, res) => {
         user.username = await generateUniqueUsername(email, user._id);
         changed = true;
       }
+      if (!user.referralCode) {
+        user.referralCode = await generateReferralCode();
+        changed = true;
+      }
       if (changed) await user.save();
+      // Track login count (fire-and-forget)
+      User.findByIdAndUpdate(user._id, { $inc: { loginCount: 1 } }).catch(() => {});
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });

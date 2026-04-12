@@ -157,13 +157,11 @@ function StatusBadge({ badge, compact }) {
           bottom: calc(100% + 6px);
           left: 50%;
           transform: translateX(-50%);
-          white-space: nowrap;
           background: rgba(14, 6, 32, 0.96);
           border: 1px solid rgba(255,255,255,0.1);
           color: rgba(255,255,255,0.82);
           font-size: 0.68rem;
-          font-weight: 500;
-          letter-spacing: 0.01em;
+          font-weight: 400;
           padding: 0.35rem 0.75rem;
           border-radius: 8px;
           pointer-events: none;
@@ -177,7 +175,6 @@ function StatusBadge({ badge, compact }) {
           text-align: center;
           text-transform: none;
           letter-spacing: 0;
-          font-weight: 400;
         }
         .sb-tip::after {
           content: "";

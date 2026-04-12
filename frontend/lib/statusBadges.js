@@ -66,11 +66,12 @@ export function computeStatusBadges(user, opts = {}) {
   // ── 👑 Popular hoy ───────────────────────────────────────────────────────
   const followers = user.followersCount ?? 0;
   if (followers >= POPULAR_FOLLOWERS_THRESHOLD) {
+    const followerWord = followers === 1 ? "seguidor" : "seguidores";
     badges.push({
       id: "popular",
       emoji: "👑",
       label: "Popular hoy",
-      tooltip: `${followers} seguidores – perfil muy popular`,
+      tooltip: `${followers} ${followerWord} – perfil muy popular`,
       variant: "popular",
     });
   }

@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import { registerPush } from "@/lib/notify";
+import { initPushNotifications } from "@/lib/fcm";
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -36,6 +37,15 @@ function SocketManager() {
   useEffect(() => {
     registerPush(push);
   }, [push]);
+
+  // Initialise FCM push notifications once the user is authenticated
+  useEffect(() => {
+    const backendToken =
+      session?.backendToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("token") : null);
+    if (!backendToken) return;
+    initPushNotifications(backendToken);
+  }, [session]);
 
   useEffect(() => {
     // Resolve the backend JWT: OAuth users have it on session, email/password

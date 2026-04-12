@@ -453,6 +453,20 @@ router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Register / update FCM push notification token
+router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
+  const { pushToken } = req.body;
+  if (pushToken !== null && typeof pushToken !== "string") {
+    return res.status(400).json({ message: "pushToken debe ser una cadena o null" });
+  }
+  try {
+    await User.updateOne({ _id: req.userId }, { pushToken: pushToken || null });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Online users — returns basic profiles of users currently connected via socket
 router.get("/online", userLimiter, verifyToken, async (req, res) => {
   try {

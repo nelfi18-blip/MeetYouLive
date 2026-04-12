@@ -3,6 +3,10 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const { getIO } = require("../lib/socket.js");
+const { sendMulticastPush } = require("../lib/fcm.js");
+
+// Max followers to push on live start (to avoid very large batches)
+const MAX_LIVE_PUSH_FOLLOWERS = 500;
 
 const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost } = req.body;
@@ -10,8 +14,9 @@ const startLive = async (req, res) => {
 
   let isApprovedCreator = false;
   let creatorUsername = "";
+  let followerIds = [];
   try {
-    const user = await User.findById(req.userId).select("role creatorStatus username name");
+    const user = await User.findById(req.userId).select("role creatorStatus username name followers");
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado" });
     }
@@ -21,6 +26,7 @@ const startLive = async (req, res) => {
     if (!isApprovedCreator) {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos" });
     }
+    followerIds = (user.followers || []).slice(0, MAX_LIVE_PUSH_FOLLOWERS);
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -54,6 +60,16 @@ const startLive = async (req, res) => {
         liveId: String(live._id),
         title: live.title,
       });
+    }
+
+    // FCM push to followers (fire-and-forget, non-blocking)
+    if (followerIds.length > 0) {
+      sendMulticastPush(
+        followerIds,
+        `🚀 ${creatorUsername || "Un creador"} está en vivo`,
+        live.title || "¡No te lo pierdas!",
+        { link: `/live/${String(live._id)}` }
+      ).catch(() => {});
     }
 
     res.status(201).json(live);

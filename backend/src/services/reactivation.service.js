@@ -2,6 +2,7 @@ const User = require("../models/User.js");
 const Like = require("../models/Like.js");
 const Chat = require("../models/Chat.js");
 const { sendReactivationEmail } = require("./email.service.js");
+const { sendPush } = require("../lib/fcm.js");
 
 const H24 = 24 * 60 * 60 * 1000;
 const H48 = 48 * 60 * 60 * 1000;
@@ -32,7 +33,7 @@ async function runReactivationJob() {
     lastActiveAt: { $lte: cutoff24h },
     email: { $exists: true, $ne: null, $ne: "" },
     isBlocked: { $ne: true },
-  }).select("_id email name username lastActiveAt reactivation");
+  }).select("_id email name username lastActiveAt reactivation pushToken");
 
   if (candidates.length === 0) return;
 
@@ -70,6 +71,15 @@ async function runReactivationJob() {
       const displayName = user.username || user.name || "";
 
       await sendReactivationEmail(user.email, displayName, day, likesCount, matchesCount);
+
+      // FCM push for inactivity (fire-and-forget)
+      if (user.pushToken) {
+        const pushBody = likesCount > 0
+          ? `Tienes ${likesCount} like${likesCount !== 1 ? "s" : ""} esperándote 💖`
+          : "Te echamos de menos. ¡Vuelve a conectarte!";
+        sendPush(user._id, user.pushToken, "🚀 Tu perfil puede destacar ahora", pushBody, { link: "/crush" })
+          .catch(() => {});
+      }
 
       // Mark this day-window as sent.
       await User.updateOne(

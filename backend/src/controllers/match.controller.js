@@ -8,6 +8,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
+const { sendPush } = require("../lib/fcm.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -39,14 +40,14 @@ const handleMatch = async (userId, matchedUserId, io) => {
   );
   const chatId = chat ? String(chat._id) : null;
 
-  if (io) {
-    const [userA, userB] = await Promise.all([
-      User.findById(userId).select("username name"),
-      User.findById(matchedUserId).select("username name"),
-    ]);
-    const nameA = userA?.username || userA?.name || "";
-    const nameB = userB?.username || userB?.name || "";
+  const [userA, userB] = await Promise.all([
+    User.findById(userId).select("username name pushToken"),
+    User.findById(matchedUserId).select("username name pushToken"),
+  ]);
+  const nameA = userA?.username || userA?.name || "";
+  const nameB = userB?.username || userB?.name || "";
 
+  if (io) {
     io.to(String(matchedUserId)).emit("MATCH_CREATED", {
       matchedUserId: String(userId),
       matchedUsername: nameA,
@@ -58,6 +59,12 @@ const handleMatch = async (userId, matchedUserId, io) => {
       chatId,
     });
   }
+
+  // FCM push to both matched users
+  await Promise.allSettled([
+    sendPush(matchedUserId, userB?.pushToken, "🔥 ¡Tienes un match nuevo!", `Con ${nameA}`, { link: "/matches" }),
+    sendPush(userId, userA?.pushToken, "🔥 ¡Tienes un match nuevo!", `Con ${nameB}`, { link: "/matches" }),
+  ]);
 };
 
 // ─── Like a user ──────────────────────────────────────────────────────────────
@@ -91,6 +98,14 @@ exports.likeUser = async (req, res) => {
         fromUsername: likerName,
         crushType: "standard",
       });
+    }
+
+    // FCM push to liked user
+    const likedUser = await User.findById(userId).select("pushToken username name");
+    if (likedUser?.pushToken) {
+      const liker = await User.findById(req.userId).select("username name");
+      const likerName = liker?.username || liker?.name || "";
+      await sendPush(userId, likedUser.pushToken, "💖 Alguien te dio like", likerName ? `${likerName} te ha gustado` : "Alguien te ha gustado", { link: "/crush" });
     }
 
     res.json({ match: !!mutual });

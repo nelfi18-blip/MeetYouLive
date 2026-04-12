@@ -111,6 +111,17 @@ const userSchema = new mongoose.Schema(
     },
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
+    pushToken: { type: String, default: null },
+    pushRateLimit: {
+      type: new mongoose.Schema(
+        {
+          date: { type: Date, default: null },
+          count: { type: Number, default: 0, min: 0 },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
     storedBoosts: { type: Number, default: 0, min: 0 },
     boostSession: {
       type: new mongoose.Schema(

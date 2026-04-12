@@ -8,7 +8,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
-const { sendPush } = require("../lib/fcm.js");
+const { queueEvent } = require("../services/push.service.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -60,10 +60,20 @@ const handleMatch = async (userId, matchedUserId, io) => {
     });
   }
 
-  // FCM push to both matched users
+  // Queue FCM push to both matched users (priority: match)
   await Promise.allSettled([
-    sendPush(matchedUserId, userB?.pushToken, "🔥 ¡Tienes un match nuevo!", `Con ${nameA}`, { link: "/matches" }),
-    sendPush(userId, userA?.pushToken, "🔥 ¡Tienes un match nuevo!", `Con ${nameB}`, { link: "/matches" }),
+    queueEvent(
+      matchedUserId,
+      "match",
+      { title: "🔥 ¡Tienes un match nuevo!", body: `Con ${nameA}`, data: { link: "/matches" } },
+      { matchedWith: String(userId) }
+    ),
+    queueEvent(
+      userId,
+      "match",
+      { title: "🔥 ¡Tienes un match nuevo!", body: `Con ${nameB}`, data: { link: "/matches" } },
+      { matchedWith: String(matchedUserId) }
+    ),
   ]);
 };
 
@@ -100,12 +110,21 @@ exports.likeUser = async (req, res) => {
       });
     }
 
-    // FCM push to liked user
-    const likedUser = await User.findById(userId).select("pushToken username name");
-    if (likedUser?.pushToken) {
+    // Queue FCM push to liked user (priority: like, buffered for aggregation)
+    const likedUser = await User.findById(userId).select("username name");
+    if (likedUser) {
       const liker = await User.findById(req.userId).select("username name");
       const likerName = liker?.username || liker?.name || "";
-      await sendPush(userId, likedUser.pushToken, "💖 Alguien te dio like", likerName ? `${likerName} te ha gustado` : "Alguien te ha gustado", { link: "/crush" });
+      await queueEvent(
+        userId,
+        "like",
+        {
+          title: "💖 Alguien te dio like",
+          body: likerName ? `${likerName} te ha gustado` : "Alguien te ha gustado",
+          data: { link: "/crush" },
+        },
+        { fromUserId: String(req.userId) }
+      ).catch(() => {});
     }
 
     res.json({ match: !!mutual });

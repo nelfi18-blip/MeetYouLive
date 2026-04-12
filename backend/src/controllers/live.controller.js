@@ -63,12 +63,14 @@ const startLive = async (req, res) => {
     }
 
     // FCM push to followers (fire-and-forget, non-blocking)
+    // Only followers who have "live" push notifications enabled receive this.
     if (followerIds.length > 0) {
       sendMulticastPush(
         followerIds,
         `🚀 ${creatorUsername || "Un creador"} está en vivo`,
         live.title || "¡No te lo pierdas!",
-        { link: `/live/${String(live._id)}` }
+        { link: `/live/${String(live._id)}` },
+        "live"
       ).catch(() => {});
     }
 

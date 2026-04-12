@@ -112,6 +112,20 @@ const userSchema = new mongoose.Schema(
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
     pushToken: { type: String, default: null },
+    pushSettings: {
+      type: new mongoose.Schema(
+        {
+          enabled: { type: Boolean, default: true },
+          categories: {
+            type: [String],
+            enum: ["match", "like", "live", "reward"],
+            default: ["match", "like", "live", "reward"],
+          },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
     pushRateLimit: {
       type: new mongoose.Schema(
         {

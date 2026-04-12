@@ -8,6 +8,7 @@ const createAdminIfNotExists = require(path.join(__dirname, "src", "utils", "cre
 const migrateCreatorPending = require(path.join(__dirname, "src", "utils", "migrateCreatorPending"));
 const { initSocket } = require(path.join(__dirname, "src", "lib", "socket"));
 const { startReactivationJob } = require(path.join(__dirname, "src", "jobs", "reactivation.job"));
+const { startPushJob } = require(path.join(__dirname, "src", "jobs", "push.job"));
 
 const PORT = process.env.PORT || 10000;
 
@@ -20,6 +21,7 @@ connectDB()
     await createAdminIfNotExists();
     await migrateCreatorPending();
     startReactivationJob();
+    startPushJob();
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Servidor MeetYouLive listo en puerto ${PORT}`);

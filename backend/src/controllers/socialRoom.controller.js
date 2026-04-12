@@ -27,17 +27,33 @@ const DEFAULT_ROOMS = [
   },
 ];
 
+/* ── In-memory seed flag — avoid repeated DB queries on every request ─── */
+let _seeded = false;
+
 /**
  * Ensure at least one active room exists per category.
- * Called before listing rooms so the app bootstraps automatically.
+ * Runs once per server process lifetime using a parallel upsert strategy.
  */
 const seedDefaultRooms = async () => {
-  for (const def of DEFAULT_ROOMS) {
-    const exists = await SocialRoom.findOne({ category: def.category, isActive: true });
-    if (!exists) {
-      await SocialRoom.create(def);
-    }
-  }
+  if (_seeded) return;
+  await Promise.all(
+    DEFAULT_ROOMS.map((def) =>
+      SocialRoom.findOneAndUpdate(
+        { category: def.category },
+        { $setOnInsert: { ...def, isActive: true } },
+        { upsert: true, new: false }
+      )
+    )
+  );
+  _seeded = true;
+};
+
+/* ── Helper: resolve a user's role in a room ────────────────────────────── */
+const getUserRoleInRoom = (room, userId) => {
+  const uid = String(userId);
+  const isHost = room.host ? String(room.host._id || room.host) === uid : false;
+  const isModerator = !isHost && room.moderators.some((m) => String(m._id || m) === uid);
+  return { isHost, isModerator };
 };
 
 /* ── List all active rooms (grouped by category) ───────────────────────── */
@@ -105,6 +121,8 @@ const postMessage = async (req, res) => {
     const sender = await User.findById(req.userId).select("username name avatar").lean();
     if (!sender) return res.status(401).json({ message: "Usuario no encontrado" });
 
+    const { isHost, isModerator } = getUserRoleInRoom(room, req.userId);
+
     const msg = await SocialRoomMessage.create({
       room: room._id,
       sender: req.userId,
@@ -120,8 +138,8 @@ const postMessage = async (req, res) => {
       text: sanitized,
       isHighlighted: false,
       createdAt: msg.createdAt,
-      isHost: room.host ? String(room.host) === String(req.userId) : false,
-      isModerator: room.moderators.some((m) => String(m) === String(req.userId)),
+      isHost,
+      isModerator,
     };
 
     const io = getIO();
@@ -144,9 +162,8 @@ const highlightUser = async (req, res) => {
     const room = await SocialRoom.findOne({ _id: req.params.id, isActive: true });
     if (!room) return res.status(404).json({ message: "Sala no encontrada" });
 
-    const isHost = room.host && String(room.host) === String(req.userId);
-    const isMod = room.moderators.some((m) => String(m) === String(req.userId));
-    if (!isHost && !isMod) {
+    const { isHost, isModerator } = getUserRoleInRoom(room, req.userId);
+    if (!isHost && !isModerator) {
       return res.status(403).json({ message: "Solo el host o moderadores pueden destacar usuarios" });
     }
 

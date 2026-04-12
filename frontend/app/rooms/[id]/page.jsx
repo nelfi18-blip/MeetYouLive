@@ -35,6 +35,7 @@ export default function SocialRoomPage() {
 
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
+  const seenMsgIds = useRef(new Set());
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -79,7 +80,11 @@ export default function SocialRoomPage() {
   useEffect(() => {
     fetch(`${API_URL}/api/rooms/${id}/messages?limit=50`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data) => setMessages(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const msgs = Array.isArray(data) ? data : [];
+        msgs.forEach((m) => seenMsgIds.current.add(m._id));
+        setMessages(msgs);
+      })
       .catch(() => {})
       .finally(() => setLoadingMsgs(false));
   }, [id]);
@@ -90,23 +95,26 @@ export default function SocialRoomPage() {
 
     if (!socket.connected) socket.connect();
 
+    const joinedRef = { current: false };
+
     const joinRoom = () => {
+      if (joinedRef.current) return;
+      joinedRef.current = true;
       socket.emit("join_social_room", {
         roomId: id,
         user: { _id: currentUser._id, username: currentUser.username, name: currentUser.name, avatar: currentUser.avatar },
       });
-      setOnlineCount((c) => c + 1);
+      // Count starts at 1 (self). Others trigger ROOM_USER_JOINED increments.
+      setOnlineCount(1);
     };
 
     if (socket.connected) joinRoom();
     socket.on("connect", joinRoom);
 
     const handleMessage = (msg) => {
-      setMessages((prev) => {
-        // Deduplicate by _id
-        if (prev.some((m) => m._id === msg._id)) return prev;
-        return [...prev, msg];
-      });
+      if (seenMsgIds.current.has(msg._id)) return;
+      seenMsgIds.current.add(msg._id);
+      setMessages((prev) => [...prev, msg]);
     };
 
     const handleUserJoined = () => setOnlineCount((c) => c + 1);
@@ -117,6 +125,7 @@ export default function SocialRoomPage() {
     socket.on("ROOM_USER_LEFT", handleUserLeft);
 
     return () => {
+      joinedRef.current = false;
       socket.emit("leave_social_room", { roomId: id });
       socket.off("connect", joinRoom);
       socket.off("ROOM_MESSAGE", handleMessage);
@@ -544,7 +553,7 @@ export default function SocialRoomPage() {
           display: flex; flex-direction: column; gap: 0.2rem;
         }
         .message-me .msg-bubble {
-          background: rgba(var(--cat-color, 244,114,182), 0.15);
+          background: var(--cat-glow, rgba(244,114,182,0.15));
           border-color: rgba(255,255,255,0.1);
         }
         .msg-text { font-size: 0.875rem; color: var(--text); margin: 0; line-height: 1.45; word-break: break-word; }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 import FeaturedCreators from "@/components/FeaturedCreators";
+import ActivityBar from "@/components/ActivityBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -58,6 +59,9 @@ export default function LivePage() {
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+
+      {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
+      <ActivityBar variant="strip" />
 
       {/* ── En vivo ahora — top 3 highlighted ── */}
       {(loading || trendingLives.length > 0) && (

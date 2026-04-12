@@ -7,6 +7,7 @@ import { clearToken } from "@/lib/token";
 import GiftButton from "@/components/GiftButton";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import HiddenLikesSection from "@/components/HiddenLikesSection";
+import ActivityBar from "@/components/ActivityBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -114,6 +115,9 @@ export default function MatchesPage() {
       {/* Urgency banner */}
       <UrgencyBanner />
 
+      {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
+      <ActivityBar variant="strip" />
+
       <div className="matches-header">
         <div className="matches-header-icon">
           <HeartIcon />
@@ -184,6 +188,9 @@ export default function MatchesPage() {
         <>
           {/* Hidden likes section also shown when user has matches */}
           <HiddenLikesSection />
+          <div className="fomo-matches-hint">
+            💬 Tus matches te están esperando — ¡escríbeles antes de que pierdan el interés!
+          </div>
           <div className="matches-grid">
           {matches.map((user) => {
             const displayName = user.username || user.name || "Usuario";
@@ -270,6 +277,17 @@ export default function MatchesPage() {
 
       <style jsx>{`
         .matches-page { display: flex; flex-direction: column; gap: 1.75rem; }
+
+        .fomo-matches-hint {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: rgba(255,45,120,0.85);
+          background: rgba(255,45,120,0.07);
+          border: 1px solid rgba(255,45,120,0.18);
+          border-radius: 8px;
+          padding: 0.5rem 0.9rem;
+          text-align: center;
+        }
 
         .matches-header {
           display: flex;

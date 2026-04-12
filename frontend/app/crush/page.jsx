@@ -7,6 +7,7 @@ import Badge from "@/components/Badge";
 import MatchModal from "@/components/MatchModal";
 import socket from "@/lib/socket";
 import HiddenLikesSection from "@/components/HiddenLikesSection";
+import ActivityBar from "@/components/ActivityBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -1957,6 +1958,9 @@ export default function CrushPage() {
           onDismiss={() => setCrushActivity(null)}
         />
       )}
+
+      {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
+      <ActivityBar variant="pills" />
 
       {/* Daily login reward banner */}
       {showDailyReward && (

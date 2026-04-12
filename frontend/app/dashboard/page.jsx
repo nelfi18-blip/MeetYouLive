@@ -7,6 +7,8 @@ import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
 import OnlineUsers from "@/components/OnlineUsers";
+import ActivityBar from "@/components/ActivityBar";
+import ReferralCard from "@/components/ReferralCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -561,6 +563,9 @@ export default function DashboardPage() {
         </Link>
       )}
 
+      {/* ── 📊 ACTIVITY SIGNALS — social proof bar ── */}
+      <ActivityBar variant="strip" />
+
       {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
       <Link href="/rooms" className="confidence-entry-card">
         <div className="confidence-entry-glow" />
@@ -576,6 +581,9 @@ export default function DashboardPage() {
 
       {/* ── 🟢 ONLINE USERS SECTION ── */}
       <OnlineUsers />
+
+      {/* ── 🎁 REFERRAL CARD ── */}
+      <ReferralCard />
 
       {/* Navigation cards grid */}
       {!isApprovedCreator && creatorStatus === "none" && (

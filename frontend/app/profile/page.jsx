@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
+import ReferralCard from "@/components/ReferralCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -647,6 +648,9 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+
+          {/* Referral promo */}
+          <ReferralCard />
 
           {/* Premium upsell */}
           <div className="premium-upsell-card">

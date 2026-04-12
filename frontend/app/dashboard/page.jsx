@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
+import OnlineUsers from "@/components/OnlineUsers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -559,6 +560,9 @@ export default function DashboardPage() {
           <span className="live-entry-cta">Ver directos →</span>
         </Link>
       )}
+
+      {/* ── 🟢 ONLINE USERS SECTION ── */}
+      <OnlineUsers />
 
       {/* Navigation cards grid */}
       {!isApprovedCreator && creatorStatus === "none" && (

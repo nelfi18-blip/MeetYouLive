@@ -2,7 +2,7 @@ const { Server } = require("socket.io");
 
 let io = null;
 
-// In-memory map of currently online users: userId (string) → { lastSeen: Date, socketId: string }
+// In-memory map of currently online users: userId (string) → { lastSeen: Date, socketIds: Set<string> }
 const onlineUsers = new Map();
 
 /**
@@ -50,18 +50,32 @@ const initSocket = (httpServer) => {
       if (userId && typeof userId === "string" && /^[a-f0-9]{24}$/.test(userId)) {
         socket.join(userId);
         socket._userId = userId;
-        onlineUsers.set(userId, { lastSeen: new Date(), socketId: socket.id });
-        // Notify all connected clients that this user is now online
-        io.emit("USER_ONLINE", { userId });
+
+        const existing = onlineUsers.get(userId);
+        if (existing) {
+          // User already has other active sockets — just add this one
+          existing.socketIds.add(socket.id);
+          existing.lastSeen = new Date();
+        } else {
+          // First socket for this user — mark as online
+          onlineUsers.set(userId, { lastSeen: new Date(), socketIds: new Set([socket.id]) });
+          io.emit("USER_ONLINE", { userId });
+        }
       }
     });
 
     socket.on("disconnect", () => {
       const userId = socket._userId;
       if (userId) {
-        onlineUsers.delete(userId);
-        // Notify all connected clients that this user went offline
-        io.emit("USER_OFFLINE", { userId });
+        const entry = onlineUsers.get(userId);
+        if (entry) {
+          entry.socketIds.delete(socket.id);
+          if (entry.socketIds.size === 0) {
+            // No remaining sockets — user is truly offline
+            onlineUsers.delete(userId);
+            io.emit("USER_OFFLINE", { userId });
+          }
+        }
       }
     });
   });

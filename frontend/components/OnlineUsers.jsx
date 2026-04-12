@@ -190,10 +190,13 @@ export default function OnlineUsers() {
   const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(null);
   const [coinsModal, setCoinsModal] = useState(false);
-  const usersRef = useRef([]);
+  const userIdsRef = useRef(new Set());
+
+  const getToken = () =>
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchOnline = useCallback(async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = getToken();
     if (!token) { setLoading(false); return; }
     try {
       const r = await fetch(`${API_URL}/api/user/online`, {
@@ -201,8 +204,9 @@ export default function OnlineUsers() {
       });
       if (r.ok) {
         const data = await r.json();
-        usersRef.current = data.users || [];
-        setUsers(data.users || []);
+        const list = data.users || [];
+        userIdsRef.current = new Set(list.map((u) => String(u._id)));
+        setUsers(list);
       }
     } catch {}
     setLoading(false);
@@ -214,7 +218,7 @@ export default function OnlineUsers() {
 
   useEffect(() => {
     const handleOnline = ({ userId }) => {
-      if (usersRef.current.find((u) => String(u._id) === userId)) return;
+      if (userIdsRef.current.has(userId)) return;
       // Fetch fresh list when someone new comes online
       fetchOnline();
     };
@@ -222,7 +226,7 @@ export default function OnlineUsers() {
     const handleOffline = ({ userId }) => {
       setUsers((prev) => {
         const next = prev.filter((u) => String(u._id) !== userId);
-        usersRef.current = next;
+        userIdsRef.current = new Set(next.map((u) => String(u._id)));
         return next;
       });
     };
@@ -236,7 +240,7 @@ export default function OnlineUsers() {
   }, [fetchOnline]);
 
   const handleChat = useCallback(async (recipientId) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = getToken();
     if (!token) return;
     setChatLoading(recipientId);
     try {
@@ -254,7 +258,7 @@ export default function OnlineUsers() {
   }, [router]);
 
   const handleCall = useCallback(async (user) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = getToken();
     if (!token) return;
     // Check if user has coins before initiating call
     try {

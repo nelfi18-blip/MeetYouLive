@@ -22,6 +22,57 @@ function ExploreIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" 
 function ChatIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>; }
 function ShopIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
 
+function useBoostCountdown(boostUntil) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    if (!boostUntil) { setLabel(""); return; }
+    const update = () => {
+      const ms = new Date(boostUntil) - Date.now();
+      if (ms <= 0) { setLabel(""); return; }
+      const totalSec = Math.floor(ms / 1000);
+      const min = Math.floor(totalSec / 60);
+      const sec = totalSec % 60;
+      setLabel(`${min}:${String(sec).padStart(2, "0")}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [boostUntil]);
+  return label;
+}
+
+function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, success, onBoost }) {
+  const countdown = useBoostCountdown(isBoosted ? boostUntil : null);
+  const canAfford = coins >= boostPrice;
+  return (
+    <div className={`boost-profile-card${isBoosted ? " boost-profile-card--active" : ""}`}>
+      <div className="boost-profile-icon">🚀</div>
+      <div className="boost-profile-body">
+        <div className="boost-profile-title">
+          {isBoosted ? "🚀 Boost activo" : "🚀 Aumenta tus matches"}
+        </div>
+        <div className="boost-profile-sub">
+          {isBoosted && countdown
+            ? `Tu perfil aparece primero en Crush — queda ${countdown}`
+            : `Aparece primero en Crush durante 30 minutos · 🪙 ${boostPrice} monedas`}
+        </div>
+        {error && <div className="boost-profile-error">{error}</div>}
+        {success && <div className="boost-profile-success">{success}</div>}
+      </div>
+      {!isBoosted && (
+        <button
+          className="boost-profile-btn"
+          onClick={onBoost}
+          disabled={loading || !canAfford}
+          title={!canAfford ? `Necesitas ${boostPrice} monedas` : "Activar Boost"}
+        >
+          {loading ? "Activando…" : !canAfford ? "Sin monedas" : `Boost · 🪙${boostPrice}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -53,6 +104,13 @@ export default function ProfilePage() {
   const [verifyUploading, setVerifyUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
+  const [isBoosted, setIsBoosted] = useState(false);
+  const [boostUntil, setBoostUntil] = useState(null);
+  const [boostPrice, setBoostPrice] = useState(100);
+  const [boostLoading, setBoostLoading] = useState(false);
+  const [boostError, setBoostError] = useState("");
+  const [boostSuccess, setBoostSuccess] = useState("");
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -82,7 +140,45 @@ export default function ProfilePage() {
       })
       .catch(() => setError("No se pudo cargar el perfil"))
       .finally(() => setLoading(false));
+
+    // Load boost status in parallel
+    fetch(`${API_URL}/api/matches/boost-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        setIsBoosted(d.isBoosted ?? false);
+        setBoostUntil(d.boostUntil ?? null);
+        setBoostPrice(d.boostPrice ?? 100);
+      })
+      .catch(() => {});
   }, [router, syncFromUser]);
+
+  const handleBoost = async () => {
+    setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/matches/boost`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsBoosted(true);
+        setBoostUntil(data.boostUntil);
+        setUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
+        setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
+        setTimeout(() => setBoostSuccess(""), 4000);
+      } else {
+        setBoostError(data.message || "No se pudo activar el Boost");
+      }
+    } catch {
+      setBoostError("Error de red. Intenta de nuevo.");
+    } finally {
+      setBoostLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     clearToken();
@@ -458,6 +554,18 @@ export default function ProfilePage() {
               <div className="stat-label">Miembro desde</div>
             </div>
           </div>
+
+          {/* Boost card */}
+          <BoostCard
+            isBoosted={isBoosted}
+            boostUntil={boostUntil}
+            boostPrice={boostPrice}
+            coins={user.coins ?? 0}
+            loading={boostLoading}
+            error={boostError}
+            success={boostSuccess}
+            onBoost={handleBoost}
+          />
 
           {/* Become a Creator / Creator status */}
           {user.role === "user" && user.creatorStatus !== "pending" && (
@@ -1023,6 +1131,75 @@ export default function ProfilePage() {
           border: 1px solid rgba(255,45,120,0.35);
           color: #fbbf24;
           letter-spacing: 0.02em;
+        }
+
+        /* Boost card */
+        .boost-profile-card {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
+          padding: 1.25rem 1.5rem;
+          border-radius: var(--radius);
+          border: 1px solid rgba(139,92,246,0.3);
+          background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(224,64,251,0.06) 100%);
+          transition: border-color 0.2s;
+        }
+        .boost-profile-card--active {
+          border-color: rgba(139,92,246,0.6);
+          background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(224,64,251,0.1) 100%);
+        }
+        .boost-profile-icon {
+          font-size: 1.8rem;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        .boost-profile-body {
+          flex: 1;
+          min-width: 160px;
+        }
+        .boost-profile-title {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text);
+          letter-spacing: -0.01em;
+        }
+        .boost-profile-sub {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-top: 0.2rem;
+          line-height: 1.5;
+        }
+        .boost-profile-error {
+          font-size: 0.78rem;
+          color: var(--error);
+          margin-top: 0.35rem;
+        }
+        .boost-profile-success {
+          font-size: 0.78rem;
+          color: var(--success);
+          margin-top: 0.35rem;
+        }
+        .boost-profile-btn {
+          flex-shrink: 0;
+          padding: 0.55rem 1.25rem;
+          border-radius: 999px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          background: var(--grad-primary);
+          color: #fff;
+          border: none;
+          cursor: pointer;
+          transition: opacity 0.18s, transform 0.18s;
+          white-space: nowrap;
+        }
+        .boost-profile-btn:hover:not(:disabled) {
+          opacity: 0.88;
+          transform: translateY(-1px);
+        }
+        .boost-profile-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
       `}</style>
     </div>

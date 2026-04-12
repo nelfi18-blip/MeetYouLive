@@ -1,5 +1,6 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
@@ -177,19 +178,35 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
 
-    const users = await User.find(
+    const now = new Date();
+
+    // Boosted users (active boost) appear first, then newest first.
+    const users = await User.aggregate([
       {
-        _id: { $ne: req.userId },
-        isBlocked: false,
-        onboardingComplete: true,
+        $match: {
+          _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
+          isBlocked: false,
+          onboardingComplete: true,
+        },
       },
-      "username name avatar bio gender interests intent location role creatorProfile birthdate"
-    )
-      // Sort newest first so recently joined users appear at the top.
-      // Future improvement: weight by shared interests or location.
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      {
+        $addFields: {
+          _boostRank: {
+            $cond: [{ $gt: ["$crushBoostUntil", now] }, 1, 0],
+          },
+        },
+      },
+      { $sort: { _boostRank: -1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
+          interests: 1, intent: 1, location: 1, role: 1,
+          creatorProfile: 1, birthdate: 1, crushBoostUntil: 1,
+        },
+      },
+    ]);
 
     // Enrich with live status for creator accounts
     const userIds = users.map((u) => u._id);
@@ -198,20 +215,20 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     activeLives.forEach((l) => { liveByUser[String(l.user)] = String(l._id); });
 
     const enriched = users.map((u) => {
-      const obj = u.toObject();
       const liveId = liveByUser[String(u._id)] || null;
-      obj.isLive = !!liveId;
-      obj.liveId = liveId;
+      u.isLive = !!liveId;
+      u.liveId = liveId;
+      u.isBoosted = !!(u.crushBoostUntil && u.crushBoostUntil > now);
 
       // Compatibility score
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
-        myInterests, myIntent, obj.interests, obj.intent
+        myInterests, myIntent, u.interests || [], u.intent || ""
       );
 
-      obj.sharedInterests = sharedInterests;
-      obj.compatibilityScore = compatibilityScore;
+      u.sharedInterests = sharedInterests;
+      u.compatibilityScore = compatibilityScore;
 
-      return obj;
+      return u;
     });
 
     res.json({ users: enriched, page, limit });

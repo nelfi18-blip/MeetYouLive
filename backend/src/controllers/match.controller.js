@@ -351,7 +351,7 @@ exports.getMatches = async (req, res) => {
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent");
+    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium");
 
     const matches = mutualLikes.map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;

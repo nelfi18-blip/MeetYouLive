@@ -8,6 +8,8 @@ import GiftButton from "@/components/GiftButton";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
+import StatusBadges from "@/components/StatusBadges";
+import { computeStatusBadges } from "@/lib/statusBadges";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -201,6 +203,7 @@ export default function MatchesPage() {
             const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
             const compatibilityScore = user.compatibilityScore ?? null;
             const sharedInterests = user.sharedInterests || [];
+            const statusBadges = computeStatusBadges(user);
             return (
               <div key={user._id} className="match-card">
                 <div className="match-avatar-wrap">
@@ -223,6 +226,9 @@ export default function MatchesPage() {
                       <span className="match-compat-badge">🔥 {compatibilityScore}%</span>
                     )}
                   </div>
+                  {statusBadges.length > 0 && (
+                    <StatusBadges badges={statusBadges} compact style={{ marginTop: "0.3rem" }} />
+                  )}
                   {user.bio && <p className="match-bio">{user.bio}</p>}
                   {user.interests?.length > 0 && (
                     <div className="match-interests">

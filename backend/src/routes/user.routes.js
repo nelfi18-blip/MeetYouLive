@@ -204,6 +204,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
           username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
           interests: 1, intent: 1, location: 1, role: 1,
           creatorProfile: 1, birthdate: 1,
+          followersCount: 1, isVerified: 1, isPremium: 1,
           isBoosted: { $gt: ["$crushBoostUntil", now] },
         },
       },

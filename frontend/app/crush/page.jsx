@@ -8,6 +8,8 @@ import MatchModal from "@/components/MatchModal";
 import socket from "@/lib/socket";
 import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
+import StatusBadges from "@/components/StatusBadges";
+import { computeStatusBadges } from "@/lib/statusBadges";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -1127,6 +1129,7 @@ function SwipeCard({ user, onPass, onLike }) {
   const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
   const compatibilityScore = user.compatibilityScore ?? null;
   const sharedInterests = user.sharedInterests || [];
+  const statusBadges = computeStatusBadges(user);
 
   const getClientX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 
@@ -1229,6 +1232,7 @@ function SwipeCard({ user, onPass, onLike }) {
             )}
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
             {user.isVerified && <Badge variant="verified">✓</Badge>}
+            <StatusBadges badges={statusBadges} compact />
           </div>
         </div>
 

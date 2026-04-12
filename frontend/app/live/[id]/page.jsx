@@ -8,6 +8,8 @@ import GiftPanel from "@/components/GiftPanel";
 import TopGifters from "@/components/TopGifters";
 import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
+import StatusBadges from "@/components/StatusBadges";
+import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -485,6 +487,7 @@ export default function LiveRoomPage() {
   const creatorName = live.user?.username || live.user?.name || "Creador";
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
+  const creatorStatusBadges = computeStatusBadges({ ...live.user, isLive: true, liveId: live._id });
 
   return (
     <div className="room">
@@ -508,6 +511,9 @@ export default function LiveRoomPage() {
                     <span className="chr-creator-badge">⭐ Creador</span>
                   )}
                 </div>
+                {creatorStatusBadges.length > 0 && (
+                  <StatusBadges badges={creatorStatusBadges} compact style={{ marginTop: "0.2rem" }} />
+                )}
                 <div className="chr-meta-row">
                   <span className="chr-live-badge">🔴 EN VIVO</span>
                   <span className="chr-viewers">

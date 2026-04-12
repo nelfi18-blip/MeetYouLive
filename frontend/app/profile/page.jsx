@@ -7,6 +7,8 @@ import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
+import StatusBadges from "@/components/StatusBadges";
+import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -377,6 +379,22 @@ export default function ProfilePage() {
                       <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
                     )}
                   </div>
+                  {(() => {
+                    const badges = computeStatusBadges(user, { isBoosted });
+                    const nudge = getBoostNudge(badges);
+                    return (
+                      <>
+                        {badges.length > 0 && (
+                          <StatusBadges badges={badges} style={{ marginTop: "0.45rem", justifyContent: "flex-start" }} />
+                        )}
+                        {nudge && (
+                          <Link href={nudge.href} className="profile-boost-nudge">
+                            🚀 {nudge.text}
+                          </Link>
+                        )}
+                      </>
+                    );
+                  })()}
               </div>
               <div className="profile-actions-top">
                 <button className="btn btn-secondary btn-sm" onClick={handleEdit}>
@@ -840,6 +858,26 @@ export default function ProfilePage() {
           background: var(--accent-dim-2);
           color: var(--accent-3);
           border-color: rgba(129,140,248,0.3);
+        }
+
+        .profile-boost-nudge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          margin-top: 0.5rem;
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #fb923c;
+          background: rgba(255,100,0,0.1);
+          border: 1px solid rgba(255,100,0,0.28);
+          border-radius: 999px;
+          padding: 0.22rem 0.75rem;
+          text-decoration: none;
+          transition: all 0.18s;
+        }
+        .profile-boost-nudge:hover {
+          background: rgba(255,100,0,0.18);
+          box-shadow: 0 0 12px rgba(255,100,0,0.2);
         }
 
         .profile-actions-top {

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Badge from "./Badge";
 import GiftButton from "./GiftButton";
+import StatusBadges from "./StatusBadges";
+import { computeStatusBadges } from "@/lib/statusBadges";
 
 /**
  * Reusable ProfileCard component for the explore/discover section.
@@ -33,6 +35,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
     : [];
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
+  const statusBadges = computeStatusBadges(user);
 
   return (
     <>
@@ -73,6 +76,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
           <div className="card-badges-row">
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
             {user.isVerified && <Badge variant="verified">✓ Verificado</Badge>}
+            <StatusBadges badges={statusBadges} compact />
           </div>
 
           {user.location && (

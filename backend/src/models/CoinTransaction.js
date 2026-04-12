@@ -24,6 +24,7 @@ const coinTransactionSchema = new mongoose.Schema(
         "boost_crush",
         "swipe_unlock",
         "daily_reward",
+        "simulation_unlock",
       ],
       required: true,
     },

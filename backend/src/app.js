@@ -28,6 +28,7 @@ const agoraRoutes = require("./routes/agora.routes.js");
 const rankingsRoutes = require("./routes/rankings.routes.js");
 const dailyRewardRoutes = require("./routes/dailyReward.routes.js");
 const socialRoomRoutes = require("./routes/socialRoom.routes.js");
+const simulationRoutes = require("./routes/simulation.routes.js");
 
 const app = express();
 
@@ -110,5 +111,6 @@ app.use("/api/agora", agoraRoutes);
 app.use("/api/rankings", rankingsRoutes);
 app.use("/api/daily-reward", dailyRewardRoutes);
 app.use("/api/rooms", socialRoomRoutes);
+app.use("/api/simulation", simulationRoutes);
 
 module.exports = app;

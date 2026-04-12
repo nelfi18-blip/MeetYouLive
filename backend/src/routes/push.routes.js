@@ -61,8 +61,13 @@ router.patch("/settings", pushLimiter, verifyToken, async (req, res) => {
       if (!Array.isArray(categories)) {
         return res.status(400).json({ message: "categories debe ser un array" });
       }
-      const filtered = categories.filter((c) => ALLOWED_CATEGORIES.includes(c));
-      updates["pushSettings.categories"] = filtered;
+      const invalid = categories.filter((c) => !ALLOWED_CATEGORIES.includes(c));
+      if (invalid.length > 0) {
+        return res.status(400).json({
+          message: `Categorías no válidas: ${invalid.join(", ")}. Valores permitidos: ${ALLOWED_CATEGORIES.join(", ")}`,
+        });
+      }
+      updates["pushSettings.categories"] = categories;
     }
 
     if (Object.keys(updates).length === 0) {

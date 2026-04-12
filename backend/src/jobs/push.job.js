@@ -8,6 +8,12 @@ const FLUSH_INTERVAL_MS =
 const REMINDER_INTERVAL_MS =
   parseInt(process.env.PUSH_REMINDER_INTERVAL_MS || "", 10) || 15 * 60 * 1000;
 
+/** Delay before the first flush run after startup (ms). */
+const FLUSH_INITIAL_DELAY_MS = 60 * 1000;
+
+/** Delay before the first reminder run after startup (ms). */
+const REMINDER_INITIAL_DELAY_MS = 90 * 1000;
+
 /**
  * Start the smart-push background jobs.
  *
@@ -39,12 +45,12 @@ function startPushJob() {
   setTimeout(() => {
     runFlush();
     setInterval(runFlush, FLUSH_INTERVAL_MS);
-  }, 60 * 1000);
+  }, FLUSH_INITIAL_DELAY_MS);
 
   setTimeout(() => {
     runReminders();
     setInterval(runReminders, REMINDER_INTERVAL_MS);
-  }, 90 * 1000);
+  }, REMINDER_INITIAL_DELAY_MS);
 
   console.log(
     `⏰ Push job scheduled — flush every ${FLUSH_INTERVAL_MS / 60000} min, reminders every ${REMINDER_INTERVAL_MS / 60000} min`

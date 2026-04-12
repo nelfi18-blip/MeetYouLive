@@ -46,6 +46,10 @@ const BUFFER_MS = {
 // Reminder window: send follow-up between 2 h and 4 h after delivery.
 const REMINDER_MIN_MS = 2 * 60 * 60 * 1000;
 const REMINDER_MAX_MS = 4 * 60 * 60 * 1000;
+const REMINDER_JITTER_MS = REMINDER_MAX_MS - REMINDER_MIN_MS;
+
+// Minimum number of likes required to trigger the FOMO grouped message.
+const FOMO_LIKE_THRESHOLD = 3;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -137,9 +141,13 @@ async function sendReminderPushes() {
       if (!user?.pushToken) continue;
       if (!_isAllowed(user, ev.type)) continue;
 
-      // Re-check openedAt in case it was set after the query
-      const fresh = await PushEvent.findById(ev._id).select("openedAt").lean();
-      if (fresh?.openedAt) continue;
+      // Atomically claim the reminder slot (guards against concurrent job runs
+      // and suppresses the reminder if the user has since opened the notification)
+      const claimed = await PushEvent.findOneAndUpdate(
+        { _id: ev._id, openedAt: null, reminderSentAt: null },
+        { reminderSentAt: now }
+      );
+      if (!claimed) continue; // already sent or opened between queries
 
       const reminderPayload = _buildReminderPayload(ev);
       await sendPush(
@@ -150,15 +158,13 @@ async function sendReminderPushes() {
         { ...(ev.payload?.data || {}), pushEventId: String(ev._id), reminder: "1" }
       );
 
-      await PushEvent.updateOne({ _id: ev._id }, { reminderSentAt: now });
-
       await PushAnalytic.create({
         userId: ev.userId,
         pushEventId: ev._id,
         type: ev.type,
         action: "sent",
         metadata: { reminder: true },
-      });
+      }).catch(() => {});
     } catch (err) {
       console.error("[push] reminder error for event", String(ev._id), err.message);
     }
@@ -212,8 +218,7 @@ async function _processUserEvents(uid, userEvents, now) {
       });
 
       const sentAt = new Date();
-      const reminderDelay =
-        REMINDER_MIN_MS + Math.floor(Math.random() * (REMINDER_MAX_MS - REMINDER_MIN_MS));
+      const reminderDelay = REMINDER_MIN_MS + Math.floor(Math.random() * REMINDER_JITTER_MS);
       const reminderScheduledAt = new Date(sentAt.getTime() + reminderDelay);
 
       // Mark all events in the batch as sent
@@ -275,7 +280,7 @@ function _buildAggregatedPayload(type, events) {
   }
 
   if (type === "like") {
-    if (count < 3) {
+    if (count < FOMO_LIKE_THRESHOLD) {
       return {
         title: events[0].payload.title || "💖 Alguien te dio like",
         body: events[0].payload.body || "",
@@ -312,7 +317,7 @@ function _buildReminderPayload(ev) {
     },
     reward: {
       title: "🎁 Tu recompensa diaria te espera",
-      body: "¡Reclama tus monedas antes de que pierdes tu racha!",
+      body: "¡Reclama tus monedas antes de que pierdas tu racha!",
     },
   };
   return messages[type] || { title: "MeetYouLive", body: ev.payload?.body || "" };

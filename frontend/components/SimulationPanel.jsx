@@ -411,8 +411,8 @@ export default function SimulationPanel({ currentUser }) {
                   <span className="after-sim-tile-label">Entrar a directos</span>
                 </Link>
                 <Link href="/explore" className="after-sim-tile after-sim-tile--orange">
-                  <span className="after-sim-tile-icon">📞</span>
-                  <span className="after-sim-tile-label">Probar una llamada</span>
+                  <span className="after-sim-tile-icon">🔍</span>
+                  <span className="after-sim-tile-label">Explorar perfiles</span>
                 </Link>
               </div>
             </div>

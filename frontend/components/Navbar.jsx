@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function RoomsIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
 function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 
@@ -19,6 +20,7 @@ const NAV_LINK_DEFS = [
   { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
   { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
   { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+  { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
   { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
   { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
   { href: "/matches",   key: "nav.matches", icon: MatchIcon   },

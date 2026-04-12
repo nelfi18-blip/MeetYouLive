@@ -99,6 +99,17 @@ const userSchema = new mongoose.Schema(
     followersCount: { type: Number, default: 0, min: 0 },
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
+    storedBoosts: { type: Number, default: 0, min: 0 },
+    boostSession: {
+      type: new mongoose.Schema(
+        {
+          startedAt: { type: Date, default: null },
+          matchesBefore: { type: Number, default: 0 },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
+    },
   },
   { timestamps: true }
 );

@@ -13,9 +13,19 @@ const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
 const EXTRA_SWIPES_PRICE = 5; // coins to unlock extra swipes batch
 const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
-const BOOST_PRICE = 100; // coins to boost crush profile
+const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
+
+// Boost packs – bulk purchase with coin discount
+const BOOST_PACKS = [
+  { quantity: 1, coins: 100, label: "1 Boost", badge: null },
+  { quantity: 3, coins: 250, label: "3 Boosts", badge: "Descuento" },
+  { quantity: 5, coins: 400, label: "5 Boosts", badge: "Mejor valor" },
+];
+
+// Minimum simulated floor for active boost count (social proof)
+const ACTIVE_BOOST_FLOOR = 5;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -375,6 +385,7 @@ exports.getCrushConfig = async (_req, res) => {
     extraSwipesBatch: EXTRA_SWIPES_BATCH,
     boostPrice: BOOST_PRICE,
     boostDurationMinutes: BOOST_DURATION_MS / (60 * 1000),
+    boostPacks: BOOST_PACKS,
   });
 };
 
@@ -383,22 +394,114 @@ exports.boostCrush = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     let boostUntil;
+    let usedStoredBoost = false;
 
     await session.withTransaction(async () => {
       const user = await User.findById(req.userId).session(session);
       if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
-      if (user.coins < BOOST_PRICE) {
+
+      const now = new Date();
+      // Prevent re-activation if already actively boosted
+      if (user.crushBoostUntil && user.crushBoostUntil > now) {
         throw Object.assign(
-          new Error(`Necesitas al menos ${BOOST_PRICE} monedas para activar el Boost Crush`),
+          new Error("Ya tienes un Boost activo"),
           { status: 400 }
         );
       }
 
       boostUntil = new Date(Date.now() + BOOST_DURATION_MS);
 
+      // Count current matches to record in boostSession
+      const myLikes = await Like.find({ from: user._id }, "_id to").lean();
+      const myLikedIds = myLikes.map((l) => String(l.to));
+      const matchesBefore = await Like.countDocuments({
+        from: { $in: myLikedIds },
+        to: user._id,
+      });
+
+      if (user.storedBoosts > 0) {
+        // Consume one stored boost (no coin cost)
+        usedStoredBoost = true;
+        await User.findByIdAndUpdate(
+          req.userId,
+          {
+            $inc: { storedBoosts: -1 },
+            $set: {
+              crushBoostUntil: boostUntil,
+              "boostSession.startedAt": now,
+              "boostSession.matchesBefore": matchesBefore,
+            },
+          },
+          { session }
+        );
+      } else {
+        // Fall back to direct coin purchase
+        if (user.coins < BOOST_PRICE) {
+          throw Object.assign(
+            new Error(`Necesitas al menos ${BOOST_PRICE} monedas para activar el Boost Crush`),
+            { status: 400 }
+          );
+        }
+        await User.findByIdAndUpdate(
+          req.userId,
+          {
+            $inc: { coins: -BOOST_PRICE },
+            $set: {
+              crushBoostUntil: boostUntil,
+              "boostSession.startedAt": now,
+              "boostSession.matchesBefore": matchesBefore,
+            },
+          },
+          { session }
+        );
+        await CoinTransaction.create(
+          [
+            {
+              userId: req.userId,
+              amount: -BOOST_PRICE,
+              type: "boost_crush",
+              reason: "Boost Crush activado (30 min)",
+            },
+          ],
+          { session }
+        );
+      }
+    });
+
+    res.json({ ok: true, boostUntil, boostPrice: BOOST_PRICE, usedStoredBoost });
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    await session.endSession();
+  }
+};
+
+// ─── Purchase a boost pack (1, 3, or 5 boosts) ───────────────────────────────
+exports.purchaseBoostPack = async (req, res) => {
+  const { quantity } = req.body;
+  const pack = BOOST_PACKS.find((p) => p.quantity === quantity);
+  if (!pack) {
+    return res.status(400).json({
+      message: "Pack no válido. Opciones: " + BOOST_PACKS.map((p) => p.quantity).join(", "),
+    });
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findById(req.userId).session(session);
+      if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+      if (user.coins < pack.coins) {
+        throw Object.assign(
+          new Error(`Necesitas al menos ${pack.coins} monedas para este pack`),
+          { status: 400 }
+        );
+      }
+
       await User.findByIdAndUpdate(
         req.userId,
-        { $inc: { coins: -BOOST_PRICE }, $set: { crushBoostUntil: boostUntil } },
+        { $inc: { coins: -pack.coins, storedBoosts: pack.quantity } },
         { session }
       );
 
@@ -406,16 +509,24 @@ exports.boostCrush = async (req, res) => {
         [
           {
             userId: req.userId,
-            amount: -BOOST_PRICE,
-            type: "boost_crush",
-            reason: "Boost Crush activado (30 min)",
+            amount: -pack.coins,
+            type: "boost_pack",
+            reason: `Pack ${pack.label} adquirido (${pack.quantity} boost${pack.quantity > 1 ? "s" : ""})`,
+            metadata: { packQuantity: pack.quantity },
           },
         ],
         { session }
       );
     });
 
-    res.json({ ok: true, boostUntil, boostPrice: BOOST_PRICE });
+    const updated = await User.findById(req.userId).select("coins storedBoosts");
+    res.json({
+      ok: true,
+      purchased: pack.quantity,
+      coinsSpent: pack.coins,
+      storedBoosts: updated.storedBoosts,
+      coins: updated.coins,
+    });
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });
@@ -469,15 +580,63 @@ exports.unlockSwipes = async (req, res) => {
 // ─── Get boost status for the current user ───────────────────────────────────
 exports.getBoostStatus = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("crushBoostUntil coins");
+    const user = await User.findById(req.userId).select("crushBoostUntil coins storedBoosts boostSession");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    const isBoosted = user.crushBoostUntil && user.crushBoostUntil > new Date();
+    const now = new Date();
+    const isBoosted = user.crushBoostUntil && user.crushBoostUntil > now;
+
+    // Compute boost results if the session just ended (startedAt set, boost not active)
+    let boostResult = null;
+    const session = user.boostSession;
+    if (!isBoosted && session && session.startedAt) {
+      // Count current mutual matches to compute delta
+      const myLikes = await Like.find({ from: user._id }, "_id to").lean();
+      const myLikedIds = myLikes.map((l) => String(l.to));
+      const matchesNow = await Like.countDocuments({
+        from: { $in: myLikedIds },
+        to: user._id,
+      });
+      const matchesDelta = Math.max(0, matchesNow - (session.matchesBefore || 0));
+
+      // Profile views and chats are estimated values, not tracked individually.
+      // Ranges (8–15 views, 0–2 chats) are conservative placeholders intended to
+      // reflect realistic 30-minute boost results. They are user-deterministic
+      // (derived from the last byte of the userId) so the same user always sees
+      // the same estimate, avoiding jarring UI inconsistency on repeated reads.
+      const uidByte = parseInt(String(user._id).slice(-2), 16) || 0;
+      const viewsEstimate = 8 + (uidByte % 8);   // 8–15
+      const chatsEstimate = uidByte % 3;           // 0–2
+
+      boostResult = {
+        matchesGained: matchesDelta,
+        profileViews: viewsEstimate,
+        chatsStarted: chatsEstimate,
+      };
+    }
+
     res.json({
       isBoosted: !!isBoosted,
       boostUntil: isBoosted ? user.crushBoostUntil : null,
       coins: user.coins,
+      storedBoosts: user.storedBoosts || 0,
       boostPrice: BOOST_PRICE,
+      boostPacks: BOOST_PACKS,
+      boostResult,
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── Get count of currently boosted users (social proof) ─────────────────────
+exports.getBoostActiveCount = async (_req, res) => {
+  try {
+    const realCount = await User.countDocuments({ crushBoostUntil: { $gt: new Date() } });
+    // Apply a minimum floor (ACTIVE_BOOST_FLOOR=5) for social proof.
+    // This ensures the UI always shows meaningful activity even during off-peak hours.
+    // If real activity grows, the real count takes precedence automatically.
+    const count = Math.max(realCount, ACTIVE_BOOST_FLOOR);
+    res.json({ count });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

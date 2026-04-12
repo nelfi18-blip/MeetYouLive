@@ -10,8 +10,10 @@ const {
   getCrushStats,
   getCrushConfig,
   boostCrush,
+  purchaseBoostPack,
   unlockSwipes,
   getBoostStatus,
+  getBoostActiveCount,
   getLikesReceived,
   unlockAllLikes,
 } = require("../controllers/match.controller.js");
@@ -39,8 +41,10 @@ router.get("/config",                matchLimiter,      verifyToken, getCrushCon
 router.get("/stats",                 matchLimiter,      verifyToken, getCrushStats);
 router.get("/check/:userId",         matchLimiter,      verifyToken, checkMatch);
 router.post("/boost",                matchLimiter,      verifyToken, boostCrush);
+router.post("/boost-pack",           matchLimiter,      verifyToken, purchaseBoostPack);
 router.post("/unlock-swipes",        matchLimiter,      verifyToken, unlockSwipes);
 router.get("/boost-status",          matchLimiter,      verifyToken, getBoostStatus);
+router.get("/boost-active-count",    matchLimiter,      verifyToken, getBoostActiveCount);
 router.get("/likes-received",        matchLimiter,      verifyToken, getLikesReceived);
 router.post("/unlock-likes",         matchLimiter,      verifyToken, unlockAllLikes);
 

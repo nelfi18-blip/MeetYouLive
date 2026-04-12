@@ -52,6 +52,16 @@ export default function GiftEffect({ gift, senderName }) {
 
   const style = stylesByRarity[rarity] || stylesByRarity.common;
 
+  const RARITY_ICON_SIZE = {
+    common: "1.75rem",
+    uncommon: "1.75rem",
+    rare: "2rem",
+    epic: "2rem",
+    legendary: "2.4rem",
+    mythic: "2.4rem",
+  };
+  const iconSize = RARITY_ICON_SIZE[rarity] || "1.75rem";
+
   return (
     <>
       <div
@@ -91,7 +101,7 @@ export default function GiftEffect({ gift, senderName }) {
         }
 
         .gift-icon {
-          font-size: ${["legendary", "mythic"].includes(rarity) ? "2.4rem" : ["epic", "rare"].includes(rarity) ? "2rem" : "1.75rem"};
+          font-size: ${iconSize};
           animation: giftIconPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 

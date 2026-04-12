@@ -2,15 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER } from "@/lib/roomCategories";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const CATEGORY_META = {
-  confianza_amor:   { emoji: "💖", label: "Confianza en el amor",  color: "#f472b6", glow: "rgba(244,114,182,0.25)", desc: "Autoestima, miedos y crecer en el amor" },
-  rompe_hielo:      { emoji: "🔥", label: "Rompe el hielo",        color: "#fb923c", glow: "rgba(251,146,60,0.25)",  desc: "Practica conversaciones y supera la timidez" },
-  consejos_citas:   { emoji: "💬", label: "Consejos de citas",     color: "#818cf8", glow: "rgba(129,140,248,0.25)", desc: "Consejos reales sobre primeras citas y conexiones" },
-  mala_suerte_amor: { emoji: "😅", label: "Mala suerte en el amor",color: "#34d399", glow: "rgba(52,211,153,0.25)",  desc: "Ríe, desahógate y apóyate con otros" },
-};
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState([]);
@@ -26,9 +20,8 @@ export default function RoomsPage() {
   }, []);
 
   // Group rooms by category, preserving category order
-  const CATEGORY_ORDER = ["confianza_amor", "rompe_hielo", "consejos_citas", "mala_suerte_amor"];
   const grouped = {};
-  for (const cat of CATEGORY_ORDER) grouped[cat] = [];
+  for (const cat of ROOM_CATEGORY_ORDER) grouped[cat] = [];
   for (const room of rooms) {
     if (grouped[room.category]) grouped[room.category].push(room);
   }
@@ -50,8 +43,8 @@ export default function RoomsPage() {
       {error && <div className="banner-error">{error}</div>}
 
       {/* Category sections */}
-      {CATEGORY_ORDER.map((cat) => {
-        const meta = CATEGORY_META[cat];
+      {ROOM_CATEGORY_ORDER.map((cat) => {
+        const meta = ROOM_CATEGORY_META[cat];
         const catRooms = grouped[cat];
         return (
           <section key={cat} className="cat-section">

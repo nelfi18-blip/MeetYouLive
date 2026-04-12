@@ -88,7 +88,8 @@ const getRoom = async (req, res) => {
 /* ── Get recent messages for a room ────────────────────────────────────── */
 const getMessages = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const rawLimit = Number(req.query.limit);
+    const limit = Math.min(Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 50), 100);
     const before = req.query.before; // ISO timestamp for pagination
 
     const query = { room: req.params.id };

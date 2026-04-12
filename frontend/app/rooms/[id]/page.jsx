@@ -5,15 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import socket from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
+import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-const CATEGORY_META = {
-  confianza_amor:   { emoji: "💖", color: "#f472b6", glow: "rgba(244,114,182,0.3)" },
-  rompe_hielo:      { emoji: "🔥", color: "#fb923c", glow: "rgba(251,146,60,0.3)"  },
-  consejos_citas:   { emoji: "💬", color: "#818cf8", glow: "rgba(129,140,248,0.3)" },
-  mala_suerte_amor: { emoji: "😅", color: "#34d399", glow: "rgba(52,211,153,0.3)"  },
-};
 
 function getToken() {
   if (typeof window === "undefined") return null;
@@ -55,7 +49,7 @@ export default function SocialRoomPage() {
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const meta = room ? (CATEGORY_META[room.category] || CATEGORY_META.consejos_citas) : null;
+  const meta = room ? (ROOM_CATEGORY_META[room.category] || ROOM_CATEGORY_META.consejos_citas) : null;
 
   /* ── Load current user ───────────────────────────────────────────────── */
   useEffect(() => {
@@ -303,7 +297,7 @@ export default function SocialRoomPage() {
                     <span className="msg-sender-name">{senderName}</span>
                     {msgIsHost && <span className="msg-role host">👑</span>}
                     {msgIsMod && !msgIsHost && <span className="msg-role mod">🛡️</span>}
-                    {!isMe && currentUser && senderId !== String(currentUser._id) && (
+                    {!isMe && currentUser && (
                       <button
                         className="report-btn"
                         onClick={() => openReport(msg.sender)}

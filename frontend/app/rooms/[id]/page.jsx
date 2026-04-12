@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import socket from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
+import SimulationPanel from "@/components/SimulationPanel";
 import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -45,6 +46,9 @@ export default function SocialRoomPage() {
   const [reportReason, setReportReason] = useState("");
   const [reportSending, setReportSending] = useState(false);
   const [reportSuccess, setReportSuccess] = useState("");
+
+  // Tab: "chat" | "simulation" — simulation tab only for confianza_amor rooms
+  const [activeTab, setActiveTab] = useState("chat");
 
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -266,7 +270,31 @@ export default function SocialRoomPage() {
         </div>
       )}
 
+      {/* Tab bar — only for confianza_amor rooms */}
+      {room?.category === "confianza_amor" && (
+        <div className="room-tabs">
+          <button
+            className={`room-tab ${activeTab === "chat" ? "room-tab--active" : ""}`}
+            onClick={() => setActiveTab("chat")}
+          >
+            💬 Chat grupal
+          </button>
+          <button
+            className={`room-tab ${activeTab === "simulation" ? "room-tab--active" : ""}`}
+            onClick={() => setActiveTab("simulation")}
+          >
+            🎯 Practicar conversación
+          </button>
+        </div>
+      )}
+
+      {/* Simulation panel */}
+      {activeTab === "simulation" && room?.category === "confianza_amor" && (
+        <SimulationPanel currentUser={currentUser} />
+      )}
+
       {/* Chat area */}
+      {activeTab === "chat" && (
       <div className="chat-container">
         <div className="messages-list">
           {loadingMsgs && (
@@ -354,6 +382,7 @@ export default function SocialRoomPage() {
           </div>
         )}
       </div>
+      )} {/* end activeTab === "chat" */}
 
       {/* Monetization CTAs */}
       {currentUser && room?.host && !isHost && (
@@ -420,6 +449,24 @@ export default function SocialRoomPage() {
 
       <style jsx>{`
         .room-page { display: flex; flex-direction: column; gap: 1rem; }
+
+        /* Tab bar */
+        .room-tabs {
+          display: flex; gap: 0.4rem;
+          padding: 0.3rem; border-radius: var(--radius-xs, 8px);
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+        }
+        .room-tab {
+          flex: 1; padding: 0.5rem 0.75rem; border-radius: 6px;
+          border: none; background: transparent;
+          font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+          cursor: pointer; transition: all 0.18s;
+        }
+        .room-tab:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+        .room-tab--active {
+          background: linear-gradient(135deg, rgba(244,114,182,0.18) 0%, rgba(168,85,247,0.18) 100%);
+          color: #f472b6; border: 1px solid rgba(244,114,182,0.25);
+        }
 
         /* Header */
         .room-header {

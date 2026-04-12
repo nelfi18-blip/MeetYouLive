@@ -150,12 +150,15 @@ export default function SimulationPanel({ currentUser }) {
     fetch(`${API_URL}/api/simulation/scenarios`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) throw new Error("No se pudieron cargar los escenarios");
+        return r.json();
+      })
       .then((data) => {
         setScenarios(Array.isArray(data) ? data : []);
         if (data.length > 0) setSelected(data[0]);
       })
-      .catch(() => {})
+      .catch((err) => setError(err.message || "Error al cargar escenarios"))
       .finally(() => setLoadingScenarios(false));
   }, []);
 
@@ -168,9 +171,12 @@ export default function SimulationPanel({ currentUser }) {
     fetch(`${API_URL}/api/simulation/scenarios/${selected.id}/responses?limit=20`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) throw new Error("No se pudieron cargar las respuestas");
+        return r.json();
+      })
       .then((data) => setResponses(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch((err) => setError(err.message || "Error al cargar respuestas"))
       .finally(() => setLoadingResponses(false));
   }, [selected?.id]);
 

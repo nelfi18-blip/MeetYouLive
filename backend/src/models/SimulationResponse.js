@@ -12,6 +12,7 @@ const simulationResponseSchema = new mongoose.Schema(
 );
 
 simulationResponseSchema.index({ scenarioId: 1, createdAt: -1 });
+simulationResponseSchema.index({ scenarioId: 1, likesCount: -1, createdAt: -1 });
 simulationResponseSchema.index({ user: 1, scenarioId: 1 });
 
 module.exports = mongoose.model("SimulationResponse", simulationResponseSchema);

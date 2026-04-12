@@ -22,6 +22,7 @@ const coinTransactionSchema = new mongoose.Schema(
         "agency_earned",
         "agency_distributed",
         "boost_crush",
+        "boost_pack",
         "swipe_unlock",
         "daily_reward",
         "simulation_unlock",

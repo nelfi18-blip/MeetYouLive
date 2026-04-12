@@ -537,63 +537,181 @@ function SwipeLimitModal({ coins, extraSwipesPrice, extraSwipesBatch, loading, o
 }
 
 // ─── BoostModal ───────────────────────────────────────────────────────────────
-function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost, onClose }) {
+function BoostModal({
+  coins,
+  boostPrice,
+  boostPacks,
+  storedBoosts,
+  activeBoostCount,
+  isBoosted,
+  boostUntil,
+  loading,
+  packLoading,
+  onBoost,
+  onBuyPack,
+  onClose,
+}) {
+  const [countdown, setCountdown] = useState("");
+  const [packTab, setPackTab] = useState(false); // false = activate, true = buy packs
+
+  useEffect(() => {
+    if (!boostUntil) return;
+    const tick = () => {
+      const ms = new Date(boostUntil) - Date.now();
+      if (ms <= 0) { setCountdown(""); return; }
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setCountdown(`${m}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [boostUntil]);
+
   const hasCoins = coins !== null && coins >= boostPrice;
-  const timeLeftLabel = boostUntil ? (() => {
-    const ms = new Date(boostUntil) - Date.now();
-    if (ms <= 0) return null;
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    return `${h}h ${m}m`;
-  })() : null;
+  const hasStoredBoost = storedBoosts > 0;
+  const canActivate = hasStoredBoost || hasCoins;
+
+  const packs = boostPacks || [
+    { quantity: 1, coins: 100, label: "1 Boost", badge: null },
+    { quantity: 3, coins: 250, label: "3 Boosts", badge: "Descuento" },
+    { quantity: 5, coins: 400, label: "5 Boosts", badge: "Mejor valor" },
+  ];
 
   return (
     <div className="bm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bm-modal">
+      <div className={`bm-modal${isBoosted ? " bm-modal-active" : ""}`}>
         <div className="bm-glow" aria-hidden="true" />
+
+        {/* Live activity indicator */}
+        {activeBoostCount !== null && (
+          <div className="bm-live-count">
+            🔥 <strong>{activeBoostCount}</strong> personas están usando Boost ahora
+          </div>
+        )}
+
         <div className="bm-icon">🚀</div>
         <h3 className="bm-title">Boost Crush</h3>
+
+        {/* Urgency phrases */}
+        {!isBoosted && (
+          <div className="bm-urgency-phrases">
+            <span>🔥 Destácate ahora</span>
+            <span>💖 Aumenta tus matches</span>
+            <span>⚡ Más visibilidad en tiempo real</span>
+          </div>
+        )}
+
         <p className="bm-desc">
-          Aparece primero en la lista de perfiles · Más visibilidad · Más matches en 24h
+          Aparece primero en la lista de perfiles · Más visibilidad · Más matches en 30 min
         </p>
 
-        {isBoosted && timeLeftLabel ? (
-          <div className="bm-active">
-            <span className="bm-active-icon">✅</span>
-            <span>Boost activo — queda {timeLeftLabel}</span>
+        {isBoosted && countdown ? (
+          <div className="bm-active-countdown">
+            <div className="bm-active">
+              <span className="bm-active-icon">✅</span>
+              <span>Boost activo</span>
+            </div>
+            <div className="bm-countdown">
+              <span className="bm-countdown-label">Tiempo restante</span>
+              <span className="bm-countdown-value">{countdown}</span>
+            </div>
           </div>
         ) : (
           <>
-            <div className="bm-price-row">
-              <span className="bm-price-label">Costo</span>
-              <span className="bm-price-value">🪙 {boostPrice} monedas</span>
-            </div>
-            {coins !== null && (
-              <div className="bm-balance-row">
-                <span className="bm-balance-label">Tu saldo</span>
-                <span className={`bm-balance-value${!hasCoins ? " bm-low" : ""}`}>
-                  🪙 {coins} monedas
-                </span>
+            {/* Stored boosts indicator */}
+            {storedBoosts > 0 && (
+              <div className="bm-stored">
+                <span className="bm-stored-icon">🎯</span>
+                <span>Tienes <strong>{storedBoosts}</strong> boost{storedBoosts > 1 ? "s" : ""} guardado{storedBoosts > 1 ? "s" : ""}</span>
               </div>
             )}
-            {!hasCoins && (
-              <div className="bm-insufficient">
-                <span>⚠️ Saldo insuficiente</span>
-                <Link href="/coins" className="bm-buy-link" onClick={onClose}>Comprar monedas →</Link>
+
+            {/* Tab switcher */}
+            <div className="bm-tabs">
+              <button
+                className={`bm-tab${!packTab ? " bm-tab-active" : ""}`}
+                onClick={() => setPackTab(false)}
+              >
+                Activar
+              </button>
+              <button
+                className={`bm-tab${packTab ? " bm-tab-active" : ""}`}
+                onClick={() => setPackTab(true)}
+              >
+                Comprar packs
+              </button>
+            </div>
+
+            {!packTab ? (
+              /* Activate tab */
+              <>
+                {hasStoredBoost ? (
+                  <div className="bm-free-note">
+                    <span>⚡ Se usará 1 boost guardado (sin costo)</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bm-price-row">
+                      <span className="bm-price-label">Costo directo</span>
+                      <span className="bm-price-value">🪙 {boostPrice} monedas</span>
+                    </div>
+                    {coins !== null && (
+                      <div className="bm-balance-row">
+                        <span className="bm-balance-label">Tu saldo</span>
+                        <span className={`bm-balance-value${!hasCoins ? " bm-low" : ""}`}>
+                          🪙 {coins} monedas
+                        </span>
+                      </div>
+                    )}
+                    {!hasCoins && (
+                      <div className="bm-insufficient">
+                        <span>⚠️ Saldo insuficiente</span>
+                        <Link href="/coins" className="bm-buy-link" onClick={onClose}>Comprar monedas →</Link>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              /* Buy packs tab */
+              <div className="bm-packs">
+                {packs.map((pack) => {
+                  const isLoading = packLoading === pack.quantity;
+                  const canAfford = coins !== null && coins >= pack.coins;
+                  return (
+                    <button
+                      key={pack.quantity}
+                      className={`bm-pack-btn${pack.badge === "Mejor valor" ? " bm-pack-best" : ""}`}
+                      onClick={() => onBuyPack(pack.quantity)}
+                      disabled={!canAfford || !!packLoading}
+                    >
+                      {pack.badge && <span className="bm-pack-badge">{pack.badge}</span>}
+                      <span className="bm-pack-label">{pack.label}</span>
+                      <span className="bm-pack-cost">🪙 {pack.coins}</span>
+                      {isLoading && <span className="spinner spinner-sm" />}
+                    </button>
+                  );
+                })}
+                {coins !== null && (
+                  <div className="bm-pack-balance">Tu saldo: 🪙 {coins}</div>
+                )}
               </div>
             )}
           </>
         )}
 
         <div className="bm-actions">
-          <button className="bm-btn bm-btn-cancel" onClick={onClose} disabled={loading}>Cancelar</button>
-          {!isBoosted && (
+          <button className="bm-btn bm-btn-cancel" onClick={onClose} disabled={loading || !!packLoading}>
+            {isBoosted ? "Cerrar" : "Cancelar"}
+          </button>
+          {!isBoosted && !packTab && (
             <button
               className="bm-btn bm-btn-confirm"
               onClick={onBoost}
-              disabled={loading || !hasCoins}
+              disabled={loading || !!packLoading || !canActivate}
             >
-              {loading ? "Activando…" : `🚀 Boost · 🪙${boostPrice}`}
+              {loading ? "Activando…" : hasStoredBoost ? "🚀 Activar boost" : `🚀 Boost · 🪙${boostPrice}`}
             </button>
           )}
         </div>
@@ -608,11 +726,20 @@ function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost
             position: relative;
             background: linear-gradient(155deg, #130525 0%, #0b0219 100%);
             border: 1px solid rgba(224,64,251,0.4); border-radius: 22px;
-            padding: 2rem 1.75rem 1.5rem; max-width: 360px; width: 100%;
+            padding: 1.5rem 1.75rem 1.5rem; max-width: 380px; width: 100%;
             text-align: center;
             box-shadow: 0 0 60px rgba(224,64,251,0.18), 0 0 120px rgba(255,45,120,0.08);
             animation: bm-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
             overflow: hidden;
+          }
+          .bm-modal-active {
+            border-color: rgba(52,211,153,0.5);
+            box-shadow: 0 0 60px rgba(52,211,153,0.15), 0 0 120px rgba(52,211,153,0.08);
+            animation: bm-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both, bm-glow-pulse 2s ease-in-out infinite;
+          }
+          @keyframes bm-glow-pulse {
+            0%, 100% { box-shadow: 0 0 60px rgba(52,211,153,0.15), 0 0 120px rgba(52,211,153,0.08); }
+            50% { box-shadow: 0 0 80px rgba(52,211,153,0.3), 0 0 140px rgba(52,211,153,0.15); }
           }
           @keyframes bm-pop {
             from { transform: scale(0.75); opacity: 0; }
@@ -624,18 +751,65 @@ function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost
             background: radial-gradient(circle, rgba(224,64,251,0.18) 0%, transparent 70%);
             pointer-events: none;
           }
-          .bm-icon { font-size: 2.8rem; margin-bottom: 0.5rem; animation: bm-pulse 1.8s ease-in-out infinite; }
+          .bm-live-count {
+            font-size: 0.72rem; color: rgba(255,255,255,0.65); margin-bottom: 0.6rem;
+            background: rgba(255,100,0,0.08); border: 1px solid rgba(255,100,0,0.22);
+            border-radius: 20px; padding: 0.3rem 0.75rem; display: inline-block;
+          }
+          .bm-live-count strong { color: #fb923c; }
+          .bm-icon { font-size: 2.8rem; margin-bottom: 0.3rem; animation: bm-pulse 1.8s ease-in-out infinite; }
           @keyframes bm-pulse {
             0%,100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(224,64,251,0.5)); }
             50% { transform: scale(1.15); filter: drop-shadow(0 0 18px rgba(224,64,251,0.9)); }
           }
-          .bm-title { font-size: 1.35rem; font-weight: 900; color: #e040fb; margin: 0 0 0.5rem; }
-          .bm-desc { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin: 0 0 1.25rem; line-height: 1.5; }
+          .bm-title { font-size: 1.35rem; font-weight: 900; color: #e040fb; margin: 0 0 0.35rem; }
+          .bm-urgency-phrases {
+            display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center;
+            margin-bottom: 0.6rem;
+          }
+          .bm-urgency-phrases span {
+            font-size: 0.7rem; font-weight: 700;
+            background: rgba(224,64,251,0.1); border: 1px solid rgba(224,64,251,0.3);
+            border-radius: 20px; padding: 0.2rem 0.55rem; color: rgba(255,255,255,0.8);
+          }
+          .bm-desc { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin: 0 0 1rem; line-height: 1.5; }
+          .bm-active-countdown { margin-bottom: 1rem; }
           .bm-active {
             display: flex; align-items: center; gap: 0.5rem; justify-content: center;
-            padding: 0.75rem; border-radius: 12px;
+            padding: 0.55rem; border-radius: 10px;
             background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.3);
-            color: #34d399; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem;
+            color: #34d399; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem;
+          }
+          .bm-countdown {
+            display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+          }
+          .bm-countdown-label { font-size: 0.65rem; color: rgba(255,255,255,0.35); font-weight: 600; }
+          .bm-countdown-value {
+            font-size: 2rem; font-weight: 900; color: #34d399;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 16px rgba(52,211,153,0.5);
+          }
+          .bm-stored {
+            display: flex; align-items: center; gap: 0.5rem; justify-content: center;
+            padding: 0.5rem 0.75rem; border-radius: 10px; margin-bottom: 0.75rem;
+            background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25);
+            font-size: 0.8rem; color: rgba(255,255,255,0.75);
+          }
+          .bm-stored-icon { font-size: 1rem; }
+          .bm-stored strong { color: #fbbf24; }
+          .bm-tabs {
+            display: flex; border-radius: 10px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.85rem;
+          }
+          .bm-tab {
+            flex: 1; padding: 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+            background: transparent; border: none; color: rgba(255,255,255,0.4); transition: all 0.2s;
+          }
+          .bm-tab-active { background: rgba(224,64,251,0.15); color: #e040fb; }
+          .bm-free-note {
+            padding: 0.6rem 0.75rem; border-radius: 10px; margin-bottom: 0.75rem;
+            background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25);
+            font-size: 0.8rem; color: #fbbf24; font-weight: 700;
           }
           .bm-price-row, .bm-balance-row {
             display: flex; align-items: center; justify-content: space-between;
@@ -655,7 +829,36 @@ function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost
           }
           .bm-buy-link { color: #fbbf24; text-decoration: none; font-weight: 700; margin-left: auto; }
           .bm-buy-link:hover { text-decoration: underline; }
-          .bm-actions { display: flex; gap: 0.6rem; margin-top: 1.25rem; }
+          .bm-packs { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; }
+          .bm-pack-btn {
+            position: relative; display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.65rem 0.9rem; border-radius: 12px; cursor: pointer;
+            background: rgba(224,64,251,0.07); border: 1px solid rgba(224,64,251,0.25);
+            color: rgba(255,255,255,0.8); font-size: 0.82rem; font-weight: 700; text-align: left;
+            transition: all 0.2s;
+          }
+          .bm-pack-btn:hover:not(:disabled) {
+            background: rgba(224,64,251,0.15); border-color: rgba(224,64,251,0.5);
+          }
+          .bm-pack-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+          .bm-pack-best {
+            background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.4);
+          }
+          .bm-pack-best:hover:not(:disabled) {
+            background: rgba(251,191,36,0.16); border-color: rgba(251,191,36,0.6);
+          }
+          .bm-pack-badge {
+            position: absolute; top: -8px; right: 10px;
+            font-size: 0.6rem; font-weight: 800; color: #fbbf24;
+            background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.35);
+            border-radius: 20px; padding: 0.1rem 0.45rem;
+          }
+          .bm-pack-label { flex: 1; }
+          .bm-pack-cost { color: #e040fb; font-size: 0.85rem; }
+          .bm-pack-balance {
+            font-size: 0.72rem; color: rgba(255,255,255,0.35); text-align: right; margin-top: 0.15rem;
+          }
+          .bm-actions { display: flex; gap: 0.6rem; margin-top: 1.1rem; }
           .bm-btn {
             flex: 1; padding: 0.75rem 0.5rem; border-radius: 12px;
             font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid; transition: all 0.2s;
@@ -674,6 +877,93 @@ function BoostModal({ coins, boostPrice, isBoosted, boostUntil, loading, onBoost
             background: linear-gradient(135deg, rgba(224,64,251,0.35), rgba(255,45,120,0.35));
             box-shadow: 0 0 32px rgba(224,64,251,0.45);
           }
+          .spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #e040fb; border-radius: 50%; animation: spin 0.7s linear infinite; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+// ─── BoostResultModal ─────────────────────────────────────────────────────────
+function BoostResultModal({ result, onClose }) {
+  return (
+    <div className="br-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="br-modal">
+        <div className="br-glow" aria-hidden="true" />
+        <div className="br-icon">🚀</div>
+        <h3 className="br-title">Resultado de tu Boost</h3>
+        <p className="br-subtitle">Tu perfil brilló durante 30 minutos</p>
+
+        <div className="br-stats">
+          <div className="br-stat">
+            <span className="br-stat-value">{result.matchesGained}</span>
+            <span className="br-stat-label">💗 Matches ganados</span>
+          </div>
+          <div className="br-stat">
+            <span className="br-stat-value">{result.profileViews}</span>
+            <span className="br-stat-label">👀 Vistas de perfil</span>
+          </div>
+          <div className="br-stat">
+            <span className="br-stat-value">{result.chatsStarted}</span>
+            <span className="br-stat-label">💬 Chats iniciados</span>
+          </div>
+        </div>
+
+        <button className="br-btn" onClick={onClose}>¡Genial! 🎉</button>
+
+        <style jsx>{`
+          .br-overlay {
+            position: fixed; inset: 0; z-index: 3100;
+            background: rgba(4,0,14,0.88); backdrop-filter: blur(14px);
+            display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+          }
+          .br-modal {
+            position: relative;
+            background: linear-gradient(155deg, #0e1f14 0%, #070d10 100%);
+            border: 1px solid rgba(52,211,153,0.45); border-radius: 22px;
+            padding: 2rem 1.75rem 1.5rem; max-width: 340px; width: 100%;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(52,211,153,0.18), 0 0 120px rgba(52,211,153,0.08);
+            animation: br-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+            overflow: hidden;
+          }
+          @keyframes br-pop {
+            from { transform: scale(0.7) translateY(20px); opacity: 0; }
+            to   { transform: scale(1) translateY(0); opacity: 1; }
+          }
+          .br-glow {
+            position: absolute; top: -40%; left: 50%; transform: translateX(-50%);
+            width: 220px; height: 220px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(52,211,153,0.18) 0%, transparent 70%);
+            pointer-events: none;
+          }
+          .br-icon { font-size: 3rem; margin-bottom: 0.35rem; animation: br-bounce 0.6s ease-out both; }
+          @keyframes br-bounce {
+            0% { transform: scale(0) rotate(-20deg); }
+            70% { transform: scale(1.2) rotate(5deg); }
+            100% { transform: scale(1) rotate(0); }
+          }
+          .br-title { font-size: 1.3rem; font-weight: 900; color: #34d399; margin: 0 0 0.2rem; }
+          .br-subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 0 0 1.5rem; }
+          .br-stats {
+            display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1.5rem;
+          }
+          .br-stat {
+            flex: 1; background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.2);
+            border-radius: 14px; padding: 0.85rem 0.5rem; display: flex; flex-direction: column; gap: 0.3rem;
+          }
+          .br-stat-value { font-size: 1.9rem; font-weight: 900; color: #34d399; line-height: 1; }
+          .br-stat-label { font-size: 0.62rem; color: rgba(255,255,255,0.5); font-weight: 600; line-height: 1.3; }
+          .br-btn {
+            width: 100%; padding: 0.85rem; border-radius: 14px; font-size: 0.9rem; font-weight: 800;
+            cursor: pointer; border: 1px solid rgba(52,211,153,0.5);
+            background: linear-gradient(135deg, rgba(52,211,153,0.18), rgba(52,211,153,0.08));
+            color: #34d399;
+            box-shadow: 0 0 18px rgba(52,211,153,0.2);
+            transition: all 0.2s;
+          }
+          .br-btn:hover { background: linear-gradient(135deg, rgba(52,211,153,0.28), rgba(52,211,153,0.14)); box-shadow: 0 0 28px rgba(52,211,153,0.35); }
         `}</style>
       </div>
     </div>
@@ -1216,6 +1506,7 @@ export default function CrushPage() {
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
   const [extraSwipesPrice, setExtraSwipesPrice] = useState(5);
   const [boostPrice, setBoostPrice] = useState(100);
+  const [boostPacks, setBoostPacks] = useState(null);
   const [coins, setCoins] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -1226,6 +1517,12 @@ export default function CrushPage() {
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
   const [boostLoading, setBoostLoading] = useState(false);
+  const [packLoading, setPackLoading] = useState(null); // quantity being purchased
+  const [storedBoosts, setStoredBoosts] = useState(0);
+  const [activeBoostCount, setActiveBoostCount] = useState(null);
+  const [boostResult, setBoostResult] = useState(null); // stats after boost ends
+  const [showBoostResult, setShowBoostResult] = useState(false);
+  const prevIsBoostedRef = useRef(false);
   const [swipeUnlockLoading, setSwipeUnlockLoading] = useState(false);
   const [remainingSwipes, setRemainingSwipes] = useState(DAILY_FREE_SWIPES);
   const [showDailyReward, setShowDailyReward] = useState(false);
@@ -1273,16 +1570,18 @@ export default function CrushPage() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     try {
-      const [cfgRes, meRes, boostRes] = await Promise.all([
+      const [cfgRes, meRes, boostRes, activeRes] = await Promise.all([
         fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/user/me`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/matches/boost-status`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/matches/boost-active-count`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
         setSuperCrushPrice(cfg.superCrushPrice ?? 50);
         setExtraSwipesPrice(cfg.extraSwipesPrice ?? 5);
         setBoostPrice(cfg.boostPrice ?? 100);
+        if (cfg.boostPacks) setBoostPacks(cfg.boostPacks);
       }
       if (meRes.ok) {
         const me = await meRes.json();
@@ -1290,8 +1589,21 @@ export default function CrushPage() {
       }
       if (boostRes.ok) {
         const boost = await boostRes.json();
-        setIsBoosted(boost.isBoosted ?? false);
+        const newIsBoosted = boost.isBoosted ?? false;
+        // Detect expiry: was active, now ended → show results
+        if (prevIsBoostedRef.current && !newIsBoosted && boost.boostResult) {
+          setBoostResult(boost.boostResult);
+          setShowBoostResult(true);
+        }
+        prevIsBoostedRef.current = newIsBoosted;
+        setIsBoosted(newIsBoosted);
         setBoostUntil(boost.boostUntil ?? null);
+        setStoredBoosts(boost.storedBoosts ?? 0);
+        if (boost.boostPacks) setBoostPacks(boost.boostPacks);
+      }
+      if (activeRes.ok) {
+        const active = await activeRes.json();
+        setActiveBoostCount(active.count ?? null);
       }
     } catch { /* ignore */ }
   }, []);
@@ -1300,6 +1612,13 @@ export default function CrushPage() {
     fetchUsers(1);
     fetchConfig();
   }, [fetchUsers, fetchConfig]);
+
+  // Poll boost status every 30s while boost is active to detect expiry and show results
+  useEffect(() => {
+    if (!isBoosted) return;
+    const id = setInterval(fetchConfig, 30000);
+    return () => clearInterval(id);
+  }, [isBoosted, fetchConfig]);
 
   // Pre-load more when nearing the end
   useEffect(() => {
@@ -1503,7 +1822,13 @@ export default function CrushPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setCoins((c) => (c !== null ? c - boostPrice : c));
+        // If a stored boost was consumed, don't deduct coins
+        if (!data.usedStoredBoost) {
+          setCoins((c) => (c !== null ? c - boostPrice : c));
+        } else {
+          setStoredBoosts((s) => Math.max(0, s - 1));
+        }
+        prevIsBoostedRef.current = true;
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
       } else {
@@ -1517,6 +1842,32 @@ export default function CrushPage() {
       setBoostLoading(false);
     }
   }, [boostPrice, router]);
+
+  const handleBuyBoostPack = useCallback(async (quantity) => {
+    const token = localStorage.getItem("token");
+    if (!token) { router.push("/login"); return; }
+    setPackLoading(quantity);
+    try {
+      const res = await fetch(`${API_URL}/api/matches/boost-pack`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ quantity }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCoins(data.coins ?? ((c) => (c !== null ? c - (data.coinsSpent || 0) : c)));
+        setStoredBoosts(data.storedBoosts ?? ((s) => s + quantity));
+      } else {
+        setError(data.message || "No se pudo comprar el pack");
+        setTimeout(() => setError(""), 5000);
+      }
+    } catch {
+      setError("Error de conexión");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setPackLoading(null);
+    }
+  }, [router]);
 
   const handleUnlockSwipes = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -1800,11 +2151,23 @@ export default function CrushPage() {
         <BoostModal
           coins={coins}
           boostPrice={boostPrice}
+          boostPacks={boostPacks}
+          storedBoosts={storedBoosts}
+          activeBoostCount={activeBoostCount}
           isBoosted={isBoosted}
           boostUntil={boostUntil}
           loading={boostLoading}
+          packLoading={packLoading}
           onBoost={handleBoost}
+          onBuyPack={handleBuyBoostPack}
           onClose={() => setBoostModal(false)}
+        />
+      )}
+
+      {showBoostResult && boostResult && (
+        <BoostResultModal
+          result={boostResult}
+          onClose={() => { setShowBoostResult(false); setBoostResult(null); }}
         />
       )}
 

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import Badge from "./Badge";
+import StatusBadges from "./StatusBadges";
+import { computeStatusBadges } from "@/lib/statusBadges";
 
 /**
  * Reusable LiveCard component for live-stream listings.
@@ -13,6 +15,7 @@ import Badge from "./Badge";
 export default function LiveCard({ live }) {
   const username = live.user?.username || live.user?.name || "anónimo";
   const initial = username[0].toUpperCase();
+  const statusBadges = computeStatusBadges({ ...live.user, isLive: true, liveId: live._id });
 
   return (
     <>
@@ -71,6 +74,9 @@ export default function LiveCard({ live }) {
               <span className="live-entry-cost" style={{ marginLeft: "auto" }}>🪙 {live.entryCost}</span>
             )}
           </div>
+          {statusBadges.length > 0 && (
+            <StatusBadges badges={statusBadges} compact />
+          )}
           <div className="live-title">{live.title}</div>
           {live.description && (
             <div className="live-desc">{live.description}</div>

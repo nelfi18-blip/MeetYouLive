@@ -11,8 +11,11 @@ const FAKE_NAMES = [
 
 const REAL_TEMPLATES = [
   { icon: "🎤", tpl: (u) => `${u} está en vivo ahora` },
+  { icon: "⏳", tpl: (u) => `${u} — Live activo ahora` },
+  { icon: "🔥", tpl: (u) => `${u} — Únete antes que termine` },
   { icon: "👀", tpl: (u) => `${u} transmitiendo en directo` },
   { icon: "🚀", tpl: (u) => `${u} comenzó a transmitir` },
+  { icon: "💬", tpl: (u, count) => `${u} — ${count} personas dentro` },
 ];
 
 const NEW_TEMPLATE = { icon: "🔥", tpl: (u) => `${u} acaba de iniciar un live` };
@@ -20,35 +23,51 @@ const NEW_TEMPLATE = { icon: "🔥", tpl: (u) => `${u} acaba de iniciar un live`
 const FAKE_TEMPLATES = [
   { icon: "🔥", tpl: (u) => `${u} acaba de iniciar un live` },
   { icon: "🎤", tpl: (u) => `${u} está en vivo ahora` },
+  { icon: "⏳", tpl: (u) => `${u} — Live activo ahora` },
   { icon: "👀", tpl: (u) => `${u} se unió a un directo` },
   { icon: "🚀", tpl: (u) => `${u} está transmitiendo` },
+  { icon: "🔥", tpl: (u) => `${u} — Únete antes que termine` },
+  { icon: "💬", tpl: (u, count) => `${u} — ${count} personas dentro` },
 ];
 
 const MAX_FEED = 6;
-const ROTATE_INTERVAL_MS = 10000;
+const ROTATE_INTERVAL_MS = 6000;
+const EXIT_DURATION_MS = 280;
 
 function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function randomViewerCount() {
+  return Math.floor(Math.random() * 46) + 5; // 5–50
+}
+
 function generateFakeEvent() {
   const name = randomItem(FAKE_NAMES);
   const tmpl = randomItem(FAKE_TEMPLATES);
+  const count = randomViewerCount();
   return {
     icon: tmpl.icon,
-    message: tmpl.tpl(`@${name}`),
-    href: null,
+    message: tmpl.tpl(`@${name}`, count),
+    href: "/live",
     id: `fake_${Date.now()}_${Math.random().toString(36).slice(2)}`,
   };
 }
 
 function liveToEvent(live, isNew = false) {
   const username = live.user?.username || live.user?.name || "alguien";
-  const tmpl = isNew ? NEW_TEMPLATE : randomItem(REAL_TEMPLATES);
+  let tmpl;
+  if (isNew) {
+    tmpl = NEW_TEMPLATE;
+  } else {
+    tmpl = randomItem(REAL_TEMPLATES);
+  }
+  const count = live.viewerCount || randomViewerCount();
   return {
     icon: tmpl.icon,
-    message: tmpl.tpl(`@${username}`),
+    message: tmpl.tpl(`@${username}`, count),
     href: `/live/${live._id}`,
+    liveId: String(live._id),
     id: `live_${live._id}_${isNew ? "new" : tmpl.icon}`,
   };
 }
@@ -97,22 +116,40 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
   // Periodically rotate in a new event to keep the feed feeling alive
   useEffect(() => {
     const timer = setInterval(() => {
-      const currentLives = livesRef.current;
+      // Phase 1: mark the oldest item as exiting
       setEvents((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        updated[updated.length - 1] = { ...updated[updated.length - 1], exiting: true };
+        return updated;
+      });
+
+      // Phase 2: after exit animation, remove exiting item and prepend new event
+      setTimeout(() => {
+        const currentLives = livesRef.current;
         let ev;
         if (currentLives.length > 0) {
           const live = randomItem(currentLives);
           ev = liveToEvent(live, false);
-          // Avoid repeating the exact same event at the top
-          if (prev[0]?.id === ev.id) {
-            const others = currentLives.filter((l) => String(l._id) !== String(live._id));
-            ev = others.length > 0 ? liveToEvent(randomItem(others), false) : generateFakeEvent();
-          }
         } else {
           ev = generateFakeEvent();
         }
-        return [ev, ...prev.filter((e) => e.id !== ev.id)].slice(0, MAX_FEED);
-      });
+
+        setEvents((prev) => {
+          const withoutExiting = prev.filter((e) => !e.exiting);
+          // Avoid repeating the same event at the top
+          if (withoutExiting[0]?.liveId && withoutExiting[0].liveId === ev.liveId) {
+            const currentLivesNow = livesRef.current;
+            if (currentLivesNow.length > 1) {
+              const others = currentLivesNow.filter((l) => String(l._id) !== ev.liveId);
+              ev = others.length > 0 ? liveToEvent(randomItem(others), false) : generateFakeEvent();
+            } else {
+              ev = generateFakeEvent();
+            }
+          }
+          return [ev, ...withoutExiting.filter((e) => e.id !== ev.id)].slice(0, MAX_FEED);
+        });
+      }, EXIT_DURATION_MS);
     }, ROTATE_INTERVAL_MS);
 
     return () => clearInterval(timer);
@@ -133,17 +170,17 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
             <span className="laf-item">
               <span className="laf-icon">{ev.icon}</span>
               <span className="laf-msg">{ev.message}</span>
-              {ev.href && <span className="laf-cta">Unirse →</span>}
+              <span className="laf-cta">Entrar →</span>
             </span>
           );
-          return ev.href ? (
-            <Link key={ev.id} href={ev.href} className="laf-row laf-row-link">
+          return (
+            <Link
+              key={ev.id}
+              href={ev.href || "/live"}
+              className={`laf-row laf-row-link${ev.exiting ? " laf-row-exiting" : ""}`}
+            >
               {inner}
             </Link>
-          ) : (
-            <div key={ev.id} className="laf-row">
-              {inner}
-            </div>
           );
         })}
       </div>
@@ -197,6 +234,16 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
         @keyframes lafItemIn {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes lafItemOut {
+          from { opacity: 1; transform: translateY(0); }
+          to   { opacity: 0; transform: translateY(6px); }
+        }
+
+        .laf-row-exiting {
+          animation: lafItemOut 280ms ease forwards;
+          pointer-events: none;
         }
 
         .laf-row-link {

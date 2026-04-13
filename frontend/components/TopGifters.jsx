@@ -40,7 +40,7 @@ const RANK_CFG = [
   },
 ];
 
-export default function TopGifters({ liveId }) {
+export default function TopGifters({ liveId, refreshTrigger }) {
   const [gifters, setGifters] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +51,7 @@ export default function TopGifters({ liveId }) {
       .then((data) => setGifters(Array.isArray(data) ? data.slice(0, 3) : []))
       .catch(() => setGifters([]))
       .finally(() => setLoading(false));
-  }, [liveId]);
+  }, [liveId, refreshTrigger]);
 
   if (!loading && gifters.length === 0) return null;
 

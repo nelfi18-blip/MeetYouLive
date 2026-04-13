@@ -11,6 +11,7 @@ import FollowButton from "@/components/FollowButton";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
+import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,9 +43,15 @@ export default function LiveRoomPage() {
   const recentGiftTimeoutRef = useRef(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState("");
   const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
   const [showEntryAnim, setShowEntryAnim] = useState(true);
+
+  // Live viewer count (updated in real time via socket)
+  const [viewerCount, setViewerCount] = useState(0);
+  // Incremented on each received gift to trigger TopGifters re-fetch
+  const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
 
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
@@ -81,6 +88,7 @@ export default function LiveRoomPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?._id) setCurrentUserId(String(data._id));
+        if (data?.username || data?.name) setCurrentUsername(data.username || data.name || "");
       })
       .catch(() => {})
       .finally(() => setMeLoaded(true));
@@ -96,6 +104,118 @@ export default function LiveRoomPage() {
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
     };
   }, []);
+
+  // Initialise viewerCount from the loaded live data
+  useEffect(() => {
+    if (live) {
+      setViewerCount(live.viewerCount ?? live.viewers ?? 0);
+    }
+  }, [live]);
+
+  // ── Socket live room ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!id || !meLoaded) return;
+
+    if (!socket.connected) socket.connect();
+
+    const joinRoom = () => {
+      socket.emit("join_live_room", {
+        liveId: id,
+        user: currentUserId ? { username: currentUsername || "Espectador" } : null,
+      });
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on("connect", joinRoom);
+
+    const onChatMessage = ({ user, text }) => {
+      const displayName = user?.username || "Anónimo";
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: displayName, text, system: false },
+      ]);
+    };
+
+    const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
+      if (updatedId === id) setViewerCount(count);
+    };
+
+    const onLiveGiftSent = ({ senderName, senderId, gift }) => {
+      if (!gift) return;
+      // Skip if this user is the sender (they already have immediate local feedback)
+      if (senderId && currentUserId && senderId === currentUserId) return;
+
+      // Trigger gift animation effect for all viewers
+      setActiveGiftEffect({ gift, senderName });
+      setRecentGift(gift);
+
+      if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
+      if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
+
+      giftEffectTimeoutRef.current = setTimeout(
+        () => setActiveGiftEffect(null),
+        ["mythic", "legendary"].includes(gift?.rarity) ? 7000 : ["epic", "rare"].includes(gift?.rarity) ? 4500 : 2200,
+      );
+      recentGiftTimeoutRef.current = setTimeout(() => setRecentGift(null), 6000);
+
+      // Add gift event to the chat / activity feed
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgCounterRef.current,
+          user: senderName,
+          text: `${gift.icon || "🎁"} ${gift.name || "regalo"}`,
+          gift,
+          system: false,
+          isGift: true,
+        },
+      ]);
+
+      // Refresh top gifters leaderboard
+      setGiftRefreshTrigger((n) => n + 1);
+    };
+
+    const onUserJoined = ({ user }) => {
+      const name = user?.username || "Alguien";
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgCounterRef.current,
+          user: "Sistema",
+          text: `👋 ${name} se unió al directo`,
+          system: true,
+        },
+      ]);
+    };
+
+    const onLiveEnded = () => {
+      // Show an in-chat notice and redirect viewers after a short delay
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: "Sistema", text: "📡 El directo ha terminado", system: true },
+      ]);
+      setTimeout(() => router.push("/live"), 3000);
+    };
+
+    socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
+    socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
+    socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
+    socket.on("USER_JOINED_LIVE", onUserJoined);
+    socket.on("LIVE_ENDED", onLiveEnded);
+
+    return () => {
+      socket.off("connect", joinRoom);
+      socket.off("LIVE_CHAT_MESSAGE", onChatMessage);
+      socket.off("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
+      socket.off("LIVE_GIFT_SENT", onLiveGiftSent);
+      socket.off("USER_JOINED_LIVE", onUserJoined);
+      socket.off("LIVE_ENDED", onLiveEnded);
+      socket.emit("leave_live_room", { liveId: id });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, meLoaded, currentUserId, currentUsername]);
 
   // ── Agora join ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -223,11 +343,19 @@ export default function LiveRoomPage() {
     const text = chatInput.trim();
     if (!text) return;
 
+    // Add message locally immediately (optimistic, sender sees it as "Tú")
     setChatMessages((prev) => [
       ...prev,
       { id: ++msgCounterRef.current, user: "Tú", text, system: false },
     ]);
     setChatInput("");
+
+    // Broadcast to all other viewers in the live room
+    socket.emit("live_chat_message", {
+      liveId: id,
+      text,
+      user: { username: currentUsername || "Anónimo" },
+    });
   };
 
   const handleGiftSent = useCallback((data) => {
@@ -248,6 +376,9 @@ export default function LiveRoomPage() {
       recentGiftTimeoutRef.current = setTimeout(() => {
         setRecentGift(null);
       }, 6000);
+
+      // Refresh leaderboard after sending a gift
+      setGiftRefreshTrigger((n) => n + 1);
     }
 
     setChatMessages((prev) => [
@@ -489,7 +620,7 @@ export default function LiveRoomPage() {
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
   const creatorStatusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },
-    { viewerCount: live.viewerCount ?? live.viewers ?? 0, giftsTotal: live.giftsTotal ?? 0 },
+    { viewerCount, giftsTotal: live.giftsTotal ?? 0 },
   );
 
   return (
@@ -523,7 +654,7 @@ export default function LiveRoomPage() {
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                     </svg>
-                    {live.viewerCount ?? live.viewers ?? 0}
+                    {viewerCount}
                   </span>
                   {live.isPrivate && <span className="chr-private-tag">🔒 Privado</span>}
                 </div>
@@ -635,7 +766,7 @@ export default function LiveRoomPage() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
               </svg>
-              <span>{live.viewerCount ?? live.viewers ?? 0} viendo</span>
+              <span>🔥 {viewerCount} viendo ahora</span>
             </div>
 
             <div className="action-buttons">
@@ -725,7 +856,7 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
-          <TopGifters liveId={id} />
+          <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>

@@ -243,6 +243,20 @@ const sendGift = async (req, res) => {
         coinCost: amount,
         liveId: liveId || null,
       });
+      // Broadcast to all viewers in the live room so everyone sees the gift effect
+      if (liveId) {
+        io.to(`live:${liveId}`).emit("LIVE_GIFT_SENT", {
+          senderName,
+          senderId: String(req.userId),
+          gift: {
+            name: giftDoc.giftCatalogItem?.name || "",
+            icon: giftDoc.giftCatalogItem?.icon || "🎁",
+            coinCost: amount,
+            rarity: catalogItem.rarity,
+          },
+          liveId,
+        });
+      }
     }
 
     res.status(201).json(giftDoc);

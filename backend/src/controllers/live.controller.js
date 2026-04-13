@@ -89,6 +89,13 @@ const endLive = async (req, res) => {
       { new: true }
     );
     if (!live) return res.status(404).json({ message: "Live no encontrado" });
+
+    // Notify all viewers in the live room that the stream has ended
+    const io = getIO();
+    if (io) {
+      io.to(`live:${req.params.id}`).emit("LIVE_ENDED", { liveId: String(req.params.id) });
+    }
+
     res.json(live);
   } catch (err) {
     res.status(500).json({ message: err.message });

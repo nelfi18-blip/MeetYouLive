@@ -1,32 +1,73 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 import FeaturedCreators from "@/components/FeaturedCreators";
 import ActivityBar from "@/components/ActivityBar";
+import LiveActivityFeed from "@/components/LiveActivityFeed";
+import { notify } from "@/lib/notify";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TRENDING_COUNT = 3;
-
 const ONLINE_FLOOR = 12;
+const POLL_INTERVAL_MS = 20000;
 
 export default function LivePage() {
   const [lives, setLives] = useState([]);
+  const [newLiveIds, setNewLiveIds] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [onlineCount, setOnlineCount] = useState(ONLINE_FLOOR);
+  const knownIdsRef = useRef(null);
+
+  const fetchLives = async (isInitial = false) => {
+    try {
+      const res = await fetch(`${API_URL}/api/lives`);
+      if (!res.ok) throw new Error("Error al cargar directos");
+      const data = await res.json();
+      const fresh = Array.isArray(data) ? data : [];
+      const freshIds = fresh.map((l) => String(l._id));
+
+      if (knownIdsRef.current === null) {
+        // First load — just store IDs, don't fire notifications
+        knownIdsRef.current = freshIds;
+        setLives(fresh);
+      } else {
+        // Subsequent polls — detect genuinely new lives
+        const added = freshIds.filter((id) => !knownIdsRef.current.includes(id));
+        if (added.length > 0 || fresh.length !== knownIdsRef.current.length) {
+          knownIdsRef.current = freshIds;
+          setLives(fresh);
+          if (added.length > 0) {
+            setNewLiveIds(added);
+            // Trigger in-app notification for each new live (up to 2)
+            added.slice(0, 2).forEach((id) => {
+              const live = fresh.find((l) => String(l._id) === id);
+              if (!live) return;
+              const username = live.user?.username || live.user?.name || "Un creador";
+              notify({
+                icon: "🔥",
+                message: `${username} acaba de iniciar un live`,
+                href: `/live/${id}`,
+                actionLabel: "Entrar al live",
+                duration: 7000,
+                dedupKey: `live_poll_${id}`,
+              });
+            });
+          }
+        }
+      }
+    } catch {
+      if (isInitial) setError("No se pudo cargar la lista de directos");
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch(`${API_URL}/api/lives`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Error al cargar directos");
-        return res.json();
-      })
-      .then((data) => setLives(Array.isArray(data) ? data : []))
-      .catch(() => setError("No se pudo cargar la lista de directos"))
-      .finally(() => setLoading(false));
+    fetchLives(true);
 
     fetch(`${API_URL}/api/stats/activity`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
@@ -34,6 +75,10 @@ export default function LivePage() {
         if (data?.onlineCount) setOnlineCount(Math.max(data.onlineCount, ONLINE_FLOOR));
       })
       .catch((err) => console.error("[LivePage] activity stats fetch failed:", err));
+
+    const pollTimer = setInterval(() => fetchLives(false), POLL_INTERVAL_MS);
+    return () => clearInterval(pollTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const trendingLives = lives.slice(0, TRENDING_COUNT);
@@ -72,6 +117,9 @@ export default function LivePage() {
 
       {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
       <ActivityBar variant="strip" />
+
+      {/* ── 🔴 LIVE ACTIVITY FEED — real-time events ── */}
+      <LiveActivityFeed lives={lives} newLiveIds={newLiveIds} />
 
       {/* ── En vivo ahora — top 3 highlighted ── */}
       {(loading || trendingLives.length > 0) && (

@@ -487,7 +487,10 @@ export default function LiveRoomPage() {
   const creatorName = live.user?.username || live.user?.name || "Creador";
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
-  const creatorStatusBadges = computeStatusBadges({ ...live.user, isLive: true, liveId: live._id });
+  const creatorStatusBadges = computeStatusBadges(
+    { ...live.user, isLive: true, liveId: live._id },
+    { viewerCount: live.viewerCount ?? live.viewers ?? 0, giftsTotal: live.giftsTotal ?? 0 },
+  );
 
   return (
     <div className="room">

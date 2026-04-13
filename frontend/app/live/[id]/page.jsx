@@ -105,17 +105,6 @@ export default function LiveRoomPage() {
     };
   }, []);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
-
-  useEffect(() => {
-    return () => {
-      if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
-      if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
-    };
-  }, []);
-
   // Initialise viewerCount from the loaded live data
   useEffect(() => {
     if (live) {

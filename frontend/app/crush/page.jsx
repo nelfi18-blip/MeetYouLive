@@ -1127,9 +1127,9 @@ function SwipeCard({ user, onPass, onLike }) {
   const isLive = isCreator && user.isLive && user.liveId;
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
-  const compatibilityScore = user.compatibilityScore ?? null;
-  const sharedInterests = user.sharedInterests || [];
-  const statusBadges = computeStatusBadges(user);
+  const compatibilityScore = user?.compatibilityScore ?? null;
+  const sharedInterests = user?.sharedInterests || [];
+  const statusBadges = computeStatusBadges(user) || [];
 
   const getClientX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 
@@ -1232,7 +1232,7 @@ function SwipeCard({ user, onPass, onLike }) {
             )}
             {isCreator && <Badge variant="creator">CREATOR</Badge>}
             {user.isVerified && <Badge variant="verified">✓</Badge>}
-            <StatusBadges badges={statusBadges} compact />
+            <StatusBadges badges={Array.isArray(statusBadges) ? statusBadges : []} compact />
           </div>
         </div>
 

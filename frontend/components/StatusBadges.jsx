@@ -13,15 +13,19 @@ import { useState } from "react";
  *
  * Each badge supports a tooltip (title attribute + hover tooltip).
  */
-export default function StatusBadges({ badges = [], compact = false, className = "", style = {} }) {
-  if (!badges || badges.length === 0) return null;
+export default function StatusBadges({ badges, compact = false, className = "", style = {} }) {
+  // Defensive: tolerate any falsy value passed as badges
+  const safeBadges = Array.isArray(badges) ? badges : [];
+  if (safeBadges.length === 0) return null;
 
   return (
     <>
       <div className={`sb-row${className ? ` ${className}` : ""}`} style={style} aria-label="Status badges">
-        {badges.map((badge) => (
-          <StatusBadge key={badge.id} badge={badge} compact={compact} />
-        ))}
+        {safeBadges.map((badge) =>
+          badge && badge.id ? (
+            <StatusBadge key={badge.id} badge={badge} compact={compact} />
+          ) : null
+        )}
       </div>
       <style jsx>{`
         .sb-row {
@@ -38,26 +42,33 @@ export default function StatusBadges({ badges = [], compact = false, className =
 function StatusBadge({ badge, compact }) {
   const [tipVisible, setTipVisible] = useState(false);
 
+  // Defensive: skip render if badge data is malformed
+  if (!badge) return null;
+  const variant = badge.variant || "boost";
+  const tooltip = badge.tooltip || "";
+  const label = badge.label || "";
+  const emoji = badge.emoji || "";
+
   return (
     <>
       <span
-        className={`sb sb-${badge.variant}${compact ? " sb-compact" : ""}`}
-        title={badge.tooltip}
+        className={`sb sb-${variant}${compact ? " sb-compact" : ""}`}
+        title={tooltip}
         onMouseEnter={() => setTipVisible(true)}
         onMouseLeave={() => setTipVisible(false)}
         onFocus={() => setTipVisible(true)}
         onBlur={() => setTipVisible(false)}
         tabIndex={0}
         role="status"
-        aria-label={`${badge.label}: ${badge.tooltip}`}
+        aria-label={label && tooltip ? `${label}: ${tooltip}` : label || tooltip}
       >
-        <span className="sb-emoji" aria-hidden="true">{badge.emoji}</span>
-        {!compact && <span className="sb-label">{badge.label}</span>}
+        <span className="sb-emoji" aria-hidden="true">{emoji}</span>
+        {!compact && <span className="sb-label">{label}</span>}
 
         {/* Floating tooltip */}
-        {tipVisible && badge.tooltip && (
+        {tipVisible && tooltip && (
           <span className="sb-tip" role="tooltip">
-            {badge.tooltip}
+            {tooltip}
           </span>
         )}
       </span>

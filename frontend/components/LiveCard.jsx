@@ -15,7 +15,10 @@ import { computeStatusBadges } from "@/lib/statusBadges";
 export default function LiveCard({ live }) {
   const username = live.user?.username || live.user?.name || "anónimo";
   const initial = username[0].toUpperCase();
-  const statusBadges = computeStatusBadges({ ...live.user, isLive: true, liveId: live._id });
+  const statusBadges = computeStatusBadges(
+    { ...live.user, isLive: true, liveId: live._id },
+    { viewerCount: live.viewerCount, giftsTotal: live.giftsTotal },
+  );
 
   return (
     <>

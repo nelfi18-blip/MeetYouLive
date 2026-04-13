@@ -28,6 +28,7 @@ const coinTransactionSchema = new mongoose.Schema(
         "simulation_unlock",
         "like_unlock",
         "referral_reward",
+        "mission_reward",
       ],
       required: true,
     },

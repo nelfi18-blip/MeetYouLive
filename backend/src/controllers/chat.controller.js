@@ -1,5 +1,6 @@
 const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
+const { trackEvent } = require("../services/missions.service.js");
 
 const getChats = async (req, res) => {
   try {
@@ -107,6 +108,9 @@ const sendMessage = async (req, res) => {
 
     const populated = await Message.findById(message._id).populate("sender", "username name");
     res.status(201).json(populated);
+
+    // Track chat mission progress (fire-and-forget)
+    trackEvent(req.userId, "message").catch(() => {});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

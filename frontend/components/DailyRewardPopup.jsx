@@ -189,6 +189,8 @@ export default function DailyRewardPopup({ onClaimed }) {
   const streak = claimResult?.streak ?? rewardData?.streak ?? 0;
   const coins = claimed ? claimResult?.coinsAwarded : rewardData?.coinsToAward ?? 20;
   const balance = claimResult?.newBalance;
+  // nextMilestone from claim result or pre-claim status
+  const nextMilestone = claimResult?.nextMilestone ?? rewardData?.nextMilestone ?? null;
 
   return (
     <div className="dr-backdrop" onClick={handleClose} role="dialog" aria-modal="true" aria-label="Recompensa diaria">
@@ -218,6 +220,16 @@ export default function DailyRewardPopup({ onClaimed }) {
               <div className="dr-streak">
                 <span className="dr-streak-flame">🔥</span>
                 <span className="dr-streak-text">Racha actual: <strong>{streak} {streak === 1 ? "día" : "días"}</strong></span>
+              </div>
+            )}
+
+            {/* Next streak milestone */}
+            {nextMilestone?.day && (
+              <div className="dr-milestone">
+                <span className="dr-milestone-icon">🔓</span>
+                <span className="dr-milestone-text">
+                  Día {nextMilestone.day} → <strong>+{nextMilestone.coins} monedas</strong>
+                </span>
               </div>
             )}
 
@@ -259,6 +271,16 @@ export default function DailyRewardPopup({ onClaimed }) {
               <div className="dr-streak dr-streak-success">
                 <span className="dr-streak-flame">🔥</span>
                 <span className="dr-streak-text">Racha: <strong>{streak} {streak === 1 ? "día" : "días"} seguidos</strong> — ¡sigue así!</span>
+              </div>
+            )}
+
+            {/* Next streak milestone */}
+            {nextMilestone?.day && (
+              <div className="dr-milestone dr-milestone-success">
+                <span className="dr-milestone-icon">🔓</span>
+                <span className="dr-milestone-text">
+                  Siguiente recompensa en día {nextMilestone.day}: <strong>+{nextMilestone.coins} monedas</strong>
+                </span>
               </div>
             )}
 
@@ -460,6 +482,32 @@ export default function DailyRewardPopup({ onClaimed }) {
             font-weight: 600;
           }
           .dr-streak-success .dr-streak-text { color: #34d399; }
+
+          /* ── Next milestone ─────────────────────────────── */
+          .dr-milestone {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.8rem;
+            background: rgba(139,92,246,0.08);
+            border: 1px solid rgba(139,92,246,0.22);
+            border-radius: var(--radius-pill);
+            margin-bottom: 0.8rem;
+          }
+          .dr-milestone-success {
+            background: rgba(139,92,246,0.1);
+            border-color: rgba(139,92,246,0.3);
+          }
+          .dr-milestone-icon { font-size: 0.9rem; }
+          .dr-milestone-text {
+            font-size: 0.76rem;
+            color: rgba(255,255,255,0.55);
+            font-weight: 500;
+          }
+          .dr-milestone-text strong {
+            color: #a78bfa;
+            font-weight: 700;
+          }
 
           /* ── Subtext ────────────────────────────────────── */
           .dr-sub {

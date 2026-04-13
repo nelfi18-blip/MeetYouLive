@@ -54,7 +54,8 @@ const TOP_SUPPORT_GIFTS_THRESHOLD = 50;
  * @returns {StatusBadge[]}
  */
 export function computeStatusBadges(user, opts = {}) {
-  if (!user) return [];
+  try {
+  if (!user || typeof user !== "object") return [];
 
   const badges = [];
 
@@ -154,6 +155,9 @@ export function computeStatusBadges(user, opts = {}) {
   }
 
   return badges;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -164,6 +168,7 @@ export function computeStatusBadges(user, opts = {}) {
  * @returns {{ show: boolean, text: string, href: string } | null}
  */
 export function getBoostNudge(badges) {
+  if (!Array.isArray(badges)) return null;
   if (badges.length > 0) return null;
   return {
     show: true,

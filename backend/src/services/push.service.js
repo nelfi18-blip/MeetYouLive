@@ -31,17 +31,22 @@ const PushAnalytic = require("../models/PushAnalytic.js");
 const { sendPush } = require("../lib/fcm.js");
 
 // Priority order (lower number = higher priority)
-const PRIORITY = { match: 1, like: 2, live: 3, reward: 4 };
+const PRIORITY = { match: 1, like: 2, live: 3, reward: 4, reactivation: 5 };
 
 // Buffer delay before a queued event becomes eligible for dispatch.
-// Matches/live/reward are sent on the next flush (≤ 5 min).
+// Matches/live/reward/reactivation are sent on the next flush (≤ 5 min).
 // Likes are held for one 5-minute slot so consecutive likes can be aggregated.
 const BUFFER_MS = {
   match: 0,
   like: 5 * 60 * 1000,
   live: 0,
   reward: 0,
+  reactivation: 0,
 };
+
+// If the user was active within this window (ms) we skip the push entirely.
+// Avoids notifying users who are already using the app.
+const ACTIVE_SUPPRESS_MS = 5 * 60 * 1000;
 
 // Reminder window: send follow-up between 2 h and 4 h after delivery.
 const REMINDER_MIN_MS = 2 * 60 * 60 * 1000;
@@ -175,7 +180,9 @@ async function sendReminderPushes() {
 
 async function _processUserEvents(uid, userEvents, now) {
   try {
-    const user = await User.findById(uid).select("pushToken pushSettings").lean();
+    const user = await User.findById(uid)
+      .select("pushToken pushSettings lastActiveAt")
+      .lean();
 
     if (!user?.pushToken) {
       await _cancelEvents(userEvents.map((e) => e._id));
@@ -183,6 +190,15 @@ async function _processUserEvents(uid, userEvents, now) {
     }
 
     if (!user.pushSettings?.enabled && user.pushSettings?.enabled !== undefined) {
+      await _cancelEvents(userEvents.map((e) => e._id));
+      return;
+    }
+
+    // Suppress pushes if the user is actively using the app right now
+    if (
+      user.lastActiveAt &&
+      now - new Date(user.lastActiveAt) < ACTIVE_SUPPRESS_MS
+    ) {
       await _cancelEvents(userEvents.map((e) => e._id));
       return;
     }
@@ -287,8 +303,15 @@ function _buildAggregatedPayload(type, events) {
       };
     }
     return {
-      title: "💖 ¡Te están gustando mucho!",
-      body: `Tienes ${count} nuevos likes esperándote`,
+      title: `🔥 ${count} personas quieren conocerte`,
+      body: "¡No los dejes esperando!",
+    };
+  }
+
+  if (type === "reactivation") {
+    return {
+      title: events[0].payload.title || "🚀 Tu perfil puede destacar ahora",
+      body: events[0].payload.body || "¡Vuelve y conecta con alguien hoy!",
     };
   }
 
@@ -308,8 +331,8 @@ function _buildReminderPayload(ev) {
       body: "¡No dejes que se enfríe! Empieza a chatear ahora",
     },
     like: {
-      title: "💖 Alguien sigue pensando en ti",
-      body: "Tienes likes sin revisar. ¡Échales un vistazo!",
+      title: "⏳ Aún tienes likes sin ver",
+      body: "Alguien sigue esperando tu respuesta 💖",
     },
     live: {
       title: "🚀 El directo sigue en marcha",
@@ -318,6 +341,10 @@ function _buildReminderPayload(ev) {
     reward: {
       title: "🎁 Tu recompensa diaria te espera",
       body: "¡Reclama tus monedas antes de que pierdas tu racha!",
+    },
+    reactivation: {
+      title: "🚀 Tu perfil puede destacar ahora",
+      body: "¡No pierdas la oportunidad de conectar hoy!",
     },
   };
   return messages[type] || { title: "MeetYouLive", body: ev.payload?.body || "" };

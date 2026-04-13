@@ -33,7 +33,7 @@ export default function LivePage() {
       .then((data) => {
         if (data?.onlineCount) setOnlineCount(Math.max(data.onlineCount, ONLINE_FLOOR));
       })
-      .catch(() => {});
+      .catch((err) => console.error("[LivePage] activity stats fetch failed:", err));
   }, []);
 
   const trendingLives = lives.slice(0, TRENDING_COUNT);
@@ -120,8 +120,8 @@ export default function LivePage() {
 
           {/* FOMO indicators */}
           <div className="empty-fomo-row">
-            <span className="fomo-pill fomo-fire">🔥 {onlineCount} personas conectadas ahora</span>
-            <span className="fomo-pill fomo-cam">🎥 Nuevos lives pronto</span>
+            <span className="fomo-pill fomo-fire" aria-label={`${onlineCount} personas conectadas ahora`}>🔥 {onlineCount} personas conectadas ahora</span>
+            <span className="fomo-pill fomo-cam" role="status" aria-label="Nuevos lives pronto">🎥 Nuevos lives pronto</span>
           </div>
 
           <div className="empty-actions">

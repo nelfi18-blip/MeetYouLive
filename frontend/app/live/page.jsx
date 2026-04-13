@@ -84,6 +84,7 @@ export default function LivePage() {
 
   const trendingLives = lives.slice(0, TRENDING_COUNT);
   const restLives = lives.slice(TRENDING_COUNT);
+  const totalViewers = lives.reduce((sum, l) => sum + (l.viewerCount || 0), 0);
 
   return (
     <div className="live-page">
@@ -106,12 +107,14 @@ export default function LivePage() {
                 : "No hay directos activos — vuelve pronto"}
           </p>
         </div>
-        <Link href="/explore" className="live-hero-cta">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          Explorar todo
-        </Link>
+        <div className="live-hero-actions">
+          <Link href="/live/start" className="live-hero-start">
+            🚀 Iniciar Live
+          </Link>
+          <Link href="/explore" className="live-hero-cta">
+            🔥 Ver todos los lives →
+          </Link>
+        </div>
       </div>
 
       {error && <div className="banner-error">{error}</div>}
@@ -129,6 +132,16 @@ export default function LivePage() {
             <h2 className="section-title">🔴 En vivo ahora</h2>
             <span className="section-count">{loading ? "" : `${trendingLives.length} stream${trendingLives.length !== 1 ? "s" : ""}`}</span>
           </div>
+
+          {!loading && lives.length > 0 && (
+            <div className="urgency-strip">
+              <span className="urgency-pill urgency-clock">⏳ Live activo ahora</span>
+              <span className="urgency-pill urgency-fire">🔥 Únete antes que termine</span>
+              {totalViewers > 0 && (
+                <span className="urgency-pill urgency-chat">💬 {totalViewers} personas dentro</span>
+              )}
+            </div>
+          )}
 
           <div className="trending-grid">
             {loading
@@ -278,6 +291,41 @@ export default function LivePage() {
           margin: 0;
         }
 
+        .live-hero-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          flex-wrap: wrap;
+          position: relative;
+          z-index: 1;
+          flex-shrink: 0;
+        }
+
+        .live-hero-start {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.55rem 1.25rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 800;
+          text-decoration: none;
+          letter-spacing: 0.02em;
+          box-shadow: 0 0 18px rgba(224,64,251,0.35);
+          transition: box-shadow 0.2s, transform 0.15s;
+        }
+
+        .live-hero-start:hover {
+          box-shadow: 0 0 30px rgba(224,64,251,0.55);
+          transform: translateY(-2px);
+        }
+
+        .live-hero-start:active {
+          transform: scale(0.97);
+        }
+
         .live-hero-cta {
           display: inline-flex;
           align-items: center;
@@ -291,15 +339,49 @@ export default function LivePage() {
           font-weight: 700;
           text-decoration: none;
           transition: all 0.2s;
-          position: relative;
-          z-index: 1;
-          flex-shrink: 0;
         }
 
         .live-hero-cta:hover {
           background: rgba(139,92,246,0.22);
           border-color: rgba(139,92,246,0.65);
           box-shadow: 0 0 16px rgba(139,92,246,0.25);
+        }
+
+        /* Urgency strip */
+        .urgency-strip {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .urgency-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 0.24rem 0.7rem;
+          border-radius: 999px;
+          white-space: nowrap;
+        }
+
+        .urgency-clock {
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.3);
+          color: #fde68a;
+        }
+
+        .urgency-fire {
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.28);
+          color: #fca5a5;
+        }
+
+        .urgency-chat {
+          background: rgba(139,92,246,0.1);
+          border: 1px solid rgba(139,92,246,0.28);
+          color: #c4b5fd;
         }
 
         /* Section blocks */

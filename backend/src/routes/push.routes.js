@@ -35,7 +35,7 @@ router.get("/settings", pushLimiter, verifyToken, async (req, res) => {
       enabled: user.pushSettings?.enabled !== false,
       categories: user.pushSettings?.categories?.length
         ? user.pushSettings.categories
-        : ["match", "like", "live", "reward"],
+        : ["match", "like", "live", "reward", "reactivation"],
     };
     res.json(settings);
   } catch (err) {
@@ -43,7 +43,7 @@ router.get("/settings", pushLimiter, verifyToken, async (req, res) => {
   }
 });
 
-const ALLOWED_CATEGORIES = ["match", "like", "live", "reward"];
+const ALLOWED_CATEGORIES = ["match", "like", "live", "reward", "reactivation"];
 
 router.patch("/settings", pushLimiter, verifyToken, async (req, res) => {
   try {

@@ -2,7 +2,7 @@ const User = require("../models/User.js");
 const Like = require("../models/Like.js");
 const Chat = require("../models/Chat.js");
 const { sendReactivationEmail } = require("./email.service.js");
-const { sendPush } = require("../lib/fcm.js");
+const { queueEvent } = require("./push.service.js");
 
 const H24 = 24 * 60 * 60 * 1000;
 const H48 = 48 * 60 * 60 * 1000;
@@ -72,13 +72,22 @@ async function runReactivationJob() {
 
       await sendReactivationEmail(user.email, displayName, day, likesCount, matchesCount);
 
-      // FCM push for inactivity (fire-and-forget)
+      // Queue FCM push for inactivity through the smart push engine.
+      // This ensures settings respect, rate limiting, and analytics tracking.
       if (user.pushToken) {
         const pushBody = likesCount > 0
           ? `Tienes ${likesCount} like${likesCount !== 1 ? "s" : ""} esperándote 💖`
-          : "Te echamos de menos. ¡Vuelve a conectarte!";
-        sendPush(user._id, user.pushToken, "🚀 Tu perfil puede destacar ahora", pushBody, { link: "/crush" })
-          .catch(() => {});
+          : "¡Vuelve y conecta con alguien hoy!";
+        queueEvent(
+          user._id,
+          "reactivation",
+          {
+            title: "🚀 Tu perfil puede destacar ahora",
+            body: pushBody,
+            data: { link: "/crush" },
+          },
+          { inactiveDay: day, likesCount, matchesCount }
+        ).catch(() => {});
       }
 
       // Mark this day-window as sent.

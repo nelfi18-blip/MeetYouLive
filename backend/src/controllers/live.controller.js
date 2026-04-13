@@ -67,7 +67,7 @@ const startLive = async (req, res) => {
     if (followerIds.length > 0) {
       sendMulticastPush(
         followerIds,
-        `🚀 ${creatorUsername || "Un creador"} está en vivo`,
+        `🎥 ${creatorUsername || "Un creador"} está en vivo ahora`,
         live.title || "¡No te lo pierdas!",
         { link: `/live/${String(live._id)}` },
         "live"

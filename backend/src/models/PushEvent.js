@@ -10,7 +10,7 @@ const mongoose = require("mongoose");
  *    not opened the notification (openedAt is still null).
  *
  * Priority values map to the required delivery order:
- *  1 = match · 2 = like · 3 = live · 4 = reward
+ *  1 = match · 2 = like · 3 = live · 4 = reward · 5 = reactivation
  */
 const pushEventSchema = new mongoose.Schema(
   {
@@ -22,7 +22,7 @@ const pushEventSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["match", "like", "live", "reward"],
+      enum: ["match", "like", "live", "reward", "reactivation"],
       required: true,
     },
     priority: { type: Number, required: true },

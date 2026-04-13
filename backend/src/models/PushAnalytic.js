@@ -23,7 +23,7 @@ const pushAnalyticSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["match", "like", "live", "reward"],
+      enum: ["match", "like", "live", "reward", "reactivation"],
       required: true,
     },
     action: {

@@ -9,6 +9,7 @@ const migrateCreatorPending = require(path.join(__dirname, "src", "utils", "migr
 const { initSocket } = require(path.join(__dirname, "src", "lib", "socket"));
 const { startReactivationJob } = require(path.join(__dirname, "src", "jobs", "reactivation.job"));
 const { startPushJob } = require(path.join(__dirname, "src", "jobs", "push.job"));
+const { startDailyRewardReminderJob } = require(path.join(__dirname, "src", "jobs", "dailyRewardReminder.job"));
 
 const PORT = process.env.PORT || 10000;
 
@@ -22,6 +23,7 @@ connectDB()
     await migrateCreatorPending();
     startReactivationJob();
     startPushJob();
+    startDailyRewardReminderJob();
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Servidor MeetYouLive listo en puerto ${PORT}`);

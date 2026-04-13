@@ -10,10 +10,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TRENDING_COUNT = 3;
 
+const ONLINE_FLOOR = 12;
+
 export default function LivePage() {
   const [lives, setLives] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [onlineCount, setOnlineCount] = useState(ONLINE_FLOOR);
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives`)
@@ -24,6 +27,13 @@ export default function LivePage() {
       .then((data) => setLives(Array.isArray(data) ? data : []))
       .catch(() => setError("No se pudo cargar la lista de directos"))
       .finally(() => setLoading(false));
+
+    fetch(`${API_URL}/api/stats/activity`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.onlineCount) setOnlineCount(Math.max(data.onlineCount, ONLINE_FLOOR));
+      })
+      .catch((err) => console.error("[LivePage] activity stats fetch failed:", err));
   }, []);
 
   const trendingLives = lives.slice(0, TRENDING_COUNT);
@@ -99,15 +109,31 @@ export default function LivePage() {
 
       {!loading && lives.length === 0 && !error && (
         <div className="empty-state">
+          <div className="empty-glow" />
+
           <div className="empty-icon-wrap">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
-              <polygon points="23 7 16 12 23 17 23 7"/>
-              <rect x="1" y="5" width="15" height="14" rx="2"/>
-            </svg>
+            <span className="empty-icon-emoji">🎥</span>
           </div>
-          <h3>No hay directos activos</h3>
-          <p>Vuelve más tarde o explora el contenido disponible.</p>
-          <Link href="/explore" className="btn btn-primary">Explorar</Link>
+
+          <h3 className="empty-title">No hay directos ahora mismo</h3>
+          <p className="empty-sub">💫 Sé el primero en comenzar uno y destacar</p>
+
+          {/* FOMO indicators */}
+          <div className="empty-fomo-row">
+            <span className="fomo-pill fomo-fire" aria-label={`${onlineCount} personas conectadas ahora`}>🔥 {onlineCount} personas conectadas ahora</span>
+            <span className="fomo-pill fomo-cam" role="status" aria-label="Nuevos lives pronto">🎥 Nuevos lives pronto</span>
+          </div>
+
+          <div className="empty-actions">
+            <Link href="/live/start" className="btn-start-live">
+              🚀 Iniciar Live
+            </Link>
+            <Link href="/explore" className="btn-explore-alt">
+              Explorar creadores
+            </Link>
+          </div>
+
+          <p className="empty-hint">También puedes ver vídeos recientes o seguir a tus creadores favoritos</p>
         </div>
       )}
 
@@ -293,30 +319,165 @@ export default function LivePage() {
         }
 
         .empty-state {
+          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 1rem;
-          padding: 4rem 2rem;
+          padding: 4rem 2rem 3rem;
           text-align: center;
-          border: 1px dashed rgba(139,92,246,0.2);
+          border: 1px solid rgba(224,64,251,0.2);
           border-radius: var(--radius);
-          background: rgba(15,8,32,0.4);
+          background: linear-gradient(135deg, rgba(30,8,55,0.6) 0%, rgba(14,4,32,0.7) 100%);
+          overflow: hidden;
+        }
+
+        .empty-glow {
+          position: absolute;
+          top: -80px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 320px;
+          height: 320px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(224,64,251,0.12) 0%, transparent 65%);
+          pointer-events: none;
         }
 
         .empty-icon-wrap {
-          width: 72px;
-          height: 72px;
+          width: 80px;
+          height: 80px;
           border-radius: 50%;
-          background: rgba(139,92,246,0.08);
-          border: 1px solid rgba(139,92,246,0.15);
+          background: rgba(224,64,251,0.1);
+          border: 1px solid rgba(224,64,251,0.25);
           display: flex;
           align-items: center;
           justify-content: center;
+          position: relative;
+          z-index: 1;
         }
 
-        .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }
-        .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
+        .empty-icon-emoji {
+          font-size: 2rem;
+          line-height: 1;
+          animation: emptyIconPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes emptyIconPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.12); }
+        }
+
+        .empty-title {
+          color: var(--text);
+          font-size: 1.25rem;
+          font-weight: 900;
+          margin: 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .empty-sub {
+          color: var(--text-muted);
+          font-size: 0.925rem;
+          margin: 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .empty-fomo-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          justify-content: center;
+          position: relative;
+          z-index: 1;
+        }
+
+        .fomo-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.28rem 0.75rem;
+          border-radius: 999px;
+        }
+
+        .fomo-fire {
+          background: rgba(239,68,68,0.12);
+          border: 1px solid rgba(239,68,68,0.3);
+          color: #fca5a5;
+        }
+
+        .fomo-cam {
+          background: rgba(139,92,246,0.1);
+          border: 1px solid rgba(139,92,246,0.28);
+          color: #c4b5fd;
+        }
+
+        .empty-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+          justify-content: center;
+          position: relative;
+          z-index: 1;
+        }
+
+        .btn-start-live {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.65rem 1.5rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          color: #fff;
+          font-size: 0.9rem;
+          font-weight: 800;
+          text-decoration: none;
+          letter-spacing: 0.02em;
+          box-shadow: 0 0 22px rgba(224,64,251,0.35);
+          transition: box-shadow 0.2s, transform 0.15s;
+        }
+
+        .btn-start-live:hover {
+          box-shadow: 0 0 36px rgba(224,64,251,0.55);
+          transform: translateY(-2px);
+        }
+
+        .btn-start-live:active {
+          transform: scale(0.97);
+        }
+
+        .btn-explore-alt {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.65rem 1.25rem;
+          border-radius: 999px;
+          border: 1px solid rgba(139,92,246,0.35);
+          background: rgba(139,92,246,0.08);
+          color: #c4b5fd;
+          font-size: 0.85rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.18s;
+        }
+
+        .btn-explore-alt:hover {
+          background: rgba(139,92,246,0.18);
+          border-color: rgba(139,92,246,0.55);
+        }
+
+        .empty-hint {
+          color: var(--text-dim);
+          font-size: 0.78rem;
+          margin: 0;
+          position: relative;
+          z-index: 1;
+        }
       `}</style>
     </div>
   );

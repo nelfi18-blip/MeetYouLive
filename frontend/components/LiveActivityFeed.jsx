@@ -105,9 +105,8 @@ export default function LiveActivityFeed({ lives = [], newLiveIds = [] }) {
           ev = liveToEvent(live, false);
           // Avoid repeating the exact same event at the top
           if (prev[0]?.id === ev.id) {
-            ev = currentLives.length > 1
-              ? liveToEvent(currentLives.find((l) => l._id !== live._id) || live, false)
-              : generateFakeEvent();
+            const others = currentLives.filter((l) => String(l._id) !== String(live._id));
+            ev = others.length > 0 ? liveToEvent(randomItem(others), false) : generateFakeEvent();
           }
         } else {
           ev = generateFakeEvent();

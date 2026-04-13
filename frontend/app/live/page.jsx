@@ -37,26 +37,27 @@ export default function LivePage() {
       } else {
         // Subsequent polls — detect genuinely new lives
         const added = freshIds.filter((id) => !knownIdsRef.current.includes(id));
-        if (added.length > 0 || fresh.length !== knownIdsRef.current.length) {
-          knownIdsRef.current = freshIds;
+        const changed = added.length > 0 || fresh.length !== knownIdsRef.current.length;
+        knownIdsRef.current = freshIds;
+        if (changed) {
           setLives(fresh);
-          if (added.length > 0) {
-            setNewLiveIds(added);
-            // Trigger in-app notification for each new live (up to 2)
-            added.slice(0, 2).forEach((id) => {
-              const live = fresh.find((l) => String(l._id) === id);
-              if (!live) return;
-              const username = live.user?.username || live.user?.name || "Un creador";
-              notify({
-                icon: "🔥",
-                message: `${username} acaba de iniciar un live`,
-                href: `/live/${id}`,
-                actionLabel: "Entrar al live",
-                duration: 7000,
-                dedupKey: `live_poll_${id}`,
-              });
+        }
+        if (added.length > 0) {
+          setNewLiveIds(added);
+          // Trigger in-app notification for each new live (up to 2)
+          added.slice(0, 2).forEach((id) => {
+            const live = fresh.find((l) => String(l._id) === id);
+            if (!live) return;
+            const username = live.user?.username || live.user?.name || "Un creador";
+            notify({
+              icon: "🔥",
+              message: `${username} acaba de iniciar un live`,
+              href: `/live/${id}`,
+              actionLabel: "Entrar al live",
+              duration: 7000,
+              dedupKey: `live_poll_${id}`,
             });
-          }
+          });
         }
       }
     } catch {

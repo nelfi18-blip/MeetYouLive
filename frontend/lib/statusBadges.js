@@ -70,11 +70,13 @@ export function computeStatusBadges(user, opts = {}) {
   if (boostActive) {
     let boostTooltip = "Perfil destacado por Boost activo";
     if (boostUntil && boostUntil > new Date()) {
-      const minsLeft = Math.max(1, Math.round((boostUntil.getTime() - Date.now()) / 60_000));
-      boostTooltip =
-        minsLeft < 60
-          ? `Boost activo · quedan ~${minsLeft} min`
-          : `Boost activo · quedan ~${Math.round(minsLeft / 60)}h`;
+      const minsLeft = Math.round((boostUntil.getTime() - Date.now()) / 60_000);
+      if (minsLeft > 0) {
+        boostTooltip =
+          minsLeft < 60
+            ? `Boost activo · quedan ~${minsLeft} min`
+            : `Boost activo · quedan ~${Math.round(minsLeft / 60)}h`;
+      }
     }
     badges.push({
       id: "boost",

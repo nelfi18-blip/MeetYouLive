@@ -7,6 +7,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
+const { trackEvent } = require("../services/missions.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -245,6 +246,9 @@ const sendGift = async (req, res) => {
     }
 
     res.status(201).json(giftDoc);
+
+    // Track gift mission progress (fire-and-forget)
+    trackEvent(req.userId, "gift").catch(() => {});
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });
@@ -330,6 +334,9 @@ const sendGiftBySlug = async (req, res) => {
     }
 
     res.status(201).json(giftDoc);
+
+    // Track gift mission progress (fire-and-forget)
+    trackEvent(req.userId, "gift").catch(() => {});
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });

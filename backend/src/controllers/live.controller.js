@@ -4,6 +4,7 @@ const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const { getIO } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
+const { trackEvent } = require("../services/missions.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -163,6 +164,7 @@ const joinLive = async (req, res) => {
       const liveObj = live.toObject();
       delete liveObj.paidViewers;
       liveObj.hasAccess = true;
+      trackEvent(req.userId, "live_join").catch(() => {});
       return res.json(liveObj);
     }
 
@@ -179,6 +181,7 @@ const joinLive = async (req, res) => {
       const liveObj = live.toObject();
       delete liveObj.paidViewers;
       liveObj.hasAccess = true;
+      trackEvent(req.userId, "live_join").catch(() => {});
       return res.json(liveObj);
     }
 
@@ -210,6 +213,7 @@ const joinLive = async (req, res) => {
     const liveObj = live.toObject();
     delete liveObj.paidViewers;
     liveObj.hasAccess = true;
+    trackEvent(req.userId, "live_join").catch(() => {});
     res.json(liveObj);
   } catch (err) {
     res.status(500).json({ message: err.message });

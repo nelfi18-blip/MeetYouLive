@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
+import DailyMissions from "@/components/DailyMissions";
 import OnlineUsers from "@/components/OnlineUsers";
 import ActivityBar from "@/components/ActivityBar";
 import ReferralCard from "@/components/ReferralCard";
@@ -565,6 +566,9 @@ export default function DashboardPage() {
 
       {/* ── 📊 ACTIVITY SIGNALS — social proof bar ── */}
       <ActivityBar variant="strip" />
+
+      {/* ── 🎯 DAILY MISSIONS ── */}
+      {user && <DailyMissions />}
 
       {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
       <Link href="/rooms" className="confidence-entry-card">

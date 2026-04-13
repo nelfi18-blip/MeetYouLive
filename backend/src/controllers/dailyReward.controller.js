@@ -3,7 +3,29 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { queueEvent } = require("../services/push.service.js");
 
-const DAILY_REWARD_COINS = 20;
+/**
+ * Coins awarded per streak day (tiered).
+ * Día 1 → 20, Día 3 → 35, Día 7 → 50, Día 14 → 75, Día 30 → 100
+ */
+function getStreakCoins(streak) {
+  if (streak >= 30) return 100;
+  if (streak >= 14) return 75;
+  if (streak >= 7)  return 50;
+  if (streak >= 3)  return 35;
+  return 20;
+}
+
+/**
+ * Returns the next streak milestone after the given streak value,
+ * along with the coins that will be awarded at that milestone.
+ */
+function getNextMilestone(streak) {
+  const milestones = [3, 7, 14, 30];
+  for (const m of milestones) {
+    if (streak < m) return { day: m, coins: getStreakCoins(m) };
+  }
+  return { day: null, coins: 100 }; // already at max tier
+}
 
 /**
  * Returns whether the authenticated user can claim today's daily reward,
@@ -15,11 +37,17 @@ const getDailyRewardStatus = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const canClaim = !isSameCalendarDay(user.lastDailyRewardClaimAt);
+    const streak = user.dailyRewardStreak || 0;
+    // Preview the coins for the NEXT claim (streak+1 if claimable, current if already claimed)
+    const previewStreak = canClaim ? streak + 1 : streak;
+    const coinsToAward = getStreakCoins(previewStreak);
+    const nextMilestone = getNextMilestone(previewStreak);
 
     res.json({
       canClaim,
-      streak: user.dailyRewardStreak || 0,
-      coinsToAward: DAILY_REWARD_COINS,
+      streak,
+      coinsToAward,
+      nextMilestone,
       lastClaimedAt: user.lastDailyRewardClaimAt || null,
     });
   } catch (err) {
@@ -51,9 +79,10 @@ const claimDailyReward = async (req, res) => {
 
     const isConsecutiveDay = isYesterday(user.lastDailyRewardClaimAt);
     const newStreak = isConsecutiveDay ? (user.dailyRewardStreak || 0) + 1 : 1;
+    const coinsAwarded = getStreakCoins(newStreak);
     const claimedAt = new Date();
 
-    user.coins += DAILY_REWARD_COINS;
+    user.coins += coinsAwarded;
     user.lastDailyRewardClaimAt = claimedAt;
     user.dailyRewardStreak = newStreak;
     await user.save({ session });
@@ -63,7 +92,7 @@ const claimDailyReward = async (req, res) => {
         {
           userId: user._id,
           type: "daily_reward",
-          amount: DAILY_REWARD_COINS,
+          amount: coinsAwarded,
           reason: `Daily reward – day ${newStreak} streak`,
           status: "completed",
           metadata: { streak: newStreak },
@@ -81,16 +110,19 @@ const claimDailyReward = async (req, res) => {
       "reward",
       {
         title: "🎁 ¡Recompensa diaria reclamada!",
-        body: `+${DAILY_REWARD_COINS} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
+        body: `+${coinsAwarded} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
         data: { link: "/daily-reward" },
       },
-      { streak: newStreak, coins: DAILY_REWARD_COINS }
+      { streak: newStreak, coins: coinsAwarded }
     ).catch(() => {});
 
+    const nextMilestone = getNextMilestone(newStreak);
+
     res.json({
-      coinsAwarded: DAILY_REWARD_COINS,
+      coinsAwarded,
       newBalance: user.coins,
       streak: newStreak,
+      nextMilestone,
       claimedAt,
     });
   } catch (err) {

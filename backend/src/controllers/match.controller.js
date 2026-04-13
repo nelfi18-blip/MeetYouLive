@@ -9,6 +9,7 @@ const { calculateSplit } = require("../services/agency.service.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getIO } = require("../lib/socket.js");
 const { queueEvent } = require("../services/push.service.js");
+const { trackEvent } = require("../services/missions.service.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -128,9 +129,13 @@ exports.likeUser = async (req, res) => {
     }
 
     res.json({ match: !!mutual });
+
+    // Track swipe mission progress (fire-and-forget)
+    trackEvent(req.userId, "swipe").catch(() => {});
   } catch (err) {
     if (err.code === 11000) {
       const mutual = await Like.findOne({ from: userId, to: req.userId });
+      trackEvent(req.userId, "swipe").catch(() => {});
       return res.json({ match: !!mutual });
     }
     res.status(500).json({ message: err.message });

@@ -3,12 +3,15 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { queueEvent } = require("../services/push.service.js");
 
+// Maximum daily reward coins (awarded at streak >= 30 days)
+const MAX_STREAK_TIER_COINS = 100;
+
 /**
  * Coins awarded per streak day (tiered).
  * Día 1 → 20, Día 3 → 35, Día 7 → 50, Día 14 → 75, Día 30 → 100
  */
 function getStreakCoins(streak) {
-  if (streak >= 30) return 100;
+  if (streak >= 30) return MAX_STREAK_TIER_COINS;
   if (streak >= 14) return 75;
   if (streak >= 7)  return 50;
   if (streak >= 3)  return 35;
@@ -24,7 +27,7 @@ function getNextMilestone(streak) {
   for (const m of milestones) {
     if (streak < m) return { day: m, coins: getStreakCoins(m) };
   }
-  return { day: null, coins: 100 }; // already at max tier
+  return { day: null, coins: MAX_STREAK_TIER_COINS }; // already at max tier
 }
 
 /**

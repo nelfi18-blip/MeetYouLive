@@ -11,6 +11,6 @@ const missionsLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.get("/today", verifyToken, missionsLimiter, getTodayMissions);
+router.get("/today", missionsLimiter, verifyToken, getTodayMissions);
 
 module.exports = router;

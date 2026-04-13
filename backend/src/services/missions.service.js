@@ -153,7 +153,7 @@ async function tryAwardMissionReward(userId, doc, missionId, def) {
     // Roll back the rewarded flag so a retry can succeed
     await UserMissions.findByIdAndUpdate(doc._id, {
       $set: { [rewardedKey]: false },
-    }).catch(() => {});
+    }).catch((rollbackErr) => console.error("[missions] Failed to roll back rewarded flag:", rollbackErr.message));
     return false;
   } finally {
     session.endSession();
@@ -205,7 +205,9 @@ async function tryAwardAllMissionsBonus(userId, date) {
   } catch (err) {
     await session.abortTransaction();
     console.error("[missions] Failed to award all-missions bonus:", err.message);
-    await UserMissions.findOneAndUpdate({ userId, date }, { $set: { bonusRewarded: false } }).catch(() => {});
+    await UserMissions.findOneAndUpdate({ userId, date }, { $set: { bonusRewarded: false } }).catch(
+      (rollbackErr) => console.error("[missions] Failed to roll back bonusRewarded flag:", rollbackErr.message)
+    );
   } finally {
     session.endSession();
   }

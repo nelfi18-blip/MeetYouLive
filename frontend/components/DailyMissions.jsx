@@ -31,10 +31,12 @@ export default function DailyMissions() {
       setData((prev) => {
         // Fire notification if a new mission was just completed
         if (prev) {
-          const prevCompleted = prev.completedCount;
-          if (json.completedCount > prevCompleted) {
+          const prevCompletedIds = new Set(
+            prev.missions.filter((pm) => pm.completed).map((pm) => pm.id)
+          );
+          if (json.completedCount > prev.completedCount) {
             const justDone = json.missions.find(
-              (m) => m.completed && !prev.missions.find((pm) => pm.id === m.id)?.completed
+              (m) => m.completed && !prevCompletedIds.has(m.id)
             );
             if (justDone) {
               notify({

@@ -1114,6 +1114,7 @@ function FeaturedCreatorsStrip({ creators }) {
 
 // ─── SwipeCard ────────────────────────────────────────────────────────────────
 function SwipeCard({ user, onPass, onLike }) {
+  // All hooks must be called unconditionally before any early return.
   const cardRef = useRef(null);
   const startXRef = useRef(null);
   const velRef = useRef(0);
@@ -1121,7 +1122,9 @@ function SwipeCard({ user, onPass, onLike }) {
   const [dragDelta, setDragDelta] = useState(0);
   const [dragging, setDragging] = useState(false);
 
-  // Defensive: bail out immediately if user data is missing or not an object
+  // Defensive: bail out immediately if user data is missing or not an object.
+  // NOTE: all hooks above are called unconditionally before this guard —
+  // this satisfies React's Rules of Hooks (early return after all hooks).
   if (!user || typeof user !== "object") return null;
 
   const displayName = user?.username || user?.name || "Usuario";
@@ -1133,7 +1136,7 @@ function SwipeCard({ user, onPass, onLike }) {
   const compatibilityScore = user?.compatibilityScore ?? null;
   const sharedInterests = user?.sharedInterests || [];
   let statusBadges = [];
-  try { statusBadges = computeStatusBadges(user) || []; } catch { statusBadges = []; }
+  try { statusBadges = computeStatusBadges(user) || []; } catch (err) { console.error("StatusBadges computation failed:", err); statusBadges = []; }
 
   const getClientX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 

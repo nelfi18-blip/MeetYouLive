@@ -15,7 +15,7 @@ import { useState } from "react";
  */
 export default function StatusBadges({ badges, compact = false, className = "", style = {} }) {
   // Defensive: tolerate any falsy value passed as badges
-  const safeBadges = Array.isArray(badges) ? badges : [];
+  const safeBadges = Array.isArray(badges) ? badges.filter(Boolean) : [];
   if (safeBadges.length === 0) return null;
 
   return (

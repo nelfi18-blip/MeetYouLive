@@ -1121,15 +1121,19 @@ function SwipeCard({ user, onPass, onLike }) {
   const [dragDelta, setDragDelta] = useState(0);
   const [dragging, setDragging] = useState(false);
 
-  const displayName = user.username || user.name || "Usuario";
-  const age = calcAge(user.birthdate);
-  const isCreator = user.role === "creator";
-  const isLive = isCreator && user.isLive && user.liveId;
-  const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
-  const pricePerMinute = user.creatorProfile?.pricePerMinute ?? 0;
+  // Defensive: bail out immediately if user data is missing or not an object
+  if (!user || typeof user !== "object") return null;
+
+  const displayName = user?.username || user?.name || "Usuario";
+  const age = calcAge(user?.birthdate);
+  const isCreator = user?.role === "creator";
+  const isLive = isCreator && !!user?.isLive && !!user?.liveId;
+  const privateCallEnabled = isCreator && user?.creatorProfile?.privateCallEnabled;
+  const pricePerMinute = user?.creatorProfile?.pricePerMinute ?? 0;
   const compatibilityScore = user?.compatibilityScore ?? null;
   const sharedInterests = user?.sharedInterests || [];
-  const statusBadges = computeStatusBadges(user) || [];
+  let statusBadges = [];
+  try { statusBadges = computeStatusBadges(user) || []; } catch { statusBadges = []; }
 
   const getClientX = (e) => (e.touches ? e.touches[0].clientX : e.clientX);
 
@@ -1154,9 +1158,9 @@ function SwipeCard({ user, onPass, onLike }) {
     const threshold = 75;
     const velocityBoost = dragDelta + velRef.current * 6;
     if (velocityBoost > threshold) {
-      onLike(user._id);
+      onLike(user?._id);
     } else if (velocityBoost < -threshold) {
-      onPass(user._id);
+      onPass(user?._id);
     }
     startXRef.current = null;
     lastXRef.current = null;
@@ -1238,7 +1242,7 @@ function SwipeCard({ user, onPass, onLike }) {
 
         {user.bio && <p className="card-bio">{user.bio}</p>}
 
-        {user.interests?.length > 0 && (
+        {Array.isArray(user.interests) && user.interests.length > 0 && (
           <div className="card-tags">
             {user.interests.slice(0, 4).map((t) => (
               <span key={t} className={`card-tag${sharedInterests.includes(t) ? " card-tag-shared" : ""}`}>{t}</span>
@@ -1249,7 +1253,7 @@ function SwipeCard({ user, onPass, onLike }) {
         {isCreator && (
           <div className="card-creator-row">
             {isLive && (
-              <Link href={`/live/${user.liveId}`} className="creator-action-link creator-live-link">
+              <Link href={`/live/${user?.liveId}`} className="creator-action-link creator-live-link">
                 🔴 Ver en vivo
               </Link>
             )}

@@ -295,6 +295,8 @@ export default function DashboardPage() {
               }
             }
           })
+          .catch((err) => {
+            console.error("[dashboard] backend-token recovery error:", err);
             router.replace("/login");
           })
           .finally(() => setUserLoading(false));

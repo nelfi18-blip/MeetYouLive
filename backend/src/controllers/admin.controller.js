@@ -5,6 +5,7 @@ const Subscription = require("../models/Subscription.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const Gift = require("../models/Gift.js");
 const Payout = require("../models/Payout.js");
+const mongoose = require("mongoose");
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
@@ -95,10 +96,12 @@ exports.getUsers = async (req, res) => {
     if (status === "premium") filter.isPremium = true;
     if (status === "verified") filter.isVerified = true;
     if (search) {
+      // Escape regex special characters to prevent ReDoS
+      const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
-        { username: { $regex: search, $options: "i" } },
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
+        { username: { $regex: safeSearch, $options: "i" } },
+        { name: { $regex: safeSearch, $options: "i" } },
+        { email: { $regex: safeSearch, $options: "i" } },
       ];
     }
 
@@ -429,6 +432,9 @@ exports.updateReport = async (req, res) => {
     if (!status || !ALLOWED_STATUSES.includes(status)) {
       return res.status(400).json({ ok: false, message: "Estado inválido. Usa: pending, reviewed o dismissed" });
     }
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ ok: false, message: "ID de reporte inválido" });
+    }
     const report = await Report.findByIdAndUpdate(
       req.params.id,
       { status },
@@ -488,7 +494,7 @@ exports.getAnalytics = async (req, res) => {
         )
       ),
       Gift.aggregate([
-        { $match: { createdAt: { $gte: new Date(now - 24 * day) } } },
+        { $match: { createdAt: { $gte: new Date(now - day) } } },
         { $group: { _id: "$receiver", totalGifts: { $sum: "$coinCost" }, count: { $sum: 1 } } },
         { $sort: { totalGifts: -1 } },
         { $limit: 5 },
@@ -504,7 +510,7 @@ exports.getAnalytics = async (req, res) => {
         { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
       ]),
       CoinTransaction.aggregate([
-        { $match: { type: "purchase", status: "completed", createdAt: { $gte: new Date(now - 24 * day) } } },
+        { $match: { type: "purchase", status: "completed", createdAt: { $gte: new Date(now - day) } } },
         { $group: { _id: "$userId", totalSpent: { $sum: "$amount" } } },
         { $sort: { totalSpent: -1 } },
         { $limit: 5 },

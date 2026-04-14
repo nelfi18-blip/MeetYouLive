@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
-import { Suspense } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

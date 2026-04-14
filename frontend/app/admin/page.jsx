@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { clearAdminToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -55,7 +57,7 @@ export default function AdminPage() {
       ]);
 
       if ([overviewRes, usersRes, reportsRes, creatorReqRes, verifRes].some((r) => r.status === 401)) {
-        localStorage.removeItem("admin_token");
+        clearAdminToken();
         router.replace("/admin/login");
         return;
       }
@@ -307,14 +309,16 @@ export default function AdminPage() {
   const pendingCreatorCount = creatorRequests.filter((r) => r.creatorStatus === "pending").length;
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1100px", margin: "0 auto", color: "#fff" }}>
-      <h1 style={{ fontSize: "1.8rem", marginBottom: "1.5rem" }}>Panel de Administrador</h1>
+    <div style={{ padding: "0", maxWidth: "1100px", color: "#e2e8f0" }}>
+      <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "1.25rem", color: "#e2e8f0" }}>Panel de Administrador</h1>
 
       {stats && (
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "2rem" }}>
-          <StatCard title="Usuarios" value={stats.users} />
-          <StatCard title="Lives" value={stats.lives} />
-          <StatCard title="Reportes" value={stats.reports} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem" }}>
+          <StatCard title="Usuarios totales" value={stats.users} link="/admin/users" />
+          <StatCard title="Streams activos" value={stats.activeLives ?? 0} highlight={(stats.activeLives ?? 0) > 0} link="/admin/lives" />
+          <StatCard title="Lives totales" value={stats.lives} />
+          <StatCard title="Coins comprados" value={(stats.totalCoinsPurchased ?? 0).toLocaleString()} link="/admin/transactions" />
+          <StatCard title="Reportes" value={stats.reports} highlight={stats.reports > 0} />
           <StatCard title="Suscripciones" value={stats.subscriptions} />
           <StatCard title="Admins" value={stats.admins} />
           <StatCard title="Solicitudes creador" value={pendingCreatorCount} highlight={pendingCreatorCount > 0} />
@@ -324,7 +328,7 @@ export default function AdminPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #334155", paddingBottom: "0.5rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #1e2535", paddingBottom: "0.5rem", flexWrap: "wrap" }}>
         {[
           { key: "users", label: "Usuarios" },
           { key: "creators", label: `Creadores${pendingCreatorCount > 0 ? ` (${pendingCreatorCount})` : ""}` },
@@ -923,22 +927,27 @@ export default function AdminPage() {
   );
 }
 
-function StatCard({ title, value, highlight }) {
-  return (
+function StatCard({ title, value, highlight, link }) {
+  const inner = (
     <div
       style={{
-        background: highlight ? "rgba(251,191,36,0.1)" : "#1e293b",
+        background: highlight ? "rgba(251,191,36,0.1)" : "#161b27",
         borderRadius: "0.75rem",
-        padding: "1.25rem 1.5rem",
-        minWidth: "140px",
+        padding: "1.1rem 1.25rem",
         textAlign: "center",
-        border: highlight ? "1px solid rgba(251,191,36,0.4)" : "1px solid transparent",
+        border: highlight ? "1px solid rgba(251,191,36,0.4)" : "1px solid #1e2535",
+        cursor: link ? "pointer" : "default",
+        transition: link ? "border-color 0.15s" : undefined,
       }}
     >
-      <div style={{ fontSize: "2rem", fontWeight: "700", color: highlight ? "#fbbf24" : undefined }}>{value}</div>
-      <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: "0.25rem" }}>{title}</div>
+      <div style={{ fontSize: "1.75rem", fontWeight: "700", color: highlight ? "#fbbf24" : "#e2e8f0" }}>{value}</div>
+      <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: "0.25rem" }}>{title}</div>
     </div>
   );
+  if (link) {
+    return <Link href={link} style={{ textDecoration: "none" }}>{inner}</Link>;
+  }
+  return inner;
 }
 
 function Th({ children }) {

@@ -10,7 +10,7 @@ const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
-const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser } = require("../controllers/admin.controller.js");
+const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser, getActiveLives, getTransactions } = require("../controllers/admin.controller.js");
 
 const router = Router();
 
@@ -116,6 +116,8 @@ router.patch("/creator-requests/:id/reject", rejectCreator);
 router.patch("/creator-requests/:id/suspend", suspendCreator);
 router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);
+router.get("/lives", getActiveLives);
+router.get("/transactions", getTransactions);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;

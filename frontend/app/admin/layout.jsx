@@ -106,6 +106,10 @@ export default function AdminLayout({ children }) {
       </div>
 
       <style jsx>{`
+        :root {
+          --admin-sidebar-width: 220px;
+        }
+
         .admin-shell {
           display: flex;
           min-height: 100vh;
@@ -124,7 +128,7 @@ export default function AdminLayout({ children }) {
 
         /* ── Sidebar ── */
         .sidebar {
-          width: 220px;
+          width: var(--admin-sidebar-width);
           flex-shrink: 0;
           background: #161b27;
           border-right: 1px solid #1e2535;
@@ -285,7 +289,7 @@ export default function AdminLayout({ children }) {
 
         @media (min-width: 768px) {
           .admin-main {
-            margin-left: 220px;
+            margin-left: var(--admin-sidebar-width);
           }
         }
 

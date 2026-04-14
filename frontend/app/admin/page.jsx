@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { clearAdminToken } from "@/lib/token";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -944,7 +945,7 @@ function StatCard({ title, value, highlight, link }) {
     </div>
   );
   if (link) {
-    return <a href={link} style={{ textDecoration: "none" }}>{inner}</a>;
+    return <Link href={link} style={{ textDecoration: "none" }}>{inner}</Link>;
   }
   return inner;
 }

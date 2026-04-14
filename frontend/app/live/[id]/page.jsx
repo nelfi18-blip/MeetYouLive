@@ -18,6 +18,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
+const truncateText = (text, max = 50) =>
+  text.length > max ? text.slice(0, max) + "…" : text;
+
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -147,8 +150,7 @@ export default function LiveRoomPage() {
         { id: ++msgCounterRef.current, user: displayName, text, system: false },
       ]);
       // Show recent chat messages in the video overlay (truncated)
-      const truncated = text.length > 50 ? text.slice(0, 50) + "…" : text;
-      addOverlayEvent("chat", "💬", `${displayName}: ${truncated}`);
+      addOverlayEvent("chat", "💬", `${displayName}: ${truncateText(text)}`);
     };
 
     const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
@@ -369,8 +371,7 @@ export default function LiveRoomPage() {
     setChatInput("");
 
     // Show in overlay for the sender
-    const truncated = text.length > 50 ? text.slice(0, 50) + "…" : text;
-    addOverlayEvent("chat", "💬", `Tú: ${truncated}`);
+    addOverlayEvent("chat", "💬", `Tú: ${truncateText(text)}`);
 
     // Broadcast to all other viewers in the live room
     socket.emit("live_chat_message", {

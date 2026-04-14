@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { setAdminToken, clearAdminToken } from "@/lib/token";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -24,8 +25,11 @@ export default function AdminLoginPage() {
     })
       .then((res) => {
         if (res.ok) {
+          // Ensure the admin-session cookie is in sync
+          setAdminToken(token);
           router.replace("/admin");
         } else {
+          clearAdminToken();
           setChecking(false);
         }
       })
@@ -66,7 +70,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      localStorage.setItem("admin_token", data.token);
+      setAdminToken(data.token);
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
       window.location.href = "/admin";

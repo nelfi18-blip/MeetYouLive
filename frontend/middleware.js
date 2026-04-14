@@ -16,6 +16,9 @@ export function middleware(request) {
     request.cookies.get("authjs.session-token")?.value ||
     request.cookies.get("__Secure-authjs.session-token")?.value;
 
+  // Cookie set on successful admin login — separate from regular user sessions.
+  const adminSession = request.cookies.get("admin-session")?.value;
+
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
   const isProtectedRoute =
@@ -25,7 +28,33 @@ export function middleware(request) {
     pathname.startsWith("/chats") ||
     pathname.startsWith("/coins") ||
     pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/matches");
+    pathname.startsWith("/matches") ||
+    pathname.startsWith("/crush") ||
+    pathname.startsWith("/explore") ||
+    pathname.startsWith("/live") ||
+    pathname.startsWith("/wallet");
+
+  // ── Admin routing ──────────────────────────────────────────────────────────
+
+  // Protect /admin/* routes (except /admin/login) — must have admin session.
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isAdminLoginPage = pathname === "/admin/login";
+
+  if (isAdminRoute && !isAdminLoginPage && !adminSession) {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
+  }
+
+  // Already-authenticated admin on admin login page → send to dashboard.
+  if (isAdminLoginPage && adminSession) {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
+  // Admin users must not access regular user pages — redirect to /admin.
+  if (adminSession && (isProtectedRoute || isAuthPage)) {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
+  // ── Regular user routing ───────────────────────────────────────────────────
 
   // Only redirect away from auth pages once the backend session is confirmed.
   // Using only nextAuthSession here would cause a redirect loop: Google OAuth

@@ -9,6 +9,7 @@ import TopGifters from "@/components/TopGifters";
 import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
 import StatusBadges from "@/components/StatusBadges";
+import LiveFeedOverlay from "@/components/LiveFeedOverlay";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -52,6 +53,15 @@ export default function LiveRoomPage() {
   const [viewerCount, setViewerCount] = useState(0);
   // Incremented on each received gift to trigger TopGifters re-fetch
   const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
+
+  // Live activity overlay events (gifts, joins, messages)
+  const [overlayEvents, setOverlayEvents] = useState([]);
+  const overlayCounterRef = useRef(0);
+
+  const addOverlayEvent = useCallback((type, icon, text) => {
+    const id = `ov_${++overlayCounterRef.current}_${Date.now()}`;
+    setOverlayEvents((prev) => [...prev, { id, type, icon, text }]);
+  }, []);
 
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
@@ -136,6 +146,9 @@ export default function LiveRoomPage() {
         ...prev,
         { id: ++msgCounterRef.current, user: displayName, text, system: false },
       ]);
+      // Show recent chat messages in the video overlay (truncated)
+      const truncated = text.length > 50 ? text.slice(0, 50) + "…" : text;
+      addOverlayEvent("chat", "💬", `${displayName}: ${truncated}`);
     };
 
     const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
@@ -173,6 +186,9 @@ export default function LiveRoomPage() {
         },
       ]);
 
+      // Show gift event in the video overlay
+      addOverlayEvent("gift", gift.icon || "🎁", `${senderName} envió ${gift.name || "un regalo"}`);
+
       // Refresh top gifters leaderboard
       setGiftRefreshTrigger((n) => n + 1);
     };
@@ -188,6 +204,8 @@ export default function LiveRoomPage() {
           system: true,
         },
       ]);
+      // Show join event in the video overlay
+      addOverlayEvent("join", "👋", `${name} se unió al directo`);
     };
 
     const onLiveEnded = () => {
@@ -215,7 +233,7 @@ export default function LiveRoomPage() {
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, meLoaded, currentUserId, currentUsername]);
+  }, [id, meLoaded, currentUserId, currentUsername, addOverlayEvent]);
 
   // ── Agora join ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -350,6 +368,10 @@ export default function LiveRoomPage() {
     ]);
     setChatInput("");
 
+    // Show in overlay for the sender
+    const truncated = text.length > 50 ? text.slice(0, 50) + "…" : text;
+    addOverlayEvent("chat", "💬", `Tú: ${truncated}`);
+
     // Broadcast to all other viewers in the live room
     socket.emit("live_chat_message", {
       liveId: id,
@@ -379,6 +401,9 @@ export default function LiveRoomPage() {
 
       // Refresh leaderboard after sending a gift
       setGiftRefreshTrigger((n) => n + 1);
+
+      // Show sender's own gift in the overlay immediately
+      addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}`);
     }
 
     setChatMessages((prev) => [
@@ -392,7 +417,7 @@ export default function LiveRoomPage() {
         isGift: true,
       },
     ]);
-  }, []);
+  }, [addOverlayEvent]);
 
   const handleJoin = async () => {
     if (!token) {
@@ -732,6 +757,9 @@ export default function LiveRoomPage() {
 
             {/* Floating reactions (viewer only) */}
             {agoraJoined && !isCreator && <FloatingReactions />}
+
+            {/* Live activity overlay — floating event feed on video */}
+            <LiveFeedOverlay events={overlayEvents} />
 
             <div className="video-overlay">
               <div className="overlay-left">

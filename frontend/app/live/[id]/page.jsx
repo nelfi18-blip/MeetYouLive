@@ -149,7 +149,7 @@ export default function LiveRoomPage() {
 
       // Trigger gift animation effect for all viewers
       setActiveGiftEffect({ gift, senderName });
-      setRecentGift(gift);
+      setRecentGift({ ...gift, senderName });
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
@@ -364,7 +364,7 @@ export default function LiveRoomPage() {
 
     if (gift) {
       setActiveGiftEffect({ gift, senderName });
-      setRecentGift(gift);
+      setRecentGift({ ...gift, senderName });
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
@@ -745,7 +745,10 @@ export default function LiveRoomPage() {
                       boxShadow: rarityStyle?.glow ? `0 0 12px ${rarityStyle.glow}` : "0 0 12px rgba(224,64,251,0.18)",
                     }}
                   >
-                    {recentGift.icon} {recentGift.name}
+                    {recentGift.icon}{" "}
+                    <span className="rgb-sender">{recentGift.senderName || "Alguien"}</span>
+                    {" envió "}
+                    <span className="rgb-coins">🪙 {recentGift.coinCost || 0} coins</span>
                   </span>
                 ) : null}
               </div>
@@ -1345,6 +1348,20 @@ export default function LiveRoomPage() {
           color: #fff;
           backdrop-filter: blur(8px);
           animation: giftBadgeGlow 1.8s ease-in-out infinite;
+          max-width: calc(100% - 1rem);
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .rgb-sender {
+          color: #fbbf24;
+          font-weight: 900;
+        }
+
+        .rgb-coins {
+          color: #fbbf24;
+          font-weight: 900;
         }
 
         @keyframes giftBadgeGlow {

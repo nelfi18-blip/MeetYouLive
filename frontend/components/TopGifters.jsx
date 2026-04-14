@@ -96,6 +96,7 @@ export default function TopGifters({ liveId, refreshTrigger }) {
                   <div className="tg-info">
                     <span className="tg-name">
                       @{displayName}
+                      {i === 0 && <span className="tg-top-fan">💎 Top Fan</span>}
                       {g.isPremium && <span className="tg-premium-star">⭐</span>}
                     </span>
                     <span className="tg-coins" style={{ color: cfg.coinColor }}>
@@ -261,6 +262,19 @@ export default function TopGifters({ liveId, refreshTrigger }) {
         }
 
         .tg-premium-star { font-size: 0.6rem; }
+
+        .tg-top-fan {
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.04em;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.15);
+          border: 1px solid rgba(251,191,36,0.45);
+          border-radius: 100px;
+          padding: 0.1rem 0.4rem;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
 
         .tg-coins {
           font-size: 0.7rem;

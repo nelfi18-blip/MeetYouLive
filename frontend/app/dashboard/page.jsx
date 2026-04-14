@@ -286,6 +286,10 @@ export default function DashboardPage() {
           .then((data) => {
             if (data) {
               setUser(data);
+              if (data.role === "admin") {
+                router.replace("/admin");
+                return;
+              }
               if (data.onboardingComplete === false) {
                 router.replace("/onboarding");
               }
@@ -318,6 +322,10 @@ export default function DashboardPage() {
       .then((data) => {
         if (data) {
           setUser(data);
+          if (data.role === "admin") {
+            router.replace("/admin");
+            return;
+          }
           if (data.onboardingComplete === false) {
             router.replace("/onboarding");
           }

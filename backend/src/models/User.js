@@ -77,6 +77,7 @@ const userSchema = new mongoose.Schema(
     creatorProfile: { type: creatorProfileSchema, default: () => ({}) },
     creatorApplication: { type: creatorApplicationSchema, default: () => ({}) },
     isBlocked: { type: Boolean, default: false },
+    isSuspended: { type: Boolean, default: false },
     creatorApprovedAt: { type: Date, default: null },
     coins: { type: Number, default: 0, min: 0 },
     sparks: { type: Number, default: 0, min: 0 },

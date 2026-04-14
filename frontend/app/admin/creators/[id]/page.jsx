@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken } from "@/lib/token";
@@ -103,7 +103,7 @@ export default function CreatorDetailPage() {
   if (!creator) return null;
 
   const statusStyle = STATUS_STYLES[creator.creatorStatus] || {};
-  const totalGiftCoins = gifts.reduce((acc, g) => acc + (g.coinCost || 0), 0);
+  const totalGiftCoins = useMemo(() => gifts.reduce((acc, g) => acc + (g.coinCost || 0), 0), [gifts]);
 
   return (
     <div className="page">

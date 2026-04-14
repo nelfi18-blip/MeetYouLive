@@ -332,6 +332,9 @@ exports.getTransactions = async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
     const skip = (page - 1) * limit;
 
+    // Summary aggregate applies the same filter but additionally requires status=completed
+    const summaryFilter = { ...filter, status: "completed" };
+
     const [transactions, total, summaryResult] = await Promise.all([
       CoinTransaction.find(filter)
         .populate("userId", "username name avatar")
@@ -340,7 +343,7 @@ exports.getTransactions = async (req, res) => {
         .limit(limit),
       CoinTransaction.countDocuments(filter),
       CoinTransaction.aggregate([
-        { $match: { ...filter, status: "completed" } },
+        { $match: summaryFilter },
         { $group: { _id: null, totalCoins: { $sum: "$amount" }, purchaseCoins: { $sum: { $cond: [{ $eq: ["$type", "purchase"] }, "$amount", 0] } } } },
       ]),
     ]);

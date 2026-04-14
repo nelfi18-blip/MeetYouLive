@@ -124,7 +124,7 @@ export default function AdminTransactionsPage() {
           </div>
           <div className="summary-card">
             <span className="summary-val">{total.toLocaleString()}</span>
-            <span className="summary-lbl">📊 Transacciones total</span>
+            <span className="summary-lbl">📊 Total de transacciones</span>
           </div>
         </div>
       )}

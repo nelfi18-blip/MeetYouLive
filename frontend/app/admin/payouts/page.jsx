@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 
@@ -96,7 +96,10 @@ export default function AdminPayoutsPage() {
     day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
   }) : "—";
 
-  const pendingTotal = payouts.filter(p => p.status === "pending").reduce((a, p) => a + (p.amountCoins || 0), 0);
+  const pendingTotal = useMemo(
+    () => payouts.filter(p => p.status === "pending").reduce((a, p) => a + (p.amountCoins || 0), 0),
+    [payouts]
+  );
 
   return (
     <div className="page">

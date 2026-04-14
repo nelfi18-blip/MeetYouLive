@@ -569,6 +569,9 @@ export default function AdminDashboard() {
           transition: background 0.15s, color 0.15s;
           text-align: center;
           display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .quick-btn:hover {

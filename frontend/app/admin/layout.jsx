@@ -155,6 +155,7 @@ export default function AdminLayout({ children }) {
         }
 
         @media (min-width: 768px) {
+          /* Sidebar is position: fixed in base styles – only show it on desktop */
           .sidebar {
             transform: translateX(0);
           }
@@ -311,7 +312,6 @@ export default function AdminLayout({ children }) {
           gap: 0.75rem;
           padding: 0 1rem;
           height: 52px;
-          min-height: 52px;
           background: #161b27;
           border-bottom: 1px solid #1e2535;
           position: sticky;

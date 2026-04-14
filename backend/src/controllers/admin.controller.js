@@ -471,10 +471,11 @@ exports.getAnalytics = async (req, res) => {
     const now = new Date();
     const day = 24 * 60 * 60 * 1000;
 
-    // Build daily registration counts for the last 7 days
+    // Build daily registration counts for the last 7 days, using midnight boundaries
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
     const days = Array.from({ length: 7 }, (_, i) => {
-      const start = new Date(now - (6 - i) * day);
-      start.setHours(0, 0, 0, 0);
+      const start = new Date(todayMidnight.getTime() - (6 - i) * day);
       const end = new Date(start.getTime() + day);
       return { start, end, label: start.toLocaleDateString("es", { month: "short", day: "numeric" }) };
     });

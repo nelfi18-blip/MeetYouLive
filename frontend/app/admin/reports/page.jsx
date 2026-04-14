@@ -1,0 +1,276 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { clearAdminToken } from "@/lib/token";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const STATUS_TABS = [
+  { value: "pending", label: "🆕 Nuevos" },
+  { value: "reviewed", label: "✅ Revisados" },
+  { value: "dismissed", label: "🚫 Descartados" },
+  { value: "", label: "Todos" },
+];
+
+const STATUS_STYLES = {
+  pending: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+  reviewed: { bg: "rgba(52,211,153,0.1)", color: "#34d399" },
+  dismissed: { bg: "rgba(100,116,139,0.1)", color: "#94a3b8" },
+};
+
+const TARGET_LABELS = {
+  user: "Usuario",
+  live: "Stream",
+  video: "Video",
+};
+
+export default function AdminReportsPage() {
+  const router = useRouter();
+  const [reports, setReports] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
+  const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+
+  const authHeader = useCallback(() => {
+    const token = localStorage.getItem("admin_token");
+    return { Authorization: `Bearer ${token}` };
+  }, []);
+
+  const loadReports = useCallback(async (p = 1) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ page: p, limit: 50 });
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`${API_URL}/api/admin/reports?${params}`, { headers: authHeader() });
+      if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
+      if (res.status === 403) { setError("Sin permisos."); return; }
+      if (!res.ok) throw new Error("server");
+      const data = await res.json();
+      setReports(data.reports || []);
+      setTotal(data.total || 0);
+    } catch {
+      setError("Error cargando reportes.");
+    } finally {
+      setLoading(false);
+    }
+  }, [authHeader, router, statusFilter]);
+
+  useEffect(() => { setPage(1); loadReports(1); }, [statusFilter]);
+  useEffect(() => { if (page > 1) loadReports(page); }, [page]);
+
+  const showMsg = (type, text) => {
+    setActionMsg({ type, text });
+    setTimeout(() => setActionMsg({ type: "", text: "" }), 4000);
+  };
+
+  const updateStatus = async (reportId, status) => {
+    setActionLoading(reportId + status);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/reports/${reportId}`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg("error", d.message || "Error."); return; }
+      showMsg("success", `Reporte marcado como "${status}".`);
+      loadReports(page);
+    } catch {
+      showMsg("error", "Error de conexión.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const totalPages = Math.ceil(total / 50);
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">Reportes & Moderación</h1>
+        <span className="badge">{total.toLocaleString()} total</span>
+      </div>
+
+      {actionMsg.text && (
+        <div className={`alert alert-${actionMsg.type}`}>{actionMsg.text}</div>
+      )}
+
+      <div className="tabs">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            className={`tab${statusFilter === tab.value ? " tab--active" : ""}`}
+            onClick={() => setStatusFilter(tab.value)}
+          >
+            {tab.label}
+          </button>
+        ))}
+        <button className="btn-refresh" onClick={() => loadReports(page)} disabled={loading}>
+          {loading ? "…" : "↺"}
+        </button>
+      </div>
+
+      {error && <div className="alert alert-error">{error}</div>}
+
+      {loading ? (
+        <div className="loading-state">Cargando reportes…</div>
+      ) : (
+        <>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Reportado por</th>
+                  <th>Tipo objetivo</th>
+                  <th>ID objetivo</th>
+                  <th>Razón</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="empty-row">
+                      No hay reportes{statusFilter ? ` con estado "${statusFilter}"` : ""}.
+                    </td>
+                  </tr>
+                ) : (
+                  reports.map((r) => {
+                    const statusStyle = STATUS_STYLES[r.status] || {};
+                    return (
+                      <tr key={r._id}>
+                        <td>
+                          {r.reporter ? (
+                            <div className="user-cell">
+                              {r.reporter.avatar ? (
+                                <img src={r.reporter.avatar} alt="" className="mini-avatar" />
+                              ) : (
+                                <div className="mini-avatar mini-avatar--ph">
+                                  {(r.reporter.name || r.reporter.username || "?")[0].toUpperCase()}
+                                </div>
+                              )}
+                              <span className="user-name">@{r.reporter.username || r.reporter.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="target-badge">{TARGET_LABELS[r.targetType] || r.targetType}</span>
+                        </td>
+                        <td className="text-muted text-mono">{String(r.targetId).slice(-8)}</td>
+                        <td className="reason-cell">{r.reason}</td>
+                        <td>
+                          <span className="status-badge" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="text-muted text-sm">
+                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—"}
+                        </td>
+                        <td>
+                          <div className="action-row">
+                            {r.status !== "reviewed" && (
+                              <button
+                                className="btn-action btn-green"
+                                onClick={() => updateStatus(r._id, "reviewed")}
+                                disabled={!!actionLoading}
+                              >
+                                {actionLoading === r._id + "reviewed" ? "…" : "✓ Revisado"}
+                              </button>
+                            )}
+                            {r.status !== "dismissed" && (
+                              <button
+                                className="btn-action btn-gray"
+                                onClick={() => updateStatus(r._id, "dismissed")}
+                                disabled={!!actionLoading}
+                              >
+                                {actionLoading === r._id + "dismissed" ? "…" : "Descartar"}
+                              </button>
+                            )}
+                            {r.status !== "pending" && (
+                              <button
+                                className="btn-action btn-yellow"
+                                onClick={() => updateStatus(r._id, "pending")}
+                                disabled={!!actionLoading}
+                              >
+                                {actionLoading === r._id + "pending" ? "…" : "Reabrir"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button className="btn-page" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>← Anterior</button>
+              <span className="page-info">Página {page} de {totalPages}</span>
+              <button className="btn-page" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}>Siguiente →</button>
+            </div>
+          )}
+        </>
+      )}
+
+      <style jsx>{`
+        .page { max-width: 1200px; }
+        .page-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+        .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }
+        .badge { background: rgba(167,139,250,0.15); color: #a78bfa; border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.8rem; font-weight: 600; }
+        .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+        .tab { background: transparent; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+        .tab:hover { background: #1e2535; color: #e2e8f0; }
+        .tab--active { background: #7c3aed; border-color: #7c3aed; color: #fff; font-weight: 700; }
+        .btn-refresh { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; margin-left: auto; }
+        .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; }
+        .alert-error { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+        .alert-success { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+        .loading-state { text-align: center; padding: 3rem; color: #64748b; }
+        .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #1e2535; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .data-table thead { background: #161b27; border-bottom: 1px solid #1e2535; }
+        .data-table th { padding: 0.7rem 0.85rem; text-align: left; color: #64748b; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+        .data-table td { padding: 0.65rem 0.85rem; border-bottom: 1px solid #1a2030; color: #cbd5e1; vertical-align: middle; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+        .text-muted { color: #64748b; }
+        .text-sm { font-size: 0.78rem; }
+        .text-mono { font-family: monospace; font-size: 0.75rem; }
+        .empty-row { text-align: center; color: #64748b; padding: 2rem; }
+        .user-cell { display: flex; align-items: center; gap: 0.45rem; }
+        .mini-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .mini-avatar--ph { background: linear-gradient(135deg, #7c3aed, #a855f7); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.68rem; color: #fff; }
+        .user-name { font-size: 0.82rem; color: #e2e8f0; font-weight: 500; }
+        .target-badge { background: rgba(167,139,250,0.1); color: #a78bfa; border-radius: 999px; padding: 0.12rem 0.55rem; font-size: 0.72rem; font-weight: 600; }
+        .status-badge { display: inline-block; border-radius: 999px; padding: 0.12rem 0.55rem; font-size: 0.72rem; font-weight: 600; text-transform: capitalize; }
+        .reason-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.82rem; color: #94a3b8; }
+        .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .btn-action { border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; font-family: inherit; border: 1px solid transparent; transition: opacity 0.15s; white-space: nowrap; }
+        .btn-action:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-green { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.25); color: #34d399; }
+        .btn-green:hover:not(:disabled) { background: rgba(52,211,153,0.18); }
+        .btn-gray { background: rgba(100,116,139,0.1); border-color: rgba(100,116,139,0.25); color: #94a3b8; }
+        .btn-gray:hover:not(:disabled) { background: rgba(100,116,139,0.18); }
+        .btn-yellow { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fbbf24; }
+        .btn-yellow:hover:not(:disabled) { background: rgba(251,191,36,0.18); }
+        .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; }
+        .btn-page { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+        .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+        .page-info { font-size: 0.85rem; color: #64748b; }
+      `}</style>
+    </div>
+  );
+}

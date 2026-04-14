@@ -3,37 +3,75 @@ const Live = require("../models/Live.js");
 const Report = require("../models/Report.js");
 const Subscription = require("../models/Subscription.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const Gift = require("../models/Gift.js");
+const Payout = require("../models/Payout.js");
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
 
 exports.getOverview = async (req, res) => {
   try {
-    const [users, lives, activeLives, reports, subscriptions, admins, totalCoinsResult] = await Promise.all([
+    const now = new Date();
+    const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalUsers,
+      activeUsersToday,
+      totalCreators,
+      pendingCreators,
+      activeLives,
+      totalLives,
+      openReports,
+      subscriptions,
+      totalCoinsResult,
+      totalGiftsSentResult,
+      pendingPayoutsResult,
+      recentRegistrations,
+    ] = await Promise.all([
       User.countDocuments(),
-      Live.countDocuments(),
+      User.countDocuments({ lastActiveAt: { $gte: oneDayAgo } }),
+      User.countDocuments({ role: "creator", creatorStatus: "approved" }),
+      User.countDocuments({ creatorStatus: "pending" }),
       Live.countDocuments({ isLive: true }),
-      Report.countDocuments(),
-      Subscription.countDocuments(),
-      User.countDocuments({ role: "admin" }),
+      Live.countDocuments(),
+      Report.countDocuments({ status: "pending" }),
+      Subscription.countDocuments({ status: "active" }),
       CoinTransaction.aggregate([
         { $match: { type: "purchase", status: "completed" } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
+      Gift.aggregate([
+        { $group: { _id: null, total: { $sum: "$coinCost" }, count: { $sum: 1 } } },
+      ]),
+      Payout.aggregate([
+        { $match: { status: "pending" } },
+        { $group: { _id: null, total: { $sum: "$amountCoins" } } },
+      ]),
+      User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
     ]);
 
-    const totalCoinsPurchased = totalCoinsResult.length > 0 ? totalCoinsResult[0].total : 0;
+    const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
+    const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;
+    const totalGiftsCoins = totalGiftsSentResult[0]?.total ?? 0;
+    const pendingPayoutsCoins = pendingPayoutsResult[0]?.total ?? 0;
 
     return res.json({
       ok: true,
       stats: {
-        users,
-        lives,
+        totalUsers,
+        activeUsersToday,
+        totalCreators,
+        pendingCreators,
         activeLives,
-        reports,
+        totalLives,
+        openReports,
         subscriptions,
-        admins,
         totalCoinsPurchased,
+        totalGiftsSent,
+        totalGiftsCoins,
+        pendingPayoutsCoins,
+        recentRegistrations,
       },
     });
   } catch (error) {
@@ -44,11 +82,35 @@ exports.getOverview = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({}, "-password")
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const { search, role, status, page: pageQ, limit: limitQ } = req.query;
+    const page = Math.max(1, parseInt(pageQ) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitQ) || 50));
+    const skip = (page - 1) * limit;
 
-    return res.json({ ok: true, users });
+    const ALLOWED_ROLES = ["user", "creator", "admin"];
+    const filter = {};
+    if (role && ALLOWED_ROLES.includes(role)) filter.role = role;
+    if (status === "blocked") filter.isBlocked = true;
+    if (status === "active") filter.isBlocked = { $ne: true };
+    if (status === "premium") filter.isPremium = true;
+    if (status === "verified") filter.isVerified = true;
+    if (search) {
+      filter.$or = [
+        { username: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(filter, "-password")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    return res.json({ ok: true, users, total, page, limit });
   } catch (error) {
     console.error("Admin users error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo usuarios" });
@@ -57,11 +119,25 @@ exports.getUsers = async (req, res) => {
 
 exports.getReports = async (req, res) => {
   try {
-    const reports = await Report.find({})
-      .sort({ createdAt: -1 })
-      .limit(100);
+    const ALLOWED_STATUSES = ["pending", "reviewed", "dismissed"];
+    const filter = {};
+    if (req.query.status && ALLOWED_STATUSES.includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
 
-    return res.json({ ok: true, reports });
+    const [reports, total] = await Promise.all([
+      Report.find(filter)
+        .populate("reporter", "username name avatar")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Report.countDocuments(filter),
+    ]);
+
+    return res.json({ ok: true, reports, total, page, limit });
   } catch (error) {
     console.error("Admin reports error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo reportes" });
@@ -248,5 +324,264 @@ exports.getTransactions = async (req, res) => {
   } catch (error) {
     console.error("Admin transactions error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo transacciones" });
+  }
+};
+
+// ── Creator management ──────────────────────────────────────────────────────
+
+exports.reactivateCreator = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role: "creator", creatorStatus: "approved", isVerifiedCreator: true },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, user });
+  } catch (error) {
+    console.error("Reactivate creator error:", error);
+    return res.status(500).json({ ok: false, message: "Error reactivando creador" });
+  }
+};
+
+exports.getCreators = async (req, res) => {
+  try {
+    const ALLOWED_STATUSES = ["pending", "approved", "rejected", "suspended"];
+    const filter = { creatorStatus: { $in: ALLOWED_STATUSES } };
+    if (req.query.status && ALLOWED_STATUSES.includes(req.query.status)) {
+      filter.creatorStatus = req.query.status;
+    }
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
+
+    const [creators, total] = await Promise.all([
+      User.find(filter, "-password")
+        .sort({ "creatorApplication.submittedAt": -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    return res.json({ ok: true, creators, total, page, limit });
+  } catch (error) {
+    console.error("Admin creators error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo creadores" });
+  }
+};
+
+exports.getCreatorDetail = async (req, res) => {
+  try {
+    const creator = await User.findById(req.params.id, "-password");
+    if (!creator) return res.status(404).json({ ok: false, message: "Creador no encontrado" });
+
+    const [lives, gifts, payouts] = await Promise.all([
+      Live.find({ user: creator._id }).sort({ createdAt: -1 }).limit(20),
+      Gift.find({ receiver: creator._id }).sort({ createdAt: -1 }).limit(20),
+      Payout.find({ creator: creator._id }).sort({ createdAt: -1 }).limit(10),
+    ]);
+
+    return res.json({ ok: true, creator, lives, gifts, payouts });
+  } catch (error) {
+    console.error("Admin creator detail error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo detalle del creador" });
+  }
+};
+
+// ── User moderation ─────────────────────────────────────────────────────────
+
+exports.suspendUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isSuspended: true },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, message: "Usuario suspendido", user });
+  } catch (error) {
+    console.error("Suspend user error:", error);
+    return res.status(500).json({ ok: false, message: "Error suspendiendo usuario" });
+  }
+};
+
+exports.unsuspendUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isSuspended: false },
+      { new: true, select: "-password" }
+    );
+    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    return res.json({ ok: true, message: "Usuario reactivado", user });
+  } catch (error) {
+    console.error("Unsuspend user error:", error);
+    return res.status(500).json({ ok: false, message: "Error reactivando usuario" });
+  }
+};
+
+// ── Report moderation ────────────────────────────────────────────────────────
+
+exports.updateReport = async (req, res) => {
+  try {
+    const ALLOWED_STATUSES = ["pending", "reviewed", "dismissed"];
+    const { status } = req.body;
+    if (!status || !ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ ok: false, message: "Estado inválido. Usa: pending, reviewed o dismissed" });
+    }
+    const report = await Report.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate("reporter", "username name avatar");
+    if (!report) return res.status(404).json({ ok: false, message: "Reporte no encontrado" });
+    return res.json({ ok: true, report });
+  } catch (error) {
+    console.error("Update report error:", error);
+    return res.status(500).json({ ok: false, message: "Error actualizando reporte" });
+  }
+};
+
+// ── Live history ─────────────────────────────────────────────────────────────
+
+exports.getLiveHistory = async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const lives = await Live.find({ isLive: false, endedAt: { $exists: true } })
+      .populate("user", "username name avatar role")
+      .sort({ endedAt: -1 })
+      .limit(limit);
+    return res.json({ ok: true, lives });
+  } catch (error) {
+    console.error("Admin live history error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo historial de streams" });
+  }
+};
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+
+exports.getAnalytics = async (req, res) => {
+  try {
+    const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
+
+    // Build daily registration counts for the last 7 days
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const start = new Date(now - (6 - i) * day);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start.getTime() + day);
+      return { start, end, label: start.toLocaleDateString("es", { month: "short", day: "numeric" }) };
+    });
+
+    const [dailyRegistrations, dailyPurchases, topCreators, topSpenders, retentionStats] = await Promise.all([
+      Promise.all(
+        days.map(({ start, end, label }) =>
+          User.countDocuments({ createdAt: { $gte: start, $lt: end } }).then((count) => ({ label, count }))
+        )
+      ),
+      Promise.all(
+        days.map(({ start, end, label }) =>
+          CoinTransaction.aggregate([
+            { $match: { type: "purchase", status: "completed", createdAt: { $gte: start, $lt: end } } },
+            { $group: { _id: null, total: { $sum: "$amount" } } },
+          ]).then((r) => ({ label, total: r[0]?.total ?? 0 }))
+        )
+      ),
+      Gift.aggregate([
+        { $match: { createdAt: { $gte: new Date(now - 24 * day) } } },
+        { $group: { _id: "$receiver", totalGifts: { $sum: "$coinCost" }, count: { $sum: 1 } } },
+        { $sort: { totalGifts: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+            pipeline: [{ $project: { username: 1, name: 1, avatar: 1 } }],
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      ]),
+      CoinTransaction.aggregate([
+        { $match: { type: "purchase", status: "completed", createdAt: { $gte: new Date(now - 24 * day) } } },
+        { $group: { _id: "$userId", totalSpent: { $sum: "$amount" } } },
+        { $sort: { totalSpent: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+            pipeline: [{ $project: { username: 1, name: 1, avatar: 1 } }],
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      ]),
+      Promise.all([
+        User.countDocuments({ lastActiveAt: { $gte: new Date(now - day) } }),
+        User.countDocuments({ lastActiveAt: { $gte: new Date(now - 7 * day) } }),
+        User.countDocuments({ lastActiveAt: { $gte: new Date(now - 30 * day) } }),
+      ]),
+    ]);
+
+    const [dau, wau, mau] = retentionStats;
+
+    return res.json({
+      ok: true,
+      analytics: {
+        dailyRegistrations,
+        dailyPurchases,
+        topCreators,
+        topSpenders,
+        retention: { dau, wau, mau },
+      },
+    });
+  } catch (error) {
+    console.error("Admin analytics error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo analytics" });
+  }
+};
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+// In-memory fallback store for settings (persisted in User model's admin config or a dedicated settings collection)
+// For simplicity we use a static in-memory object that can be read/updated at runtime.
+// A production system should use a dedicated Settings collection in MongoDB.
+const DEFAULT_SETTINGS = {
+  boostPriceCrush: 50,
+  boostPackPrice: 200,
+  hiddenLikePrice: 20,
+  dailyRewardBaseCoins: 20,
+  referralRewardCoins: 50,
+  creatorPlatformSplitPercent: 40,
+};
+
+let _runtimeSettings = { ...DEFAULT_SETTINGS };
+
+exports.getSettings = async (req, res) => {
+  return res.json({ ok: true, settings: { ..._runtimeSettings } });
+};
+
+exports.updateSettings = async (req, res) => {
+  try {
+    const ALLOWED_KEYS = Object.keys(DEFAULT_SETTINGS);
+    const updates = {};
+    for (const key of ALLOWED_KEYS) {
+      if (req.body[key] !== undefined) {
+        const val = Number(req.body[key]);
+        if (isNaN(val) || val < 0) {
+          return res.status(400).json({ ok: false, message: `Valor inválido para ${key}` });
+        }
+        updates[key] = val;
+      }
+    }
+    _runtimeSettings = { ..._runtimeSettings, ...updates };
+    console.log(`⚙️ Admin settings updated by ${req.userId}:`, updates);
+    return res.json({ ok: true, settings: { ..._runtimeSettings } });
+  } catch (error) {
+    console.error("Admin settings update error:", error);
+    return res.status(500).json({ ok: false, message: "Error actualizando configuración" });
   }
 };

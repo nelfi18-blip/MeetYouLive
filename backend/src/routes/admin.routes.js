@@ -10,7 +10,30 @@ const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
-const { getOverview, getUsers, getReports, makeAdmin, getCreatorRequests, approveCreator, rejectCreator, suspendCreator, getVerificationRequests, verifyUser, getActiveLives, getTransactions } = require("../controllers/admin.controller.js");
+const {
+  getOverview,
+  getUsers,
+  getReports,
+  updateReport,
+  makeAdmin,
+  getCreatorRequests,
+  approveCreator,
+  rejectCreator,
+  suspendCreator,
+  reactivateCreator,
+  getCreators,
+  getCreatorDetail,
+  getVerificationRequests,
+  verifyUser,
+  getActiveLives,
+  getLiveHistory,
+  getTransactions,
+  suspendUser,
+  unsuspendUser,
+  getAnalytics,
+  getSettings,
+  updateSettings,
+} = require("../controllers/admin.controller.js");
 
 const router = Router();
 
@@ -108,16 +131,29 @@ router.use(adminLimiter, verifyToken, requireAdmin);
 
 router.get("/overview", getOverview);
 router.get("/users", getUsers);
+router.patch("/users/:id/suspend", suspendUser);
+router.patch("/users/:id/unsuspend", unsuspendUser);
 router.get("/reports", getReports);
+router.patch("/reports/:id", updateReport);
 router.patch("/make-admin", makeAdmin);
 router.get("/creator-requests", getCreatorRequests);
 router.patch("/creator-requests/:id/approve", approveCreator);
 router.patch("/creator-requests/:id/reject", rejectCreator);
 router.patch("/creator-requests/:id/suspend", suspendCreator);
+router.get("/creators", getCreators);
+router.get("/creators/:id", getCreatorDetail);
+router.patch("/creators/:id/approve", approveCreator);
+router.patch("/creators/:id/reject", rejectCreator);
+router.patch("/creators/:id/suspend", suspendCreator);
+router.patch("/creators/:id/reactivate", reactivateCreator);
 router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);
 router.get("/lives", getActiveLives);
+router.get("/lives/history", getLiveHistory);
 router.get("/transactions", getTransactions);
+router.get("/analytics", getAnalytics);
+router.get("/settings", getSettings);
+router.patch("/settings", updateSettings);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;

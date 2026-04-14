@@ -286,13 +286,15 @@ export default function DashboardPage() {
           .then((data) => {
             if (data) {
               setUser(data);
+              if (data.role === "admin") {
+                router.replace("/admin");
+                return;
+              }
               if (data.onboardingComplete === false) {
                 router.replace("/onboarding");
               }
             }
           })
-          .catch((err) => {
-            console.error("[dashboard] backend-token recovery error:", err);
             router.replace("/login");
           })
           .finally(() => setUserLoading(false));
@@ -318,6 +320,10 @@ export default function DashboardPage() {
       .then((data) => {
         if (data) {
           setUser(data);
+          if (data.role === "admin") {
+            router.replace("/admin");
+            return;
+          }
           if (data.onboardingComplete === false) {
             router.replace("/onboarding");
           }

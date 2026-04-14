@@ -6,10 +6,14 @@ import Link from "next/link";
 import { clearAdminToken } from "@/lib/token";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Panel", icon: "⊞", exact: true },
+  { href: "/admin", label: "Dashboard", icon: "⊞", exact: true },
   { href: "/admin/users", label: "Usuarios", icon: "👥" },
+  { href: "/admin/creators", label: "Creadores", icon: "🎬" },
   { href: "/admin/lives", label: "Streams", icon: "📡" },
   { href: "/admin/transactions", label: "Transacciones", icon: "💰" },
+  { href: "/admin/reports", label: "Reportes", icon: "🚨" },
+  { href: "/admin/analytics", label: "Analíticas", icon: "📊" },
+  { href: "/admin/settings", label: "Configuración", icon: "⚙️" },
 ];
 
 export default function AdminLayout({ children }) {
@@ -19,13 +23,19 @@ export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    if (pathname === "/admin/login") return;
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
     try {
       const raw = localStorage.getItem("admin_user");
       if (raw) setAdminUser(JSON.parse(raw));
     } catch {
       // ignore
     }
-  }, []);
+  }, [pathname, router]);
 
   const handleLogout = () => {
     clearAdminToken();

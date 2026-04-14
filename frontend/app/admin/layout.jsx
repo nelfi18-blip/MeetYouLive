@@ -151,14 +151,12 @@ export default function AdminLayout({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.25s ease;
+          overflow-y: auto;
         }
 
         @media (min-width: 768px) {
           .sidebar {
             transform: translateX(0);
-            position: sticky;
-            top: 0;
-            height: 100vh;
           }
           .topbar { display: none; }
         }
@@ -199,7 +197,7 @@ export default function AdminLayout({ children }) {
           display: flex;
           align-items: center;
           gap: 0.65rem;
-          padding: 0.6rem 1.25rem;
+          padding: 0.75rem 1.25rem;
           font-size: 0.9rem;
           font-weight: 500;
           color: #94a3b8;
@@ -207,6 +205,7 @@ export default function AdminLayout({ children }) {
           border-radius: 0;
           transition: background 0.15s, color 0.15s;
           border-left: 3px solid transparent;
+          min-height: 44px;
         }
 
         .nav-item:hover {
@@ -295,11 +294,13 @@ export default function AdminLayout({ children }) {
           min-width: 0;
           display: flex;
           flex-direction: column;
+          width: 100%;
         }
 
         @media (min-width: 768px) {
           .admin-main {
             margin-left: var(--admin-sidebar-width);
+            width: calc(100% - var(--admin-sidebar-width));
           }
         }
 
@@ -308,7 +309,9 @@ export default function AdminLayout({ children }) {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.75rem 1rem;
+          padding: 0 1rem;
+          height: 52px;
+          min-height: 52px;
           background: #161b27;
           border-bottom: 1px solid #1e2535;
           position: sticky;
@@ -320,16 +323,30 @@ export default function AdminLayout({ children }) {
           background: none;
           border: none;
           color: #e2e8f0;
-          font-size: 1.3rem;
+          font-size: 1.4rem;
           cursor: pointer;
           line-height: 1;
-          padding: 0.25rem;
+          padding: 0.4rem;
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          flex-shrink: 0;
+        }
+
+        .topbar-menu-btn:hover {
+          background: rgba(255, 255, 255, 0.06);
         }
 
         .topbar-title {
-          font-size: 0.95rem;
+          font-size: 1rem;
           font-weight: 700;
           color: #a78bfa;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         /* ── Page content ── */
@@ -337,11 +354,13 @@ export default function AdminLayout({ children }) {
           flex: 1;
           padding: 1.5rem;
           overflow-x: hidden;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         @media (max-width: 767px) {
           .admin-content {
-            padding: 1rem;
+            padding: 1rem 0.875rem;
           }
         }
       `}</style>

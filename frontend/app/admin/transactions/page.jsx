@@ -207,13 +207,14 @@ export default function AdminTransactionsPage() {
       )}
 
       <style jsx>{`
-        .page { max-width: 1200px; }
+        .page { max-width: 1200px; width: 100%; }
 
         .page-header {
           display: flex;
           align-items: center;
           gap: 0.75rem;
           margin-bottom: 1.25rem;
+          flex-wrap: wrap;
         }
 
         .page-title {
@@ -237,6 +238,21 @@ export default function AdminTransactionsPage() {
           gap: 0.75rem;
           margin-bottom: 1rem;
           flex-wrap: wrap;
+          align-items: center;
+        }
+
+        @media (max-width: 600px) {
+          .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .select-filter {
+            min-width: unset;
+            width: 100%;
+          }
+          .btn-refresh {
+            align-self: flex-start;
+          }
         }
 
         .select-filter {

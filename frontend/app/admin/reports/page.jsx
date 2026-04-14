@@ -226,15 +226,15 @@ export default function AdminReportsPage() {
       )}
 
       <style jsx>{`
-        .page { max-width: 1200px; }
-        .page-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+        .page { max-width: 1200px; width: 100%; }
+        .page-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }
         .badge { background: rgba(167,139,250,0.15); color: #a78bfa; border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.8rem; font-weight: 600; }
         .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
-        .tab { background: transparent; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+        .tab { background: transparent; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.5rem 0.9rem; font-size: 0.82rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; min-height: 38px; }
         .tab:hover { background: #1e2535; color: #e2e8f0; }
         .tab--active { background: #7c3aed; border-color: #7c3aed; color: #fff; font-weight: 700; }
-        .btn-refresh { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; margin-left: auto; }
+        .btn-refresh { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; margin-left: auto; min-height: 38px; }
         .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; }
         .alert-error { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
         .alert-success { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }

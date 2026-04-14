@@ -268,7 +268,7 @@ export default function AdminDashboard() {
       </div>
 
       <style jsx>{`
-        .page { max-width: 1200px; }
+        .page { max-width: 1200px; width: 100%; }
 
         .page-header {
           display: flex;
@@ -276,6 +276,7 @@ export default function AdminDashboard() {
           justify-content: space-between;
           margin-bottom: 2rem;
           gap: 1rem;
+          flex-wrap: wrap;
         }
 
         .page-title {
@@ -289,6 +290,11 @@ export default function AdminDashboard() {
           font-size: 0.875rem;
           color: #64748b;
           margin: 0;
+        }
+
+        @media (max-width: 480px) {
+          .page-title { font-size: 1.3rem; }
+          .page-sub { font-size: 0.8rem; }
         }
 
         .btn-refresh {
@@ -353,6 +359,19 @@ export default function AdminDashboard() {
           gap: 0.75rem;
         }
 
+        @media (max-width: 600px) {
+          .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
         .stat-card {
           background: #161b27;
           border: 1px solid #1e2535;
@@ -362,6 +381,16 @@ export default function AdminDashboard() {
           align-items: center;
           gap: 0.9rem;
           transition: border-color 0.15s, background 0.15s;
+        }
+
+        @media (max-width: 600px) {
+          .stat-card {
+            padding: 0.85rem 0.9rem;
+            gap: 0.6rem;
+          }
+          .stat-value { font-size: 1.2rem; }
+          .stat-icon { font-size: 1.3rem; }
+          .stat-title { font-size: 0.72rem; }
         }
 
         .stat-card--link:hover {
@@ -517,9 +546,15 @@ export default function AdminDashboard() {
         }
 
         .quick-grid {
-          display: flex;
-          flex-wrap: wrap;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
           gap: 0.5rem;
+        }
+
+        @media (max-width: 480px) {
+          .quick-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
         }
 
         .quick-btn {
@@ -527,12 +562,13 @@ export default function AdminDashboard() {
           border: 1px solid #2d3748;
           color: #94a3b8;
           border-radius: 8px;
-          padding: 0.5rem 0.85rem;
+          padding: 0.6rem 0.85rem;
           font-size: 0.82rem;
           font-weight: 600;
           text-decoration: none;
           transition: background 0.15s, color 0.15s;
-          white-space: nowrap;
+          text-align: center;
+          display: block;
         }
 
         .quick-btn:hover {

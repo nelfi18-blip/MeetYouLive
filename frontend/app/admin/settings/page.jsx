@@ -152,7 +152,7 @@ export default function AdminSettingsPage() {
       </div>
 
       <style jsx>{`
-        .page { max-width: 800px; }
+        .page { max-width: 800px; width: 100%; }
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; }
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0 0 0.2rem; }
         .page-sub { font-size: 0.85rem; color: #64748b; margin: 0; }

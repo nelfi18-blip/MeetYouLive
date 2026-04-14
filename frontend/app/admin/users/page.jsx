@@ -270,16 +270,21 @@ function AdminUsersInner() {
       )}
 
       <style jsx>{`
-        .page { max-width: 1300px; }
+        .page { max-width: 1300px; width: 100%; }
 
         .page-header {
           display: flex;
           align-items: center;
           gap: 0.75rem;
           margin-bottom: 1.25rem;
+          flex-wrap: wrap;
         }
 
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }
+
+        @media (max-width: 480px) {
+          .page-title { font-size: 1.2rem; }
+        }
 
         .badge {
           background: rgba(167, 139, 250, 0.15);
@@ -296,6 +301,26 @@ function AdminUsersInner() {
           margin-bottom: 1rem;
           flex-wrap: wrap;
           align-items: center;
+        }
+
+        @media (max-width: 600px) {
+          .toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .search-input {
+            min-width: unset;
+          }
+          .select-filter {
+            width: 100%;
+          }
+          .btn-search {
+            width: 100%;
+            padding: 0.65rem 1rem;
+          }
+          .btn-refresh {
+            align-self: flex-start;
+          }
         }
 
         .search-input {

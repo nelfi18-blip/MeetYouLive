@@ -47,8 +47,11 @@ export default function AdminTransactionsPage() {
   const router = useRouter();
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState(null);
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -57,12 +60,14 @@ export default function AdminTransactionsPage() {
     return { Authorization: `Bearer ${token}` };
   }, []);
 
-  const loadTransactions = useCallback(async (currentPage, type) => {
+  const loadTransactions = useCallback(async (currentPage, type, from, to) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page: currentPage, limit: 50 });
       if (type) params.set("type", type);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
       const res = await fetch(`${API_URL}/api/admin/transactions?${params}`, {
         headers: authHeader(),
       });
@@ -72,6 +77,7 @@ export default function AdminTransactionsPage() {
       const data = await res.json();
       setTransactions(data.transactions || []);
       setTotal(data.total || 0);
+      setSummary(data.summary || null);
     } catch {
       setError("Error cargando transacciones.");
     } finally {
@@ -80,11 +86,24 @@ export default function AdminTransactionsPage() {
   }, [authHeader, router]);
 
   useEffect(() => {
-    loadTransactions(page, typeFilter);
-  }, [loadTransactions, page, typeFilter]);
+    loadTransactions(page, typeFilter, dateFrom, dateTo);
+  }, [loadTransactions, page, typeFilter, dateFrom, dateTo]);
 
   const handleTypeChange = (e) => {
     setTypeFilter(e.target.value);
+    setPage(1);
+  };
+
+  const handleDateChange = (field, val) => {
+    if (field === "from") setDateFrom(val);
+    else setDateTo(val);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setTypeFilter("");
+    setDateFrom("");
+    setDateTo("");
     setPage(1);
   };
 
@@ -97,6 +116,19 @@ export default function AdminTransactionsPage() {
         <span className="badge">{total.toLocaleString()} total</span>
       </div>
 
+      {summary && (
+        <div className="summary-row">
+          <div className="summary-card">
+            <span className="summary-val">{(summary.purchaseCoins ?? 0).toLocaleString()}</span>
+            <span className="summary-lbl">🪙 Coins comprados (completados)</span>
+          </div>
+          <div className="summary-card">
+            <span className="summary-val">{total.toLocaleString()}</span>
+            <span className="summary-lbl">📊 Transacciones total</span>
+          </div>
+        </div>
+      )}
+
       <div className="toolbar">
         <select
           className="select-filter"
@@ -107,9 +139,26 @@ export default function AdminTransactionsPage() {
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+        <input
+          type="date"
+          className="date-input"
+          value={dateFrom}
+          onChange={(e) => handleDateChange("from", e.target.value)}
+          title="Desde"
+        />
+        <input
+          type="date"
+          className="date-input"
+          value={dateTo}
+          onChange={(e) => handleDateChange("to", e.target.value)}
+          title="Hasta"
+        />
+        {(typeFilter || dateFrom || dateTo) && (
+          <button className="btn-clear" onClick={clearFilters}>✕ Limpiar</button>
+        )}
         <button
           className="btn-refresh"
-          onClick={() => loadTransactions(page, typeFilter)}
+          onClick={() => loadTransactions(page, typeFilter, dateFrom, dateTo)}
           disabled={loading}
         >
           {loading ? "…" : "↺ Actualizar"}
@@ -237,6 +286,63 @@ export default function AdminTransactionsPage() {
           gap: 0.75rem;
           margin-bottom: 1rem;
           flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .date-input {
+          background: #1e2535;
+          border: 1px solid #2d3748;
+          color: #e2e8f0;
+          border-radius: 8px;
+          padding: 0.55rem 0.85rem;
+          font-size: 0.875rem;
+          font-family: inherit;
+          cursor: pointer;
+          outline: none;
+        }
+        .date-input:focus { border-color: #7c3aed; }
+        .date-input::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+
+        .btn-clear {
+          background: transparent;
+          border: 1px solid #2d3748;
+          color: #64748b;
+          border-radius: 8px;
+          padding: 0.55rem 0.85rem;
+          font-size: 0.8rem;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s;
+        }
+        .btn-clear:hover { color: #f87171; border-color: rgba(239,68,68,0.3); }
+
+        .summary-row {
+          display: flex;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .summary-card {
+          background: #161b27;
+          border: 1px solid #1e2535;
+          border-radius: 10px;
+          padding: 0.75rem 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          min-width: 180px;
+        }
+
+        .summary-val {
+          font-size: 1.3rem;
+          font-weight: 800;
+          color: #e2e8f0;
+        }
+
+        .summary-lbl {
+          font-size: 0.72rem;
+          color: #64748b;
         }
 
         .select-filter {

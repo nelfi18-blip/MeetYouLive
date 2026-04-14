@@ -104,6 +104,25 @@ function AdminUsersInner() {
     }
   };
 
+  const doVerify = async (userId) => {
+    setActionLoading(userId + "verify");
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}/verify`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg("error", d.message || "Error al verificar."); return; }
+      showMsg("success", "Usuario verificado.");
+      await loadUsers(page);
+    } catch {
+      showMsg("error", "Error de conexión.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const totalPages = Math.ceil(total / 50);
 
   return (
@@ -244,6 +263,15 @@ function AdminUsersInner() {
                               disabled={!!actionLoading}
                             >
                               {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
+                            </button>
+                          )}
+                          {!u.isVerified && (
+                            <button
+                              className="btn-action btn-blue"
+                              onClick={() => doVerify(u._id)}
+                              disabled={!!actionLoading}
+                            >
+                              {actionLoading === u._id + "verify" ? "…" : "Verificar"}
                             </button>
                           )}
                         </div>
@@ -475,6 +503,9 @@ function AdminUsersInner() {
 
         .btn-yellow { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251, 191, 36, 0.18); }
+
+        .btn-blue { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.25); color: #38bdf8; }
+        .btn-blue:hover:not(:disabled) { background: rgba(56, 189, 248, 0.18); }
 
         .pagination {
           display: flex;

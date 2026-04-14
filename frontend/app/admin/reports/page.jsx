@@ -88,6 +88,25 @@ export default function AdminReportsPage() {
     }
   };
 
+  const moderateUser = async (userId, action) => {
+    if (!userId) return;
+    setActionLoading(userId + "mod" + action);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}/${action}`, {
+        method: "PATCH",
+        headers: authHeader(),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { showMsg("error", d.message || "Error."); return; }
+      const labels = { block: "Usuario bloqueado.", suspend: "Usuario suspendido." };
+      showMsg("success", labels[action] || "Acción completada.");
+    } catch {
+      showMsg("error", "Error de conexión.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const totalPages = Math.ceil(total / 50);
 
   return (
@@ -132,13 +151,14 @@ export default function AdminReportsPage() {
                   <th>Razón</th>
                   <th>Estado</th>
                   <th>Fecha</th>
-                  <th>Acciones</th>
+                  <th>Acciones reporte</th>
+                  <th>Acción usuario</th>
                 </tr>
               </thead>
               <tbody>
                 {reports.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-row">
+                    <td colSpan={8} className="empty-row">
                       No hay reportes{statusFilter ? ` con estado "${statusFilter}"` : ""}.
                     </td>
                   </tr>
@@ -207,6 +227,28 @@ export default function AdminReportsPage() {
                             )}
                           </div>
                         </td>
+                        <td>
+                          {r.targetType === "user" && r.targetId ? (
+                            <div className="action-row">
+                              <button
+                                className="btn-action btn-yellow"
+                                onClick={() => moderateUser(r.targetId, "suspend")}
+                                disabled={!!actionLoading}
+                              >
+                                {actionLoading === r.targetId + "modsuspend" ? "…" : "Suspender"}
+                              </button>
+                              <button
+                                className="btn-action btn-red"
+                                onClick={() => moderateUser(r.targetId, "block")}
+                                disabled={!!actionLoading}
+                              >
+                                {actionLoading === r.targetId + "modblock" ? "…" : "Bloquear"}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -266,6 +308,8 @@ export default function AdminReportsPage() {
         .btn-gray:hover:not(:disabled) { background: rgba(100,116,139,0.18); }
         .btn-yellow { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251,191,36,0.18); }
+        .btn-red { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: #f87171; }
+        .btn-red:hover:not(:disabled) { background: rgba(239,68,68,0.18); }
         .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; }
         .btn-page { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
         .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }

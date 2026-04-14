@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { clearAdminToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -213,6 +214,9 @@ function CreatorsInner() {
                                 {actionLoading === c._id + "reactivate" ? "…" : "Reactivar"}
                               </button>
                             )}
+                            <Link href={`/admin/creators/${c._id}`} className="btn-action btn-detail">
+                              Ver detalle
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -273,6 +277,7 @@ function CreatorsInner() {
         .btn-red:hover:not(:disabled) { background: rgba(239,68,68,0.18); }
         .btn-yellow { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251,191,36,0.18); }
+        .btn-detail { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.25); color: #a78bfa; text-decoration: none; display: inline-flex; align-items: center; }
         .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; }
         .btn-page { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
         .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }

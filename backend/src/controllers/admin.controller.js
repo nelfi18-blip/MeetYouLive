@@ -310,20 +310,44 @@ exports.getTransactions = async (req, res) => {
     if (req.query.type && ALLOWED_TYPES.includes(req.query.type)) {
       filter.type = req.query.type;
     }
+
+    // Date range filter (ISO date strings)
+    if (req.query.from || req.query.to) {
+      filter.createdAt = {};
+      if (req.query.from) {
+        const from = new Date(req.query.from);
+        if (!isNaN(from.getTime())) filter.createdAt.$gte = from;
+      }
+      if (req.query.to) {
+        const to = new Date(req.query.to);
+        if (!isNaN(to.getTime())) {
+          // Include the full "to" day
+          to.setHours(23, 59, 59, 999);
+          filter.createdAt.$lte = to;
+        }
+      }
+    }
+
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
     const skip = (page - 1) * limit;
 
-    const [transactions, total] = await Promise.all([
+    const [transactions, total, summaryResult] = await Promise.all([
       CoinTransaction.find(filter)
         .populate("userId", "username name avatar")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
       CoinTransaction.countDocuments(filter),
+      CoinTransaction.aggregate([
+        { $match: { ...filter, status: "completed" } },
+        { $group: { _id: null, totalCoins: { $sum: "$amount" }, purchaseCoins: { $sum: { $cond: [{ $eq: ["$type", "purchase"] }, "$amount", 0] } } } },
+      ]),
     ]);
 
-    return res.json({ ok: true, transactions, total, page, limit });
+    const summary = summaryResult[0] || { totalCoins: 0, purchaseCoins: 0 };
+
+    return res.json({ ok: true, transactions, total, page, limit, summary });
   } catch (error) {
     console.error("Admin transactions error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo transacciones" });

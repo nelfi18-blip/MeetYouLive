@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/creators", label: "Creadores", icon: "🎬" },
   { href: "/admin/lives", label: "Streams", icon: "📡" },
   { href: "/admin/transactions", label: "Transacciones", icon: "💰" },
+  { href: "/admin/payouts", label: "Pagos", icon: "💸" },
   { href: "/admin/reports", label: "Reportes", icon: "🚨" },
   { href: "/admin/analytics", label: "Analíticas", icon: "📊" },
   { href: "/admin/settings", label: "Configuración", icon: "⚙️" },

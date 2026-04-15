@@ -62,7 +62,7 @@ export default function AdminLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
+      <aside className={`sidebar${sidebarOpen ? " open" : ""}`} aria-label="Admin navigation">
         <div className="sidebar-logo">
           <span className="logo-icon">🛡️</span>
           <span className="logo-text">Admin</span>
@@ -147,23 +147,20 @@ export default function AdminLayout({ children }) {
           position: fixed;
           top: 0;
           left: 0;
-          bottom: 0;
+          height: 100%;
           z-index: 50;
-          transform: translateX(-100%);
+          transform: translateX(-100%) !important;
           transition: transform 0.25s ease;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .sidebar {
-            transform: translateX(0);
-            position: sticky;
-            top: 0;
-            height: 100vh;
+            transform: translateX(0) !important;
           }
           .topbar { display: none; }
         }
 
-        .sidebar--open {
+        .sidebar.open {
           transform: translateX(0);
         }
 
@@ -295,9 +292,11 @@ export default function AdminLayout({ children }) {
           min-width: 0;
           display: flex;
           flex-direction: column;
+          margin-left: 0 !important;
+          width: 100% !important;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .admin-main {
             margin-left: var(--admin-sidebar-width);
           }
@@ -314,6 +313,12 @@ export default function AdminLayout({ children }) {
           position: sticky;
           top: 0;
           z-index: 30;
+        }
+
+        @media (min-width: 1024px) {
+          .sidebar-overlay {
+            display: none;
+          }
         }
 
         .topbar-menu-btn {

@@ -51,7 +51,7 @@ export default function AdminLayout({ children }) {
   if (pathname === "/admin/login") return <>{children}</>;
 
   return (
-    <div className="admin-shell">
+    <div className="admin-layout">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -62,7 +62,7 @@ export default function AdminLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
+      <aside className={`sidebar${sidebarOpen ? " open" : ""}`} aria-label="Admin navigation">
         <div className="sidebar-logo">
           <span className="logo-icon">🛡️</span>
           <span className="logo-text">Admin</span>
@@ -99,7 +99,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main content */}
-      <div className="admin-main">
+      <main className="admin-main">
         {/* Top bar (mobile) */}
         <header className="topbar">
           <button
@@ -113,15 +113,16 @@ export default function AdminLayout({ children }) {
         </header>
 
         <div className="admin-content">{children}</div>
-      </div>
+      </main>
 
       <style jsx>{`
         :root {
           --admin-sidebar-width: 220px;
         }
 
-        .admin-shell {
+        .admin-layout {
           display: flex;
+          width: 100%;
           min-height: 100vh;
           background: #0f1117;
           color: #e2e8f0;
@@ -139,7 +140,6 @@ export default function AdminLayout({ children }) {
         /* ── Sidebar ── */
         .sidebar {
           width: var(--admin-sidebar-width);
-          flex-shrink: 0;
           background: #161b27;
           border-right: 1px solid #1e2535;
           display: flex;
@@ -147,23 +147,21 @@ export default function AdminLayout({ children }) {
           position: fixed;
           top: 0;
           left: 0;
-          bottom: 0;
+          height: 100%;
           z-index: 50;
           transform: translateX(-100%);
-          transition: transform 0.25s ease;
+          transition: transform 0.3s ease;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .sidebar {
             transform: translateX(0);
-            position: sticky;
-            top: 0;
-            height: 100vh;
+            position: relative;
           }
           .topbar { display: none; }
         }
 
-        .sidebar--open {
+        .sidebar.open {
           transform: translateX(0);
         }
 
@@ -291,13 +289,13 @@ export default function AdminLayout({ children }) {
 
         /* ── Main content ── */
         .admin-main {
-          flex: 1;
-          min-width: 0;
+          width: 100%;
+          margin-left: 0;
           display: flex;
           flex-direction: column;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .admin-main {
             margin-left: var(--admin-sidebar-width);
           }
@@ -336,7 +334,6 @@ export default function AdminLayout({ children }) {
         .admin-content {
           flex: 1;
           padding: 1.5rem;
-          overflow-x: hidden;
         }
 
         @media (max-width: 767px) {

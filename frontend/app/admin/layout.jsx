@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/admin/analytics", label: "Analíticas", icon: "📊" },
   { href: "/admin/settings", label: "Configuración", icon: "⚙️" },
 ];
+const MOBILE_BREAKPOINT = 768;
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function AdminLayout({ children }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.innerWidth >= 768) return;
+    if (window.innerWidth >= MOBILE_BREAKPOINT) return;
     document.body.style.overflow = sidebarOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
@@ -165,7 +166,7 @@ export default function AdminLayout({ children }) {
           transition: transform 0.25s ease;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: ${MOBILE_BREAKPOINT}px) {
           .sidebar {
             transform: translateX(0);
           }
@@ -310,7 +311,7 @@ export default function AdminLayout({ children }) {
           overflow-x: hidden;
         }
 
-        @media (min-width: 768px) {
+        @media (min-width: ${MOBILE_BREAKPOINT}px) {
           .admin-main {
             margin-left: var(--admin-sidebar-width);
           }
@@ -354,7 +355,7 @@ export default function AdminLayout({ children }) {
           overflow-x: hidden;
         }
 
-        @media (max-width: 767px) {
+        @media (max-width: ${MOBILE_BREAKPOINT - 1}px) {
           .admin-content {
             padding: 1rem;
           }

@@ -62,7 +62,7 @@ export default function AdminLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar${sidebarOpen ? " open" : ""}`} aria-label="Admin navigation">
+      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
         <div className="sidebar-logo">
           <span className="logo-icon">🛡️</span>
           <span className="logo-text">Admin</span>
@@ -160,8 +160,8 @@ export default function AdminLayout({ children }) {
           .topbar { display: none; }
         }
 
-        .sidebar.open {
-          transform: translateX(0);
+        .sidebar.sidebar--open {
+          transform: translateX(0) !important;
         }
 
         /* ── Logo ── */
@@ -298,7 +298,8 @@ export default function AdminLayout({ children }) {
 
         @media (min-width: 1024px) {
           .admin-main {
-            margin-left: var(--admin-sidebar-width);
+            margin-left: var(--admin-sidebar-width) !important;
+            width: calc(100% - var(--admin-sidebar-width)) !important;
           }
         }
 

@@ -37,6 +37,15 @@ export default function AdminLayout({ children }) {
     }
   }, [pathname, router]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 768) return;
+    document.body.style.overflow = sidebarOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
+
   const handleLogout = () => {
     clearAdminToken();
     window.location.href = "/admin/login";
@@ -104,8 +113,9 @@ export default function AdminLayout({ children }) {
         <header className="topbar">
           <button
             className="topbar-menu-btn"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Abrir menú"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            aria-label={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={sidebarOpen}
           >
             ☰
           </button>
@@ -122,10 +132,12 @@ export default function AdminLayout({ children }) {
 
         .admin-shell {
           display: flex;
+          width: 100%;
           min-height: 100vh;
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
+          overflow-x: hidden;
         }
 
         /* ── Overlay ── */
@@ -156,11 +168,9 @@ export default function AdminLayout({ children }) {
         @media (min-width: 768px) {
           .sidebar {
             transform: translateX(0);
-            position: sticky;
-            top: 0;
-            height: 100vh;
           }
           .topbar { display: none; }
+          .sidebar-overlay { display: none; }
         }
 
         .sidebar--open {
@@ -292,9 +302,12 @@ export default function AdminLayout({ children }) {
         /* ── Main content ── */
         .admin-main {
           flex: 1;
+          width: 100%;
+          margin-left: 0;
           min-width: 0;
           display: flex;
           flex-direction: column;
+          overflow-x: hidden;
         }
 
         @media (min-width: 768px) {
@@ -335,6 +348,8 @@ export default function AdminLayout({ children }) {
         /* ── Page content ── */
         .admin-content {
           flex: 1;
+          width: 100%;
+          box-sizing: border-box;
           padding: 1.5rem;
           overflow-x: hidden;
         }

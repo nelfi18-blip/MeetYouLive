@@ -62,7 +62,7 @@ export default function AdminLayout({ children }) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-[220px] bg-dark bg-[#161b27] z-50 transition-transform duration-300 flex flex-col border-r border-[#1e2535] ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        className={`fixed top-0 left-0 h-full w-[220px] bg-dark z-50 transition-transform duration-300 flex flex-col border-r border-[#1e2535] ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
         aria-label="Admin navigation"
       >
         <div className="flex items-center gap-2.5 px-5 pt-5 pb-4 border-b border-[#1e2535]">
@@ -77,7 +77,7 @@ export default function AdminLayout({ children }) {
               href={item.href}
               className={`flex items-center gap-2.5 px-5 py-2.5 text-sm font-medium no-underline border-l-3 transition-colors ${
                 isActive(item)
-                  ? "bg-violet-400/12 text-violet-400 border-violet-400"
+                  ? "bg-violet-400/12 text-violet-400 border-violet-400 font-semibold"
                   : "text-slate-400 border-transparent hover:bg-violet-400/8 hover:text-slate-200"
               }`}
               onClick={() => setOpen(false)}

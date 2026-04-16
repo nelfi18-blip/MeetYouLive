@@ -93,7 +93,9 @@ router.post("/register", authLimiter, async (req, res) => {
 
     // Send verification email (non-blocking — don't fail registration if email fails)
     sendVerificationEmail(email, code).catch((err) => {
-      const detail = err && err.code ? `${err.code}: ${err.message}` : err.message;
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
       console.error("[register] Failed to send verification email:", detail);
     });
 

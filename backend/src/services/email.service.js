@@ -58,7 +58,10 @@ async function sendVerificationEmail(to, code) {
     transport = getTransporter();
   } catch (err) {
     if (err instanceof MailServiceError) throw err;
-    throw new MailServiceError("EMAIL_TRANSPORT_ERROR", "Unable to initialize email transport.");
+    throw new MailServiceError(
+      "EMAIL_TRANSPORT_ERROR",
+      `Unable to initialize email transport${err && err.message ? `: ${err.message}` : ""}.`
+    );
   }
 
   const mailOptions = {

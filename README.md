@@ -124,12 +124,17 @@ A `render.yaml` is included so Render can auto-configure the service.
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    GOOGLE_CALLBACK_URL=https://api.meetyoulive.net/api/auth/google/callback
-   AGORA_APP_ID=your_agora_app_id
-   AGORA_APP_CERTIFICATE=your_agora_app_certificate
-   STRIPE_SECRET_KEY=your_stripe_secret_key
-   STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-   STRIPE_SUBSCRIPTION_PRICE_ID=your_stripe_price_id
-   ```
+    AGORA_APP_ID=your_agora_app_id
+    AGORA_APP_CERTIFICATE=your_agora_app_certificate
+    STRIPE_SECRET_KEY=your_stripe_secret_key
+    STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+    STRIPE_SUBSCRIPTION_PRICE_ID=your_stripe_price_id
+    SMTP_HOST=your_smtp_host
+    SMTP_PORT=587
+    SMTP_USER=your_smtp_username
+    SMTP_PASS=your_smtp_password
+    SMTP_FROM=MeetYouLive <noreply@meetyoulive.net>
+    ```
 3. In **Settings → Custom Domains** add `api.meetyoulive.net`.
 4. In GoDaddy DNS add a `CNAME` record: `api` → `<your-service>.onrender.com`.
 

@@ -5,10 +5,10 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
-const { sendVerificationEmail } = require("../services/email.service.js");
+const { sendVerificationEmail, MailServiceError } = require("../services/email.service.js");
 
 function extractEmailErrorResponse(err) {
-  if (!err || !err.code || !String(err.code).startsWith("EMAIL_")) return null;
+  if (!(err instanceof MailServiceError)) return null;
   return {
     status: Number.isInteger(err.status) ? err.status : 500,
     payload: {

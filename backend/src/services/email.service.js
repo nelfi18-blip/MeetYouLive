@@ -186,4 +186,4 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
   return info;
 }
 
-module.exports = { sendVerificationEmail, sendReactivationEmail };
+module.exports = { sendVerificationEmail, sendReactivationEmail, MailServiceError };

@@ -21,7 +21,7 @@ function getTransporter() {
   if (hasAnySmtpValue && !hasFullSmtpConfig) {
     throw new MailServiceError(
       "EMAIL_CONFIG_INVALID",
-      "SMTP configuration is incomplete. Set SMTP_HOST, SMTP_USER and SMTP_PASS (SMTP_PORT is optional and defaults to 587)."
+      "SMTP configuration is incomplete. SMTP_HOST, SMTP_USER, and SMTP_PASS are required."
     );
   }
 
@@ -35,7 +35,7 @@ function getTransporter() {
   } else if (process.env.NODE_ENV === "production") {
     throw new MailServiceError(
       "EMAIL_NOT_CONFIGURED",
-      "Email service is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASS in production (SMTP_PORT is optional and defaults to 587)."
+      "Email service is not configured. In production, SMTP_HOST, SMTP_USER, and SMTP_PASS are required."
     );
   } else {
     // Development fallback: log emails to the console

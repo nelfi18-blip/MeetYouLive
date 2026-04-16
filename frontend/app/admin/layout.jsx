@@ -126,6 +126,8 @@ export default function AdminLayout({ children }) {
 
       <style jsx>{`
         .admin-shell {
+          --admin-sidebar-mobile-width: min(280px, 86vw);
+          --admin-sidebar-desktop-width: 240px;
           min-height: 100vh;
           background: #0f1117;
           color: #e2e8f0;
@@ -169,7 +171,7 @@ export default function AdminLayout({ children }) {
         .sidebar-drawer {
           position: fixed;
           inset: 0 auto 0 0;
-          width: min(280px, 86vw);
+          width: var(--admin-sidebar-mobile-width);
           background: #161b27;
           border-right: 1px solid #1e2535;
           z-index: 60;
@@ -211,7 +213,7 @@ export default function AdminLayout({ children }) {
 
           .layout-grid {
             display: grid;
-            grid-template-columns: 240px minmax(0, 1fr);
+            grid-template-columns: var(--admin-sidebar-desktop-width) minmax(0, 1fr);
             min-height: 100vh;
           }
 

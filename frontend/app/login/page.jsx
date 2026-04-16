@@ -18,6 +18,7 @@ function LoginForm() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // UI placeholder for future persistent-session behavior.
   const [rememberMe, setRememberMe] = useState(false);
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
@@ -352,7 +353,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const data = await authLogin({ email, password, rememberMe });
+      const data = await authLogin({ email, password });
 
       if (data.error) {
         // "Use Google" suggestions are shown as info (blue) rather than an error (red)

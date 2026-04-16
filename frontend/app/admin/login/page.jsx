@@ -12,6 +12,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // UI placeholder for future persistent-session behavior.
   const [rememberMe, setRememberMe] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -48,8 +49,7 @@ export default function AdminLoginPage() {
     );
   }
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     if (loading) return;
     setError("");
     setLoading(true);
@@ -63,7 +63,6 @@ export default function AdminLoginPage() {
         body: JSON.stringify({
           email,
           password,
-          rememberMe,
         }),
       });
 
@@ -86,7 +85,7 @@ export default function AdminLoginPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); handleLogin(e); }
+    if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
   };
 
   return (

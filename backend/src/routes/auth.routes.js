@@ -7,7 +7,7 @@ const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail } = require("../services/email.service.js");
 
-function buildEmailErrorResponse(err) {
+function extractEmailErrorResponse(err) {
   if (!err || !err.code || !String(err.code).startsWith("EMAIL_")) return null;
   return {
     status: Number.isInteger(err.status) ? err.status : 500,
@@ -225,7 +225,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
 
     res.json({ message: "Código de verificación reenviado. Revisa tu email." });
   } catch (err) {
-    const emailError = buildEmailErrorResponse(err);
+    const emailError = extractEmailErrorResponse(err);
     if (emailError) return res.status(emailError.status).json(emailError.payload);
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });

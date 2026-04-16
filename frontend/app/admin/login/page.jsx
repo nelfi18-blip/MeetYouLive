@@ -11,6 +11,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [checking, setChecking] = useState(true);
 
   // If already logged in as admin, redirect directly to /admin
@@ -47,7 +49,8 @@ export default function AdminLoginPage() {
   }
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (loading) return;
     setError("");
     setLoading(true);
 
@@ -151,15 +154,49 @@ export default function AdminLoginPage() {
             autoComplete="email"
           />
 
-          <input
-            className="input input-lg"
-            type="password"
-            placeholder="CONTRASEÑA"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoComplete="current-password"
-          />
+          <div className="password-field">
+            <input
+              className="input input-lg password-input"
+              type={showPassword ? "text" : "password"}
+              placeholder="CONTRASEÑA"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 3l18 18M10.6 10.6A2 2 0 0012 14a2 2 0 001.4-.6M9.9 5.1A10.7 10.7 0 0112 5c5.2 0 9.3 4 10 7-.3 1.2-1.2 2.7-2.5 4M6.1 6.1C4 7.6 2.5 9.8 2 12c.7 3 4.8 7 10 7 1.7 0 3.2-.4 4.5-1" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2 12c.7-3 4.8-7 10-7s9.3 4 10 7c-.7 3-4.8 7-10 7s-9.3-4-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          <div className="auth-options">
+            <label className="remember-option">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <span>Recordarme</span>
+            </label>
+            <Link className="forgot-link" href="/forgot-password">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           <button
             className="btn btn-admin btn-lg btn-block submit-btn"
@@ -169,7 +206,7 @@ export default function AdminLoginPage() {
             {loading ? (
               <>
                 <span className="spinner" />
-                Verificando…
+                Entrando...
               </>
             ) : (
               "Entrar al Panel →"
@@ -359,7 +396,85 @@ export default function AdminLoginPage() {
         .admin-login-form {
           display: flex;
           flex-direction: column;
-          gap: 0.85rem;
+          gap: 1rem;
+        }
+        .admin-login-form :global(.input.input-lg) {
+          min-height: 52px;
+          border-color: rgba(139,92,246,0.28);
+          background: rgba(12,7,28,0.92);
+        }
+        .admin-login-form :global(.input.input-lg:focus) {
+          border-color: rgba(168,85,247,0.72);
+          box-shadow: 0 0 0 3px rgba(168,85,247,0.2), 0 0 28px rgba(168,85,247,0.2);
+        }
+
+        .password-field { position: relative; }
+        .password-input { padding-right: 3.25rem !important; }
+        .password-toggle {
+          position: absolute;
+          right: 0.45rem;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 2.25rem;
+          height: 2.25rem;
+          border: none;
+          border-radius: 10px;
+          background: transparent;
+          color: rgba(255,255,255,0.75);
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: background 0.2s, color 0.2s;
+        }
+        .password-toggle:hover {
+          background: rgba(168,85,247,0.15);
+          color: #fff;
+        }
+        .password-toggle:focus-visible {
+          outline: 2px solid rgba(168,85,247,0.6);
+          outline-offset: 2px;
+        }
+        .password-toggle svg {
+          width: 18px;
+          height: 18px;
+          stroke: currentColor;
+          fill: none;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .auth-options {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-top: -0.15rem;
+        }
+        .remember-option {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-size: 0.84rem;
+          color: var(--text-muted);
+          cursor: pointer;
+          user-select: none;
+        }
+        .remember-option input {
+          width: 15px;
+          height: 15px;
+          accent-color: #a855f7;
+          cursor: pointer;
+        }
+        .forgot-link {
+          font-size: 0.84rem;
+          color: #c4b5fd;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: color 0.15s;
+        }
+        .forgot-link:hover {
+          color: #e040fb;
         }
 
         /* ── Admin button ── */
@@ -443,6 +558,11 @@ export default function AdminLoginPage() {
           .admin-login-card { padding: 2rem 1.5rem; }
           .admin-login-title { font-size: 1.2rem; }
           .admin-login-logo-text { font-size: 1.55rem; }
+          .auth-options {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.6rem;
+          }
         }
       `}</style>
     </div>

@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
   }
 
   const handleLogin = async (e) => {
-    e?.preventDefault();
+    e.preventDefault();
     if (loading) return;
     setError("");
     setLoading(true);
@@ -85,7 +85,7 @@ export default function AdminLoginPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
+    if (e.key === "Enter") { e.preventDefault(); handleLogin(e); }
   };
 
   return (

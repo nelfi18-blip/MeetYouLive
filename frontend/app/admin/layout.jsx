@@ -94,15 +94,6 @@ export default function AdminLayout({ children }) {
     setSidebarOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    if (!sidebarOpen) return undefined;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [sidebarOpen]);
-
   const handleLogout = () => {
     clearAdminToken();
     window.location.href = "/admin/login";
@@ -128,7 +119,7 @@ export default function AdminLayout({ children }) {
 
       <div className="layout-grid">
         <aside className="sidebar-static" aria-label="Admin navigation">
-          <AdminSidebar pathname={pathname} adminUser={adminUser} onNavClick={() => {}} onLogout={handleLogout} />
+          <AdminSidebar pathname={pathname} adminUser={adminUser} onLogout={handleLogout} />
         </aside>
         <main className="main-content">{children}</main>
       </div>

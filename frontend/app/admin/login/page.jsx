@@ -6,13 +6,13 @@ import Link from "next/link";
 import { setAdminToken, clearAdminToken } from "@/lib/token";
 
 export default function AdminLoginPage() {
+  const REMEMBER_EMAIL_KEY = "admin_login_remember_email";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // UI placeholder for future persistent-session behavior.
   const [rememberMe, setRememberMe] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -39,6 +39,14 @@ export default function AdminLoginPage() {
       .catch(() => setChecking(false));
   }, [router]);
 
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   if (checking) {
     return (
       <div
@@ -53,6 +61,11 @@ export default function AdminLoginPage() {
     if (loading) return;
     setError("");
     setLoading(true);
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }
 
     try {
       const res = await fetch("/api/admin/login", {

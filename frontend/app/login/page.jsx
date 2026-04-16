@@ -9,6 +9,7 @@ import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken } from "@/lib/token";
 
 function LoginForm() {
+  const REMEMBER_EMAIL_KEY = "login_remember_email";
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,7 +19,6 @@ function LoginForm() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // UI placeholder for future persistent-session behavior.
   const [rememberMe, setRememberMe] = useState(false);
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
@@ -34,6 +34,14 @@ function LoginForm() {
       setInfo("Esta cuenta ya existe. Ingresa tu contraseña o continúa con Google.");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   // Cleanup pending retry timeouts on unmount.
   useEffect(() => {
@@ -351,6 +359,11 @@ function LoginForm() {
     setError("");
     setInfo("");
     setLoading(true);
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }
 
     try {
       const data = await authLogin({ email, password });

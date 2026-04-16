@@ -2,18 +2,41 @@ const nodemailer = require("nodemailer");
 
 let transporter = null;
 
+class MailServiceError extends Error {
+  constructor(code, message, status = 500) {
+    super(message);
+    this.name = "MailServiceError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  const hasAnySmtpValue = Boolean(SMTP_HOST || SMTP_USER || SMTP_PASS);
+  const hasFullSmtpConfig = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
-  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  if (hasAnySmtpValue && !hasFullSmtpConfig) {
+    throw new MailServiceError(
+      "EMAIL_CONFIG_INVALID",
+      "SMTP configuration is incomplete. Set SMTP_HOST, SMTP_USER and SMTP_PASS."
+    );
+  }
+
+  if (hasFullSmtpConfig) {
     transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: parseInt(SMTP_PORT || "587", 10),
       secure: parseInt(SMTP_PORT || "587", 10) === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
     });
+  } else if (process.env.NODE_ENV === "production") {
+    throw new MailServiceError(
+      "EMAIL_NOT_CONFIGURED",
+      "Email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in production."
+    );
   } else {
     // Development fallback: log emails to the console
     transporter = nodemailer.createTransport({ jsonTransport: true });
@@ -30,7 +53,13 @@ const FROM = process.env.SMTP_FROM || "MeetYouLive <noreply@meetyoulive.net>";
  * @param {string} code - 6-digit numeric code
  */
 async function sendVerificationEmail(to, code) {
-  const transport = getTransporter();
+  let transport;
+  try {
+    transport = getTransporter();
+  } catch (err) {
+    if (err instanceof MailServiceError) throw err;
+    throw new MailServiceError("EMAIL_TRANSPORT_ERROR", "Unable to initialize email transport.");
+  }
 
   const mailOptions = {
     from: FROM,
@@ -49,7 +78,16 @@ async function sendVerificationEmail(to, code) {
     `,
   };
 
-  const info = await transport.sendMail(mailOptions);
+  let info;
+  try {
+    info = await transport.sendMail(mailOptions);
+  } catch (err) {
+    throw new MailServiceError(
+      "EMAIL_DELIVERY_FAILED",
+      `Unable to send verification email: ${err.message}`,
+      502
+    );
+  }
 
   // In dev (jsonTransport), print what would have been sent.
   // This code path is only reached when SMTP_HOST is not set (non-production).

@@ -7,6 +7,17 @@ const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail } = require("../services/email.service.js");
 
+function buildEmailErrorResponse(err) {
+  if (!err || !err.code || !String(err.code).startsWith("EMAIL_")) return null;
+  return {
+    status: Number.isInteger(err.status) ? err.status : 500,
+    payload: {
+      code: err.code,
+      message: "No se pudo enviar el email de verificación. Inténtalo de nuevo más tarde.",
+    },
+  };
+}
+
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
  * Excludes I, O, 0, 1 to prevent visual confusion between similar characters.
@@ -81,9 +92,10 @@ router.post("/register", authLimiter, async (req, res) => {
     });
 
     // Send verification email (non-blocking — don't fail registration if email fails)
-    sendVerificationEmail(email, code).catch((err) =>
-      console.error("[register] Failed to send verification email:", err.message)
-    );
+    sendVerificationEmail(email, code).catch((err) => {
+      const detail = err && err.code ? `${err.code}: ${err.message}` : err.message;
+      console.error("[register] Failed to send verification email:", detail);
+    });
 
     res.status(201).json({ message: "Cuenta creada. Revisa tu email para verificar tu cuenta.", requiresVerification: true, userId: user._id });
   } catch (err) {
@@ -209,12 +221,12 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
-    sendVerificationEmail(email, code).catch((err) =>
-      console.error("[resend-verification] Failed to send email:", err.message)
-    );
+    await sendVerificationEmail(email, code);
 
     res.json({ message: "Código de verificación reenviado. Revisa tu email." });
   } catch (err) {
+    const emailError = buildEmailErrorResponse(err);
+    if (emailError) return res.status(emailError.status).json(emailError.payload);
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
   }

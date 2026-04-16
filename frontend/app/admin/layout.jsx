@@ -16,6 +16,59 @@ const NAV_ITEMS = [
   { href: "/admin/settings", label: "Configuración", icon: "⚙️" },
 ];
 
+function TopBar({ onMenu }) {
+  return (
+    <header className="topbar">
+      <button className="menu-btn" onClick={onMenu} aria-label="Abrir menú">
+        ☰
+      </button>
+      <span className="topbar-title">MeetYouLive Admin</span>
+    </header>
+  );
+}
+
+function AdminSidebar({ pathname, adminUser, onNavClick, onLogout }) {
+  const isActive = (item) => (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+
+  return (
+    <div className="sidebar-inner">
+      <div className="sidebar-logo">
+        <span className="logo-icon">🛡️</span>
+        <span className="logo-text">Admin</span>
+      </div>
+
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`nav-item${isActive(item) ? " nav-item--active" : ""}`}
+            onClick={onNavClick}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-label">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="sidebar-footer">
+        {adminUser && (
+          <div className="admin-info">
+            <div className="admin-avatar">{(adminUser.name || adminUser.username || "A")[0].toUpperCase()}</div>
+            <div className="admin-meta">
+              <div className="admin-name">{adminUser.name || adminUser.username}</div>
+              <div className="admin-role">Administrador</div>
+            </div>
+          </div>
+        )}
+        <button className="logout-btn" onClick={onLogout}>
+          ⏻ Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,14 +90,22 @@ export default function AdminLayout({ children }) {
     }
   }, [pathname, router]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [sidebarOpen]);
+
   const handleLogout = () => {
     clearAdminToken();
     window.location.href = "/admin/login";
-  };
-
-  const isActive = (item) => {
-    if (item.exact) return pathname === item.href;
-    return pathname.startsWith(item.href);
   };
 
   // /admin/login doesn't use this layout
@@ -52,122 +113,130 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="admin-shell">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
+      <TopBar onMenu={() => setSidebarOpen(true)} />
+
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />}
+
+      <aside className={`sidebar-drawer${sidebarOpen ? " sidebar-drawer--open" : ""}`} aria-label="Admin navigation">
+        <AdminSidebar
+          pathname={pathname}
+          adminUser={adminUser}
+          onNavClick={() => setSidebarOpen(false)}
+          onLogout={handleLogout}
         />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
-        <div className="sidebar-logo">
-          <span className="logo-icon">🛡️</span>
-          <span className="logo-text">Admin</span>
-        </div>
-
-        <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item${isActive(item) ? " nav-item--active" : ""}`}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          {adminUser && (
-            <div className="admin-info">
-              <div className="admin-avatar">{(adminUser.name || adminUser.username || "A")[0].toUpperCase()}</div>
-              <div className="admin-meta">
-                <div className="admin-name">{adminUser.name || adminUser.username}</div>
-                <div className="admin-role">Administrador</div>
-              </div>
-            </div>
-          )}
-          <button className="logout-btn" onClick={handleLogout}>
-            ⏻ Cerrar sesión
-          </button>
-        </div>
       </aside>
 
-      {/* Main content */}
-      <div className="admin-main">
-        {/* Top bar (mobile) */}
-        <header className="topbar">
-          <button
-            className="topbar-menu-btn"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Abrir menú"
-          >
-            ☰
-          </button>
-          <span className="topbar-title">MeetYouLive Admin</span>
-        </header>
-
-        <div className="admin-content">{children}</div>
+      <div className="layout-grid">
+        <aside className="sidebar-static" aria-label="Admin navigation">
+          <AdminSidebar pathname={pathname} adminUser={adminUser} onNavClick={() => {}} onLogout={handleLogout} />
+        </aside>
+        <main className="main-content">{children}</main>
       </div>
 
       <style jsx>{`
-        :root {
-          --admin-sidebar-width: 220px;
-        }
-
         .admin-shell {
-          display: flex;
           min-height: 100vh;
           background: #0f1117;
           color: #e2e8f0;
-          font-family: inherit;
         }
 
-        /* ── Overlay ── */
-        .sidebar-overlay {
+        .topbar {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          background: #161b27;
+          border-bottom: 1px solid #1e2535;
+          position: sticky;
+          top: 0;
+          z-index: 30;
+        }
+
+        .menu-btn {
+          background: transparent;
+          border: 0;
+          color: #e2e8f0;
+          font-size: 1.35rem;
+          cursor: pointer;
+          line-height: 1;
+          padding: 0.25rem;
+        }
+
+        .topbar-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #a78bfa;
+        }
+
+        .sidebar-backdrop {
           position: fixed;
           inset: 0;
           background: rgba(0, 0, 0, 0.5);
-          z-index: 40;
+          z-index: 50;
         }
 
-        /* ── Sidebar ── */
-        .sidebar {
-          width: var(--admin-sidebar-width);
-          flex-shrink: 0;
+        .sidebar-drawer {
+          position: fixed;
+          inset: 0 auto 0 0;
+          width: min(280px, 86vw);
           background: #161b27;
           border-right: 1px solid #1e2535;
-          display: flex;
-          flex-direction: column;
-          position: fixed;
-          top: 0;
-          left: 0;
-          bottom: 0;
-          z-index: 50;
+          z-index: 60;
           transform: translateX(-100%);
-          transition: transform 0.25s ease;
+          transition: transform 0.2s ease;
         }
 
-        @media (min-width: 768px) {
-          .sidebar {
-            transform: translateX(0);
-            position: sticky;
-            top: 0;
-            height: 100vh;
-          }
-          .topbar { display: none; }
-        }
-
-        .sidebar--open {
+        .sidebar-drawer--open {
           transform: translateX(0);
         }
 
-        /* ── Logo ── */
+        .layout-grid {
+          display: block;
+        }
+
+        .sidebar-static {
+          display: none;
+        }
+
+        .sidebar-inner {
+          background: #161b27;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+
+        .main-content {
+          width: 100%;
+          min-width: 0;
+          padding: 1rem;
+        }
+
+        @media (min-width: 768px) {
+          .topbar,
+          .sidebar-backdrop,
+          .sidebar-drawer {
+            display: none;
+          }
+
+          .layout-grid {
+            display: grid;
+            grid-template-columns: 240px minmax(0, 1fr);
+            min-height: 100vh;
+          }
+
+          .sidebar-static {
+            display: block;
+            border-right: 1px solid #1e2535;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+          }
+
+          .main-content {
+            padding: 1.5rem;
+          }
+        }
+
         .sidebar-logo {
           display: flex;
           align-items: center;
@@ -188,7 +257,6 @@ export default function AdminLayout({ children }) {
           text-transform: uppercase;
         }
 
-        /* ── Nav ── */
         .sidebar-nav {
           flex: 1;
           padding: 0.75rem 0;
@@ -227,7 +295,6 @@ export default function AdminLayout({ children }) {
           flex-shrink: 0;
         }
 
-        /* ── Footer ── */
         .sidebar-footer {
           padding: 1rem 1.25rem;
           border-top: 1px solid #1e2535;
@@ -287,62 +354,6 @@ export default function AdminLayout({ children }) {
 
         .logout-btn:hover {
           background: rgba(239, 68, 68, 0.16);
-        }
-
-        /* ── Main content ── */
-        .admin-main {
-          flex: 1;
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-        }
-
-        @media (min-width: 768px) {
-          .admin-main {
-            margin-left: var(--admin-sidebar-width);
-          }
-        }
-
-        /* ── Topbar (mobile) ── */
-        .topbar {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          background: #161b27;
-          border-bottom: 1px solid #1e2535;
-          position: sticky;
-          top: 0;
-          z-index: 30;
-        }
-
-        .topbar-menu-btn {
-          background: none;
-          border: none;
-          color: #e2e8f0;
-          font-size: 1.3rem;
-          cursor: pointer;
-          line-height: 1;
-          padding: 0.25rem;
-        }
-
-        .topbar-title {
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: #a78bfa;
-        }
-
-        /* ── Page content ── */
-        .admin-content {
-          flex: 1;
-          padding: 1.5rem;
-          overflow-x: hidden;
-        }
-
-        @media (max-width: 767px) {
-          .admin-content {
-            padding: 1rem;
-          }
         }
       `}</style>
     </div>

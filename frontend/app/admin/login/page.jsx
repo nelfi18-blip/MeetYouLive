@@ -167,8 +167,9 @@ export default function AdminLoginPage() {
               className="password-toggle"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-pressed={showPassword}
             >
-              {showPassword ? "🙈" : "👁️"}
+              <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
             </button>
           </div>
 

@@ -352,7 +352,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const data = await authLogin({ email, password });
+      const data = await authLogin({ email, password, rememberMe });
 
       if (data.error) {
         // "Use Google" suggestions are shown as info (blue) rather than an error (red)

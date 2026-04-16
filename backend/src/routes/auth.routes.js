@@ -213,7 +213,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
       await sendVerificationEmail(email, code);
     } catch (err) {
       console.error("[resend-verification] Failed to send email:", err.message);
-      return res.status(502).json({
+      return res.status(503).json({
         code: "EMAIL_DELIVERY_FAILED",
         message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
       });

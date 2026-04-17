@@ -171,11 +171,11 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `STRIPE_SECRET_KEY`           | Stripe secret key (`sk_test_…` or `sk_live_…`)          |
 | `STRIPE_WEBHOOK_SECRET`       | Stripe webhook signing secret                           |
 | `STRIPE_SUBSCRIPTION_PRICE_ID`| Stripe Price ID for the subscription plan               |
-| `SMTP_HOST`                   | SMTP host for email verification (leave blank to log codes to console) |
-| `SMTP_PORT`                   | SMTP port (default 587)                                 |
-| `SMTP_USER`                   | SMTP username                                           |
-| `SMTP_PASS`                   | SMTP password                                           |
-| `SMTP_FROM`                   | From address for outgoing email                         |
+| `SMTP_HOST`                   | SMTP host for email verification (**required in production**) |
+| `SMTP_PORT`                   | SMTP port (default 587; use 465 for SSL/TLS)           |
+| `SMTP_USER`                   | SMTP username (**required in production**)              |
+| `SMTP_PASS`                   | SMTP password (**required in production**)              |
+| `SMTP_FROM`                   | Optional `From:` address for outgoing email             |
 | `ADMIN_NAME`                  | Admin username for the seed script (default `meetyoulive`) |
 | `ADMIN_EMAIL`                 | Admin email for the seed script                         |
 | `ADMIN_PASSWORD`              | Admin password for the seed script                      |

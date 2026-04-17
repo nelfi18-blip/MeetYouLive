@@ -65,7 +65,7 @@ const getDailyRewardStatus = async (req, res) => {
  * The coin credit and transaction record are written atomically.
  */
 const claimDailyReward = async (req, res) => {
-  for (let attempts = 1; attempts <= MAX_RETRIES; attempts++) {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const session = await mongoose.startSession();
     try {
       session.startTransaction();
@@ -131,8 +131,8 @@ const claimDailyReward = async (req, res) => {
         await session.abortTransaction();
       }
 
-      if (isWriteConflictError(err) && attempts < MAX_RETRIES) {
-        console.log("Retrying reward transaction...");
+      if (isWriteConflictError(err) && attempt < MAX_RETRIES) {
+        console.log(`Retrying reward transaction (attempt ${attempt + 1} of ${MAX_RETRIES})...`);
         continue;
       }
 

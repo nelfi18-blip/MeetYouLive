@@ -236,7 +236,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email) return res.status(400).json({ message: "email es requerido" });
 
-  const genericMessage = "Si la cuenta existe, te hemos enviado un código de recuperación.";
+  const genericMessage = "Si la cuenta existe, te hemos enviado un código de restablecimiento.";
 
   try {
     const user = await User.findOne({ email });

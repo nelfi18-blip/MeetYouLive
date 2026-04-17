@@ -16,6 +16,7 @@ function ResetPasswordForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const REDIRECT_DELAY_MS = 1500;
 
   useEffect(() => {
     const emailParam = searchParams.get("email");
@@ -58,7 +59,7 @@ function ResetPasswordForm() {
     }
 
     setSuccess(data.message || "Contraseña actualizada correctamente.");
-    setTimeout(() => router.push("/login"), 1500);
+    setTimeout(() => router.push("/login"), REDIRECT_DELAY_MS);
   };
 
   return (

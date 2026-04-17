@@ -12,19 +12,21 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const REDIRECT_DELAY_MS = 1000;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
       setError("Ingresa tu email para continuar.");
       return;
     }
 
     setLoading(true);
-    const data = await forgotPassword(email.trim().toLowerCase());
+    const data = await forgotPassword(normalizedEmail);
     setLoading(false);
 
     if (data.error) {
@@ -34,8 +36,8 @@ export default function ForgotPasswordPage() {
 
     setSuccess(data.message || "Si la cuenta existe, te hemos enviado un código.");
     setTimeout(() => {
-      router.push(`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
-    }, 1000);
+      router.push(`/reset-password?email=${encodeURIComponent(normalizedEmail)}`);
+    }, REDIRECT_DELAY_MS);
   };
 
   return (

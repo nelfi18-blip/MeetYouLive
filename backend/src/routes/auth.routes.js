@@ -56,7 +56,7 @@ const resetPasswordLimiter = rateLimit({
 });
 
 /** Generate a cryptographically random 6-digit numeric code */
-function generateVerificationCode() {
+function generateSixDigitCode() {
   return String(Math.floor(100000 + (crypto.randomBytes(4).readUInt32BE(0) % 900000)));
 }
 
@@ -77,7 +77,7 @@ router.post("/register", authLimiter, async (req, res) => {
       if (referrer) referredBy = referrer._id;
     }
 
-    const code = generateVerificationCode();
+    const code = generateSixDigitCode();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = await generateReferralCode();
@@ -216,7 +216,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     if (user.emailVerified) {
       return res.json({ message: "Tu email ya está verificado. Inicia sesión normalmente." });
     }
-    const code = generateVerificationCode();
+    const code = generateSixDigitCode();
     user.emailVerificationCode = code;
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
@@ -248,7 +248,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       return res.json({ message: genericMessage });
     }
 
-    const code = generateVerificationCode();
+    const code = generateSixDigitCode();
     user.resetPasswordCode = code;
     user.resetPasswordExpires = new Date(now + 15 * 60 * 1000);
     user.resetPasswordRequestedAt = new Date(now);

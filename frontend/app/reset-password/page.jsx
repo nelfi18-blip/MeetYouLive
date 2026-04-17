@@ -285,7 +285,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#060411" }} />}>
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#06020f" }} />}>
       <ResetPasswordForm />
     </Suspense>
   );

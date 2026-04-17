@@ -462,6 +462,10 @@ function LoginForm() {
             onKeyDown={handleKeyDown}
           />
 
+          <div className="forgot-row">
+            <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
+          </div>
+
           <button
             className="btn btn-primary btn-lg btn-block submit-btn"
             onClick={login}
@@ -673,6 +677,26 @@ function LoginForm() {
 
         /* ── Form ── */
         .login-form { display: flex; flex-direction: column; gap: 0.85rem; }
+
+        .forgot-row {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: -0.15rem;
+          margin-bottom: 0.1rem;
+        }
+
+        .forgot-row :global(a) {
+          color: #a78bfa;
+          font-size: 0.85rem;
+          font-weight: 600;
+          text-decoration: none;
+          transition: color var(--transition);
+        }
+
+        .forgot-row :global(a):hover {
+          color: #e040fb;
+          text-decoration: underline;
+        }
 
         /* ── Submit button ── */
         .submit-btn {

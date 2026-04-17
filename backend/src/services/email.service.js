@@ -64,6 +64,43 @@ async function sendVerificationEmail(to, code) {
   return info;
 }
 
+/**
+ * Send a password reset code email to a user.
+ * @param {string} to   - recipient email
+ * @param {string} code - 6-digit numeric code
+ */
+async function sendPasswordResetEmail(to, code) {
+  const transport = getTransporter();
+
+  const mailOptions = {
+    from: FROM,
+    to,
+    subject: "Restablece tu contraseña — MeetYouLive",
+    text: `Tu código para restablecer la contraseña es: ${code}\n\nEste código caduca en 15 minutos. Si no solicitaste este cambio, ignora este mensaje.`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f0821;color:#e2e8f0;border-radius:12px">
+        <h1 style="font-size:1.5rem;margin-bottom:8px;color:#fff">Restablecer contraseña</h1>
+        <p style="color:#94a3b8;margin-bottom:24px">Recibimos una solicitud para restablecer tu contraseña en <strong style="color:#e040fb">MeetYouLive</strong>. Usa este código:</p>
+        <div style="background:#1e1040;border:1px solid rgba(224,64,251,0.3);border-radius:12px;padding:28px;text-align:center;margin-bottom:24px">
+          <span style="font-size:2.4rem;font-weight:800;letter-spacing:0.25em;color:#e040fb">${code}</span>
+        </div>
+        <p style="color:#64748b;font-size:0.85rem">Este código caduca en <strong>15 minutos</strong>. Si no solicitaste este cambio, puedes ignorar este email.</p>
+      </div>
+    `,
+  };
+
+  const info = await transport.sendMail(mailOptions);
+
+  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+    const parsed = typeof info.message === "string" ? JSON.parse(info.message) : info;
+    console.log(`\n📧 [DEV EMAIL] To: ${to}`);
+    console.log(`   Subject: ${parsed.subject || mailOptions.subject}`);
+    console.log(`   Password reset code: ${code}\n`);
+  }
+
+  return info;
+}
+
 const REACTIVATION_MESSAGES = [
   null, // index 0 unused
   {
@@ -148,4 +185,4 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
   return info;
 }
 
-module.exports = { sendVerificationEmail, sendReactivationEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendReactivationEmail };

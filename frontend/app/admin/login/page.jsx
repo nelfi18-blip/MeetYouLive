@@ -9,6 +9,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -151,15 +152,26 @@ export default function AdminLoginPage() {
             autoComplete="email"
           />
 
-          <input
-            className="input input-lg"
-            type="password"
-            placeholder="CONTRASEÑA"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoComplete="current-password"
-          />
+          <div className="password-field">
+            <input
+              className="input input-lg input-password"
+              type={showPassword ? "text" : "password"}
+              placeholder="CONTRASEÑA"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-pressed={showPassword}
+            >
+              <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
+            </button>
+          </div>
 
           <button
             className="btn btn-admin btn-lg btn-block submit-btn"
@@ -361,6 +373,22 @@ export default function AdminLoginPage() {
           flex-direction: column;
           gap: 0.85rem;
         }
+        .password-field { position: relative; }
+        .input-password { padding-right: 2.75rem; }
+        .password-toggle {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 1rem;
+          line-height: 1;
+          padding: 0;
+        }
+        .password-toggle:hover { color: var(--text); }
 
         /* ── Admin button ── */
         .btn-admin {

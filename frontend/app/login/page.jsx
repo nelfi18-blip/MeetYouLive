@@ -14,6 +14,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -453,14 +454,25 @@ function LoginForm() {
             onKeyDown={handleKeyDown}
           />
 
-          <input
-            className="input input-lg"
-            type="password"
-            placeholder="CONTRASEÑA"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
+          <div className="password-field">
+            <input
+              className="input input-lg input-password"
+              type={showPassword ? "text" : "password"}
+              placeholder="CONTRASEÑA"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-pressed={showPassword}
+            >
+              <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
+            </button>
+          </div>
 
           <div className="forgot-row">
             <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
@@ -677,6 +689,22 @@ function LoginForm() {
 
         /* ── Form ── */
         .login-form { display: flex; flex-direction: column; gap: 0.85rem; }
+        .password-field { position: relative; }
+        .input-password { padding-right: 2.75rem; }
+        .password-toggle {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 1rem;
+          line-height: 1;
+          padding: 0;
+        }
+        .password-toggle:hover { color: var(--text); }
 
         .forgot-row {
           display: flex;

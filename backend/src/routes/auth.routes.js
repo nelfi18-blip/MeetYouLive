@@ -5,18 +5,7 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
-const { sendVerificationEmail, sendPasswordResetEmail, MailServiceError } = require("../services/email.service.js");
-
-function extractEmailErrorResponse(err) {
-  if (!(err instanceof MailServiceError)) return null;
-  return {
-    status: Number.isInteger(err.status) ? err.status : 500,
-    payload: {
-      code: err.code,
-      message: "No se pudo enviar el email de verificación. Inténtalo de nuevo más tarde.",
-    },
-  };
-}
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
@@ -235,12 +224,15 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
-    await sendVerificationEmail(email, code);
+    sendVerificationEmail(email, code).catch((err) => {
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
+      console.error("[resend-verification] Failed to send email:", detail);
+    });
 
     res.json({ message: "Código de verificación reenviado. Revisa tu email." });
   } catch (err) {
-    const emailError = extractEmailErrorResponse(err);
-    if (emailError) return res.status(emailError.status).json(emailError.payload);
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
   }

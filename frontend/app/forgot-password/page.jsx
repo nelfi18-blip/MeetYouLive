@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const REDIRECT_DELAY_MS = 1000;
+  const REDIRECT_DELAY_MS = 1500;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

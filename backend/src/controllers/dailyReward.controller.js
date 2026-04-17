@@ -5,6 +5,7 @@ const { queueEvent } = require("../services/push.service.js");
 
 // Maximum daily reward coins (awarded at streak >= 30 days)
 const MAX_STREAK_TIER_COINS = 100;
+const MAX_RETRIES = 3;
 
 /**
  * Coins awarded per streak day (tiered).
@@ -64,74 +65,81 @@ const getDailyRewardStatus = async (req, res) => {
  * The coin credit and transaction record are written atomically.
  */
 const claimDailyReward = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const user = await User.findById(req.userId).select("lastDailyRewardClaimAt dailyRewardStreak coins").session(session);
-    if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "User not found" });
-    }
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
 
-    if (isSameCalendarDay(user.lastDailyRewardClaimAt)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(409).json({ message: "Daily reward already claimed today" });
-    }
+      const user = await User.findById(req.userId).select("lastDailyRewardClaimAt dailyRewardStreak coins").session(session);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
 
-    const isConsecutiveDay = isYesterday(user.lastDailyRewardClaimAt);
-    const newStreak = isConsecutiveDay ? (user.dailyRewardStreak || 0) + 1 : 1;
-    const coinsAwarded = getStreakCoins(newStreak);
-    const claimedAt = new Date();
+      if (isSameCalendarDay(user.lastDailyRewardClaimAt)) {
+        return res.status(409).json({ message: "Daily reward already claimed today" });
+      }
 
-    user.coins += coinsAwarded;
-    user.lastDailyRewardClaimAt = claimedAt;
-    user.dailyRewardStreak = newStreak;
-    await user.save({ session });
+      const isConsecutiveDay = isYesterday(user.lastDailyRewardClaimAt);
+      const newStreak = isConsecutiveDay ? (user.dailyRewardStreak || 0) + 1 : 1;
+      const coinsAwarded = getStreakCoins(newStreak);
+      const claimedAt = new Date();
 
-    await CoinTransaction.create(
-      [
+      user.coins += coinsAwarded;
+      user.lastDailyRewardClaimAt = claimedAt;
+      user.dailyRewardStreak = newStreak;
+      await user.save({ session });
+
+      await CoinTransaction.create(
+        [
+          {
+            userId: user._id,
+            type: "daily_reward",
+            amount: coinsAwarded,
+            reason: `Daily reward – day ${newStreak} streak`,
+            status: "completed",
+            metadata: { streak: newStreak },
+          },
+        ],
+        { session }
+      );
+
+      await session.commitTransaction();
+
+      // Queue a reward push (fire-and-forget)
+      queueEvent(
+        user._id,
+        "reward",
         {
-          userId: user._id,
-          type: "daily_reward",
-          amount: coinsAwarded,
-          reason: `Daily reward – day ${newStreak} streak`,
-          status: "completed",
-          metadata: { streak: newStreak },
+          title: "🎁 ¡Recompensa diaria reclamada!",
+          body: `+${coinsAwarded} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
+          data: { link: "/daily-reward" },
         },
-      ],
-      { session }
-    );
+        { streak: newStreak, coins: coinsAwarded }
+      ).catch(() => {});
 
-    await session.commitTransaction();
-    session.endSession();
+      const nextMilestone = getNextMilestone(newStreak);
 
-    // Queue a reward push (fire-and-forget)
-    queueEvent(
-      user._id,
-      "reward",
-      {
-        title: "🎁 ¡Recompensa diaria reclamada!",
-        body: `+${coinsAwarded} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
-        data: { link: "/daily-reward" },
-      },
-      { streak: newStreak, coins: coinsAwarded }
-    ).catch(() => {});
+      return res.json({
+        coinsAwarded,
+        newBalance: user.coins,
+        streak: newStreak,
+        nextMilestone,
+        claimedAt,
+      });
+    } catch (err) {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
 
-    const nextMilestone = getNextMilestone(newStreak);
+      if (isWriteConflictError(err) && attempt < MAX_RETRIES) {
+        console.log(`Retrying reward transaction (attempt ${attempt + 1} of ${MAX_RETRIES})...`);
+        continue;
+      }
 
-    res.json({
-      coinsAwarded,
-      newBalance: user.coins,
-      streak: newStreak,
-      nextMilestone,
-      claimedAt,
-    });
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ message: err.message });
+      return res.status(500).json({ message: err.message });
+    } finally {
+      session.endSession();
+    }
   }
 };
 
@@ -160,6 +168,15 @@ function isYesterday(date) {
     d.getUTCMonth() === yesterday.getUTCMonth() &&
     d.getUTCDate() === yesterday.getUTCDate()
   );
+}
+
+/** Returns true when an error is a MongoDB write-conflict and should be retried. */
+function isWriteConflictError(err) {
+  if (!err) return false;
+  if (err.code === 112) return true;
+  if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
+  return false;
 }
 
 module.exports = { getDailyRewardStatus, claimDailyReward };

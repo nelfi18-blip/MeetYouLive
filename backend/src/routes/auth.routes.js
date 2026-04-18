@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
-const { sendVerificationEmail } = require("../services/email.service.js");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
@@ -43,8 +43,20 @@ const verifyEmailLimiter = rateLimit({
   message: { message: "Demasiados intentos. Espera un momento antes de volver a intentarlo." },
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: "Demasiados intentos. Intenta de nuevo más tarde." },
+});
+
 /** Generate a cryptographically random 6-digit numeric code */
-function generateVerificationCode() {
+function generateSixDigitCode() {
   return String(Math.floor(100000 + (crypto.randomBytes(4).readUInt32BE(0) % 900000)));
 }
 
@@ -65,7 +77,7 @@ router.post("/register", authLimiter, async (req, res) => {
       if (referrer) referredBy = referrer._id;
     }
 
-    const code = generateVerificationCode();
+    const code = generateSixDigitCode();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = await generateReferralCode();
@@ -81,9 +93,12 @@ router.post("/register", authLimiter, async (req, res) => {
     });
 
     // Send verification email (non-blocking — don't fail registration if email fails)
-    sendVerificationEmail(email, code).catch((err) =>
-      console.error("[register] Failed to send verification email:", err.message)
-    );
+    sendVerificationEmail(email, code).catch((err) => {
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
+      console.error("[register] Failed to send verification email:", detail);
+    });
 
     res.status(201).json({ message: "Cuenta creada. Revisa tu email para verificar tu cuenta.", requiresVerification: true, userId: user._id });
   } catch (err) {
@@ -204,7 +219,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     if (user.emailVerified) {
       return res.json({ message: "Tu email ya está verificado. Inicia sesión normalmente." });
     }
-    const code = generateVerificationCode();
+    const code = generateSixDigitCode();
     user.emailVerificationCode = code;
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
@@ -212,7 +227,10 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     try {
       await sendVerificationEmail(email, code);
     } catch (err) {
-      console.error("[resend-verification] Failed to send email:", err.message);
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
+      console.error("[resend-verification] Failed to send email:", detail);
       return res.status(503).json({
         code: "EMAIL_DELIVERY_FAILED",
         message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
@@ -223,6 +241,78 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
   } catch (err) {
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  if (!email) return res.status(400).json({ message: "email es requerido" });
+
+  const genericMessage = "Si la cuenta existe, te hemos enviado un código de restablecimiento.";
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.json({ message: genericMessage });
+
+    const now = Date.now();
+    const lastRequestedAt = user.resetPasswordRequestedAt ? new Date(user.resetPasswordRequestedAt).getTime() : 0;
+    if (lastRequestedAt && now - lastRequestedAt < 60 * 1000) {
+      return res.json({ message: genericMessage });
+    }
+
+    const code = generateSixDigitCode();
+    user.resetPasswordCode = code;
+    user.resetPasswordExpires = new Date(now + 15 * 60 * 1000);
+    user.resetPasswordRequestedAt = new Date(now);
+    await user.save();
+
+    sendPasswordResetEmail(email, code).catch((err) =>
+      console.error("[forgot-password] Failed to send reset email:", err.message)
+    );
+
+    return res.json({ message: genericMessage });
+  } catch (err) {
+    console.error("forgot-password error:", err);
+    return res.status(500).json({ message: "Error interno del servidor" });
+  }
+});
+
+router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
+  const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const code = req.body.code ? String(req.body.code).trim() : "";
+  const password = req.body.password ? String(req.body.password) : "";
+
+  if (!email || !code || !password) {
+    return res.status(400).json({ message: "email, código y password son requeridos" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user || !user.resetPasswordCode || !user.resetPasswordExpires) {
+      return res.status(400).json({ message: "Código inválido o caducado." });
+    }
+
+    if (new Date() > user.resetPasswordExpires) {
+      return res.status(400).json({ message: "Código inválido o caducado." });
+    }
+
+    if (String(user.resetPasswordCode).trim() !== code) {
+      return res.status(400).json({ message: "Código inválido o caducado." });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordCode = null;
+    user.resetPasswordExpires = null;
+    user.resetPasswordRequestedAt = null;
+    await user.save();
+
+    return res.json({ message: "Contraseña actualizada correctamente. Ya puedes iniciar sesión." });
+  } catch (err) {
+    console.error("reset-password error:", err);
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 

@@ -1,4 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const REQUEST_TIMEOUT_MS = 15000;
 
 export const signUp = async (userData) => {
   try {
@@ -62,11 +63,14 @@ export const verifyEmail = async ({ email, code }) => {
 };
 
 export const resendVerification = async (email) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -76,8 +80,13 @@ export const resendVerification = async (email) => {
 
     return await response.json();
   } catch (error) {
+    if (error?.name === "AbortError") {
+      return { error: "La solicitud tardó demasiado. Intenta de nuevo." };
+    }
     console.error("Connection Error:", error);
     return { error: "No se pudo conectar con el servidor. Intenta de nuevo más tarde." };
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

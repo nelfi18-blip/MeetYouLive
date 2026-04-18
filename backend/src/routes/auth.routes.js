@@ -224,12 +224,18 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
-    sendVerificationEmail(email, code).catch((err) => {
+    try {
+      await sendVerificationEmail(email, code);
+    } catch (err) {
       const detail = err && err.code
         ? `${err.code}: ${err.message || "Unknown email error"}`
         : (err && err.message) || "Unknown email error";
       console.error("[resend-verification] Failed to send email:", detail);
-    });
+      return res.status(503).json({
+        code: "EMAIL_DELIVERY_FAILED",
+        message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+      });
+    }
 
     res.json({ message: "Código de verificación reenviado. Revisa tu email." });
   } catch (err) {

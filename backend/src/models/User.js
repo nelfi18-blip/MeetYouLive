@@ -96,10 +96,6 @@ const userSchema = new mongoose.Schema(
     passwordResetCode: { type: String, default: null },
     passwordResetExpiresAt: { type: Date, default: null },
     passwordResetRequestedAt: { type: Date, default: null },
-    // Legacy reset fields kept for backward compatibility with older pending reset codes.
-    resetPasswordCode: { type: String, default: null },
-    resetPasswordExpires: { type: Date, default: null },
-    resetPasswordRequestedAt: { type: Date, default: null },
     preferredLanguage: { type: String, enum: ["es", "en", "pt"], default: "es" },
     crushBoostUntil: { type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

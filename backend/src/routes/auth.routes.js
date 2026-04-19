@@ -66,8 +66,7 @@ function hashResetCode(code) {
 }
 
 function getLatestResetRequestedAtMs(user) {
-  const latestRequestedAt = user.passwordResetRequestedAt || user.resetPasswordRequestedAt;
-  return latestRequestedAt ? new Date(latestRequestedAt).getTime() : 0;
+  return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
 router.post("/register", authLimiter, async (req, res) => {
@@ -274,10 +273,6 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     user.passwordResetCode = hashResetCode(resetCode);
     user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
     user.passwordResetRequestedAt = new Date(now);
-    // Clear legacy fields to keep a single source of truth.
-    user.resetPasswordCode = null;
-    user.resetPasswordExpires = null;
-    user.resetPasswordRequestedAt = null;
     await user.save();
 
     sendPasswordResetEmail(email, resetCode).catch((err) =>
@@ -311,24 +306,19 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    const hasModernResetCode = Boolean(user.passwordResetCode);
-    const hasLegacyResetCode = Boolean(user.resetPasswordCode);
-    const resetExpiresAt = user.passwordResetExpiresAt || user.resetPasswordExpires;
-
-    if ((!hasModernResetCode && !hasLegacyResetCode) || !resetExpiresAt) {
+    const hasResetCode = Boolean(user.passwordResetCode);
+    if (!hasResetCode || !user.passwordResetExpiresAt) {
       console.warn("[reset-password] Failed attempt: no active reset code");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    if (new Date() > resetExpiresAt) {
+    if (new Date() > user.passwordResetExpiresAt) {
       console.warn("[reset-password] Failed attempt: reset code expired");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
     const providedCode = String(code).trim();
-    const codeMatches = hasModernResetCode
-      ? hashResetCode(providedCode) === user.passwordResetCode
-      : String(user.resetPasswordCode).trim() === providedCode;
+    const codeMatches = hashResetCode(providedCode) === user.passwordResetCode;
     if (!codeMatches) {
       console.warn("[reset-password] Failed attempt: reset code mismatch");
       return res.status(400).json({ message: "Código inválido o expirado." });
@@ -338,9 +328,6 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     user.passwordResetCode = null;
     user.passwordResetExpiresAt = null;
     user.passwordResetRequestedAt = null;
-    user.resetPasswordCode = null;
-    user.resetPasswordExpires = null;
-    user.resetPasswordRequestedAt = null;
     await user.save();
 
     return res.json({ message: "Contraseña actualizada correctamente. Ya puedes iniciar sesión." });

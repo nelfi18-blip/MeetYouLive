@@ -176,7 +176,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `STRIPE_SECRET_KEY`           | Stripe secret key (`sk_test_…` or `sk_live_…`)          |
 | `STRIPE_WEBHOOK_SECRET`       | Stripe webhook signing secret                           |
 | `STRIPE_SUBSCRIPTION_PRICE_ID`| Stripe Price ID for the subscription plan               |
-| `SMTP_HOST`                   | SMTP host for email verification (**required in production**) |
+| `SMTP_HOST`                   | SMTP host for verification and password reset emails (**required in production**) |
 | `SMTP_PORT`                   | SMTP port (default 587; use 465 for SSL/TLS)           |
 | `SMTP_USER`                   | SMTP username (**required in production**)              |
 | `SMTP_PASS`                   | SMTP password (**required in production**)              |

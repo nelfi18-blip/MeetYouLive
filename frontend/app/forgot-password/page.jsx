@@ -26,15 +26,19 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    const data = await forgotPassword(normalizedEmail);
-    setLoading(false);
+    let data;
+    try {
+      data = await forgotPassword(normalizedEmail);
+    } finally {
+      setLoading(false);
+    }
 
     if (data.error) {
       setError(data.error);
       return;
     }
 
-    setSuccess(data.message || "Si la cuenta existe, te hemos enviado un código.");
+    setSuccess(data.message || "Si el correo existe, se enviará un código.");
     setTimeout(() => {
       router.push(`/reset-password?email=${encodeURIComponent(normalizedEmail)}`);
     }, REDIRECT_DELAY_MS);

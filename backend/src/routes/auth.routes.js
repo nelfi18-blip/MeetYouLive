@@ -57,11 +57,17 @@ const resetPasswordLimiter = rateLimit({
 
 /** Generate a cryptographically random 6-digit numeric code */
 function generateSixDigitCode() {
-  return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  // Upper bound is exclusive, so this yields 100000..999999.
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 function hashResetCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
+}
+
+function getLatestResetRequestedAtMs(user) {
+  const latestRequestedAt = user.passwordResetRequestedAt || user.resetPasswordRequestedAt;
+  return latestRequestedAt ? new Date(latestRequestedAt).getTime() : 0;
 }
 
 router.post("/register", authLimiter, async (req, res) => {
@@ -259,9 +265,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     if (!user) return res.json({ message: genericMessage });
 
     const now = Date.now();
-    const lastRequestedAt = user.passwordResetRequestedAt
-      ? new Date(user.passwordResetRequestedAt).getTime()
-      : (user.resetPasswordRequestedAt ? new Date(user.resetPasswordRequestedAt).getTime() : 0);
+    const lastRequestedAt = getLatestResetRequestedAtMs(user);
     if (lastRequestedAt && now - lastRequestedAt < 60 * 1000) {
       return res.json({ message: genericMessage });
     }
@@ -290,10 +294,11 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
 router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   const code = req.body.code ? String(req.body.code).trim() : "";
+  // Backward compatibility for older clients still sending `password`.
   const newPassword = req.body.newPassword ? String(req.body.newPassword) : (req.body.password ? String(req.body.password) : "");
 
   if (!email || !code || !newPassword) {
-    return res.status(400).json({ message: "email, código y newPassword son requeridos" });
+    return res.status(400).json({ message: "email, código y nueva contraseña son requeridos" });
   }
   if (newPassword.length < 6) {
     return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
@@ -302,23 +307,30 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) {
+      console.warn("[reset-password] Failed attempt: user not found");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    const storedCodeHash = user.passwordResetCode
-      || (user.resetPasswordCode ? hashResetCode(user.resetPasswordCode) : "");
+    const hasModernResetCode = Boolean(user.passwordResetCode);
+    const hasLegacyResetCode = Boolean(user.resetPasswordCode);
     const resetExpiresAt = user.passwordResetExpiresAt || user.resetPasswordExpires;
 
-    if (!storedCodeHash || !resetExpiresAt) {
+    if ((!hasModernResetCode && !hasLegacyResetCode) || !resetExpiresAt) {
+      console.warn("[reset-password] Failed attempt: no active reset code");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
     if (new Date() > resetExpiresAt) {
+      console.warn("[reset-password] Failed attempt: reset code expired");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    const providedCodeHash = hashResetCode(code);
-    if (providedCodeHash !== storedCodeHash) {
+    const providedCode = String(code).trim();
+    const codeMatches = hasModernResetCode
+      ? hashResetCode(providedCode) === user.passwordResetCode
+      : String(user.resetPasswordCode).trim() === providedCode;
+    if (!codeMatches) {
+      console.warn("[reset-password] Failed attempt: reset code mismatch");
       return res.status(400).json({ message: "Código inválido o expirado." });
     }
 

@@ -46,12 +46,16 @@ function ResetPasswordForm() {
     }
 
     setLoading(true);
-    const data = await resetPassword({
-      email: email.trim().toLowerCase(),
-      code: code.trim(),
-      password,
-    });
-    setLoading(false);
+    let data;
+    try {
+      data = await resetPassword({
+        email: email.trim().toLowerCase(),
+        code: code.trim(),
+        newPassword: password,
+      });
+    } finally {
+      setLoading(false);
+    }
 
     if (data.error) {
       setError(data.error);

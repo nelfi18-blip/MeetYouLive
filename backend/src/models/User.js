@@ -93,6 +93,10 @@ const userSchema = new mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
+    passwordResetCode: { type: String, default: null },
+    passwordResetExpiresAt: { type: Date, default: null },
+    passwordResetRequestedAt: { type: Date, default: null },
+    // Legacy reset fields kept for backward compatibility with older pending reset codes.
     resetPasswordCode: { type: String, default: null },
     resetPasswordExpires: { type: Date, default: null },
     resetPasswordRequestedAt: { type: Date, default: null },

@@ -110,12 +110,12 @@ export const forgotPassword = async (email) => {
   }
 };
 
-export const resetPassword = async ({ email, code, password }) => {
+export const resetPassword = async ({ email, code, newPassword }) => {
   try {
     const response = await fetch(`${API_URL}/api/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code, password }),
+      body: JSON.stringify({ email, code, newPassword }),
     });
 
     if (!response.ok) {

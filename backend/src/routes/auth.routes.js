@@ -57,7 +57,17 @@ const resetPasswordLimiter = rateLimit({
 
 /** Generate a cryptographically random 6-digit numeric code */
 function generateSixDigitCode() {
-  return String(Math.floor(100000 + (crypto.randomBytes(4).readUInt32BE(0) % 900000)));
+  // Upper bound is exclusive, so this yields 100000..999999.
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashResetCode(code) {
+  return crypto.createHash("sha256").update(String(code)).digest("hex");
+}
+
+function getLatestResetRequestedAtMs(user) {
+  const latestRequestedAt = user.passwordResetRequestedAt || user.resetPasswordRequestedAt;
+  return latestRequestedAt ? new Date(latestRequestedAt).getTime() : 0;
 }
 
 router.post("/register", authLimiter, async (req, res) => {
@@ -248,25 +258,29 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email) return res.status(400).json({ message: "email es requerido" });
 
-  const genericMessage = "Si la cuenta existe, te hemos enviado un código de restablecimiento.";
+  const genericMessage = "Si el correo existe, se enviará un código.";
 
   try {
     const user = await User.findOne({ email });
     if (!user) return res.json({ message: genericMessage });
 
     const now = Date.now();
-    const lastRequestedAt = user.resetPasswordRequestedAt ? new Date(user.resetPasswordRequestedAt).getTime() : 0;
+    const lastRequestedAt = getLatestResetRequestedAtMs(user);
     if (lastRequestedAt && now - lastRequestedAt < 60 * 1000) {
       return res.json({ message: genericMessage });
     }
 
-    const code = generateSixDigitCode();
-    user.resetPasswordCode = code;
-    user.resetPasswordExpires = new Date(now + 15 * 60 * 1000);
-    user.resetPasswordRequestedAt = new Date(now);
+    const resetCode = generateSixDigitCode();
+    user.passwordResetCode = hashResetCode(resetCode);
+    user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
+    user.passwordResetRequestedAt = new Date(now);
+    // Clear legacy fields to keep a single source of truth.
+    user.resetPasswordCode = null;
+    user.resetPasswordExpires = null;
+    user.resetPasswordRequestedAt = null;
     await user.save();
 
-    sendPasswordResetEmail(email, code).catch((err) =>
+    sendPasswordResetEmail(email, resetCode).catch((err) =>
       console.error("[forgot-password] Failed to send reset email:", err.message)
     );
 
@@ -280,30 +294,50 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
 router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   const code = req.body.code ? String(req.body.code).trim() : "";
-  const password = req.body.password ? String(req.body.password) : "";
+  // Backward compatibility for older clients still sending `password`.
+  const newPassword = req.body.newPassword ? String(req.body.newPassword) : (req.body.password ? String(req.body.password) : "");
 
-  if (!email || !code || !password) {
-    return res.status(400).json({ message: "email, código y password son requeridos" });
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ message: "email, código y nueva contraseña son requeridos" });
   }
-  if (password.length < 6) {
+  if (newPassword.length < 6) {
     return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
   }
 
   try {
     const user = await User.findOne({ email });
-    if (!user || !user.resetPasswordCode || !user.resetPasswordExpires) {
-      return res.status(400).json({ message: "Código inválido o caducado." });
+    if (!user) {
+      console.warn("[reset-password] Failed attempt: user not found");
+      return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    if (new Date() > user.resetPasswordExpires) {
-      return res.status(400).json({ message: "Código inválido o caducado." });
+    const hasModernResetCode = Boolean(user.passwordResetCode);
+    const hasLegacyResetCode = Boolean(user.resetPasswordCode);
+    const resetExpiresAt = user.passwordResetExpiresAt || user.resetPasswordExpires;
+
+    if ((!hasModernResetCode && !hasLegacyResetCode) || !resetExpiresAt) {
+      console.warn("[reset-password] Failed attempt: no active reset code");
+      return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    if (String(user.resetPasswordCode).trim() !== code) {
-      return res.status(400).json({ message: "Código inválido o caducado." });
+    if (new Date() > resetExpiresAt) {
+      console.warn("[reset-password] Failed attempt: reset code expired");
+      return res.status(400).json({ message: "Código inválido o expirado." });
     }
 
-    user.password = await bcrypt.hash(password, 10);
+    const providedCode = String(code).trim();
+    const codeMatches = hasModernResetCode
+      ? hashResetCode(providedCode) === user.passwordResetCode
+      : String(user.resetPasswordCode).trim() === providedCode;
+    if (!codeMatches) {
+      console.warn("[reset-password] Failed attempt: reset code mismatch");
+      return res.status(400).json({ message: "Código inválido o expirado." });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordResetCode = null;
+    user.passwordResetExpiresAt = null;
+    user.passwordResetRequestedAt = null;
     user.resetPasswordCode = null;
     user.resetPasswordExpires = null;
     user.resetPasswordRequestedAt = null;

@@ -18,8 +18,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
-const truncateText = (text, max = 50) =>
-  text.length > max ? text.slice(0, max) + "…" : text;
+const truncateText = (text, max = 50) => {
+  const safeText = text == null ? "" : String(text);
+  return safeText.length > max ? safeText.slice(0, max) + "…" : safeText;
+};
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -641,13 +643,24 @@ export default function LiveRoomPage() {
     }
   };
 
-  const creatorName = live.user?.username || live.user?.name || "Creador";
+  const creatorNameRaw = live?.user?.username || live?.user?.name || "Creador";
+  const creatorName =
+    typeof creatorNameRaw === "string" && creatorNameRaw.trim()
+      ? creatorNameRaw.trim()
+      : "Creador";
+  const creatorInitial = creatorName.charAt(0).toUpperCase() || "C";
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
-  const creatorStatusBadges = computeStatusBadges(
-    { ...live.user, isLive: true, liveId: live._id },
-    { viewerCount, giftsTotal: live.giftsTotal ?? 0 },
-  );
+  let creatorStatusBadges = [];
+  try {
+    creatorStatusBadges = computeStatusBadges(
+      { ...live.user, isLive: true, liveId: live._id },
+      { viewerCount, giftsTotal: live.giftsTotal ?? 0 },
+    ) || [];
+  } catch (err) {
+    console.error("[LiveRoomPage] status badge computation failed:", err);
+    creatorStatusBadges = [];
+  }
 
   return (
     <div className="room">
@@ -660,7 +673,7 @@ export default function LiveRoomPage() {
                 {live.user?.avatar ? (
                   <img src={live.user.avatar} alt={creatorName} className="chr-avatar-img" />
                 ) : (
-                  creatorName[0].toUpperCase()
+                  creatorInitial
                 )}
                 <span className="chr-live-dot" />
               </div>
@@ -785,7 +798,7 @@ export default function LiveRoomPage() {
               <div className="overlay-right">
                 <div className="creator-chip">
                   <div className="creator-avatar">
-                    {creatorName[0].toUpperCase()}
+                    {creatorInitial}
                   </div>
                   <span>@{creatorName}</span>
                 </div>
@@ -867,7 +880,7 @@ export default function LiveRoomPage() {
                   {live.user?.avatar ? (
                     <img src={live.user.avatar} alt={creatorName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                   ) : (
-                    creatorName[0].toUpperCase()
+                    creatorInitial
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>

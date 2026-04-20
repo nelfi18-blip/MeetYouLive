@@ -27,7 +27,17 @@ export default function LivePage() {
       const res = await fetch(`${API_URL}/api/lives`);
       if (!res.ok) throw new Error("Error al cargar directos");
       const data = await res.json();
-      const fresh = Array.isArray(data) ? data : [];
+      const fresh = (Array.isArray(data) ? data : [])
+        .filter((live) => live && live._id)
+        .map((live) => ({
+          ...live,
+          title:
+            typeof live.title === "string" && live.title.trim()
+              ? live.title.trim()
+              : "Directo en vivo",
+          viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
+          giftsTotal: Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0,
+        }));
       const freshIds = fresh.map((l) => String(l._id));
 
       if (knownIdsRef.current === null) {

@@ -13,11 +13,18 @@ import { computeStatusBadges } from "@/lib/statusBadges";
  *            isPrivate, entryCost, user: { username, avatar }, category }
  */
 export default function LiveCard({ live }) {
-  const username = live.user?.username || live.user?.name || "anónimo";
-  const initial = username[0].toUpperCase();
+  if (!live || typeof live !== "object" || !live._id) return null;
+
+  const rawUsername = live.user?.username || live.user?.name || "anónimo";
+  const username = typeof rawUsername === "string" ? rawUsername : String(rawUsername);
+  const initial = username.charAt(0).toUpperCase() || "?";
+  const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
+  const safeViewerCount = Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0;
+  const safeGiftsTotal = Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0;
+
   const statusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },
-    { viewerCount: live.viewerCount, giftsTotal: live.giftsTotal },
+    { viewerCount: safeViewerCount, giftsTotal: safeGiftsTotal },
   );
 
   return (
@@ -39,18 +46,18 @@ export default function LiveCard({ live }) {
           )}
 
           <div className="live-thumb-stats">
-            {live.viewerCount != null && (
+            {safeViewerCount >= 0 && (
               <span className="live-stat-chip">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
-                {live.viewerCount}
+                {safeViewerCount}
               </span>
             )}
-            {live.giftsTotal > 0 && (
+            {safeGiftsTotal > 0 && (
               <span className="live-stat-chip live-stat-gifts">
-                🎁 {live.giftsTotal}
+                🎁 {safeGiftsTotal}
               </span>
             )}
           </div>
@@ -80,7 +87,7 @@ export default function LiveCard({ live }) {
           {statusBadges.length > 0 && (
             <StatusBadges badges={statusBadges} compact />
           )}
-          <div className="live-title">{live.title}</div>
+          <div className="live-title">{safeTitle}</div>
           {live.description && (
             <div className="live-desc">{live.description}</div>
           )}

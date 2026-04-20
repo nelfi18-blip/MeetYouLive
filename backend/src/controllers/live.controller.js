@@ -107,10 +107,21 @@ const getLives = async (req, res) => {
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar")
       .select("-streamKey -paidViewers")
+      .sort({ createdAt: -1 })
       .lean();
 
-    if (lives.length > 0) {
-      const liveIds = lives.map((l) => l._id);
+    const sanitizedLives = (Array.isArray(lives) ? lives : [])
+      .filter((live) => live && live._id && live.user)
+      .map((live) => ({
+        ...live,
+        title: normalizeLiveTitle(live.title),
+        description: typeof live.description === "string" ? live.description : "",
+        viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
+        entryCost: Number.isFinite(live.entryCost) ? Math.max(0, live.entryCost) : 0,
+      }));
+
+    if (sanitizedLives.length > 0) {
+      const liveIds = sanitizedLives.map((l) => l._id);
       const giftTotals = await Gift.aggregate([
         { $match: { live: { $in: liveIds } } },
         { $group: { _id: "$live", giftsTotal: { $sum: "$coinCost" }, giftsCount: { $sum: 1 } } },
@@ -118,14 +129,14 @@ const getLives = async (req, res) => {
       const giftMap = {};
       for (const g of giftTotals) giftMap[String(g._id)] = g;
 
-      for (const live of lives) {
+      for (const live of sanitizedLives) {
         const stats = giftMap[String(live._id)];
         live.giftsTotal = stats?.giftsTotal ?? 0;
         live.giftsCount = stats?.giftsCount ?? 0;
       }
     }
 
-    res.json(lives);
+    res.json(sanitizedLives);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -264,5 +275,11 @@ const updateLiveSettings = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+function normalizeLiveTitle(title) {
+  if (typeof title !== "string") return "Directo en vivo";
+  const trimmed = title.trim();
+  return trimmed || "Directo en vivo";
+}
 
 module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings };

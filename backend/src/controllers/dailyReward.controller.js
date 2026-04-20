@@ -5,7 +5,12 @@ const { queueEvent } = require("../services/push.service.js");
 
 // Maximum daily reward coins (awarded at streak >= 30 days)
 const MAX_STREAK_TIER_COINS = 100;
+const STREAK_COIN_DAY_14 = 75;
+const STREAK_COIN_DAY_7 = 50;
+const STREAK_COIN_DAY_3 = 35;
+const STREAK_COIN_DAY_1 = 20;
 const MAX_RETRIES = 3;
+const RETRY_BACKOFF_MS = 80;
 
 /**
  * Coins awarded per streak day (tiered).
@@ -13,10 +18,10 @@ const MAX_RETRIES = 3;
  */
 function getStreakCoins(streak) {
   if (streak >= 30) return MAX_STREAK_TIER_COINS;
-  if (streak >= 14) return 75;
-  if (streak >= 7)  return 50;
-  if (streak >= 3)  return 35;
-  return 20;
+  if (streak >= 14) return STREAK_COIN_DAY_14;
+  if (streak >= 7)  return STREAK_COIN_DAY_7;
+  if (streak >= 3)  return STREAK_COIN_DAY_3;
+  return STREAK_COIN_DAY_1;
 }
 
 /**
@@ -68,75 +73,70 @@ const claimDailyReward = async (req, res) => {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const session = await mongoose.startSession();
     try {
-      session.startTransaction();
-
-      const user = await User.findById(req.userId).select("lastDailyRewardClaimAt dailyRewardStreak coins").session(session);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      if (isSameCalendarDay(user.lastDailyRewardClaimAt)) {
-        return res.status(409).json({ message: "Daily reward already claimed today" });
-      }
-
-      const isConsecutiveDay = isYesterday(user.lastDailyRewardClaimAt);
-      const newStreak = isConsecutiveDay ? (user.dailyRewardStreak || 0) + 1 : 1;
-      const coinsAwarded = getStreakCoins(newStreak);
       const claimedAt = new Date();
+      let responsePayload = null;
 
-      user.coins += coinsAwarded;
-      user.lastDailyRewardClaimAt = claimedAt;
-      user.dailyRewardStreak = newStreak;
-      await user.save({ session });
+      await session.withTransaction(async () => {
+        const user = await claimRewardAtomically(req.userId, claimedAt, session);
 
-      await CoinTransaction.create(
-        [
-          {
-            userId: user._id,
-            type: "daily_reward",
-            amount: coinsAwarded,
-            reason: `Daily reward – day ${newStreak} streak`,
-            status: "completed",
-            metadata: { streak: newStreak },
-          },
-        ],
-        { session }
-      );
+        if (!user) {
+          const exists = await User.exists({ _id: req.userId }).session(session);
+          if (!exists) throw createHttpError(404, "User not found");
+          throw createHttpError(409, "Daily reward already claimed today");
+        }
 
-      await session.commitTransaction();
+        const newStreak = user.dailyRewardStreak || 1;
+        const coinsAwarded = getStreakCoins(newStreak);
+        const nextMilestone = getNextMilestone(newStreak);
+
+        await CoinTransaction.create(
+          [
+            {
+              userId: user._id,
+              type: "daily_reward",
+              amount: coinsAwarded,
+              reason: `Daily reward – day ${newStreak} streak`,
+              status: "completed",
+              metadata: { streak: newStreak, claimedAt },
+            },
+          ],
+          { session }
+        );
+
+        responsePayload = {
+          coinsAwarded,
+          newBalance: user.coins,
+          streak: newStreak,
+          nextMilestone,
+          claimedAt,
+        };
+      });
+
+      if (!responsePayload) {
+        throw createHttpError(500, "Daily reward claim failed");
+      }
 
       // Queue a reward push (fire-and-forget)
       queueEvent(
-        user._id,
+        req.userId,
         "reward",
         {
           title: "🎁 ¡Recompensa diaria reclamada!",
-          body: `+${coinsAwarded} monedas · Racha: ${newStreak} día${newStreak !== 1 ? "s" : ""}`,
+          body: `+${responsePayload.coinsAwarded} monedas · Racha: ${responsePayload.streak} día${responsePayload.streak !== 1 ? "s" : ""}`,
           data: { link: "/daily-reward" },
         },
-        { streak: newStreak, coins: coinsAwarded }
+        { streak: responsePayload.streak, coins: responsePayload.coinsAwarded }
       ).catch(() => {});
 
-      const nextMilestone = getNextMilestone(newStreak);
-
-      return res.json({
-        coinsAwarded,
-        newBalance: user.coins,
-        streak: newStreak,
-        nextMilestone,
-        claimedAt,
-      });
+      return res.json(responsePayload);
     } catch (err) {
-      if (session.inTransaction()) {
-        await session.abortTransaction();
-      }
-
       if (isWriteConflictError(err) && attempt < MAX_RETRIES) {
-        console.log(`Retrying reward transaction (attempt ${attempt + 1} of ${MAX_RETRIES})...`);
+        await sleep(RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
         continue;
       }
 
-      return res.status(500).json({ message: err.message });
+      const status = Number.isInteger(err?.status) ? err.status : 500;
+      return res.status(status).json({ message: err?.message || "Internal server error" });
     } finally {
       session.endSession();
     }
@@ -176,7 +176,87 @@ function isWriteConflictError(err) {
   if (err.code === 112) return true;
   if (typeof err.message === "string" && err.message.includes("Write conflict")) return true;
   if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("TransientTransactionError")) return true;
+  if (typeof err.hasErrorLabel === "function" && err.hasErrorLabel("UnknownTransactionCommitResult")) return true;
   return false;
+}
+
+/**
+ * Atomically claims today's reward if not claimed yet.
+ * Returns updated user document, or null when already claimed today.
+ */
+async function claimRewardAtomically(userId, claimedAt, session) {
+  const { startOfToday, startOfYesterday } = getUtcDayBounds(claimedAt);
+
+  return User.findOneAndUpdate(
+    {
+      _id: userId,
+      $or: [{ lastDailyRewardClaimAt: null }, { lastDailyRewardClaimAt: { $lt: startOfToday } }],
+    },
+    [
+      {
+        $set: {
+          __newStreak: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$lastDailyRewardClaimAt", null] },
+                  { $gte: ["$lastDailyRewardClaimAt", startOfYesterday] },
+                  { $lt: ["$lastDailyRewardClaimAt", startOfToday] },
+                ],
+              },
+              { $add: [{ $ifNull: ["$dailyRewardStreak", 0] }, 1] },
+              1,
+            ],
+          },
+        },
+      },
+      {
+        $set: {
+          __coinsAwarded: {
+            $switch: {
+              branches: [
+                { case: { $gte: ["$__newStreak", 30] }, then: MAX_STREAK_TIER_COINS },
+                { case: { $gte: ["$__newStreak", 14] }, then: STREAK_COIN_DAY_14 },
+                { case: { $gte: ["$__newStreak", 7] }, then: STREAK_COIN_DAY_7 },
+                { case: { $gte: ["$__newStreak", 3] }, then: STREAK_COIN_DAY_3 },
+              ],
+              default: STREAK_COIN_DAY_1,
+            },
+          },
+        },
+      },
+      {
+        $set: {
+          coins: { $add: [{ $ifNull: ["$coins", 0] }, "$__coinsAwarded"] },
+          lastDailyRewardClaimAt: claimedAt,
+          dailyRewardStreak: "$__newStreak",
+        },
+      },
+      {
+        $unset: ["__newStreak", "__coinsAwarded"],
+      },
+    ],
+    { new: true, session }
+  ).select("_id coins dailyRewardStreak lastDailyRewardClaimAt");
+}
+
+function getUtcDayBounds(baseDate) {
+  const startOfToday = new Date(
+    Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate(), 0, 0, 0, 0)
+  );
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
+  return { startOfToday, startOfYesterday };
+}
+
+function createHttpError(status, message) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 module.exports = { getDailyRewardStatus, claimDailyReward };

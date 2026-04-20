@@ -1,6 +1,6 @@
 {
   "name": "MeetYouLive",
-  "short_name": "MeetYou",
+  "short_name": "MeetYouLive",
   "icons": [
     {
       "src": "/icon.png",
@@ -8,13 +8,12 @@
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
   ],
   "theme_color": "#0f0821",
   "background_color": "#0f0821",
-  "start_url": "/",
   "display": "standalone"
 }

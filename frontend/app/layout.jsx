@@ -11,7 +11,6 @@ export const metadata = {
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
-    shortcut: "/icon.png",
   },
   keywords: [
     "dating app",

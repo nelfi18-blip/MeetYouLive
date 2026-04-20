@@ -7,10 +7,10 @@ export const metadata = {
   title: "MeetYouLive 🔥 | Citas, Video en Vivo y Conexiones Reales",
   description:
     "Descubre personas reales cerca de ti, haz match y conecta en video en vivo. 💖 Envía regalos, chatea y gana dinero como creador en MeetYouLive.",
+  manifest: "/site.webmanifest",
   icons: {
-    icon: "/icon.png",
-    apple: "/apple-icon.png",
-    shortcut: "/icon.png",
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   keywords: [
     "dating app",

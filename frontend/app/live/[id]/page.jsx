@@ -19,8 +19,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const truncateText = (text, max = 50) => {
-  const safeText =
-    typeof text === "string" ? text : text === null || text === undefined ? "" : String(text);
+  const safeText = text == null ? "" : String(text);
   return safeText.length > max ? safeText.slice(0, max) + "…" : safeText;
 };
 

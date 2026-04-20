@@ -16,7 +16,7 @@ export default function LiveCard({ live }) {
   if (!live || typeof live !== "object" || !live._id) return null;
 
   const rawUsername = live.user?.username || live.user?.name || "anónimo";
-  const username = typeof rawUsername === "string" ? rawUsername : String(rawUsername || "anónimo");
+  const username = typeof rawUsername === "string" ? rawUsername : String(rawUsername);
   const initial = username.charAt(0).toUpperCase() || "?";
   const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
   const safeViewerCount = Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0;

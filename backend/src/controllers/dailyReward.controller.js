@@ -5,6 +5,10 @@ const { queueEvent } = require("../services/push.service.js");
 
 // Maximum daily reward coins (awarded at streak >= 30 days)
 const MAX_STREAK_TIER_COINS = 100;
+const STREAK_COIN_DAY_14 = 75;
+const STREAK_COIN_DAY_7 = 50;
+const STREAK_COIN_DAY_3 = 35;
+const STREAK_COIN_DAY_1 = 20;
 const MAX_RETRIES = 3;
 const RETRY_BACKOFF_MS = 80;
 
@@ -14,10 +18,10 @@ const RETRY_BACKOFF_MS = 80;
  */
 function getStreakCoins(streak) {
   if (streak >= 30) return MAX_STREAK_TIER_COINS;
-  if (streak >= 14) return 75;
-  if (streak >= 7)  return 50;
-  if (streak >= 3)  return 35;
-  return 20;
+  if (streak >= 14) return STREAK_COIN_DAY_14;
+  if (streak >= 7)  return STREAK_COIN_DAY_7;
+  if (streak >= 3)  return STREAK_COIN_DAY_3;
+  return STREAK_COIN_DAY_1;
 }
 
 /**
@@ -127,7 +131,7 @@ const claimDailyReward = async (req, res) => {
       return res.json(responsePayload);
     } catch (err) {
       if (isWriteConflictError(err) && attempt < MAX_RETRIES) {
-        await sleep(RETRY_BACKOFF_MS * attempt);
+        await sleep(RETRY_BACKOFF_MS * Math.pow(2, attempt - 1));
         continue;
       }
 
@@ -212,11 +216,11 @@ async function claimRewardAtomically(userId, claimedAt, session) {
             $switch: {
               branches: [
                 { case: { $gte: ["$__newStreak", 30] }, then: MAX_STREAK_TIER_COINS },
-                { case: { $gte: ["$__newStreak", 14] }, then: 75 },
-                { case: { $gte: ["$__newStreak", 7] }, then: 50 },
-                { case: { $gte: ["$__newStreak", 3] }, then: 35 },
+                { case: { $gte: ["$__newStreak", 14] }, then: STREAK_COIN_DAY_14 },
+                { case: { $gte: ["$__newStreak", 7] }, then: STREAK_COIN_DAY_7 },
+                { case: { $gte: ["$__newStreak", 3] }, then: STREAK_COIN_DAY_3 },
               ],
-              default: 20,
+              default: STREAK_COIN_DAY_1,
             },
           },
         },

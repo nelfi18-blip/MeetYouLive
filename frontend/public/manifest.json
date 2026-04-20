@@ -4,16 +4,16 @@
   "description": "Plataforma de streaming en directo con regalos virtuales y vídeos privados",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#e91e8c",
+  "background_color": "#0f0821",
+  "theme_color": "#0f0821",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

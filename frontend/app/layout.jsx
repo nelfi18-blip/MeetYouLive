@@ -4,12 +4,16 @@ import NavbarWrapper from "../components/NavbarWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 
 export const metadata = {
-  title: "MeetYouLive 🔥 | Citas, Video en Vivo y Conexiones Reales",
+  title: "MeetYouLive",
   description:
     "Descubre personas reales cerca de ti, haz match y conecta en video en vivo. 💖 Envía regalos, chatea y gana dinero como creador en MeetYouLive.",
   manifest: "/site.webmanifest",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   keywords: [
@@ -22,7 +26,7 @@ export const metadata = {
     "video en vivo citas",
   ],
   openGraph: {
-    title: "MeetYouLive 💖",
+    title: "MeetYouLive",
     description:
       "Haz match, conecta en vivo y gana dinero como creador.",
     url: "https://meetyoulive.net",

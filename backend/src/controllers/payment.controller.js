@@ -5,15 +5,15 @@ const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const SparkTransaction = require("../models/SparkTransaction.js");
 const { SPARK_PACKAGES } = require("./sparks.controller.js");
+const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Coin packages: { coins, priceUsd }
-const COIN_PACKAGES = {
-  100: { coins: 100, priceUsd: 4.99 },
-  250: { coins: 250, priceUsd: 9.99 },
-  700: { coins: 700, priceUsd: 19.99 },
-};
+// Build a lookup map from the canonical COIN_PACKAGES list: { id -> { coins, priceUsd } }
+const COIN_PACKAGES = COIN_PACKAGES_LIST.reduce((acc, pkg) => {
+  acc[pkg.id] = { coins: pkg.coins, priceUsd: pkg.priceUsd };
+  return acc;
+}, {});
 
 // Build lookup map from the canonical SPARK_PACKAGES list
 const SPARK_PACKAGES_MAP = SPARK_PACKAGES.reduce((acc, pkg) => {
@@ -25,7 +25,8 @@ const createCoinCheckoutSession = async (req, res) => {
   const { package: pkg } = req.body;
   const coinPackage = COIN_PACKAGES[pkg];
   if (!coinPackage) {
-    return res.status(400).json({ message: "Paquete de monedas inválido. Usa 100, 250 o 700" });
+    const validIds = COIN_PACKAGES_LIST.map((p) => p.id).join(", ");
+    return res.status(400).json({ message: `Paquete de monedas inválido. Usa ${validIds}` });
   }
   try {
     const session = await stripe.checkout.sessions.create({

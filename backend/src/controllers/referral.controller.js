@@ -26,6 +26,9 @@ const getMyReferral = async (req, res) => {
       referralCount: user.referralCount || 0,
       referralRewardsEarned: user.referralRewardsEarned || 0,
       referralRewardClaimed: user.referralRewardClaimed || false,
+      // Boolean flag: true when this user was registered via a referral link.
+      // The frontend uses this to show/hide the "claim welcome reward" block.
+      referredBy: Boolean(user.referredBy),
       canClaim,
     });
   } catch (err) {

@@ -23,15 +23,15 @@ const hasLiveHost = (liveId) => {
   return !!(hosts && hosts.size > 0);
 };
 
-const removeSocketFromLiveHosts = (socketId, liveId) => {
-  if (liveId) {
-    const hosts = liveHosts.get(liveId);
-    if (!hosts) return;
-    hosts.delete(socketId);
-    if (hosts.size === 0) liveHosts.delete(liveId);
-    return;
-  }
+const removeSocketFromSpecificLiveHost = (socketId, liveId) => {
+  if (!liveId) return;
+  const hosts = liveHosts.get(liveId);
+  if (!hosts) return;
+  hosts.delete(socketId);
+  if (hosts.size === 0) liveHosts.delete(liveId);
+};
 
+const removeSocketFromAllLiveHosts = (socketId) => {
   for (const [id, hosts] of liveHosts.entries()) {
     hosts.delete(socketId);
     if (hosts.size === 0) liveHosts.delete(id);
@@ -129,7 +129,7 @@ const initSocket = (httpServer) => {
         if (!live) return;
 
         if (socket._liveHostRoomId && socket._liveHostRoomId !== liveId) {
-          removeSocketFromLiveHosts(socket.id, socket._liveHostRoomId);
+          removeSocketFromSpecificLiveHost(socket.id, socket._liveHostRoomId);
         }
 
         if (!liveHosts.has(liveId)) {
@@ -137,7 +137,8 @@ const initSocket = (httpServer) => {
         }
         liveHosts.get(liveId).add(socket.id);
         socket._liveHostRoomId = liveId;
-      } catch {
+      } catch (err) {
+        console.error("[live_host_active] Error:", err);
       }
     });
 
@@ -146,7 +147,7 @@ const initSocket = (httpServer) => {
       const roomKey = `live:${liveId}`;
       socket.leave(roomKey);
       socket._liveRoomId = null;
-      removeSocketFromLiveHosts(socket.id, liveId);
+      removeSocketFromSpecificLiveHost(socket.id, liveId);
       if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
 
       const viewers = liveViewers.get(liveId);
@@ -222,7 +223,8 @@ const initSocket = (httpServer) => {
         const count = getLiveViewerCount(liveRoomId);
         io.to(`live:${liveRoomId}`).emit("VIEWER_COUNT_UPDATE", { liveId: liveRoomId, count });
       }
-      removeSocketFromLiveHosts(socket.id, socket._liveHostRoomId);
+      removeSocketFromSpecificLiveHost(socket.id, socket._liveHostRoomId);
+      removeSocketFromAllLiveHosts(socket.id);
       socket._liveHostRoomId = null;
     });
   });

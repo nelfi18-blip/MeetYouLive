@@ -248,13 +248,12 @@ export default function LiveRoomPage() {
     if (!socket.connected) socket.connect();
 
     const announceHostActive = () => {
+      if (!socket.connected) return;
       socket.emit("live_host_active", { liveId: id });
     };
 
-    if (socket.connected) {
-      announceHostActive();
-    }
     socket.on("connect", announceHostActive);
+    announceHostActive();
 
     return () => {
       socket.off("connect", announceHostActive);

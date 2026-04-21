@@ -2,28 +2,28 @@
    CSS Custom Properties (Design Tokens) — Aurora Premium Theme
    ========================================================= */
 :root {
-  /* Base palette — deeper, richer darks */
-  --bg:           #06020f;
-  --bg-2:         #0e0520;
-  --bg-3:         #160830;
-  --card:         rgba(12,5,25,0.88);
-  --card-hover:   rgba(20,10,42,0.95);
-  --border:       rgba(224,64,251,0.16);
-  --border-glow:  rgba(255,45,120,0.45);
-  --border-subtle:rgba(255,255,255,0.06);
-  --text:         #F4F0FF;
-  --text-muted:   #9585b8;
-  --text-dim:     #5a4d78;
+  /* Base palette */
+  --bg:           #0f0821;
+  --bg-2:         #120a28;
+  --bg-3:         #140c2e;
+  --card:         rgba(20,12,46,0.8);
+  --card-hover:   rgba(20,12,46,0.9);
+  --border:       rgba(224,64,251,0.2);
+  --border-glow:  rgba(224,64,251,0.4);
+  --border-subtle:rgba(148,163,184,0.24);
+  --text:         #ffffff;
+  --text-muted:   #94a3b8;
+  --text-dim:     #64748b;
 
-  /* Accent — vibrant electric palette */
-  --accent:        #ff2d78;
+  /* Neon accents */
+  --accent:        #e040fb;
   --accent-2:      #e040fb;
-  --accent-3:      #818cf8;
-  --accent-cyan:   #60a5fa;
+  --accent-3:      #7c3aed;
+  --accent-cyan:   #22d3ee;
   --accent-orange: #fb923c;
   --accent-green:  #34d399;
-  --accent-dim:    rgba(255,45,120,0.12);
-  --accent-dim-2:  rgba(129,140,248,0.1);
+  --accent-dim:    rgba(224,64,251,0.12);
+  --accent-dim-2:  rgba(124,58,237,0.12);
 
   /* Semantic */
   --error:        #f87171;
@@ -33,26 +33,26 @@
   --warning:      #fbbf24;
 
   /* Radii */
-  --radius:       22px;
+  --radius:       16px;
   --radius-sm:    14px;
   --radius-xs:    8px;
   --radius-pill:  999px;
 
   /* Shadows / glows */
-  --shadow:        0 8px 40px rgba(0,0,0,0.8);
-  --shadow-sm:     0 4px 16px rgba(0,0,0,0.5);
-  --shadow-accent: 0 4px 32px rgba(255,45,120,0.38);
-  --shadow-indigo: 0 4px 32px rgba(129,140,248,0.3);
-  --glow-pink:     0 0 28px rgba(255,45,120,0.5);
-  --glow-indigo:   0 0 28px rgba(129,140,248,0.4);
-  --glow-cyan:     0 0 28px rgba(96,165,250,0.35);
+  --shadow:        0 12px 38px rgba(4,2,12,0.55);
+  --shadow-sm:     0 6px 20px rgba(4,2,12,0.45);
+  --shadow-accent: 0 0 12px rgba(224,64,251,0.4), 0 0 24px rgba(224,64,251,0.2);
+  --shadow-indigo: 0 0 12px rgba(124,58,237,0.35), 0 0 24px rgba(34,211,238,0.2);
+  --glow-pink:     0 0 12px rgba(224,64,251,0.4), 0 0 24px rgba(224,64,251,0.2);
+  --glow-indigo:   0 0 12px rgba(124,58,237,0.35), 0 0 24px rgba(34,211,238,0.2);
+  --glow-cyan:     0 0 12px rgba(34,211,238,0.38), 0 0 24px rgba(34,211,238,0.2);
 
   /* Gradients */
-  --grad-primary:  linear-gradient(135deg, #ff2d78 0%, #e040fb 50%, #818cf8 100%);
-  --grad-warm:     linear-gradient(135deg, #ff2d78 0%, #e040fb 100%);
-  --grad-cool:     linear-gradient(135deg, #7c3aed 0%, #60a5fa 100%);
-  --grad-card:     linear-gradient(160deg, rgba(22,8,45,0.92) 0%, rgba(12,5,25,0.96) 100%);
-  --grad-card-2:   linear-gradient(135deg, rgba(30,12,60,0.9) 0%, rgba(12,5,25,0.95) 100%);
+  --grad-primary:  linear-gradient(135deg, #c040ff 0%, #ff4fa3 100%);
+  --grad-warm:     linear-gradient(135deg, #c040ff 0%, #ff4fa3 100%);
+  --grad-cool:     linear-gradient(135deg, #7c3aed 0%, #22d3ee 100%);
+  --grad-card:     linear-gradient(160deg, rgba(20,12,46,0.9) 0%, rgba(15,8,33,0.95) 100%);
+  --grad-card-2:   linear-gradient(135deg, rgba(30,12,60,0.88) 0%, rgba(20,12,46,0.93) 100%);
   --grad-surface:  linear-gradient(180deg, rgba(224,64,251,0.06) 0%, transparent 100%);
 
   /* Transition */
@@ -71,13 +71,28 @@ body {
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(ellipse at 60% -5%,  rgba(224,64,251,0.22) 0%, transparent 50%),
-    radial-gradient(ellipse at -5% 80%,  rgba(139,92,246,0.18) 0%, transparent 45%),
-    radial-gradient(ellipse at 100% 60%, rgba(96,165,250,0.08) 0%, transparent 40%),
-    linear-gradient(180deg, #06020f 0%, #0e0520 60%, #06020f 100%);
-  background-color: #06020f;
+    radial-gradient(circle at 18% -8%, rgba(224,64,251,0.2) 0%, transparent 46%),
+    radial-gradient(circle at 88% 18%, rgba(34,211,238,0.12) 0%, transparent 43%),
+    radial-gradient(circle at 60% 88%, rgba(124,58,237,0.14) 0%, transparent 48%),
+    linear-gradient(180deg, #0f0821 0%, #140c2e 60%, #0f0821 100%);
+  background-color: #0f0821;
   background-attachment: fixed;
   min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148,163,184,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+  mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+  opacity: 0.35;
+  z-index: -1;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -89,6 +104,7 @@ a { color: inherit; text-decoration: none; }
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
+  animation: page-fade-in 0.28s ease-out;
 }
 
 main.main-content:has(.admin-shell) {
@@ -101,7 +117,9 @@ main.main-content:has(.admin-shell) {
    Utility: Cards
    ========================================================= */
 .card {
-  background: var(--grad-card);
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -138,8 +156,8 @@ main.main-content:has(.admin-shell) {
 }
 .card-lift:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow), var(--glow-indigo);
-  border-color: rgba(139,92,246,0.4);
+  box-shadow: var(--shadow), var(--glow-pink);
+  border-color: rgba(224,64,251,0.45);
 }
 
 /* =========================================================
@@ -188,14 +206,15 @@ main.main-content:has(.admin-shell) {
 }
 
 .btn-secondary {
-  background: rgba(139,92,246,0.1);
+  background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(224,64,251,0.35);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(139,92,246,0.18);
+  background: rgba(224,64,251,0.12);
   color: var(--text);
-  border-color: rgba(139,92,246,0.4);
+  border-color: rgba(224,64,251,0.55);
+  box-shadow: var(--glow-pink);
 }
 
 .btn-outline {
@@ -425,6 +444,25 @@ main.main-content:has(.admin-shell) {
   line-height: 1.5;
 }
 
+.stat-number {
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.stat-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
 /* =========================================================
    Utility: Status banners
    ========================================================= */
@@ -509,14 +547,9 @@ main.main-content:has(.admin-shell) {
    Micro-animations — global monetization effects
    ========================================================= */
 
-/* Pulsing glow for primary CTA buttons */
-@keyframes btn-cta-pulse {
-  0%, 100% { box-shadow: var(--shadow-accent); }
-  50%       { box-shadow: var(--glow-pink), var(--shadow-accent); }
-}
-
-.btn-primary {
-  animation: btn-cta-pulse 3s ease-in-out infinite;
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Floating animation for icons */

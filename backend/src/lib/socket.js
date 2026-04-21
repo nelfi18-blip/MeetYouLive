@@ -142,6 +142,12 @@ const initSocket = (httpServer) => {
       }
     });
 
+    socket.on("live_host_inactive", ({ liveId }) => {
+      if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+      removeSocketFromSpecificLiveHost(socket.id, liveId);
+      if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
+    });
+
     socket.on("leave_live_room", ({ liveId }) => {
       if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
       const roomKey = `live:${liveId}`;
@@ -223,7 +229,6 @@ const initSocket = (httpServer) => {
         const count = getLiveViewerCount(liveRoomId);
         io.to(`live:${liveRoomId}`).emit("VIEWER_COUNT_UPDATE", { liveId: liveRoomId, count });
       }
-      removeSocketFromSpecificLiveHost(socket.id, socket._liveHostRoomId);
       removeSocketFromAllLiveHosts(socket.id);
       socket._liveHostRoomId = null;
     });

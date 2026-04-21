@@ -256,6 +256,9 @@ export default function LiveRoomPage() {
     announceHostActive();
 
     return () => {
+      if (socket.connected) {
+        socket.emit("live_host_inactive", { liveId: id });
+      }
       socket.off("connect", announceHostActive);
     };
   }, [id, live, meLoaded, currentUserId]);

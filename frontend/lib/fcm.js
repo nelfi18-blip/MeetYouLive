@@ -85,7 +85,7 @@ export async function initPushNotifications(backendToken) {
       const pushEventId = payload.data?.pushEventId;
 
       if (title && "Notification" in window && Notification.permission === "granted") {
-        const notif = new Notification(title, { body, icon: "/icons/icon-192.png" });
+        const notif = new Notification(title, { body, icon: "/icon.png" });
         notif.onclick = () => {
           // Track open on foreground click
           if (pushEventId) {

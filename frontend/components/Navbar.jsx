@@ -177,6 +177,14 @@ export default function Navbar() {
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
                   <LogoutIcon /> {t("nav.logout")}
                 </button>
+                <div className="dropdown-divider" />
+                <div className="dropdown-legal">
+                  <Link href="/terms" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Términos</Link>
+                  <span className="dropdown-legal-sep">·</span>
+                  <Link href="/privacy" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Privacidad</Link>
+                  <span className="dropdown-legal-sep">·</span>
+                  <Link href="/refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Reembolsos</Link>
+                </div>
               </div>
             </>
           )}
@@ -454,6 +462,28 @@ export default function Navbar() {
         .dropdown-logout:hover {
           background: rgba(248,113,113,0.08) !important;
           color: var(--error) !important;
+        }
+
+        .dropdown-legal {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.45rem 0.75rem 0.55rem;
+          flex-wrap: wrap;
+        }
+
+        .dropdown-legal-link {
+          font-size: 0.72rem;
+          color: var(--text-dim, #555);
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .dropdown-legal-link:hover { color: var(--text-muted); }
+
+        .dropdown-legal-sep {
+          font-size: 0.72rem;
+          color: var(--text-dim, #444);
         }
 
         /* ── Bottom nav ────────── */

@@ -551,6 +551,101 @@ exports.getAnalytics = async (req, res) => {
   }
 };
 
+// ── Revenue metrics ──────────────────────────────────────────────────────────
+
+// Subscription price used for MRR estimate (must match the price in Stripe and
+// the subscription page UI). Set SUBSCRIPTION_PRICE_USD env var to override.
+const SUBSCRIPTION_PRICE_USD = parseFloat(process.env.SUBSCRIPTION_PRICE_USD || "9.99");
+
+exports.getRevenueMetrics = async (req, res) => {
+  try {
+    const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = new Date(now - 30 * day);
+    const sevenDaysAgo = new Date(now - 7 * day);
+
+    // Build daily coin purchase totals for the last 30 days
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const start = new Date(todayMidnight.getTime() - (29 - i) * day);
+      const end = new Date(start.getTime() + day);
+      return { start, end, label: start.toLocaleDateString("es", { month: "short", day: "numeric" }) };
+    });
+
+    const [
+      activeSubs,
+      pastDueSubs,
+      newSubsThisWeek,
+      canceledLast30Days,
+      totalCanceledEver,
+      buyersLast30Days,
+      totalCoinRevenueLast30Days,
+      dailyCoinRevenue,
+    ] = await Promise.all([
+      Subscription.countDocuments({ status: "active" }),
+      Subscription.countDocuments({ status: "past_due" }),
+      Subscription.countDocuments({ status: "active", createdAt: { $gte: sevenDaysAgo } }),
+      Subscription.countDocuments({ status: "canceled", updatedAt: { $gte: thirtyDaysAgo } }),
+      Subscription.countDocuments({ status: "canceled" }),
+      CoinTransaction.distinct("userId", {
+        type: "purchase",
+        status: "completed",
+        createdAt: { $gte: thirtyDaysAgo },
+      }).then((ids) => ids.length),
+      CoinTransaction.aggregate([
+        { $match: { type: "purchase", status: "completed", createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]).then((r) => r[0]?.total ?? 0),
+      Promise.all(
+        last30Days.map(({ start, end, label }) =>
+          CoinTransaction.aggregate([
+            { $match: { type: "purchase", status: "completed", createdAt: { $gte: start, $lt: end } } },
+            { $group: { _id: null, total: { $sum: "$amount" } } },
+          ]).then((r) => ({ label, total: r[0]?.total ?? 0 }))
+        )
+      ),
+    ]);
+
+    // Estimated MRR in USD
+    const estimatedMRR = parseFloat((activeSubs * SUBSCRIPTION_PRICE_USD).toFixed(2));
+
+    // Churn rate: cancellations in last 30d / (active + cancellations in last 30d)
+    const churnBase = activeSubs + canceledLast30Days;
+    const churnRate = churnBase > 0 ? parseFloat(((canceledLast30Days / churnBase) * 100).toFixed(1)) : 0;
+
+    // Average coins purchased per buyer (last 30d)
+    const avgCoinsPerBuyer = buyersLast30Days > 0
+      ? Math.round(totalCoinRevenueLast30Days / buyersLast30Days)
+      : 0;
+
+    return res.json({
+      ok: true,
+      revenue: {
+        subscriptions: {
+          active: activeSubs,
+          pastDue: pastDueSubs,
+          newThisWeek: newSubsThisWeek,
+          canceledLast30Days,
+          totalCanceled: totalCanceledEver,
+          churnRate,
+          estimatedMRR,
+          subscriptionPriceUsd: SUBSCRIPTION_PRICE_USD,
+        },
+        coins: {
+          buyersLast30Days,
+          totalCoinRevenueLast30Days,
+          avgCoinsPerBuyer,
+          dailyCoinRevenue,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Admin revenue metrics error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo métricas de ingresos" });
+  }
+};
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 // In-memory fallback store for settings (persisted in User model's admin config or a dedicated settings collection)

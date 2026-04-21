@@ -31,6 +31,7 @@ const {
   suspendUser,
   unsuspendUser,
   getAnalytics,
+  getRevenueMetrics,
   getSettings,
   updateSettings,
 } = require("../controllers/admin.controller.js");
@@ -152,6 +153,7 @@ router.get("/lives", getActiveLives);
 router.get("/lives/history", getLiveHistory);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
+router.get("/revenue", getRevenueMetrics);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

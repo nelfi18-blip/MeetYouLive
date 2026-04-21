@@ -63,6 +63,8 @@ const cancelSubscription = async (req, res) => {
     await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
     sub.status = "canceled";
     await sub.save();
+    // Revoke premium status immediately on manual cancellation
+    await User.findByIdAndUpdate(req.userId, { isPremium: false });
     res.json({ message: "Suscripción cancelada" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -90,13 +92,32 @@ const handleSubscriptionWebhook = async (event) => {
       },
       { upsert: true, new: true }
     );
+    // Grant premium access on successful subscription checkout
+    await User.findByIdAndUpdate(userId, { isPremium: true });
+  }
+
+  if (event.type === "invoice.payment_succeeded") {
+    // Re-activate premium on successful renewal (e.g. after past_due recovery)
+    const sub = await Subscription.findOneAndUpdate(
+      { stripeCustomerId: event.data.object.customer },
+      { status: "active" },
+      { new: true }
+    );
+    if (sub?.user) {
+      await User.findByIdAndUpdate(sub.user, { isPremium: true });
+    }
   }
 
   if (event.type === "customer.subscription.deleted") {
-    await Subscription.findOneAndUpdate(
+    const sub = await Subscription.findOneAndUpdate(
       { stripeSubscriptionId: event.data.object.id },
-      { status: "canceled" }
+      { status: "canceled" },
+      { new: true }
     );
+    // Revoke premium access when subscription is fully deleted in Stripe
+    if (sub?.user) {
+      await User.findByIdAndUpdate(sub.user, { isPremium: false });
+    }
   }
 
   if (event.type === "invoice.payment_failed") {
@@ -104,6 +125,9 @@ const handleSubscriptionWebhook = async (event) => {
       { stripeCustomerId: event.data.object.customer },
       { status: "past_due" }
     );
+    // Do not revoke isPremium on first failure; Stripe will retry and
+    // fire invoice.payment_succeeded if the charge eventually succeeds.
+    // isPremium is revoked when the subscription is fully deleted above.
   }
 };
 

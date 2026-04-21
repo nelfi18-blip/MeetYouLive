@@ -214,10 +214,11 @@ export default function Navbar() {
           position: sticky;
           top: 0;
           z-index: 200;
-          background: rgba(6,4,17,0.82);
-          backdrop-filter: blur(24px) saturate(1.8);
-          -webkit-backdrop-filter: blur(24px) saturate(1.8);
-          border-bottom: 1px solid rgba(139,92,246,0.12);
+          background: rgba(20,12,46,0.72);
+          backdrop-filter: blur(14px) saturate(1.2);
+          -webkit-backdrop-filter: blur(14px) saturate(1.2);
+          border-bottom: 1px solid rgba(224,64,251,0.24);
+          box-shadow: 0 10px 30px rgba(4,2,12,0.42), 0 1px 0 rgba(224,64,251,0.18);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -263,8 +264,8 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.2rem;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(20,12,46,0.5);
+          border: 1px solid rgba(224,64,251,0.18);
           border-radius: var(--radius-pill);
           padding: 0.3rem;
         }
@@ -284,8 +285,8 @@ export default function Navbar() {
         .navbar-link:hover { color: var(--text) !important; background: rgba(255,255,255,0.06); }
         .navbar-link.active {
           color: #fff !important;
-          background: var(--grad-primary);
-          box-shadow: 0 2px 12px rgba(224,64,251,0.4);
+          background: var(--grad-cool);
+          box-shadow: var(--glow-cyan);
         }
 
         /* ── Right section ─────── */
@@ -382,13 +383,13 @@ export default function Navbar() {
           top: calc(100% + 12px);
           right: 0;
           z-index: 200;
-          background: rgba(12,6,28,0.97);
-          border: 1px solid rgba(139,92,246,0.25);
+          background: rgba(20,12,46,0.88);
+          border: 1px solid rgba(224,64,251,0.22);
           border-radius: var(--radius);
           padding: 0.6rem;
           min-width: 210px;
-          box-shadow: var(--shadow), 0 0 40px rgba(139,92,246,0.15);
-          backdrop-filter: blur(24px);
+          box-shadow: var(--shadow), var(--glow-pink);
+          backdrop-filter: blur(12px);
           animation: dropdown-in 0.18s ease;
         }
 
@@ -494,10 +495,11 @@ export default function Navbar() {
           left: 0;
           right: 0;
           z-index: 200;
-          background: rgba(6,4,17,0.94);
-          backdrop-filter: blur(24px) saturate(1.8);
-          -webkit-backdrop-filter: blur(24px) saturate(1.8);
-          border-top: 1px solid rgba(139,92,246,0.12);
+          background: rgba(20,12,46,0.86);
+          backdrop-filter: blur(14px) saturate(1.2);
+          -webkit-backdrop-filter: blur(14px) saturate(1.2);
+          border-top: 1px solid rgba(224,64,251,0.24);
+          box-shadow: 0 -8px 24px rgba(4,2,12,0.4);
           height: 64px;
           padding: 0 0.25rem;
         }
@@ -523,6 +525,7 @@ export default function Navbar() {
 
         .bottom-nav-item.active {
           color: #fff !important;
+          background: rgba(224,64,251,0.12);
         }
         .bottom-nav-item.active :global(svg) {
           filter: drop-shadow(0 0 6px rgba(224,64,251,0.9));

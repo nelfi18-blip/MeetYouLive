@@ -141,17 +141,7 @@ export default function Logo({ size = "md" }) {
       </div>
 
       {/* Brand name */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "0.1em", lineHeight: 1 }}>
-        <span
-          style={{
-            fontSize: R(1.5),
-            fontWeight: 800,
-            color: "#F8F4FF",
-            letterSpacing: "-0.04em",
-          }}
-        >
-          MeetYou
-        </span>
+      <div style={{ display: "flex", alignItems: "baseline", lineHeight: 1 }}>
         <span
           style={{
             fontSize: R(1.5),
@@ -164,7 +154,7 @@ export default function Logo({ size = "md" }) {
             filter: "drop-shadow(0 0 8px rgba(255,15,138,0.6))",
           }}
         >
-          Live
+          MeetYouLive
         </span>
       </div>
 

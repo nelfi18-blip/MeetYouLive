@@ -1,11 +1,6 @@
 {
   "name": "MeetYouLive",
   "short_name": "MeetYouLive",
-  "description": "Plataforma de streaming en directo con regalos virtuales y vídeos privados",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0f0821",
-  "theme_color": "#0f0821",
   "icons": [
     {
       "src": "/icon.png",
@@ -16,6 +11,15 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/maskable-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "theme_color": "#0f0821",
+  "background_color": "#0f0821",
+  "display": "standalone"
 }

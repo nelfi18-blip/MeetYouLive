@@ -47,8 +47,8 @@ if (config.projectId) {
 
     self.registration.showNotification(title, {
       body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: "/icon.png",
+      badge: "/icon.png",
       data: { link, pushEventId },
     });
   });

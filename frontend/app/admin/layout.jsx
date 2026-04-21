@@ -124,9 +124,12 @@ export default function AdminLayout({ children }) {
         .admin-shell {
           display: flex;
           min-height: 100vh;
+          width: 100%;
+          max-width: 100%;
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
+          overflow-x: hidden;
         }
 
         /* ── Overlay ── */
@@ -152,6 +155,12 @@ export default function AdminLayout({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.25s ease;
+        }
+
+        @media (max-width: 767px) {
+          .sidebar {
+            width: min(86vw, var(--admin-sidebar-width));
+          }
         }
 
         @media (min-width: 768px) {
@@ -299,9 +308,7 @@ export default function AdminLayout({ children }) {
         }
 
         @media (min-width: 768px) {
-          .admin-main {
-            margin-left: var(--admin-sidebar-width);
-          }
+          .admin-main { margin-left: 0; }
         }
 
         /* ── Topbar (mobile) ── */
@@ -336,6 +343,7 @@ export default function AdminLayout({ children }) {
         /* ── Page content ── */
         .admin-content {
           flex: 1;
+          width: 100%;
           padding: 1.5rem;
           overflow-x: hidden;
         }

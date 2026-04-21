@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Gift = require("../models/Gift.js");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
+const { hasLiveHost } = require("../lib/socket.js");
 
 const getTodayStart = () => {
   const d = new Date();
@@ -192,7 +193,7 @@ const getFeaturedCreators = async (req, res) => {
       },
     ];
 
-    const [liveNow, topToday, topWeek] = await Promise.all([
+    const [liveNowRaw, topToday, topWeek] = await Promise.all([
       Live.find({ isLive: true })
         .populate("user", "username name isPremium isVerifiedCreator")
         .select("_id title viewerCount isPrivate entryCost user createdAt")
@@ -202,6 +203,9 @@ const getFeaturedCreators = async (req, res) => {
       Gift.aggregate(giftTopPipeline(todayStart)),
       Gift.aggregate(giftTopPipeline(weekStart)),
     ]);
+
+    const liveNow = (Array.isArray(liveNowRaw) ? liveNowRaw : [])
+      .filter((live) => live && live._id && hasLiveHost(String(live._id)));
 
     res.json({ liveNow, topToday, topWeek });
   } catch (err) {

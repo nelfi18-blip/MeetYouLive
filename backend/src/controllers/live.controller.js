@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
-const { getIO } = require("../lib/socket.js");
+const { getIO, hasLiveHost } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 
@@ -112,6 +112,7 @@ const getLives = async (req, res) => {
 
     const sanitizedLives = (Array.isArray(lives) ? lives : [])
       .filter((live) => live && live._id && live.user)
+      .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => ({
         ...live,
         title: normalizeLiveTitle(live.title),

@@ -78,6 +78,12 @@ const initSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
+    const clearHostForLive = (liveId) => {
+      if (!liveId) return;
+      removeHostFromLive(socket.id, liveId);
+      if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
+    };
+
     // Allow authenticated clients to join their personal notification room
     socket.on("join_user_room", (userId) => {
       if (userId && typeof userId === "string" && /^[a-f0-9]{24}$/.test(userId)) {
@@ -144,8 +150,7 @@ const initSocket = (httpServer) => {
 
     socket.on("live_host_inactive", ({ liveId }) => {
       if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
-      removeHostFromLive(socket.id, liveId);
-      if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
+      clearHostForLive(liveId);
     });
 
     socket.on("leave_live_room", ({ liveId }) => {
@@ -153,8 +158,7 @@ const initSocket = (httpServer) => {
       const roomKey = `live:${liveId}`;
       socket.leave(roomKey);
       socket._liveRoomId = null;
-      removeHostFromLive(socket.id, liveId);
-      if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
+      clearHostForLive(liveId);
 
       const viewers = liveViewers.get(liveId);
       if (viewers) {

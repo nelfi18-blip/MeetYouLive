@@ -245,8 +245,6 @@ export default function LiveRoomPage() {
     const creatorId = live.user?._id ? String(live.user._id) : null;
     if (!creatorId || creatorId !== currentUserId) return;
 
-    if (!socket.connected) socket.connect();
-
     const announceHostActive = () => {
       if (!socket.connected) return;
       socket.emit("live_host_active", { liveId: id });

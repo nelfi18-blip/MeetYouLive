@@ -91,6 +91,12 @@ a { color: inherit; text-decoration: none; }
   padding: 2rem 1.5rem;
 }
 
+main.main-content:has(.admin-shell) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* =========================================================
    Utility: Cards
    ========================================================= */

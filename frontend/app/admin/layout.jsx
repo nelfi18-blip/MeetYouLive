@@ -121,45 +121,67 @@ export default function AdminLayout({ children }) {
           --admin-sidebar-width: 220px;
         }
 
+        /* ── Shell ── */
         .admin-shell {
           display: flex;
+          flex-direction: row;
           min-height: 100vh;
+          width: 100%;
+          max-width: 100%;
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
+          overflow-x: hidden;
+          position: relative;
         }
 
         /* ── Overlay ── */
         .sidebar-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.6);
           z-index: 40;
+          backdrop-filter: none;
         }
 
         /* ── Sidebar ── */
         .sidebar {
           width: var(--admin-sidebar-width);
+          min-width: var(--admin-sidebar-width);
           flex-shrink: 0;
           background: #161b27;
           border-right: 1px solid #1e2535;
           display: flex;
           flex-direction: column;
+          /* Mobile: hidden off-screen as fixed overlay */
           position: fixed;
           top: 0;
           left: 0;
           bottom: 0;
+          height: 100%;
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.25s ease;
+          overflow-y: auto;
+          overflow-x: hidden;
         }
 
+        /* On very small screens cap sidebar at 85vw */
+        @media (max-width: 400px) {
+          .sidebar {
+            width: min(85vw, var(--admin-sidebar-width));
+            min-width: 0;
+          }
+        }
+
+        /* Desktop: sidebar becomes sticky in the flex flow */
         @media (min-width: 768px) {
           .sidebar {
-            transform: translateX(0);
             position: sticky;
             top: 0;
             height: 100vh;
+            transform: none;
+            flex-shrink: 0;
           }
           .topbar { display: none; }
         }
@@ -175,11 +197,10 @@ export default function AdminLayout({ children }) {
           gap: 0.6rem;
           padding: 1.25rem 1.25rem 1rem;
           border-bottom: 1px solid #1e2535;
+          flex-shrink: 0;
         }
 
-        .logo-icon {
-          font-size: 1.4rem;
-        }
+        .logo-icon { font-size: 1.4rem; }
 
         .logo-text {
           font-size: 1rem;
@@ -194,6 +215,10 @@ export default function AdminLayout({ children }) {
           flex: 1;
           padding: 0.75rem 0;
           overflow-y: auto;
+          overflow-x: hidden;
+          /* Force vertical stacking */
+          display: flex;
+          flex-direction: column;
         }
 
         .nav-item {
@@ -208,6 +233,13 @@ export default function AdminLayout({ children }) {
           border-radius: 0;
           transition: background 0.15s, color 0.15s;
           border-left: 3px solid transparent;
+          /* Prevent inline stacking */
+          width: 100%;
+          box-sizing: border-box;
+          flex-shrink: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .nav-item:hover {
@@ -228,6 +260,12 @@ export default function AdminLayout({ children }) {
           flex-shrink: 0;
         }
 
+        .nav-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
         /* ── Footer ── */
         .sidebar-footer {
           padding: 1rem 1.25rem;
@@ -235,6 +273,7 @@ export default function AdminLayout({ children }) {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          flex-shrink: 0;
         }
 
         .admin-info {
@@ -266,10 +305,7 @@ export default function AdminLayout({ children }) {
           text-overflow: ellipsis;
         }
 
-        .admin-role {
-          font-size: 0.75rem;
-          color: #64748b;
-        }
+        .admin-role { font-size: 0.75rem; color: #64748b; }
 
         .logout-btn {
           width: 100%;
@@ -286,25 +322,18 @@ export default function AdminLayout({ children }) {
           text-align: left;
         }
 
-        .logout-btn:hover {
-          background: rgba(239, 68, 68, 0.16);
-        }
+        .logout-btn:hover { background: rgba(239, 68, 68, 0.16); }
 
         /* ── Main content ── */
         .admin-main {
-          flex: 1;
+          flex: 1 1 0; /* flex-basis:0 lets flex-grow own the width */
           min-width: 0;
           display: flex;
           flex-direction: column;
+          overflow-x: hidden;
         }
 
-        @media (min-width: 768px) {
-          .admin-main {
-            margin-left: var(--admin-sidebar-width);
-          }
-        }
-
-        /* ── Topbar (mobile) ── */
+        /* ── Topbar (mobile only) ── */
         .topbar {
           display: flex;
           align-items: center;
@@ -315,6 +344,7 @@ export default function AdminLayout({ children }) {
           position: sticky;
           top: 0;
           z-index: 30;
+          flex-shrink: 0;
         }
 
         .topbar-menu-btn {
@@ -325,25 +355,33 @@ export default function AdminLayout({ children }) {
           cursor: pointer;
           line-height: 1;
           padding: 0.25rem;
+          flex-shrink: 0;
         }
 
         .topbar-title {
           font-size: 0.95rem;
           font-weight: 700;
           color: #a78bfa;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         /* ── Page content ── */
         .admin-content {
           flex: 1;
+          width: 100%;
           padding: 1.5rem;
           overflow-x: hidden;
+          box-sizing: border-box;
         }
 
         @media (max-width: 767px) {
-          .admin-content {
-            padding: 1rem;
-          }
+          .admin-content { padding: 1rem 0.75rem; }
+        }
+
+        @media (max-width: 400px) {
+          .admin-content { padding: 0.75rem 0.5rem; }
         }
       `}</style>
     </div>

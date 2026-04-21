@@ -1,6 +1,7 @@
 {
   "name": "MeetYouLive",
   "short_name": "MeetYouLive",
+  "description": "live dating and streaming app",
   "icons": [
     {
       "src": "/icon.png",
@@ -21,5 +22,6 @@
   ],
   "theme_color": "#0f0821",
   "background_color": "#0f0821",
+  "start_url": "/",
   "display": "standalone"
 }

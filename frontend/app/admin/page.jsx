@@ -10,10 +10,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 function StatCard({ title, value, sub, icon, href, highlight }) {
   const card = (
     <div className={`stat-card${highlight ? " stat-card--highlight" : ""}${href ? " stat-card--link" : ""}`}>
-      <div className="stat-icon">{icon}</div>
+      <div className="stat-head">
+        <div className="stat-icon">{icon}</div>
+        <div className="stat-title">{title}</div>
+      </div>
       <div className="stat-body">
         <div className="stat-value">{value ?? "—"}</div>
-        <div className="stat-title">{title}</div>
         {sub && <div className="stat-sub">{sub}</div>}
       </div>
     </div>
@@ -268,7 +270,7 @@ export default function AdminDashboard() {
       </div>
 
       <style jsx>{`
-        .page { max-width: 1200px; }
+        .page { max-width: 1280px; }
 
         .page-header {
           display: flex;
@@ -349,24 +351,47 @@ export default function AdminDashboard() {
 
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 0.75rem;
+          grid-template-columns: 1fr;
+          gap: 0.9rem;
+        }
+
+        @media (min-width: 640px) {
+          .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .stats-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        @media (min-width: 1280px) {
+          .stats-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
         }
 
         .stat-card {
           background: #161b27;
           border: 1px solid #1e2535;
           border-radius: 12px;
-          padding: 1.1rem 1.25rem;
+          padding: 1rem 1.1rem;
           display: flex;
-          align-items: center;
-          gap: 0.9rem;
-          transition: border-color 0.15s, background 0.15s;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.75rem;
+          transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+          animation: card-fade-in 0.35s ease both;
         }
 
-        .stat-card--link:hover {
-          border-color: #7c3aed;
-          background: #1a1f2e;
+        @media (hover: hover) and (pointer: fine) {
+          .stat-card--link:hover {
+            border-color: #7c3aed;
+            background: #1a1f2e;
+            transform: translateY(-2px);
+          }
         }
 
         .stat-card--highlight {
@@ -374,22 +399,31 @@ export default function AdminDashboard() {
           background: rgba(251, 191, 36, 0.04);
         }
 
+        .stat-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+        }
+
         .stat-icon {
-          font-size: 1.6rem;
+          font-size: 1.4rem;
           flex-shrink: 0;
         }
 
         .stat-value {
-          font-size: 1.5rem;
+          font-size: clamp(1.8rem, 3.6vw, 2.15rem);
           font-weight: 800;
           color: #e2e8f0;
           line-height: 1;
         }
 
         .stat-title {
-          font-size: 0.78rem;
+          font-size: 0.8rem;
           color: #64748b;
-          margin-top: 0.2rem;
+          margin-top: 0;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
         }
 
         .stat-sub {
@@ -414,6 +448,7 @@ export default function AdminDashboard() {
           border: 1px solid #1e2535;
           border-radius: 12px;
           padding: 1.1rem 1.25rem;
+          animation: card-fade-in 0.4s ease both;
         }
 
         .table-panel-header {
@@ -505,6 +540,7 @@ export default function AdminDashboard() {
           border-radius: 12px;
           padding: 1.25rem;
           margin-bottom: 2rem;
+          animation: card-fade-in 0.45s ease both;
         }
 
         .quick-title {
@@ -517,22 +553,26 @@ export default function AdminDashboard() {
         }
 
         .quick-grid {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 0.55rem;
         }
 
         .quick-btn {
           background: #1e2535;
           border: 1px solid #2d3748;
           color: #94a3b8;
-          border-radius: 8px;
-          padding: 0.5rem 0.85rem;
+          border-radius: 999px;
+          padding: 0.6rem 0.85rem;
           font-size: 0.82rem;
           font-weight: 600;
           text-decoration: none;
-          transition: background 0.15s, color 0.15s;
-          white-space: nowrap;
+          transition: background 0.15s, color 0.15s, border-color 0.15s;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          min-height: 40px;
         }
 
         .quick-btn:hover {
@@ -558,6 +598,38 @@ export default function AdminDashboard() {
 
         .quick-btn--danger:hover {
           background: rgba(239, 68, 68, 0.15);
+        }
+
+        @keyframes card-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (max-width: 767px) {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+          }
+          .btn-refresh {
+            width: 100%;
+            text-align: center;
+          }
+          .table-panel {
+            padding: 0.95rem 0.85rem;
+          }
+          .quick-links {
+            padding: 1rem 0.85rem;
+          }
+          .quick-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

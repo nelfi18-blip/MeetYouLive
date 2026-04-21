@@ -38,6 +38,27 @@ export default function AdminLayout({ children }) {
     }
   }, [pathname, router]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 1024) return;
+    document.body.style.overflow = sidebarOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const handleLogout = () => {
     clearAdminToken();
     window.location.href = "/admin/login";
@@ -53,14 +74,11 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="admin-shell">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      <div
+        className={`sidebar-overlay${sidebarOpen ? " sidebar-overlay--open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
 
       {/* Sidebar */}
       <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
@@ -101,7 +119,7 @@ export default function AdminLayout({ children }) {
 
       {/* Main content */}
       <div className="admin-main">
-        {/* Top bar (mobile) */}
+        {/* Top bar */}
         <header className="topbar">
           <button
             className="topbar-menu-btn"
@@ -111,6 +129,9 @@ export default function AdminLayout({ children }) {
             ☰
           </button>
           <span className="topbar-title">MeetYouLive Admin</span>
+          <button className="topbar-user-btn" onClick={handleLogout} aria-label="Menú de usuario">
+            {(adminUser?.name || adminUser?.username || "A")[0].toUpperCase()}
+          </button>
         </header>
 
         <div className="admin-content">{children}</div>
@@ -141,7 +162,14 @@ export default function AdminLayout({ children }) {
           inset: 0;
           background: rgba(0, 0, 0, 0.6);
           z-index: 40;
-          backdrop-filter: none;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease;
+        }
+
+        .sidebar-overlay--open {
+          opacity: 1;
+          pointer-events: auto;
         }
 
         /* ── Sidebar ── */
@@ -161,7 +189,7 @@ export default function AdminLayout({ children }) {
           height: 100%;
           z-index: 50;
           transform: translateX(-100%);
-          transition: transform 0.25s ease;
+          transition: transform 0.28s ease;
           overflow-y: auto;
           overflow-x: hidden;
         }
@@ -175,7 +203,7 @@ export default function AdminLayout({ children }) {
         }
 
         /* Desktop: sidebar becomes sticky in the flex flow */
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .sidebar {
             position: sticky;
             top: 0;
@@ -183,7 +211,9 @@ export default function AdminLayout({ children }) {
             transform: none;
             flex-shrink: 0;
           }
-          .topbar { display: none; }
+          .sidebar-overlay {
+            display: none;
+          }
         }
 
         .sidebar--open {
@@ -337,7 +367,7 @@ export default function AdminLayout({ children }) {
         .topbar {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          justify-content: space-between;
           padding: 0.75rem 1rem;
           background: #161b27;
           border-bottom: 1px solid #1e2535;
@@ -365,6 +395,34 @@ export default function AdminLayout({ children }) {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          text-align: center;
+          flex: 1;
+        }
+
+        .topbar-user-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 1px solid #2d3748;
+          background: linear-gradient(135deg, #7c3aed, #a855f7);
+          color: #fff;
+          font-weight: 700;
+          font-size: 0.82rem;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        @media (min-width: 1024px) {
+          .topbar {
+            padding: 0.85rem 1.5rem;
+          }
+          .topbar-menu-btn {
+            visibility: hidden;
+            pointer-events: none;
+          }
+          .topbar-title {
+            font-size: 1rem;
+          }
         }
 
         /* ── Page content ── */
@@ -376,8 +434,8 @@ export default function AdminLayout({ children }) {
           box-sizing: border-box;
         }
 
-        @media (max-width: 767px) {
-          .admin-content { padding: 1rem 0.75rem; }
+        @media (max-width: 1023px) {
+          .admin-content { padding: 1rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
         }
 
         @media (max-width: 400px) {

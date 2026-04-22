@@ -1,4 +1,5 @@
 const { Server } = require("socket.io");
+const Live = require("../models/Live.js");
 
 let io = null;
 
@@ -7,11 +8,40 @@ const onlineUsers = new Map();
 
 // In-memory map of live room viewers: liveId (string) → Set<socketId>
 const liveViewers = new Map();
+// In-memory map of active live hosts: liveId (string) → Set<socketId>
+const liveHosts = new Map();
 
 /** Return current viewer count for a live stream. */
 const getLiveViewerCount = (liveId) => {
   const viewers = liveViewers.get(liveId);
   return viewers ? viewers.size : 0;
+};
+
+/** Return true when the live has at least one active host socket. */
+const hasLiveHost = (liveId) => {
+  const hosts = liveHosts.get(String(liveId));
+  return !!(hosts && hosts.size > 0);
+};
+
+const removeHostFromLive = (socketId, liveId) => {
+  if (!liveId) return;
+  const hosts = liveHosts.get(liveId);
+  if (!hosts) return;
+  hosts.delete(socketId);
+  if (hosts.size === 0) liveHosts.delete(liveId);
+};
+
+const removeHostFromAllLives = (socketId) => {
+  for (const [id, hosts] of liveHosts.entries()) {
+    hosts.delete(socketId);
+    if (hosts.size === 0) liveHosts.delete(id);
+  }
+};
+
+const clearHostForLive = (socket, liveId) => {
+  if (!liveId) return;
+  removeHostFromLive(socket.id, liveId);
+  if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
 };
 
 /**
@@ -94,11 +124,36 @@ const initSocket = (httpServer) => {
       }
     });
 
+    socket.on("live_host_active", async ({ liveId }) => {
+      try {
+        if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+        if (!socket._userId) return;
+
+        const live = await Live.findOne({ _id: liveId, user: socket._userId, isLive: true })
+          .select("_id")
+          .lean();
+        if (!live) return;
+
+        if (socket._liveHostRoomId && socket._liveHostRoomId !== liveId) {
+          removeHostFromLive(socket.id, socket._liveHostRoomId);
+        }
+
+        if (!liveHosts.has(liveId)) {
+          liveHosts.set(liveId, new Set());
+        }
+        liveHosts.get(liveId).add(socket.id);
+        socket._liveHostRoomId = liveId;
+      } catch (err) {
+        console.error("[live_host_active] Error:", err);
+      }
+    });
+
     socket.on("leave_live_room", ({ liveId }) => {
       if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
       const roomKey = `live:${liveId}`;
       socket.leave(roomKey);
       socket._liveRoomId = null;
+      clearHostForLive(socket, liveId);
 
       const viewers = liveViewers.get(liveId);
       if (viewers) {
@@ -173,6 +228,8 @@ const initSocket = (httpServer) => {
         const count = getLiveViewerCount(liveRoomId);
         io.to(`live:${liveRoomId}`).emit("VIEWER_COUNT_UPDATE", { liveId: liveRoomId, count });
       }
+      removeHostFromAllLives(socket.id);
+      socket._liveHostRoomId = null;
     });
   });
 
@@ -185,4 +242,4 @@ const initSocket = (httpServer) => {
  */
 const getIO = () => io;
 
-module.exports = { initSocket, getIO, getOnlineUsers };
+module.exports = { initSocket, getIO, getOnlineUsers, hasLiveHost };

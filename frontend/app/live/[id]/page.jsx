@@ -239,6 +239,25 @@ export default function LiveRoomPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, meLoaded, currentUserId, currentUsername, addOverlayEvent]);
 
+  // Mark live as truly active only when the creator is present in the room.
+  useEffect(() => {
+    if (!id || !live || !meLoaded || !currentUserId) return;
+    const creatorId = live.user?._id ? String(live.user._id) : null;
+    if (!creatorId || creatorId !== currentUserId) return;
+
+    const announceHostActive = () => {
+      if (!socket.connected) return;
+      socket.emit("live_host_active", { liveId: id });
+    };
+
+    socket.on("connect", announceHostActive);
+    announceHostActive();
+
+    return () => {
+      socket.off("connect", announceHostActive);
+    };
+  }, [id, live, meLoaded, currentUserId]);
+
   // ── Agora join ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!live || !meLoaded) return;

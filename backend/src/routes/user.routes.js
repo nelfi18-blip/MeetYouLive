@@ -401,7 +401,13 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       { avatar: avatarUrl },
       { new: true }
     ).select("-password");
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        code: "USER_NOT_FOUND",
+        message: "Usuario no encontrado",
+      });
+    }
     res.json({ ok: true, avatar: avatarUrl, user });
   } catch (err) {
     res.status(500).json({
@@ -426,7 +432,13 @@ router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next)
       return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
     }
     const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        code: "USER_NOT_FOUND",
+        message: "Usuario no encontrado",
+      });
+    }
     if (user.verificationStatus === "approved") {
       return res.status(400).json({ message: "Tu cuenta ya está verificada" });
     }

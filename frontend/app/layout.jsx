@@ -28,9 +28,9 @@ export const metadata = {
     siteName: "MeetYouLive",
     images: [
       {
-        url: "/logo.png",
-        width: 1200,
-        height: 630,
+        url: "/logo.svg",
+        width: 512,
+        height: 512,
       },
     ],
     locale: "es_US",

@@ -56,6 +56,7 @@ const parseUploadResponseBody = async (res) => {
 
 const buildUploadEndpoint = () => {
   if (typeof API_URL !== "string" || !API_URL.trim()) {
+    console.error("[avatar-upload] NEXT_PUBLIC_API_URL no está configurado");
     return "";
   }
   return `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;

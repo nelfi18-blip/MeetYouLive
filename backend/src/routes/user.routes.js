@@ -120,6 +120,8 @@ const serializeUserPhotoFields = (req, userLike) => {
   return { avatar, profilePhotos, maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS };
 };
 
+const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
+
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, async (req, res) => {
   try {
@@ -493,7 +495,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     }
     const avatarPath = `/uploads/${req.file.filename}`;
     const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
-    const shouldSetAsMain = !(req.query?.setAsMain === "0" || req.query?.setAsMain === "false");
+    const shouldSetAsMain = parseSetAsMainParam(req.query);
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return res.status(404).json({

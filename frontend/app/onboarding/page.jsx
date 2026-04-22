@@ -131,6 +131,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const animTimerRef = useRef(null);
+  const photoIdCounterRef = useRef(0);
 
   // Step 1: chosen path
   const [selectedPath, setSelectedPath] = useState(null);
@@ -179,6 +180,11 @@ export default function OnboardingPage() {
     );
   };
 
+  const createTempPhotoId = () => {
+    photoIdCounterRef.current += 1;
+    return `photo-${photoIdCounterRef.current}`;
+  };
+
   const validateAvatarFile = (file) => {
     if (!file) return "Selecciona una imagen válida.";
     if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
@@ -225,7 +231,7 @@ export default function OnboardingPage() {
           nextMainFile = file;
           nextMainPreview = preview;
         } else {
-          nextExtras.push({ id: `${Date.now()}-${Math.random()}`, file, preview });
+          nextExtras.push({ id: createTempPhotoId(), file, preview });
         }
         totalPhotos += 1;
       } catch {
@@ -261,7 +267,7 @@ export default function OnboardingPage() {
       const selected = prev[index];
       const nextExtras = prev.filter((photo) => photo.id !== photoId);
       if (mainPhotoFile && mainPhotoPreview) {
-        nextExtras.unshift({ id: `${Date.now()}-${Math.random()}`, file: mainPhotoFile, preview: mainPhotoPreview });
+        nextExtras.unshift({ id: createTempPhotoId(), file: mainPhotoFile, preview: mainPhotoPreview });
       }
       setMainPhotoFile(selected.file);
       setMainPhotoPreview(selected.preview);
@@ -339,7 +345,9 @@ export default function OnboardingPage() {
     let workingExtraFiles = [...extraPhotoFiles];
     if (!workingMainFile && workingExtraFiles.length > 0) {
       const promoted = workingExtraFiles.shift();
-      workingMainFile = promoted.file;
+      if (promoted?.file) {
+        workingMainFile = promoted.file;
+      }
     }
 
     let finalAvatarUrl = "";

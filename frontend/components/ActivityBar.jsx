@@ -4,6 +4,44 @@ import { useEffect, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function UsersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function HeartPulseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m19.5 13.57-7 7a.69.69 0 0 1-1 0l-7-7a5 5 0 1 1 7-7l.5.5.5-.5a5 5 0 1 1 7 7Z" />
+      <path d="M3.5 12h3l2 3 3-6 2 3h4" />
+    </svg>
+  );
+}
+
+function LiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="6" width="15" height="12" rx="2" />
+      <path d="m22 8-5 4 5 4V8Z" />
+      <circle cx="7" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+function BoostIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 3 4 14h6l-1 7 10-11h-6l1-7Z" />
+    </svg>
+  );
+}
+
 // Minimum plausible floor values shown while real data loads or as fallback
 const FLOOR = { onlineCount: 12, activeLivesCount: 2, likesToday: 47, boostActiveCount: 3 };
 
@@ -47,10 +85,10 @@ export default function ActivityBar({ variant = "strip" }) {
   const boosts = Math.max(stats?.boostActiveCount ?? 0, FLOOR.boostActiveCount);
 
   const items = [
-    { icon: "🔥", value: online, label: "conectadas ahora" },
-    { icon: "💖", value: likes,  label: "likes hoy" },
-    { icon: "🎥", value: lives,  label: "directos activos" },
-    { icon: "🚀", value: boosts, label: "usando Boost" },
+    { icon: <UsersIcon />, value: online, label: "conectadas ahora" },
+    { icon: <HeartPulseIcon />, value: likes,  label: "likes hoy" },
+    { icon: <LiveIcon />, value: lives,  label: "directos activos" },
+    { icon: <BoostIcon />, value: boosts, label: "usando Boost" },
   ];
 
   return (
@@ -111,8 +149,17 @@ export default function ActivityBar({ variant = "strip" }) {
         }
 
         .ab-icon {
-          font-size: 0.95rem;
+          width: 18px;
+          height: 18px;
           line-height: 1;
+          color: #c4b5fd;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ab-icon :global(svg) {
+          width: 18px;
+          height: 18px;
         }
 
         .ab-value {

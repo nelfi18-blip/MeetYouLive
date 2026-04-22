@@ -66,14 +66,73 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
   return `${req.protocol}://${host}${relativePath}`;
 };
 
+const MAX_PROFILE_PHOTOS = 6;
+const MAX_EXTRA_PROFILE_PHOTOS = 5;
+
+const sanitizePhotoUrl = (req, value) => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed)) return toAbsoluteUploadUrl(req, trimmed);
+  return "";
+};
+
+const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
+  const basePhotos = Array.isArray(profilePhotosInput)
+    ? profilePhotosInput
+    : Array.isArray(currentUser?.profilePhotos)
+    ? currentUser.profilePhotos
+    : [];
+
+  const normalizedPhotos = [];
+  for (const value of basePhotos) {
+    const normalized = sanitizePhotoUrl(req, value);
+    if (!normalized || normalizedPhotos.includes(normalized)) continue;
+    normalizedPhotos.push(normalized);
+    if (normalizedPhotos.length >= MAX_PROFILE_PHOTOS) break;
+  }
+
+  const currentAvatar = sanitizePhotoUrl(req, currentUser?.avatar || "");
+  const nextAvatarExplicit = avatarInput !== undefined ? sanitizePhotoUrl(req, avatarInput) : null;
+  let mainPhoto = nextAvatarExplicit !== null ? nextAvatarExplicit : currentAvatar;
+
+  if (mainPhoto) {
+    const deduped = [mainPhoto, ...normalizedPhotos.filter((url) => url !== mainPhoto)];
+    return {
+      avatar: mainPhoto,
+      profilePhotos: deduped.slice(0, MAX_PROFILE_PHOTOS),
+    };
+  }
+
+  if (normalizedPhotos.length > 0) {
+    return {
+      avatar: normalizedPhotos[0],
+      profilePhotos: normalizedPhotos.slice(0, MAX_PROFILE_PHOTOS),
+    };
+  }
+
+  return { avatar: "", profilePhotos: [] };
+};
+
+const serializeUserPhotoFields = (req, userLike) => {
+  const { avatar, profilePhotos } = normalizeProfilePhotos(req, userLike?.profilePhotos, userLike?.avatar, userLike);
+  return { avatar, profilePhotos, maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS };
+};
+
+const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
+
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select(
-      "username name avatar bio role creatorStatus isVerifiedCreator creatorProfile interests location"
+      "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const profile = user.toObject();
+    const photoFields = serializeUserPhotoFields(req, profile);
+    profile.avatar = photoFields.avatar;
+    profile.profilePhotos = photoFields.profilePhotos;
     const activeLive = await Live.findOne({ user: user._id, isLive: true }).select("_id");
     profile.isLive = !!activeLive;
     profile.liveId = activeLive ? String(activeLive._id) : null;
@@ -88,7 +147,11 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
+    const payload = user.toObject();
+    const photoFields = serializeUserPhotoFields(req, payload);
+    payload.avatar = photoFields.avatar;
+    payload.profilePhotos = photoFields.profilePhotos;
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -106,7 +169,9 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
 
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio, avatar, preferredLanguage, intent } = req.body;
+    const { username, name, bio, avatar, profilePhotos, preferredLanguage, intent } = req.body;
+    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
       const trimmed = username.trim();
@@ -117,7 +182,11 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (trimmed.length > 0) updates.name = trimmed;
     }
     if (bio !== undefined) updates.bio = bio.trim();
-    if (avatar !== undefined) updates.avatar = avatar.trim();
+    if (avatar !== undefined || profilePhotos !== undefined) {
+      const normalizedPhotoState = normalizeProfilePhotos(req, profilePhotos, avatar, currentUser);
+      updates.avatar = normalizedPhotoState.avatar;
+      updates.profilePhotos = normalizedPhotoState.profilePhotos;
+    }
     if (preferredLanguage !== undefined) {
       const allowedLangs = ["es", "en", "pt"];
       if (allowedLangs.includes(preferredLanguage)) {
@@ -138,7 +207,11 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
 
     const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
+    const payload = user.toObject();
+    const photoFields = serializeUserPhotoFields(req, payload);
+    payload.avatar = photoFields.avatar;
+    payload.profilePhotos = photoFields.profilePhotos;
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -172,10 +245,16 @@ const MAX_INTERESTS = 10;
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { avatar, gender, birthdate, interests, location, name, bio, intent } = req.body;
+    const { avatar, profilePhotos, gender, birthdate, interests, location, name, bio, intent } = req.body;
+    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = { onboardingComplete: true };
 
-    if (avatar !== undefined) updates.avatar = avatar.trim();
+    if (avatar !== undefined || profilePhotos !== undefined) {
+      const normalizedPhotoState = normalizeProfilePhotos(req, profilePhotos, avatar, currentUser);
+      updates.avatar = normalizedPhotoState.avatar;
+      updates.profilePhotos = normalizedPhotoState.profilePhotos;
+    }
     if (gender !== undefined) updates.gender = gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
@@ -192,7 +271,11 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
 
     const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
+    const payload = user.toObject();
+    const photoFields = serializeUserPhotoFields(req, payload);
+    payload.avatar = photoFields.avatar;
+    payload.profilePhotos = photoFields.profilePhotos;
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -204,13 +287,20 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     if (!avatar || typeof avatar !== "string") {
       return res.status(400).json({ message: "avatar (URL) es requerido" });
     }
+    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
+    const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { avatar: avatar.trim() },
+      { avatar: normalizedPhotoState.avatar, profilePhotos: normalizedPhotoState.profilePhotos },
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
+    const payload = user.toObject();
+    const photoFields = serializeUserPhotoFields(req, payload);
+    payload.avatar = photoFields.avatar;
+    payload.profilePhotos = photoFields.profilePhotos;
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -405,11 +495,8 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     }
     const avatarPath = `/uploads/${req.file.filename}`;
     const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { avatar: avatarUrl },
-      { new: true }
-    ).select("-password");
+    const shouldSetAsMain = parseSetAsMainParam(req.query);
+    const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return res.status(404).json({
         ok: false,
@@ -417,13 +504,32 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
         message: "Usuario no encontrado",
       });
     }
+    const candidateProfilePhotos = [avatarUrl, ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : [])];
+    const normalizedPhotoState = normalizeProfilePhotos(
+      req,
+      candidateProfilePhotos,
+      shouldSetAsMain ? avatarUrl : undefined,
+      user
+    );
+    const nextAvatar = normalizedPhotoState.avatar;
+    const nextProfilePhotos = normalizedPhotoState.profilePhotos;
+
+    user.avatar = nextAvatar;
+    user.profilePhotos = nextProfilePhotos;
+    await user.save();
+
+    const photoFields = serializeUserPhotoFields(req, user.toObject());
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
       message: "Imagen subida correctamente",
-      avatar: avatarUrl,
+      avatar: photoFields.avatar,
       avatarPath,
-      user,
+      photo: avatarUrl,
+      mainPhoto: photoFields.avatar,
+      profilePhotos: photoFields.profilePhotos,
+      maxExtraPhotos: photoFields.maxExtraPhotos,
+      user: { ...user.toObject(), avatar: photoFields.avatar, profilePhotos: photoFields.profilePhotos },
     });
   } catch (err) {
     res.status(500).json({

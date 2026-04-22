@@ -11,6 +11,8 @@ import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 const getUploadMessageFromPayload = (payload) => {
   if (!payload || typeof payload !== "object") return "";
@@ -319,6 +321,14 @@ export default function ProfilePage() {
   const handleAvatarFileUpload = async (file) => {
     if (!file) {
       setSaveError("Selecciona una imagen válida.");
+      return;
+    }
+    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) {
+      setSaveError("Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      setSaveError("La imagen es demasiado grande. El máximo permitido es 5 MB.");
       return;
     }
 

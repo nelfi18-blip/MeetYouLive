@@ -6,10 +6,41 @@ import Image from "next/image";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
+const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MIN_AGE_YEARS = 13;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
+
+const getUploadMessageFromPayload = (payload) => {
+  if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (payload.error && typeof payload.error.message === "string" && payload.error.message.trim()) {
+    return payload.error.message;
+  }
+  return "";
+};
+
+const getUploadErrorMessage = (status, payload, fallback = "Error al subir la foto") => {
+  const payloadMessage = getUploadMessageFromPayload(payload);
+  if (payloadMessage) return payloadMessage;
+  if (status === 401) return "Tu sesión expiró. Inicia sesión de nuevo.";
+  if (status === 413) return "La imagen es demasiado grande. El máximo permitido es 5 MB.";
+  if (status === 415) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
+  return fallback;
+};
+
+const parseUploadResponseBody = async (res) => {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+};
 
 const INTERESTS = [
   "Música", "Gaming", "Arte", "Viajes", "Fitness",
@@ -119,10 +150,40 @@ export default function OnboardingPage() {
   };
 
   const handleAvatarFileChange = (file) => {
-    if (!file) return;
+    if (!file) {
+      setError("Selecciona una imagen válida.");
+      return;
+    }
+    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) {
+      setError("Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.");
+      setAvatarFile(null);
+      setAvatarPreview("");
+      return;
+    }
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      setError("La imagen es demasiado grande. El máximo permitido es 5 MB.");
+      setAvatarFile(null);
+      setAvatarPreview("");
+      return;
+    }
+
+    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+    console.log("[onboarding-avatar-upload] selected file metadata", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified,
+    });
+
+    setError("");
     setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setAvatarPreview(e.target.result);
+    reader.onerror = () => {
+      setAvatarFile(null);
+      setAvatarPreview("");
+      setError("No se pudo leer el archivo seleccionado.");
+    };
     reader.readAsDataURL(file);
     setAvatarUrl("");
     setSafeAvatarDisplayUrl("");
@@ -156,23 +217,48 @@ export default function OnboardingPage() {
     // If a file was selected, upload it first
     if (avatarFile) {
       const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Tu sesión expiró. Inicia sesión de nuevo.");
+        setLoading(false);
+        router.replace("/login");
+        return;
+      }
+
       const formData = new FormData();
       formData.append("avatar", avatarFile);
       try {
+        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+        console.log("[onboarding-avatar-upload] request start", { url: `${API_URL}/api/user/me/avatar-upload` });
         const uploadRes = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
         });
+
+        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+        console.log("[onboarding-avatar-upload] response status", uploadRes.status);
+        const uploadData = await parseUploadResponseBody(uploadRes);
+        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+        console.log("[onboarding-avatar-upload] response body", uploadData);
+
         if (!uploadRes.ok) {
-          const errData = await uploadRes.json().catch(() => ({}));
-          setError(errData.message || "Error al subir la foto");
+          if (uploadRes.status === 401) {
+            router.replace("/login");
+          }
+          setError(getUploadErrorMessage(uploadRes.status, uploadData, "Error al subir la foto"));
           setLoading(false);
           return;
         }
-        const uploadData = await uploadRes.json();
-        finalAvatarUrl = uploadData.avatar || "";
-      } catch {
+
+        finalAvatarUrl = typeof uploadData?.avatar === "string" ? uploadData.avatar : "";
+        if (!finalAvatarUrl) {
+          setError("No se pudo obtener la URL de la imagen subida.");
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+        console.error("[onboarding-avatar-upload] caught frontend error", err);
         setError("No se pudo subir la foto");
         setLoading(false);
         return;

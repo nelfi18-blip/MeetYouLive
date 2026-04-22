@@ -7,6 +7,8 @@ import Image from "next/image";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_PROFILE_PHOTOS = 6;
+const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const MIN_AGE_YEARS = 13;
@@ -52,12 +54,13 @@ const hasAllowedAvatarExtension = (filename = "") => {
   return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 };
 
-const buildUploadEndpoint = () => {
+const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   if (typeof API_URL !== "string" || !API_URL.trim()) {
     console.error("[avatar-upload] NEXT_PUBLIC_API_URL no está configurado");
     return "";
   }
-  return `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;
+  const base = `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;
+  return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
 const normalizeAvatarUrl = (avatarValue) => {
@@ -142,12 +145,10 @@ export default function OnboardingPage() {
   // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
 
-  // Step 4 fields (avatar)
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState("");
-  // Safe avatar src for display: only http(s) URLs or FileReader data: URLs are allowed
-  const [safeAvatarDisplayUrl, setSafeAvatarDisplayUrl] = useState("");
+  // Step 4 fields (photos)
+  const [mainPhotoFile, setMainPhotoFile] = useState(null);
+  const [mainPhotoPreview, setMainPhotoPreview] = useState("");
+  const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -178,50 +179,94 @@ export default function OnboardingPage() {
     );
   };
 
-  const handleAvatarFileChange = (file) => {
-    if (!file) {
-      setError("Selecciona una imagen válida.");
-      return;
-    }
-    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) {
-      setError("Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.");
-      setAvatarFile(null);
-      setAvatarPreview("");
-      return;
-    }
-    if (!hasAllowedAvatarExtension(file.name)) {
-      setError("Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.");
-      setAvatarFile(null);
-      setAvatarPreview("");
-      return;
-    }
-    if (file.size > MAX_AVATAR_FILE_SIZE) {
-      setError("La imagen es demasiado grande. El máximo permitido es 5 MB.");
-      setAvatarFile(null);
-      setAvatarPreview("");
-      return;
-    }
+  const validateAvatarFile = (file) => {
+    if (!file) return "Selecciona una imagen válida.";
+    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
+    if (!hasAllowedAvatarExtension(file.name)) return "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.";
+    if (file.size > MAX_AVATAR_FILE_SIZE) return "La imagen es demasiado grande. El máximo permitido es 5 MB.";
+    return "";
+  };
 
-    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-    console.log("[onboarding-avatar-upload] selected file metadata", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      lastModified: file.lastModified,
+  const readPreview = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.readAsDataURL(file);
     });
 
+  const handleAddPhotoFiles = async (filesList) => {
+    const files = Array.from(filesList || []);
+    if (!files.length) return;
     setError("");
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setAvatarPreview(e.target.result);
-    reader.onerror = () => {
-      setAvatarFile(null);
-      setAvatarPreview("");
-      setError("No se pudo leer el archivo seleccionado.");
-    };
-    reader.readAsDataURL(file);
-    setAvatarUrl("");
-    setSafeAvatarDisplayUrl("");
+
+    let totalPhotos = (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length;
+    let nextMainFile = mainPhotoFile;
+    let nextMainPreview = mainPhotoPreview;
+    const nextExtras = [...extraPhotoFiles];
+
+    for (const file of files) {
+      if (totalPhotos >= MAX_PROFILE_PHOTOS) break;
+      const validationError = validateAvatarFile(file);
+      if (validationError) {
+        setError(validationError);
+        continue;
+      }
+      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+      console.log("[onboarding-avatar-upload] selected file metadata", {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+      });
+      try {
+        const preview = await readPreview(file);
+        if (!nextMainFile) {
+          nextMainFile = file;
+          nextMainPreview = preview;
+        } else {
+          nextExtras.push({ id: `${Date.now()}-${Math.random()}`, file, preview });
+        }
+        totalPhotos += 1;
+      } catch {
+        setError("No se pudo leer uno de los archivos seleccionados.");
+      }
+    }
+
+    setMainPhotoFile(nextMainFile);
+    setMainPhotoPreview(nextMainPreview);
+    setExtraPhotoFiles(nextExtras.slice(0, MAX_EXTRA_PROFILE_PHOTOS));
+  };
+
+  const handleRemoveMainPhoto = () => {
+    if (extraPhotoFiles.length > 0) {
+      const [nextMain, ...rest] = extraPhotoFiles;
+      setMainPhotoFile(nextMain.file);
+      setMainPhotoPreview(nextMain.preview);
+      setExtraPhotoFiles(rest);
+      return;
+    }
+    setMainPhotoFile(null);
+    setMainPhotoPreview("");
+  };
+
+  const handleRemoveExtraPhoto = (photoId) => {
+    setExtraPhotoFiles((prev) => prev.filter((photo) => photo.id !== photoId));
+  };
+
+  const handleMakeMainPhoto = (photoId) => {
+    setExtraPhotoFiles((prev) => {
+      const index = prev.findIndex((photo) => photo.id === photoId);
+      if (index < 0) return prev;
+      const selected = prev[index];
+      const nextExtras = prev.filter((photo) => photo.id !== photoId);
+      if (mainPhotoFile && mainPhotoPreview) {
+        nextExtras.unshift({ id: `${Date.now()}-${Math.random()}`, file: mainPhotoFile, preview: mainPhotoPreview });
+      }
+      setMainPhotoFile(selected.file);
+      setMainPhotoPreview(selected.preview);
+      return nextExtras.slice(0, MAX_EXTRA_PROFILE_PHOTOS);
+    });
   };
 
   const handleNext = () => {
@@ -247,74 +292,95 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
 
-    let finalAvatarUrl = avatarUrl.trim();
-
-    // If a file was selected, upload it first
-    if (avatarFile) {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Tu sesión expiró. Inicia sesión de nuevo.");
-        setLoading(false);
-        router.replace("/login");
-        return;
-      }
-      const uploadEndpoint = buildUploadEndpoint();
-      if (!uploadEndpoint) {
-        setError("No se pudo iniciar la subida. Falta la configuración del servidor.");
-        setLoading(false);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("avatar", avatarFile);
-      try {
-        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-        console.log("[onboarding-avatar-upload] request start", { url: uploadEndpoint });
-        const uploadRes = await fetch(uploadEndpoint, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-
-        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-        console.log("[onboarding-avatar-upload] response status", uploadRes.status);
-        const uploadData = await parseUploadResponseBody(uploadRes);
-        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-        console.log("[onboarding-avatar-upload] response body", uploadData);
-
-        if (!uploadRes.ok) {
-          if (uploadRes.status === 401) {
-            router.replace("/login");
-          }
-          setError(getUploadErrorMessage(uploadRes.status, uploadData, "Error al subir la foto"));
-          setLoading(false);
-          return;
-        }
-
-        finalAvatarUrl = normalizeAvatarUrl(uploadData?.avatar);
-        if (!finalAvatarUrl) {
-          setError("No se pudo obtener la URL de la imagen subida.");
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-        console.error("[onboarding-avatar-upload] caught frontend error", err);
-        setError("No se pudo subir la foto");
-        setLoading(false);
-        return;
-      }
-    }
-
-    // Basic avatar URL validation to prevent XSS via javascript: URIs.
-    // /uploads/ paths are only set programmatically after a successful upload, never from user text input.
-    if (finalAvatarUrl && !/^https?:\/\//i.test(finalAvatarUrl) && !/^\/uploads\/[a-zA-Z0-9._-]+$/.test(finalAvatarUrl)) {
-      setError("La URL de la foto debe comenzar con http:// o https://");
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("Tu sesión expiró. Inicia sesión de nuevo.");
       setLoading(false);
+      router.replace("/login");
       return;
     }
 
-    const token = localStorage.getItem("token");
+    const uploadPhotoFile = async (file, { setAsMain = false } = {}) => {
+      const uploadEndpoint = buildUploadEndpoint({ setAsMain });
+      if (!uploadEndpoint) return { ok: false, message: "No se pudo iniciar la subida. Falta la configuración del servidor." };
+
+      const formData = new FormData();
+      formData.append("avatar", file);
+      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+      console.log("[onboarding-avatar-upload] request start", { url: uploadEndpoint });
+      const uploadRes = await fetch(uploadEndpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+      console.log("[onboarding-avatar-upload] response status", uploadRes.status);
+      const uploadData = await parseUploadResponseBody(uploadRes);
+      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+      console.log("[onboarding-avatar-upload] response body", uploadData);
+      if (!uploadRes.ok) {
+        return {
+          ok: false,
+          unauthorized: uploadRes.status === 401,
+          message: getUploadErrorMessage(uploadRes.status, uploadData, "Error al subir la foto"),
+        };
+      }
+      const normalizedAvatar = normalizeAvatarUrl(uploadData?.avatar || uploadData?.mainPhoto);
+      if (!normalizedAvatar) {
+        return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
+      }
+      const normalizedPhotos = Array.isArray(uploadData?.profilePhotos)
+        ? uploadData.profilePhotos.map((photo) => normalizeAvatarUrl(photo)).filter(Boolean).slice(0, MAX_PROFILE_PHOTOS)
+        : [];
+      return { ok: true, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+    };
+
+    let workingMainFile = mainPhotoFile;
+    let workingExtraFiles = [...extraPhotoFiles];
+    if (!workingMainFile && workingExtraFiles.length > 0) {
+      const promoted = workingExtraFiles.shift();
+      workingMainFile = promoted.file;
+    }
+
+    let finalAvatarUrl = "";
+    const finalProfilePhotos = [];
+
+    try {
+      if (workingMainFile) {
+        const mainUpload = await uploadPhotoFile(workingMainFile, { setAsMain: true });
+        if (!mainUpload.ok) {
+          if (mainUpload.unauthorized) router.replace("/login");
+          setError(mainUpload.message || "No se pudo subir la foto principal.");
+          setLoading(false);
+          return;
+        }
+        finalAvatarUrl = mainUpload.avatar;
+        if (finalAvatarUrl) finalProfilePhotos.push(finalAvatarUrl);
+      }
+
+      for (const extra of workingExtraFiles) {
+        const extraUpload = await uploadPhotoFile(extra.file, { setAsMain: false });
+        if (!extraUpload.ok) {
+          if (extraUpload.unauthorized) {
+            router.replace("/login");
+            setLoading(false);
+            return;
+          }
+          setError(extraUpload.message || "Una foto no se pudo subir. Inténtalo de nuevo.");
+          setLoading(false);
+          return;
+        }
+        if (extraUpload.avatar && !finalProfilePhotos.includes(extraUpload.avatar)) {
+          finalProfilePhotos.push(extraUpload.avatar);
+        }
+      }
+    } catch (err) {
+      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
+      console.error("[onboarding-avatar-upload] caught frontend error", err);
+      setError("No se pudo subir la foto");
+      setLoading(false);
+      return;
+    }
 
     // Map selected path to intent
     const intentMap = { crush: "dating", live: "live", creator: "creator" };
@@ -335,6 +401,7 @@ export default function OnboardingPage() {
           interests,
           location: location.trim() || undefined,
           avatar: finalAvatarUrl || undefined,
+          profilePhotos: finalProfilePhotos.length ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS) : undefined,
           intent: intent || undefined,
         }),
       });
@@ -575,16 +642,16 @@ export default function OnboardingPage() {
           ────────────────────────────────────────── */}
           {step === 4 && (
             <div className="ob-section">
-              <h2 className="ob-title">Añade una foto</h2>
-              <p className="ob-subtitle">Una foto de perfil ayuda a que otros te reconozcan</p>
+              <h2 className="ob-title">Arma tu perfil de fotos</h2>
+              <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra</p>
 
               <div className="ob-avatar-preview">
-                {(avatarPreview || safeAvatarDisplayUrl) ? (
+                {mainPhotoPreview ? (
                   <img
-                    src={avatarPreview || safeAvatarDisplayUrl}
-                    alt="Avatar"
+                    src={mainPhotoPreview}
+                    alt="Foto principal"
                     className="ob-avatar-img"
-                    onError={() => { setAvatarUrl(""); setAvatarPreview(""); setSafeAvatarDisplayUrl(""); }}
+                    onError={() => { setMainPhotoFile(null); setMainPhotoPreview(""); }}
                   />
                 ) : (
                   <div className="ob-avatar-placeholder">
@@ -592,46 +659,51 @@ export default function OnboardingPage() {
                   </div>
                 )}
               </div>
+              <div className="ob-main-label">Foto principal</div>
+
+              {mainPhotoFile && (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
+                  <button type="button" className="btn ob-btn-back" onClick={handleRemoveMainPhoto} disabled={loading}>
+                    Eliminar principal
+                  </button>
+                </div>
+              )}
+
+              {extraPhotoFiles.length > 0 && (
+                <div className="ob-photo-grid">
+                  {extraPhotoFiles.map((photo) => (
+                    <div key={photo.id} className="ob-photo-item">
+                      <img src={photo.preview} alt="Foto adicional" className="ob-photo-item-img" />
+                      <div className="ob-photo-item-actions">
+                        <button type="button" className="btn ob-btn-back ob-btn-photo" onClick={() => handleMakeMainPhoto(photo.id)} disabled={loading}>
+                          Hacer principal
+                        </button>
+                        <button type="button" className="btn ob-btn-back ob-btn-photo" onClick={() => handleRemoveExtraPhoto(photo.id)} disabled={loading}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="ob-field">
-                <label className="ob-label">Sube una foto desde tu dispositivo</label>
+                <label className="ob-label">Agregar fotos</label>
                 <label className="ob-upload-btn">
-                  📷 {avatarFile ? avatarFile.name : "Elegir archivo"}
+                  ➕ Agregar fotos
                   <input
                     type="file"
+                    multiple
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     style={{ display: "none" }}
-                    onChange={(e) => handleAvatarFileChange(e.target.files[0])}
+                    disabled={loading}
+                    onChange={(e) => {
+                      handleAddPhotoFiles(e.target.files);
+                      e.target.value = "";
+                    }}
                   />
                 </label>
-              </div>
-
-              <div className="divider-text">o pega una URL</div>
-
-              <div className="ob-field">
-                <label className="ob-label">URL de tu foto de perfil</label>
-                <input
-                  className="input"
-                  placeholder="https://ejemplo.com/tu-foto.jpg"
-                  value={avatarUrl}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setAvatarUrl(val);
-                    setAvatarFile(null);
-                    setAvatarPreview("");
-                    try {
-                      const parsed = new URL(val);
-                      setSafeAvatarDisplayUrl(
-                        parsed.protocol === "https:" || parsed.protocol === "http:"
-                          ? parsed.href
-                          : ""
-                      );
-                    } catch {
-                      setSafeAvatarDisplayUrl("");
-                    }
-                  }}
-                />
-                <span className="ob-hint">Pega la URL de una imagen pública (Gravatar, LinkedIn, etc.)</span>
+                <span className="ob-hint">Máximo {MAX_PROFILE_PHOTOS} fotos en total.</span>
               </div>
 
               {/* Coin / Creator destination hook */}
@@ -1046,20 +1118,20 @@ export default function OnboardingPage() {
         .ob-avatar-preview {
           display: flex;
           justify-content: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 0.75rem;
         }
         .ob-avatar-img {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
+          width: min(100%, 240px);
+          aspect-ratio: 1 / 1;
+          border-radius: 14px;
           object-fit: cover;
           border: 3px solid rgba(224,64,251,0.3);
           box-shadow: 0 0 24px rgba(224,64,251,0.25);
         }
         .ob-avatar-placeholder {
-          width: 96px;
-          height: 96px;
-          border-radius: 50%;
+          width: min(100%, 240px);
+          aspect-ratio: 1 / 1;
+          border-radius: 14px;
           background: var(--grad-primary);
           display: flex;
           align-items: center;
@@ -1068,6 +1140,43 @@ export default function OnboardingPage() {
           font-weight: 800;
           color: #fff;
           box-shadow: 0 0 24px rgba(224,64,251,0.3);
+        }
+        .ob-main-label {
+          text-align: center;
+          font-size: 0.74rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          margin-bottom: 1rem;
+          font-weight: 700;
+        }
+        .ob-photo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+          gap: 0.6rem;
+          margin-bottom: 1rem;
+        }
+        .ob-photo-item {
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.03);
+          border-radius: 12px;
+          padding: 0.4rem;
+        }
+        .ob-photo-item-img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 10px;
+          object-fit: cover;
+          margin-bottom: 0.35rem;
+        }
+        .ob-photo-item-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .ob-btn-photo {
+          padding: 0.45rem 0.5rem !important;
+          font-size: 0.72rem !important;
         }
 
         /* ── Actions ── */
@@ -1163,6 +1272,7 @@ export default function OnboardingPage() {
           .onboarding-card { padding: 2rem 1.25rem; }
           .ob-row { flex-direction: column; }
           .ob-hero-title { font-size: 1.55rem; }
+          .ob-photo-item-actions { flex-direction: row; flex-wrap: wrap; }
         }
       `}</style>
     </div>

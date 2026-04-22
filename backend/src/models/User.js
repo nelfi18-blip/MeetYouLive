@@ -61,6 +61,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     bio: { type: String, default: "" },
     avatar: { type: String, default: "" },
+    profilePhotos: { type: [String], default: [] },
     gender: { type: String, enum: ["man", "woman", "nonbinary", "other", ""], default: "" },
     birthdate: { type: Date, default: null },
     interests: { type: [String], default: [] },

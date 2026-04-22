@@ -7,6 +7,46 @@ import Link from "next/link";
 import Image from "next/image";
 import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken } from "@/lib/token";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import GradientButton from "@/components/ui/GradientButton";
+import NeonInput from "@/components/ui/NeonInput";
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="11" width="16" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+    </svg>
+  );
+}
+
+function EyeIcon({ off = false }) {
+  if (off) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.92-2.19 2.43-4.05 4.33-5.39" />
+        <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58" />
+        <path d="M9.88 4.24A10.93 10.93 0 0 1 12 4c5 0 9.27 3.89 11 8a11 11 0 0 1-1.42 2.5" />
+        <line x1="1" y1="1" x2="23" y2="23" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
 
 function LoginForm() {
   const { data: session, status } = useSession();
@@ -402,7 +442,7 @@ function LoginForm() {
         ))}
       </div>
 
-      <div className="login-card">
+      <FuturisticCard className="login-card" accent="pink" hover={false}>
         {/* Logo */}
         <div className="login-logo">
           <Image
@@ -413,6 +453,7 @@ function LoginForm() {
             priority
             className="logo-img"
           />
+          <span className="login-kicker">Acceso seguro</span>
           <div className="login-logo-text">
             Meet You<span className="logo-live">Live</span>
           </div>
@@ -420,79 +461,78 @@ function LoginForm() {
 
         <div className="login-header">
           <h1 className="login-title">Bienvenido de vuelta</h1>
-          <p className="login-subtitle">Inicia sesión para continuar</p>
+          <p className="login-subtitle">Conéctate y entra al universo premium de MeetYouLive</p>
         </div>
 
         {error && <div className="banner-error">{error}</div>}
         {info && <div className="banner-info">{info}</div>}
 
-        {/* Google first, matching mockup */}
         <button
           className="btn-google"
           onClick={() => signIn("google", { callbackUrl: "/login" })}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
+          <span className="btn-google-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </span>
           Continuar con Google
         </button>
 
-        <p className="urgency-msg">🔥 Más de 1,000 usuarios conectando ahora mismo</p>
+        <p className="urgency-msg">Más de 1,000 usuarios conectados en este momento</p>
 
         <div className="divider-text">o continúa con email</div>
 
         <div className="login-form">
-          <input
-            className="input input-lg"
+          <NeonInput
             type="email"
             placeholder="EMAIL"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={handleKeyDown}
+            icon={<MailIcon />}
+            autoComplete="email"
           />
 
-          <div className="password-field">
-            <input
-              className="input input-lg input-password"
-              type={showPassword ? "text" : "password"}
-              placeholder="CONTRASEÑA"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <button
-              type="button"
-              className="password-toggle"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              aria-pressed={showPassword}
-            >
-              <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
-            </button>
-          </div>
+          <NeonInput
+            type={showPassword ? "text" : "password"}
+            placeholder="CONTRASEÑA"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
+            icon={<LockIcon />}
+            autoComplete="current-password"
+            endSlot={(
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-pressed={showPassword}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            )}
+          />
 
           <div className="forgot-row">
             <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
           </div>
 
-          <button
-            className="btn btn-primary btn-lg btn-block submit-btn"
-            onClick={login}
-            disabled={loading}
-          >
+          <GradientButton className="submit-btn" onClick={login} disabled={loading}>
             {loading ? (
               <>
                 <span className="spinner" />
                 Iniciando sesión…
               </>
-            ) : "Iniciar sesión →"}
-          </button>
+            ) : "Iniciar sesión"}
+          </GradientButton>
         </div>
 
-        <p className="differentiator-msg">🎥 No solo deslices… conéctate en vivo</p>
+        <p className="differentiator-msg">Streaming en vivo, conexiones reales y experiencias exclusivas</p>
 
         <div className="login-footer">
           <p className="footer-link">
@@ -500,7 +540,7 @@ function LoginForm() {
             <Link href="/register">Regístrate gratis</Link>
           </p>
         </div>
-      </div>
+      </FuturisticCard>
 
       <style jsx>{`
         /* ── Background ── */
@@ -605,15 +645,8 @@ function LoginForm() {
           z-index: 1;
           width: 100%;
           max-width: 420px;
-          background: rgba(10,5,22,0.90);
-          border: 1px solid rgba(224,64,251,0.18);
           border-radius: 32px;
           padding: 2.5rem 2.25rem 2.25rem;
-          box-shadow:
-            0 24px 80px rgba(0,0,0,0.75),
-            0 0 0 1px rgba(255,255,255,0.04),
-            0 0 80px rgba(224,64,251,0.12);
-          backdrop-filter: blur(32px) saturate(1.6);
         }
 
         /* ── Logo ── */
@@ -623,6 +656,16 @@ function LoginForm() {
           align-items: center;
           gap: 0.5rem;
           margin-bottom: 1.5rem;
+        }
+        .login-kicker {
+          font-size: 0.65rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(196, 181, 253, 0.88);
+          border: 1px solid rgba(224, 64, 251, 0.38);
+          border-radius: 999px;
+          padding: 0.2rem 0.65rem;
+          background: rgba(224, 64, 251, 0.11);
         }
 
         :global(.logo-img) {
@@ -652,7 +695,7 @@ function LoginForm() {
         }
 
         .login-title {
-          font-size: 1.45rem;
+          font-size: 1.38rem;
           font-weight: 800;
           letter-spacing: -0.03em;
           color: var(--text);
@@ -662,6 +705,7 @@ function LoginForm() {
           color: var(--text-muted);
           font-size: 0.875rem;
           margin-top: 0.3rem;
+          line-height: 1.45;
         }
 
         /* ── Banners ── */
@@ -689,22 +733,27 @@ function LoginForm() {
 
         /* ── Form ── */
         .login-form { display: flex; flex-direction: column; gap: 0.85rem; }
-        .password-field { position: relative; }
-        .input-password { padding-right: 2.75rem; }
         .password-toggle {
-          position: absolute;
-          right: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
+          border-radius: 10px;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           border: none;
-          background: transparent;
-          color: var(--text-muted);
+          background: rgba(255, 255, 255, 0.04);
+          color: #c4b5fd;
           cursor: pointer;
-          font-size: 1rem;
-          line-height: 1;
-          padding: 0;
+          transition: color var(--transition), background var(--transition);
         }
-        .password-toggle:hover { color: var(--text); }
+        .password-toggle:hover {
+          background: rgba(224, 64, 251, 0.16);
+          color: #f5d0fe;
+        }
+        .password-toggle :global(svg) {
+          width: 16px;
+          height: 16px;
+        }
 
         .forgot-row {
           display: flex;
@@ -787,6 +836,16 @@ function LoginForm() {
           transition: all var(--transition);
           font-family: inherit;
         }
+        .btn-google-icon {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+        }
 
         .btn-google:hover {
           background: rgba(255,255,255,0.1);
@@ -799,8 +858,8 @@ function LoginForm() {
         .urgency-msg {
           text-align: center;
           font-size: 0.82rem;
-          font-weight: 600;
-          color: rgba(255,165,0,0.85);
+          font-weight: 500;
+          color: rgba(240, 171, 252, 0.82);
           margin: 0.6rem 0 0;
           letter-spacing: 0.01em;
         }
@@ -808,10 +867,10 @@ function LoginForm() {
         .differentiator-msg {
           text-align: center;
           font-size: 0.82rem;
-          font-weight: 600;
-          color: rgba(224,64,251,0.85);
+          font-weight: 500;
+          color: rgba(148, 163, 184, 0.95);
           margin: 0.75rem 0 0;
-          letter-spacing: 0.01em;
+          line-height: 1.45;
         }
 
         /* ── Footer ── */

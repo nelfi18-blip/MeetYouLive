@@ -6,6 +6,29 @@ import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function GiftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12v10H4V12" />
+      <path d="M2 7h20v5H2z" />
+      <path d="M12 22V7" />
+      <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7Z" />
+      <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7Z" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.6 13.5 6.8 3.9M15.4 6.6 8.6 10.5" />
+    </svg>
+  );
+}
+
 /**
  * ReferralCard — compact referral promo widget for dashboard / profile pages.
  * Shows the user's referral link with a copy button and a link to the full referral page.
@@ -70,7 +93,7 @@ export default function ReferralCard() {
     <div className="rc-wrap">
       <div className="rc-orb" />
       <div className="rc-left">
-        <span className="rc-gift-icon">🎁</span>
+        <span className="rc-gift-icon"><GiftIcon /></span>
         <div className="rc-text">
           <span className="rc-title">Invita amigos y gana monedas</span>
           <span className="rc-sub">+50 monedas por cada amigo que se registre con tu enlace</span>
@@ -85,11 +108,12 @@ export default function ReferralCard() {
         ) : null}
         {canShare && referralLink ? (
           <button className="rc-btn-share" onClick={handleShare} title="Compartir">
-            📤 Compartir
+            <ShareIcon />
+            Compartir
           </button>
         ) : null}
         <Link href="/referral" className="rc-btn-full">
-          Ver más →
+          Ver más
         </Link>
       </div>
 
@@ -127,9 +151,18 @@ export default function ReferralCard() {
         }
 
         .rc-gift-icon {
-          font-size: 1.5rem;
+          width: 24px;
+          height: 24px;
           flex-shrink: 0;
           animation: rc-bounce 2.5s ease-in-out infinite;
+          color: #f0abfc;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .rc-gift-icon :global(svg) {
+          width: 24px;
+          height: 24px;
         }
 
         @keyframes rc-bounce {
@@ -199,6 +232,13 @@ export default function ReferralCard() {
           font-family: inherit;
           transition: all 0.15s;
           white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .rc-btn-share :global(svg) {
+          width: 13px;
+          height: 13px;
         }
 
         .rc-btn-share:hover {

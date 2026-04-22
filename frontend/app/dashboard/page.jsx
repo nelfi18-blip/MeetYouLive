@@ -10,6 +10,9 @@ import DailyMissions from "@/components/DailyMissions";
 import OnlineUsers from "@/components/OnlineUsers";
 import ActivityBar from "@/components/ActivityBar";
 import ReferralCard from "@/components/ReferralCard";
+import StatCard from "@/components/StatCard";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import SectionHeader from "@/components/ui/SectionHeader";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -446,6 +449,10 @@ export default function DashboardPage() {
 
   const isApprovedCreator = isCreator && creatorStatus === "approved";
   const isSuspended = creatorStatus === "suspended";
+  const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
+  const liveStatusLabel = isApprovedCreator
+    ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
+    : "Ver directos";
 
   // Monetization tools are only available to approved creators
   const creatorCards = isApprovedCreator
@@ -497,7 +504,7 @@ export default function DashboardPage() {
       {user && <DailyRewardPopup onClaimed={handleRewardClaimed} />}
 
       {/* Hero welcome card */}
-      <div className={`hero-card${isApprovedCreator ? " hero-card-creator" : ""}`}>
+      <FuturisticCard className={`hero-card${isApprovedCreator ? " hero-card-creator" : ""}`} accent={isApprovedCreator ? "pink" : "purple"} hover={false}>
         <div className="hero-bg-orb hero-orb-1" />
         <div className="hero-bg-orb hero-orb-2" />
         {isApprovedCreator && <div className="hero-bg-orb hero-orb-3" />}
@@ -516,9 +523,9 @@ export default function DashboardPage() {
             </div>
             <h1 className="hero-title">
               {isApprovedCreator ? (
-                <>¡Hola, <span className="hero-name">{displayName}</span>! 🎬</>
+                <>Hola, <span className="hero-name">{displayName}</span></>
               ) : (
-                <>¡Hola, <span className="hero-name">{displayName}</span>! 👋</>
+                <>Hola, <span className="hero-name">{displayName}</span></>
               )}
             </h1>
             <p className="hero-sub">
@@ -533,19 +540,19 @@ export default function DashboardPage() {
                 <span className="coins-pill-label">monedas</span>
               </Link>
             )}
-            {isApprovedCreator && user && (
-              <div className="earnings-pill">
-                <span className="earnings-pill-icon">💰</span>
-                <span className="earnings-pill-value">{user.earningsCoins ?? 0}</span>
-                <span className="earnings-pill-label">ganancias</span>
-              </div>
-            )}
-            {isApprovedCreator && (user?.agencyEarningsCoins ?? 0) > 0 && (
-              <div className="agency-pill">
-                <span className="agency-pill-icon">🏢</span>
-                <span className="agency-pill-value">{user.agencyEarningsCoins}</span>
-                <span className="agency-pill-label">agencia</span>
-              </div>
+              {isApprovedCreator && user && (
+                <div className="earnings-pill">
+                  <span className="earnings-pill-icon"><EarningsIcon /></span>
+                  <span className="earnings-pill-value">{user.earningsCoins ?? 0}</span>
+                  <span className="earnings-pill-label">ganancias</span>
+                </div>
+              )}
+              {isApprovedCreator && (user?.agencyEarningsCoins ?? 0) > 0 && (
+                <div className="agency-pill">
+                  <span className="agency-pill-icon"><AgencyIcon /></span>
+                  <span className="agency-pill-value">{user.agencyEarningsCoins}</span>
+                  <span className="agency-pill-label">agencia</span>
+                </div>
             )}
             {isApprovedCreator && (
               <Link href="/live/start" className="hero-start-live-btn">
@@ -555,7 +562,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
+      </FuturisticCard>
 
       {/* ── 🎥 Live CTA banner (for non-creators and viewers) ── */}
       {!isApprovedCreator && (
@@ -564,16 +571,51 @@ export default function DashboardPage() {
           <div className="live-entry-left">
             <span className="live-entry-dot" />
             <div className="live-entry-text">
-              <strong>🎥 Entrar en directo ahora</strong>
+              <strong>Entrar en directo ahora</strong>
               <span>Descubre creadores en vivo, envía regalos y únete a la conversación</span>
             </div>
           </div>
-          <span className="live-entry-cta">Ver directos →</span>
+          <span className="live-entry-cta">Ver directos</span>
         </Link>
       )}
 
       {/* ── 📊 ACTIVITY SIGNALS — social proof bar ── */}
       <ActivityBar variant="strip" />
+
+      <FuturisticCard className="home-stats-shell" accent="cyan">
+        <SectionHeader
+          title="Actividad y estado"
+          subtitle="Resumen rápido de tu cuenta"
+        />
+        <div className="home-stats-grid">
+          <StatCard
+            label="Monedas"
+            value={(user?.coins ?? 0).toLocaleString()}
+            icon={<CoinIcon />}
+            color="orange"
+            href="/coins"
+          />
+          <StatCard
+            label="Estado creador"
+            value={isApprovedCreator ? "Aprobado" : creatorStatus === "none" ? "Usuario" : creatorStatus}
+            icon={<CreatorRequestIcon />}
+            color={isApprovedCreator ? "green" : "indigo"}
+          />
+          <StatCard
+            label="Misiones"
+            value={missionStatusLabel}
+            icon={<MatchIcon />}
+            color="pink"
+          />
+          <StatCard
+            label="Directos"
+            value={liveStatusLabel}
+            icon={<LiveIcon />}
+            color="cyan"
+            href="/live"
+          />
+        </div>
+      </FuturisticCard>
 
       {/* ── 🎯 DAILY MISSIONS ── */}
       {user && <DailyMissions />}
@@ -582,13 +624,13 @@ export default function DashboardPage() {
       <Link href="/rooms" className="confidence-entry-card">
         <div className="confidence-entry-glow" />
         <div className="confidence-entry-left">
-          <span className="confidence-entry-emoji">💖</span>
+          <span className="confidence-entry-emoji"><MatchIcon /></span>
           <div className="confidence-entry-text">
             <strong>¿Te cuesta romper el hielo?</strong>
             <span>Practica conversación antes de hablar con alguien · Mejora tu confianza en el amor</span>
           </div>
         </div>
-        <span className="confidence-entry-cta">Entrar ahora →</span>
+        <span className="confidence-entry-cta">Entrar ahora</span>
       </Link>
 
       {/* ── 🟢 ONLINE USERS SECTION ── */}
@@ -600,7 +642,7 @@ export default function DashboardPage() {
       {/* Navigation cards grid */}
       {!isApprovedCreator && creatorStatus === "none" && (
         <div className="creator-cta-banner">
-          <div className="creator-cta-icon">🚀</div>
+          <div className="creator-cta-icon"><CreatorRequestIcon /></div>
           <div className="creator-cta-text">
             <strong>Gana dinero transmitiendo en vivo</strong>
             <span>Conviértete en creador aprobado y accede a monetización, directos privados y más.</span>
@@ -610,7 +652,7 @@ export default function DashboardPage() {
       )}
       {!isApprovedCreator && creatorStatus === "pending" && (
         <div className="creator-status-banner creator-status-pending">
-          <span className="creator-status-icon">⏳</span>
+          <span className="creator-status-icon"><PendingIcon /></span>
           <div className="creator-status-text">
             <strong>Tu solicitud de creador está en revisión</strong>
             <span>El equipo de MeetYouLive revisará tu solicitud pronto. Te notificaremos cuando haya novedades.</span>
@@ -619,7 +661,7 @@ export default function DashboardPage() {
       )}
       {!isApprovedCreator && creatorStatus === "rejected" && (
         <div className="creator-status-banner creator-status-rejected">
-          <span className="creator-status-icon">❌</span>
+          <span className="creator-status-icon"><CreatorRequestIcon /></span>
           <div className="creator-status-text">
             <strong>Tu solicitud fue rechazada</strong>
             <span>Puedes volver a solicitar acceso de creador con información actualizada.</span>
@@ -629,7 +671,7 @@ export default function DashboardPage() {
       )}
       {isSuspended && (
         <div className="creator-status-banner creator-status-suspended">
-          <span className="creator-status-icon">🚫</span>
+          <span className="creator-status-icon"><LockIcon /></span>
           <div className="creator-status-text">
             <strong>Tu cuenta de creador ha sido suspendida</strong>
             <span>El acceso a funciones de creador está temporalmente deshabilitado. Contacta al soporte para más información.</span>
@@ -733,19 +775,19 @@ export default function DashboardPage() {
                   <div className="stat-box">
                     <span className="stat-label">Hoy</span>
                     <span className="stat-value stat-today">
-                      🪙 {creatorDash?.todayCoins ?? 0}
+                      {creatorDash?.todayCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
                     <span className="stat-label">Total ganancias</span>
                     <span className="stat-value">
-                      🪙 {creatorDash?.earningsCoins ?? 0}
+                      {creatorDash?.earningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
                     <span className="stat-label">Ganancias agencia</span>
                     <span className="stat-value stat-agency">
-                      🏢 {creatorDash?.agencyEarningsCoins ?? 0}
+                      {creatorDash?.agencyEarningsCoins ?? 0}
                     </span>
                   </div>
                   <div className="stat-box">
@@ -758,7 +800,7 @@ export default function DashboardPage() {
                   <div className="payout-status">
                     <span className="payout-dot" />
                     <span className="payout-text">
-                      Pago pendiente: <strong>🪙 {creatorDash.pendingPayout.amountCoins}</strong>
+                      Pago pendiente: <strong>{creatorDash.pendingPayout.amountCoins}</strong>
                       {" "}— <span className="payout-state">{creatorDash.pendingPayout.status}</span>
                     </span>
                   </div>
@@ -775,7 +817,7 @@ export default function DashboardPage() {
                             <span className="gift-name">{g.giftName}</span>
                             <span className="gift-sender">de {g.senderName}</span>
                           </span>
-                          <span className="gift-coins">+{g.creatorShare} 🪙</span>
+                          <span className="gift-coins">+{g.creatorShare}</span>
                         </li>
                       ))}
                     </ul>
@@ -865,15 +907,14 @@ export default function DashboardPage() {
           {/* decorative background orb */}
           <div className="rp-orb" />
 
-          <div className="panel-header rp-header">
-            <span className="rp-trophy">🏆</span>
-            <h2 className="panel-title">Mi Ranking</h2>
-            {rankStats?.rankWeek && (
-              <span className={`rank-badge-label${rankStats.rankWeek <= 3 ? " rank-badge-podium" : ""}`}>
-                {rankStats.rankWeek === 1 ? "👑 " : ""}
-                #{rankStats.rankWeek} esta semana
-              </span>
-            )}
+            <div className="panel-header rp-header">
+              <span className="rp-trophy"><CreatorRequestIcon /></span>
+              <h2 className="panel-title">Mi Ranking</h2>
+              {rankStats?.rankWeek && (
+                <span className={`rank-badge-label${rankStats.rankWeek <= 3 ? " rank-badge-podium" : ""}`}>
+                  #{rankStats.rankWeek} esta semana
+                </span>
+              )}
           </div>
 
           <div className="rp-body">
@@ -890,7 +931,7 @@ export default function DashboardPage() {
             {/* Stats row */}
             <div className="rp-stats-row">
               <div className="rp-stat-card rp-stat-gifts">
-                <span className="rp-stat-icon">🪙</span>
+                <span className="rp-stat-icon"><CoinIcon /></span>
                 <span className="rp-stat-value">
                   {(rankStats?.todayCoins ?? 0).toLocaleString()}
                 </span>
@@ -902,18 +943,18 @@ export default function DashboardPage() {
 
               {rankStats?.topFanToday ? (
                 <div className="rp-stat-card rp-stat-fan">
-                  <span className="rp-stat-icon">💜</span>
+                  <span className="rp-stat-icon"><MatchIcon /></span>
                   <span className="rp-fan-name">
                     @{rankStats.topFanToday.username || rankStats.topFanToday.name}
                   </span>
                   <span className="rp-stat-label">
                     top fan hoy
-                    <span className="rp-fan-coins">🪙 {rankStats.topFanToday.totalCoins}</span>
+                    <span className="rp-fan-coins">{rankStats.topFanToday.totalCoins}</span>
                   </span>
                 </div>
               ) : (
                 <div className="rp-stat-card rp-stat-fan rp-stat-empty">
-                  <span className="rp-stat-icon">💜</span>
+                  <span className="rp-stat-icon"><MatchIcon /></span>
                   <span className="rp-fan-name rp-empty-dash">—</span>
                   <span className="rp-stat-label">top fan hoy</span>
                 </div>
@@ -1001,6 +1042,17 @@ export default function DashboardPage() {
 
       <style jsx>{`
         .dashboard { display: flex; flex-direction: column; gap: 1.75rem; }
+        .home-stats-shell {
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+        .home-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap: 0.85rem;
+        }
 
         /* ── Hero ─────────── */
         .hero-card {
@@ -1182,7 +1234,13 @@ export default function DashboardPage() {
           padding: 0.55rem 1.1rem;
           flex-shrink: 0;
         }
-        .earnings-pill-icon { font-size: 0.9rem; line-height: 1; }
+        .earnings-pill-icon {
+          width: 15px;
+          height: 15px;
+          display: inline-flex;
+          color: #34d399;
+        }
+        .earnings-pill-icon :global(svg) { width: 15px; height: 15px; }
         .earnings-pill-value {
           font-size: 1.05rem;
           font-weight: 800;
@@ -1205,7 +1263,13 @@ export default function DashboardPage() {
           padding: 0.55rem 1.1rem;
           flex-shrink: 0;
         }
-        .agency-pill-icon { font-size: 0.9rem; line-height: 1; }
+        .agency-pill-icon {
+          width: 15px;
+          height: 15px;
+          display: inline-flex;
+          color: #818cf8;
+        }
+        .agency-pill-icon :global(svg) { width: 15px; height: 15px; }
         .agency-pill-value {
           font-size: 1.05rem;
           font-weight: 800;
@@ -1370,7 +1434,22 @@ export default function DashboardPage() {
           flex: 1;
           min-width: 0;
         }
-        .confidence-entry-emoji { font-size: 1.6rem; flex-shrink: 0; }
+        .confidence-entry-emoji {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid rgba(244,114,182,0.35);
+          background: rgba(244,114,182,0.12);
+          color: #f472b6;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .confidence-entry-emoji :global(svg) {
+          width: 14px;
+          height: 14px;
+        }
         .confidence-entry-text {
           display: flex;
           flex-direction: column;
@@ -1415,7 +1494,19 @@ export default function DashboardPage() {
           padding: 1.25rem 1.5rem;
           flex-wrap: wrap;
         }
-        .creator-cta-icon { font-size: 2rem; flex-shrink: 0; }
+        .creator-cta-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
+          background: rgba(224,64,251,0.1);
+          border: 1px solid rgba(224,64,251,0.35);
+          color: #e9d5ff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .creator-cta-icon :global(svg) { width: 20px; height: 20px; }
         .creator-cta-text {
           display: flex;
           flex-direction: column;
@@ -1468,7 +1559,19 @@ export default function DashboardPage() {
           background: rgba(239,68,68,0.08);
           border: 1px solid rgba(239,68,68,0.3);
         }
-        .creator-status-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .creator-status-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.2);
+          color: #e2d9f3;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .creator-status-icon :global(svg) { width: 14px; height: 14px; }
         .creator-status-text {
           display: flex;
           flex-direction: column;
@@ -2102,9 +2205,15 @@ export default function DashboardPage() {
         .rp-header { position: relative; }
 
         .rp-trophy {
-          font-size: 1.15rem;
+          width: 18px;
+          height: 18px;
+          color: #fbbf24;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           animation: trophyBob 4s ease-in-out infinite;
         }
+        .rp-trophy :global(svg) { width: 18px; height: 18px; }
 
         @keyframes trophyBob {
           0%, 100% { transform: rotate(-8deg) scale(1); }
@@ -2229,7 +2338,13 @@ export default function DashboardPage() {
 
         .rp-stat-empty { opacity: 0.6; }
 
-        .rp-stat-icon { font-size: 1rem; line-height: 1; }
+        .rp-stat-icon {
+          width: 16px;
+          height: 16px;
+          color: #fbbf24;
+          display: inline-flex;
+        }
+        .rp-stat-icon :global(svg) { width: 16px; height: 16px; }
 
         .rp-stat-value {
           font-size: 1.4rem;
@@ -2284,4 +2399,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

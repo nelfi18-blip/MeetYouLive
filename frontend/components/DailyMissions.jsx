@@ -5,6 +5,72 @@ import { notify } from "@/lib/notify";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+function MissionLikeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m19.5 13.57-7 7a.69.69 0 0 1-1 0l-7-7a5 5 0 1 1 7-7l.5.5.5-.5a5 5 0 1 1 7 7Z" />
+    </svg>
+  );
+}
+
+function MissionChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+    </svg>
+  );
+}
+
+function MissionLiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="6" width="15" height="12" rx="2" />
+      <path d="m22 8-5 4 5 4V8Z" />
+    </svg>
+  );
+}
+
+function MissionGiftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 12v10H4V12" />
+      <path d="M2 7h20v5H2z" />
+      <path d="M12 22V7" />
+      <path d="M12 7H7.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7Z" />
+      <path d="M12 7h4.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7Z" />
+    </svg>
+  );
+}
+
+function CoinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v10M9.5 10h3.2a1.8 1.8 0 1 1 0 3.6H9.5" />
+    </svg>
+  );
+}
+
+function BonusIcon({ done = false }) {
+  if (done) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8" r="5" />
+        <path d="m8 14 1.5 8L12 20l2.5 2L16 14" />
+      </svg>
+    );
+  }
+  return <MissionGiftIcon />;
+}
+
+function getMissionIcon(id) {
+  if (id === "likes_10") return <MissionLikeIcon />;
+  if (id === "chat_1") return <MissionChatIcon />;
+  if (id === "live_1") return <MissionLiveIcon />;
+  if (id === "gift_1") return <MissionGiftIcon />;
+  return <MissionGiftIcon />;
+}
+
 /**
  * DailyMissions
  *
@@ -85,7 +151,7 @@ export default function DailyMissions() {
   return (
     <section className="dm-wrap" aria-label="Misiones diarias">
       <div className="dm-header">
-        <h2 className="dm-title">🎯 Misiones de hoy</h2>
+        <h2 className="dm-title">Misiones de hoy</h2>
         <div className="dm-summary">
           <span className="dm-count">{completedCount}/{totalCount} completadas</span>
           {!allCompleted && (
@@ -94,7 +160,7 @@ export default function DailyMissions() {
             </span>
           )}
           {allCompleted && (
-            <span className="dm-all-done">✅ ¡Todo completado!</span>
+            <span className="dm-all-done">Todo completado</span>
           )}
         </div>
       </div>
@@ -105,9 +171,9 @@ export default function DailyMissions() {
           return (
             <div key={m.id} className={`dm-mission${m.completed ? " dm-done" : ""}`}>
               <div className="dm-mission-top">
-                <span className="dm-icon">{m.icon}</span>
+                <span className="dm-icon">{getMissionIcon(m.id)}</span>
                 <span className="dm-label">{m.label}</span>
-                <span className="dm-reward">+{m.coins} 🪙</span>
+                <span className="dm-reward"><CoinIcon /> +{m.coins}</span>
               </div>
               <div className="dm-bar-wrap" role="progressbar" aria-valuenow={m.count} aria-valuemax={m.target}>
                 <div className="dm-bar-track">
@@ -124,13 +190,13 @@ export default function DailyMissions() {
 
       {/* All-missions bonus */}
       <div className={`dm-bonus${allCompleted ? " dm-bonus-done" : ""}`}>
-        <span className="dm-bonus-icon">{allCompleted && bonusRewarded ? "🏆" : "🎁"}</span>
+          <span className="dm-bonus-icon"><BonusIcon done={allCompleted && bonusRewarded} /></span>
         <div className="dm-bonus-text">
           <span className="dm-bonus-label">Bonus: completa todas las misiones</span>
           {!allCompleted && <span className="dm-bonus-sub">+{bonusCoins} monedas extra al completarlas todas</span>}
           {allCompleted && bonusRewarded && <span className="dm-bonus-sub dm-bonus-claimed">¡Bonus recibido! +{bonusCoins} monedas</span>}
         </div>
-        {!allCompleted && <span className="dm-bonus-coins">+{bonusCoins} 🪙</span>}
+        {!allCompleted && <span className="dm-bonus-coins"><CoinIcon /> +{bonusCoins}</span>}
       </div>
 
       <style jsx>{`
@@ -153,7 +219,7 @@ export default function DailyMissions() {
         }
 
         .dm-title {
-          font-size: 0.97rem;
+          font-size: 1rem;
           font-weight: 800;
           color: #e0aaff;
           margin: 0;
@@ -213,8 +279,15 @@ export default function DailyMissions() {
         }
 
         .dm-icon {
-          font-size: 1.05rem;
+          width: 18px;
+          height: 18px;
+          color: #d8b4fe;
           flex-shrink: 0;
+          display: inline-flex;
+        }
+        .dm-icon :global(svg) {
+          width: 18px;
+          height: 18px;
         }
 
         .dm-label {
@@ -239,6 +312,13 @@ export default function DailyMissions() {
           border: 1px solid rgba(251,191,36,0.25);
           border-radius: 999px;
           padding: 0.18rem 0.55rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.28rem;
+        }
+        .dm-reward :global(svg) {
+          width: 14px;
+          height: 14px;
         }
 
         .dm-bar-wrap {
@@ -297,8 +377,15 @@ export default function DailyMissions() {
         }
 
         .dm-bonus-icon {
-          font-size: 1.1rem;
+          width: 18px;
+          height: 18px;
+          color: #fbbf24;
           flex-shrink: 0;
+          display: inline-flex;
+        }
+        .dm-bonus-icon :global(svg) {
+          width: 18px;
+          height: 18px;
         }
 
         .dm-bonus-text {
@@ -328,6 +415,13 @@ export default function DailyMissions() {
           font-size: 0.8rem;
           font-weight: 800;
           color: #fbbf24;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+        .dm-bonus-coins :global(svg) {
+          width: 14px;
+          height: 14px;
         }
       `}</style>
     </section>

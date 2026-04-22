@@ -12,6 +12,36 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const getUploadMessageFromPayload = (payload) => {
+  if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+  if (payload.error && typeof payload.error.message === "string" && payload.error.message.trim()) {
+    return payload.error.message;
+  }
+  return "";
+};
+
+const getUploadErrorMessage = (status, payload, fallback = "Error al subir la imagen") => {
+  const payloadMessage = getUploadMessageFromPayload(payload);
+  if (payloadMessage) return payloadMessage;
+  if (status === 401) return "Tu sesión expiró. Inicia sesión de nuevo.";
+  if (status === 413) return "La imagen es demasiado grande. El máximo permitido es 5 MB.";
+  if (status === 415) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
+  if (status === 500) return "Error interno al subir la imagen. Inténtalo de nuevo.";
+  return fallback;
+};
+
+const parseUploadResponseBody = async (res) => {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+};
+
 function StarIcon()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function EditIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function KeyIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>; }
@@ -287,24 +317,64 @@ export default function ProfilePage() {
   };
 
   const handleAvatarFileUpload = async (file) => {
-    if (!file) return;
+    if (!file) {
+      setSaveError("Selecciona una imagen válida.");
+      return;
+    }
+
+    console.log("[avatar-upload] selected file metadata", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified,
+    });
+
     setAvatarUploading(true);
     setSaveError(""); setSaveSuccess("");
+
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        setSaveError("Tu sesión expiró. Inicia sesión de nuevo.");
+        return;
+      }
+
       const formData = new FormData();
       formData.append("avatar", file);
+
+      console.log("[avatar-upload] request start", { url: `${API_URL}/api/user/me/avatar-upload` });
       const res = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      const data = await res.json();
-      if (!res.ok) { setSaveError(data.message || "Error al subir la imagen"); return; }
-      setUser((u) => ({ ...u, avatar: data.avatar }));
-      setEditForm((f) => ({ ...f, avatar: data.avatar }));
+
+      console.log("[avatar-upload] response status", res.status);
+      const data = await parseUploadResponseBody(res);
+      console.log("[avatar-upload] response body", data);
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          clearToken();
+          router.replace("/login");
+        }
+        setSaveError(getUploadErrorMessage(res.status, data, "Error al subir la imagen"));
+        return;
+      }
+
+      const uploadedAvatar = typeof data?.avatar === "string" ? data.avatar : "";
+      if (!uploadedAvatar) {
+        setSaveError("No se pudo obtener la URL de la imagen subida.");
+        return;
+      }
+
+      setUser((u) => (u ? { ...u, avatar: uploadedAvatar } : u));
+      setEditForm((f) => ({ ...f, avatar: uploadedAvatar }));
       setSaveSuccess("Foto de perfil actualizada correctamente");
-    } catch { setSaveError("No se pudo subir la imagen"); }
+    } catch (err) {
+      console.error("[avatar-upload] caught frontend error", err);
+      setSaveError("No se pudo subir la imagen");
+    }
     finally { setAvatarUploading(false); }
   };
 
@@ -438,7 +508,7 @@ export default function ProfilePage() {
                   <label className="form-label">Foto de perfil</label>
                   <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 1rem", borderRadius: "var(--radius-sm)", border: "1px dashed rgba(224,64,251,0.4)", background: "rgba(224,64,251,0.06)", color: "var(--text-muted)", fontSize: "0.82rem", fontWeight: 600, cursor: avatarUploading ? "not-allowed" : "pointer", marginBottom: "0.5rem" }}>
                     {avatarUploading ? "Subiendo…" : "📷 Subir foto desde dispositivo"}
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: "none" }} disabled={avatarUploading} onChange={(e) => handleAvatarFileUpload(e.target.files[0])} />
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: "none" }} disabled={avatarUploading} onChange={(e) => handleAvatarFileUpload(e.target.files?.[0])} />
                   </label>
                   <div style={{ fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: "0.4rem" }}>o pega una URL:</div>
                   <input className="input" type="url" value={editForm.avatar}

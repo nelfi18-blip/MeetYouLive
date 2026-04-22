@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
+const multer = require("multer");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
@@ -16,6 +17,40 @@ const userLimiter = rateLimit({
   max: 100,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
+
+const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen") => {
+  if (!err) return;
+
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        ok: false,
+        code: "FILE_TOO_LARGE",
+        message: "La imagen es demasiado grande. El máximo permitido es 5 MB.",
+      });
+    }
+
+    return res.status(400).json({
+      ok: false,
+      code: "UPLOAD_INVALID_REQUEST",
+      message: err.message || fallbackMessage,
+    });
+  }
+
+  if (typeof err.message === "string" && err.message.includes("Solo se permiten imágenes")) {
+    return res.status(415).json({
+      ok: false,
+      code: "UNSUPPORTED_MEDIA_TYPE",
+      message: "Formato de imagen no válido. Usa JPEG, PNG, WebP o GIF.",
+    });
+  }
+
+  return res.status(500).json({
+    ok: false,
+    code: "UPLOAD_FAILED",
+    message: fallbackMessage,
+  });
+};
 
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, async (req, res) => {
@@ -345,14 +380,14 @@ router.patch("/me/creator-profile", userLimiter, verifyToken, async (req, res) =
 router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
   upload.single("avatar")(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ message: err.message || "Error al subir la imagen" });
+      return sendUploadError(res, err, "Error al subir la imagen");
     }
     next();
   });
 }, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: "No se recibió ningún archivo" });
+      return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
     }
     const avatarUrl = `/uploads/${req.file.filename}`;
     const user = await User.findByIdAndUpdate(
@@ -361,9 +396,13 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json({ avatar: avatarUrl, user });
+    res.json({ ok: true, avatar: avatarUrl, user });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      ok: false,
+      code: "UPLOAD_FAILED",
+      message: "No se pudo procesar la subida de la imagen",
+    });
   }
 });
 
@@ -371,14 +410,14 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
 router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next) => {
   upload.single("verificationPhoto")(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ message: err.message || "Error al subir la imagen" });
+      return sendUploadError(res, err, "Error al subir la imagen");
     }
     next();
   });
 }, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: "No se recibió ningún archivo" });
+      return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
     }
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -392,9 +431,17 @@ router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next)
     user.verificationPhoto = photoUrl;
     user.verificationStatus = "pending";
     await user.save();
-    res.json({ message: "Foto de verificación enviada. Un administrador la revisará pronto.", verificationStatus: user.verificationStatus });
+    res.json({
+      ok: true,
+      message: "Foto de verificación enviada. Un administrador la revisará pronto.",
+      verificationStatus: user.verificationStatus,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      ok: false,
+      code: "UPLOAD_FAILED",
+      message: "No se pudo procesar la subida de la imagen",
+    });
   }
 });
 

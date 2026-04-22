@@ -20,7 +20,7 @@ function SuccessContent() {
   const [loadError, setLoadError] = useState("");
 
   const getBackendToken = () => {
-    if (typeof window === "undefined") return session?.backendToken || null;
+    if (typeof window === "undefined") return null;
     return localStorage.getItem("token") || session?.backendToken || null;
   };
 
@@ -34,10 +34,17 @@ function SuccessContent() {
 
     const resolvePaymentState = async (attempt = 1) => {
       if (cancelled) return;
+      if (attempt === 1) setLoadError("");
 
       const authToken = getBackendToken();
       if (!authToken) {
-        console.warn("[payment/success] balance fetch skipped: missing auth token");
+        console.warn("[payment/success] balance fetch pending: missing auth token", { attempt });
+        if (attempt < MAX_RETRIES) {
+          retryTimerRef.current = setTimeout(() => {
+            resolvePaymentState(attempt + 1);
+          }, RETRY_DELAY_MS);
+          return;
+        }
         setLoadError("Inicia sesión para ver tu saldo actualizado.");
         setIsChecking(false);
         return;
@@ -85,7 +92,7 @@ function SuccessContent() {
         const needsRetry = !!token && !resolvedPackageCoins && attempt < MAX_RETRIES;
         if (needsRetry) {
           setIsChecking(true);
-          retryTimerRef.current = window.setTimeout(() => {
+          retryTimerRef.current = setTimeout(() => {
             resolvePaymentState(attempt + 1);
           }, RETRY_DELAY_MS);
           return;
@@ -95,7 +102,7 @@ function SuccessContent() {
       } catch (err) {
         console.error("[payment/success] load error", err);
         if (attempt < MAX_RETRIES) {
-          retryTimerRef.current = window.setTimeout(() => {
+          retryTimerRef.current = setTimeout(() => {
             resolvePaymentState(attempt + 1);
           }, RETRY_DELAY_MS);
           return;
@@ -115,7 +122,7 @@ function SuccessContent() {
     };
   }, [session?.backendToken, token]);
 
-  const logRedirectReason = (reason) => {
+  const logNavigationClick = (reason) => {
     console.log("[payment/success] redirect reason", reason);
   };
 
@@ -150,16 +157,16 @@ function SuccessContent() {
       )}
 
       <div className="status-actions">
-        <Link href="/wallet" className="btn btn-primary btn-lg" onClick={() => logRedirectReason("wallet_cta")}>
+        <Link href="/wallet" className="btn btn-primary btn-lg" onClick={() => logNavigationClick("wallet_cta")}>
           💼 Ir a mi wallet
         </Link>
-        <Link href="/dashboard" className="btn btn-secondary btn-lg" onClick={() => logRedirectReason("dashboard_cta")}>
+        <Link href="/dashboard" className="btn btn-secondary btn-lg" onClick={() => logNavigationClick("dashboard_cta")}>
           🏠 Volver al dashboard
         </Link>
-        <Link href="/live" className="btn btn-secondary btn-lg" onClick={() => logRedirectReason("use_coins_cta")}>
+        <Link href="/live" className="btn btn-secondary btn-lg" onClick={() => logNavigationClick("use_coins_cta")}>
           ✨ Usar mis monedas
         </Link>
-        <Link href="/coins" className="btn btn-ghost btn-lg" onClick={() => logRedirectReason("buy_again_cta")}>
+        <Link href="/coins" className="btn btn-ghost btn-lg" onClick={() => logNavigationClick("buy_again_cta")}>
           ➕ Comprar más monedas
         </Link>
       </div>

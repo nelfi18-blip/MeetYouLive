@@ -19,7 +19,13 @@ const userLimiter = rateLimit({
 });
 
 const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen") => {
-  if (!err) return;
+  if (!err) {
+    return res.status(500).json({
+      ok: false,
+      code: "UPLOAD_FAILED",
+      message: fallbackMessage,
+    });
+  }
 
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {

@@ -39,6 +39,9 @@ const COIN_TX_LABELS = {
   content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
   content_earned: { label: "Contenido exclusivo", color: "var(--accent-green)", sign: "+" },
   refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
+  daily_reward: { label: "Recompensa diaria", color: "var(--accent-green)", sign: "+" },
+  referral_reward: { label: "Recompensa referido", color: "var(--accent-green)", sign: "+" },
+  agency_earned: { label: "Comisión agencia", color: "var(--accent-green)", sign: "+" },
   admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
 };
 

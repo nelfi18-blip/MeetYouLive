@@ -1,42 +1,35 @@
 const CoinTransaction = require("../models/CoinTransaction.js");
 
+// Canonical coin package definitions. These are the single source of truth
+// for both the public packages listing endpoint and the Stripe checkout flow.
 const COIN_PACKAGES = [
   {
     id: 100,
     label: "Starter Pack",
     coins: 100,
-    priceUsd: 0.99,
+    priceUsd: 4.99,
     icon: "🪙",
-    description: "Ideal para empezar",
+    description: "Ideal para empezar a conectar",
     save: null,
   },
   {
     id: 250,
-    label: "Explorer Pack",
-    coins: 250,
-    priceUsd: 2.29,
-    icon: "🎯",
-    description: "Más MYL Coins para disfrutar",
-    save: "Ahorra 8%",
-  },
-  {
-    id: 500,
     label: "Popular Pack",
-    coins: 500,
-    priceUsd: 4.49,
+    coins: 250,
+    priceUsd: 9.99,
     icon: "💰",
     description: "El más elegido por la comunidad",
-    save: "Ahorra 9%",
+    save: "Más popular",
     highlight: true,
   },
   {
-    id: 1000,
+    id: 700,
     label: "Elite Pack",
-    coins: 1000,
-    priceUsd: 7.99,
+    coins: 700,
+    priceUsd: 19.99,
     icon: "💎",
-    description: "Mejor precio por MYL Coin",
-    save: "Ahorra 19%",
+    description: "Mejor valor · Vive la experiencia completa",
+    save: "Mejor valor",
   },
 ];
 

@@ -58,6 +58,14 @@ const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen")
   });
 };
 
+const toAbsoluteUploadUrl = (req, relativePath = "") => {
+  if (typeof relativePath !== "string" || !relativePath.trim()) return "";
+  if (/^https?:\/\//i.test(relativePath)) return relativePath;
+  const host = req.get("host");
+  if (!host) return relativePath;
+  return `${req.protocol}://${host}${relativePath}`;
+};
+
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, async (req, res) => {
   try {
@@ -395,7 +403,8 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
     }
-    const avatarUrl = `/uploads/${req.file.filename}`;
+    const avatarPath = `/uploads/${req.file.filename}`;
+    const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
     const user = await User.findByIdAndUpdate(
       req.userId,
       { avatar: avatarUrl },
@@ -408,7 +417,14 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
         message: "Usuario no encontrado",
       });
     }
-    res.json({ ok: true, avatar: avatarUrl, user });
+    res.json({
+      ok: true,
+      code: "UPLOAD_SUCCESS",
+      message: "Imagen subida correctamente",
+      avatar: avatarUrl,
+      avatarPath,
+      user,
+    });
   } catch (err) {
     res.status(500).json({
       ok: false,

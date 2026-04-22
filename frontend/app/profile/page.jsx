@@ -13,6 +13,12 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+const hasAllowedAvatarExtension = (filename = "") => {
+  const normalized = filename.trim().toLowerCase();
+  return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
+};
 
 const getUploadMessageFromPayload = (payload) => {
   if (!payload || typeof payload !== "object") return "";
@@ -35,13 +41,35 @@ const getUploadErrorMessage = (status, payload, fallback = "Error al subir la im
 };
 
 const parseUploadResponseBody = async (res) => {
-  const text = await res.text();
-  if (!text) return null;
   try {
-    return JSON.parse(text);
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
   } catch {
-    return { raw: text };
+    return null;
   }
+};
+
+const buildUploadEndpoint = () => {
+  if (typeof API_URL !== "string" || !API_URL.trim()) {
+    return "";
+  }
+  return `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;
+};
+
+const normalizeAvatarUrl = (avatarValue) => {
+  if (typeof avatarValue !== "string") return "";
+  const trimmed = avatarValue.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
+    return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
+  }
+  return "";
 };
 
 function StarIcon()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
@@ -327,6 +355,10 @@ export default function ProfilePage() {
       setSaveError("Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.");
       return;
     }
+    if (!hasAllowedAvatarExtension(file.name)) {
+      setSaveError("Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.");
+      return;
+    }
     if (file.size > MAX_AVATAR_FILE_SIZE) {
       setSaveError("La imagen es demasiado grande. El máximo permitido es 5 MB.");
       return;
@@ -349,13 +381,18 @@ export default function ProfilePage() {
         setSaveError("Tu sesión expiró. Inicia sesión de nuevo.");
         return;
       }
+      const uploadEndpoint = buildUploadEndpoint();
+      if (!uploadEndpoint) {
+        setSaveError("No se pudo iniciar la subida. Falta la configuración del servidor.");
+        return;
+      }
 
       const formData = new FormData();
       formData.append("avatar", file);
 
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.log("[avatar-upload] request start", { url: `${API_URL}/api/user/me/avatar-upload` });
-      const res = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
+      console.log("[avatar-upload] request start", { url: uploadEndpoint });
+      const res = await fetch(uploadEndpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -376,7 +413,7 @@ export default function ProfilePage() {
         return;
       }
 
-      const uploadedAvatar = typeof data?.avatar === "string" ? data.avatar : "";
+      const uploadedAvatar = normalizeAvatarUrl(data?.avatar);
       if (!uploadedAvatar) {
         setSaveError("No se pudo obtener la URL de la imagen subida.");
         return;

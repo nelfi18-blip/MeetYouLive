@@ -41,7 +41,7 @@ const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen")
     return res.status(415).json({
       ok: false,
       code: "UNSUPPORTED_MEDIA_TYPE",
-      message: "Formato de imagen no válido. Usa JPEG, PNG, WebP o GIF.",
+      message: "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.",
     });
   }
 

@@ -322,6 +322,7 @@ export default function ProfilePage() {
       return;
     }
 
+    // TODO: Remove temporary upload debug logs after production issue is confirmed fixed.
     console.log("[avatar-upload] selected file metadata", {
       name: file.name,
       type: file.type,
@@ -342,6 +343,7 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append("avatar", file);
 
+      // TODO: Remove temporary upload debug logs after production issue is confirmed fixed.
       console.log("[avatar-upload] request start", { url: `${API_URL}/api/user/me/avatar-upload` });
       const res = await fetch(`${API_URL}/api/user/me/avatar-upload`, {
         method: "POST",
@@ -349,8 +351,10 @@ export default function ProfilePage() {
         body: formData,
       });
 
+      // TODO: Remove temporary upload debug logs after production issue is confirmed fixed.
       console.log("[avatar-upload] response status", res.status);
       const data = await parseUploadResponseBody(res);
+      // TODO: Remove temporary upload debug logs after production issue is confirmed fixed.
       console.log("[avatar-upload] response body", data);
 
       if (!res.ok) {
@@ -369,9 +373,10 @@ export default function ProfilePage() {
       }
 
       setUser((u) => (u ? { ...u, avatar: uploadedAvatar } : u));
-      setEditForm((f) => ({ ...f, avatar: uploadedAvatar }));
+      setEditForm((f) => (f ? { ...f, avatar: uploadedAvatar } : f));
       setSaveSuccess("Foto de perfil actualizada correctamente");
     } catch (err) {
+      // TODO: Remove temporary upload debug logs after production issue is confirmed fixed.
       console.error("[avatar-upload] caught frontend error", err);
       setSaveError("No se pudo subir la imagen");
     }

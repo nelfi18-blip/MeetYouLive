@@ -35,7 +35,7 @@ router.post(
       console.error("[stripe webhook] signature verification failed", {
         path: "/api/webhooks/stripe",
         hasSignatureHeader: Boolean(sig),
-        message: err.message,
+        errorType: err?.type || "signature_verification_error",
       });
       return res.status(400).json({ message: `Webhook error: ${err.message}` });
     }

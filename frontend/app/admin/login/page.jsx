@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { setAdminToken, clearAdminToken } from "@/lib/token";
 
 export default function AdminLoginPage() {
@@ -104,31 +105,9 @@ export default function AdminLoginPage() {
       </div>
 
       <div className="admin-login-card">
-        {/* Shield icon + branding */}
+        {/* Official logo + branding */}
         <div className="admin-login-logo">
-          <div className="shield-icon" aria-hidden="true">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 2L4 5.5V11C4 15.418 7.582 19.546 12 21C16.418 19.546 20 15.418 20 11V5.5L12 2Z"
-                fill="url(#shieldGrad)"
-                stroke="rgba(224,64,251,0.6)"
-                strokeWidth="0.5"
-              />
-              <path
-                d="M9 12L11 14L15 10"
-                stroke="#fff"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <defs>
-                <linearGradient id="shieldGrad" x1="4" y1="2" x2="20" y2="21" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="rgba(224,64,251,0.7)" />
-                  <stop offset="100%" stopColor="rgba(139,92,246,0.7)" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
+          <Image src="/logo.svg" alt="MeetYouLive logo" width={56} height={56} className="admin-logo-img" priority />
           <div className="admin-login-logo-text">
             Meet You<span className="logo-live">Live</span>
           </div>
@@ -316,7 +295,7 @@ export default function AdminLoginPage() {
           margin-bottom: 1.5rem;
         }
 
-        .shield-icon {
+        :global(.admin-logo-img) {
           filter: drop-shadow(0 0 18px rgba(139,92,246,0.6)) drop-shadow(0 0 36px rgba(224,64,251,0.3));
         }
 

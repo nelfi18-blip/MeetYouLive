@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { clearAdminToken } from "@/lib/token";
 
 const NAV_ITEMS = [
@@ -80,12 +81,12 @@ export default function AdminLayout({ children }) {
         aria-hidden="true"
       />
 
-      {/* Sidebar */}
-      <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
-        <div className="sidebar-logo">
-          <span className="logo-icon">🛡️</span>
-          <span className="logo-text">Admin</span>
-        </div>
+        {/* Sidebar */}
+        <aside className={`sidebar${sidebarOpen ? " sidebar--open" : ""}`} aria-label="Admin navigation">
+          <div className="sidebar-logo">
+            <Image src="/logo.svg" alt="MeetYouLive logo" width={26} height={26} className="logo-icon" />
+            <span className="logo-text">MeetYouLive Admin</span>
+          </div>
 
         <nav className="sidebar-nav">
           {NAV_ITEMS.map((item) => (
@@ -230,7 +231,10 @@ export default function AdminLayout({ children }) {
           flex-shrink: 0;
         }
 
-        .logo-icon { font-size: 1.4rem; }
+        :global(.logo-icon) {
+          filter: drop-shadow(0 0 8px rgba(224,64,251,0.45));
+          flex-shrink: 0;
+        }
 
         .logo-text {
           font-size: 1rem;

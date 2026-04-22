@@ -11,7 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Build a lookup map from the canonical COIN_PACKAGES list: { id -> { coins, priceUsd } }
 const COIN_PACKAGES = COIN_PACKAGES_LIST.reduce((acc, pkg) => {
-  acc[pkg.id] = { coins: pkg.coins, priceUsd: pkg.priceUsd };
+  acc[pkg.id] = { id: pkg.id, coins: pkg.coins, priceUsd: pkg.priceUsd };
   return acc;
 }, {});
 
@@ -44,6 +44,7 @@ const createCoinCheckoutSession = async (req, res) => {
       ],
       metadata: {
         userId: req.userId,
+        packageId: String(pkg),
         coins: String(coinPackage.coins),
         type: "coins",
       },
@@ -131,32 +132,128 @@ const createCheckoutSession = async (req, res) => {
 
 const handlePaymentCompleted = async (session) => {
   const { userId, videoId, amount, type, coins, sparks } = session.metadata;
+  console.log("[stripe payment webhook] checkout.session.completed received", {
+    sessionId: session.id,
+    mode: session.mode,
+    type,
+    metadata: session.metadata,
+  });
 
   if (type === "coins") {
-    const coinCount = parseInt(coins, 10);
-    // Idempotency: skip if this session has already been processed
-    const existingTx = await CoinTransaction.findOne({ "metadata.stripeSessionId": session.id });
-    if (existingTx) {
-      console.warn(`[coins webhook] Duplicate event for session ${session.id}, skipping`);
+    try {
+      const packageIdRaw = session.metadata?.packageId || session.metadata?.package || "";
+      const packageId = parseInt(packageIdRaw, 10);
+      let selectedPackage = Number.isNaN(packageId) ? null : COIN_PACKAGES[packageId];
+      if (!selectedPackage) {
+        const coinCountFromMetadata = parseInt(coins, 10);
+        selectedPackage = COIN_PACKAGES_LIST.find((pkg) => pkg.coins === coinCountFromMetadata) || null;
+      }
+
+      console.log("[coins webhook] package lookup", {
+        sessionId: session.id,
+        packageId: packageIdRaw || null,
+        selectedPackage: selectedPackage ? { id: selectedPackage.id, coins: selectedPackage.coins } : null,
+      });
+
+      if (!selectedPackage) {
+        console.error("[coins webhook] package not found", {
+          sessionId: session.id,
+          metadata: session.metadata,
+        });
+        throw new Error(`Coins package not found for session ${session.id}`);
+      }
+
+      const emailFromSession = session.customer_details?.email || session.customer_email || null;
+      let user = null;
+      if (userId) {
+        user = await User.findById(userId);
+      }
+      if (!user && emailFromSession) {
+        user = await User.findOne({ email: emailFromSession });
+      }
+
+      console.log("[coins webhook] user lookup", {
+        sessionId: session.id,
+        metadataUserId: userId || null,
+        emailFromSession,
+        resolvedUserId: user?._id ? String(user._id) : null,
+      });
+
+      if (!user) {
+        console.error("[coins webhook] user not found", {
+          sessionId: session.id,
+          metadataUserId: userId || null,
+          emailFromSession,
+        });
+        throw new Error(`User not found for coins webhook session ${session.id}`);
+      }
+
+      let tx = await CoinTransaction.findOne({ "metadata.stripeSessionId": session.id });
+      if (tx && tx.status === "completed") {
+        console.log("[coins webhook] duplicate completed event ignored", {
+          sessionId: session.id,
+          txId: String(tx._id),
+        });
+        return;
+      }
+
+      if (!tx) {
+        tx = await CoinTransaction.create({
+          userId: user._id,
+          type: "purchase",
+          amount: selectedPackage.coins,
+          reason: `Compra de ${selectedPackage.coins} MYL Coins via Stripe`,
+          status: "pending",
+          metadata: {
+            stripeSessionId: session.id,
+            amountPaid: session.amount_total,
+            packageId: String(selectedPackage.id),
+            packageCoins: selectedPackage.coins,
+          },
+        });
+        console.log("[coins webhook] transaction created", {
+          sessionId: session.id,
+          txId: String(tx._id),
+          amount: selectedPackage.coins,
+        });
+      } else {
+        console.log("[coins webhook] existing transaction found, reprocessing", {
+          sessionId: session.id,
+          txId: String(tx._id),
+          status: tx.status,
+        });
+      }
+
+      const previousCoins = user.coins || 0;
+      const updatedUser = await User.findByIdAndUpdate(user._id, { $inc: { coins: selectedPackage.coins } }, { new: true });
+      if (!updatedUser) {
+        console.error("[coins webhook] balance update failed (user missing during update)", {
+          sessionId: session.id,
+          userId: String(user._id),
+          txId: String(tx._id),
+        });
+        await CoinTransaction.findByIdAndUpdate(tx._id, { status: "failed" });
+        throw new Error(`Balance update failed for session ${session.id}`);
+      }
+
+      await CoinTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
+      console.log("[coins webhook] coin increment success", {
+        sessionId: session.id,
+        userId: String(user._id),
+        txId: String(tx._id),
+        incrementBy: selectedPackage.coins,
+        previousCoins,
+        newCoins: updatedUser.coins,
+      });
       return;
+    } catch (err) {
+      console.error("[coins webhook] caught error while processing", {
+        sessionId: session.id,
+        metadata: session.metadata,
+        message: err.message,
+      });
+      throw err;
     }
-    // Create the transaction record first so a duplicate webhook finds it above
-    const tx = await CoinTransaction.create({
-      userId,
-      type: "purchase",
-      amount: coinCount,
-      reason: `Compra de ${coinCount} MYL Coins via Stripe`,
-      status: "pending",
-      metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
-    });
-    const result = await User.findByIdAndUpdate(userId, { $inc: { coins: coinCount } });
-    if (!result) {
-      console.error(`[coins webhook] User not found: ${userId} for session ${session.id}`);
-      await CoinTransaction.findByIdAndUpdate(tx._id, { status: "failed" });
-      return;
-    }
-    await CoinTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
-    return;
   }
 
   if (type === "sparks") {

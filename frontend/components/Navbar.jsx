@@ -100,8 +100,8 @@ export default function Navbar() {
             <Image
               src="/logo.svg"
               alt="MeetYouLive"
-              width={38}
-              height={38}
+              width={32}
+              height={32}
               className="navbar-logo-img"
               priority
             />
@@ -245,7 +245,7 @@ export default function Navbar() {
         }
 
         .navbar-logo-text {
-          font-size: 1.1rem;
+          font-size: 1.06rem;
           font-weight: 800;
           letter-spacing: -0.04em;
           color: var(--text);

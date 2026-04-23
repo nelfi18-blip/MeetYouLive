@@ -3,9 +3,9 @@
 import Image from "next/image";
 
 const SIZE_MAP = {
-  sm: { icon: 64, iconH: 45, name: "1.3rem" },
-  md: { icon: 80, iconH: 56, name: "1.65rem" },
-  lg: { icon: 100, iconH: 70, name: "2rem" },
+  sm: { icon: 52, iconH: 36, name: "1.3rem" },
+  md: { icon: 66, iconH: 46, name: "1.65rem" },
+  lg: { icon: 82, iconH: 58, name: "2rem" },
 };
 
 /**

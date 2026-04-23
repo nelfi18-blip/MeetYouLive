@@ -7,6 +7,7 @@ import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MIN_PAYOUT_COINS = 100;
+const LEADERBOARD_PERIODS = ["today", "week", "month"];
 
 /* ─── Icons ─────────────────────────────────────────────── */
 function BroadcastIcon() {
@@ -164,6 +165,7 @@ export default function CreatorPage() {
   const [agencyData, setAgencyData] = useState(null);
   const [subCreators, setSubCreators] = useState([]);
   const [exclusiveItems, setExclusiveItems] = useState([]);
+  const [leaderboards, setLeaderboards] = useState({ today: [], week: [], month: [] });
 
   // Live control state
   const [liveEndLoading, setLiveEndLoading] = useState(false);
@@ -199,8 +201,11 @@ export default function CreatorPage() {
       fetch(`${API_URL}/api/agency/me`, { headers }),
       fetch(`${API_URL}/api/agency/sub-creators`, { headers }),
       fetch(`${API_URL}/api/exclusive/mine`, { headers }),
+      fetch(`${API_URL}/api/rankings/creators?period=today&type=gifted`, { headers }),
+      fetch(`${API_URL}/api/rankings/creators?period=week&type=gifted`, { headers }),
+      fetch(`${API_URL}/api/rankings/creators?period=month&type=gifted`, { headers }),
     ])
-      .then(async ([userRes, livesRes, earningsRes, statsRes, agencyRes, subRes, exclusiveRes]) => {
+      .then(async ([userRes, livesRes, earningsRes, statsRes, agencyRes, subRes, exclusiveRes, rankTodayRes, rankWeekRes, rankMonthRes]) => {
         if (userRes.status === 401) {
           clearToken();
           router.replace("/login");
@@ -235,6 +240,16 @@ export default function CreatorPage() {
           const d = await exclusiveRes.json();
           setExclusiveItems(Array.isArray(d) ? d : d.content || d.items || []);
         }
+        const [today, week, month] = await Promise.all([
+          rankTodayRes.ok ? rankTodayRes.json() : [],
+          rankWeekRes.ok ? rankWeekRes.json() : [],
+          rankMonthRes.ok ? rankMonthRes.json() : [],
+        ]);
+        setLeaderboards({
+          today: Array.isArray(today) ? today : [],
+          week: Array.isArray(week) ? week : [],
+          month: Array.isArray(month) ? month : [],
+        });
       })
       .catch(() => setError("No se pudo cargar el estudio"))
       .finally(() => setLoading(false));
@@ -392,6 +407,8 @@ export default function CreatorPage() {
     );
   }, [subCreators]);
   const agencyEnabled = agencyData?.agencyProfile?.enabled ?? false;
+  const creatorLevel = stats?.creatorLevel;
+  const recentMonetizationActivity = earnings?.recentMonetizationActivity || [];
 
   /* ─────────────────────────────────────────────────────
      RENDER — Premium Creator Dashboard
@@ -411,6 +428,11 @@ export default function CreatorPage() {
                 <span className="badge-creator">🎙 Creator</span>
                 {user?.isVerifiedCreator && <span className="badge-verified">✓ Verificado</span>}
                 <span className="badge-approved">● Aprobado</span>
+                {creatorLevel?.current?.label && (
+                  <span className="badge-level">
+                    {creatorLevel.current.badge} {creatorLevel.current.label}
+                  </span>
+                )}
               </div>
               <h1 className="hero-title">{displayName}</h1>
               {user?.creatorProfile?.displayName && user.creatorProfile.displayName !== displayName && (
@@ -439,7 +461,57 @@ export default function CreatorPage() {
         </div>
       </div>
 
-      {/* ── 2. LIVE CONTROL PANEL ──────────────────────── */}
+      {/* ── 2. CREATOR PROGRESSION + LEADERBOARDS ─────── */}
+      <div className="panel panel-progress">
+        <div className="panel-header">
+          <h2 className="section-title" style={{ margin: 0 }}>🏆 Nivel y ranking</h2>
+          <span className="progress-level-pill">
+            {creatorLevel?.current?.badge || "🥉"} {creatorLevel?.current?.label || "Bronze"}
+          </span>
+        </div>
+        <div className="progress-copy">
+          {creatorLevel?.next?.label
+            ? `Te faltan ${creatorLevel.pointsToNext} puntos para ${creatorLevel.next.label}.`
+            : "Has alcanzado el nivel máximo Elite."}
+        </div>
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${creatorLevel?.progressPercent ?? 0}%` }} />
+        </div>
+        <div className="progress-meta">
+          <span>{creatorLevel?.points ?? 0} pts</span>
+          <span>{creatorLevel?.next ? `${creatorLevel.progressPercent}%` : "MAX"}</span>
+        </div>
+
+        <div className="leaderboard-grid">
+          {LEADERBOARD_PERIODS.map((period) => {
+            const rows = leaderboards[period] || [];
+            const meIndex = rows.findIndex((r) => r.userId === user?._id);
+            const periodLabel = period === "today" ? "Hoy" : period === "week" ? "Semana" : "Mes";
+            return (
+              <div key={period} className="leaderboard-card">
+                <div className="leaderboard-head">
+                  <strong>Top {periodLabel}</strong>
+                  <span>{rows.length ? `${rows.length} creadores` : "sin datos"}</span>
+                </div>
+                <div className="leaderboard-top3">
+                  {rows.slice(0, 3).map((row, idx) => (
+                    <div key={`${period}-${row.userId || idx}`} className={`leader-row${idx === 0 ? " leader-first" : ""}`}>
+                      <span className="leader-rank">#{idx + 1}</span>
+                      <span className="leader-name">@{row.username || row.name || "creator"}</span>
+                      <span className="leader-points">{(row.totalCoins ?? row.totalViews ?? 0).toLocaleString()} 🪙</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="leader-me">
+                  {meIndex >= 0 ? `Tu posición: #${meIndex + 1}` : "Aún no estás en el ranking"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 3. LIVE CONTROL PANEL ──────────────────────── */}
       <div className="panel panel-live">
         <div className="panel-header">
           <h2 className="section-title" style={{ margin: 0 }}>🎬 Control de Live</h2>
@@ -544,6 +616,25 @@ export default function CreatorPage() {
           </div>
         </div>
 
+        <div className="earnings-balance-grid">
+          <div className="balance-card">
+            <span className="balance-label">Total generado</span>
+            <strong className="balance-value">🪙 {earnings?.totalEarnedLifetime ?? stats?.totalEarnedLifetime ?? 0}</strong>
+          </div>
+          <div className="balance-card">
+            <span className="balance-label">Pendiente de pago</span>
+            <strong className="balance-value">🪙 {earnings?.pendingPayoutCoins ?? stats?.pendingPayout?.amountCoins ?? 0}</strong>
+          </div>
+          <div className="balance-card">
+            <span className="balance-label">Retirado</span>
+            <strong className="balance-value">🪙 {earnings?.withdrawnCoins ?? stats?.withdrawnCoins ?? 0}</strong>
+          </div>
+          <div className="balance-card">
+            <span className="balance-label">Disponible</span>
+            <strong className="balance-value">🪙 {earnings?.availableForPayoutCoins ?? availableEarnings}</strong>
+          </div>
+        </div>
+
         {earnings && earnings.totalCoinsReceived > 0 && (() => {
           const pct = Math.round((earnings.totalCreatorShare / earnings.totalCoinsReceived) * 100);
           return (
@@ -558,6 +649,21 @@ export default function CreatorPage() {
             </div>
           );
         })()}
+
+        {recentMonetizationActivity.length > 0 && (
+          <div className="monetization-activity">
+            <div className="monetization-title">Actividad de monetización reciente</div>
+            <div className="monetization-list">
+              {recentMonetizationActivity.slice(0, 5).map((item) => (
+                <div key={item._id} className="monetization-item">
+                  <span className={`activity-chip chip-${item.status}`}>{item.type}</span>
+                  <span className="monetization-label">{item.label}</span>
+                  <span className="monetization-amount">🪙 {item.amountCoins ?? 0}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Payout status inline */}
         <div className="payout-inline">
@@ -956,6 +1062,13 @@ export default function CreatorPage() {
           border-radius: var(--radius-pill); padding: 0.18rem 0.6rem;
         }
 
+        .badge-level {
+          font-size: 0.7rem; font-weight: 800;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.28);
+          border-radius: var(--radius-pill); padding: 0.18rem 0.6rem;
+        }
+
         .hero-title {
           font-size: 1.5rem; font-weight: 800;
           background: var(--grad-primary);
@@ -1014,6 +1127,67 @@ export default function CreatorPage() {
         @keyframes pulse-live {
           0%, 100% { box-shadow: 0 0 8px rgba(255,45,120,0.3); }
           50% { box-shadow: 0 0 20px rgba(255,45,120,0.6); }
+        }
+
+        /* ── Progress + Leaderboard panel ─────────────── */
+        .panel-progress { border-color: rgba(251,191,36,0.18); }
+        .progress-level-pill {
+          font-size: 0.72rem; font-weight: 800;
+          color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25);
+          border-radius: var(--radius-pill); padding: 0.2rem 0.7rem;
+        }
+        .progress-copy { font-size: 0.82rem; color: var(--text-muted); }
+        .progress-track {
+          width: 100%; height: 8px; border-radius: 999px; overflow: hidden;
+          background: rgba(129,140,248,0.2);
+        }
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #fbbf24, #f59e0b);
+          border-radius: 999px;
+        }
+        .progress-meta {
+          display: flex; align-items: center; justify-content: space-between;
+          font-size: 0.75rem; color: var(--text-muted); font-weight: 700;
+        }
+        .leaderboard-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.75rem;
+        }
+        .leaderboard-card {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+        .leaderboard-head {
+          display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+          font-size: 0.74rem; color: var(--text-muted);
+        }
+        .leaderboard-head strong { color: var(--text); font-size: 0.82rem; }
+        .leaderboard-top3 { display: flex; flex-direction: column; gap: 0.4rem; }
+        .leader-row {
+          display: grid; grid-template-columns: auto 1fr auto; gap: 0.45rem; align-items: center;
+          font-size: 0.75rem;
+          padding: 0.4rem 0.45rem;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.025);
+        }
+        .leader-first { border: 1px solid rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
+        .leader-rank { color: #fbbf24; font-weight: 800; }
+        .leader-name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .leader-points { color: #34d399; font-weight: 700; }
+        .leader-me {
+          font-size: 0.72rem; color: #a78bfa; font-weight: 700;
+          padding-top: 0.2rem;
+        }
+
+        @media (max-width: 860px) {
+          .leaderboard-grid { grid-template-columns: 1fr; }
         }
 
         /* ── Live panel ────────────────────────────────── */
@@ -1126,6 +1300,61 @@ export default function CreatorPage() {
 
         @media (max-width: 600px) {
           .earnings-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .earnings-balance-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+        }
+
+        .balance-card {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .balance-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+        .balance-value { font-size: 1rem; color: var(--text); font-weight: 800; }
+
+        .monetization-activity {
+          border: 1px solid rgba(129,140,248,0.18);
+          border-radius: var(--radius-sm);
+          background: rgba(129,140,248,0.04);
+          padding: 0.8rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+
+        .monetization-title { font-size: 0.76rem; font-weight: 800; color: #a78bfa; letter-spacing: 0.04em; text-transform: uppercase; }
+        .monetization-list { display: flex; flex-direction: column; gap: 0.4rem; }
+        .monetization-item {
+          display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; align-items: center;
+          font-size: 0.78rem;
+        }
+        .activity-chip {
+          font-size: 0.64rem; font-weight: 800; text-transform: uppercase;
+          border-radius: 999px; padding: 0.15rem 0.48rem; border: 1px solid transparent;
+        }
+        .chip-credited, .chip-completed {
+          color: #34d399; background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.25);
+        }
+        .chip-pending, .chip-processing {
+          color: #fbbf24; background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25);
+        }
+        .chip-rejected {
+          color: #f87171; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25);
+        }
+        .monetization-label { color: var(--text-muted); }
+        .monetization-amount { color: var(--text); font-weight: 700; }
+
+        @media (max-width: 760px) {
+          .earnings-balance-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         .ecard {

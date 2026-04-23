@@ -3,6 +3,7 @@ const Gift = require("../models/Gift.js");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const { hasLiveHost } = require("../lib/socket.js");
+const { computeCreatorProgress } = require("../utils/creatorProgress");
 
 const getTodayStart = () => {
   const d = new Date();
@@ -13,6 +14,13 @@ const getTodayStart = () => {
 const getWeekStart = () => {
   const d = new Date();
   d.setDate(d.getDate() - 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const getMonthStart = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
   d.setHours(0, 0, 0, 0);
   return d;
 };
@@ -70,6 +78,8 @@ const getTopCreators = async (req, res) => {
         ? getTodayStart()
         : period === "week"
         ? getWeekStart()
+        : period === "month"
+        ? getMonthStart()
         : null;
 
     if (type === "viewed") {
@@ -104,10 +114,19 @@ const getTopCreators = async (req, res) => {
             name: "$u.name",
             isPremium: "$u.isPremium",
             isVerifiedCreator: "$u.isVerifiedCreator",
+            followersCount: "$u.followersCount",
           },
         },
       ]);
-      return res.json(topCreators);
+      return res.json(
+        topCreators.map((row) => ({
+          ...row,
+          creatorLevel: computeCreatorProgress({
+            totalLives: row.totalViews ? Math.ceil(row.totalViews / 60) : 0,
+            followersCount: row.followersCount || 0,
+          }).current,
+        }))
+      );
     }
 
     // type === "gifted"
@@ -142,11 +161,20 @@ const getTopCreators = async (req, res) => {
           name: "$u.name",
           isPremium: "$u.isPremium",
           isVerifiedCreator: "$u.isVerifiedCreator",
+          followersCount: "$u.followersCount",
         },
       },
     ]);
 
-    res.json(topCreators);
+    res.json(
+      topCreators.map((row) => ({
+        ...row,
+        creatorLevel: computeCreatorProgress({
+          totalCoinsReceived: row.totalCoins || 0,
+          followersCount: row.followersCount || 0,
+        }).current,
+      }))
+    );
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

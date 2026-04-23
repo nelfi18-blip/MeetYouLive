@@ -449,6 +449,33 @@ export default function DashboardPage() {
 
   const isApprovedCreator = isCreator && creatorStatus === "approved";
   const isSuspended = creatorStatus === "suspended";
+  const loginCount = Number(user?.loginCount || 0);
+  const behaviorSegment =
+    loginCount <= 3
+      ? "new"
+      : loginCount >= 20 && (user?.coins ?? 0) <= 40
+      ? "spender"
+      : loginCount >= 8
+      ? "active"
+      : "default";
+  const smartCreatorCTA =
+    behaviorSegment === "new"
+      ? {
+          title: "¿Quieres ganar dinero en vivo?",
+          sub: "Activa tu perfil de creador y empieza a monetizar tus directos.",
+          button: "Aplicar como creador",
+        }
+      : behaviorSegment === "spender"
+      ? {
+          title: "Recupera lo que gastas creando contenido",
+          sub: "Convierte tu actividad en ingresos con regalos, lives y contenido premium.",
+          button: "Quiero monetizar",
+        }
+      : {
+          title: "Ya estás listo para monetizar",
+          sub: "Solicita acceso de creador y desbloquea herramientas premium de ingresos.",
+          button: "Solicitar acceso a creador",
+        };
   const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
   const liveStatusLabel = isApprovedCreator
     ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
@@ -469,7 +496,7 @@ export default function DashboardPage() {
 
   const requestCard =
     !isCreator && creatorStatus === "none"
-      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Aplica para monetizar tus directos y ganar", icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
+      ? [{ href: "/creator-request", title: smartCreatorCTA.title, sub: smartCreatorCTA.sub, icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
       : [];
 
   const pendingCard =
@@ -644,10 +671,10 @@ export default function DashboardPage() {
         <div className="creator-cta-banner">
           <div className="creator-cta-icon"><CreatorRequestIcon /></div>
           <div className="creator-cta-text">
-            <strong>Gana dinero transmitiendo en vivo</strong>
-            <span>Conviértete en creador aprobado y accede a monetización, directos privados y más.</span>
+            <strong>{smartCreatorCTA.title}</strong>
+            <span>{smartCreatorCTA.sub}</span>
           </div>
-          <a href="/creator-request" className="creator-cta-btn">Solicitar acceso a creador</a>
+          <a href="/creator-request" className="creator-cta-btn">{smartCreatorCTA.button}</a>
         </div>
       )}
       {!isApprovedCreator && creatorStatus === "pending" && (

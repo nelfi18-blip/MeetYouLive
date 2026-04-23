@@ -49,6 +49,9 @@ const creatorApplicationSchema = new mongoose.Schema(
       youtube: { type: String, default: "" },
     },
     submittedAt: { type: Date, default: null },
+    reviewDecision: { type: String, enum: ["", "approved", "rejected", "suspended", "reactivated"], default: "" },
+    reviewNote: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
   },
   { _id: false }
 );

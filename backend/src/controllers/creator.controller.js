@@ -4,10 +4,11 @@ const User = require("../models/User");
 const Payout = require("../models/Payout");
 const Live = require("../models/Live");
 const VideoCall = require("../models/VideoCall");
+const { computeCreatorProgress } = require("../utils/creatorProgress");
 
 const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
-    "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins"
+    "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins followersCount"
   );
 
   if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
@@ -15,6 +16,17 @@ const requireApprovedCreatorHelper = async (userId) => {
   }
 
   return { error: null, user };
+};
+
+const getConsistencyDays = async (userId, days = 30) => {
+  const now = new Date();
+  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const rows = await Live.aggregate([
+    { $match: { user: new mongoose.Types.ObjectId(userId), createdAt: { $gte: start } } },
+    { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } } } },
+    { $count: "days" },
+  ]).catch(() => []);
+  return rows[0]?.days || 0;
 };
 
 exports.getCreatorStats = async (req, res) => {
@@ -26,7 +38,7 @@ exports.getCreatorStats = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
-    const [aggregateResult, callAgg, liveCount, pendingPayout] = await Promise.all([
+    const [aggregateResult, callAgg, liveCount, pendingPayout, consistencyDays] = await Promise.all([
       Gift.aggregate([
         { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
         {
@@ -49,14 +61,12 @@ exports.getCreatorStats = async (req, res) => {
           },
         },
       ]),
-      mongoose.model("Live").countDocuments({
-        user: user._id,
-        status: { $in: ["live", "active"] },
-      }).catch(() => 0),
+      Live.countDocuments({ user: user._id }).catch(() => 0),
       Payout.findOne({
         creator: user._id,
         status: { $in: ["pending", "processing"] },
       }).sort({ createdAt: -1 }),
+      getConsistencyDays(user._id, 30),
     ]);
 
     const totals = aggregateResult[0] || {
@@ -71,6 +81,15 @@ exports.getCreatorStats = async (req, res) => {
       totalCallEarnings: 0,
     };
 
+    const creatorLevel = computeCreatorProgress({
+      totalCoinsReceived: totals.totalCoinsReceived || 0,
+      totalCreatorShare: totals.totalCreatorShare || 0,
+      totalGifts: totals.totalGiftCount || 0,
+      totalLives: liveCount || 0,
+      consistencyDays: consistencyDays || 0,
+      followersCount: user.followersCount || 0,
+    });
+
     return res.json({
       ok: true,
       earningsCoins: user.earningsCoins || 0,
@@ -83,6 +102,8 @@ exports.getCreatorStats = async (req, res) => {
       totalCalls: callTotals.totalCalls || 0,
       totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
       totalCallEarnings: callTotals.totalCallEarnings || 0,
+      consistencyDays: consistencyDays || 0,
+      creatorLevel,
       pendingPayout: pendingPayout
         ? {
             _id: pendingPayout._id,
@@ -122,11 +143,43 @@ exports.getCreatorEarnings = async (req, res) => {
       },
     ]);
 
-    const recentTransactions = await Gift.find({ receiver: user._id })
-      .populate("sender", "username name avatar")
-      .populate("giftCatalogItem")
-      .sort({ createdAt: -1 })
-      .limit(20);
+    const [recentTransactions, payoutRows, payoutAgg, callAgg] = await Promise.all([
+      Gift.find({ receiver: user._id })
+        .populate("sender", "username name avatar")
+        .populate("giftCatalogItem")
+        .sort({ createdAt: -1 })
+        .limit(20),
+      Payout.find({ creator: user._id })
+        .sort({ createdAt: -1 })
+        .limit(10),
+      Payout.aggregate([
+        { $match: { creator: new mongoose.Types.ObjectId(user._id) } },
+        {
+          $group: {
+            _id: null,
+            pendingCoins: {
+              $sum: {
+                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+              },
+            },
+            withdrawnCoins: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+              },
+            },
+          },
+        },
+      ]),
+      VideoCall.aggregate([
+        { $match: { recipient: new mongoose.Types.ObjectId(user._id), status: "ended", type: "paid_creator" } },
+        {
+          $group: {
+            _id: null,
+            totalCallEarnings: { $sum: "$creatorShare" },
+          },
+        },
+      ]),
+    ]);
 
     const totals = aggregateResult[0] || {
       totalCoinsReceived: 0,
@@ -135,13 +188,42 @@ exports.getCreatorEarnings = async (req, res) => {
       totalGiftCount: 0,
     };
 
+    const callTotals = callAgg[0] || { totalCallEarnings: 0 };
+    const payoutTotals = payoutAgg[0] || { pendingCoins: 0, withdrawnCoins: 0 };
+    const recentMonetizationActivity = [
+      ...recentTransactions.map((tx) => ({
+        _id: `gift-${tx._id}`,
+        type: "gift",
+        label: `${tx.giftIcon || "🎁"} ${tx.giftName || "Regalo"} recibido`,
+        amountCoins: tx.creatorShare || 0,
+        status: "credited",
+        createdAt: tx.createdAt,
+      })),
+      ...payoutRows.map((p) => ({
+        _id: `payout-${p._id}`,
+        type: "payout",
+        label: "Solicitud de retiro",
+        amountCoins: p.amountCoins || 0,
+        status: p.status,
+        createdAt: p.createdAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 20);
+
     return res.json({
       ok: true,
       totalCoinsReceived: totals.totalCoinsReceived,
       totalCreatorShare: totals.totalCreatorShare,
       totalPlatformShare: totals.totalPlatformShare,
       totalGiftCount: totals.totalGiftCount,
+      pendingPayoutCoins: payoutTotals.pendingCoins || 0,
+      withdrawnCoins: payoutTotals.withdrawnCoins || 0,
+      totalEarnedLifetime:
+        (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0),
+      availableForPayoutCoins: user.earningsCoins || 0,
       recentTransactions,
+      recentMonetizationActivity,
     });
   } catch (err) {
     console.error("getCreatorEarnings error:", err);
@@ -244,7 +326,7 @@ exports.getCreatorDashboard = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
-    const [giftAgg, callAgg, activeLive, pendingPayout] = await Promise.all([
+    const [giftAgg, callAgg, activeLive, pendingPayout, liveCount, consistencyDays, payoutAgg] = await Promise.all([
       Gift.aggregate([
         { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
         {
@@ -274,6 +356,26 @@ exports.getCreatorDashboard = async (req, res) => {
         creator: user._id,
         status: { $in: ["pending", "processing"] },
       }).sort({ createdAt: -1 }),
+      Live.countDocuments({ user: user._id }).catch(() => 0),
+      getConsistencyDays(user._id, 30),
+      Payout.aggregate([
+        { $match: { creator: new mongoose.Types.ObjectId(user._id) } },
+        {
+          $group: {
+            _id: null,
+            pendingCoins: {
+              $sum: {
+                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+              },
+            },
+            withdrawnCoins: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+              },
+            },
+          },
+        },
+      ]),
     ]);
 
     const totals = giftAgg[0] || {
@@ -288,6 +390,17 @@ exports.getCreatorDashboard = async (req, res) => {
       totalCallEarnings: 0,
     };
 
+    const pendingCoins = payoutAgg[0]?.pendingCoins || 0;
+    const withdrawnCoins = payoutAgg[0]?.withdrawnCoins || 0;
+    const creatorLevel = computeCreatorProgress({
+      totalCoinsReceived: totals.totalCoinsReceived || 0,
+      totalCreatorShare: totals.totalCreatorShare || 0,
+      totalGifts: totals.totalGiftCount || 0,
+      totalLives: liveCount || 0,
+      consistencyDays: consistencyDays || 0,
+      followersCount: user.followersCount || 0,
+    });
+
     return res.json({
       ok: true,
       activeLive: activeLive || null,
@@ -295,11 +408,18 @@ exports.getCreatorDashboard = async (req, res) => {
       agencyEarningsCoins: user.agencyEarningsCoins || 0,
       coins: user.coins || 0,
       totalGifts: totals.totalGiftCount || 0,
+      totalLives: liveCount || 0,
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
       totalCalls: callTotals.totalCalls || 0,
       totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
       totalCallEarnings: callTotals.totalCallEarnings || 0,
+      consistencyDays: consistencyDays || 0,
+      pendingPayoutCoins: pendingCoins,
+      withdrawnCoins,
+      totalEarnedLifetime:
+        (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0),
+      creatorLevel,
       pendingPayout: pendingPayout
         ? {
             _id: pendingPayout._id,

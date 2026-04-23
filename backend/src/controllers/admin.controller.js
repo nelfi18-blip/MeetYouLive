@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
+const MAX_REVIEW_NOTE_LENGTH = 300;
 
 exports.getOverview = async (req, res) => {
   try {
@@ -197,6 +198,7 @@ exports.getCreatorRequests = async (req, res) => {
 
 exports.approveCreator = async (req, res) => {
   try {
+    const reason = (req.body?.reason || "").trim();
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
 
@@ -205,7 +207,10 @@ exports.approveCreator = async (req, res) => {
       creatorStatus: "approved",
       isVerifiedCreator: true,
       creatorApprovedAt: new Date(),
+      "creatorApplication.reviewDecision": "approved",
+      "creatorApplication.reviewedAt": new Date(),
     };
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
 
     // Copy application fields into the active creatorProfile
     if (targetUser.creatorApplication) {
@@ -225,9 +230,18 @@ exports.approveCreator = async (req, res) => {
 
 exports.rejectCreator = async (req, res) => {
   try {
+    const reason = (req.body?.reason || "").trim();
+    const updates = {
+      role: "user",
+      creatorStatus: "rejected",
+      isVerifiedCreator: false,
+      "creatorApplication.reviewDecision": "rejected",
+      "creatorApplication.reviewedAt": new Date(),
+    };
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "user", creatorStatus: "rejected", isVerifiedCreator: false },
+      updates,
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -240,9 +254,18 @@ exports.rejectCreator = async (req, res) => {
 
 exports.suspendCreator = async (req, res) => {
   try {
+    const reason = (req.body?.reason || "").trim();
+    const updates = {
+      role: "user",
+      creatorStatus: "suspended",
+      isVerifiedCreator: false,
+      "creatorApplication.reviewDecision": "suspended",
+      "creatorApplication.reviewedAt": new Date(),
+    };
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "user", creatorStatus: "suspended", isVerifiedCreator: false },
+      updates,
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -334,9 +357,18 @@ exports.getTransactions = async (req, res) => {
 
 exports.reactivateCreator = async (req, res) => {
   try {
+    const reason = (req.body?.reason || "").trim();
+    const updates = {
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      "creatorApplication.reviewDecision": "reactivated",
+      "creatorApplication.reviewedAt": new Date(),
+    };
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { role: "creator", creatorStatus: "approved", isVerifiedCreator: true },
+      updates,
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });

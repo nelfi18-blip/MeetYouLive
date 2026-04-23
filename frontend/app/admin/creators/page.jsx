@@ -21,6 +21,21 @@ const STATUS_COLORS = {
   suspended: { bg: "rgba(148,163,184,0.1)", color: "#94a3b8" },
   none: { bg: "rgba(100,116,139,0.1)", color: "#64748b" },
 };
+const MAX_REVIEW_NOTE_LENGTH = 300;
+
+const getCreatorProfileQuality = (creator) => {
+  const app = creator?.creatorApplication || {};
+  const score =
+    (app.bio?.trim() ? 1 : 0) +
+    (app.category?.trim() ? 1 : 0) +
+    (app.country?.trim() ? 1 : 0) +
+    ((app.languages || []).length > 0 ? 1 : 0) +
+    (Object.values(app.socialLinks || {}).filter(Boolean).length > 0 ? 1 : 0);
+  return {
+    score,
+    label: score >= 4 ? "high" : score >= 2 ? "medium" : "low",
+  };
+};
 
 function CreatorsInner() {
   const router = useRouter();
@@ -33,6 +48,9 @@ function CreatorsInner() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+  const [search, setSearch] = useState("");
+  const [qualityFilter, setQualityFilter] = useState("all");
+  const [reviewNotes, setReviewNotes] = useState({});
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -70,9 +88,11 @@ function CreatorsInner() {
   const doAction = async (creatorId, action) => {
     setActionLoading(creatorId + action);
     try {
+      const reason = (reviewNotes[creatorId] || "").trim();
       const res = await fetch(`${API_URL}/api/admin/creators/${creatorId}/${action}`, {
         method: "PATCH",
-        headers: authHeader(),
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify(reason ? { reason } : {}),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { showMsg("error", d.message || "Error."); return; }
@@ -87,6 +107,18 @@ function CreatorsInner() {
   };
 
   const totalPages = Math.ceil(total / 50);
+  const filteredCreators = creators.filter((c) => {
+    const q = search.trim().toLowerCase();
+    const app = c.creatorApplication || {};
+    const qualityLabel = getCreatorProfileQuality(c).label;
+    const inQuality = qualityFilter === "all" ? true : qualityFilter === qualityLabel;
+    const inSearch =
+      !q ||
+      [c.name, c.username, c.email, app.category, app.bio]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    return inQuality && inSearch;
+  });
 
   return (
     <div className="page">
@@ -115,6 +147,22 @@ function CreatorsInner() {
         </button>
       </div>
 
+      <div className="filters-row">
+        <input
+          className="search-input"
+          type="text"
+          placeholder="Buscar creador, email o categoría…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select className="quality-select" value={qualityFilter} onChange={(e) => setQualityFilter(e.target.value)}>
+          <option value="all">Calidad: todas</option>
+          <option value="high">Calidad alta</option>
+          <option value="medium">Calidad media</option>
+          <option value="low">Calidad baja</option>
+        </select>
+      </div>
+
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
@@ -129,19 +177,24 @@ function CreatorsInner() {
                   <th>Email</th>
                   <th>Estado</th>
                   <th>Categoría</th>
+                  <th>Calidad perfil</th>
+                  <th>Actividad</th>
                   <th>Ganancias</th>
                   <th>Registro</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {creators.length === 0 ? (
+                {filteredCreators.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
+                      <td colSpan={9} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
                   </tr>
                 ) : (
-                  creators.map((c) => {
+                  filteredCreators.map((c) => {
                     const statusStyle = STATUS_COLORS[c.creatorStatus] || STATUS_COLORS.none;
+                    const quality = getCreatorProfileQuality(c);
+                    const qualityLabel = quality.label === "high" ? "Alta" : quality.label === "medium" ? "Media" : "Baja";
+                    const activityLabel = (c.loginCount || 0) >= 20 ? "Alta" : (c.loginCount || 0) >= 8 ? "Media" : "Baja";
                     return (
                       <tr key={c._id}>
                         <td>
@@ -169,6 +222,13 @@ function CreatorsInner() {
                           </span>
                         </td>
                         <td className="text-muted text-sm">{c.creatorApplication?.category || c.creatorProfile?.category || "—"}</td>
+                        <td>
+                          <span className={`quality-chip quality-${qualityLabel.toLowerCase()}`}>{qualityLabel}</span>
+                        </td>
+                        <td className="text-muted text-sm">
+                          <div>{activityLabel} ({c.loginCount || 0} logins)</div>
+                          <div>{c.lastActiveAt ? new Date(c.lastActiveAt).toLocaleDateString("es") : "Sin actividad reciente"}</div>
+                        </td>
                         <td className="text-right">{(c.earningsCoins ?? 0).toLocaleString()} 🪙</td>
                         <td className="text-muted text-sm">
                           {c.creatorApplication?.submittedAt
@@ -177,6 +237,12 @@ function CreatorsInner() {
                         </td>
                         <td>
                           <div className="action-row">
+                            <textarea
+                              className="review-note"
+                              placeholder="Motivo (opcional)"
+                              value={reviewNotes[c._id] || ""}
+                              onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, MAX_REVIEW_NOTE_LENGTH) }))}
+                            />
                             {c.creatorStatus === "pending" && (
                               <>
                                 <button
@@ -239,6 +305,12 @@ function CreatorsInner() {
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }
         .badge { background: rgba(167,139,250,0.15); color: #a78bfa; border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.8rem; font-weight: 600; }
         .tabs { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+        .filters-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .search-input, .quality-select {
+          background: #141a25; border: 1px solid #2d3748; color: #cbd5e1;
+          border-radius: 8px; padding: 0.5rem 0.7rem; font-size: 0.82rem; font-family: inherit;
+        }
+        .search-input { min-width: 240px; flex: 1; }
         .tab { background: transparent; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
         .tab:hover { background: #1e2535; color: #e2e8f0; }
         .tab--active { background: #7c3aed; border-color: #7c3aed; color: #fff; font-weight: 700; }
@@ -264,7 +336,23 @@ function CreatorsInner() {
         .user-name { font-weight: 600; color: #e2e8f0; font-size: 0.85rem; }
         .user-username { font-size: 0.72rem; color: #64748b; }
         .status-badge { display: inline-block; border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 600; text-transform: capitalize; }
+        .quality-chip { display: inline-block; border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.72rem; font-weight: 700; }
+        .quality-alta { background: rgba(52,211,153,0.12); color: #34d399; }
+        .quality-media { background: rgba(251,191,36,0.12); color: #fbbf24; }
+        .quality-baja { background: rgba(248,113,113,0.12); color: #f87171; }
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .review-note {
+          width: 100%;
+          min-height: 56px;
+          resize: vertical;
+          background: #121826;
+          border: 1px solid #2d3748;
+          border-radius: 6px;
+          color: #cbd5e1;
+          font-size: 0.72rem;
+          padding: 0.35rem 0.45rem;
+          margin-bottom: 0.35rem;
+        }
         .btn-action { border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; font-family: inherit; border: 1px solid transparent; transition: opacity 0.15s; white-space: nowrap; }
         .btn-action:disabled { opacity: 0.45; cursor: not-allowed; }
         .btn-green { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.25); color: #34d399; }

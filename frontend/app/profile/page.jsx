@@ -9,6 +9,7 @@ import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
@@ -628,7 +629,7 @@ export default function ProfilePage() {
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
-    ...(user?.role === "creator" ? [{ href: "/live/start", label: t("profile.startLive"), Icon: BroadcastIcon }] : []),
+    ...(isApprovedCreator(user) ? [{ href: "/live/start", label: t("profile.startLive"), Icon: BroadcastIcon }] : []),
     { href: "/explore",    label: t("profile.exploreLive"), Icon: ExploreIcon },
     { href: "/chats",      label: t("profile.myChats"), Icon: ChatIcon },
   ];
@@ -667,8 +668,8 @@ export default function ProfilePage() {
                 <p className="profile-email">{user.email}</p>
                 {user.bio && <p className="profile-bio">{user.bio}</p>}
                 <div className="profile-badges">
-                    <span className={`role-badge${user.role === "creator" ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
-                      {user.role === "creator" ? "Creador" : user.role === "admin" ? "Admin" : user.creatorStatus === "pending" ? "Pendiente de aprobación" : "Usuario"}
+                    <span className={`role-badge${isApprovedCreator(user) ? " creator" : user.role === "admin" ? " admin" : user.creatorStatus === "pending" ? " pending" : ""}`}>
+                      {isApprovedCreator(user) ? "Creador" : user.role === "admin" ? "Admin" : user.creatorStatus === "pending" ? "Pendiente de aprobación" : "Usuario"}
                     </span>
                     {user.isVerified && (
                       <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
@@ -932,7 +933,7 @@ export default function ProfilePage() {
               <div className="stat-value">{user.coins ?? 0}</div>
               <div className="stat-label">Monedas</div>
             </div>
-            {user.role === "creator" && (
+            {isApprovedCreator(user) && (
               <div className="stat-card">
                 <div className="stat-icon-wrap" style={{ color: "#fbbf24" }}>
                   <TrophyIcon />
@@ -992,7 +993,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {user.role === "creator" && (
+          {isApprovedCreator(user) && (
             <div className="creator-active-card">
               <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
               <div className="creator-cta-body">

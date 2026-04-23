@@ -12,6 +12,8 @@ import {
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
 
+const MAX_DISPLAYED_ITEMS = 12;
+
 function formatDate(value) {
   if (!value) return "Sin fecha";
   const date = new Date(value);
@@ -55,11 +57,11 @@ export default function MonetizationHistoryCard({ items = [] }) {
         </div>
       ) : (
         <div className="history-list">
-          {items.slice(0, 12).map((item) => {
+          {items.slice(0, MAX_DISPLAYED_ITEMS).map((item, index) => {
             const type = resolveType(item.type);
             const status = resolveStatus(item.status);
             return (
-              <div className="history-row" key={item._id || `${item.type}-${item.createdAt}`}>
+              <div className="history-row" key={item._id || `${item.type}-${item.createdAt}-${index}`}>
                 <div className="history-meta">
                   <span className="row-icon">{type.icon}</span>
                   <div className="row-copy">

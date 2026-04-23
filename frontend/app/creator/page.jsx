@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/MonetizationIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const MIN_PAYOUT_COINS = 100;
+const DEFAULT_MIN_PAYOUT_COINS = 100;
 
 function formatCoins(value) {
   return Number(value || 0).toLocaleString("es-ES");
@@ -144,7 +144,10 @@ export default function CreatorPage() {
   const availableForPayout = Number(
     dashboard?.earningsCoins ?? earnings?.availableForPayoutCoins ?? user?.earningsCoins ?? 0
   );
+  const minPayoutCoins = Number(dashboard?.minPayoutCoins ?? DEFAULT_MIN_PAYOUT_COINS);
   const profileHref = user?._id ? `/creator/${user._id}` : "/profile";
+  const hasPendingPayout = Boolean(dashboard?.pendingPayout);
+  const isPayoutDisabled = payoutLoading || availableForPayout < minPayoutCoins || hasPendingPayout;
 
   const statsCards = useMemo(() => {
     if (!isApproved) return [];
@@ -215,6 +218,10 @@ export default function CreatorPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
+      const payoutFallbackId =
+        data.payout?._id ||
+        globalThis.crypto?.randomUUID?.() ||
+        `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       if (!response.ok) throw new Error(data.message || "No pudimos procesar el retiro");
 
@@ -236,7 +243,7 @@ export default function CreatorPage() {
           pendingPayoutCoins: (prev.pendingPayoutCoins || 0) + (data.payout?.amountCoins || 0),
           recentMonetizationActivity: [
             {
-              _id: `payout-${data.payout?._id || Date.now()}`,
+              _id: payoutFallbackId,
               type: "payout",
               label: "Solicitud de retiro",
               amountCoins: data.payout?.amountCoins || 0,
@@ -358,19 +365,15 @@ export default function CreatorPage() {
               canMonetize
               profileHref={profileHref}
               onRequestPayout={handleRequestPayout}
-              payoutDisabled={
-                payoutLoading ||
-                availableForPayout < MIN_PAYOUT_COINS ||
-                Boolean(dashboard?.pendingPayout)
-              }
+              payoutDisabled={isPayoutDisabled}
             />
-            {dashboard?.pendingPayout ? (
+            {hasPendingPayout ? (
               <p className="quick-note">
-                Ya tienes una solicitud de retiro en proceso ({formatCoins(dashboard.pendingPayout.amountCoins)} coins).
+                Ya tienes una solicitud de retiro en proceso ({formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0)} monedas).
               </p>
-            ) : availableForPayout < MIN_PAYOUT_COINS ? (
+            ) : availableForPayout < minPayoutCoins ? (
               <p className="quick-note">
-                Necesitas al menos {MIN_PAYOUT_COINS} coins para solicitar retiro.
+                Necesitas al menos {minPayoutCoins} monedas para solicitar retiro.
               </p>
             ) : null}
           </FuturisticCard>

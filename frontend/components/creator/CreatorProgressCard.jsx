@@ -11,6 +11,7 @@ const TIPS = [
   "Completa y actualiza tu perfil de creador",
   "Promueve llamadas privadas en tu bio",
 ];
+const CONSISTENCY_PERIOD_DAYS = 30;
 
 export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
   const progress = Math.max(0, Math.min(100, Number(creatorLevel?.progressPercent || 0)));
@@ -27,7 +28,9 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
         <div className="level-block">
           <div className="level-row">
             <NeonBadge tone="purple">Nivel actual · {creatorLevel.current.label}</NeonBadge>
-            <NeonBadge tone="cyan">Racha · {consistencyDays || 0} días activos / 30</NeonBadge>
+            <NeonBadge tone="cyan">
+              Días activos · {consistencyDays || 0} / {CONSISTENCY_PERIOD_DAYS}
+            </NeonBadge>
           </div>
           <p className="level-copy">
             {creatorLevel?.next?.label

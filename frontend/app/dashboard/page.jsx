@@ -448,7 +448,7 @@ export default function DashboardPage() {
       <div className="dashboard" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
         <div style={{ padding: "2rem", background: "rgba(15,8,32,0.6)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center" }}>
           <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
-            No se pudo cargar tu perfil. Comprueba tu conexión y recarga la página.
+            No se pudo cargar tu perfil. Verifica tu conexión o intenta más tarde.
           </p>
           <button
             onClick={() => window.location.reload()}

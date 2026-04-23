@@ -155,7 +155,9 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     // else is silently corrected here.
     if (user.role === "creator" && user.creatorStatus !== "approved" && user.creatorStatus !== "suspended") {
       user.creatorStatus = "approved";
-      User.updateOne({ _id: user._id }, { $set: { creatorStatus: "approved" } }).catch(() => {});
+      User.updateOne({ _id: user._id }, { $set: { creatorStatus: "approved" } }).catch((err) => {
+        console.error("[/me] Failed to normalize creatorStatus for user", user._id, err.message);
+      });
     }
 
     const payload = user.toObject();

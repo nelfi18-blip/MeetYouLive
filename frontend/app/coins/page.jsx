@@ -4,6 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import UrgencyBanner from "@/components/UrgencyBanner";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
+import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
+import TransactionListCard from "@/components/ui/TransactionListCard";
+import NeonBadge from "@/components/ui/NeonBadge";
+import {
+  ArrowRightIcon,
+  CardIcon,
+  CoinIcon,
+  GiftIcon,
+  HistoryIcon,
+  LockIcon,
+  ShieldIcon,
+  SparkIcon,
+  TrendUpIcon,
+  VideoIcon,
+  WalletIcon,
+} from "@/components/ui/MonetizationIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,60 +31,74 @@ const PACKAGES = [
     label: "Starter Pack",
     coins: "100",
     price: "$4.99",
-    priceNote: "por paquete",
-    icon: "🪙",
-    desc: "Ideal para empezar a conectar",
-    highlight: false,
+    priceNote: "pago único",
+    desc: "Perfecto para empezar a enviar regalos y desbloquear primeras experiencias.",
     perCoin: "$0.0499",
+    badge: "Acceso inicial",
+    badgeTone: "purple",
+    benefit: "Entrada rápida",
   },
   {
     value: 250,
     label: "Popular Pack",
     coins: "250",
     price: "$9.99",
-    priceNote: "por paquete",
-    icon: "💰",
-    desc: "El más elegido por la comunidad",
-    highlight: true,
+    priceNote: "pago único",
+    desc: "El equilibrio ideal entre precio y alcance para uso frecuente.",
     perCoin: "$0.0399",
-    save: "Más popular",
+    highlight: true,
+    badge: "Más popular",
+    badgeTone: "pink",
+    benefit: "Mejor ritmo",
   },
   {
     value: 700,
     label: "Elite Pack",
     coins: "700",
     price: "$19.99",
-    priceNote: "por paquete",
-    icon: "💎",
-    desc: "Mejor valor · Vive la experiencia completa",
-    highlight: false,
+    priceNote: "pago único",
+    desc: "Máximo valor para usuarios que quieren acceso continuo a experiencias premium.",
     perCoin: "$0.0285",
-    save: "Mejor valor",
+    badge: "Mejor valor",
+    badgeTone: "green",
+    benefit: "Ahorro superior",
   },
 ];
 
 const TX_TYPE_LABELS = {
-  purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
-  gift_sent: { label: "Regalo enviado", color: "var(--error)", sign: "-" },
-  gift_received: { label: "Regalo recibido", color: "var(--accent-green)", sign: "+" },
-  private_call: { label: "Llamada privada", color: "var(--error)", sign: "-" },
-  call_started: { label: "Llamada iniciada", color: "var(--error)", sign: "-" },
-  call_earned: { label: "Llamada recibida", color: "var(--accent-green)", sign: "+" },
-  room_entry: { label: "Entrada a sala", color: "var(--error)", sign: "-" },
-  content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
-  content_earned: { label: "Contenido exclusivo", color: "var(--accent-green)", sign: "+" },
-  refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
-  daily_reward: { label: "Recompensa diaria", color: "var(--accent-green)", sign: "+" },
-  referral_reward: { label: "Recompensa referido", color: "var(--accent-green)", sign: "+" },
-  agency_earned: { label: "Comisión agencia", color: "var(--accent-green)", sign: "+" },
-  admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
+  purchase: { label: "Compra", tone: "green" },
+  gift_sent: { label: "Regalo enviado", tone: "pink" },
+  gift_received: { label: "Regalo recibido", tone: "green" },
+  private_call: { label: "Llamada privada", tone: "pink" },
+  call_started: { label: "Llamada iniciada", tone: "pink" },
+  call_earned: { label: "Llamada recibida", tone: "green" },
+  room_entry: { label: "Entrada a sala", tone: "purple" },
+  content_unlock: { label: "Contenido desbloqueado", tone: "purple" },
+  content_earned: { label: "Contenido exclusivo", tone: "green" },
+  refund: { label: "Reembolso", tone: "green" },
+  daily_reward: { label: "Recompensa diaria", tone: "cyan" },
+  referral_reward: { label: "Recompensa referido", tone: "cyan" },
+  agency_earned: { label: "Comisión agencia", tone: "green" },
+  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
 };
 
-function formatDate(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
-}
+const COIN_USES = [
+  {
+    title: "Regalos premium",
+    desc: "Impulsa conexiones enviando regalos con mayor visibilidad en directo.",
+    icon: <GiftIcon size={17} />,
+  },
+  {
+    title: "Llamadas privadas",
+    desc: "Accede a sesiones exclusivas 1:1 con creators verificados.",
+    icon: <VideoIcon size={17} />,
+  },
+  {
+    title: "Contenido exclusivo",
+    desc: "Desbloquea contenido premium y experiencias limitadas por creator.",
+    icon: <LockIcon size={17} />,
+  },
+];
 
 export default function BuyCoinsPage() {
   const { data: session } = useSession();
@@ -80,17 +112,27 @@ export default function BuyCoinsPage() {
   useEffect(() => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const token = localToken || session?.backendToken || null;
-    if (!token) { setTxLoading(false); return; }
+    if (!token) {
+      setTxLoading(false);
+      return;
+    }
     const headers = { Authorization: `Bearer ${token}` };
 
     fetch(`${API_URL}/api/user/coins`, { headers })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) { setBalance(d.coins); setSparks(d.sparks ?? null); } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) {
+          setBalance(d.coins);
+          setSparks(d.sparks ?? null);
+        }
+      })
       .catch(() => {});
 
     fetch(`${API_URL}/api/coins/transactions?limit=20`, { headers })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setTransactions(d.transactions || []); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setTransactions(d.transactions || []);
+      })
       .catch(() => {})
       .finally(() => setTxLoading(false));
   }, [session?.backendToken]);
@@ -123,628 +165,293 @@ export default function BuyCoinsPage() {
 
   return (
     <div className="coins-page">
-      {/* Urgency banner */}
       <UrgencyBanner />
 
-      {/* Social proof strip */}
-      <div className="social-proof-strip">
-        <div className="sp-item sp-item-fire">
-          <span className="sp-icon">🔥</span>
-          <span className="sp-text">120 usuarios compraron monedas hoy</span>
-        </div>
-        <div className="sp-divider" aria-hidden="true" />
-        <div className="sp-item">
-          <span className="sp-icon">⭐</span>
-          <span className="sp-text">Popular ahora</span>
-        </div>
-        <div className="sp-divider" aria-hidden="true" />
-        <div className="sp-item">
-          <span className="sp-icon">👥</span>
-          <span className="sp-text">+2.4k activos esta semana</span>
-        </div>
-      </div>
+      <FuturisticCard className="hero-card" accent="pink" hover={false}>
+        <PremiumSectionHeader
+          align="center"
+          eyebrow="Monetización oficial"
+          title="MYL Coins: acceso directo a experiencias premium"
+          subtitle="Invierte en conexiones reales con una moneda clara, segura y diseñada para regalos, llamadas privadas y contenido exclusivo."
+        />
 
-      {/* Header */}
-      <div className="coins-header">
-        <h1 className="page-title">MYL Coins</h1>
-        <p className="page-subtitle" style={{ maxWidth: 500, marginInline: "auto", textAlign: "center" }}>
-          Usa MYL Coins para enviar regalos exclusivos, acceder a llamadas privadas con creators y desbloquear contenido premium.
-        </p>
-        <div className="balance-row">
-          {balance !== null && (
-            <div className="balance-pill">
-              <span className="balance-icon">🪙</span>
-              <span className="balance-value">{balance}</span>
-              <span className="balance-label">MYL Coins</span>
-            </div>
-          )}
+        <div className="hero-balance-grid">
+          <div className="hero-balance-pill">
+            <span className="hero-pill-icon"><CoinIcon size={16} /></span>
+            <span className="hero-pill-label">Saldo actual</span>
+            <strong className="hero-pill-value">{balance ?? "—"} Coins</strong>
+          </div>
+          <Link href="/wallet" className="hero-balance-pill is-link">
+            <span className="hero-pill-icon"><WalletIcon size={16} /></span>
+            <span className="hero-pill-label">Wallet completa</span>
+            <strong className="hero-pill-value">Ver saldo e historial</strong>
+          </Link>
           {sparks !== null && (
-            <Link href="/sparks" className="balance-pill balance-pill-sparks">
-              <span className="balance-icon">✨</span>
-              <span className="balance-value">{sparks}</span>
-              <span className="balance-label">Sparks</span>
+            <Link href="/sparks" className="hero-balance-pill is-link is-sparks">
+              <span className="hero-pill-icon"><SparkIcon size={16} /></span>
+              <span className="hero-pill-label">Sparks disponibles</span>
+              <strong className="hero-pill-value">{sparks}</strong>
             </Link>
           )}
         </div>
-      </div>
 
-      {error && <div className="banner-error">{error}</div>}
-
-      {/* Packages */}
-      <div className="packages-grid">
-        {PACKAGES.map((pkg) => (
-          <div key={pkg.value} className={`pkg-card${pkg.highlight ? " pkg-highlight" : ""}`}>
-            {pkg.highlight && (
-              <div className="pkg-badge-top">⭐ Más popular</div>
-            )}
-            {pkg.save && !pkg.highlight && (
-              <div className="pkg-save-badge">{pkg.save}</div>
-            )}
-            <div className="pkg-icon">{pkg.icon}</div>
-            <div className="pkg-label">{pkg.label}</div>
-            <div className="pkg-coins">
-              {pkg.coins}
-              <span>MYL Coins</span>
-            </div>
-            <div className="pkg-price">{pkg.price}</div>
-            <div className="pkg-note">{pkg.priceNote}</div>
-            <div className="pkg-desc">{pkg.desc}</div>
-            <button
-              className={`pkg-btn${pkg.highlight ? " pkg-btn-primary" : ""}`}
-              onClick={() => buy(pkg.value)}
-              disabled={loading}
-            >
-              {loading ? (
-                <><span className="spinner" />Redirigiendo…</>
-              ) : pkg.highlight ? "💎 Desbloquear ahora" : "🪙 Comprar ahora"}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Sparks teaser */}
-      <div className="sparks-teaser">
-        <div className="sparks-teaser-icon">✨</div>
-        <div className="sparks-teaser-text">
-          <div className="sparks-teaser-title">¿Sabías que existen los Sparks?</div>
-          <div className="sparks-teaser-desc">
-            Los Sparks son la moneda social de MeetYouLive. Úsalos para boosts de visibilidad, super interests, speed dating y más.
-          </div>
+        <div className="hero-cta-row">
+          <a href="#packages" className="btn btn-primary btn-lg">
+            Comprar coins ahora <ArrowRightIcon size={16} />
+          </a>
+          <Link href="/wallet" className="btn btn-secondary btn-lg">
+            Ver mi wallet <HistoryIcon size={16} />
+          </Link>
         </div>
-        <Link href="/sparks" className="sparks-teaser-btn">Ver Sparks →</Link>
-      </div>
+      </FuturisticCard>
 
-      {/* How it works */}
-      <div className="how-card">
-        <h3 className="how-title">¿Cómo funcionan los MYL Coins?</h3>
-        <div className="how-steps">
-          {[
-            {
-              n: "01",
-              title: "Compra MYL Coins",
-              desc: "Elige el paquete que más te convenga y paga de forma segura con Stripe.",
-              icon: "💳",
-            },
-            {
-              n: "02",
-              title: "Envía regalos exclusivos",
-              desc: "Sorprende a tus creators con Neon Hearts, Golden Rings y más regalos premium.",
-              icon: "🎁",
-            },
-            {
-              n: "03",
-              title: "Accede a experiencias únicas",
-              desc: "Paga llamadas privadas, contenido exclusivo y entradas a salas premium.",
-              icon: "🌟",
-            },
-          ].map((step) => (
-            <div key={step.n} className="how-step">
-              <div className="step-num">{step.n}</div>
-              <div className="step-icon">{step.icon}</div>
+      {error ? <div className="banner-error">{error}</div> : null}
+
+      <section id="packages" className="coin-section">
+        <PremiumSectionHeader
+          eyebrow="Paquetes oficiales"
+          title="Elige tu paquete MYL Coins"
+          subtitle="Todos los pagos se procesan con Stripe y redirección segura."
+        />
+        <div className="packages-grid">
+          {PACKAGES.map((pkg) => (
+            <PurchasePackageCard key={pkg.value} pkg={pkg} onBuy={buy} loading={loading} />
+          ))}
+        </div>
+      </section>
+
+      <FuturisticCard className="trust-card" accent="cyan" hover={false}>
+        <PremiumSectionHeader
+          eyebrow="Valor real"
+          title="¿Qué puedes hacer con tus MYL Coins?"
+          subtitle="Las monedas se convierten en acceso premium dentro de la experiencia en vivo."
+        />
+
+        <div className="uses-grid">
+          {COIN_USES.map((use) => (
+            <div key={use.title} className="use-item">
+              <span className="use-icon">{use.icon}</span>
               <div>
-                <div className="step-title">{step.title}</div>
-                <p className="step-desc">{step.desc}</p>
+                <h3>{use.title}</h3>
+                <p>{use.desc}</p>
               </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Transaction history */}
-      <div className="tx-card">
-        <h3 className="tx-title">Historial de MYL Coins</h3>
-        {txLoading ? (
-          <div className="tx-loading">Cargando historial…</div>
-        ) : transactions.length === 0 ? (
-          <div className="tx-empty">No hay transacciones todavía. ¡Compra tus primeros MYL Coins!</div>
-        ) : (
-          <div className="tx-list">
-            {transactions.map((tx) => {
-              const info = TX_TYPE_LABELS[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
-              const absAmount = Math.abs(tx.amount);
-              const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
-              return (
-                <div key={tx._id} className="tx-row">
-                  <div className="tx-row-left">
-                    <span className="tx-type-badge" style={{ color: info.color }}>{info.label}</span>
-                    <span className="tx-reason">{tx.reason}</span>
-                  </div>
-                  <div className="tx-row-right">
-                    <span className="tx-amount" style={{ color: info.color }}>
-                      {sign}{absAmount} 🪙
-                    </span>
-                    <span className="tx-date">{formatDate(tx.createdAt)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <div className="trust-strip">
+          <NeonBadge tone="green"><ShieldIcon size={12} /> Pago seguro</NeonBadge>
+          <NeonBadge tone="purple"><CardIcon size={12} /> Stripe integrado</NeonBadge>
+          <NeonBadge tone="cyan"><TrendUpIcon size={12} /> Monetización transparente</NeonBadge>
+        </div>
+      </FuturisticCard>
 
-      <p className="back-link">
-        <Link href="/wallet">💼 Ver mi wallet completo</Link>
-        {" · "}
-        <Link href="/dashboard">← Dashboard</Link>
-      </p>
+      <TransactionListCard
+        title="Historial de Coins"
+        subtitle="Seguimiento claro de compras y consumos recientes."
+        items={transactions}
+        loading={txLoading}
+        emptyText="Aún no tienes movimientos. Tu historial aparecerá después de tu primera compra o uso."
+        labels={TX_TYPE_LABELS}
+        symbol="Coins"
+        historyHref="/wallet"
+        actionLabel="Ver wallet completo"
+      />
+
+      <div className="support-actions">
+        <Link href="/wallet" className="support-link">
+          <WalletIcon size={16} /> Ver saldo e historial completo
+        </Link>
+        <Link href="/dashboard" className="support-link support-link-muted">
+          <ArrowRightIcon size={16} /> Volver al dashboard
+        </Link>
+      </div>
 
       <style jsx>{`
         .coins-page {
           display: flex;
           flex-direction: column;
-          gap: 2.5rem;
-          max-width: 900px;
+          gap: 1.25rem;
+          max-width: 980px;
           margin: 0 auto;
         }
-
-        /* Social proof strip */
-        .social-proof-strip {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 1rem;
-          flex-wrap: wrap;
-          padding: 0.65rem 1.25rem;
-          background: rgba(255,45,120,0.05);
-          border: 1px solid rgba(255,45,120,0.15);
-          border-radius: var(--radius-sm);
-        }
-
-        .sp-item {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: var(--text-muted);
-        }
-
-        .sp-item-fire { color: rgba(251,191,36,0.9); }
-
-        .sp-icon { font-size: 0.95rem; }
-
-        .sp-divider {
-          width: 1px;
-          height: 14px;
-          background: rgba(255,255,255,0.1);
-          flex-shrink: 0;
-        }
-
-        .coins-header { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-
-        .balance-row {
-          display: flex;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-          justify-content: center;
-          margin-top: 0.25rem;
-        }
-
-        .balance-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: rgba(251,146,60,0.1);
-          border: 1px solid rgba(251,146,60,0.25);
-          border-radius: var(--radius-pill);
-          padding: 0.45rem 1.25rem;
-          text-decoration: none;
-        }
-
-        .balance-pill-sparks {
-          background: rgba(139,92,246,0.1);
-          border-color: rgba(139,92,246,0.25);
-          transition: background var(--transition), border-color var(--transition);
-        }
-
-        .balance-pill-sparks:hover {
-          background: rgba(139,92,246,0.2);
-          border-color: rgba(139,92,246,0.5);
-        }
-
-        .balance-icon { font-size: 1rem; }
-
-        .balance-value {
-          font-size: 1.15rem;
-          font-weight: 800;
-          color: var(--accent-orange);
-        }
-
-        .balance-pill-sparks .balance-value { color: var(--accent-3); }
-
-        .balance-label {
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          font-weight: 500;
-        }
-
-        /* Sparks teaser */
-        .sparks-teaser {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1.25rem 1.5rem;
-          background: rgba(139,92,246,0.08);
-          border: 1px solid rgba(139,92,246,0.2);
-          border-radius: var(--radius);
-        }
-
-        .sparks-teaser-icon { font-size: 2rem; flex-shrink: 0; }
-
-        .sparks-teaser-text { flex: 1; min-width: 0; }
-
-        .sparks-teaser-title { font-weight: 700; color: var(--text); font-size: 0.95rem; }
-
-        .sparks-teaser-desc { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.45; }
-
-        .sparks-teaser-btn {
-          flex-shrink: 0;
-          padding: 0.55rem 1.25rem;
-          background: rgba(139,92,246,0.15);
-          border: 1px solid rgba(139,92,246,0.35);
-          border-radius: var(--radius-sm);
-          color: var(--accent-3);
-          font-size: 0.85rem;
-          font-weight: 700;
-          text-decoration: none;
-          transition: all var(--transition);
-          white-space: nowrap;
-        }
-
-        .sparks-teaser-btn:hover {
-          background: rgba(139,92,246,0.25);
-          border-color: rgba(139,92,246,0.6);
-        }
-
-        /* Banner */
-        .banner-error {
-          background: var(--error-bg);
-          border: 1px solid rgba(248,113,113,0.35);
-          color: var(--error);
-          border-radius: var(--radius-sm);
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        /* Packages */
-        .packages-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1.25rem;
-          align-items: start;
-        }
-
-        .pkg-card {
+        .hero-card {
+          padding: 1.2rem;
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 0.65rem;
-          padding: 2.25rem 1.5rem 1.75rem;
-          text-align: center;
-          position: relative;
-          border-radius: var(--radius);
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          transition: transform var(--transition-slow), box-shadow var(--transition-slow), border-color var(--transition);
+          gap: 1rem;
         }
-
-        .pkg-card:hover {
-          transform: translateY(-4px);
-          box-shadow: var(--shadow);
-          border-color: rgba(139,92,246,0.35);
+        .hero-balance-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.75rem;
         }
-
-        .pkg-highlight {
-          background: linear-gradient(var(--bg-3), var(--bg-3)) padding-box,
-                      var(--grad-primary) border-box;
-          border: 1px solid transparent;
-          box-shadow: var(--shadow), 0 0 40px rgba(224,64,251,0.2);
-        }
-
-        .pkg-highlight:hover {
-          box-shadow: var(--shadow), 0 0 60px rgba(224,64,251,0.3);
-          transform: translateY(-6px);
-        }
-
-        .pkg-badge-top {
-          position: absolute;
-          top: -14px;
-          background: var(--grad-primary);
-          color: #fff;
-          font-size: 0.72rem;
-          font-weight: 800;
-          padding: 0.22rem 0.85rem;
-          border-radius: var(--radius-pill);
-          letter-spacing: 0.02em;
-          box-shadow: 0 4px 16px rgba(224,64,251,0.4);
-        }
-
-        .pkg-save-badge {
-          position: absolute;
-          top: -12px;
-          right: 1rem;
-          background: rgba(52,211,153,0.15);
-          color: var(--accent-green);
-          border: 1px solid rgba(52,211,153,0.3);
-          font-size: 0.68rem;
-          font-weight: 800;
-          padding: 0.18rem 0.65rem;
-          border-radius: var(--radius-pill);
-        }
-
-        .pkg-icon { font-size: 2.75rem; }
-
-        .pkg-label {
-          font-size: 0.72rem;
-          font-weight: 800;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-        }
-
-        .pkg-coins {
-          font-size: 2rem;
-          font-weight: 800;
-          color: var(--text);
-          line-height: 1;
+        .hero-balance-pill {
           display: flex;
-          align-items: baseline;
-          gap: 0.4rem;
+          flex-direction: column;
+          gap: 0.3rem;
+          padding: 0.85rem 0.9rem;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,0.24);
+          background: rgba(255,255,255,0.03);
+          text-decoration: none;
         }
-
-        .pkg-coins span {
-          font-size: 0.8rem;
-          font-weight: 500;
-          color: var(--text-muted);
+        .hero-balance-pill.is-link {
+          transition: border-color var(--transition), background var(--transition), transform var(--transition);
         }
-
-        .pkg-price {
-          font-size: 1.5rem;
-          font-weight: 800;
-          background: var(--grad-primary);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .pkg-note {
-          font-size: 0.72rem;
-          color: var(--text-dim);
-          margin-top: -0.4rem;
-        }
-
-        .pkg-desc {
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          line-height: 1.4;
-          min-height: 2.5em;
-        }
-
-        .pkg-btn {
-          width: 100%;
-          padding: 0.8rem;
-          border-radius: var(--radius-sm);
-          font-size: 0.9rem;
-          font-weight: 700;
-          border: 1px solid rgba(139,92,246,0.25);
-          background: rgba(139,92,246,0.1);
-          color: var(--text);
-          cursor: pointer;
-          transition: all var(--transition);
-          font-family: inherit;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-        }
-
-        .pkg-btn:hover:not(:disabled) {
-          background: rgba(139,92,246,0.2);
-          border-color: rgba(139,92,246,0.5);
-        }
-
-        .pkg-btn-primary {
-          background: var(--grad-primary);
-          border-color: transparent;
-          color: #fff;
-          box-shadow: var(--shadow-accent);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .pkg-btn-primary::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.15) 55%, transparent 70%);
-          transform: translateX(-100%);
-          transition: transform 0.5s ease;
-        }
-
-        .pkg-btn-primary:hover:not(:disabled)::before { transform: translateX(100%); }
-
-        .pkg-btn-primary:hover:not(:disabled) {
-          filter: brightness(1.1);
-          box-shadow: var(--glow-pink), var(--shadow-accent);
+        .hero-balance-pill.is-link:hover {
+          border-color: rgba(224,64,251,0.38);
+          background: rgba(224,64,251,0.1);
           transform: translateY(-1px);
         }
-
-        .pkg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .spinner {
-          width: 15px; height: 15px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
+        .hero-balance-pill.is-sparks:hover {
+          border-color: rgba(124,58,237,0.44);
+          background: rgba(124,58,237,0.11);
         }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* How it works */
-        .how-card {
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 2rem 2.25rem;
-        }
-
-        .how-title {
-          font-size: 1.05rem;
-          font-weight: 800;
-          color: var(--text);
-          margin-bottom: 1.5rem;
-          letter-spacing: -0.02em;
-        }
-
-        .how-steps { display: flex; flex-direction: column; gap: 1.25rem; }
-
-        .how-step {
-          display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-        }
-
-        .step-num {
-          font-size: 0.65rem;
-          font-weight: 800;
-          color: var(--text-dim);
-          letter-spacing: 0.08em;
-          width: 32px;
-          flex-shrink: 0;
-          padding-top: 0.15rem;
-        }
-
-        .step-icon { font-size: 1.5rem; flex-shrink: 0; }
-
-        .step-title { font-weight: 700; color: var(--text); font-size: 0.9rem; }
-        .step-desc { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; line-height: 1.45; }
-
-        /* Transaction history */
-        .tx-card {
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 2rem 2.25rem;
-        }
-
-        .tx-title {
-          font-size: 1.05rem;
-          font-weight: 800;
-          color: var(--text);
-          margin-bottom: 1.25rem;
-          letter-spacing: -0.02em;
-        }
-
-        .tx-loading, .tx-empty {
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          text-align: center;
-          padding: 1.5rem 0;
-        }
-
-        .tx-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .tx-row {
-          display: flex;
+        .hero-pill-icon {
+          width: 1.8rem;
+          height: 1.8rem;
+          border-radius: 12px;
+          display: inline-flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-sm);
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
-          transition: background var(--transition);
+          justify-content: center;
+          color: #f5d0fe;
+          border: 1px solid rgba(224,64,251,0.42);
+          background: rgba(224,64,251,0.14);
         }
-
-        .tx-row:hover { background: rgba(255,255,255,0.05); }
-
-        .tx-row-left {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-        }
-
-        .tx-type-badge {
-          font-size: 0.8rem;
-          font-weight: 700;
-        }
-
-        .tx-reason {
-          font-size: 0.75rem;
-          color: var(--text-dim);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 320px;
-        }
-
-        .tx-row-right {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 0.15rem;
-          flex-shrink: 0;
-        }
-
-        .tx-amount {
-          font-size: 0.9rem;
-          font-weight: 700;
-        }
-
-        .tx-date {
+        .hero-pill-label {
           font-size: 0.72rem;
-          color: var(--text-dim);
+          color: var(--text-muted);
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
         }
-
-        .back-link {
-          text-align: center;
-          font-size: 0.875rem;
+        .hero-pill-value {
+          font-size: 0.92rem;
+          color: #fff;
+          font-weight: 700;
+        }
+        .hero-cta-row {
+          display: flex;
+          gap: 0.65rem;
+          flex-wrap: wrap;
+        }
+        .coin-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.9rem;
+        }
+        .packages-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.85rem;
+        }
+        .trust-card {
+          padding: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .uses-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.72rem;
+        }
+        .use-item {
+          display: flex;
+          gap: 0.62rem;
+          padding: 0.85rem;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,0.2);
+          background: rgba(255,255,255,0.03);
+        }
+        .use-icon {
+          width: 1.95rem;
+          height: 1.95rem;
+          flex-shrink: 0;
+          border-radius: 12px;
+          border: 1px solid rgba(34,211,238,0.35);
+          background: rgba(34,211,238,0.12);
+          color: #a5f3fc;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .use-item h3 {
+          margin: 0;
+          font-size: 0.87rem;
+          font-weight: 700;
+          color: #fff;
+        }
+        .use-item p {
+          margin: 0.24rem 0 0;
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          line-height: 1.45;
+        }
+        .trust-strip {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .support-actions {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.62rem;
+        }
+        .support-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.48rem;
+          padding: 0.75rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid rgba(224,64,251,0.34);
+          background: rgba(224,64,251,0.12);
+          color: #f5d0fe;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: border-color var(--transition), background var(--transition), transform var(--transition);
+        }
+        .support-link:hover {
+          transform: translateY(-1px);
+          border-color: rgba(224,64,251,0.56);
+          background: rgba(224,64,251,0.2);
+        }
+        .support-link-muted {
+          border-color: rgba(148,163,184,0.28);
+          background: rgba(255,255,255,0.04);
           color: var(--text-muted);
         }
-
-        .back-link :global(a) {
-          color: var(--accent-3);
-          font-weight: 600;
-          transition: color var(--transition);
+        .support-link-muted:hover {
+          border-color: rgba(148,163,184,0.42);
+          color: #e2e8f0;
         }
-
-        .back-link :global(a):hover { color: var(--accent-2); }
-
-        @media (max-width: 768px) {
-          .packages-grid { grid-template-columns: repeat(2, 1fr); }
-          .sparks-teaser { flex-direction: column; text-align: center; }
+        @media (max-width: 960px) {
+          .hero-balance-grid,
+          .packages-grid,
+          .uses-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
-
-        @media (max-width: 480px) {
-          .packages-grid { grid-template-columns: 1fr; }
-          .how-card, .tx-card { padding: 1.5rem; }
+        @media (max-width: 640px) {
+          .hero-card,
+          .trust-card {
+            padding: 1rem;
+          }
+          .hero-balance-grid,
+          .packages-grid,
+          .uses-grid,
+          .support-actions {
+            grid-template-columns: 1fr;
+          }
+          .hero-cta-row {
+            flex-direction: column;
+          }
+          .hero-cta-row :global(.btn) {
+            width: 100%;
+          }
         }
       `}</style>
     </div>

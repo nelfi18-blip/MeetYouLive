@@ -105,7 +105,7 @@ export default function Navbar() {
               className="navbar-logo-img"
               priority
             />
-            <span className="navbar-logo-text">Meet You<span className="logo-accent">Live</span></span>
+            <span className="navbar-logo-text">MeetYou<span className="logo-accent">Live</span></span>
           </Link>
         </div>
 

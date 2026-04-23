@@ -239,7 +239,7 @@ function LoginForm() {
             className="logo-img"
           />
           <div className="login-logo-text">
-            Meet You<span className="logo-live">Live</span>
+            MeetYou<span className="logo-live">Live</span>
           </div>
         </div>
 
@@ -455,7 +455,7 @@ function LoginForm() {
           />
           <span className="login-kicker">Acceso seguro</span>
           <div className="login-logo-text">
-            Meet You<span className="logo-live">Live</span>
+            MeetYou<span className="logo-live">Live</span>
           </div>
         </div>
 

@@ -135,7 +135,9 @@ export default function CreatorPage() {
 
   const statusConfig = getStatusConfig(isCreator, creatorStatus);
   const displayName = user?.creatorProfile?.displayName || user?.username || user?.name || "Creador";
+  const avatar = user?.avatar || null;
   const creatorLevel = dashboard?.creatorLevel || null;
+  const activeLive = dashboard?.activeLive || null;
   const earningsHighlight = formatCoins(
     isApproved
       ? dashboard?.totalEarnedLifetime ?? earnings?.totalEarnedLifetime ?? user?.earningsCoins
@@ -154,9 +156,19 @@ export default function CreatorPage() {
 
     const cards = [
       {
+        key: "available",
+        label: "Disponible para retiro",
+        value: formatCoins(availableForPayout),
+        unit: "monedas",
+        icon: <WalletIcon size={14} />,
+        accent: "green",
+        helper: "Balance listo para solicitar retiro.",
+      },
+      {
         key: "total",
         label: "Total generado",
         value: formatCoins(dashboard?.totalEarnedLifetime ?? earnings?.totalEarnedLifetime ?? 0),
+        unit: "monedas",
         icon: <CoinIcon size={14} />,
         accent: "purple",
         helper: "Ingresos acumulados de tu actividad monetizada.",
@@ -165,6 +177,7 @@ export default function CreatorPage() {
         key: "pending",
         label: "Pendiente de retiro",
         value: formatCoins(dashboard?.pendingPayoutCoins ?? earnings?.pendingPayoutCoins ?? 0),
+        unit: "monedas",
         icon: <WalletIcon size={14} />,
         accent: "cyan",
         helper: "Fondos en proceso de pago.",
@@ -173,27 +186,29 @@ export default function CreatorPage() {
         key: "withdrawn",
         label: "Retirado",
         value: formatCoins(dashboard?.withdrawnCoins ?? earnings?.withdrawnCoins ?? 0),
+        unit: "monedas",
         icon: <CardIcon size={14} />,
-        accent: "green",
+        accent: "pink",
       },
       {
         key: "gifts",
         label: "Regalos recibidos",
         value: formatCoins(dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
         icon: <GiftIcon size={14} />,
-        accent: "pink",
+        accent: "orange",
       },
       {
         key: "calls",
-        label: "Actividad premium",
+        label: "Ganancias por llamadas",
         value: formatCoins(dashboard?.totalCallEarnings ?? 0),
+        unit: "monedas",
         icon: <ActivityIcon size={14} />,
-        accent: "orange",
+        accent: "cyan",
         helper: "Ganancias por llamadas privadas.",
       },
       {
         key: "lives",
-        label: "Actividad en vivo",
+        label: "Directos realizados",
         value: formatCoins(dashboard?.totalLives ?? 0),
         icon: <VideoIcon size={14} />,
         accent: "purple",
@@ -202,7 +217,7 @@ export default function CreatorPage() {
     ];
 
     return cards;
-  }, [dashboard, earnings, isApproved]);
+  }, [dashboard, earnings, isApproved, availableForPayout]);
 
   const handleRequestPayout = async () => {
     const token = localStorage.getItem("token");
@@ -298,10 +313,13 @@ export default function CreatorPage() {
     <div className="creator-pro-page">
       <CreatorHeroCard
         displayName={displayName}
+        avatar={avatar}
         status={creatorStatus}
         statusCopy={{ title: statusConfig.title, subtitle: statusConfig.subtitle }}
         creatorLevel={creatorLevel}
         earningsHighlight={earningsHighlight}
+        availableForPayout={isApproved ? availableForPayout : null}
+        activeLive={activeLive}
         cta={statusConfig.cta}
       />
 
@@ -339,6 +357,7 @@ export default function CreatorPage() {
                   key={item.key}
                   label={item.label}
                   value={item.value}
+                  unit={item.unit}
                   icon={item.icon}
                   helper={item.helper}
                   accent={item.accent}
@@ -429,7 +448,7 @@ export default function CreatorPage() {
         .stats-grid {
           margin-top: 0.74rem;
           display: grid;
-          grid-template-columns: repeat(1, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.62rem;
         }
         .quick-actions-card,
@@ -446,12 +465,12 @@ export default function CreatorPage() {
         }
         @media (min-width: 760px) {
           .stats-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
         @media (min-width: 1100px) {
           .stats-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
       `}</style>

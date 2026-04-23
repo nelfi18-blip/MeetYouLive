@@ -11,7 +11,7 @@ function SuccessContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id") || searchParams.get("token");
+  const paymentReference = searchParams.get("session_id") || searchParams.get("token");
   const [balance, setBalance] = useState(null);
 
   const getBackendToken = () => {
@@ -33,7 +33,8 @@ function SuccessContent() {
             const nextBalance = Number.isFinite(balanceData?.coins) ? balanceData.coins : null;
             if (!cancelled) setBalance(nextBalance);
           }
-        } catch {
+        } catch (error) {
+          console.warn("[payment/success] coin balance refetch failed", error);
           // Continue to dashboard even if refetch fails.
         }
       }
@@ -45,7 +46,7 @@ function SuccessContent() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [router, session?.backendToken]);
+  }, [router, session?.backendToken, paymentReference]);
 
   return (
     <div className="status-page">
@@ -60,9 +61,9 @@ function SuccessContent() {
         </p>
       )}
 
-      {sessionId && (
+      {paymentReference && (
         <p className="session-ref">
-          Referencia: <code>{sessionId.slice(0, 20)}…</code>
+          Referencia: <code>{paymentReference.slice(0, 20)}…</code>
         </p>
       )}
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
+import { isApprovedCreator as checkIsApprovedCreator } from "@/lib/creatorUtils";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
 import DailyMissions from "@/components/DailyMissions";
 import OnlineUsers from "@/components/OnlineUsers";
@@ -349,7 +350,7 @@ export default function DashboardPage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") return;
+    if (!checkIsApprovedCreator(user)) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     setDashLoading(true);
@@ -363,7 +364,7 @@ export default function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") return;
+    if (!checkIsApprovedCreator(user)) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     fetch(`${API_URL}/api/rankings/my-stats`, {
@@ -447,7 +448,7 @@ export default function DashboardPage() {
   const isCreator = user?.role === "creator";
   const creatorStatus = user?.creatorStatus || "none";
 
-  const isApprovedCreator = isCreator && creatorStatus === "approved";
+  const isApprovedCreator = checkIsApprovedCreator(user);
   const isSuspended = creatorStatus === "suspended";
   const loginCount = Number(user?.loginCount || 0);
   const behaviorSegment =

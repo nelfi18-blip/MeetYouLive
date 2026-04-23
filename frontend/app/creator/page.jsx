@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import CreatorHeroCard from "@/components/creator/CreatorHeroCard";
@@ -112,8 +113,7 @@ export default function CreatorPage() {
         const userData = await res.json();
         setUser(userData);
 
-        const isApprovedCreator = userData?.role === "creator" && userData?.creatorStatus === "approved";
-        if (!isApprovedCreator) return null;
+        if (!isApprovedCreator(userData)) return null;
 
         const [dashboardRes, earningsRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
@@ -131,7 +131,7 @@ export default function CreatorPage() {
 
   const creatorStatus = user?.role === "creator" ? user?.creatorStatus || "none" : "none";
   const isCreator = user?.role === "creator";
-  const isApproved = isCreator && creatorStatus === "approved";
+  const isApproved = isApprovedCreator(user);
 
   const statusConfig = getStatusConfig(isCreator, creatorStatus);
   const displayName = user?.creatorProfile?.displayName || user?.username || user?.name || "Creador";

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -84,7 +85,7 @@ export default function Navbar() {
   const displayRole =
     effectiveRole === "admin"
       ? t("role.admin")
-      : effectiveRole === "creator"
+      : isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })
       ? "Creador"
       : effectiveCreatorStatus === "pending"
       ? "Creador (pendiente)"

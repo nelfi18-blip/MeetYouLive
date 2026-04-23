@@ -3,9 +3,9 @@
 import Image from "next/image";
 
 const SIZE_MAP = {
-  sm: { icon: 34, text: "1rem" },
-  md: { icon: 44, text: "1.22rem" },
-  lg: { icon: 58, text: "1.52rem" },
+  sm: { icon: 34, iconH: 24, text: "1rem" },
+  md: { icon: 44, iconH: 31, text: "1.22rem" },
+  lg: { icon: 58, iconH: 40, text: "1.52rem" },
 };
 
 export default function Logo({ size = "md" }) {
@@ -17,7 +17,7 @@ export default function Logo({ size = "md" }) {
         src="/logo.svg"
         alt="MeetYouLive"
         width={selected.icon}
-        height={selected.icon}
+        height={selected.iconH}
         className="logo-icon"
         priority
       />

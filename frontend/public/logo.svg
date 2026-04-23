@@ -40,10 +40,10 @@
       <stop offset="100%" stop-color="#00ffee" stop-opacity="0.95"/>
     </linearGradient>
 
-    <!-- Heart ring neon glow: wide halo + tight inner + source -->
-    <filter id="hglow" x="-45%" y="-45%" width="190%" height="190%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6"   result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
+    <!-- Heart ring neon glow: soft halo + tight inner + source (tuned for thin 2.5px stroke) -->
+    <filter id="hglow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3"   result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b2"/>
       <feMerge>
         <feMergeNode in="b1"/>
         <feMergeNode in="b2"/>
@@ -111,7 +111,7 @@
            C 59,25 64,21 68,30
            C 72,21 77,25 81,35
            C 91,44 87,57 68,70 Z"
-        fill="none" stroke="url(#heartGR)" stroke-width="7.5" stroke-linejoin="round"
+        fill="none" stroke="url(#heartGR)" stroke-width="2.5" stroke-linejoin="round"
         filter="url(#hglow)"/>
 
   <!-- Layer 2 — left heart ring (full; left in front at upper crossing) -->
@@ -120,21 +120,19 @@
            C 33,25 38,21 42,30
            C 46,21 51,25 55,35
            C 65,44 61,57 42,70 Z"
-        fill="none" stroke="url(#heartGL)" stroke-width="7.5" stroke-linejoin="round"
+        fill="none" stroke="url(#heartGL)" stroke-width="2.5" stroke-linejoin="round"
         filter="url(#hglow)"/>
 
   <!--
     Layer 3a — erase left heart's right arm near lower crossing (55,58).
-    Colour #180036 matches the badge background at that point
-    (radialGradient bgG evaluated at distance ≈ 18 px from gradient centre).
-    Stroke-width 13 > heart stroke 7.5 to fully cover it.
+    stroke-width 5 = 2× the heart stroke to fully cover.
   -->
   <path d="M 60,51 C 59,54 57,57 52,64"
-        fill="none" stroke="#180036" stroke-width="13" stroke-linecap="round"/>
+        fill="none" stroke="#180036" stroke-width="5" stroke-linecap="round"/>
 
   <!-- Layer 3b — redraw right heart left arm from tip to lower crossing (right in front) -->
   <path d="M 68,70 C 62,66 58,62 55,58"
-        fill="none" stroke="url(#heartGR)" stroke-width="7.5" stroke-linecap="round"
+        fill="none" stroke="url(#heartGR)" stroke-width="2.5" stroke-linecap="round"
         filter="url(#hglow)"/>
 
   <!-- ④ FRONT ORBIT ARC (in front of hearts) -->

@@ -3,6 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import FuturisticCard from "@/components/ui/FuturisticCard";
+import FuturisticBalanceCard from "@/components/ui/FuturisticBalanceCard";
+import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
+import TransactionListCard from "@/components/ui/TransactionListCard";
+import NeonBadge from "@/components/ui/NeonBadge";
+import {
+  ActivityIcon,
+  AlertIcon,
+  ArrowRightIcon,
+  CheckCircleIcon,
+  CoinIcon,
+  EmptyStateIcon,
+  HistoryIcon,
+  SparkIcon,
+  VideoIcon,
+  WalletIcon,
+} from "@/components/ui/MonetizationIcons";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -22,37 +39,37 @@ function timeLeft(iso) {
 }
 
 const PASS_INFO = {
-  backstage_pass: { name: "Backstage Pass", icon: "🎭" },
-  vip_live_pass: { name: "VIP Live Pass", icon: "👑" },
-  private_date: { name: "Private Date", icon: "🌹" },
-  inner_circle: { name: "Inner Circle", icon: "✨" },
+  backstage_pass: "Backstage Pass",
+  vip_live_pass: "VIP Live Pass",
+  private_date: "Private Date",
+  inner_circle: "Inner Circle",
 };
 
 const COIN_TX_LABELS = {
-  purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
-  gift_sent: { label: "Regalo enviado", color: "var(--error)", sign: "-" },
-  gift_received: { label: "Regalo recibido", color: "var(--accent-green)", sign: "+" },
-  private_call: { label: "Llamada privada", color: "var(--error)", sign: "-" },
-  call_started: { label: "Llamada iniciada", color: "var(--error)", sign: "-" },
-  call_earned: { label: "Llamada recibida", color: "var(--accent-green)", sign: "+" },
-  room_entry: { label: "Entrada a sala", color: "var(--error)", sign: "-" },
-  content_unlock: { label: "Contenido desbloqueado", color: "var(--error)", sign: "-" },
-  content_earned: { label: "Contenido exclusivo", color: "var(--accent-green)", sign: "+" },
-  refund: { label: "Reembolso", color: "var(--accent-green)", sign: "+" },
-  daily_reward: { label: "Recompensa diaria", color: "var(--accent-green)", sign: "+" },
-  referral_reward: { label: "Recompensa referido", color: "var(--accent-green)", sign: "+" },
-  agency_earned: { label: "Comisión agencia", color: "var(--accent-green)", sign: "+" },
-  admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
+  purchase: { label: "Compra", tone: "green" },
+  gift_sent: { label: "Regalo enviado", tone: "pink" },
+  gift_received: { label: "Regalo recibido", tone: "green" },
+  private_call: { label: "Llamada privada", tone: "pink" },
+  call_started: { label: "Llamada iniciada", tone: "pink" },
+  call_earned: { label: "Llamada recibida", tone: "green" },
+  room_entry: { label: "Entrada a sala", tone: "purple" },
+  content_unlock: { label: "Contenido desbloqueado", tone: "purple" },
+  content_earned: { label: "Contenido exclusivo", tone: "green" },
+  refund: { label: "Reembolso", tone: "green" },
+  daily_reward: { label: "Recompensa diaria", tone: "cyan" },
+  referral_reward: { label: "Recompensa referido", tone: "cyan" },
+  agency_earned: { label: "Comisión agencia", tone: "green" },
+  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
 };
 
 const SPARK_TX_LABELS = {
-  purchase: { label: "Compra", color: "var(--accent-green)", sign: "+" },
-  boost_used: { label: "Boost activado", color: "var(--error)", sign: "-" },
-  pass_purchase: { label: "Pase adquirido", color: "var(--error)", sign: "-" },
-  match_boost: { label: "Match boost", color: "var(--error)", sign: "-" },
-  speed_dating: { label: "Speed dating", color: "var(--error)", sign: "-" },
-  room_entry: { label: "Entrada a sala", color: "var(--error)", sign: "-" },
-  admin_adjustment: { label: "Ajuste admin", color: "var(--text-muted)", sign: "" },
+  purchase: { label: "Compra", tone: "green" },
+  boost_used: { label: "Boost activado", tone: "pink" },
+  pass_purchase: { label: "Pase adquirido", tone: "purple" },
+  match_boost: { label: "Match boost", tone: "purple" },
+  speed_dating: { label: "Speed dating", tone: "purple" },
+  room_entry: { label: "Entrada a sala", tone: "pink" },
+  admin_adjustment: { label: "Ajuste admin", tone: "purple" },
 };
 
 export default function WalletPage() {
@@ -64,457 +81,404 @@ export default function WalletPage() {
   const [recentCoinTx, setRecentCoinTx] = useState([]);
   const [recentSparkTx, setRecentSparkTx] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const token = localToken || session?.backendToken || null;
-    if (!token) { setLoading(false); return; }
+
+    if (!token) {
+      setLoading(false);
+      setError("Inicia sesión para ver tu wallet.");
+      return;
+    }
+
     const headers = { Authorization: `Bearer ${token}` };
 
     Promise.all([
-      fetch(`${API_URL}/api/user/coins`, { headers }).then((r) => r.ok ? r.json() : null),
-      fetch(`${API_URL}/api/coins/transactions?limit=5`, { headers }).then((r) => r.ok ? r.json() : null),
-      fetch(`${API_URL}/api/sparks/transactions?limit=5`, { headers }).then((r) => r.ok ? r.json() : null),
-      fetch(`${API_URL}/api/passes/my`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${API_URL}/api/user/coins`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_URL}/api/coins/transactions?limit=5`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_URL}/api/sparks/transactions?limit=5`, { headers }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_URL}/api/passes/my`, { headers }).then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([balanceData, coinTxData, sparkTxData, passesData]) => {
         if (balanceData) {
           setCoins(balanceData.coins ?? 0);
           setSparks(balanceData.sparks ?? 0);
           setEarningsCoins(balanceData.earningsCoins ?? 0);
+          setError("");
+        } else {
+          setError("No pudimos cargar tu saldo en este momento.");
         }
         if (coinTxData) setRecentCoinTx(coinTxData.transactions || []);
         if (sparkTxData) setRecentSparkTx(sparkTxData.transactions || []);
         if (passesData) {
-          setActivePasses(passesData.filter(
-            (p) => p.status === "active" && new Date(p.expiresAt) > new Date()
-          ));
+          setActivePasses(
+            passesData.filter((p) => p.status === "active" && new Date(p.expiresAt) > new Date())
+          );
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setError("No fue posible conectar con el servidor. Inténtalo de nuevo.");
+      })
       .finally(() => setLoading(false));
   }, [session?.backendToken]);
 
   if (loading) {
     return (
-      <div className="wallet-loading">
+      <div className="wallet-loading" role="status" aria-live="polite">
         <span className="spinner" />
-        <span>Cargando tu wallet…</span>
+        <span>Sincronizando tu wallet premium…</span>
+        <style jsx>{`
+          .wallet-loading {
+            min-height: 45vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.7rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+          }
+          .spinner {
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            border: 2px solid rgba(196,181,253,0.22);
+            border-top-color: #c4b5fd;
+            animation: spin 0.7s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
     <div className="wallet-page">
-      {/* Header */}
-      <div className="wallet-header">
-        <h1 className="page-title">💼 Mi Wallet</h1>
-        <p className="page-subtitle" style={{ textAlign: "center", maxWidth: 480, marginInline: "auto" }}>
-          Gestiona tus MYL Coins, Sparks y Access Passes desde un solo lugar.
-        </p>
-      </div>
-
-      {/* Balance cards */}
-      <div className="balance-grid">
-        <div className="balance-card balance-coins">
-          <div className="bc-header">
-            <span className="bc-icon">🪙</span>
-            <span className="bc-label">MYL Coins</span>
-          </div>
-          <div className="bc-amount">{coins ?? "—"}</div>
-          <div className="bc-desc">Para regalos, llamadas privadas y contenido exclusivo</div>
-          <Link href="/coins" className="bc-action">Comprar Coins →</Link>
-        </div>
-
-        <div className="balance-card balance-sparks">
-          <div className="bc-header">
-            <span className="bc-icon">✨</span>
-            <span className="bc-label">Sparks</span>
-          </div>
-          <div className="bc-amount">{sparks ?? "—"}</div>
-          <div className="bc-desc">Para boosts sociales, speed dating y access passes</div>
-          <Link href="/sparks" className="bc-action">Comprar Sparks →</Link>
-        </div>
-
-        {earningsCoins !== null && earningsCoins > 0 && (
-          <div className="balance-card balance-earnings">
-            <div className="bc-header">
-              <span className="bc-icon">💰</span>
-              <span className="bc-label">Ganancias (creator)</span>
+      <FuturisticCard className="wallet-hero" accent="purple" hover={false}>
+        <PremiumSectionHeader
+          eyebrow="Mi Wallet"
+          title="Control total de tus monedas y actividad"
+          subtitle="Gestiona saldo, compras y movimientos con una vista clara de tu valor dentro de MeetYouLive."
+          action={
+            <div className="hero-actions">
+              <Link href="/coins" className="btn btn-primary btn-sm">Comprar más</Link>
+              <Link href="/coins" className="btn btn-secondary btn-sm">Ver historial</Link>
             </div>
-            <div className="bc-amount">{earningsCoins}</div>
-            <div className="bc-desc">Coins ganados por regalos, llamadas y contenido exclusivo</div>
-          </div>
-        )}
-      </div>
+          }
+        />
 
-      {/* Active passes */}
-      <div className="section-card">
-        <div className="section-header">
-          <h3 className="section-title">🎭 Access Passes Activos</h3>
-          <Link href="/passes" className="section-link">Ver todos →</Link>
+        <div className="balance-grid">
+          <FuturisticBalanceCard
+            title="MYL Coins"
+            value={coins ?? "—"}
+            icon={<CoinIcon size={16} />}
+            tone="orange"
+            description="Saldo para regalos, llamadas privadas y desbloqueos premium."
+            action={<Link href="/coins" className="cta-link">Usar mis monedas <ArrowRightIcon size={14} /></Link>}
+          />
+          <FuturisticBalanceCard
+            title="Sparks"
+            value={sparks ?? "—"}
+            icon={<SparkIcon size={16} />}
+            tone="purple"
+            description="Moneda social para boosts, pases y visibilidad adicional."
+            action={<Link href="/sparks" className="cta-link">Comprar Sparks <ArrowRightIcon size={14} /></Link>}
+          />
+          {earningsCoins !== null && earningsCoins > 0 ? (
+            <FuturisticBalanceCard
+              title="Ganancias creator"
+              value={earningsCoins}
+              icon={<ActivityIcon size={16} />}
+              tone="green"
+              description="Coins obtenidos por regalos, llamadas y contenido exclusivo."
+            />
+          ) : null}
         </div>
+      </FuturisticCard>
+
+      {error ? (
+        <FuturisticCard className="wallet-banner" accent="pink" hover={false}>
+          <div className="banner-content">
+            <span className="banner-icon"><AlertIcon size={15} /></span>
+            <span>{error}</span>
+          </div>
+        </FuturisticCard>
+      ) : null}
+
+      <FuturisticCard className="passes-card" accent="cyan" hover={false}>
+        <PremiumSectionHeader
+          title="Access Passes activos"
+          subtitle="Tus accesos premium disponibles ahora mismo."
+          action={<Link href="/passes" className="section-link">Ver todos →</Link>}
+        />
+
         {activePasses.length === 0 ? (
-          <div className="empty-state">
-            No tienes pases activos.{" "}
-            <Link href="/passes" className="inline-link">Explorar pases →</Link>
+          <div className="empty-line">
+            <span className="empty-icon"><EmptyStateIcon size={15} /></span>
+            <span>No tienes pases activos por ahora.</span>
+            <Link href="/passes" className="inline-action">Explorar pases</Link>
           </div>
         ) : (
-          <div className="passes-list">
+          <div className="pass-list">
             {activePasses.map((pass) => {
-              const info = PASS_INFO[pass.type] || { name: pass.type, icon: "🎫" };
+              const name = PASS_INFO[pass.type] || pass.type;
               return (
                 <div key={pass._id} className="pass-row">
-                  <span className="pass-row-icon">{info.icon}</span>
-                  <div className="pass-row-info">
-                    <div className="pass-row-name">{info.name}</div>
-                    <div className="pass-row-expires">Expira en {timeLeft(pass.expiresAt)}</div>
+                  <div className="pass-main">
+                    <span className="pass-icon"><VideoIcon size={15} /></span>
+                    <div>
+                      <strong>{name}</strong>
+                      <p>Expira en {timeLeft(pass.expiresAt)} · {formatDate(pass.expiresAt)}</p>
+                    </div>
                   </div>
-                  <div className="pass-row-status">✅ Activo</div>
+                  <NeonBadge tone="green"><CheckCircleIcon size={11} /> Activo</NeonBadge>
                 </div>
               );
             })}
           </div>
         )}
+      </FuturisticCard>
+
+      <div className="tx-grid">
+        <TransactionListCard
+          title="Últimos movimientos de Coins"
+          subtitle="Entradas y consumos recientes."
+          items={recentCoinTx}
+          loading={false}
+          emptyText="Todavía no hay transacciones de coins."
+          labels={COIN_TX_LABELS}
+          symbol="Coins"
+          historyHref="/coins"
+          actionLabel="Ir a Coins"
+        />
+
+        <TransactionListCard
+          title="Últimos movimientos de Sparks"
+          subtitle="Actividad social y compras recientes."
+          items={recentSparkTx}
+          loading={false}
+          emptyText="Todavía no hay transacciones de sparks."
+          labels={SPARK_TX_LABELS}
+          symbol="Sparks"
+          historyHref="/sparks"
+          actionLabel="Ir a Sparks"
+        />
       </div>
 
-      {/* Recent coin transactions */}
-      <div className="section-card">
-        <div className="section-header">
-          <h3 className="section-title">🪙 Últimas transacciones de Coins</h3>
-          <Link href="/coins" className="section-link">Ver todas →</Link>
-        </div>
-        {recentCoinTx.length === 0 ? (
-          <div className="empty-state">No hay transacciones de coins todavía.</div>
-        ) : (
-          <div className="tx-list">
-            {recentCoinTx.map((tx) => {
-              const info = COIN_TX_LABELS[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
-              const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
-              return (
-                <div key={tx._id} className="tx-row">
-                  <div className="tx-row-left">
-                    <span className="tx-type" style={{ color: info.color }}>{info.label}</span>
-                    <span className="tx-reason">{tx.reason}</span>
-                  </div>
-                  <div className="tx-row-right">
-                    <span className="tx-amount" style={{ color: info.color }}>{sign}{Math.abs(tx.amount)} 🪙</span>
-                    <span className="tx-date">{formatDate(tx.createdAt)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className="quick-actions">
+        <Link href="/coins" className="qa-link"><CoinIcon size={16} /> Comprar MYL Coins</Link>
+        <Link href="/wallet" className="qa-link"><HistoryIcon size={16} /> Ver historial</Link>
+        <Link href="/dashboard" className="qa-link qa-muted"><WalletIcon size={16} /> Volver al dashboard</Link>
       </div>
-
-      {/* Recent spark transactions */}
-      <div className="section-card">
-        <div className="section-header">
-          <h3 className="section-title">✨ Últimas transacciones de Sparks</h3>
-          <Link href="/sparks" className="section-link">Ver todas →</Link>
-        </div>
-        {recentSparkTx.length === 0 ? (
-          <div className="empty-state">No hay transacciones de sparks todavía.</div>
-        ) : (
-          <div className="tx-list">
-            {recentSparkTx.map((tx) => {
-              const info = SPARK_TX_LABELS[tx.type] || { label: tx.type, color: "var(--text-muted)", sign: "" };
-              const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
-              return (
-                <div key={tx._id} className="tx-row">
-                  <div className="tx-row-left">
-                    <span className="tx-type" style={{ color: info.color }}>{info.label}</span>
-                    <span className="tx-reason">{tx.reason}</span>
-                  </div>
-                  <div className="tx-row-right">
-                    <span className="tx-amount" style={{ color: info.color }}>{sign}{Math.abs(tx.amount)} ✨</span>
-                    <span className="tx-date">{formatDate(tx.createdAt)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Quick links */}
-      <div className="quick-links">
-        <Link href="/coins" className="ql-card ql-coins">
-          <span className="ql-icon">🪙</span>
-          <div className="ql-label">Comprar MYL Coins</div>
-        </Link>
-        <Link href="/sparks" className="ql-card ql-sparks">
-          <span className="ql-icon">✨</span>
-          <div className="ql-label">Comprar Sparks</div>
-        </Link>
-        <Link href="/passes" className="ql-card ql-passes">
-          <span className="ql-icon">🎭</span>
-          <div className="ql-label">Access Passes</div>
-        </Link>
-        <Link href="/explore" className="ql-card ql-explore">
-          <span className="ql-icon">🔍</span>
-          <div className="ql-label">Explorar Creators</div>
-        </Link>
-      </div>
-
-      <p className="back-link">
-        <Link href="/dashboard">← Volver al dashboard</Link>
-      </p>
 
       <style jsx>{`
         .wallet-page {
           display: flex;
           flex-direction: column;
-          gap: 2rem;
-          max-width: 860px;
+          gap: 1rem;
+          max-width: 1020px;
           margin: 0 auto;
         }
-
-        .wallet-loading {
+        .wallet-hero {
+          padding: 1.1rem;
           display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 4rem 0;
-          color: var(--text-muted);
-          font-size: 0.9rem;
+          flex-direction: column;
+          gap: 0.9rem;
         }
-
-        .wallet-header { text-align: center; }
-
-        /* Balance grid */
+        .hero-actions {
+          display: flex;
+          gap: 0.45rem;
+          flex-wrap: wrap;
+        }
         .balance-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 1.25rem;
-        }
-
-        .balance-card {
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-          padding: 1.75rem 1.5rem;
-          border-radius: var(--radius);
-          border: 1px solid var(--border);
-          background: rgba(15,8,32,0.8);
-          transition: transform var(--transition-slow), box-shadow var(--transition-slow);
-        }
-
-        .balance-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-
-        .balance-coins { border-color: rgba(251,146,60,0.2); }
-        .balance-sparks { border-color: rgba(139,92,246,0.2); }
-        .balance-earnings { border-color: rgba(52,211,153,0.2); }
-
-        .bc-header { display: flex; align-items: center; gap: 0.5rem; }
-
-        .bc-icon { font-size: 1.25rem; }
-
-        .bc-label {
-          font-size: 0.75rem;
-          font-weight: 800;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .bc-amount {
-          font-size: 2.5rem;
-          font-weight: 800;
-          color: var(--text);
-          letter-spacing: -0.03em;
-          line-height: 1;
-        }
-
-        .balance-coins .bc-amount { color: var(--accent-orange); }
-        .balance-sparks .bc-amount { color: var(--accent-3); }
-        .balance-earnings .bc-amount { color: var(--accent-green); }
-
-        .bc-desc {
-          font-size: 0.78rem;
-          color: var(--text-muted);
-          line-height: 1.4;
-          flex: 1;
-        }
-
-        .bc-action {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: var(--accent-3);
-          text-decoration: none;
-          transition: color var(--transition);
-        }
-
-        .balance-coins .bc-action { color: var(--accent-orange); }
-        .bc-action:hover { opacity: 0.8; }
-
-        /* Section cards */
-        .section-card {
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 1.75rem 2rem;
-        }
-
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 1.25rem;
-        }
-
-        .section-title {
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--text);
-          letter-spacing: -0.02em;
-        }
-
-        .section-link {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: var(--accent-3);
-          text-decoration: none;
-          transition: color var(--transition);
-        }
-
-        .section-link:hover { color: var(--accent-2); }
-
-        .empty-state {
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          padding: 1rem 0;
-        }
-
-        .inline-link {
-          color: var(--accent-3);
-          font-weight: 600;
-          text-decoration: none;
-        }
-
-        /* Passes */
-        .passes-list { display: flex; flex-direction: column; gap: 0.65rem; }
-
-        .pass-row {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-sm);
-          background: rgba(52,211,153,0.05);
-          border: 1px solid rgba(52,211,153,0.12);
-        }
-
-        .pass-row-icon { font-size: 1.4rem; flex-shrink: 0; }
-
-        .pass-row-info { flex: 1; }
-
-        .pass-row-name { font-size: 0.875rem; font-weight: 700; color: var(--text); }
-
-        .pass-row-expires { font-size: 0.75rem; color: var(--accent-green); margin-top: 0.1rem; }
-
-        .pass-row-status { font-size: 0.78rem; font-weight: 700; color: var(--accent-green); flex-shrink: 0; }
-
-        /* TX list */
-        .tx-list { display: flex; flex-direction: column; gap: 0.4rem; }
-
-        .tx-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.6rem 0.85rem;
-          border-radius: var(--radius-sm);
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .tx-row-left { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-
-        .tx-type { font-size: 0.78rem; font-weight: 700; }
-
-        .tx-reason {
-          font-size: 0.72rem;
-          color: var(--text-dim);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 280px;
-        }
-
-        .tx-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; flex-shrink: 0; }
-
-        .tx-amount { font-size: 0.85rem; font-weight: 700; }
-
-        .tx-date { font-size: 0.7rem; color: var(--text-dim); }
-
-        /* Quick links */
-        .quick-links {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.75rem;
         }
-
-        .ql-card {
-          display: flex;
-          flex-direction: column;
+        .cta-link {
+          color: #c4b5fd;
+          text-decoration: none;
+          font-size: 0.82rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.28rem;
+        }
+        .cta-link:hover {
+          color: #f5d0fe;
+        }
+        .wallet-banner {
+          padding: 0.9rem 1rem;
+        }
+        .banner-content {
+          display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 1.25rem 1rem;
-          border-radius: var(--radius);
-          border: 1px solid var(--border);
-          background: rgba(15,8,32,0.8);
-          text-decoration: none;
-          transition: all var(--transition);
-          text-align: center;
+          font-size: 0.86rem;
+          color: #fda4af;
         }
-
-        .ql-card:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow);
+        .banner-icon {
+          width: 1.65rem;
+          height: 1.65rem;
+          border-radius: 10px;
+          border: 1px solid rgba(248,113,113,0.34);
+          background: rgba(248,113,113,0.14);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
-
-        .ql-coins:hover { border-color: rgba(251,146,60,0.35); }
-        .ql-sparks:hover { border-color: rgba(139,92,246,0.35); }
-        .ql-passes:hover { border-color: rgba(224,64,251,0.35); }
-        .ql-explore:hover { border-color: rgba(52,211,153,0.35); }
-
-        .ql-icon { font-size: 1.75rem; }
-
-        .ql-label {
+        .passes-card {
+          padding: 1.1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.9rem;
+        }
+        .section-link {
+          color: #a5f3fc;
           font-size: 0.78rem;
           font-weight: 700;
+          text-decoration: none;
+        }
+        .section-link:hover {
+          color: #67e8f9;
+        }
+        .pass-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.56rem;
+        }
+        .pass-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.8rem;
+          align-items: center;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,0.2);
+          background: rgba(255,255,255,0.03);
+          padding: 0.78rem 0.85rem;
+        }
+        .pass-main {
+          display: flex;
+          align-items: center;
+          gap: 0.58rem;
+          min-width: 0;
+        }
+        .pass-icon {
+          width: 1.9rem;
+          height: 1.9rem;
+          border-radius: 12px;
+          border: 1px solid rgba(34,211,238,0.3);
+          background: rgba(34,211,238,0.12);
+          color: #a5f3fc;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pass-main strong {
+          font-size: 0.86rem;
+          color: #fff;
+        }
+        .pass-main p {
+          margin: 0.16rem 0 0;
+          font-size: 0.75rem;
           color: var(--text-muted);
         }
-
-        .back-link {
-          text-align: center;
-          font-size: 0.875rem;
+        .empty-line {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          padding: 0.45rem 0;
+        }
+        .empty-icon {
+          width: 1.65rem;
+          height: 1.65rem;
+          border-radius: 10px;
+          border: 1px solid rgba(148,163,184,0.24);
+          background: rgba(255,255,255,0.04);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #c4b5fd;
+        }
+        .inline-action {
+          color: #c4b5fd;
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-decoration: none;
+        }
+        .inline-action:hover {
+          color: #f5d0fe;
+        }
+        .tx-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.72rem;
+        }
+        .quick-actions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.56rem;
+        }
+        .qa-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          border-radius: 12px;
+          border: 1px solid rgba(224,64,251,0.32);
+          background: rgba(224,64,251,0.12);
+          color: #f5d0fe;
+          text-decoration: none;
+          font-size: 0.81rem;
+          font-weight: 700;
+          padding: 0.72rem;
+          transition: border-color var(--transition), background var(--transition), transform var(--transition);
+        }
+        .qa-link:hover {
+          border-color: rgba(224,64,251,0.5);
+          background: rgba(224,64,251,0.2);
+          transform: translateY(-1px);
+        }
+        .qa-muted {
+          border-color: rgba(148,163,184,0.27);
+          background: rgba(255,255,255,0.04);
           color: var(--text-muted);
         }
-
-        .back-link :global(a) {
-          color: var(--accent-3);
-          font-weight: 600;
-          transition: color var(--transition);
+        .qa-muted:hover {
+          border-color: rgba(148,163,184,0.42);
+          color: #e2e8f0;
         }
-
-        .back-link :global(a):hover { color: var(--accent-2); }
-
-        .spinner {
-          width: 22px; height: 22px;
-          border: 3px solid rgba(255,255,255,0.15);
-          border-top-color: var(--accent-3);
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
+        @media (max-width: 960px) {
+          .balance-grid,
+          .tx-grid {
+            grid-template-columns: 1fr;
+          }
         }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
         @media (max-width: 640px) {
-          .quick-links { grid-template-columns: repeat(2, 1fr); }
-          .section-card { padding: 1.5rem; }
+          .wallet-hero,
+          .passes-card {
+            padding: 1rem;
+          }
+          .quick-actions {
+            grid-template-columns: 1fr;
+          }
+          .hero-actions {
+            width: 100%;
+          }
+          .hero-actions :global(.btn) {
+            flex: 1;
+          }
+          .pass-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
         }
       `}</style>
     </div>

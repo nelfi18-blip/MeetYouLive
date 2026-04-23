@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 
@@ -38,11 +38,52 @@ const LANGUAGES = [
   { code: "ru", label: "Русский" },
 ];
 
+const COUNTRIES = [
+  "Afganistán", "Albania", "Alemania", "Andorra", "Angola", "Arabia Saudita", "Argelia", "Argentina", "Armenia", "Australia",
+  "Austria", "Azerbaiyán", "Bahamas", "Bangladés", "Barbados", "Baréin", "Bélgica", "Belice", "Benín", "Bielorrusia",
+  "Birmania", "Bolivia", "Bosnia y Herzegovina", "Botsuana", "Brasil", "Brunéi", "Bulgaria", "Burkina Faso", "Burundi", "Bután",
+  "Cabo Verde", "Camboya", "Camerún", "Canadá", "Catar", "Chad", "Chile", "China", "Chipre", "Colombia",
+  "Comoras", "Corea del Norte", "Corea del Sur", "Costa de Marfil", "Costa Rica", "Croacia", "Cuba", "Dinamarca", "Dominica", "Ecuador",
+  "Egipto", "El Salvador", "Emiratos Árabes Unidos", "Eritrea", "Eslovaquia", "Eslovenia", "España", "Estados Unidos", "Estonia", "Esuatini",
+  "Etiopía", "Filipinas", "Finlandia", "Fiyi", "Francia", "Gabón", "Gambia", "Georgia", "Ghana", "Grecia",
+  "Guatemala", "Guinea", "Guinea-Bisáu", "Guinea Ecuatorial", "Guyana", "Haití", "Honduras", "Hungría", "India", "Indonesia",
+  "Irak", "Irán", "Irlanda", "Islandia", "Islas Marshall", "Islas Salomón", "Israel", "Italia", "Jamaica", "Japón",
+  "Jordania", "Kazajistán", "Kenia", "Kirguistán", "Kiribati", "Kuwait", "Laos", "Lesoto", "Letonia", "Líbano",
+  "Liberia", "Libia", "Liechtenstein", "Lituania", "Luxemburgo", "Macedonia del Norte", "Madagascar", "Malasia", "Malaui", "Maldivas",
+  "Malí", "Malta", "Marruecos", "Mauricio", "Mauritania", "México", "Micronesia", "Moldavia", "Mónaco", "Mongolia",
+  "Montenegro", "Mozambique", "Namibia", "Nauru", "Nepal", "Nicaragua", "Níger", "Nigeria", "Noruega", "Nueva Zelanda",
+  "Omán", "Países Bajos", "Pakistán", "Palaos", "Panamá", "Papúa Nueva Guinea", "Paraguay", "Perú", "Polonia", "Portugal",
+  "Reino Unido", "República Centroafricana", "República Checa", "República del Congo", "República Democrática del Congo", "República Dominicana", "Ruanda", "Rumanía", "Rusia", "Samoa",
+  "San Cristóbal y Nieves", "San Marino", "San Vicente y las Granadinas", "Santa Lucía", "Santo Tomé y Príncipe", "Senegal", "Serbia", "Seychelles", "Sierra Leona", "Singapur",
+  "Siria", "Somalia", "Sri Lanka", "Sudáfrica", "Sudán", "Sudán del Sur", "Suecia", "Suiza", "Surinam", "Tailandia",
+  "Tanzania", "Tayikistán", "Timor Oriental", "Togo", "Tonga", "Trinidad y Tobago", "Túnez", "Turkmenistán", "Turquía", "Tuvalu",
+  "Ucrania", "Uganda", "Uruguay", "Uzbekistán", "Vanuatu", "Venezuela", "Vietnam", "Yemen", "Yibuti", "Zambia", "Zimbabue",
+];
+
+const COUNTRY_ALIASES = {
+  "united states": "Estados Unidos",
+  "united kingdom": "Reino Unido",
+  "czechia": "República Checa",
+  "south korea": "Corea del Sur",
+  "north korea": "Corea del Norte",
+  "ivory coast": "Costa de Marfil",
+  "russian federation": "Rusia",
+  "uae": "Emiratos Árabes Unidos",
+  "turkiye": "Turquía",
+};
+
+const normalizeText = (value) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 function CreatorIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="2"/>
-      <path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49m11.31-2.82a10 10 0 010 14.14m-14.14 0a10 10 0 010-14.14"/>
+      <circle cx="12" cy="12" r="2" />
+      <path d="M16.24 7.76a6 6 0 010 8.49m-8.48-.01a6 6 0 010-8.49m11.31-2.82a10 10 0 010 14.14m-14.14 0a10 10 0 010-14.14" />
     </svg>
   );
 }
@@ -52,8 +93,10 @@ export default function CreatorRequestPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [detectingCountry, setDetectingCountry] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
     displayName: "",
@@ -63,6 +106,19 @@ export default function CreatorRequestPage() {
     languages: [],
     socialLinks: { twitter: "", instagram: "", tiktok: "", youtube: "" },
   });
+
+  const resolveCountryOption = (value) => {
+    const normalized = normalizeText(value);
+    if (!normalized) return "";
+
+    const aliased = COUNTRY_ALIASES[normalized];
+    if (aliased) return aliased;
+
+    const exact = COUNTRIES.find((country) => normalizeText(country) === normalized);
+    if (exact) return exact;
+
+    return value.trim();
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -93,28 +149,134 @@ export default function CreatorRequestPage() {
           router.replace("/admin");
           return;
         }
+
         setUser(data);
-        // Pre-fill from previous application if any
-        if (data.creatorApplication) {
-          const app = data.creatorApplication;
+
+        const previous = data.creatorApplication;
+        if (previous) {
+          const previousHasOptionalData =
+            !!previous.bio?.trim() ||
+            (Array.isArray(previous.languages) && previous.languages.length > 0) ||
+            Object.values(previous.socialLinks || {}).some((value) => !!value?.trim());
+
           setForm({
-            displayName: app.displayName || "",
-            bio: app.bio || "",
-            category: app.category || "",
-            country: app.country || "",
-            languages: app.languages || [],
+            displayName: previous.displayName || data.username || data.name || "",
+            bio: previous.bio || "",
+            category: previous.category || "",
+            country: resolveCountryOption(previous.country || data.country || ""),
+            languages: Array.isArray(previous.languages) ? previous.languages : [],
             socialLinks: {
-              twitter: app.socialLinks?.twitter || "",
-              instagram: app.socialLinks?.instagram || "",
-              tiktok: app.socialLinks?.tiktok || "",
-              youtube: app.socialLinks?.youtube || "",
+              twitter: previous.socialLinks?.twitter || "",
+              instagram: previous.socialLinks?.instagram || "",
+              tiktok: previous.socialLinks?.tiktok || "",
+              youtube: previous.socialLinks?.youtube || "",
             },
           });
+
+          if (previousHasOptionalData) setStep(2);
+          return;
         }
+
+        setForm((prev) => ({
+          ...prev,
+          displayName: data.username || data.name || "",
+          country: resolveCountryOption(data.country || ""),
+        }));
       })
       .catch(() => setError("No se pudo cargar tu perfil"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    if (loading || form.country) return;
+
+    let cancelled = false;
+
+    const resolveCountryFromCode = (countryCode) => {
+      if (!countryCode) return "";
+      try {
+        const displayNames = new Intl.DisplayNames(["es"], { type: "region" });
+        return resolveCountryOption(displayNames.of(countryCode.toUpperCase()) || "");
+      } catch {
+        return "";
+      }
+    };
+
+    const fallbackLocaleCountry = () => {
+      try {
+        const locale = navigator.language || "";
+        const countryCode = locale.includes("-") ? locale.split("-")[1] : "";
+        return resolveCountryFromCode(countryCode);
+      } catch {
+        return "";
+      }
+    };
+
+    const detect = async () => {
+      setDetectingCountry(true);
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch("https://ipapi.co/json/", { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data = await res.json();
+          const ipCountry =
+            resolveCountryFromCode(data?.country_code) ||
+            resolveCountryOption(data?.country_name || "");
+
+          if (!cancelled && ipCountry) {
+            setForm((prev) => (prev.country ? prev : { ...prev, country: ipCountry }));
+            setDetectingCountry(false);
+            return;
+          }
+        }
+      } catch {
+        // fallback below
+      }
+
+      const localeCountry = fallbackLocaleCountry();
+      if (!cancelled && localeCountry) {
+        setForm((prev) => (prev.country ? prev : { ...prev, country: localeCountry }));
+      }
+      if (!cancelled) setDetectingCountry(false);
+    };
+
+    detect();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, form.country]);
+
+  const countryOptions = useMemo(() => {
+    const options = [...COUNTRIES];
+    const current = resolveCountryOption(form.country);
+    if (current && !options.some((country) => normalizeText(country) === normalizeText(current))) {
+      options.push(current);
+    }
+    return options.sort((a, b) => a.localeCompare(b, "es"));
+  }, [form.country]);
+
+  const behaviorSegment = useMemo(() => {
+    const loginCount = Number(user?.loginCount || 0);
+    if (loginCount <= 3) return "new";
+    if (loginCount >= 20 && (user?.coins ?? 0) <= 40) return "spender";
+    if (loginCount >= 8) return "active";
+    return "default";
+  }, [user]);
+
+  const segmentHeadline =
+    user?.creatorStatus === "pending"
+      ? "Solicitud en revisión"
+      : behaviorSegment === "new"
+      ? "¿Quieres ganar dinero en vivo?"
+      : behaviorSegment === "spender"
+      ? "Recupera lo que gastas creando contenido"
+      : behaviorSegment === "active"
+      ? "Ya estás listo para monetizar"
+      : "Activa tu modo creador";
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -136,19 +298,60 @@ export default function CreatorRequestPage() {
     });
   };
 
+  const validateStep1 = () => {
+    if (!form.displayName.trim()) {
+      setError("El nombre de creador es requerido");
+      return false;
+    }
+    if (!form.category) {
+      setError("Selecciona una categoría");
+      return false;
+    }
+    if (!form.country.trim()) {
+      setError("Selecciona un país");
+      return false;
+    }
+    return true;
+  };
+
+  const getFallbackLanguage = () => {
+    const browserLang = (navigator.language || "es").slice(0, 2).toLowerCase();
+    return LANGUAGES.some((lang) => lang.code === browserLang) ? browserLang : "es";
+  };
+
+  const buildPayload = () => {
+    const fallbackBio = `Creador de ${form.category.trim()} desde ${form.country.trim()}.`;
+    return {
+      displayName: form.displayName.trim(),
+      bio: form.bio.trim() || fallbackBio,
+      category: form.category.trim(),
+      country: resolveCountryOption(form.country.trim()),
+      languages: form.languages.length > 0 ? form.languages : [getFallbackLanguage()],
+      socialLinks: {
+        twitter: form.socialLinks.twitter.trim(),
+        instagram: form.socialLinks.instagram.trim(),
+        tiktok: form.socialLinks.tiktok.trim(),
+        youtube: form.socialLinks.youtube.trim(),
+      },
+    };
+  };
+
+  const handleContinue = (e) => {
+    e.preventDefault();
+    setError("");
+    if (!validateStep1()) return;
+    setStep(2);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!form.displayName.trim()) return setError("El nombre de creador es requerido");
-    if (!form.bio.trim()) return setError("La biografía es requerida");
-    if (form.bio.trim().length < 20) return setError("La biografía debe tener al menos 20 caracteres");
-    if (!form.category) return setError("Selecciona una categoría");
-    if (!form.country.trim()) return setError("El país es requerido");
-    if (form.languages.length === 0) return setError("Selecciona al menos un idioma");
+    if (!validateStep1()) return;
 
     setSubmitting(true);
     const token = localStorage.getItem("token");
+
     try {
       const res = await fetch(`${API_URL}/api/creator/request`, {
         method: "POST",
@@ -156,9 +359,10 @@ export default function CreatorRequestPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(buildPayload()),
       });
       const data = await res.json();
+
       if (!res.ok) {
         setError(data.message || "Error al enviar solicitud");
       } else {
@@ -191,11 +395,19 @@ export default function CreatorRequestPage() {
           <CreatorIcon />
         </div>
 
-        <h1 className="title">💰 Gana dinero en MeetYouLive</h1>
+        <h1 className="title">Empieza a ganar dinero hoy 💰</h1>
         <p className="sub">
-          Únete a nuestra comunidad de creadores y empieza a generar ingresos reales.
-          Solicita acceso ahora y desbloquea todas las herramientas de monetización.
+          Convierte tu tiempo en ingresos reales y activa tu modo creador.
+          Solicita acceso en minutos.
         </p>
+
+        <div className="segment-pill">{segmentHeadline}</div>
+
+        <div className="proof-grid">
+          <div className="proof-item">+120 creadores ya están ganando dinero</div>
+          <div className="proof-item">Pagos activos en la plataforma</div>
+          <div className="proof-item">Únete hoy y empieza en minutos</div>
+        </div>
 
         <div className="features-grid">
           <div className="feature-item">
@@ -218,12 +430,10 @@ export default function CreatorRequestPage() {
 
         {isPending || success ? (
           <div className="status-box status-pending">
-            <span className="status-icon">⏳</span>
+            <span className="status-icon">🚀</span>
             <div>
-              <div className="status-title">Solicitud enviada</div>
-              <div className="status-desc">
-                Un administrador revisará tu solicitud pronto. Te notificaremos cuando haya una respuesta.
-              </div>
+              <div className="status-title">Solicitud enviada 🚀</div>
+              <div className="status-desc">Nuestro equipo la revisará pronto.</div>
             </div>
           </div>
         ) : isApproved ? (
@@ -254,132 +464,158 @@ export default function CreatorRequestPage() {
               </div>
             )}
 
-            <div className="field">
-              <label className="label">Nombre de creador <span className="req">*</span></label>
-              <input
-                className="input"
-                type="text"
-                placeholder="Tu nombre público como creador"
-                value={form.displayName}
-                onChange={(e) => handleChange("displayName", e.target.value)}
-                maxLength={60}
-              />
+            <div className="stepper">
+              <div className={`step-chip${step === 1 ? " step-chip-active" : ""}`}>1. Requerido</div>
+              <div className={`step-chip${step === 2 ? " step-chip-active" : ""}`}>2. Opcional</div>
             </div>
 
-            <div className="field">
-              <label className="label">Biografía <span className="req">*</span></label>
-              <textarea
-                className="input textarea"
-                placeholder="Cuéntanos sobre ti y tu contenido (mín. 20 caracteres)"
-                value={form.bio}
-                onChange={(e) => handleChange("bio", e.target.value)}
-                maxLength={400}
-                rows={4}
-              />
-              <div className="char-count">{form.bio.length}/400</div>
-            </div>
+            {step === 1 ? (
+              <>
+                <div className="field">
+                  <label className="label">Nombre de creador <span className="req">*</span></label>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="Tu nombre público como creador"
+                    value={form.displayName}
+                    onChange={(e) => handleChange("displayName", e.target.value)}
+                    maxLength={60}
+                  />
+                </div>
 
-            <div className="field">
-              <label className="label">Categoría <span className="req">*</span></label>
-              <select
-                className="input select"
-                value={form.category}
-                onChange={(e) => handleChange("category", e.target.value)}
-              >
-                <option value="">Selecciona una categoría…</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field">
-              <label className="label">País <span className="req">*</span></label>
-              <input
-                className="input"
-                type="text"
-                placeholder="Tu país de residencia"
-                value={form.country}
-                onChange={(e) => handleChange("country", e.target.value)}
-                maxLength={80}
-              />
-            </div>
-
-            <div className="field">
-              <label className="label">Idiomas en los que transmites <span className="req">*</span></label>
-              <div className="lang-grid">
-                {LANGUAGES.map((l) => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    className={`lang-chip${form.languages.includes(l.code) ? " lang-chip-active" : ""}`}
-                    onClick={() => toggleLanguage(l.code)}
+                <div className="field">
+                  <label className="label">Categoría <span className="req">*</span></label>
+                  <select
+                    className="input select"
+                    value={form.category}
+                    onChange={(e) => handleChange("category", e.target.value)}
                   >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <option value="">Selecciona una categoría…</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="field">
-              <label className="label">Redes sociales <span className="opt">(opcional)</span></label>
-              <div className="social-grid">
-                <div className="social-row">
-                  <span className="social-label">🐦 Twitter/X</span>
-                  <input
-                    className="input social-input"
-                    type="text"
-                    placeholder="@usuario"
-                    value={form.socialLinks.twitter}
-                    onChange={(e) => handleSocialLink("twitter", e.target.value)}
-                    maxLength={100}
-                  />
+                <div className="field">
+                  <label className="label">País <span className="req">*</span></label>
+                  <select
+                    className="input select"
+                    value={resolveCountryOption(form.country)}
+                    onChange={(e) => handleChange("country", e.target.value)}
+                    required
+                  >
+                    <option value="">Selecciona tu país…</option>
+                    {countryOptions.map((country) => (
+                      <option key={country} value={country}>{country}</option>
+                    ))}
+                  </select>
+                  {detectingCountry && <div className="hint">Detectando país automáticamente…</div>}
                 </div>
-                <div className="social-row">
-                  <span className="social-label">📸 Instagram</span>
-                  <input
-                    className="input social-input"
-                    type="text"
-                    placeholder="@usuario"
-                    value={form.socialLinks.instagram}
-                    onChange={(e) => handleSocialLink("instagram", e.target.value)}
-                    maxLength={100}
-                  />
+
+                <div className="cta-row">
+                  <button className="btn-secondary" type="button" onClick={handleContinue} disabled={submitting}>
+                    Continuar
+                  </button>
+                  <button className="btn-submit" type="submit" disabled={submitting}>
+                    {submitting ? "Enviando…" : "Empezar a ganar dinero"}
+                  </button>
                 </div>
-                <div className="social-row">
-                  <span className="social-label">🎵 TikTok</span>
-                  <input
-                    className="input social-input"
-                    type="text"
-                    placeholder="@usuario"
-                    value={form.socialLinks.tiktok}
-                    onChange={(e) => handleSocialLink("tiktok", e.target.value)}
-                    maxLength={100}
+                <div className="hint">Puedes enviar ahora mismo y completar más detalles después.</div>
+              </>
+            ) : (
+              <>
+                <div className="field">
+                  <label className="label">Biografía <span className="opt">(opcional)</span></label>
+                  <textarea
+                    className="input textarea"
+                    placeholder="Cuéntanos sobre ti y tu contenido"
+                    value={form.bio}
+                    onChange={(e) => handleChange("bio", e.target.value)}
+                    maxLength={400}
+                    rows={4}
                   />
+                  <div className="char-count">{form.bio.length}/400</div>
                 </div>
-                <div className="social-row">
-                  <span className="social-label">▶️ YouTube</span>
-                  <input
-                    className="input social-input"
-                    type="text"
-                    placeholder="Canal o URL"
-                    value={form.socialLinks.youtube}
-                    onChange={(e) => handleSocialLink("youtube", e.target.value)}
-                    maxLength={120}
-                  />
+
+                <div className="field">
+                  <label className="label">Idiomas en los que transmites <span className="opt">(opcional)</span></label>
+                  <div className="lang-grid">
+                    {LANGUAGES.map((l) => (
+                      <button
+                        key={l.code}
+                        type="button"
+                        className={`lang-chip${form.languages.includes(l.code) ? " lang-chip-active" : ""}`}
+                        onClick={() => toggleLanguage(l.code)}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
+
+                <div className="field">
+                  <label className="label">Redes sociales <span className="opt">(opcional)</span></label>
+                  <div className="social-grid">
+                    <div className="social-row">
+                      <span className="social-label">🐦 Twitter/X</span>
+                      <input
+                        className="input social-input"
+                        type="text"
+                        placeholder="@usuario"
+                        value={form.socialLinks.twitter}
+                        onChange={(e) => handleSocialLink("twitter", e.target.value)}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="social-row">
+                      <span className="social-label">📸 Instagram</span>
+                      <input
+                        className="input social-input"
+                        type="text"
+                        placeholder="@usuario"
+                        value={form.socialLinks.instagram}
+                        onChange={(e) => handleSocialLink("instagram", e.target.value)}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="social-row">
+                      <span className="social-label">🎵 TikTok</span>
+                      <input
+                        className="input social-input"
+                        type="text"
+                        placeholder="@usuario"
+                        value={form.socialLinks.tiktok}
+                        onChange={(e) => handleSocialLink("tiktok", e.target.value)}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="social-row">
+                      <span className="social-label">▶️ YouTube</span>
+                      <input
+                        className="input social-input"
+                        type="text"
+                        placeholder="Canal o URL"
+                        value={form.socialLinks.youtube}
+                        onChange={(e) => handleSocialLink("youtube", e.target.value)}
+                        maxLength={120}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cta-row">
+                  <button className="btn-secondary" type="button" onClick={() => setStep(1)} disabled={submitting}>
+                    Volver
+                  </button>
+                  <button className="btn-submit" type="submit" disabled={submitting}>
+                    {submitting ? "Enviando…" : "Activar modo creador 💰"}
+                  </button>
+                </div>
+              </>
+            )}
 
             {error && <div className="error-box">{error}</div>}
-
-            <button
-              className="btn-submit"
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? "Enviando…" : "Aplicar como creador"}
-            </button>
           </form>
         )}
       </div>
@@ -430,6 +666,32 @@ export default function CreatorRequestPage() {
           max-width: 480px;
         }
 
+        .segment-pill {
+          padding: 0.45rem 0.85rem;
+          border-radius: var(--radius-pill);
+          background: rgba(139,92,246,0.12);
+          border: 1px solid rgba(139,92,246,0.35);
+          color: var(--text);
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .proof-grid {
+          width: 100%;
+          display: grid;
+          gap: 0.5rem;
+        }
+
+        .proof-item {
+          background: rgba(52,211,153,0.08);
+          border: 1px solid rgba(52,211,153,0.25);
+          border-radius: var(--radius-sm);
+          padding: 0.55rem 0.8rem;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: var(--text);
+        }
+
         .features-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -464,6 +726,26 @@ export default function CreatorRequestPage() {
           flex-direction: column;
           gap: 1.25rem;
           text-align: left;
+        }
+
+        .stepper {
+          display: flex;
+          gap: 0.6rem;
+        }
+
+        .step-chip {
+          font-size: 0.75rem;
+          padding: 0.3rem 0.65rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid var(--border);
+          color: var(--text-muted);
+          background: rgba(255,255,255,0.02);
+        }
+
+        .step-chip-active {
+          border-color: rgba(139,92,246,0.5);
+          color: var(--text);
+          background: rgba(139,92,246,0.12);
         }
 
         .field {
@@ -564,6 +846,56 @@ export default function CreatorRequestPage() {
           flex: 1;
         }
 
+        .hint {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+        }
+
+        .cta-row {
+          display: grid;
+          gap: 0.65rem;
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .btn-secondary,
+        .btn-submit {
+          width: 100%;
+          padding: 0.875rem 1.5rem;
+          border-radius: var(--radius-pill);
+          font-size: 0.95rem;
+          font-weight: 700;
+          transition: opacity var(--transition), box-shadow var(--transition);
+          cursor: pointer;
+        }
+
+        .btn-secondary {
+          border: 1px solid var(--border);
+          background: rgba(255,255,255,0.03);
+          color: var(--text);
+        }
+
+        .btn-submit {
+          background: var(--grad-primary);
+          border: none;
+          color: #fff;
+          box-shadow: 0 4px 20px rgba(224,64,251,0.35);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+          opacity: 0.9;
+          box-shadow: 0 6px 28px rgba(224,64,251,0.5);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+          border-color: rgba(139,92,246,0.5);
+        }
+
+        .btn-secondary:disabled,
+        .btn-submit:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .error-box {
           background: rgba(248,113,113,0.1);
           border: 1px solid rgba(248,113,113,0.3);
@@ -573,30 +905,6 @@ export default function CreatorRequestPage() {
           font-size: 0.875rem;
           width: 100%;
           text-align: left;
-        }
-
-        .btn-submit {
-          width: 100%;
-          padding: 0.875rem 1.5rem;
-          background: var(--grad-primary);
-          border: none;
-          border-radius: var(--radius-pill);
-          color: #fff;
-          font-size: 1rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: opacity var(--transition), box-shadow var(--transition);
-          box-shadow: 0 4px 20px rgba(224,64,251,0.35);
-        }
-
-        .btn-submit:hover:not(:disabled) {
-          opacity: 0.9;
-          box-shadow: 0 6px 28px rgba(224,64,251,0.5);
-        }
-
-        .btn-submit:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
         }
 
         .status-box {
@@ -650,6 +958,7 @@ export default function CreatorRequestPage() {
           .features-grid { grid-template-columns: 1fr; }
           .social-row { flex-direction: column; align-items: flex-start; }
           .social-label { width: auto; }
+          .cta-row { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>

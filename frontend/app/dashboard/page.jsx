@@ -463,18 +463,18 @@ export default function DashboardPage() {
       ? {
           title: "¿Quieres ganar dinero en vivo?",
           sub: "Activa tu perfil de creador y empieza a monetizar tus directos.",
-          button: "Aplicar como creador",
+          button: "Empezar a ganar dinero",
         }
       : behaviorSegment === "spender"
       ? {
           title: "Recupera lo que gastas creando contenido",
           sub: "Convierte tu actividad en ingresos con regalos, lives y contenido premium.",
-          button: "Quiero monetizar",
+          button: "Activar modo creador 💰",
         }
       : {
           title: "Ya estás listo para monetizar",
           sub: "Solicita acceso de creador y desbloquea herramientas premium de ingresos.",
-          button: "Solicitar acceso a creador",
+          button: "Empezar a ganar dinero",
         };
   const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
   const liveStatusLabel = isApprovedCreator
@@ -501,7 +501,7 @@ export default function DashboardPage() {
 
   const pendingCard =
     !isCreator && creatorStatus === "pending"
-      ? [{ href: "#", title: "Solicitud pendiente", sub: "Tu solicitud de creador está en revisión", icon: PendingIcon, color: "orange", size: "normal", _disabled: true }]
+      ? [{ href: "#", title: "Solicitud en revisión", sub: "Tu solicitud de creador está en revisión", icon: PendingIcon, color: "orange", size: "normal", _disabled: true }]
       : [];
 
   const rejectedCard =

@@ -1,63 +1,138 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <defs>
-    <linearGradient id="heartPink" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff2d78"/>
-      <stop offset="100%" stop-color="#e040fb"/>
+    <!-- Heart stroke gradients -->
+    <linearGradient id="pg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff0070"/>
+      <stop offset="100%" stop-color="#ff66b2"/>
     </linearGradient>
-    <linearGradient id="heartBlue" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#60a5fa"/>
+    <linearGradient id="ug" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cc22ff"/>
+      <stop offset="100%" stop-color="#9911ee"/>
     </linearGradient>
-    <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ff2d78" stop-opacity="0.9"/>
-      <stop offset="50%" stop-color="#e040fb" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.9"/>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5533ff"/>
+      <stop offset="100%" stop-color="#33aaff"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <!-- Orbit gradient -->
+    <linearGradient id="og" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff0070"/>
+      <stop offset="40%" stop-color="#ff88cc"/>
+      <stop offset="60%" stop-color="#9977ff"/>
+      <stop offset="100%" stop-color="#44aaff"/>
+    </linearGradient>
+    <!-- Pink neon glow (double-blur for intensity) -->
+    <filter id="fp" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
-    <filter id="glowStrong">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <!-- Purple neon glow -->
+    <filter id="fu" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Blue neon glow -->
+    <filter id="fb" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Orbit glow -->
+    <filter id="fo" x="-20%" y="-100%" width="140%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Sparkle glow -->
+    <filter id="fs" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Dot glow -->
+    <filter id="fd" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
-  <!-- Outer orbital ring -->
-  <ellipse cx="60" cy="57" rx="51" ry="23" fill="none" stroke="url(#orbitGrad)" stroke-width="2.5" stroke-linecap="round" transform="rotate(-18 60 57)" opacity="0.85" filter="url(#glow)"/>
+  <!-- === BACK ORBIT ARC (behind all hearts) === -->
+  <path d="M 8,68 A 52,13 0 0 0 112,68"
+        fill="none" stroke="#4433bb" stroke-width="2.5" opacity="0.75" filter="url(#fb)"/>
 
-  <!-- Blue/purple heart (back, offset right) -->
-  <path d="M72,65 C72,65 50,52 50,39 C50,32.4 55.4,27 62,27 C65.8,27 69.2,28.9 72,32 C74.8,28.9 78.2,27 82,27 C88.6,27 94,32.4 94,39 C94,52 72,65 72,65 Z"
-        fill="url(#heartBlue)" filter="url(#glow)" opacity="0.88"/>
+  <!-- === BLUE HEART (back, right-shifted, center ~72,50) === -->
+  <path d="M 72,85 C 47,68 34,52 34,37 C 34,23 43,15 53,15 C 59,15 65,18 72,25 C 79,18 85,15 91,15 C 101,15 110,23 110,37 C 110,52 97,68 72,85 Z"
+        fill="none" stroke="url(#bg2)" stroke-width="5.5" filter="url(#fb)"/>
+  <path d="M 72,85 C 47,68 34,52 34,37 C 34,23 43,15 53,15 C 59,15 65,18 72,25 C 79,18 85,15 91,15 C 101,15 110,23 110,37 C 110,52 97,68 72,85 Z"
+        fill="none" stroke="#99bbff" stroke-width="1.5" opacity="0.5"/>
 
-  <!-- Pink/magenta heart (front, offset left) -->
-  <path d="M48,63 C48,63 26,50 26,37 C26,30.4 31.4,25 38,25 C41.8,25 45.2,26.9 48,30 C50.8,26.9 54.2,25 58,25 C64.6,25 70,30.4 70,37 C70,50 48,63 48,63 Z"
-        fill="url(#heartPink)" filter="url(#glowStrong)"/>
+  <!-- === PURPLE HEART (middle, center ~61,47) === -->
+  <path d="M 61,82 C 37,65 24,49 24,35 C 24,21 33,13 43,13 C 49,13 55,16 61,23 C 67,16 73,13 79,13 C 89,13 98,21 98,35 C 98,49 85,65 61,82 Z"
+        fill="none" stroke="url(#ug)" stroke-width="5.5" filter="url(#fu)"/>
+  <path d="M 61,82 C 37,65 24,49 24,35 C 24,21 33,13 43,13 C 49,13 55,16 61,23 C 67,16 73,13 79,13 C 89,13 98,21 98,35 C 98,49 85,65 61,82 Z"
+        fill="none" stroke="#cc88ff" stroke-width="1.5" opacity="0.5"/>
 
-  <!-- Highlight on pink heart -->
-  <path d="M33,30 C31.5,28 29.5,28.5 28.5,30.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <!-- === PINK HEART (front, left-shifted, center ~50,52) === -->
+  <path d="M 50,90 C 24,72 10,55 10,39 C 10,24 20,15 31,15 C 37.5,15 44,18.5 50,26 C 56,18.5 62.5,15 69,15 C 80,15 90,24 90,39 C 90,55 76,72 50,90 Z"
+        fill="none" stroke="url(#pg)" stroke-width="6.5" filter="url(#fp)"/>
+  <path d="M 50,90 C 24,72 10,55 10,39 C 10,24 20,15 31,15 C 37.5,15 44,18.5 50,26 C 56,18.5 62.5,15 69,15 C 80,15 90,24 90,39 C 90,55 76,72 50,90 Z"
+        fill="none" stroke="#ffaadd" stroke-width="2" opacity="0.65"/>
 
-  <!-- Sparkle top-right (large) -->
-  <g transform="translate(91,21)">
-    <line x1="0" y1="-7" x2="0" y2="7" stroke="#ff2d78" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="-7" y1="0" x2="7" y2="0" stroke="#ff2d78" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="-4.5" y1="-4.5" x2="4.5" y2="4.5" stroke="#ff2d78" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
-    <line x1="4.5" y1="-4.5" x2="-4.5" y2="4.5" stroke="#ff2d78" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
+  <!-- === VIDEO CAMERA ICON (center intersection ~63,44) === -->
+  <rect x="50" y="37" width="22" height="15" rx="3" fill="#bb0055"/>
+  <circle cx="60" cy="44.5" r="4.5" fill="#880033"/>
+  <circle cx="60" cy="44.5" r="2.2" fill="#440022"/>
+  <polygon points="73,39.5 73,49.5 81,44.5" fill="#ff1177"/>
+  <circle cx="63" cy="38.5" r="1.5" fill="#ff4444" opacity="0.9"/>
+
+  <!-- === FRONT ORBIT ARC (in front of hearts) === -->
+  <path d="M 8,68 A 52,13 0 0 1 112,68"
+        fill="none" stroke="url(#og)" stroke-width="3.5" filter="url(#fo)"/>
+
+  <!-- Orbit endpoint dots -->
+  <circle cx="8" cy="68" r="4" fill="#ff0070" filter="url(#fd)"/>
+  <circle cx="112" cy="68" r="3.5" fill="#aaccff" filter="url(#fd)"/>
+
+  <!-- === SPARKLES === -->
+  <!-- Large 4-pointed star (top-right) -->
+  <g transform="translate(100,18)" filter="url(#fs)">
+    <line x1="0" y1="-9" x2="0" y2="9" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-9" y1="0" x2="9" y2="0" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-5.5" y1="-5.5" x2="5.5" y2="5.5" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+    <line x1="5.5" y1="-5.5" x2="-5.5" y2="5.5" stroke="#ffffff" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+  </g>
+  <!-- Small pink sparkle (top-left) -->
+  <g transform="translate(17,14)" filter="url(#fs)">
+    <line x1="0" y1="-6" x2="0" y2="6" stroke="#ff55aa" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="-6" y1="0" x2="6" y2="0" stroke="#ff55aa" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <!-- Small blue-purple sparkle (right side) -->
+  <g transform="translate(107,40)" filter="url(#fs)">
+    <line x1="0" y1="-5" x2="0" y2="5" stroke="#9988ff" stroke-width="1.4" stroke-linecap="round"/>
+    <line x1="-5" y1="0" x2="5" y2="0" stroke="#9988ff" stroke-width="1.4" stroke-linecap="round"/>
   </g>
 
-  <!-- Sparkle top-left (small) -->
-  <g transform="translate(22,17)">
-    <line x1="0" y1="-5" x2="0" y2="5" stroke="#e040fb" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-5" y1="0" x2="5" y2="0" stroke="#e040fb" stroke-width="1.4" stroke-linecap="round"/>
-  </g>
-
-  <!-- Sparkle right (small blue) -->
-  <g transform="translate(101,49)">
-    <line x1="0" y1="-4" x2="0" y2="4" stroke="#60a5fa" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-4" y1="0" x2="4" y2="0" stroke="#60a5fa" stroke-width="1.4" stroke-linecap="round"/>
-  </g>
-
-  <!-- Glow dots on orbit endpoints -->
-  <circle cx="106" cy="49" r="3" fill="#ff2d78" opacity="0.9" filter="url(#glow)"/>
-  <circle cx="14" cy="64" r="2.5" fill="#60a5fa" opacity="0.85" filter="url(#glow)"/>
+  <!-- Scatter accent dots -->
+  <circle cx="100" cy="30" r="1.5" fill="#7755ff" opacity="0.85" filter="url(#fd)"/>
+  <circle cx="15" cy="72" r="1.5" fill="#ff88bb" opacity="0.75"/>
+  <circle cx="26" cy="24" r="1.2" fill="#ff44cc" opacity="0.7"/>
+  <circle cx="106" cy="55" r="1.2" fill="#8899ff" opacity="0.7"/>
 </svg>

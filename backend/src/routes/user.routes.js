@@ -147,10 +147,27 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    // Normalize legacy data: a user whose role is already "creator" but whose
+    // creatorStatus was never written to "approved" (approved via older code
+    // that only set role) should be treated as an approved creator.  Only
+    // "suspended" is an intentional non-approved creator state, so everything
+    // else is silently corrected here.
+    if (user.role === "creator" && user.creatorStatus !== "approved" && user.creatorStatus !== "suspended") {
+      user.creatorStatus = "approved";
+      User.updateOne({ _id: user._id }, { $set: { creatorStatus: "approved" } }).catch((err) => {
+        console.error("[/me] Failed to normalize creatorStatus for user", user._id, err.message);
+      });
+    }
+
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
+    // Defensive fallbacks: guarantee role and creatorStatus are always present
+    // even for documents created before these fields were added to the schema.
+    if (payload.role == null) payload.role = "user";
+    if (payload.creatorStatus == null) payload.creatorStatus = "none";
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });

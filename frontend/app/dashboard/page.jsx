@@ -224,6 +224,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState(false);
   const [creatorDash, setCreatorDash] = useState(null);
   const [dashLoading, setDashLoading] = useState(false);
   const [rankStats, setRankStats] = useState(null);
@@ -285,7 +286,11 @@ export default function DashboardPage() {
               router.replace("/login");
               return null;
             }
-            return r.ok ? r.json() : null;
+            if (!r.ok) {
+              setUserError(true);
+              return null;
+            }
+            return r.json();
           })
           .then((data) => {
             if (data) {
@@ -321,7 +326,13 @@ export default function DashboardPage() {
           router.replace("/login");
           return null;
         }
-        return r.ok ? r.json() : null;
+        if (!r.ok) {
+          // Non-auth API error (e.g. 500) – signal load failure so we don't
+          // render the page as if the user is a normal non-creator user.
+          setUserError(true);
+          return null;
+        }
+        return r.json();
       })
       .then((data) => {
         if (data) {
@@ -336,15 +347,10 @@ export default function DashboardPage() {
         }
       })
       .catch(() => {
-        // Network error – show a placeholder so the page still renders.
-        setUser({
-          username:
-            session?.user?.name ||
-            session?.user?.email?.split("@")[0] ||
-            "Usuario",
-          coins: 0,
-          role: "user",
-        });
+        // Network error – signal load failure so we don't render the page as
+        // if the user is a normal non-creator user (which would misidentify
+        // an approved creator whose role/creatorStatus cannot be confirmed).
+        setUserError(true);
       })
       .finally(() => setUserLoading(false));
   }, [status, session, router]);
@@ -433,6 +439,24 @@ export default function DashboardPage() {
           .hero-skeleton { display: flex; align-items: center; gap: 1.25rem; padding: 2rem; background: rgba(15,8,32,0.6); border: 1px solid var(--border); border-radius: var(--radius); }
           .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
         `}</style>
+      </div>
+    );
+  }
+
+  if (userError) {
+    return (
+      <div className="dashboard" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+        <div style={{ padding: "2rem", background: "rgba(15,8,32,0.6)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center" }}>
+          <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
+            No se pudo cargar tu perfil. Verifica tu conexión o intenta más tarde.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: "0.5rem 1.5rem", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer" }}
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }

@@ -23,6 +23,8 @@ const agencyRelationshipSchema = new mongoose.Schema(
         _id: false,
       },
     ],
+    subCreatorAgreed: { type: Boolean, default: false },
+    subCreatorAgreedAt: { type: Date, default: null },
     suspendedAt: { type: Date, default: null },
     removedAt: { type: Date, default: null },
     notes: { type: String, default: "" },

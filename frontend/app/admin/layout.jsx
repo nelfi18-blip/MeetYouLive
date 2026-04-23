@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true },
   { href: "/admin/users", label: "Usuarios", icon: "👥" },
   { href: "/admin/creators", label: "Creadores", icon: "🎬" },
+  { href: "/admin/agencies", label: "Agencias", icon: "🏢" },
   { href: "/admin/lives", label: "Streams", icon: "📡" },
   { href: "/admin/transactions", label: "Transacciones", icon: "💰" },
   { href: "/admin/revenue", label: "Ingresos", icon: "📈" },

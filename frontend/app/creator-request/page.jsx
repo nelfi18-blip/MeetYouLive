@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
 
 const CATEGORIES = [
   "Entretenimiento",
@@ -37,6 +38,20 @@ const LANGUAGES = [
   { code: "hi", label: "हिन्दी" },
   { code: "ru", label: "Русский" },
 ];
+
+const DEFAULT_LANGUAGE = "es";
+const COUNTRY_DETECTION_TIMEOUT_MS = 2500;
+const SOCIAL_PROOF_COUNT = 120;
+const CTA_START_EARNING = "Empezar a ganar dinero";
+const CTA_ACTIVATE_CREATOR = "Activar modo creador 💰";
+const FALLBACK_BIO_CATEGORY = "contenido en vivo";
+const FALLBACK_BIO_COUNTRY = "tu región";
+const SEGMENT_THRESHOLDS = {
+  newMaxLogins: 3,
+  activeMinLogins: 8,
+  spenderMinLogins: 20,
+  spenderMaxCoins: 40,
+};
 
 const COUNTRIES = [
   "Afganistán", "Albania", "Alemania", "Andorra", "Angola", "Arabia Saudita", "Argelia", "Argentina", "Armenia", "Australia",
@@ -161,7 +176,7 @@ export default function CreatorRequestPage() {
 
           setForm({
             displayName: previous.displayName || data.username || data.name || "",
-            bio: previous.bio || "",
+            bio: previous.bio?.trim() || "",
             category: previous.category || "",
             country: resolveCountryOption(previous.country || data.country || ""),
             languages: Array.isArray(previous.languages) ? previous.languages : [],
@@ -216,8 +231,11 @@ export default function CreatorRequestPage() {
       setDetectingCountry(true);
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 2500);
-        const res = await fetch("https://ipapi.co/json/", { signal: controller.signal });
+        const timeout = setTimeout(() => controller.abort(), COUNTRY_DETECTION_TIMEOUT_MS);
+        const safeGeoApiUrl = GEOLOCATION_API_URL.startsWith("https://")
+          ? GEOLOCATION_API_URL
+          : "https://ipapi.co/json/";
+        const res = await fetch(safeGeoApiUrl, { signal: controller.signal });
         clearTimeout(timeout);
 
         if (res.ok) {
@@ -232,7 +250,8 @@ export default function CreatorRequestPage() {
             return;
           }
         }
-      } catch {
+      } catch (detectErr) {
+        console.warn("Country auto-detection failed:", detectErr);
         // fallback below
       }
 
@@ -261,9 +280,14 @@ export default function CreatorRequestPage() {
 
   const behaviorSegment = useMemo(() => {
     const loginCount = Number(user?.loginCount || 0);
-    if (loginCount <= 3) return "new";
-    if (loginCount >= 20 && (user?.coins ?? 0) <= 40) return "spender";
-    if (loginCount >= 8) return "active";
+    if (loginCount <= SEGMENT_THRESHOLDS.newMaxLogins) return "new";
+    if (
+      loginCount >= SEGMENT_THRESHOLDS.spenderMinLogins &&
+      (user?.coins ?? 0) <= SEGMENT_THRESHOLDS.spenderMaxCoins
+    ) {
+      return "spender";
+    }
+    if (loginCount >= SEGMENT_THRESHOLDS.activeMinLogins) return "active";
     return "default";
   }, [user]);
 
@@ -315,12 +339,14 @@ export default function CreatorRequestPage() {
   };
 
   const getFallbackLanguage = () => {
-    const browserLang = (navigator.language || "es").slice(0, 2).toLowerCase();
-    return LANGUAGES.some((lang) => lang.code === browserLang) ? browserLang : "es";
+    const browserLang = (navigator.language || DEFAULT_LANGUAGE).slice(0, 2).toLowerCase();
+    return LANGUAGES.some((lang) => lang.code === browserLang) ? browserLang : DEFAULT_LANGUAGE;
   };
 
   const buildPayload = () => {
-    const fallbackBio = `Creador de ${form.category.trim()} desde ${form.country.trim()}.`;
+    const safeCategory = form.category.trim() || FALLBACK_BIO_CATEGORY;
+    const safeCountry = form.country.trim() || FALLBACK_BIO_COUNTRY;
+    const fallbackBio = `Creador de ${safeCategory} desde ${safeCountry}.`;
     return {
       displayName: form.displayName.trim(),
       bio: form.bio.trim() || fallbackBio,
@@ -404,7 +430,7 @@ export default function CreatorRequestPage() {
         <div className="segment-pill">{segmentHeadline}</div>
 
         <div className="proof-grid">
-          <div className="proof-item">+120 creadores ya están ganando dinero</div>
+          <div className="proof-item">+{SOCIAL_PROOF_COUNT} creadores ya están ganando dinero</div>
           <div className="proof-item">Pagos activos en la plataforma</div>
           <div className="proof-item">Únete hoy y empieza en minutos</div>
         </div>
@@ -518,10 +544,10 @@ export default function CreatorRequestPage() {
                     Continuar
                   </button>
                   <button className="btn-submit" type="submit" disabled={submitting}>
-                    {submitting ? "Enviando…" : "Empezar a ganar dinero"}
+                    {submitting ? "Enviando…" : CTA_START_EARNING}
                   </button>
                 </div>
-                <div className="hint">Puedes enviar ahora mismo y completar más detalles después.</div>
+                <div className="hint">Puedes enviar ahora mismo; los datos opcionales ayudan a revisar tu perfil más rápido.</div>
               </>
             ) : (
               <>
@@ -609,7 +635,7 @@ export default function CreatorRequestPage() {
                     Volver
                   </button>
                   <button className="btn-submit" type="submit" disabled={submitting}>
-                    {submitting ? "Enviando…" : "Activar modo creador 💰"}
+                    {submitting ? "Enviando…" : CTA_ACTIVATE_CREATOR}
                   </button>
                 </div>
               </>

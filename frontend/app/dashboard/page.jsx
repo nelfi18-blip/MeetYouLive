@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { setToken, clearToken } from "@/lib/token";
-import { isApprovedCreator as checkIsApprovedCreator } from "@/lib/creatorUtils";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
 import DailyMissions from "@/components/DailyMissions";
 import OnlineUsers from "@/components/OnlineUsers";
@@ -350,7 +350,7 @@ export default function DashboardPage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (!checkIsApprovedCreator(user)) return;
+    if (!isApprovedCreator(user)) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     setDashLoading(true);
@@ -364,7 +364,7 @@ export default function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!checkIsApprovedCreator(user)) return;
+    if (!isApprovedCreator(user)) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     fetch(`${API_URL}/api/rankings/my-stats`, {
@@ -448,7 +448,7 @@ export default function DashboardPage() {
   const isCreator = user?.role === "creator";
   const creatorStatus = user?.creatorStatus || "none";
 
-  const isApprovedCreator = checkIsApprovedCreator(user);
+  const isCreatorApproved = isApprovedCreator(user);
   const isSuspended = creatorStatus === "suspended";
   const loginCount = Number(user?.loginCount || 0);
   const behaviorSegment =
@@ -478,12 +478,12 @@ export default function DashboardPage() {
           button: "Empezar a ganar dinero",
         };
   const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
-  const liveStatusLabel = isApprovedCreator
+  const liveStatusLabel = isCreatorApproved
     ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
     : "Ver directos";
 
   // Monetization tools are only available to approved creators
-  const creatorCards = isApprovedCreator
+  const creatorCards = isCreatorApproved
     ? [
         { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
         { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
@@ -516,7 +516,7 @@ export default function DashboardPage() {
       : [];
 
   // Approved creators get their tool access via the Quick Actions section; show only nav cards below
-  const allCards = isApprovedCreator
+  const allCards = isCreatorApproved
     ? [...CARDS]
     : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
 
@@ -532,17 +532,17 @@ export default function DashboardPage() {
       {user && <DailyRewardPopup onClaimed={handleRewardClaimed} />}
 
       {/* Hero welcome card */}
-      <FuturisticCard className={`hero-card${isApprovedCreator ? " hero-card-creator" : ""}`} accent={isApprovedCreator ? "pink" : "purple"} hover={false}>
+      <FuturisticCard className={`hero-card${isCreatorApproved ? " hero-card-creator" : ""}`} accent={isCreatorApproved ? "pink" : "purple"} hover={false}>
         <div className="hero-bg-orb hero-orb-1" />
         <div className="hero-bg-orb hero-orb-2" />
-        {isApprovedCreator && <div className="hero-bg-orb hero-orb-3" />}
+        {isCreatorApproved && <div className="hero-bg-orb hero-orb-3" />}
         <div className="hero-content">
-          <div className={`hero-avatar${isApprovedCreator ? " hero-avatar-creator" : ""}`}>
+          <div className={`hero-avatar${isCreatorApproved ? " hero-avatar-creator" : ""}`}>
             {displayName[0].toUpperCase()}
           </div>
           <div className="hero-text">
             <div className="hero-badges">
-              {isApprovedCreator && (
+              {isCreatorApproved && (
                 <>
                   <span className="badge-creator">⭐ CREATOR</span>
                   <span className="badge-status">✓ APROBADO</span>
@@ -550,14 +550,14 @@ export default function DashboardPage() {
               )}
             </div>
             <h1 className="hero-title">
-              {isApprovedCreator ? (
+              {isCreatorApproved ? (
                 <>Hola, <span className="hero-name">{displayName}</span></>
               ) : (
                 <>Hola, <span className="hero-name">{displayName}</span></>
               )}
             </h1>
             <p className="hero-sub">
-              {isApprovedCreator ? "Tu centro de control de creador" : "Bienvenido/a de nuevo a MeetYouLive"}
+              {isCreatorApproved ? "Tu centro de control de creador" : "Bienvenido/a de nuevo a MeetYouLive"}
             </p>
           </div>
           <div className="hero-pills">
@@ -568,21 +568,21 @@ export default function DashboardPage() {
                 <span className="coins-pill-label">monedas</span>
               </Link>
             )}
-              {isApprovedCreator && user && (
+              {isCreatorApproved && user && (
                 <div className="earnings-pill">
                   <span className="earnings-pill-icon"><EarningsIcon /></span>
                   <span className="earnings-pill-value">{user.earningsCoins ?? 0}</span>
                   <span className="earnings-pill-label">ganancias</span>
                 </div>
               )}
-              {isApprovedCreator && (user?.agencyEarningsCoins ?? 0) > 0 && (
+              {isCreatorApproved && (user?.agencyEarningsCoins ?? 0) > 0 && (
                 <div className="agency-pill">
                   <span className="agency-pill-icon"><AgencyIcon /></span>
                   <span className="agency-pill-value">{user.agencyEarningsCoins}</span>
                   <span className="agency-pill-label">agencia</span>
                 </div>
             )}
-            {isApprovedCreator && (
+            {isCreatorApproved && (
               <Link href="/live/start" className="hero-start-live-btn">
                 <BroadcastIcon />
                 Iniciar live
@@ -593,7 +593,7 @@ export default function DashboardPage() {
       </FuturisticCard>
 
       {/* ── 🎥 Live CTA banner (for non-creators and viewers) ── */}
-      {!isApprovedCreator && (
+      {!isCreatorApproved && (
         <Link href="/live" className="live-entry-banner">
           <div className="live-entry-glow" />
           <div className="live-entry-left">
@@ -625,9 +625,9 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Estado creador"
-            value={isApprovedCreator ? "Aprobado" : creatorStatus === "none" ? "Usuario" : creatorStatus}
+            value={isCreatorApproved ? "Aprobado" : creatorStatus === "none" ? "Usuario" : creatorStatus}
             icon={<CreatorRequestIcon />}
-            color={isApprovedCreator ? "green" : "indigo"}
+            color={isCreatorApproved ? "green" : "indigo"}
           />
           <StatCard
             label="Misiones"
@@ -668,7 +668,7 @@ export default function DashboardPage() {
       <ReferralCard />
 
       {/* Navigation cards grid */}
-      {!isApprovedCreator && creatorStatus === "none" && (
+      {!isCreatorApproved && creatorStatus === "none" && (
         <div className="creator-cta-banner">
           <div className="creator-cta-icon"><CreatorRequestIcon /></div>
           <div className="creator-cta-text">
@@ -678,7 +678,7 @@ export default function DashboardPage() {
           <a href="/creator-request" className="creator-cta-btn">{smartCreatorCTA.button}</a>
         </div>
       )}
-      {!isApprovedCreator && creatorStatus === "pending" && (
+      {!isCreatorApproved && creatorStatus === "pending" && (
         <div className="creator-status-banner creator-status-pending">
           <span className="creator-status-icon"><PendingIcon /></span>
           <div className="creator-status-text">
@@ -687,7 +687,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {!isApprovedCreator && creatorStatus === "rejected" && (
+      {!isCreatorApproved && creatorStatus === "rejected" && (
         <div className="creator-status-banner creator-status-rejected">
           <span className="creator-status-icon"><CreatorRequestIcon /></span>
           <div className="creator-status-text">
@@ -708,7 +708,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── LIVE CONTROL PANEL (approved creators only) ── */}
-      {isApprovedCreator && (
+      {isCreatorApproved && (
         <div className="creator-panels">
           <div className="panel live-control-panel">
             <div className="panel-header">
@@ -930,7 +930,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── RANKING PANEL (approved creators only) ── */}
-      {isApprovedCreator && (
+      {isCreatorApproved && (
         <div className="ranking-panel">
           {/* decorative background orb */}
           <div className="rp-orb" />
@@ -993,7 +993,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── QUICK ACTIONS (approved creators only) ── */}
-      {isApprovedCreator && (
+      {isCreatorApproved && (
         <div className="quick-actions-section">
           <h2 className="section-label">Acciones rápidas</h2>
           <div className="quick-actions-grid">

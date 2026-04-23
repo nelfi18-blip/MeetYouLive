@@ -5,8 +5,8 @@
  * This is the canonical creator detection check used across all frontend screens and
  * mirrors the guard used by all backend creator API endpoints.
  *
- * Pending, rejected, and suspended users have role === "user" (the backend resets it),
- * so they are never matched by this check.
+ * When an admin rejects or suspends a creator the backend resets role to "user", so
+ * those users are never matched by this check.
  *
  * @param {object|null|undefined} user - The user object returned by /api/user/me
  * @returns {boolean}

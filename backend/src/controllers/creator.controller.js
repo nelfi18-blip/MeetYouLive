@@ -143,7 +143,7 @@ exports.getCreatorEarnings = async (req, res) => {
       },
     ]);
 
-    const [recentTransactions, payoutRows, payoutAgg] = await Promise.all([
+    const [recentTransactions, payoutRows, payoutAgg, callAgg] = await Promise.all([
       Gift.find({ receiver: user._id })
         .populate("sender", "username name avatar")
         .populate("giftCatalogItem")
@@ -170,6 +170,15 @@ exports.getCreatorEarnings = async (req, res) => {
           },
         },
       ]),
+      VideoCall.aggregate([
+        { $match: { recipient: new mongoose.Types.ObjectId(user._id), status: "ended", type: "paid_creator" } },
+        {
+          $group: {
+            _id: null,
+            totalCallEarnings: { $sum: "$creatorShare" },
+          },
+        },
+      ]),
     ]);
 
     const totals = aggregateResult[0] || {
@@ -179,6 +188,7 @@ exports.getCreatorEarnings = async (req, res) => {
       totalGiftCount: 0,
     };
 
+    const callTotals = callAgg[0] || { totalCallEarnings: 0 };
     const payoutTotals = payoutAgg[0] || { pendingCoins: 0, withdrawnCoins: 0 };
     const recentMonetizationActivity = [
       ...recentTransactions.map((tx) => ({
@@ -210,7 +220,7 @@ exports.getCreatorEarnings = async (req, res) => {
       pendingPayoutCoins: payoutTotals.pendingCoins || 0,
       withdrawnCoins: payoutTotals.withdrawnCoins || 0,
       totalEarnedLifetime:
-        totals.totalCreatorShare || 0,
+        (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0),
       availableForPayoutCoins: user.earningsCoins || 0,
       recentTransactions,
       recentMonetizationActivity,

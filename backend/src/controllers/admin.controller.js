@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
+const MAX_REVIEW_NOTE_LENGTH = 300;
 
 exports.getOverview = async (req, res) => {
   try {
@@ -209,7 +210,7 @@ exports.approveCreator = async (req, res) => {
       "creatorApplication.reviewDecision": "approved",
       "creatorApplication.reviewedAt": new Date(),
     };
-    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, 300);
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
 
     // Copy application fields into the active creatorProfile
     if (targetUser.creatorApplication) {
@@ -237,7 +238,7 @@ exports.rejectCreator = async (req, res) => {
       "creatorApplication.reviewDecision": "rejected",
       "creatorApplication.reviewedAt": new Date(),
     };
-    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, 300);
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updates,
@@ -261,7 +262,7 @@ exports.suspendCreator = async (req, res) => {
       "creatorApplication.reviewDecision": "suspended",
       "creatorApplication.reviewedAt": new Date(),
     };
-    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, 300);
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updates,
@@ -364,7 +365,7 @@ exports.reactivateCreator = async (req, res) => {
       "creatorApplication.reviewDecision": "reactivated",
       "creatorApplication.reviewedAt": new Date(),
     };
-    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, 300);
+    if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updates,

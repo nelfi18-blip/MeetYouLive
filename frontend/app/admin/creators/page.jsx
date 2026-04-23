@@ -21,6 +21,7 @@ const STATUS_COLORS = {
   suspended: { bg: "rgba(148,163,184,0.1)", color: "#94a3b8" },
   none: { bg: "rgba(100,116,139,0.1)", color: "#64748b" },
 };
+const MAX_REVIEW_NOTE_LENGTH = 300;
 
 const getCreatorProfileQuality = (creator) => {
   const app = creator?.creatorApplication || {};
@@ -240,7 +241,7 @@ function CreatorsInner() {
                               className="review-note"
                               placeholder="Motivo (opcional)"
                               value={reviewNotes[c._id] || ""}
-                              onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, 300) }))}
+                              onChange={(e) => setReviewNotes((prev) => ({ ...prev, [c._id]: e.target.value.slice(0, MAX_REVIEW_NOTE_LENGTH) }))}
                             />
                             {c.creatorStatus === "pending" && (
                               <>

@@ -2,10 +2,10 @@
 
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { verifyEmail, resendVerification } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
+import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -133,8 +133,7 @@ function VerifyEmailForm() {
 
       <div className="ve-card">
         <div className="ve-logo">
-          <Image src="/logo.svg" alt="MeetYouLive" width={64} height={64} priority />
-          <span className="ve-logo-text">Meet You<span className="ve-logo-accent">Live</span></span>
+          <AuthBrandLogo size="sm" />
         </div>
 
         <div className="ve-icon">📧</div>
@@ -270,8 +269,9 @@ function VerifyEmailForm() {
 
         .ve-logo {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 0.6rem;
+          gap: 0;
           margin-bottom: 1.5rem;
         }
         .ve-logo-text {

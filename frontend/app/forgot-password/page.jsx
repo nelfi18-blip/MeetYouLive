@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { forgotPassword } from "@/lib/auth.service";
+import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -52,8 +52,7 @@ export default function ForgotPasswordPage() {
 
       <div className="fp-card">
         <div className="fp-logo">
-          <Image src="/logo.svg" alt="MeetYouLive" width={64} height={64} priority />
-          <span className="fp-logo-text">Meet You<span className="fp-logo-accent">Live</span></span>
+          <AuthBrandLogo size="sm" />
         </div>
 
         <h1 className="fp-title">¿Olvidaste tu contraseña?</h1>
@@ -149,9 +148,10 @@ export default function ForgotPasswordPage() {
 
         .fp-logo {
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.6rem;
+          gap: 0;
           margin-bottom: 1.25rem;
         }
         .fp-logo-text {

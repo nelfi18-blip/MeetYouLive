@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
-import Image from "next/image";
 import { signUp } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
+import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -106,15 +106,7 @@ export default function RegisterForm() {
       <div className="register-card">
         {/* Logo */}
         <div className="register-logo">
-          <Image
-            src="/logo.svg"
-            alt="MeetYouLive logo"
-            width={80}
-            height={80}
-            priority
-            className="register-logo-img"
-          />
-          <span className="register-logo-text">Meet You<span>Live</span></span>
+          <AuthBrandLogo size="md" />
         </div>
 
         <div className="register-header">
@@ -283,7 +275,7 @@ export default function RegisterForm() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.4rem;
+          gap: 0;
           margin-bottom: 1.5rem;
         }
 

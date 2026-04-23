@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { resetPassword } from "@/lib/auth.service";
+import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -74,8 +74,7 @@ function ResetPasswordForm() {
 
       <div className="rp-card">
         <div className="rp-logo">
-          <Image src="/logo.svg" alt="MeetYouLive" width={64} height={64} priority />
-          <span className="rp-logo-text">Meet You<span className="rp-logo-accent">Live</span></span>
+          <AuthBrandLogo size="sm" />
         </div>
 
         <h1 className="rp-title">Restablecer contraseña</h1>
@@ -200,9 +199,10 @@ function ResetPasswordForm() {
 
         .rp-logo {
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.6rem;
+          gap: 0;
           margin-bottom: 1.25rem;
         }
         .rp-logo-text {

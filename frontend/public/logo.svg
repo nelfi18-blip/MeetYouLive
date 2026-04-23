@@ -1,20 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <defs>
-    <!-- Badge background: deep space dark purple, highlight top-left -->
+    <!-- Badge background: deep space dark purple -->
     <radialGradient id="bgG" cx="38%" cy="32%" r="72%">
       <stop offset="0%"   stop-color="#1e0042"/>
       <stop offset="100%" stop-color="#06000f"/>
     </radialGradient>
 
-    <!-- Interlaced hearts: left ring -->
-    <linearGradient id="heartGL" x1="18" y1="18" x2="74" y2="82" gradientUnits="userSpaceOnUse">
+    <!--
+      Left heart ring gradient (magenta → violet → deep indigo).
+      Spans the left heart bounding box: x=[19,65], y=[21,70].
+    -->
+    <linearGradient id="heartGL" x1="19" y1="21" x2="65" y2="70" gradientUnits="userSpaceOnUse">
       <stop offset="0%"   stop-color="#ff1177"/>
       <stop offset="50%"  stop-color="#cc00ff"/>
       <stop offset="100%" stop-color="#4400aa"/>
     </linearGradient>
 
-    <!-- Interlaced hearts: right ring -->
-    <linearGradient id="heartGR" x1="44" y1="18" x2="102" y2="82" gradientUnits="userSpaceOnUse">
+    <!--
+      Right heart ring gradient (pink-violet → electric violet → indigo-blue).
+      Spans the right heart bounding box: x=[45,91], y=[21,70].
+    -->
+    <linearGradient id="heartGR" x1="45" y1="21" x2="91" y2="70" gradientUnits="userSpaceOnUse">
       <stop offset="0%"   stop-color="#ff4db8"/>
       <stop offset="55%"  stop-color="#d400ff"/>
       <stop offset="100%" stop-color="#5b2dff"/>
@@ -34,7 +40,7 @@
       <stop offset="100%" stop-color="#00ffee" stop-opacity="0.95"/>
     </linearGradient>
 
-    <!-- Heart neon glow: wide outer + tight inner + source -->
+    <!-- Heart ring neon glow: wide halo + tight inner + source -->
     <filter id="hglow" x="-45%" y="-45%" width="190%" height="190%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="6"   result="b1"/>
       <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
@@ -72,82 +78,105 @@
 
   <!-- ① DARK CIRCULAR BADGE -->
   <circle cx="60" cy="60" r="52" fill="url(#bgG)"/>
-  <!-- Gradient border ring -->
   <circle cx="60" cy="60" r="52" fill="none" stroke="url(#borderG)" stroke-width="2.5"/>
-  <!-- Ultra-subtle inner sheen -->
   <circle cx="60" cy="60" r="50" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
 
-  <!-- ② BACK ORBIT ARC (upper half, behind heart) -->
-  <!-- Tilted ellipse center ~(60,68), rx=54, ry=9, x-rot=3°, sweep=0 → CCW → arcs upward -->
+  <!-- ② BACK ORBIT ARC (behind hearts) -->
   <path d="M 6,68 A 54,9 3 0 0 114,68"
         fill="none" stroke="url(#ringG)" stroke-width="1.5" opacity="0.5"
         filter="url(#oglow)"/>
 
-  <!-- ③ DOUBLE INTERLACED HEARTS (ring-like outline style) -->
-  <path d="M 48,78 C 29,64 18,50 18,39 C 18,28 26,20 36,20 C 43,20 49,24 54,31 C 59,24 65,20 72,20 C 82,20 90,28 90,39 C 90,50 79,64 60,78"
-        fill="none" stroke="url(#heartGL)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
-        filter="url(#hglow)"/>
-  <path d="M 68,78 C 50,64 40,50 40,39 C 40,28 48,20 58,20 C 65,20 70,24 75,31 C 80,24 86,20 93,20 C 102,20 108,28 108,39 C 108,50 98,64 80,78"
-        fill="none" stroke="url(#heartGR)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"
-        filter="url(#hglow)"/>
-  <!-- Weave effect at crossing points -->
-  <path d="M 56,49 C 58,53 61,56 65,58"
-        fill="none" stroke="url(#bgG)" stroke-width="7" stroke-linecap="round"/>
-  <path d="M 63,44 C 67,47 70,51 72,55"
-        fill="none" stroke="url(#heartGR)" stroke-width="6" stroke-linecap="round" filter="url(#hglow)"/>
-  <path d="M 72,49 C 70,53 67,56 63,58"
-        fill="none" stroke="url(#bgG)" stroke-width="7" stroke-linecap="round"/>
-  <path d="M 65,44 C 61,47 58,51 56,55"
-        fill="none" stroke="url(#heartGL)" stroke-width="6" stroke-linecap="round" filter="url(#hglow)"/>
+  <!--
+    ③ INTERLACED HEART RINGS  —  olympic-ring style
+    ════════════════════════════════════════════════
+    Two CLOSED heart paths, each a thick-stroke ring (fill=none).
 
-  <!-- ⑤ FRONT ORBIT ARC (lower half, in front of heart, thicker) -->
+    Left  heart: centered at x=42, tip at (42,70), bumps peak at y≈21.
+    Right heart: centered at x=68, tip at (68,70), bumps peak at y≈21.
+    Both outlines share the cleft point (55,35), creating two crossings:
+
+      • Upper crossing ≈ (55,35)  →  LEFT  heart in front  (z-order, layer 2 over 1)
+      • Lower crossing ≈ (55,58)  →  RIGHT heart in front  (painter layers 3a + 3b)
+
+    Paint layers:
+      1. Right heart — full ring (back layer)
+      2. Left  heart — full ring (covers right at upper crossing → left in front)
+      3a. Erase left heart arm at lower crossing with background colour
+      3b. Redraw right heart arm at lower crossing on top (right in front)
+  -->
+
+  <!-- Layer 1 — right heart ring (full, bottom layer) -->
+  <path d="M 68,70
+           C 49,57 45,44 55,35
+           C 59,25 64,21 68,30
+           C 72,21 77,25 81,35
+           C 91,44 87,57 68,70 Z"
+        fill="none" stroke="url(#heartGR)" stroke-width="7.5" stroke-linejoin="round"
+        filter="url(#hglow)"/>
+
+  <!-- Layer 2 — left heart ring (full; left in front at upper crossing) -->
+  <path d="M 42,70
+           C 23,57 19,44 29,35
+           C 33,25 38,21 42,30
+           C 46,21 51,25 55,35
+           C 65,44 61,57 42,70 Z"
+        fill="none" stroke="url(#heartGL)" stroke-width="7.5" stroke-linejoin="round"
+        filter="url(#hglow)"/>
+
+  <!--
+    Layer 3a — erase left heart's right arm near lower crossing (55,58).
+    Colour #180036 matches the badge background at that point
+    (radialGradient bgG evaluated at distance ≈ 18 px from gradient centre).
+    Stroke-width 13 > heart stroke 7.5 to fully cover it.
+  -->
+  <path d="M 60,51 C 59,54 57,57 52,64"
+        fill="none" stroke="#180036" stroke-width="13" stroke-linecap="round"/>
+
+  <!-- Layer 3b — redraw right heart left arm from tip to lower crossing (right in front) -->
+  <path d="M 68,70 C 62,66 58,62 55,58"
+        fill="none" stroke="url(#heartGR)" stroke-width="7.5" stroke-linecap="round"
+        filter="url(#hglow)"/>
+
+  <!-- ④ FRONT ORBIT ARC (in front of hearts) -->
   <path d="M 6,68 A 54,9 3 0 1 114,68"
         fill="none" stroke="url(#ringG)" stroke-width="3"
         filter="url(#oglow)"/>
-  <!-- Orbit endpoint glow dots -->
   <circle cx="6"   cy="68" r="4"   fill="#00ffee" filter="url(#sglow)"/>
   <circle cx="114" cy="68" r="3.5" fill="#ff0066" filter="url(#sglow)"/>
 
-  <!-- ⑥ LIVE INDICATOR DOT (top-right, glowing scarlet) -->
+  <!-- ⑤ LIVE INDICATOR DOT (top-right, glowing scarlet) -->
   <circle cx="88" cy="21" r="5.5" fill="#ff1144" filter="url(#lglow)"/>
   <circle cx="88" cy="21" r="2.5" fill="white"   opacity="0.92"/>
-  <!-- Pulse ring -->
   <circle cx="88" cy="21" r="8.5" fill="none" stroke="#ff1144" stroke-width="1.2" opacity="0.4"/>
 
-  <!-- ⑦ BROADCAST / SIGNAL ARCS (right side, bowing rightward, CW sweep=1) -->
-  <!-- Inner arc -->
+  <!-- ⑥ BROADCAST / SIGNAL ARCS (right side) -->
   <path d="M 100,50 A 15,15 0 0 1 100,70"
         fill="none" stroke="#00ffee" stroke-width="2.5" stroke-linecap="round"
         filter="url(#sigglow)"/>
-  <!-- Middle arc -->
   <path d="M 105,45 A 22,22 0 0 1 105,75"
         fill="none" stroke="#00ffee" stroke-width="1.8" stroke-linecap="round" opacity="0.6"
         filter="url(#sigglow)"/>
-  <!-- Outer arc (extends slightly beyond badge — intentional broadcast effect) -->
   <path d="M 110,40 A 30,30 0 0 1 110,80"
         fill="none" stroke="#00ffee" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
 
-  <!-- ⑧ SPARKLES / STARS -->
-  <!-- Large 4-point white star, top-right quadrant -->
+  <!-- ⑦ SPARKLES / STARS -->
   <g transform="translate(94,33)" filter="url(#sglow)">
     <line x1="0"    y1="-9"   x2="0"    y2="9"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="-9"   y1="0"    x2="9"    y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="-5.5" y1="-5.5" x2="5.5"  y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
     <line x1="5.5"  y1="-5.5" x2="-5.5" y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
   </g>
-  <!-- Small pink cross, left side -->
   <g transform="translate(25,46)" filter="url(#sglow)">
     <line x1="0"   y1="-6" x2="0"  y2="6" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
     <line x1="-6"  y1="0"  x2="6"  y2="0" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
   </g>
-  <!-- Tiny violet cross, lower area -->
   <g transform="translate(75,86)" filter="url(#sglow)">
     <line x1="0"    y1="-4.5" x2="0"    y2="4.5" stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
     <line x1="-4.5" y1="0"    x2="4.5"  y2="0"   stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
   </g>
 
-  <!-- ⑨ ACCENT SCATTER DOTS -->
-  <circle cx="35"  cy="19" r="2"   fill="#ff55bb" opacity="0.8"  filter="url(#sglow)"/>
+  <!-- ⑧ ACCENT SCATTER DOTS -->
+  <circle cx="30"  cy="22" r="2"   fill="#ff55bb" opacity="0.8"  filter="url(#sglow)"/>
   <circle cx="72"  cy="89" r="1.5" fill="#5533ff" opacity="0.7"/>
   <circle cx="16"  cy="53" r="1.3" fill="#ff33aa" opacity="0.55"/>
   <circle cx="48"  cy="93" r="1.2" fill="#cc33ff" opacity="0.6"/>

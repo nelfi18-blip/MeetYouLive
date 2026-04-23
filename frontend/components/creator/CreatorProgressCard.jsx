@@ -12,10 +12,48 @@ const TIPS = [
   "Promueve llamadas privadas en tu bio",
 ];
 const CONSISTENCY_PERIOD_DAYS = 30;
+const WEEKLY_GOAL_DAYS = 5;
+const STREAK_DOTS = 10;
+
+function ConsistencyDots({ activeDays, totalDays }) {
+  const ratio = totalDays > 0 ? activeDays / totalDays : 0;
+  const filledDots = Math.round(ratio * STREAK_DOTS);
+  return (
+    <div className="streak-wrap">
+      <div className="streak-dots">
+        {Array.from({ length: STREAK_DOTS }, (_, i) => (
+          <span key={i} className={`dot${i < filledDots ? " dot-on" : ""}`} />
+        ))}
+      </div>
+      <style jsx>{`
+        .streak-wrap { display: flex; align-items: center; }
+        .streak-dots { display: flex; gap: 0.22rem; align-items: center; }
+        .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(139, 92, 246, 0.2);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          transition: background var(--transition);
+        }
+        .dot-on {
+          background: linear-gradient(135deg, #a855f7, #22d3ee);
+          border-color: rgba(168, 85, 247, 0.5);
+          box-shadow: 0 0 5px rgba(168, 85, 247, 0.5);
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
   const progress = Math.max(0, Math.min(100, Number(creatorLevel?.progressPercent || 0)));
   const hasLevelData = Boolean(creatorLevel?.current?.label);
+  const activeDays = Number(consistencyDays) || 0;
+  const weeklyProgress = Math.min(activeDays, WEEKLY_GOAL_DAYS);
+  const weeklyPercent = Math.round((weeklyProgress / WEEKLY_GOAL_DAYS) * 100);
+  const isOnTrack = weeklyProgress >= WEEKLY_GOAL_DAYS;
+  const remainingDays = WEEKLY_GOAL_DAYS - weeklyProgress;
 
   return (
     <FuturisticCard className="progress-card" accent="purple" hover={false}>
@@ -28,8 +66,8 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
         <div className="level-block">
           <div className="level-row">
             <NeonBadge tone="purple">Nivel actual · {creatorLevel.current.label}</NeonBadge>
-            <NeonBadge tone="cyan">
-              Días activos · {consistencyDays || 0} / {CONSISTENCY_PERIOD_DAYS}
+            <NeonBadge tone={isOnTrack ? "green" : "cyan"}>
+              {activeDays} / {CONSISTENCY_PERIOD_DAYS} días activos
             </NeonBadge>
           </div>
           <p className="level-copy">
@@ -53,6 +91,27 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
           </p>
         </div>
       )}
+
+      <div className="weekly-goal">
+        <div className="weekly-header">
+          <span className="weekly-title">Meta semanal de actividad</span>
+          <NeonBadge tone={isOnTrack ? "green" : "purple"}>
+            {isOnTrack ? "¡En racha!" : `${weeklyProgress} / ${WEEKLY_GOAL_DAYS} días`}
+          </NeonBadge>
+        </div>
+        <ConsistencyDots activeDays={activeDays} totalDays={CONSISTENCY_PERIOD_DAYS} />
+        <div className="weekly-bar-wrap">
+          <div className="weekly-bar">
+            <div className="weekly-fill" style={{ width: `${weeklyPercent}%` }} />
+          </div>
+          <span className="weekly-pct">{weeklyPercent}%</span>
+        </div>
+        <p className="weekly-hint">
+          {isOnTrack
+            ? "Excelente consistencia. Sigue así para subir de nivel más rápido."
+            : `Ve en vivo ${remainingDays} día${remainingDays !== 1 ? "s" : ""} más para completar tu meta semanal.`}
+        </p>
+      </div>
 
       <div className="tips-grid">
         {TIPS.map((tip, index) => (
@@ -116,6 +175,59 @@ export default function CreatorProgressCard({ creatorLevel, consistencyDays }) {
           color: var(--text-muted);
           font-size: 0.75rem;
           font-weight: 700;
+        }
+        .weekly-goal {
+          border-radius: 14px;
+          border: 1px solid rgba(139, 92, 246, 0.25);
+          background: rgba(139, 92, 246, 0.05);
+          padding: 0.8rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.52rem;
+        }
+        .weekly-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .weekly-title {
+          color: #e2e8f0;
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+        .weekly-bar-wrap {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+        }
+        .weekly-bar {
+          flex: 1;
+          height: 0.42rem;
+          border-radius: 999px;
+          background: rgba(139, 92, 246, 0.15);
+          border: 1px solid rgba(139, 92, 246, 0.3);
+          overflow: hidden;
+        }
+        .weekly-fill {
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, #a855f7, #22d3ee);
+          transition: width var(--transition-slow);
+        }
+        .weekly-pct {
+          color: var(--text-muted);
+          font-size: 0.7rem;
+          font-weight: 800;
+          min-width: 2.4rem;
+          text-align: right;
+        }
+        .weekly-hint {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.76rem;
+          line-height: 1.45;
         }
         .tips-grid {
           display: grid;

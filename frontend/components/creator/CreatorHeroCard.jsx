@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
@@ -9,16 +10,61 @@ import {
   ArrowRightIcon,
   CoinIcon,
   VideoIcon,
+  WalletIcon,
 } from "@/components/ui/MonetizationIcons";
+
+function LiveDot() {
+  return (
+    <span className="live-dot" aria-label="En vivo ahora">
+      <span className="live-pulse" />
+      En vivo
+      <style jsx>{`
+        .live-dot {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.2rem 0.55rem 0.2rem 0.4rem;
+          border-radius: var(--radius-pill);
+          background: linear-gradient(90deg, rgba(224,64,251,0.22), rgba(244,114,182,0.18));
+          border: 1px solid rgba(224,64,251,0.5);
+          color: #f5d0fe;
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .live-pulse {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #e040fb;
+          box-shadow: 0 0 6px #e040fb;
+          animation: pulse-live 1.4s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        @keyframes pulse-live {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.4); }
+        }
+      `}</style>
+    </span>
+  );
+}
 
 export default function CreatorHeroCard({
   displayName,
+  avatar,
   status,
   statusCopy,
   creatorLevel,
   earningsHighlight,
+  availableForPayout,
+  activeLive,
   cta,
 }) {
+  const initial = displayName?.[0]?.toUpperCase() || "C";
+
   return (
     <FuturisticCard className="creator-hero" accent="pink" hover={false}>
       <PremiumSectionHeader
@@ -37,11 +83,25 @@ export default function CreatorHeroCard({
 
       <div className="hero-body">
         <div className="hero-user">
-          <div className="avatar">{displayName?.[0]?.toUpperCase() || "C"}</div>
+          <div className="avatar-wrap">
+            {avatar ? (
+              <Image
+                src={avatar}
+                alt={displayName || "Creador"}
+                width={46}
+                height={46}
+                className="avatar-img"
+                unoptimized
+              />
+            ) : (
+              <div className="avatar-placeholder">{initial}</div>
+            )}
+          </div>
           <div>
             <p className="name">{displayName}</p>
             <div className="badges">
               <StatusBadge status={status} />
+              {activeLive ? <LiveDot /> : null}
               {creatorLevel?.current?.label ? (
                 <span className="level-badge">Nivel · {creatorLevel.current.label}</span>
               ) : null}
@@ -50,10 +110,23 @@ export default function CreatorHeroCard({
         </div>
 
         <div className="hero-earnings">
-          <span className="earnings-label">Ganancias principales</span>
+          <span className="earnings-label">Ganancias acumuladas</span>
           <strong className="earnings-value">
             <CoinIcon size={16} /> {earningsHighlight}
+            <span className="earnings-unit">monedas</span>
           </strong>
+          {availableForPayout !== null && availableForPayout !== undefined ? (
+            <div className="payout-row">
+              <WalletIcon size={12} />
+              <span>
+                Disponible para retiro:{" "}
+                <strong className="payout-amount">
+                  {Number(availableForPayout).toLocaleString("es-ES")}
+                </strong>{" "}
+                monedas
+              </span>
+            </div>
+          ) : null}
           {creatorLevel?.current?.label ? (
             <span className="level-line">
               <ActivityIcon size={14} /> Nivel actual: {creatorLevel.current.label}
@@ -84,11 +157,22 @@ export default function CreatorHeroCard({
           align-items: center;
           gap: 0.7rem;
         }
-        .avatar {
+        .avatar-wrap {
           width: 2.9rem;
           height: 2.9rem;
           border-radius: 14px;
           border: 1px solid rgba(224, 64, 251, 0.4);
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        :global(.avatar-img) {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .avatar-placeholder {
+          width: 100%;
+          height: 100%;
           background: rgba(224, 64, 251, 0.15);
           color: #f5d0fe;
           display: inline-flex;
@@ -96,7 +180,6 @@ export default function CreatorHeroCard({
           justify-content: center;
           font-weight: 800;
           font-size: 1.05rem;
-          flex-shrink: 0;
         }
         .name {
           margin: 0;
@@ -146,8 +229,25 @@ export default function CreatorHeroCard({
           font-size: 1.25rem;
           letter-spacing: -0.02em;
           display: inline-flex;
-          align-items: center;
+          align-items: baseline;
           gap: 0.35rem;
+        }
+        .earnings-unit {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+        .payout-row {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.28rem;
+          color: #86efac;
+          font-size: 0.76rem;
+        }
+        .payout-amount {
+          font-weight: 800;
         }
         .level-line {
           color: #a5f3fc;

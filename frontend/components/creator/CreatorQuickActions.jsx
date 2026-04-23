@@ -10,6 +10,26 @@ import {
   VideoIcon,
 } from "@/components/ui/MonetizationIcons";
 
+function ContentIcon(props) {
+  return (
+    <svg
+      width={props.size || 14}
+      height={props.size || 14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </svg>
+  );
+}
+
 function Tile({ href, label, icon, muted = false }) {
   return (
     <Link href={href} className={`qa-tile${muted ? " qa-muted" : ""}`}>
@@ -93,7 +113,8 @@ export default function CreatorQuickActions({
 
       <Tile href="/profile" label="Editar perfil de creador" icon={<SparkIcon size={14} />} muted={!canMonetize} />
       <Tile href={profileHref} label="Compartir perfil" icon={<ArrowRightIcon size={14} />} muted={!canMonetize} />
-      <Tile href="/gifts" label="Ver regalos" icon={<GiftIcon size={14} />} muted={!canMonetize} />
+      <Tile href="/creator/content" label="Mi contenido" icon={<ContentIcon size={14} />} muted={!canMonetize} />
+      <Tile href="#monetization-history" label="Ver regalos recibidos" icon={<GiftIcon size={14} />} muted={!canMonetize} />
 
       <style jsx>{`
         .qa-grid {

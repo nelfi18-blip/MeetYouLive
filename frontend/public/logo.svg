@@ -1,43 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 460" fill="none">
   <defs>
-    <!-- Badge background -->
-    <radialGradient id="bgG" cx="40%" cy="35%" r="70%">
-      <stop offset="0%"   stop-color="#140028"/>
-      <stop offset="100%" stop-color="#03000a"/>
+    <!-- BACKGROUND -->
+    <radialGradient id="bgG" cx="50%" cy="38%" r="65%">
+      <stop offset="0%"   stop-color="#180030"/>
+      <stop offset="100%" stop-color="#020008"/>
     </radialGradient>
 
-    <!-- Left heart fill: hot pink → deep magenta -->
-    <radialGradient id="lhFill" cx="38%" cy="32%" r="70%">
-      <stop offset="0%"   stop-color="#ff6699"/>
-      <stop offset="50%"  stop-color="#dd0055"/>
-      <stop offset="100%" stop-color="#880022"/>
+    <!-- LEFT HEART dark fill (hot pink interior) -->
+    <radialGradient id="lhFill" cx="38%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#3a0020"/>
+      <stop offset="100%" stop-color="#140009"/>
     </radialGradient>
 
-    <!-- Right heart fill: violet → indigo blue -->
-    <radialGradient id="rhFill" cx="52%" cy="32%" r="70%">
-      <stop offset="0%"   stop-color="#cc88ff"/>
-      <stop offset="50%"  stop-color="#8822dd"/>
-      <stop offset="100%" stop-color="#2211aa"/>
+    <!-- RIGHT HEART dark fill (indigo interior) -->
+    <radialGradient id="rhFill" cx="55%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#150030"/>
+      <stop offset="100%" stop-color="#050010"/>
     </radialGradient>
 
-    <!-- Orbital ring: pink → violet → blue -->
-    <linearGradient id="orbitG" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="#ff2299"/>
-      <stop offset="50%"  stop-color="#bb44ff"/>
-      <stop offset="100%" stop-color="#3388ff"/>
+    <!-- ORBITAL RING gradient: pink → violet → blue -->
+    <linearGradient id="oG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#ff0088"/>
+      <stop offset="45%"  stop-color="#aa22ff"/>
+      <stop offset="100%" stop-color="#1166ff"/>
     </linearGradient>
 
-    <!-- Badge border -->
-    <linearGradient id="borderG" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#ff1188" stop-opacity="0.9"/>
-      <stop offset="50%"  stop-color="#9922ee" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#3388ff" stop-opacity="0.9"/>
+    <!-- TAGLINE gradient -->
+    <linearGradient id="tG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#ff22aa"/>
+      <stop offset="50%"  stop-color="#ee55ff"/>
+      <stop offset="100%" stop-color="#ff22aa"/>
     </linearGradient>
 
-    <!-- Heart neon glow -->
-    <filter id="hglow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="b2"/>
+    <!-- PINK neon glow (for left heart) -->
+    <filter id="fP" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
       <feMerge>
         <feMergeNode in="b1"/>
         <feMergeNode in="b2"/>
@@ -45,128 +43,186 @@
       </feMerge>
     </filter>
 
-    <!-- Orbit arc glow -->
-    <filter id="oglow" x="-8%" y="-200%" width="116%" height="500%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+    <!-- BLUE neon glow (for right heart) -->
+    <filter id="fB" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- ORBIT glow -->
+    <filter id="fO" x="-5%" y="-180%" width="110%" height="460%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <!-- Video icon glow -->
-    <filter id="vglow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+    <!-- CAMERA glow -->
+    <filter id="fC" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <!-- Sparkle glow -->
-    <filter id="sglow" x="-200%" y="-200%" width="500%" height="500%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+    <!-- SPARKLE glow -->
+    <filter id="fS" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-
-    <!-- Clip to badge circle -->
-    <clipPath id="badge">
-      <circle cx="60" cy="60" r="55"/>
-    </clipPath>
   </defs>
 
-  <!-- BADGE BACKGROUND -->
-  <circle cx="60" cy="60" r="56" fill="url(#bgG)"/>
-  <circle cx="60" cy="60" r="56" fill="none" stroke="url(#borderG)" stroke-width="2.2"/>
+  <!-- ① DARK BACKGROUND -->
+  <rect width="400" height="460" fill="url(#bgG)"/>
 
-  <g clip-path="url(#badge)">
+  <!-- ② ORBITAL RING — BACK ARC (behind hearts, passes through top)
+       Ellipse center (200,218), rx=183, ry=28
+       sweep=0 → CCW in screen-space → goes through top (200,190) -->
+  <path d="M 17,218 A 183,28 0 0 0 383,218"
+        fill="none" stroke="url(#oG)" stroke-width="3" opacity="0.5"
+        filter="url(#fO)"/>
 
-    <!-- ORBITAL RING — back arc (top half, behind hearts) -->
-    <!-- Ellipse center (60,65) rx=51 ry=10; sweep=0 → CCW → top arc through (60,55) -->
-    <path d="M 9,65 A 51,10 0 0 0 111,65"
-          fill="none" stroke="url(#orbitG)" stroke-width="3" opacity="0.55"
-          filter="url(#oglow)"/>
-
-    <!-- RIGHT HEART (back layer, violet/blue) -->
-    <!-- Center (73,44), s=23; tip (73,67), bounding x=50..96, y=21..67 -->
-    <path d="M 73,67
-             C 61.5,60.1  50,53.2  50,46.3
-             C 50,37.1    61.5,27.9  73,35.95
-             C 84.5,27.9  96,37.1   96,46.3
-             C 96,53.2    84.5,60.1  73,67 Z"
-          fill="url(#rhFill)" filter="url(#hglow)"/>
-    <!-- Right heart highlight shimmer -->
-    <path d="M 59,32 C 62,29 68,29 72,32"
-          fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.3"/>
-    <!-- Right heart neon stroke -->
-    <path d="M 73,67
-             C 61.5,60.1  50,53.2  50,46.3
-             C 50,37.1    61.5,27.9  73,35.95
-             C 84.5,27.9  96,37.1   96,46.3
-             C 96,53.2    84.5,60.1  73,67 Z"
-          fill="none" stroke="#bb66ff" stroke-width="2.8" filter="url(#hglow)"/>
-
-    <!-- LEFT HEART (front layer, hot pink) -->
-    <!-- Center (43,42), s=23; tip (43,65), bounding x=20..66, y=19..65 -->
-    <path d="M 43,65
-             C 31.5,58.1  20,51.2  20,44.3
-             C 20,35.1    31.5,25.9  43,33.95
-             C 54.5,25.9  66,35.1   66,44.3
-             C 66,51.2    54.5,58.1  43,65 Z"
-          fill="url(#lhFill)" filter="url(#hglow)"/>
-    <!-- Left heart highlight shimmer -->
-    <path d="M 29,30 C 32,27 38,27 42,30"
-          fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity="0.3"/>
-    <!-- Left heart neon stroke -->
-    <path d="M 43,65
-             C 31.5,58.1  20,51.2  20,44.3
-             C 20,35.1    31.5,25.9  43,33.95
-             C 54.5,25.9  66,35.1   66,44.3
-             C 66,51.2    54.5,58.1  43,65 Z"
-          fill="none" stroke="#ff66aa" stroke-width="2.8" filter="url(#hglow)"/>
-
-    <!-- ORBITAL RING — front arc (bottom half, in front of hearts) -->
-    <!-- sweep=1 → CW → bottom arc through (60,75) -->
-    <path d="M 9,65 A 51,10 0 0 1 111,65"
-          fill="none" stroke="url(#orbitG)" stroke-width="3.5"
-          filter="url(#oglow)"/>
-
-    <!-- Orbit endpoint dots -->
-    <circle cx="9"   cy="65" r="3.5" fill="#ff2299" filter="url(#sglow)"/>
-    <circle cx="111" cy="65" r="3"   fill="#3388ff" filter="url(#sglow)"/>
-
-    <!-- VIDEO CAMERA ICON (centered ≈58, 44 — in the hearts' overlap zone) -->
-    <g filter="url(#vglow)">
-      <!-- Camera body -->
-      <rect x="46" y="37" width="21" height="14" rx="3.5"
-            fill="#880044" fill-opacity="0.85"
-            stroke="#ff44aa" stroke-width="1.8"/>
-      <!-- Lens outer ring -->
-      <circle cx="55" cy="44" r="4.5" fill="#1a0022" stroke="#ff88cc" stroke-width="1.3"/>
-      <!-- Lens record dot -->
-      <circle cx="55" cy="44" r="2.2" fill="#ff0066" opacity="0.9"/>
-      <!-- Lens highlight -->
-      <circle cx="54.2" cy="43.2" r="0.8" fill="white" opacity="0.55"/>
-      <!-- Camera triangle / viewfinder -->
-      <path d="M 67,38.5 L 76,44 L 67,49.5 Z"
-            fill="#880044" fill-opacity="0.85"
-            stroke="#ff44aa" stroke-width="1.8" stroke-linejoin="round"/>
-    </g>
-
+  <!-- ③ RIGHT HEART — blue/violet, behind left heart
+       cx=250, cy=132 | tip=(250,192) | left=163 right=337 | lobes top y≈78 -->
+  <path d="M 250,192
+           C 210,183  163,162  163,132
+           C 163,94   218,80   250,120
+           C 282,80   337,94   337,132
+           C 337,162  290,183  250,192 Z"
+        fill="url(#rhFill)"/>
+  <g filter="url(#fB)">
+    <!-- outer diffuse glow -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#5500cc" stroke-width="20" stroke-opacity="0.25"/>
+    <!-- main tube -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#6622ee" stroke-width="9"/>
+    <!-- bright edge -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#9955ff" stroke-width="4.5"/>
+    <!-- inner highlight shimmer -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#ccbbff" stroke-width="1.8" opacity="0.6"/>
   </g>
 
-  <!-- SPARKLES (outside clip for full visibility) -->
+  <!-- ④ LEFT HEART — pink/magenta, front layer
+       cx=156, cy=148 | tip=(156,203) | left=62 right=250 | lobes top y≈90 -->
+  <path d="M 156,203
+           C 116,194  62,172   62,143
+           C 62,104   118,90  156,133
+           C 194,90   250,104 250,143
+           C 250,172  196,194 156,203 Z"
+        fill="url(#lhFill)"/>
+  <g filter="url(#fP)">
+    <!-- outer diffuse glow -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#dd0066" stroke-width="20" stroke-opacity="0.25"/>
+    <!-- main tube -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ff0088" stroke-width="9"/>
+    <!-- bright edge -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ff44bb" stroke-width="4.5"/>
+    <!-- inner highlight shimmer -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ffccee" stroke-width="2" opacity="0.6"/>
+  </g>
+
+  <!-- ⑤ ORBITAL RING — FRONT ARC (in front of hearts, passes through bottom)
+       sweep=1 → CW → goes through bottom (200,246) -->
+  <path d="M 17,218 A 183,28 0 0 1 383,218"
+        fill="none" stroke="url(#oG)" stroke-width="4.5"
+        filter="url(#fO)"/>
+
+  <!-- Orbital endpoint glow dots -->
+  <circle cx="17"  cy="218" r="5.5" fill="#ff0088" filter="url(#fS)"/>
+  <circle cx="383" cy="218" r="4.5" fill="#1166ff" filter="url(#fS)"/>
+
+  <!-- ⑥ VIDEO CAMERA ICON — centered at overlap zone (202, 143)
+       Body: rounded rect; Lens: circle + dot; Head: right-pointing triangle -->
+  <g filter="url(#fC)">
+    <rect x="178" y="128" width="48" height="30" rx="7"
+          fill="#2a0018" fill-opacity="0.9"
+          stroke="#ff0088" stroke-width="2.5"/>
+    <path d="M 226,134 L 240,143 L 226,152 Z"
+          fill="#2a0018" fill-opacity="0.9"
+          stroke="#ff0088" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="197" cy="143" r="9.5"
+            fill="#1a0010" stroke="#ff55aa" stroke-width="2"/>
+    <circle cx="197" cy="143" r="5"
+            fill="#ff0066" opacity="0.95"/>
+    <circle cx="194.5" cy="140.5" r="2.2"
+            fill="white" opacity="0.45"/>
+  </g>
+
+  <!-- ⑦ SPARKLES -->
   <!-- Large 4-point star: top-right -->
-  <g transform="translate(89,22)" filter="url(#sglow)">
-    <line x1="0"    y1="-9"   x2="0"    y2="9"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-9"   y1="0"    x2="9"    y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-5.5" y1="-5.5" x2="5.5"  y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.55"/>
-    <line x1="5.5"  y1="-5.5" x2="-5.5" y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.55"/>
+  <g transform="translate(286,95)" filter="url(#fS)">
+    <line x1="0"   y1="-15" x2="0"   y2="15"  stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-15" y1="0"   x2="15"  y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-9"  y1="-9"  x2="9"   y2="9"   stroke="white" stroke-width="1"   stroke-linecap="round" opacity="0.5"/>
+    <line x1="9"   y1="-9"  x2="-9"  y2="9"   stroke="white" stroke-width="1"   stroke-linecap="round" opacity="0.5"/>
   </g>
   <!-- Small sparkle: top-left -->
-  <g transform="translate(24,26)" filter="url(#sglow)">
-    <line x1="0"  y1="-5" x2="0" y2="5" stroke="#ff99cc" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="-5" y1="0"  x2="5" y2="0" stroke="#ff99cc" stroke-width="1.8" stroke-linecap="round"/>
+  <g transform="translate(110,112)" filter="url(#fS)">
+    <line x1="0"  y1="-8" x2="0" y2="8"  stroke="#ff88cc" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-8" y1="0"  x2="8" y2="0"  stroke="#ff88cc" stroke-width="2" stroke-linecap="round"/>
   </g>
+  <!-- Tiny accent dots -->
+  <circle cx="89"  cy="140" r="2.5" fill="#ff44aa" opacity="0.7"  filter="url(#fS)"/>
+  <circle cx="307" cy="122" r="2"   fill="#cc88ff" opacity="0.65"/>
+  <circle cx="316" cy="170" r="1.8" fill="#4488ff" opacity="0.6"/>
+  <circle cx="78"  cy="192" r="1.8" fill="#ff66bb" opacity="0.55"/>
+  <circle cx="291" cy="87"  r="1.5" fill="white"   opacity="0.6"/>
 
-  <!-- Accent scatter dots -->
-  <circle cx="93"  cy="37" r="1.5" fill="#cc88ff" opacity="0.85"/>
-  <circle cx="16"  cy="50" r="1.2" fill="#ff66bb" opacity="0.7"/>
-  <circle cx="104" cy="44" r="1"   fill="#4499ff" opacity="0.65"/>
-  <circle cx="34"  cy="74" r="1.3" fill="#ff55bb" opacity="0.5"/>
-  <circle cx="87"  cy="73" r="1"   fill="#7755ff" opacity="0.5"/>
+  <!-- ⑧ WORDMARK -->
+  <!-- "MeetYou" white + "Live" hot pink -->
+  <text x="200" y="292"
+        font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="800"
+        font-size="52"
+        text-anchor="middle"
+        fill="white">MeetYou<tspan fill="#ff0088">Live</tspan></text>
+
+  <!-- Tagline: CONECTA • EN VIVO • VIVE -->
+  <text x="200" y="324"
+        font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="600"
+        font-size="13"
+        text-anchor="middle"
+        letter-spacing="4"
+        fill="url(#tG)">CONECTA • EN VIVO • VIVE</text>
 </svg>

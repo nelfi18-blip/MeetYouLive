@@ -6,6 +6,12 @@ const CREATOR_LEVELS = [
   { key: "elite", label: "Elite", minPoints: 25000, badge: "👑" },
 ];
 
+const CREATOR_SHARE_WEIGHT = 2;
+const GIFTS_WEIGHT = 35;
+const LIVES_WEIGHT = 300;
+const CONSISTENCY_WEIGHT = 60;
+const FOLLOWERS_WEIGHT = 25;
+
 function clampNumber(value) {
   const n = Number(value) || 0;
   return n < 0 ? 0 : n;
@@ -21,11 +27,11 @@ function computeCreatorProgress(metrics = {}) {
 
   const points =
     totalCoinsReceived +
-    totalCreatorShare * 2 +
-    totalGifts * 35 +
-    totalLives * 300 +
-    consistencyDays * 60 +
-    followersCount * 25;
+    totalCreatorShare * CREATOR_SHARE_WEIGHT +
+    totalGifts * GIFTS_WEIGHT +
+    totalLives * LIVES_WEIGHT +
+    consistencyDays * CONSISTENCY_WEIGHT +
+    followersCount * FOLLOWERS_WEIGHT;
 
   let currentIndex = 0;
   for (let i = 0; i < CREATOR_LEVELS.length; i += 1) {

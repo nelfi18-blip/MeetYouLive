@@ -210,9 +210,7 @@ exports.getCreatorEarnings = async (req, res) => {
       pendingPayoutCoins: payoutTotals.pendingCoins || 0,
       withdrawnCoins: payoutTotals.withdrawnCoins || 0,
       totalEarnedLifetime:
-        (user.earningsCoins || 0) +
-        (payoutTotals.pendingCoins || 0) +
-        (payoutTotals.withdrawnCoins || 0),
+        totals.totalCreatorShare || 0,
       availableForPayoutCoins: user.earningsCoins || 0,
       recentTransactions,
       recentMonetizationActivity,
@@ -355,6 +353,11 @@ exports.getCreatorDashboard = async (req, res) => {
         {
           $group: {
             _id: null,
+            pendingCoins: {
+              $sum: {
+                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+              },
+            },
             withdrawnCoins: {
               $sum: {
                 $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
@@ -377,6 +380,7 @@ exports.getCreatorDashboard = async (req, res) => {
       totalCallEarnings: 0,
     };
 
+    const pendingCoins = payoutAgg[0]?.pendingCoins || 0;
     const withdrawnCoins = payoutAgg[0]?.withdrawnCoins || 0;
     const creatorLevel = computeCreatorProgress({
       totalCoinsReceived: totals.totalCoinsReceived || 0,
@@ -401,11 +405,10 @@ exports.getCreatorDashboard = async (req, res) => {
       totalCallDurationSeconds: callTotals.totalCallDurationSeconds || 0,
       totalCallEarnings: callTotals.totalCallEarnings || 0,
       consistencyDays: consistencyDays || 0,
+      pendingPayoutCoins: pendingCoins,
       withdrawnCoins,
       totalEarnedLifetime:
-        (user.earningsCoins || 0) +
-        (pendingPayout?.amountCoins || 0) +
-        withdrawnCoins,
+        (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0),
       creatorLevel,
       pendingPayout: pendingPayout
         ? {

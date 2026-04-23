@@ -22,6 +22,20 @@ const STATUS_COLORS = {
   none: { bg: "rgba(100,116,139,0.1)", color: "#64748b" },
 };
 
+const getCreatorProfileQuality = (creator) => {
+  const app = creator?.creatorApplication || {};
+  const score =
+    (app.bio?.trim() ? 1 : 0) +
+    (app.category?.trim() ? 1 : 0) +
+    (app.country?.trim() ? 1 : 0) +
+    ((app.languages || []).length > 0 ? 1 : 0) +
+    (Object.values(app.socialLinks || {}).filter(Boolean).length > 0 ? 1 : 0);
+  return {
+    score,
+    label: score >= 4 ? "high" : score >= 2 ? "medium" : "low",
+  };
+};
+
 function CreatorsInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,13 +109,7 @@ function CreatorsInner() {
   const filteredCreators = creators.filter((c) => {
     const q = search.trim().toLowerCase();
     const app = c.creatorApplication || {};
-    const profileQualityScore =
-      (app.bio?.trim() ? 1 : 0) +
-      (app.category?.trim() ? 1 : 0) +
-      (app.country?.trim() ? 1 : 0) +
-      ((app.languages || []).length > 0 ? 1 : 0) +
-      (Object.values(app.socialLinks || {}).filter(Boolean).length > 0 ? 1 : 0);
-    const qualityLabel = profileQualityScore >= 4 ? "high" : profileQualityScore >= 2 ? "medium" : "low";
+    const qualityLabel = getCreatorProfileQuality(c).label;
     const inQuality = qualityFilter === "all" ? true : qualityFilter === qualityLabel;
     const inSearch =
       !q ||
@@ -183,14 +191,8 @@ function CreatorsInner() {
                 ) : (
                   filteredCreators.map((c) => {
                     const statusStyle = STATUS_COLORS[c.creatorStatus] || STATUS_COLORS.none;
-                    const app = c.creatorApplication || {};
-                    const profileQualityScore =
-                      (app.bio?.trim() ? 1 : 0) +
-                      (app.category?.trim() ? 1 : 0) +
-                      (app.country?.trim() ? 1 : 0) +
-                      ((app.languages || []).length > 0 ? 1 : 0) +
-                      (Object.values(app.socialLinks || {}).filter(Boolean).length > 0 ? 1 : 0);
-                    const qualityLabel = profileQualityScore >= 4 ? "Alta" : profileQualityScore >= 2 ? "Media" : "Baja";
+                    const quality = getCreatorProfileQuality(c);
+                    const qualityLabel = quality.label === "high" ? "Alta" : quality.label === "medium" ? "Media" : "Baja";
                     const activityLabel = (c.loginCount || 0) >= 20 ? "Alta" : (c.loginCount || 0) >= 8 ? "Media" : "Baja";
                     return (
                       <tr key={c._id}>

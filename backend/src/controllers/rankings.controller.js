@@ -20,7 +20,7 @@ const getWeekStart = () => {
 
 const getMonthStart = () => {
   const d = new Date();
-  d.setDate(d.getDate() - 30);
+  d.setDate(1);
   d.setHours(0, 0, 0, 0);
   return d;
 };

@@ -16,6 +16,7 @@ import {
   CoinIcon,
   EmptyStateIcon,
   HistoryIcon,
+  LockIcon,
   SparkIcon,
   VideoIcon,
   WalletIcon,
@@ -43,6 +44,13 @@ const PASS_INFO = {
   vip_live_pass: "VIP Live Pass",
   private_date: "Private Date",
   inner_circle: "Inner Circle",
+};
+
+const PASS_ICON_BY_TYPE = {
+  backstage_pass: <VideoIcon size={15} />,
+  vip_live_pass: <ActivityIcon size={15} />,
+  private_date: <SparkIcon size={15} />,
+  inner_circle: <LockIcon size={15} />,
 };
 
 const COIN_TX_LABELS = {
@@ -165,7 +173,7 @@ export default function WalletPage() {
           action={
             <div className="hero-actions">
               <Link href="/coins" className="btn btn-primary btn-sm">Comprar más</Link>
-              <Link href="/coins" className="btn btn-secondary btn-sm">Ver historial</Link>
+              <a href="#wallet-history" className="btn btn-secondary btn-sm">Ver historial</a>
             </div>
           }
         />
@@ -228,7 +236,7 @@ export default function WalletPage() {
               return (
                 <div key={pass._id} className="pass-row">
                   <div className="pass-main">
-                    <span className="pass-icon"><VideoIcon size={15} /></span>
+                    <span className="pass-icon">{PASS_ICON_BY_TYPE[pass.type] || <VideoIcon size={15} />}</span>
                     <div>
                       <strong>{name}</strong>
                       <p>Expira en {timeLeft(pass.expiresAt)} · {formatDate(pass.expiresAt)}</p>
@@ -242,7 +250,7 @@ export default function WalletPage() {
         )}
       </FuturisticCard>
 
-      <div className="tx-grid">
+      <div id="wallet-history" className="tx-grid">
         <TransactionListCard
           title="Últimos movimientos de Coins"
           subtitle="Entradas y consumos recientes."
@@ -270,7 +278,7 @@ export default function WalletPage() {
 
       <div className="quick-actions">
         <Link href="/coins" className="qa-link"><CoinIcon size={16} /> Comprar MYL Coins</Link>
-        <Link href="/wallet" className="qa-link"><HistoryIcon size={16} /> Ver historial</Link>
+        <a href="#wallet-history" className="qa-link"><HistoryIcon size={16} /> Ver historial</a>
         <Link href="/dashboard" className="qa-link qa-muted"><WalletIcon size={16} /> Volver al dashboard</Link>
       </div>
 

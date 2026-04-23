@@ -4,12 +4,12 @@ import { Suspense, useState, useEffect, useRef } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
+import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 function MailIcon() {
   return (
@@ -230,17 +230,7 @@ function LoginForm() {
 
       <div className="login-card connecting-card">
         <div className="login-logo">
-          <Image
-            src="/logo.svg"
-            alt="MeetYouLive logo"
-            width={110}
-            height={110}
-            priority
-            className="logo-img"
-          />
-          <div className="login-logo-text">
-            MeetYou<span className="logo-live">Live</span>
-          </div>
+          <AuthBrandLogo size="lg" />
         </div>
 
         <div className="connecting-body" role="status">
@@ -445,18 +435,8 @@ function LoginForm() {
       <FuturisticCard className="login-card" accent="pink" hover={false}>
         {/* Logo */}
         <div className="login-logo">
-          <Image
-            src="/logo.svg"
-            alt="MeetYouLive logo"
-            width={110}
-            height={110}
-            priority
-            className="logo-img"
-          />
+          <AuthBrandLogo size="lg" />
           <span className="login-kicker">Acceso seguro</span>
-          <div className="login-logo-text">
-            MeetYou<span className="logo-live">Live</span>
-          </div>
         </div>
 
         <div className="login-header">

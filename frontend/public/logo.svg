@@ -1,63 +1,152 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <defs>
-    <linearGradient id="heartPink" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff2d78"/>
-      <stop offset="100%" stop-color="#e040fb"/>
+    <!-- Badge background: deep space dark purple, highlight top-left -->
+    <radialGradient id="bgG" cx="38%" cy="32%" r="72%">
+      <stop offset="0%"   stop-color="#1e0042"/>
+      <stop offset="100%" stop-color="#06000f"/>
+    </radialGradient>
+
+    <!-- Heart: hot magenta → electric violet → deep indigo -->
+    <linearGradient id="heartG" x1="22" y1="16" x2="98" y2="79" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ff1177"/>
+      <stop offset="50%"  stop-color="#cc00ff"/>
+      <stop offset="100%" stop-color="#4400aa"/>
     </linearGradient>
-    <linearGradient id="heartBlue" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#60a5fa"/>
+
+    <!-- Play button: pure white → blush -->
+    <radialGradient id="playG" cx="28%" cy="28%" r="75%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ffd0ee"/>
+    </radialGradient>
+
+    <!-- Orbit / signal: electric cyan → violet → magenta -->
+    <linearGradient id="ringG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#00ffee"/>
+      <stop offset="35%"  stop-color="#9900ff"/>
+      <stop offset="100%" stop-color="#ff0066"/>
     </linearGradient>
-    <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ff2d78" stop-opacity="0.9"/>
-      <stop offset="50%" stop-color="#e040fb" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.9"/>
+
+    <!-- Badge border: magenta → violet → cyan (diagonal) -->
+    <linearGradient id="borderG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ff0066" stop-opacity="0.95"/>
+      <stop offset="50%"  stop-color="#9900ff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#00ffee" stop-opacity="0.95"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+
+    <!-- Heart neon glow: wide outer + tight inner + source -->
+    <filter id="hglow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6"   result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
-    <filter id="glowStrong">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+
+    <!-- Orbit arc glow -->
+    <filter id="oglow" x="-15%" y="-250%" width="130%" height="600%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Sparkle / star glow -->
+    <filter id="sglow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- LIVE dot glow -->
+    <filter id="lglow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Signal arcs glow -->
+    <filter id="sigglow" x="-100%" y="-60%" width="300%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <!-- Outer orbital ring -->
-  <ellipse cx="60" cy="57" rx="51" ry="23" fill="none" stroke="url(#orbitGrad)" stroke-width="2.5" stroke-linecap="round" transform="rotate(-18 60 57)" opacity="0.85" filter="url(#glow)"/>
+  <!-- ① DARK CIRCULAR BADGE -->
+  <circle cx="60" cy="60" r="52" fill="url(#bgG)"/>
+  <!-- Gradient border ring -->
+  <circle cx="60" cy="60" r="52" fill="none" stroke="url(#borderG)" stroke-width="2.5"/>
+  <!-- Ultra-subtle inner sheen -->
+  <circle cx="60" cy="60" r="50" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
 
-  <!-- Blue/purple heart (back, offset right) -->
-  <path d="M72,65 C72,65 50,52 50,39 C50,32.4 55.4,27 62,27 C65.8,27 69.2,28.9 72,32 C74.8,28.9 78.2,27 82,27 C88.6,27 94,32.4 94,39 C94,52 72,65 72,65 Z"
-        fill="url(#heartBlue)" filter="url(#glow)" opacity="0.88"/>
+  <!-- ② BACK ORBIT ARC (upper half, behind heart) -->
+  <!-- Tilted ellipse center ~(60,68), rx=54, ry=9, x-rot=3°, sweep=0 → CCW → arcs upward -->
+  <path d="M 6,68 A 54,9 3 0 0 114,68"
+        fill="none" stroke="url(#ringG)" stroke-width="1.5" opacity="0.5"
+        filter="url(#oglow)"/>
 
-  <!-- Pink/magenta heart (front, offset left) -->
-  <path d="M48,63 C48,63 26,50 26,37 C26,30.4 31.4,25 38,25 C41.8,25 45.2,26.9 48,30 C50.8,26.9 54.2,25 58,25 C64.6,25 70,30.4 70,37 C70,50 48,63 48,63 Z"
-        fill="url(#heartPink)" filter="url(#glowStrong)"/>
+  <!-- ③ HEART (filled, neon gradient + double-layer glow) -->
+  <path d="M 60,79 C 36,63 22,47 22,36 C 22,24 31,16 41,16 C 48,16 54,20 60,28 C 66,20 72,16 79,16 C 89,16 98,24 98,36 C 98,47 84,63 60,79 Z"
+        fill="url(#heartG)" filter="url(#hglow)"/>
+  <!-- Top-left rim highlight: bright arc along left bump -->
+  <path d="M 22,36 C 22,24 31,16 41,16 C 48,16 54,20 60,28"
+        fill="none" stroke="rgba(255,180,230,0.45)" stroke-width="3" stroke-linecap="round"/>
+  <!-- Subtle central depth shadow -->
+  <path d="M 60,29 C 59,37 59,45 60,52"
+        fill="none" stroke="rgba(80,0,60,0.30)" stroke-width="5" stroke-linecap="round"/>
 
-  <!-- Highlight on pink heart -->
-  <path d="M33,30 C31.5,28 29.5,28.5 28.5,30.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <!-- ④ PLAY TRIANGLE (white-blush, inside heart) -->
+  <polygon points="50,42 50,68 76,55" fill="url(#playG)"/>
+  <!-- Subtle dark inner shadow for 3-D depth -->
+  <polygon points="53,46 53,64 69,55" fill="rgba(0,0,25,0.16)"/>
 
-  <!-- Sparkle top-right (large) -->
-  <g transform="translate(91,21)">
-    <line x1="0" y1="-7" x2="0" y2="7" stroke="#ff2d78" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="-7" y1="0" x2="7" y2="0" stroke="#ff2d78" stroke-width="1.6" stroke-linecap="round"/>
-    <line x1="-4.5" y1="-4.5" x2="4.5" y2="4.5" stroke="#ff2d78" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
-    <line x1="4.5" y1="-4.5" x2="-4.5" y2="4.5" stroke="#ff2d78" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
+  <!-- ⑤ FRONT ORBIT ARC (lower half, in front of heart, thicker) -->
+  <path d="M 6,68 A 54,9 3 0 1 114,68"
+        fill="none" stroke="url(#ringG)" stroke-width="3"
+        filter="url(#oglow)"/>
+  <!-- Orbit endpoint glow dots -->
+  <circle cx="6"   cy="68" r="4"   fill="#00ffee" filter="url(#sglow)"/>
+  <circle cx="114" cy="68" r="3.5" fill="#ff0066" filter="url(#sglow)"/>
+
+  <!-- ⑥ LIVE INDICATOR DOT (top-right, glowing scarlet) -->
+  <circle cx="88" cy="21" r="5.5" fill="#ff1144" filter="url(#lglow)"/>
+  <circle cx="88" cy="21" r="2.5" fill="white"   opacity="0.92"/>
+  <!-- Pulse ring -->
+  <circle cx="88" cy="21" r="8.5" fill="none" stroke="#ff1144" stroke-width="1.2" opacity="0.4"/>
+
+  <!-- ⑦ BROADCAST / SIGNAL ARCS (right side, bowing rightward, CW sweep=1) -->
+  <!-- Inner arc -->
+  <path d="M 100,50 A 15,15 0 0 1 100,70"
+        fill="none" stroke="#00ffee" stroke-width="2.5" stroke-linecap="round"
+        filter="url(#sigglow)"/>
+  <!-- Middle arc -->
+  <path d="M 105,45 A 22,22 0 0 1 105,75"
+        fill="none" stroke="#00ffee" stroke-width="1.8" stroke-linecap="round" opacity="0.6"
+        filter="url(#sigglow)"/>
+  <!-- Outer arc (extends slightly beyond badge — intentional broadcast effect) -->
+  <path d="M 110,40 A 30,30 0 0 1 110,80"
+        fill="none" stroke="#00ffee" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- ⑧ SPARKLES / STARS -->
+  <!-- Large 4-point white star, top-right quadrant -->
+  <g transform="translate(94,33)" filter="url(#sglow)">
+    <line x1="0"    y1="-9"   x2="0"    y2="9"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-9"   y1="0"    x2="9"    y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-5.5" y1="-5.5" x2="5.5"  y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
+    <line x1="5.5"  y1="-5.5" x2="-5.5" y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
+  </g>
+  <!-- Small pink cross, left side -->
+  <g transform="translate(25,46)" filter="url(#sglow)">
+    <line x1="0"   y1="-6" x2="0"  y2="6" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="-6"  y1="0"  x2="6"  y2="0" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <!-- Tiny violet cross, lower area -->
+  <g transform="translate(75,86)" filter="url(#sglow)">
+    <line x1="0"    y1="-4.5" x2="0"    y2="4.5" stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
+    <line x1="-4.5" y1="0"    x2="4.5"  y2="0"   stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
   </g>
 
-  <!-- Sparkle top-left (small) -->
-  <g transform="translate(22,17)">
-    <line x1="0" y1="-5" x2="0" y2="5" stroke="#e040fb" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-5" y1="0" x2="5" y2="0" stroke="#e040fb" stroke-width="1.4" stroke-linecap="round"/>
-  </g>
-
-  <!-- Sparkle right (small blue) -->
-  <g transform="translate(101,49)">
-    <line x1="0" y1="-4" x2="0" y2="4" stroke="#60a5fa" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-4" y1="0" x2="4" y2="0" stroke="#60a5fa" stroke-width="1.4" stroke-linecap="round"/>
-  </g>
-
-  <!-- Glow dots on orbit endpoints -->
-  <circle cx="106" cy="49" r="3" fill="#ff2d78" opacity="0.9" filter="url(#glow)"/>
-  <circle cx="14" cy="64" r="2.5" fill="#60a5fa" opacity="0.85" filter="url(#glow)"/>
+  <!-- ⑨ ACCENT SCATTER DOTS -->
+  <circle cx="35"  cy="19" r="2"   fill="#ff55bb" opacity="0.8"  filter="url(#sglow)"/>
+  <circle cx="72"  cy="89" r="1.5" fill="#5533ff" opacity="0.7"/>
+  <circle cx="16"  cy="53" r="1.3" fill="#ff33aa" opacity="0.55"/>
+  <circle cx="48"  cy="93" r="1.2" fill="#cc33ff" opacity="0.6"/>
+  <circle cx="100" cy="85" r="1.2" fill="#00ddff" opacity="0.5"/>
 </svg>

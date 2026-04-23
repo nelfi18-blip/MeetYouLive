@@ -1,41 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 278" fill="none">
   <defs>
-    <!-- Badge background: deep space dark purple, highlight top-left -->
-    <radialGradient id="bgG" cx="38%" cy="32%" r="72%">
-      <stop offset="0%"   stop-color="#1e0042"/>
-      <stop offset="100%" stop-color="#06000f"/>
+    <!-- LEFT HEART dark fill (hot pink interior) -->
+    <radialGradient id="lhFill" cx="38%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#3a0020"/>
+      <stop offset="100%" stop-color="#140009"/>
     </radialGradient>
 
-    <!-- Heart: hot magenta → electric violet → deep indigo -->
-    <linearGradient id="heartG" x1="22" y1="16" x2="98" y2="79" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#ff1177"/>
-      <stop offset="50%"  stop-color="#cc00ff"/>
-      <stop offset="100%" stop-color="#4400aa"/>
-    </linearGradient>
-
-    <!-- Play button: pure white → blush -->
-    <radialGradient id="playG" cx="28%" cy="28%" r="75%">
-      <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#ffd0ee"/>
+    <!-- RIGHT HEART dark fill (indigo interior) -->
+    <radialGradient id="rhFill" cx="55%" cy="32%" r="68%">
+      <stop offset="0%"   stop-color="#150030"/>
+      <stop offset="100%" stop-color="#050010"/>
     </radialGradient>
 
-    <!-- Orbit / signal: electric cyan → violet → magenta -->
-    <linearGradient id="ringG" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="#00ffee"/>
-      <stop offset="35%"  stop-color="#9900ff"/>
-      <stop offset="100%" stop-color="#ff0066"/>
+    <!-- ORBITAL RING gradient: pink → violet → blue -->
+    <linearGradient id="oG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#ff0088"/>
+      <stop offset="45%"  stop-color="#aa22ff"/>
+      <stop offset="100%" stop-color="#1166ff"/>
     </linearGradient>
 
-    <!-- Badge border: magenta → violet → cyan (diagonal) -->
-    <linearGradient id="borderG" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#ff0066" stop-opacity="0.95"/>
-      <stop offset="50%"  stop-color="#9900ff" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#00ffee" stop-opacity="0.95"/>
-    </linearGradient>
-
-    <!-- Heart neon glow: wide outer + tight inner + source -->
-    <filter id="hglow" x="-45%" y="-45%" width="190%" height="190%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6"   result="b1"/>
+    <!-- PINK neon glow (for left heart) -->
+    <filter id="fP" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b1"/>
       <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
       <feMerge>
         <feMergeNode in="b1"/>
@@ -44,109 +30,222 @@
       </feMerge>
     </filter>
 
-    <!-- Orbit arc glow -->
-    <filter id="oglow" x="-15%" y="-250%" width="130%" height="600%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+    <!-- BLUE neon glow (for right heart) -->
+    <filter id="fB" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- ORBIT glow -->
+    <filter id="fO" x="-5%" y="-180%" width="110%" height="460%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <!-- Sparkle / star glow -->
-    <filter id="sglow" x="-200%" y="-200%" width="500%" height="500%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+    <!-- CAMERA glow -->
+    <filter id="fC" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <!-- LIVE dot glow -->
-    <filter id="lglow" x="-300%" y="-300%" width="700%" height="700%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Signal arcs glow -->
-    <filter id="sigglow" x="-100%" y="-60%" width="300%" height="220%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
+    <!-- SPARKLE glow -->
+    <filter id="fS" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <!-- ① DARK CIRCULAR BADGE -->
-  <circle cx="60" cy="60" r="52" fill="url(#bgG)"/>
-  <!-- Gradient border ring -->
-  <circle cx="60" cy="60" r="52" fill="none" stroke="url(#borderG)" stroke-width="2.5"/>
-  <!-- Ultra-subtle inner sheen -->
-  <circle cx="60" cy="60" r="50" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
+  <!-- ② ORBITAL RING — BACK ARC (behind hearts, passes through top)
+       Ellipse center (200,218), rx=183, ry=28
+       sweep=0 → CCW in screen-space → goes through top (200,190) -->
+  <path d="M 17,218 A 183,28 0 0 0 383,218"
+        fill="none" stroke="url(#oG)" stroke-width="3" opacity="0.5"
+        filter="url(#fO)"/>
 
-  <!-- ② BACK ORBIT ARC (upper half, behind heart) -->
-  <!-- Tilted ellipse center ~(60,68), rx=54, ry=9, x-rot=3°, sweep=0 → CCW → arcs upward -->
-  <path d="M 6,68 A 54,9 3 0 0 114,68"
-        fill="none" stroke="url(#ringG)" stroke-width="1.5" opacity="0.5"
-        filter="url(#oglow)"/>
-
-  <!-- ③ HEART (filled, neon gradient + double-layer glow) -->
-  <path d="M 60,79 C 36,63 22,47 22,36 C 22,24 31,16 41,16 C 48,16 54,20 60,28 C 66,20 72,16 79,16 C 89,16 98,24 98,36 C 98,47 84,63 60,79 Z"
-        fill="url(#heartG)" filter="url(#hglow)"/>
-  <!-- Top-left rim highlight: bright arc along left bump -->
-  <path d="M 22,36 C 22,24 31,16 41,16 C 48,16 54,20 60,28"
-        fill="none" stroke="rgba(255,180,230,0.45)" stroke-width="3" stroke-linecap="round"/>
-  <!-- Subtle central depth shadow -->
-  <path d="M 60,29 C 59,37 59,45 60,52"
-        fill="none" stroke="rgba(80,0,60,0.30)" stroke-width="5" stroke-linecap="round"/>
-
-  <!-- ④ PLAY TRIANGLE (white-blush, inside heart) -->
-  <polygon points="50,42 50,68 76,55" fill="url(#playG)"/>
-  <!-- Subtle dark inner shadow for 3-D depth -->
-  <polygon points="53,46 53,64 69,55" fill="rgba(0,0,25,0.16)"/>
-
-  <!-- ⑤ FRONT ORBIT ARC (lower half, in front of heart, thicker) -->
-  <path d="M 6,68 A 54,9 3 0 1 114,68"
-        fill="none" stroke="url(#ringG)" stroke-width="3"
-        filter="url(#oglow)"/>
-  <!-- Orbit endpoint glow dots -->
-  <circle cx="6"   cy="68" r="4"   fill="#00ffee" filter="url(#sglow)"/>
-  <circle cx="114" cy="68" r="3.5" fill="#ff0066" filter="url(#sglow)"/>
-
-  <!-- ⑥ LIVE INDICATOR DOT (top-right, glowing scarlet) -->
-  <circle cx="88" cy="21" r="5.5" fill="#ff1144" filter="url(#lglow)"/>
-  <circle cx="88" cy="21" r="2.5" fill="white"   opacity="0.92"/>
-  <!-- Pulse ring -->
-  <circle cx="88" cy="21" r="8.5" fill="none" stroke="#ff1144" stroke-width="1.2" opacity="0.4"/>
-
-  <!-- ⑦ BROADCAST / SIGNAL ARCS (right side, bowing rightward, CW sweep=1) -->
-  <!-- Inner arc -->
-  <path d="M 100,50 A 15,15 0 0 1 100,70"
-        fill="none" stroke="#00ffee" stroke-width="2.5" stroke-linecap="round"
-        filter="url(#sigglow)"/>
-  <!-- Middle arc -->
-  <path d="M 105,45 A 22,22 0 0 1 105,75"
-        fill="none" stroke="#00ffee" stroke-width="1.8" stroke-linecap="round" opacity="0.6"
-        filter="url(#sigglow)"/>
-  <!-- Outer arc (extends slightly beyond badge — intentional broadcast effect) -->
-  <path d="M 110,40 A 30,30 0 0 1 110,80"
-        fill="none" stroke="#00ffee" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-
-  <!-- ⑧ SPARKLES / STARS -->
-  <!-- Large 4-point white star, top-right quadrant -->
-  <g transform="translate(94,33)" filter="url(#sglow)">
-    <line x1="0"    y1="-9"   x2="0"    y2="9"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-9"   y1="0"    x2="9"    y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-5.5" y1="-5.5" x2="5.5"  y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
-    <line x1="5.5"  y1="-5.5" x2="-5.5" y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
-  </g>
-  <!-- Small pink cross, left side -->
-  <g transform="translate(25,46)" filter="url(#sglow)">
-    <line x1="0"   y1="-6" x2="0"  y2="6" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="-6"  y1="0"  x2="6"  y2="0" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
-  </g>
-  <!-- Tiny violet cross, lower area -->
-  <g transform="translate(75,86)" filter="url(#sglow)">
-    <line x1="0"    y1="-4.5" x2="0"    y2="4.5" stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-4.5" y1="0"    x2="4.5"  y2="0"   stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- ③ RIGHT HEART — blue/violet, behind left heart
+       cx=250, cy=132 | tip=(250,192) | left=163 right=337 | lobes top y≈78 -->
+  <path d="M 250,192
+           C 210,183  163,162  163,132
+           C 163,94   218,80   250,120
+           C 282,80   337,94   337,132
+           C 337,162  290,183  250,192 Z"
+        fill="url(#rhFill)"/>
+  <g filter="url(#fB)">
+    <!-- outer diffuse glow -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#5500cc" stroke-width="20" stroke-opacity="0.25"/>
+    <!-- main tube -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#6622ee" stroke-width="9"/>
+    <!-- bright edge -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#9955ff" stroke-width="4.5"/>
+    <!-- inner highlight shimmer -->
+    <path d="M 250,192
+             C 210,183  163,162  163,132
+             C 163,94   218,80   250,120
+             C 282,80   337,94   337,132
+             C 337,162  290,183  250,192 Z"
+          fill="none" stroke="#ccbbff" stroke-width="1.8" opacity="0.6"/>
   </g>
 
-  <!-- ⑨ ACCENT SCATTER DOTS -->
-  <circle cx="35"  cy="19" r="2"   fill="#ff55bb" opacity="0.8"  filter="url(#sglow)"/>
-  <circle cx="72"  cy="89" r="1.5" fill="#5533ff" opacity="0.7"/>
-  <circle cx="16"  cy="53" r="1.3" fill="#ff33aa" opacity="0.55"/>
-  <circle cx="48"  cy="93" r="1.2" fill="#cc33ff" opacity="0.6"/>
-  <circle cx="100" cy="85" r="1.2" fill="#00ddff" opacity="0.5"/>
+  <!-- ④ LEFT HEART — pink/magenta, front layer
+       cx=156, cy=148 | tip=(156,203) | left=62 right=250 | lobes top y≈90 -->
+  <path d="M 156,203
+           C 116,194  62,172   62,143
+           C 62,104   118,90  156,133
+           C 194,90   250,104 250,143
+           C 250,172  196,194 156,203 Z"
+        fill="url(#lhFill)"/>
+  <g filter="url(#fP)">
+    <!-- outer diffuse glow -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#dd0066" stroke-width="20" stroke-opacity="0.25"/>
+    <!-- main tube -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ff0088" stroke-width="9"/>
+    <!-- bright edge -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ff44bb" stroke-width="4.5"/>
+    <!-- inner highlight shimmer -->
+    <path d="M 156,203
+             C 116,194  62,172   62,143
+             C 62,104   118,90  156,133
+             C 194,90   250,104 250,143
+             C 250,172  196,194 156,203 Z"
+          fill="none" stroke="#ffccee" stroke-width="2" opacity="0.6"/>
+  </g>
+
+  <!-- ⑤ ORBITAL RING — FRONT ARC (in front of hearts, passes through bottom)
+       sweep=1 → CW → goes through bottom (200,246) -->
+  <path d="M 17,218 A 183,28 0 0 1 383,218"
+        fill="none" stroke="url(#oG)" stroke-width="4.5"
+        filter="url(#fO)"/>
+
+  <!-- Orbital endpoint glow dots -->
+  <circle cx="17"  cy="218" r="5.5" fill="#ff0088" filter="url(#fS)"/>
+  <circle cx="383" cy="218" r="4.5" fill="#1166ff" filter="url(#fS)"/>
+
+  <!-- ⑥ VIDEO CAMERA ICON — centered at overlap zone (202, 143)
+       Body: rounded rect; Lens: circle + dot; Head: right-pointing triangle -->
+  <g filter="url(#fC)">
+    <rect x="178" y="128" width="48" height="30" rx="7"
+          fill="#2a0018" fill-opacity="0.9"
+          stroke="#ff0088" stroke-width="2.5"/>
+    <path d="M 226,134 L 240,143 L 226,152 Z"
+          fill="#2a0018" fill-opacity="0.9"
+          stroke="#ff0088" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="197" cy="143" r="9.5"
+            fill="#1a0010" stroke="#ff55aa" stroke-width="2"/>
+    <circle cx="197" cy="143" r="5"
+            fill="#ff0066" opacity="0.95"/>
+    <circle cx="194.5" cy="140.5" r="2.2"
+            fill="white" opacity="0.45"/>
+  </g>
+
+  <!-- ⑦ SPARKLES — more stars scattered around the hearts -->
+
+  <!-- Large 4-point star: top-right -->
+  <g transform="translate(286,95)" filter="url(#fS)">
+    <line x1="0"   y1="-15" x2="0"   y2="15"  stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-15" y1="0"   x2="15"  y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="-9"  y1="-9"  x2="9"   y2="9"   stroke="white" stroke-width="1"   stroke-linecap="round" opacity="0.5"/>
+    <line x1="9"   y1="-9"  x2="-9"  y2="9"   stroke="white" stroke-width="1"   stroke-linecap="round" opacity="0.5"/>
+  </g>
+  <!-- Medium 4-point star: top-left -->
+  <g transform="translate(110,112)" filter="url(#fS)">
+    <line x1="0"   y1="-12" x2="0"   y2="12"  stroke="#ff88cc" stroke-width="2"   stroke-linecap="round"/>
+    <line x1="-12" y1="0"   x2="12"  y2="0"   stroke="#ff88cc" stroke-width="2"   stroke-linecap="round"/>
+    <line x1="-7"  y1="-7"  x2="7"   y2="7"   stroke="#ff88cc" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
+    <line x1="7"   y1="-7"  x2="-7"  y2="7"   stroke="#ff88cc" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
+  </g>
+  <!-- Small 4-point star: lower-left -->
+  <g transform="translate(55,68)" filter="url(#fS)">
+    <line x1="0"  y1="-8" x2="0" y2="8"  stroke="#ff44aa" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="-8" y1="0"  x2="8" y2="0"  stroke="#ff44aa" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="-5" y1="-5" x2="5" y2="5"  stroke="#ff44aa" stroke-width="0.8" stroke-linecap="round" opacity="0.45"/>
+    <line x1="5"  y1="-5" x2="-5" y2="5" stroke="#ff44aa" stroke-width="0.8" stroke-linecap="round" opacity="0.45"/>
+  </g>
+  <!-- Small 4-point star: upper-right of right heart -->
+  <g transform="translate(345,75)" filter="url(#fS)">
+    <line x1="0"  y1="-9" x2="0" y2="9"  stroke="#9966ff" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="-9" y1="0"  x2="9" y2="0"  stroke="#9966ff" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="-5" y1="-5" x2="5" y2="5"  stroke="#9966ff" stroke-width="0.8" stroke-linecap="round" opacity="0.45"/>
+    <line x1="5"  y1="-5" x2="-5" y2="5" stroke="#9966ff" stroke-width="0.8" stroke-linecap="round" opacity="0.45"/>
+  </g>
+  <!-- Tiny 4-point star: far right mid -->
+  <g transform="translate(370,148)" filter="url(#fS)">
+    <line x1="0"  y1="-6" x2="0" y2="6"  stroke="#4488ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-6" y1="0"  x2="6" y2="0"  stroke="#4488ff" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  <!-- Tiny 4-point star: far left mid -->
+  <g transform="translate(30,165)" filter="url(#fS)">
+    <line x1="0"  y1="-6" x2="0" y2="6"  stroke="#ff66cc" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-6" y1="0"  x2="6" y2="0"  stroke="#ff66cc" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  <!-- Tiny 4-point star: bottom-center area -->
+  <g transform="translate(200,250)" filter="url(#fS)">
+    <line x1="0"  y1="-6" x2="0" y2="6"  stroke="#ee99ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-6" y1="0"  x2="6" y2="0"  stroke="#ee99ff" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  <!-- Tiny accent dots -->
+  <circle cx="89"  cy="140" r="2.5" fill="#ff44aa" opacity="0.75" filter="url(#fS)"/>
+  <circle cx="307" cy="122" r="2"   fill="#cc88ff" opacity="0.7"/>
+  <circle cx="316" cy="170" r="1.8" fill="#4488ff" opacity="0.65"/>
+  <circle cx="78"  cy="192" r="1.8" fill="#ff66bb" opacity="0.6"/>
+  <circle cx="291" cy="87"  r="1.5" fill="#ddbbff" opacity="0.65"/>
+  <circle cx="153" cy="60"  r="1.5" fill="#ffbbdd" opacity="0.55"/>
+  <circle cx="240" cy="230" r="1.3" fill="#ff88cc" opacity="0.5"/>
+  <circle cx="355" cy="200" r="1.3" fill="#8888ff" opacity="0.5"/>
+  <circle cx="44"  cy="215" r="1.2" fill="#ff55aa" opacity="0.45"/>
+
+  <!-- ⑦b ORBITING DOT — a glowing bead that travels the orbital ellipse -->
+  <!-- Ellipse center (200,218), rx=183, ry=28 — the dot rides the same path as the ring -->
+  <g filter="url(#fS)">
+    <circle r="7" fill="#ff44cc" fill-opacity="0.95" stroke="white" stroke-width="1.5">
+      <animateMotion dur="4s" repeatCount="indefinite">
+        <mpath href="#orbitPath"/>
+      </animateMotion>
+    </circle>
+    <!-- Inner core of the bead -->
+    <circle r="3.5" fill="#ff88ff">
+      <animateMotion dur="4s" repeatCount="indefinite">
+        <mpath href="#orbitPath"/>
+      </animateMotion>
+    </circle>
+  </g>
+
+  <!-- Hidden orbit path definition used by animateMotion -->
+  <path id="orbitPath"
+        d="M 17,218 A 183,28 0 0 1 383,218 A 183,28 0 0 1 17,218"
+        fill="none" stroke="none" visibility="hidden"/>
 </svg>

@@ -3,9 +3,9 @@
 import Image from "next/image";
 
 const SIZE_MAP = {
-  sm: { icon: 64, name: "1.3rem" },
-  md: { icon: 80, name: "1.65rem" },
-  lg: { icon: 100, name: "2rem" },
+  sm: { icon: 64, iconH: 45, name: "1.3rem" },
+  md: { icon: 80, iconH: 56, name: "1.65rem" },
+  lg: { icon: 100, iconH: 70, name: "2rem" },
 };
 
 /**
@@ -22,7 +22,7 @@ export default function AuthBrandLogo({ size = "md" }) {
         src="/logo.svg"
         alt="MeetYouLive"
         width={s.icon}
-        height={s.icon}
+        height={s.iconH}
         priority
         className="auth-brand-icon"
       />

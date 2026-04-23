@@ -6,31 +6,30 @@
       <stop offset="100%" stop-color="#06000f"/>
     </radialGradient>
 
-    <!--
-      Left heart ring gradient (magenta → violet → deep indigo).
-      Spans the left heart bounding box: x=[19,65], y=[21,70].
-    -->
-    <linearGradient id="heartGL" x1="19" y1="21" x2="65" y2="70" gradientUnits="userSpaceOnUse">
+    <!-- Left heart stroke gradient: magenta → violet -->
+    <linearGradient id="heartGL" x1="21" y1="17" x2="67" y2="63" gradientUnits="userSpaceOnUse">
       <stop offset="0%"   stop-color="#ff1177"/>
       <stop offset="50%"  stop-color="#cc00ff"/>
-      <stop offset="100%" stop-color="#4400aa"/>
+      <stop offset="100%" stop-color="#7700cc"/>
     </linearGradient>
 
-    <!--
-      Right heart ring gradient (pink-violet → electric violet → indigo-blue).
-      Spans the right heart bounding box: x=[45,91], y=[21,70].
-    -->
-    <linearGradient id="heartGR" x1="45" y1="21" x2="91" y2="70" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"   stop-color="#ff4db8"/>
-      <stop offset="55%"  stop-color="#d400ff"/>
-      <stop offset="100%" stop-color="#5b2dff"/>
+    <!-- Right heart stroke gradient: pink → electric violet → indigo -->
+    <linearGradient id="heartGR" x1="53" y1="17" x2="99" y2="63" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ff66cc"/>
+      <stop offset="55%"  stop-color="#bb00ff"/>
+      <stop offset="100%" stop-color="#4422ff"/>
     </linearGradient>
 
-    <!-- Orbit / signal: electric cyan → violet → magenta -->
-    <linearGradient id="ringG" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="#00ffee"/>
-      <stop offset="35%"  stop-color="#9900ff"/>
-      <stop offset="100%" stop-color="#ff0066"/>
+    <!-- Left heart subtle fill -->
+    <linearGradient id="fillGL" x1="21" y1="17" x2="67" y2="63" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ff1177" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#7700cc" stop-opacity="0.07"/>
+    </linearGradient>
+
+    <!-- Right heart subtle fill -->
+    <linearGradient id="fillGR" x1="53" y1="17" x2="99" y2="63" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#ff66cc" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#4422ff" stop-opacity="0.07"/>
     </linearGradient>
 
     <!-- Badge border: magenta → violet → cyan (diagonal) -->
@@ -40,10 +39,10 @@
       <stop offset="100%" stop-color="#00ffee" stop-opacity="0.95"/>
     </linearGradient>
 
-    <!-- Heart ring neon glow: soft halo + tight inner + source (tuned for thin 2.5px stroke) -->
-    <filter id="hglow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="3"   result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b2"/>
+    <!-- Heart neon glow: wide halo + tight inner + source -->
+    <filter id="hglow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1"   result="b2"/>
       <feMerge>
         <feMergeNode in="b1"/>
         <feMergeNode in="b2"/>
@@ -51,27 +50,15 @@
       </feMerge>
     </filter>
 
-    <!-- Orbit arc glow -->
-    <filter id="oglow" x="-15%" y="-250%" width="130%" height="600%">
+    <!-- Video icon glow (cyan) -->
+    <filter id="vcglow" x="-40%" y="-40%" width="180%" height="180%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Sparkle / star glow -->
-    <filter id="sglow" x="-200%" y="-200%" width="500%" height="500%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
     <!-- LIVE dot glow -->
     <filter id="lglow" x="-300%" y="-300%" width="700%" height="700%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Signal arcs glow -->
-    <filter id="sigglow" x="-100%" y="-60%" width="300%" height="220%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
@@ -81,102 +68,76 @@
   <circle cx="60" cy="60" r="52" fill="none" stroke="url(#borderG)" stroke-width="2.5"/>
   <circle cx="60" cy="60" r="50" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
 
-  <!-- ② BACK ORBIT ARC (behind hearts) -->
-  <path d="M 6,68 A 54,9 3 0 0 114,68"
-        fill="none" stroke="url(#ringG)" stroke-width="1.5" opacity="0.5"
-        filter="url(#oglow)"/>
-
   <!--
-    ③ INTERLACED HEART RINGS  —  olympic-ring style
-    ════════════════════════════════════════════════
-    Two CLOSED heart paths, each a thick-stroke ring (fill=none).
-
-    Left  heart: centered at x=42, tip at (42,70), bumps peak at y≈21.
-    Right heart: centered at x=68, tip at (68,70), bumps peak at y≈21.
-    Both outlines share the cleft point (55,35), creating two crossings:
-
-      • Upper crossing ≈ (55,35)  →  LEFT  heart in front  (z-order, layer 2 over 1)
-      • Lower crossing ≈ (55,58)  →  RIGHT heart in front  (painter layers 3a + 3b)
-
-    Paint layers:
-      1. Right heart — full ring (back layer)
-      2. Left  heart — full ring (covers right at upper crossing → left in front)
-      3a. Erase left heart arm at lower crossing with background colour
-      3b. Redraw right heart arm at lower crossing on top (right in front)
+    ② LEFT HEART — centered at approx (44, 40), bounding box [21,17]→[67,63]
+    Tip at (44,63), cleft at (52,17) shared edge with right heart's (52,17).
   -->
-
-  <!-- Layer 1 — right heart ring (full, bottom layer) -->
-  <path d="M 68,70
-           C 49,57 45,44 55,35
-           C 59,25 64,21 68,30
-           C 72,21 77,25 81,35
-           C 91,44 87,57 68,70 Z"
-        fill="none" stroke="url(#heartGR)" stroke-width="2.5" stroke-linejoin="round"
-        filter="url(#hglow)"/>
-
-  <!-- Layer 2 — left heart ring (full; left in front at upper crossing) -->
-  <path d="M 42,70
-           C 23,57 19,44 29,35
-           C 33,25 38,21 42,30
-           C 46,21 51,25 55,35
-           C 65,44 61,57 42,70 Z"
-        fill="none" stroke="url(#heartGL)" stroke-width="2.5" stroke-linejoin="round"
+  <!-- subtle fill so the heart shape reads clearly -->
+  <path d="M 44,63
+           C 25,51 21,38 21,31
+           C 21,21 29,17 36,17
+           C 40,17 43,21 44,26
+           C 45,21 48,17 52,17
+           C 59,17 67,21 67,31
+           C 67,38 63,51 44,63 Z"
+        fill="url(#fillGL)"/>
+  <!-- neon outline -->
+  <path d="M 44,63
+           C 25,51 21,38 21,31
+           C 21,21 29,17 36,17
+           C 40,17 43,21 44,26
+           C 45,21 48,17 52,17
+           C 59,17 67,21 67,31
+           C 67,38 63,51 44,63 Z"
+        fill="none" stroke="url(#heartGL)" stroke-width="3.5" stroke-linejoin="round"
         filter="url(#hglow)"/>
 
   <!--
-    Layer 3a — erase left heart's right arm near lower crossing (55,58).
-    stroke-width 5 = 2× the heart stroke to fully cover.
+    ③ RIGHT HEART — centered at approx (76, 40), bounding box [53,17]→[99,63]
+    Left inner edge (53,17) touches the right inner edge of the left heart.
   -->
-  <path d="M 60,51 C 59,54 57,57 52,64"
-        fill="none" stroke="#180036" stroke-width="5" stroke-linecap="round"/>
-
-  <!-- Layer 3b — redraw right heart left arm from tip to lower crossing (right in front) -->
-  <path d="M 68,70 C 62,66 58,62 55,58"
-        fill="none" stroke="url(#heartGR)" stroke-width="2.5" stroke-linecap="round"
+  <!-- subtle fill -->
+  <path d="M 76,63
+           C 57,51 53,38 53,31
+           C 53,21 61,17 68,17
+           C 72,17 75,21 76,26
+           C 77,21 80,17 84,17
+           C 91,17 99,21 99,31
+           C 99,38 95,51 76,63 Z"
+        fill="url(#fillGR)"/>
+  <!-- neon outline -->
+  <path d="M 76,63
+           C 57,51 53,38 53,31
+           C 53,21 61,17 68,17
+           C 72,17 75,21 76,26
+           C 77,21 80,17 84,17
+           C 91,17 99,21 99,31
+           C 99,38 95,51 76,63 Z"
+        fill="none" stroke="url(#heartGR)" stroke-width="3.5" stroke-linejoin="round"
         filter="url(#hglow)"/>
 
-  <!-- ④ FRONT ORBIT ARC (in front of hearts) -->
-  <path d="M 6,68 A 54,9 3 0 1 114,68"
-        fill="none" stroke="url(#ringG)" stroke-width="3"
-        filter="url(#oglow)"/>
-  <circle cx="6"   cy="68" r="4"   fill="#00ffee" filter="url(#sglow)"/>
-  <circle cx="114" cy="68" r="3.5" fill="#ff0066" filter="url(#sglow)"/>
+  <!--
+    ④ MODERN VIDEO CALL ICON
+    Camera body (rounded rect) + right-pointing triangle (camera head).
+    Centered at ≈(60, 80), electric cyan to contrast with magenta hearts.
+  -->
+  <g filter="url(#vcglow)">
+    <!-- Camera body -->
+    <rect x="42" y="71" width="24" height="17" rx="3.5"
+          fill="#00ffee" fill-opacity="0.08"
+          stroke="#00ffee" stroke-width="2.2"/>
+    <!-- Camera notch (right-pointing triangle = "video" symbol) -->
+    <path d="M 66,72.8 L 76,79.5 L 66,86.2 Z"
+          fill="none" stroke="#00ffee" stroke-width="2" stroke-linejoin="round"/>
+  </g>
 
   <!-- ⑤ LIVE INDICATOR DOT (top-right, glowing scarlet) -->
-  <circle cx="88" cy="21" r="5.5" fill="#ff1144" filter="url(#lglow)"/>
-  <circle cx="88" cy="21" r="2.5" fill="white"   opacity="0.92"/>
-  <circle cx="88" cy="21" r="8.5" fill="none" stroke="#ff1144" stroke-width="1.2" opacity="0.4"/>
+  <circle cx="88" cy="22" r="5.5" fill="#ff1144" filter="url(#lglow)"/>
+  <circle cx="88" cy="22" r="2.5" fill="white"   opacity="0.92"/>
+  <circle cx="88" cy="22" r="8.5" fill="none" stroke="#ff1144" stroke-width="1.2" opacity="0.4"/>
 
-  <!-- ⑥ BROADCAST / SIGNAL ARCS (right side) -->
-  <path d="M 100,50 A 15,15 0 0 1 100,70"
-        fill="none" stroke="#00ffee" stroke-width="2.5" stroke-linecap="round"
-        filter="url(#sigglow)"/>
-  <path d="M 105,45 A 22,22 0 0 1 105,75"
-        fill="none" stroke="#00ffee" stroke-width="1.8" stroke-linecap="round" opacity="0.6"
-        filter="url(#sigglow)"/>
-  <path d="M 110,40 A 30,30 0 0 1 110,80"
-        fill="none" stroke="#00ffee" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
-
-  <!-- ⑦ SPARKLES / STARS -->
-  <g transform="translate(94,33)" filter="url(#sglow)">
-    <line x1="0"    y1="-9"   x2="0"    y2="9"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-9"   y1="0"    x2="9"    y2="0"   stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="-5.5" y1="-5.5" x2="5.5"  y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
-    <line x1="5.5"  y1="-5.5" x2="-5.5" y2="5.5" stroke="white" stroke-width="0.9" stroke-linecap="round" opacity="0.5"/>
-  </g>
-  <g transform="translate(25,46)" filter="url(#sglow)">
-    <line x1="0"   y1="-6" x2="0"  y2="6" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="-6"  y1="0"  x2="6"  y2="0" stroke="#ff66cc" stroke-width="1.8" stroke-linecap="round"/>
-  </g>
-  <g transform="translate(75,86)" filter="url(#sglow)">
-    <line x1="0"    y1="-4.5" x2="0"    y2="4.5" stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="-4.5" y1="0"    x2="4.5"  y2="0"   stroke="#aa44ff" stroke-width="1.4" stroke-linecap="round"/>
-  </g>
-
-  <!-- ⑧ ACCENT SCATTER DOTS -->
-  <circle cx="30"  cy="22" r="2"   fill="#ff55bb" opacity="0.8"  filter="url(#sglow)"/>
-  <circle cx="72"  cy="89" r="1.5" fill="#5533ff" opacity="0.7"/>
-  <circle cx="16"  cy="53" r="1.3" fill="#ff33aa" opacity="0.55"/>
-  <circle cx="48"  cy="93" r="1.2" fill="#cc33ff" opacity="0.6"/>
-  <circle cx="100" cy="85" r="1.2" fill="#00ddff" opacity="0.5"/>
+  <!-- ⑥ MINIMAL ACCENT DOTS -->
+  <circle cx="30" cy="22" r="2"   fill="#ff55bb" opacity="0.6" filter="url(#lglow)"/>
+  <circle cx="73" cy="91" r="1.5" fill="#5533ff" opacity="0.5"/>
+  <circle cx="47" cy="93" r="1.2" fill="#cc33ff" opacity="0.5"/>
 </svg>

@@ -90,16 +90,20 @@ function StatCard({ icon, value, label, color = "#a855f7" }) {
 function NeonButton({ onClick, disabled, children, variant = "primary", size = "md" }) {
   const bg = variant === "primary"
     ? "linear-gradient(135deg,#a855f7,#6366f1)"
+    : variant === "success"
+    ? "rgba(34,197,94,0.12)"
     : variant === "danger"
     ? "rgba(239,68,68,0.12)"
     : variant === "warning"
     ? "rgba(249,115,22,0.12)"
     : "rgba(99,102,241,0.12)";
   const border = variant === "primary" ? "none"
+    : variant === "success" ? "1px solid rgba(34,197,94,0.4)"
     : variant === "danger" ? "1px solid rgba(239,68,68,0.4)"
     : variant === "warning" ? "1px solid rgba(249,115,22,0.4)"
     : "1px solid rgba(99,102,241,0.4)";
   const textColor = variant === "primary" ? "#fff"
+    : variant === "success" ? "#86efac"
     : variant === "danger" ? "#f87171"
     : variant === "warning" ? "#fb923c"
     : "#818cf8";
@@ -135,7 +139,7 @@ function InviteLinkSection({ agencyCode }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setCopied(true); setCopyError(false);
-      setTimeout(() => setCopied(false), 2200);
+      setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
       setCopyError(true);
       setTimeout(() => setCopyError(false), 3000);

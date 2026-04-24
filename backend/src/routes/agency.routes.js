@@ -11,6 +11,8 @@ const {
   getMyRelationship,
   acceptRelationship,
   declineRelationship,
+  getCommissionHistory,
+  getTopSubCreators,
 } = require("../controllers/agency.controller.js");
 
 const router = Router();
@@ -46,5 +48,9 @@ router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);
 router.get("/my-relationship", agencyLimiter, getMyRelationship);
 router.patch("/my-relationship/accept", agencyWriteLimiter, acceptRelationship);
 router.patch("/my-relationship/decline", agencyWriteLimiter, declineRelationship);
+
+// Commission history and ranking for agency creators
+router.get("/commission-history", agencyLimiter, getCommissionHistory);
+router.get("/top-sub-creators", agencyLimiter, getTopSubCreators);
 
 module.exports = router;

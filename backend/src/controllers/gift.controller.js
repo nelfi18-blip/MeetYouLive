@@ -92,7 +92,9 @@ const transferCoins = async (senderId, receiverId, amount, session) => {
   let platformShare = 0;
 
   if (canEarn) {
-    const rel = await AgencyRelationship.findOne({ subCreator: receiverObjId, status: "active" }).session(session);
+    // Agency commission is only applied when the relationship is active AND the sub-creator
+    // has explicitly accepted the commission agreement (subCreatorAgreed = true).
+    const rel = await AgencyRelationship.findOne({ subCreator: receiverObjId, status: "active", subCreatorAgreed: true }).session(session);
     const agencyPct = (rel && rel.percentage > 0) ? rel.percentage : null;
     const split = calculateSplit(amount, agencyPct);
 

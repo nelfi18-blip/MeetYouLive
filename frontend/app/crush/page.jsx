@@ -1544,6 +1544,12 @@ export default function CrushPage() {
   const currentUser = users[currentIndex] || null;
   const nextUser = users[currentIndex + 1] || null;
 
+  // Derived state — declared here so useEffect dependency arrays below can reference them
+  // without hitting a Temporal Dead Zone ReferenceError (they were previously declared
+  // just before the return statement, after the useEffect calls that depend on them).
+  const isDone = !loading && currentIndex >= users.length;
+  const canSuperCrush = coins === null || coins >= superCrushPrice;
+
   // Sync remaining swipes from localStorage on mount
   useEffect(() => {
     setRemainingSwipes(getRemainingSwipes());
@@ -1921,9 +1927,6 @@ export default function CrushPage() {
     setHasMore(true);
     fetchUsers(1);
   }, [fetchUsers]);
-
-  const isDone = !loading && currentIndex >= users.length;
-  const canSuperCrush = coins === null || coins >= superCrushPrice;
 
   return (
     <div className="crush-page">

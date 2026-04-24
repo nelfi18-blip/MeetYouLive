@@ -13,6 +13,7 @@ function getToken() {
 
 function InviteLinkSection({ agencyCode }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const inviteUrl = typeof window !== "undefined"
     ? `${window.location.origin}/register?creatorInvite=${agencyCode}`
     : `/register?creatorInvite=${agencyCode}`;
@@ -20,8 +21,12 @@ function InviteLinkSection({ agencyCode }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    }).catch(() => {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
+    });
   };
 
   return (
@@ -43,14 +48,14 @@ function InviteLinkSection({ agencyCode }) {
         <button
           onClick={handleCopy}
           style={{
-            background: copied ? "#166534" : "#1e1b4b",
-            border: `1px solid ${copied ? "#22c55e" : "#4338ca"}`,
-            color: copied ? "#86efac" : "#818cf8",
+            background: copied ? "#166534" : copyError ? "#1a0a0a" : "#1e1b4b",
+            border: `1px solid ${copied ? "#22c55e" : copyError ? "#7f1d1d" : "#4338ca"}`,
+            color: copied ? "#86efac" : copyError ? "#fca5a5" : "#818cf8",
             borderRadius: 6, padding: "8px 14px", cursor: "pointer",
             fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
           }}
         >
-          {copied ? "✅ Copiado" : "📋 Copiar enlace"}
+          {copied ? "✅ Copiado" : copyError ? "❌ Error al copiar" : "📋 Copiar enlace"}
         </button>
       </div>
     </div>

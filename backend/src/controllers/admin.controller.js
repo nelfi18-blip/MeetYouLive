@@ -8,11 +8,19 @@ const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 
-/** Generate a unique agency invite code for a newly-approved creator. */
-function generateAgencyCode(user) {
+/** Generate a unique agency invite code for a newly-approved creator.
+ * Retries up to MAX_ATTEMPTS times to ensure uniqueness. */
+async function generateUniqueAgencyCode(user) {
+  const MAX_ATTEMPTS = 10;
   const base = ((user.username || user.name || "AGY").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 5)) || "AGY";
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  return base + suffix;
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const code = base + suffix;
+    const exists = await User.exists({ "agencyProfile.agencyCode": code });
+    if (!exists) return code;
+  }
+  // Fallback: timestamp-based suffix guaranteed to be unique enough
+  return base + Date.now().toString(36).toUpperCase().slice(-5);
 }
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
@@ -230,7 +238,7 @@ exports.approveCreator = async (req, res) => {
 
     // Auto-generate agency invite code so every approved creator can share invite links
     if (!targetUser.agencyProfile?.agencyCode) {
-      updates["agencyProfile.agencyCode"] = generateAgencyCode(targetUser);
+      updates["agencyProfile.agencyCode"] = await generateUniqueAgencyCode(targetUser);
     }
 
     // If user registered or applied via an agency invite link, auto-create a pending relationship
@@ -267,7 +275,12 @@ exports.approveCreator = async (req, res) => {
         }
       } catch (relErr) {
         // Non-fatal: log but don't block the approval
-        console.error("[approveCreator] Failed to auto-create agency relationship:", relErr.message);
+        console.error(
+          "[approveCreator] Failed to auto-create agency relationship for userId=%s agencyCode=%s:",
+          targetUser._id,
+          targetUser.pendingAgencyCode,
+          relErr
+        );
       }
       updates.pendingAgencyCode = null;
     }

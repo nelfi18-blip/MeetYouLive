@@ -67,7 +67,10 @@ export default function RegisterForm() {
 
     setLoading(true);
     try {
-      const data = await signUp({ username, email, password, ...(refCode ? { ref: refCode } : {}), ...(inviteCode ? { agencyCode: inviteCode } : {}) });
+      const payload = { username, email, password };
+      if (refCode) payload.ref = refCode;
+      if (inviteCode) payload.agencyCode = inviteCode;
+      const data = await signUp(payload);
 
       if (data.error) {
         const lowerMsg = data.error.toLowerCase();

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 
 // GET /api/agency/invite-info?code=X — public, no auth required
@@ -315,6 +316,103 @@ const declineRelationship = async (req, res) => {
   }
 };
 
+// GET /api/agency/commission-history — paginated list of agency_earned transactions for current creator
+const getCommissionHistory = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden ver el historial de comisiones" });
+    }
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const [transactions, total] = await Promise.all([
+      CoinTransaction.find({ userId: req.userId, type: "agency_earned" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      CoinTransaction.countDocuments({ userId: req.userId, type: "agency_earned" }),
+    ]);
+
+    // Enrich each transaction with sub-creator username if metadata.subCreatorId is present
+    const subCreatorIds = [...new Set(
+      transactions
+        .map((t) => t.metadata?.subCreatorId)
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+    )].map((id) => new mongoose.Types.ObjectId(id));
+
+    let subCreatorMap = {};
+    if (subCreatorIds.length > 0) {
+      const subCreators = await User.find({ _id: { $in: subCreatorIds } })
+        .select("username name avatar")
+        .lean();
+      subCreators.forEach((sc) => { subCreatorMap[String(sc._id)] = sc; });
+    }
+
+    const enriched = transactions.map((t) => ({
+      ...t,
+      subCreator: t.metadata?.subCreatorId ? subCreatorMap[t.metadata.subCreatorId] || null : null,
+    }));
+
+    res.json({ transactions: enriched, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/agency/top-sub-creators — top 5 sub-creators by coins generated for this agency creator
+const getTopSubCreators = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("role creatorStatus");
+    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+      return res.status(403).json({ message: "Solo los creadores aprobados pueden ver el ranking" });
+    }
+
+    // Aggregate agency_earned transactions by subCreatorId from metadata
+    const agg = await CoinTransaction.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(req.userId), type: "agency_earned" } },
+      {
+        $group: {
+          _id: "$metadata.subCreatorId",
+          totalCommission: { $sum: "$amount" },
+          count: { $sum: 1 },
+          lastAt: { $max: "$createdAt" },
+        },
+      },
+      { $sort: { totalCommission: -1 } },
+      { $limit: 5 },
+    ]);
+
+    // Enrich with sub-creator user info
+    const ids = agg
+      .filter((a) => a._id && mongoose.Types.ObjectId.isValid(a._id))
+      .map((a) => new mongoose.Types.ObjectId(a._id));
+
+    let userMap = {};
+    if (ids.length > 0) {
+      const users = await User.find({ _id: { $in: ids } })
+        .select("username name avatar creatorStatus")
+        .lean();
+      users.forEach((u) => { userMap[String(u._id)] = u; });
+    }
+
+    const top = agg.map((a) => ({
+      subCreatorId: a._id,
+      subCreator: a._id ? userMap[a._id] || null : null,
+      totalCommission: a.totalCommission,
+      transactionCount: a.count,
+      lastAt: a.lastAt,
+    }));
+
+    res.json({ top });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   getInviteInfo,
   getMyAgency,
@@ -325,4 +423,6 @@ module.exports = {
   getMyRelationship,
   acceptRelationship,
   declineRelationship,
+  getCommissionHistory,
+  getTopSubCreators,
 };

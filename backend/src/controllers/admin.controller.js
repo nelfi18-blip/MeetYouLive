@@ -5,7 +5,15 @@ const Subscription = require("../models/Subscription.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const Gift = require("../models/Gift.js");
 const Payout = require("../models/Payout.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
+
+/** Generate a unique agency invite code for a newly-approved creator. */
+function generateAgencyCode(user) {
+  const base = ((user.username || user.name || "AGY").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 5)) || "AGY";
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return base + suffix;
+}
 
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
@@ -218,6 +226,50 @@ exports.approveCreator = async (req, res) => {
       if (app.displayName?.trim()) updates["creatorProfile.displayName"] = app.displayName;
       if (app.bio?.trim()) updates["creatorProfile.bio"] = app.bio;
       if (app.category?.trim()) updates["creatorProfile.category"] = app.category;
+    }
+
+    // Auto-generate agency invite code so every approved creator can share invite links
+    if (!targetUser.agencyProfile?.agencyCode) {
+      updates["agencyProfile.agencyCode"] = generateAgencyCode(targetUser);
+    }
+
+    // If user registered or applied via an agency invite link, auto-create a pending relationship
+    if (targetUser.pendingAgencyCode) {
+      try {
+        const agencyOwner = await User.findOne({
+          "agencyProfile.agencyCode": targetUser.pendingAgencyCode,
+          role: "creator",
+          creatorStatus: "approved",
+        }).select("_id agencyProfile agencyRelationship");
+
+        const canLink =
+          agencyOwner &&
+          String(agencyOwner._id) !== String(targetUser._id) &&
+          !agencyOwner.agencyRelationship?.parentCreatorId; // agency owner must not itself be a sub-creator
+
+        if (canLink) {
+          const existingRel = await AgencyRelationship.findOne({
+            subCreator: targetUser._id,
+            status: { $in: ["pending", "active", "suspended"] },
+          });
+
+          if (!existingRel) {
+            const pct = Math.min(30, Math.max(5, agencyOwner.agencyProfile?.subCreatorPercentageDefault || 20));
+            await AgencyRelationship.create({
+              parentCreator: agencyOwner._id,
+              subCreator: targetUser._id,
+              percentage: pct,
+              status: "pending",
+              createdBy: agencyOwner._id,
+              notes: "Auto-creado desde enlace de invitación de agencia",
+            });
+          }
+        }
+      } catch (relErr) {
+        // Non-fatal: log but don't block the approval
+        console.error("[approveCreator] Failed to auto-create agency relationship:", relErr.message);
+      }
+      updates.pendingAgencyCode = null;
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, select: "-password" });

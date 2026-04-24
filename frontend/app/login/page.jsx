@@ -49,12 +49,14 @@ function EyeIcon({ off = false }) {
 }
 
 function LoginForm() {
+  const REMEMBER_EMAIL_KEY = "login_remember_email";
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,14 @@ function LoginForm() {
       setInfo("Esta cuenta ya existe. Ingresa tu contraseña o continúa con Google.");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   // Cleanup pending retry timeouts on unmount.
   useEffect(() => {
@@ -375,9 +385,15 @@ function LoginForm() {
   );
 
   const login = async () => {
+    if (loading) return;
     setError("");
     setInfo("");
     setLoading(true);
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }
 
     try {
       const data = await authLogin({ email, password });
@@ -498,8 +514,18 @@ function LoginForm() {
             )}
           />
 
-          <div className="forgot-row">
-            <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
+          <div className="auth-options">
+            <label className="remember-option">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <span>Recordarme</span>
+            </label>
+            <div className="forgot-row">
+              <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
+            </div>
           </div>
 
           <GradientButton className="submit-btn" onClick={login} disabled={loading}>
@@ -753,6 +779,37 @@ function LoginForm() {
         .forgot-row :global(a):hover {
           color: #e040fb;
           text-decoration: underline;
+        }
+
+        .auth-options {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-top: -0.15rem;
+        }
+        .remember-option {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-size: 0.84rem;
+          color: var(--text-muted);
+          cursor: pointer;
+          user-select: none;
+        }
+        .remember-option input {
+          width: 15px;
+          height: 15px;
+          accent-color: #e040fb;
+          cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+          .auth-options {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.6rem;
+          }
         }
 
         /* ── Submit button ── */

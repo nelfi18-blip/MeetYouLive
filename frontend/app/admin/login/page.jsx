@@ -7,10 +7,12 @@ import Image from "next/image";
 import { setAdminToken, clearAdminToken } from "@/lib/token";
 
 export default function AdminLoginPage() {
+  const REMEMBER_EMAIL_KEY = "admin_login_remember_email";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -38,6 +40,14 @@ export default function AdminLoginPage() {
       .catch(() => setChecking(false));
   }, [router]);
 
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   if (checking) {
     return (
       <div
@@ -48,10 +58,15 @@ export default function AdminLoginPage() {
     );
   }
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (loading) return;
     setError("");
     setLoading(true);
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }
 
     try {
       const res = await fetch("/api/admin/login", {
@@ -150,6 +165,20 @@ export default function AdminLoginPage() {
             >
               <span aria-hidden="true">{showPassword ? "🙈" : "👁️"}</span>
             </button>
+          </div>
+
+          <div className="auth-options">
+            <label className="remember-option">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <span>Recordarme</span>
+            </label>
+            <Link className="forgot-link" href="/forgot-password">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
 
           <button
@@ -369,6 +398,37 @@ export default function AdminLoginPage() {
         }
         .password-toggle:hover { color: var(--text); }
 
+        .auth-options {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-top: -0.15rem;
+        }
+        .remember-option {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-size: 0.84rem;
+          color: var(--text-muted);
+          cursor: pointer;
+          user-select: none;
+        }
+        .remember-option input {
+          width: 15px;
+          height: 15px;
+          accent-color: #a855f7;
+          cursor: pointer;
+        }
+        .forgot-link {
+          font-size: 0.84rem;
+          color: #c4b5fd;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: color 0.15s;
+        }
+        .forgot-link:hover { color: #e040fb; }
+
         /* ── Admin button ── */
         .btn-admin {
           background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
@@ -450,6 +510,11 @@ export default function AdminLoginPage() {
           .admin-login-card { padding: 2rem 1.5rem; }
           .admin-login-title { font-size: 1.2rem; }
           .admin-login-logo-text { font-size: 1.55rem; }
+          .auth-options {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.6rem;
+          }
         }
       `}</style>
     </div>

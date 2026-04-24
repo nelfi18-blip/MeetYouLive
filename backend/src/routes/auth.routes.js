@@ -70,7 +70,7 @@ function getLatestResetRequestedAtMs(user) {
 }
 
 router.post("/register", authLimiter, async (req, res) => {
-  const { username, password, ref } = req.body;
+  const { username, password, ref, agencyCode } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
     return res.status(400).json({ message: "username, email y password son requeridos" });
@@ -86,6 +86,19 @@ router.post("/register", authLimiter, async (req, res) => {
       if (referrer) referredBy = referrer._id;
     }
 
+    // Resolve agency invite code — store for later use when the user becomes a creator
+    let pendingAgencyCode = null;
+    if (agencyCode) {
+      const safeCode = String(agencyCode).trim().toUpperCase();
+      const agencyOwner = await User.findOne({
+        "agencyProfile.agencyCode": safeCode,
+        role: "creator",
+        creatorStatus: "approved",
+      }).select("_id").lean();
+      if (agencyOwner) pendingAgencyCode = safeCode;
+      // Silently ignore invalid codes so registration is never blocked
+    }
+
     const code = generateSixDigitCode();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -99,6 +112,7 @@ router.post("/register", authLimiter, async (req, res) => {
       emailVerificationExpires: expires,
       referralCode,
       referredBy,
+      ...(pendingAgencyCode ? { pendingAgencyCode } : {}),
     });
 
     // Send verification email (non-blocking — don't fail registration if email fails)

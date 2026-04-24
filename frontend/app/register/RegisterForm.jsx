@@ -23,6 +23,7 @@ export default function RegisterForm() {
   const [checking, setChecking] = useState(true);
 
   const refCode = searchParams.get("ref") || null;
+  const inviteCode = searchParams.get("creatorInvite") || null;
 
   useEffect(() => {
     if (status === "loading") return;
@@ -66,7 +67,10 @@ export default function RegisterForm() {
 
     setLoading(true);
     try {
-      const data = await signUp({ username, email, password, ...(refCode ? { ref: refCode } : {}) });
+      const payload = { username, email, password };
+      if (refCode) payload.ref = refCode;
+      if (inviteCode) payload.agencyCode = inviteCode;
+      const data = await signUp(payload);
 
       if (data.error) {
         const lowerMsg = data.error.toLowerCase();
@@ -118,6 +122,9 @@ export default function RegisterForm() {
         {success && <div className="banner-success">{success}</div>}
         {refCode && !error && !success && (
           <div className="banner-referral">🎁 Fuiste invitado con un código. ¡Recibirás monedas al completar tu perfil!</div>
+        )}
+        {inviteCode && !error && !success && (
+          <div className="banner-referral">🏢 Fuiste invitado por un creador. Al ser aprobado como creador, quedarás vinculado a su agencia.</div>
         )}
 
         <form className="register-form" onSubmit={handleSubmit}>

@@ -11,6 +11,57 @@ function getToken() {
   return localStorage.getItem("token") || sessionStorage.getItem("token");
 }
 
+function InviteLinkSection({ agencyCode }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const inviteUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/register?creatorInvite=${agencyCode}`
+    : `/register?creatorInvite=${agencyCode}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setCopyError(false);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 3000);
+    });
+  };
+
+  return (
+    <div style={{ marginTop: 16, background: "#0a0a0f", borderRadius: 8, padding: 14 }}>
+      <div style={{ color: "#a855f7", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+        🔗 Enlace de invitación de creador
+      </div>
+      <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 10 }}>
+        Comparte este enlace para invitar a otros creadores a tu agencia.
+        El vínculo se activará automáticamente cuando el creador sea aprobado.
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{
+          flex: 1, minWidth: 0, background: "#111", border: "1px solid #333", borderRadius: 6,
+          padding: "8px 12px", fontSize: 12, color: "#818cf8", wordBreak: "break-all",
+        }}>
+          {inviteUrl}
+        </div>
+        <button
+          onClick={handleCopy}
+          style={{
+            background: copied ? "#166534" : copyError ? "#1a0a0a" : "#1e1b4b",
+            border: `1px solid ${copied ? "#22c55e" : copyError ? "#7f1d1d" : "#4338ca"}`,
+            color: copied ? "#86efac" : copyError ? "#fca5a5" : "#818cf8",
+            borderRadius: 6, padding: "8px 14px", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+          }}
+        >
+          {copied ? "✅ Copiado" : copyError ? "❌ Error al copiar" : "📋 Copiar enlace"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AgencyPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -319,6 +370,9 @@ export default function AgencyPage() {
                   <div style={{ fontWeight: 600, fontSize: 16, color: "#a855f7" }}>{agencyData.agencyProfile?.agencyCode || "—"}</div>
                 </div>
               </div>
+              {agencyData.agencyProfile?.agencyCode && (
+                <InviteLinkSection agencyCode={agencyData.agencyProfile.agencyCode} />
+              )}
             </div>
 
             {/* Tabs */}

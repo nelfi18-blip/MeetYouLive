@@ -86,6 +86,27 @@ function Tile({ href, label, icon, muted = false }) {
   );
 }
 
+function NetworkIcon(props) {
+  return (
+    <svg
+      width={props.size || 14}
+      height={props.size || 14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="5" cy="19" r="2" />
+      <circle cx="19" cy="19" r="2" />
+      <path d="M12 7v4m0 4-6 2m12-2-6 2" />
+    </svg>
+  );
+}
+
 export default function CreatorQuickActions({
   canMonetize,
   profileHref,
@@ -115,6 +136,9 @@ export default function CreatorQuickActions({
       <Tile href={profileHref} label="Compartir perfil" icon={<ArrowRightIcon size={14} />} muted={!canMonetize} />
       <Tile href="/creator/content" label="Mi contenido" icon={<ContentIcon size={14} />} muted={!canMonetize} />
       <Tile href="#monetization-history" label="Ver regalos recibidos" icon={<GiftIcon size={14} />} muted={!canMonetize} />
+      {canMonetize && (
+        <Tile href="/agency" label="Mi red de creadores" icon={<NetworkIcon size={14} />} />
+      )}
 
       <style jsx>{`
         .qa-grid {

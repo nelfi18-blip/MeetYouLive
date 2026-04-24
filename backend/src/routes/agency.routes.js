@@ -2,6 +2,7 @@ const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const {
+  getInviteInfo,
   getMyAgency,
   getSubCreators,
   inviteSubCreator,
@@ -26,6 +27,9 @@ const agencyWriteLimiter = rateLimit({
   max: 30,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
+
+// Public route — no auth required, used to display invite banner on register/creator-request pages
+router.get("/invite-info", agencyLimiter, getInviteInfo);
 
 router.use(agencyLimiter, verifyToken);
 

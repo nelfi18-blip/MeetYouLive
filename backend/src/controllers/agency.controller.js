@@ -3,6 +3,44 @@ const User = require("../models/User.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { isValidPercentage, MIN_AGENCY_PERCENTAGE, MAX_AGENCY_PERCENTAGE } = require("../services/agency.service.js");
 
+// GET /api/agency/invite-info?code=X — public, no auth required
+// Returns basic info about the creator who owns the invite code
+const getInviteInfo = async (req, res) => {
+  try {
+    const rawCode = typeof req.query.code === "string" ? req.query.code.trim().toUpperCase() : "";
+    if (!rawCode) {
+      return res.status(400).json({ message: "Código de invitación requerido" });
+    }
+    // Validate code format: alphanumeric, 4-20 chars
+    if (!/^[A-Z0-9]{4,20}$/.test(rawCode)) {
+      return res.status(400).json({ valid: false, message: "Código de invitación inválido" });
+    }
+
+    const creator = await User.findOne({
+      "agencyProfile.agencyCode": rawCode,
+      role: "creator",
+      creatorStatus: "approved",
+    }).select("username name avatar agencyProfile");
+
+    if (!creator) {
+      return res.status(404).json({ valid: false, message: "Código de invitación no encontrado o inválido" });
+    }
+
+    res.json({
+      valid: true,
+      creator: {
+        username: creator.username,
+        name: creator.name,
+        avatar: creator.avatar || null,
+        agencyName: creator.agencyProfile?.agencyName || null,
+        agencyCode: rawCode,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // GET /api/agency/me — agency profile + status for any approved creator
 const getMyAgency = async (req, res) => {
   try {
@@ -278,6 +316,7 @@ const declineRelationship = async (req, res) => {
 };
 
 module.exports = {
+  getInviteInfo,
   getMyAgency,
   getSubCreators,
   inviteSubCreator,

@@ -178,6 +178,7 @@ function CreatorsInner() {
                   <th>Estado</th>
                   <th>Categoría</th>
                   <th>Calidad perfil</th>
+                  <th>Agencia / Invitador</th>
                   <th>Actividad</th>
                   <th>Ganancias</th>
                   <th>Registro</th>
@@ -187,7 +188,7 @@ function CreatorsInner() {
               <tbody>
                 {filteredCreators.length === 0 ? (
                   <tr>
-                      <td colSpan={9} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
+                      <td colSpan={10} className="empty-row">No hay creadores{statusFilter ? ` con estado "${statusFilter}"` : ""}.</td>
                   </tr>
                 ) : (
                   filteredCreators.map((c) => {
@@ -195,6 +196,9 @@ function CreatorsInner() {
                     const quality = getCreatorProfileQuality(c);
                     const qualityLabel = quality.label === "high" ? "Alta" : quality.label === "medium" ? "Media" : "Baja";
                     const activityLabel = (c.loginCount || 0) >= 20 ? "Alta" : (c.loginCount || 0) >= 8 ? "Media" : "Baja";
+                    const agencyRelStatus = c.agencyRelationship?.status;
+                    const hasActiveAgency = agencyRelStatus === "active" || agencyRelStatus === "pending";
+                    const agencyRelPct = c.agencyRelationship?.parentCreatorPercentage;
                     return (
                       <tr key={c._id}>
                         <td>
@@ -224,6 +228,31 @@ function CreatorsInner() {
                         <td className="text-muted text-sm">{c.creatorApplication?.category || c.creatorProfile?.category || "—"}</td>
                         <td>
                           <span className={`quality-chip quality-${qualityLabel.toLowerCase()}`}>{qualityLabel}</span>
+                        </td>
+                        <td className="text-sm">
+                          {c.pendingAgencyCode ? (
+                            <div>
+                              <span className="agency-invite-code">{c.pendingAgencyCode}</span>
+                              <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>Inv. pendiente</div>
+                            </div>
+                          ) : hasActiveAgency ? (
+                            <div>
+                              <span
+                                className="agency-rel-badge"
+                                style={{
+                                  color: agencyRelStatus === "active" ? "#34d399" : "#fbbf24",
+                                  borderColor: agencyRelStatus === "active" ? "rgba(52,211,153,0.3)" : "rgba(251,191,36,0.3)",
+                                }}
+                              >
+                                {agencyRelStatus === "active" ? "Activo" : "Pendiente"}
+                              </span>
+                              {agencyRelPct ? (
+                                <div className="text-muted" style={{ fontSize: "0.68rem", marginTop: "0.1rem" }}>{agencyRelPct}% comisión</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
                         </td>
                         <td className="text-muted text-sm">
                           <div>{activityLabel} ({c.loginCount || 0} logins)</div>
@@ -340,6 +369,8 @@ function CreatorsInner() {
         .quality-alta { background: rgba(52,211,153,0.12); color: #34d399; }
         .quality-media { background: rgba(251,191,36,0.12); color: #fbbf24; }
         .quality-baja { background: rgba(248,113,113,0.12); color: #f87171; }
+        .agency-invite-code { display: inline-block; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); color: #c4b5fd; border-radius: 6px; padding: 0.1rem 0.45rem; font-size: 0.72rem; font-weight: 700; font-family: monospace; }
+        .agency-rel-badge { display: inline-block; border-radius: 999px; padding: 0.1rem 0.5rem; font-size: 0.72rem; font-weight: 600; border: 1px solid; }
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .review-note {
           width: 100%;

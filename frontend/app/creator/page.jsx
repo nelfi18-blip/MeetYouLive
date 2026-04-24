@@ -90,6 +90,9 @@ export default function CreatorPage() {
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutError, setPayoutError] = useState("");
   const [payoutSuccess, setPayoutSuccess] = useState("");
+  const [agencyData, setAgencyData] = useState(null);
+  const [agencyCopied, setAgencyCopied] = useState(false);
+  const [agencyCopyError, setAgencyCopyError] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -115,13 +118,15 @@ export default function CreatorPage() {
 
         if (!isApprovedCreator(userData)) return null;
 
-        const [dashboardRes, earningsRes] = await Promise.all([
+        const [dashboardRes, earningsRes, agencyRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
           fetch(`${API_URL}/api/creator/earnings`, { headers }),
+          fetch(`${API_URL}/api/agency/me`, { headers }),
         ]);
 
         if (dashboardRes.ok) setDashboard(await dashboardRes.json());
         if (earningsRes.ok) setEarnings(await earningsRes.json());
+        if (agencyRes.ok) setAgencyData(await agencyRes.json());
 
         return null;
       })
@@ -396,6 +401,68 @@ export default function CreatorPage() {
               </p>
             ) : null}
           </FuturisticCard>
+
+          {agencyData && (
+            <FuturisticCard className="agency-card" accent="cyan" hover={false}>
+              <PremiumSectionHeader
+                title="Mi red de creadores"
+                subtitle="Invita creadores a tu agencia y gana comisión de sus ingresos."
+                action={<Link href="/agency" className="btn btn-secondary btn-sm">Ver panel completo</Link>}
+              />
+
+              <div className="agency-stats">
+                <div className="agency-stat">
+                  <div className="agency-stat-value">{agencyData.agencyProfile?.subCreatorsCount || 0}</div>
+                  <div className="agency-stat-label">Sub-creadores</div>
+                </div>
+                <div className="agency-stat">
+                  <div className="agency-stat-value agency-stat-green">{formatCoins(agencyData.agencyEarningsCoins || 0)}</div>
+                  <div className="agency-stat-label">Comisión ganada</div>
+                </div>
+                <div className="agency-stat">
+                  <div className="agency-stat-value agency-stat-purple">{formatCoins(agencyData.totalAgencyGeneratedCoins || 0)}</div>
+                  <div className="agency-stat-label">Total generado</div>
+                </div>
+                <div className="agency-stat">
+                  <div className="agency-stat-value">{agencyData.counts?.pending || 0}</div>
+                  <div className="agency-stat-label">Pendientes</div>
+                </div>
+              </div>
+
+              {agencyData.agencyProfile?.agencyCode ? (
+                <div className="agency-invite-row">
+                  <div className="agency-invite-url">
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`
+                      : `/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`}
+                  </div>
+                  <button
+                    className={`agency-copy-btn${agencyCopied ? " copied" : agencyCopyError ? " error" : ""}`}
+                    onClick={() => {
+                      const url = `${window.location.origin}/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        setAgencyCopied(true);
+                        setAgencyCopyError(false);
+                        setTimeout(() => setAgencyCopied(false), 2000);
+                      }).catch(() => {
+                        setAgencyCopyError(true);
+                        setTimeout(() => setAgencyCopyError(false), 3000);
+                      });
+                    }}
+                  >
+                    {agencyCopied ? "Copiado" : agencyCopyError ? "Error al copiar" : "Copiar enlace"}
+                  </button>
+                  <Link href="/agency" className="agency-manage-btn">
+                    Gestionar red
+                  </Link>
+                </div>
+              ) : (
+                <Link href="/agency" className="btn btn-secondary btn-sm" style={{ marginTop: "0.5rem" }}>
+                  Activar mi agencia
+                </Link>
+              )}
+            </FuturisticCard>
+          )}
         </>
       ) : (
         <FuturisticCard className="state-card" accent="cyan" hover={false}>
@@ -452,7 +519,8 @@ export default function CreatorPage() {
           gap: 0.62rem;
         }
         .quick-actions-card,
-        .state-card {
+        .state-card,
+        .agency-card {
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -463,6 +531,86 @@ export default function CreatorPage() {
           color: var(--text-muted);
           font-size: 0.79rem;
         }
+        .agency-stats {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.6rem;
+        }
+        .agency-stat {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          padding: 0.65rem 0.8rem;
+          text-align: center;
+        }
+        .agency-stat-value {
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #e2e8f0;
+          line-height: 1.2;
+        }
+        .agency-stat-green { color: #34d399; }
+        .agency-stat-purple { color: #a78bfa; }
+        .agency-stat-label {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          margin-top: 0.2rem;
+        }
+        .agency-invite-row {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+          flex-wrap: wrap;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 10px;
+          padding: 0.65rem 0.8rem;
+        }
+        .agency-invite-url {
+          flex: 1;
+          min-width: 0;
+          font-size: 0.72rem;
+          color: #818cf8;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .agency-copy-btn {
+          flex-shrink: 0;
+          background: rgba(139,92,246,0.18);
+          border: 1px solid rgba(139,92,246,0.4);
+          color: #c4b5fd;
+          border-radius: 8px;
+          padding: 0.35rem 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .agency-copy-btn.copied {
+          background: rgba(52,211,153,0.18);
+          border-color: rgba(52,211,153,0.4);
+          color: #6ee7b7;
+        }
+        .agency-copy-btn.error {
+          background: rgba(239,68,68,0.12);
+          border-color: rgba(239,68,68,0.3);
+          color: #fca5a5;
+        }
+        .agency-copy-btn:hover { background: rgba(139,92,246,0.28); }
+        .agency-manage-btn {
+          flex-shrink: 0;
+          background: rgba(34,211,238,0.12);
+          border: 1px solid rgba(34,211,238,0.3);
+          color: #67e8f9;
+          border-radius: 8px;
+          padding: 0.35rem 0.75rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+        .agency-manage-btn:hover { background: rgba(34,211,238,0.2); }
         @media (min-width: 760px) {
           .stats-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));

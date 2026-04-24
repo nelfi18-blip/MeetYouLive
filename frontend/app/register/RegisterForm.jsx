@@ -21,9 +21,19 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   // Prevents flashing the register form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
+  const [inviterInfo, setInviterInfo] = useState(null);
 
   const refCode = searchParams.get("ref") || null;
   const inviteCode = searchParams.get("creatorInvite") || null;
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    fetch(`${apiUrl}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
+      .catch((err) => console.warn("[register] invite-info fetch failed:", err));
+  }, [inviteCode]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -124,7 +134,25 @@ export default function RegisterForm() {
           <div className="banner-referral">🎁 Fuiste invitado con un código. ¡Recibirás monedas al completar tu perfil!</div>
         )}
         {inviteCode && !error && !success && (
-          <div className="banner-referral">🏢 Fuiste invitado por un creador. Al ser aprobado como creador, quedarás vinculado a su agencia.</div>
+          <div className="banner-referral banner-agency">
+            {inviterInfo ? (
+              <div className="agency-invite-inner">
+                {inviterInfo.avatar && (
+                  <img src={inviterInfo.avatar} alt="" className="agency-invite-avatar" />
+                )}
+                <div>
+                  <div className="agency-invite-label">Invitado por</div>
+                  <div className="agency-invite-name">{inviterInfo.name || inviterInfo.username}</div>
+                  {inviterInfo.agencyName && (
+                    <div className="agency-invite-sub">{inviterInfo.agencyName}</div>
+                  )}
+                  <div className="agency-invite-sub">Al ser aprobado como creador, quedarás vinculado a su agencia.</div>
+                </div>
+              </div>
+            ) : (
+              <span>🏢 Fuiste invitado por un creador. Al ser aprobado como creador, quedarás vinculado a su agencia.</span>
+            )}
+          </div>
         )}
 
         <form className="register-form" onSubmit={handleSubmit}>
@@ -354,6 +382,41 @@ export default function RegisterForm() {
           font-size: 0.875rem;
           font-weight: 500;
           margin-bottom: 1.25rem;
+        }
+
+        .agency-invite-inner {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .agency-invite-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 2px solid rgba(139,92,246,0.5);
+          flex-shrink: 0;
+        }
+
+        .agency-invite-label {
+          font-size: 0.7rem;
+          color: #a78bfa;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 700;
+        }
+
+        .agency-invite-name {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #e2e8f0;
+        }
+
+        .agency-invite-sub {
+          font-size: 0.78rem;
+          color: #8b8fa8;
+          margin-top: 0.1rem;
         }
 
         .register-form { display: flex; flex-direction: column; gap: 1.1rem; }

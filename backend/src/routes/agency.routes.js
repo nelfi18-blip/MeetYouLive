@@ -8,6 +8,8 @@ const {
   updateSubCreatorPercentage,
   removeSubCreator,
   getMyRelationship,
+  acceptRelationship,
+  declineRelationship,
 } = require("../controllers/agency.controller.js");
 
 const router = Router();
@@ -38,5 +40,7 @@ router.patch("/sub-creators/:id/remove", agencyWriteLimiter, removeSubCreator);
 
 // Sub-creator route — any creator can view their own agency relationship
 router.get("/my-relationship", agencyLimiter, getMyRelationship);
+router.patch("/my-relationship/accept", agencyWriteLimiter, acceptRelationship);
+router.patch("/my-relationship/decline", agencyWriteLimiter, declineRelationship);
 
 module.exports = router;

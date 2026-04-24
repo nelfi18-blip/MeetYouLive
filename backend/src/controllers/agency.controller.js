@@ -234,6 +234,49 @@ const getMyRelationship = async (req, res) => {
   }
 };
 
+// PATCH /api/agency/my-relationship/accept — sub-creator formally accepts a pending invitation
+const acceptRelationship = async (req, res) => {
+  try {
+    const relationship = await AgencyRelationship.findOne({
+      subCreator: req.userId,
+      status: "pending",
+    });
+    if (!relationship) {
+      return res.status(404).json({ message: "No tienes una invitación pendiente" });
+    }
+
+    relationship.subCreatorAgreed = true;
+    relationship.subCreatorAgreedAt = new Date();
+    await relationship.save();
+
+    await relationship.populate("parentCreator", "username name avatar agencyProfile");
+    res.json({ message: "Has aceptado el acuerdo de comisión. Pendiente de aprobación del administrador.", relationship });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/agency/my-relationship/decline — sub-creator declines a pending invitation
+const declineRelationship = async (req, res) => {
+  try {
+    const relationship = await AgencyRelationship.findOne({
+      subCreator: req.userId,
+      status: "pending",
+    });
+    if (!relationship) {
+      return res.status(404).json({ message: "No tienes una invitación pendiente" });
+    }
+
+    relationship.status = "removed";
+    relationship.removedAt = new Date();
+    await relationship.save();
+
+    res.json({ message: "Has rechazado la invitación de agencia." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   getMyAgency,
   getSubCreators,
@@ -241,4 +284,6 @@ module.exports = {
   updateSubCreatorPercentage,
   removeSubCreator,
   getMyRelationship,
+  acceptRelationship,
+  declineRelationship,
 };

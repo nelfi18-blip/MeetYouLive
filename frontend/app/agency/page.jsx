@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { calcSplit } from "@/lib/commission";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,6 +35,13 @@ export default function AgencyPage() {
   // Remove sub-creator
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
   const [removeError, setRemoveError] = useState("");
+
+  // Sub-creator accept/decline
+  const [agreementLoading, setAgreementLoading] = useState(false);
+  const [agreementMsg, setAgreementMsg] = useState({ type: "", text: "" });
+
+  // Expanded commission history
+  const [expandedHistory, setExpandedHistory] = useState(null);
 
   const loadData = useCallback(async () => {
     const token = getToken();
@@ -132,6 +140,44 @@ export default function AgencyPage() {
     }
   };
 
+  const handleAcceptAgreement = async () => {
+    setAgreementLoading(true);
+    setAgreementMsg({ type: "", text: "" });
+    const token = getToken();
+    try {
+      const res = await fetch(`${apiUrl}/api/agency/my-relationship/accept`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? "Acuerdo aceptado" : "Error") });
+      if (res.ok) loadData();
+    } catch {
+      setAgreementMsg({ type: "error", text: "Error de conexión" });
+    } finally {
+      setAgreementLoading(false);
+    }
+  };
+
+  const handleDeclineAgreement = async () => {
+    setAgreementLoading(true);
+    setAgreementMsg({ type: "", text: "" });
+    const token = getToken();
+    try {
+      const res = await fetch(`${apiUrl}/api/agency/my-relationship/decline`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setAgreementMsg({ type: res.ok ? "success" : "error", text: data.message || (res.ok ? "Invitación rechazada" : "Error") });
+      if (res.ok) loadData();
+    } catch {
+      setAgreementMsg({ type: "error", text: "Error de conexión" });
+    } finally {
+      setAgreementLoading(false);
+    }
+  };
+
   const statusColor = (s) => {
     if (s === "active") return "#22c55e";
     if (s === "pending") return "#f59e0b";
@@ -163,22 +209,77 @@ export default function AgencyPage() {
         {myRelationship && (
           <div style={{ background: "linear-gradient(135deg,#1e1b4b,#14142b)", border: "1px solid #4338ca", borderRadius: 12, padding: 20, marginBottom: 24 }}>
             <h3 style={{ color: "#818cf8", fontSize: 14, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 1 }}>Tu Agencia Principal</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               {myRelationship.parentCreator?.avatar && (
                 <img src={myRelationship.parentCreator.avatar} alt="" style={{ width: 48, height: 48, borderRadius: "50%", border: "2px solid #4338ca" }} />
               )}
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{myRelationship.parentCreator?.name || myRelationship.parentCreator?.username}</div>
                 <div style={{ color: "#818cf8", fontSize: 13 }}>Agencia: {myRelationship.parentCreator?.agencyProfile?.agencyName || "—"}</div>
+                {myRelationship.subCreatorAgreed && (
+                  <div style={{ color: "#22c55e", fontSize: 12, marginTop: 4 }}>✅ Acuerdo aceptado</div>
+                )}
               </div>
-              <div style={{ marginLeft: "auto", textAlign: "right" }}>
+              <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: "#a855f7" }}>{myRelationship.percentage}%</div>
-                <div style={{ color: "#6b7280", fontSize: 12 }}>tu comisión</div>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>comisión de agencia</div>
               </div>
               <div style={{ padding: "4px 10px", borderRadius: 20, background: statusColor(myRelationship.status) + "22", border: `1px solid ${statusColor(myRelationship.status)}`, color: statusColor(myRelationship.status), fontSize: 12 }}>
                 {myRelationship.status}
               </div>
             </div>
+
+            {/* Earnings split explanation */}
+            <div style={{ marginTop: 16, background: "#0d0d1f", borderRadius: 8, padding: 14 }}>
+              <div style={{ color: "#818cf8", fontSize: 12, marginBottom: 8, fontWeight: 600 }}>📊 Distribución de ingresos (ejemplo: 100 🪙)</div>
+              {(() => {
+                const s = calcSplit(100, myRelationship.percentage);
+                return (
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 120, background: "#111", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ color: "#6b7280", fontSize: 11 }}>Plataforma (fijo)</div>
+                      <div style={{ color: "#f59e0b", fontWeight: 700 }}>{s.platform} 🪙</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 120, background: "#111", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ color: "#6b7280", fontSize: 11 }}>Agencia ({myRelationship.percentage}%)</div>
+                      <div style={{ color: "#6366f1", fontWeight: 700 }}>{s.agency} 🪙</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 120, background: "#111", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ color: "#6b7280", fontSize: 11 }}>Tu ganancia neta</div>
+                      <div style={{ color: "#22c55e", fontWeight: 700 }}>{s.creator} 🪙</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Accept / Decline buttons for pending invitations */}
+            {myRelationship.status === "pending" && !myRelationship.subCreatorAgreed && (
+              <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ color: "#f59e0b", fontSize: 13, flex: 1 }}>
+                  ⏳ Tienes una invitación de agencia pendiente. Revisa los términos y confirma tu acuerdo.
+                </div>
+                <button
+                  onClick={handleAcceptAgreement}
+                  disabled={agreementLoading}
+                  style={{ background: "#166534", border: "1px solid #22c55e", color: "#86efac", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+                >
+                  ✅ Aceptar acuerdo
+                </button>
+                <button
+                  onClick={handleDeclineAgreement}
+                  disabled={agreementLoading}
+                  style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+                >
+                  ✕ Rechazar
+                </button>
+              </div>
+            )}
+            {agreementMsg.text && (
+              <div style={{ marginTop: 10, color: agreementMsg.type === "error" ? "#fca5a5" : "#86efac", fontSize: 13 }}>
+                {agreementMsg.text}
+              </div>
+            )}
           </div>
         )}
 
@@ -246,48 +347,89 @@ export default function AgencyPage() {
                     {removeError && <div style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: 12, color: "#fca5a5", fontSize: 13 }}>{removeError}</div>}
                     {pctError && <div style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: 12, color: "#fca5a5", fontSize: 13 }}>{pctError}</div>}
                     {subCreators.map((rel) => (
-                      <div key={rel._id} style={{ background: "#111118", border: "1px solid #222", borderRadius: 12, padding: 18, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                        {rel.subCreator?.avatar && (
-                          <img src={rel.subCreator.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid #333" }} />
-                        )}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600 }}>{rel.subCreator?.name || rel.subCreator?.username}</div>
-                          <div style={{ color: "#6b7280", fontSize: 12 }}>@{rel.subCreator?.username} • Ganancias: {rel.subCreator?.earningsCoins || 0} 🪙</div>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          {editingPct === rel._id ? (
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <input type="number" value={pctValue} onChange={(e) => setPctValue(e.target.value)} min={5} max={30}
-                                style={{ width: 60, background: "#1a1a2e", border: "1px solid #a855f7", borderRadius: 6, color: "#fff", padding: "4px 8px", textAlign: "center" }} />
-                              <button onClick={() => handleUpdatePct(rel._id)} disabled={pctLoading} style={{ background: "#a855f7", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✓</button>
-                              <button onClick={() => { setEditingPct(null); setPctError(""); }} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✕</button>
-                            </div>
-                          ) : (
-                            <div>
-                              <div style={{ fontSize: 20, fontWeight: 700, color: "#a855f7" }}>{rel.percentage}%</div>
-                              <div style={{ color: "#6b7280", fontSize: 11 }}>comisión</div>
-                            </div>
+                      <div key={rel._id} style={{ background: "#111118", border: "1px solid #222", borderRadius: 12, padding: 18 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                          {rel.subCreator?.avatar && (
+                            <img src={rel.subCreator.avatar} alt="" style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid #333" }} />
                           )}
-                        </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <div style={{ padding: "3px 10px", borderRadius: 20, background: statusColor(rel.status) + "22", border: `1px solid ${statusColor(rel.status)}`, color: statusColor(rel.status), fontSize: 12 }}>
-                            {rel.status}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600 }}>{rel.subCreator?.name || rel.subCreator?.username}</div>
+                            <div style={{ color: "#6b7280", fontSize: 12 }}>@{rel.subCreator?.username} • Ganancias: {rel.subCreator?.earningsCoins || 0} 🪙</div>
+                            {rel.subCreatorAgreed && <div style={{ color: "#22c55e", fontSize: 11, marginTop: 2 }}>✅ Acuerdo aceptado por creador</div>}
                           </div>
-                          {rel.status === "active" && (
-                            <>
-                              <button onClick={() => { setEditingPct(rel._id); setPctValue(rel.percentage); setPctError(""); }} style={{ background: "#1e1b4b", border: "1px solid #4338ca", color: "#818cf8", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-                              {confirmRemoveId === rel._id ? (
-                                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                  <span style={{ color: "#fca5a5", fontSize: 12 }}>¿Eliminar?</span>
-                                  <button onClick={() => handleRemoveSub(rel._id)} style={{ background: "#7f1d1d", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Sí</button>
-                                  <button onClick={() => setConfirmRemoveId(null)} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>No</button>
-                                </div>
-                              ) : (
-                                <button onClick={() => { setConfirmRemoveId(rel._id); setRemoveError(""); }} style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>🗑</button>
-                              )}
-                            </>
-                          )}
+                          <div style={{ textAlign: "center" }}>
+                            {editingPct === rel._id ? (
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <input type="number" value={pctValue} onChange={(e) => setPctValue(e.target.value)} min={5} max={30}
+                                  style={{ width: 60, background: "#1a1a2e", border: "1px solid #a855f7", borderRadius: 6, color: "#fff", padding: "4px 8px", textAlign: "center" }} />
+                                <button onClick={() => handleUpdatePct(rel._id)} disabled={pctLoading} style={{ background: "#a855f7", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✓</button>
+                                <button onClick={() => { setEditingPct(null); setPctError(""); }} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✕</button>
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ fontSize: 20, fontWeight: 700, color: "#a855f7" }}>{rel.percentage}%</div>
+                                <div style={{ color: "#6b7280", fontSize: 11 }}>comisión</div>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <div style={{ padding: "3px 10px", borderRadius: 20, background: statusColor(rel.status) + "22", border: `1px solid ${statusColor(rel.status)}`, color: statusColor(rel.status), fontSize: 12 }}>
+                              {rel.status}
+                            </div>
+                            {rel.status === "active" && (
+                              <>
+                                <button onClick={() => { setEditingPct(rel._id); setPctValue(rel.percentage); setPctError(""); }} style={{ background: "#1e1b4b", border: "1px solid #4338ca", color: "#818cf8", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+                                {confirmRemoveId === rel._id ? (
+                                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <span style={{ color: "#fca5a5", fontSize: 12 }}>¿Eliminar?</span>
+                                    <button onClick={() => handleRemoveSub(rel._id)} style={{ background: "#7f1d1d", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Sí</button>
+                                    <button onClick={() => setConfirmRemoveId(null)} style={{ background: "#333", border: "none", borderRadius: 6, color: "#fff", padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>No</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setConfirmRemoveId(rel._id); setRemoveError(""); }} style={{ background: "#1a0a0a", border: "1px solid #7f1d1d", color: "#fca5a5", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>🗑</button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Earnings split preview */}
+                        {rel.status === "active" && (() => {
+                          const s = calcSplit(100, rel.percentage);
+                          return (
+                            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <div style={{ background: "#0a0a0f", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+                                <span style={{ color: "#6b7280" }}>Por 100🪙: Plataforma </span>
+                                <span style={{ color: "#f59e0b", fontWeight: 700 }}>{s.platform}🪙</span>
+                                <span style={{ color: "#6b7280" }}> · Agencia </span>
+                                <span style={{ color: "#a855f7", fontWeight: 700 }}>{s.agency}🪙</span>
+                                <span style={{ color: "#6b7280" }}> · Creador </span>
+                                <span style={{ color: "#22c55e", fontWeight: 700 }}>{s.creator}🪙</span>
+                              </div>
+                              {(rel.percentageHistory || []).length > 0 && (
+                                <button
+                                  onClick={() => setExpandedHistory(expandedHistory === rel._id ? null : rel._id)}
+                                  style={{ background: "#1a1a2e", border: "1px solid #333", color: "#818cf8", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12 }}
+                                >
+                                  🕐 Historial ({rel.percentageHistory.length})
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Commission history */}
+                        {expandedHistory === rel._id && (rel.percentageHistory || []).length > 0 && (
+                          <div style={{ marginTop: 10, background: "#0a0a0f", borderRadius: 8, padding: 12 }}>
+                            <div style={{ color: "#818cf8", fontSize: 12, marginBottom: 8, fontWeight: 600 }}>Historial de cambios de comisión</div>
+                            {rel.percentageHistory.map((h, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6b7280", padding: "4px 0", borderBottom: i < rel.percentageHistory.length - 1 ? "1px solid #1a1a2e" : "none" }}>
+                                <span>Porcentaje anterior: <strong style={{ color: "#a855f7" }}>{h.percentage}%</strong></span>
+                                <span>{h.changedAt ? new Date(h.changedAt).toLocaleDateString("es-ES") : "—"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

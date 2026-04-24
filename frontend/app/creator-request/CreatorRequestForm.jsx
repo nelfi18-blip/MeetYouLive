@@ -114,6 +114,7 @@ export default function CreatorRequestForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [step, setStep] = useState(1);
+  const [inviterInfo, setInviterInfo] = useState(null);
 
   const [form, setForm] = useState({
     displayName: "",
@@ -123,6 +124,14 @@ export default function CreatorRequestForm() {
     languages: [],
     socialLinks: { twitter: "", instagram: "", tiktok: "", youtube: "" },
   });
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    fetch(`${API_URL}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
+      .catch(() => {});
+  }, [inviteCode]);
 
   const resolveCountryOption = (value) => {
     const normalized = normalizeText(value);
@@ -430,6 +439,21 @@ export default function CreatorRequestForm() {
           Solicita acceso en minutos.
         </p>
 
+        {inviterInfo && (
+          <div className="invite-banner">
+            {inviterInfo.avatar && (
+              <img src={inviterInfo.avatar} alt="" className="invite-avatar" />
+            )}
+            <div className="invite-text">
+              <div className="invite-label">Fuiste invitado por</div>
+              <div className="invite-name">{inviterInfo.name || inviterInfo.username}</div>
+              {inviterInfo.agencyName && (
+                <div className="invite-agency">{inviterInfo.agencyName}</div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="segment-pill">{segmentHeadline}</div>
 
         <div className="proof-grid">
@@ -703,6 +727,49 @@ export default function CreatorRequestForm() {
           color: var(--text);
           font-size: 0.82rem;
           font-weight: 700;
+        }
+
+        .invite-banner {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          width: 100%;
+          background: rgba(139,92,246,0.1);
+          border: 1px solid rgba(139,92,246,0.4);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          text-align: left;
+        }
+
+        .invite-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 2px solid rgba(139,92,246,0.5);
+          flex-shrink: 0;
+        }
+
+        .invite-text { flex: 1; min-width: 0; }
+
+        .invite-label {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 600;
+        }
+
+        .invite-name {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #a78bfa;
+        }
+
+        .invite-agency {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin-top: 0.1rem;
         }
 
         .proof-grid {

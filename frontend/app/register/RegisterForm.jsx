@@ -32,7 +32,7 @@ export default function RegisterForm() {
     fetch(`${apiUrl}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
-      .catch(() => {});
+      .catch((err) => console.warn("[register] invite-info fetch failed:", err));
   }, [inviteCode]);
 
   useEffect(() => {

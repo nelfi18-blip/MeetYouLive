@@ -92,6 +92,7 @@ export default function CreatorPage() {
   const [payoutSuccess, setPayoutSuccess] = useState("");
   const [agencyData, setAgencyData] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
+  const [agencyCopyError, setAgencyCopyError] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -436,16 +437,20 @@ export default function CreatorPage() {
                       : `/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`}
                   </div>
                   <button
-                    className={`agency-copy-btn${agencyCopied ? " copied" : ""}`}
+                    className={`agency-copy-btn${agencyCopied ? " copied" : agencyCopyError ? " error" : ""}`}
                     onClick={() => {
                       const url = `${window.location.origin}/register?creatorInvite=${agencyData.agencyProfile.agencyCode}`;
                       navigator.clipboard.writeText(url).then(() => {
                         setAgencyCopied(true);
+                        setAgencyCopyError(false);
                         setTimeout(() => setAgencyCopied(false), 2000);
-                      }).catch(() => {});
+                      }).catch(() => {
+                        setAgencyCopyError(true);
+                        setTimeout(() => setAgencyCopyError(false), 3000);
+                      });
                     }}
                   >
-                    {agencyCopied ? "Copiado" : "Copiar enlace"}
+                    {agencyCopied ? "Copiado" : agencyCopyError ? "Error al copiar" : "Copiar enlace"}
                   </button>
                   <Link href="/agency" className="agency-manage-btn">
                     Gestionar red
@@ -586,6 +591,11 @@ export default function CreatorPage() {
           background: rgba(52,211,153,0.18);
           border-color: rgba(52,211,153,0.4);
           color: #6ee7b7;
+        }
+        .agency-copy-btn.error {
+          background: rgba(239,68,68,0.12);
+          border-color: rgba(239,68,68,0.3);
+          color: #fca5a5;
         }
         .agency-copy-btn:hover { background: rgba(139,92,246,0.28); }
         .agency-manage-btn {

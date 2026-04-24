@@ -130,7 +130,7 @@ export default function CreatorRequestForm() {
     fetch(`${API_URL}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
-      .catch(() => {});
+      .catch((err) => console.warn("[creator-request] invite-info fetch failed:", err));
   }, [inviteCode]);
 
   const resolveCountryOption = (value) => {

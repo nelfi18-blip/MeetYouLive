@@ -273,7 +273,7 @@ const sendGift = async (req, res) => {
         let battleUpdated = false;
 
         if (livDoc.goal?.active && livDoc.goal.target > 0) {
-          updates["goal.progress"] = (livDoc.goal.progress || 0) + amount;
+          updates["goal.progress"] = amount;
           goalUpdated = true;
         }
         if (livDoc.battle?.active) {
@@ -282,8 +282,8 @@ const sendGift = async (req, res) => {
           // this equal split keeps both team bars moving until that feature is added.
           const half = Math.floor(amount / 2);
           const remainder = amount - half; // ceil for left
-          updates["battle.leftScore"] = (livDoc.battle.leftScore || 0) + remainder;
-          updates["battle.rightScore"] = (livDoc.battle.rightScore || 0) + half;
+          updates["battle.leftScore"] = remainder;
+          updates["battle.rightScore"] = half;
           battleUpdated = true;
         }
 

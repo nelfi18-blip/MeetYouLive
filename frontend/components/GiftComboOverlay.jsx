@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const COMBO_WINDOW_MS = 4000; // track gifts within 4 seconds for combos
 const COMBO_MIN = 2;          // minimum consecutive gifts to show combo
 
-export default function GiftComboOverlay({ lastGift, recentGifts }) {
+export default function GiftComboOverlay({ recentGifts }) {
   const [combo, setCombo] = useState(null);
   const hideTimerRef = useRef(null);
 

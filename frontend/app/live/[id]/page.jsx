@@ -809,7 +809,7 @@ export default function LiveRoomPage() {
             {agoraJoined && !isCreator && <FloatingReactions />}
 
             {/* Gift combo/streak overlay */}
-            <GiftComboOverlay lastGift={activeGiftEffect} recentGifts={recentGiftsForCombo} />
+            <GiftComboOverlay recentGifts={recentGiftsForCombo} />
 
             {/* Live activity overlay — floating event feed on video */}
             <LiveFeedOverlay events={overlayEvents} />

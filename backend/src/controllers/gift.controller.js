@@ -277,13 +277,13 @@ const sendGift = async (req, res) => {
           goalUpdated = true;
         }
         if (livDoc.battle?.active) {
-          // Randomly assign the gift coins to left or right based on sender's socket side
-          // Default: odd coin amounts go left, even go right (simple split without extra config)
-          if (amount % 2 === 1) {
-            updates["battle.leftScore"] = (livDoc.battle.leftScore || 0) + amount;
-          } else {
-            updates["battle.rightScore"] = (livDoc.battle.rightScore || 0) + amount;
-          }
+          // Split gift coins equally between both teams (ceil to left, floor to right).
+          // A proper per-team assignment would require the sender to choose a side —
+          // this equal split keeps both team bars moving until that feature is added.
+          const half = Math.floor(amount / 2);
+          const remainder = amount - half; // ceil for left
+          updates["battle.leftScore"] = (livDoc.battle.leftScore || 0) + remainder;
+          updates["battle.rightScore"] = (livDoc.battle.rightScore || 0) + half;
           battleUpdated = true;
         }
 

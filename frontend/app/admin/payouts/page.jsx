@@ -9,15 +9,19 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const STATUS_LABELS = {
   pending: "Pendiente",
+  approved: "Aprobado",
   processing: "En proceso",
   completed: "Pagado",
+  paid: "Pagado",
   rejected: "Rechazado",
 };
 
 const STATUS_COLORS = {
   pending: "badge--yellow",
+  approved: "badge--blue",
   processing: "badge--blue",
   completed: "badge--green",
+  paid: "badge--green",
   rejected: "badge--red",
 };
 
@@ -107,12 +111,14 @@ function AdminPayoutsContent() {
     acc[p.status] = (acc[p.status] || 0) + 1;
     return acc;
   }, {});
+  const totalPaid = (counts.completed || 0) + (counts.paid || 0);
 
   const filterOptions = [
     { value: "", label: "Todos" },
     { value: "pending", label: `Pendientes${counts.pending ? ` (${counts.pending})` : ""}` },
+    { value: "approved", label: `Aprobados${counts.approved ? ` (${counts.approved})` : ""}` },
     { value: "processing", label: `En proceso${counts.processing ? ` (${counts.processing})` : ""}` },
-    { value: "completed", label: `Pagados${counts.completed ? ` (${counts.completed})` : ""}` },
+    { value: "completed", label: `Pagados${totalPaid ? ` (${totalPaid})` : ""}` },
     { value: "rejected", label: `Rechazados${counts.rejected ? ` (${counts.rejected})` : ""}` },
   ];
 
@@ -180,7 +186,7 @@ function AdminPayoutsContent() {
             </thead>
             <tbody>
               {payouts.map((p) => {
-                const isTerminal = p.status === "completed" || p.status === "rejected";
+                const isTerminal = p.status === "completed" || p.status === "paid" || p.status === "rejected";
                 const busy = actionLoading === p._id;
                 return (
                   <tr key={p._id}>
@@ -213,23 +219,23 @@ function AdminPayoutsContent() {
                             <button
                               className="btn-action btn-process"
                               disabled={busy}
-                              onClick={() => updateStatus(p._id, "processing")}
-                              title="Marcar en proceso"
+                              onClick={() => updateStatus(p._id, "approved")}
+                              title="Aprobar solicitud"
                             >
-                              {busy ? "…" : "⚙ Procesar"}
+                              {busy ? "…" : "✓ Aprobar"}
                             </button>
                           )}
-                          {(p.status === "pending" || p.status === "processing") && (
+                          {(p.status === "approved" || p.status === "processing") && (
                             <button
                               className="btn-action btn-complete"
                               disabled={busy}
-                              onClick={() => updateStatus(p._id, "completed")}
+                              onClick={() => updateStatus(p._id, "paid")}
                               title="Marcar como pagado"
                             >
-                              {busy ? "…" : "✓ Pagado"}
+                              {busy ? "…" : "💸 Pagado"}
                             </button>
                           )}
-                          {(p.status === "pending" || p.status === "processing") && (
+                          {(p.status === "pending" || p.status === "approved" || p.status === "processing") && (
                             <button
                               className="btn-action btn-reject"
                               disabled={busy}

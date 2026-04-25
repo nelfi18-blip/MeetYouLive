@@ -511,7 +511,7 @@ export default function DashboardPage() {
     ? [
         { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
         { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
-        { href: "/private-calls", title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
+        { href: "/creator",       title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
         { href: "/exclusive",     title: "Contenido exclusivo", sub: "Publica contenido para suscriptores", icon: ExclusiveIcon,   color: "purple", size: "normal" },
         ...(user?.agencyProfile?.enabled
           ? [{ href: "/agency", title: "Mi Agencia", sub: "Gestiona sub-creadores y comisiones", icon: AgencyIcon, color: "indigo", size: "normal" }]
@@ -1041,7 +1041,7 @@ export default function DashboardPage() {
               <span className="qa-icon"><ExclusiveIcon /></span>
               <span className="qa-title">Exclusivo</span>
             </Link>
-            <Link href="/private-calls" className="qa-tile qa-calls">
+            <Link href="/creator" className="qa-tile qa-calls">
               <span className="qa-icon"><PrivateCallIcon /></span>
               <span className="qa-title">Llamadas</span>
             </Link>

@@ -11,9 +11,10 @@ const payoutSchema = new mongoose.Schema(
     amountCoins: { type: Number, required: true, min: 1 },
     status: {
       type: String,
-      enum: ["pending", "processing", "completed", "rejected"],
+      enum: ["pending", "approved", "processing", "completed", "paid", "rejected"],
       default: "pending",
     },
+    rejectionReason: { type: String, default: "" },
     notes: { type: String, default: "" },
     processedAt: { type: Date, default: null },
   },

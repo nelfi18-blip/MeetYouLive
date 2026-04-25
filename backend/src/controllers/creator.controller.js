@@ -64,7 +64,7 @@ exports.getCreatorStats = async (req, res) => {
       Live.countDocuments({ user: user._id }).catch(() => 0),
       Payout.findOne({
         creator: user._id,
-        status: { $in: ["pending", "processing"] },
+        status: { $in: ["pending", "approved", "processing"] },
       }).sort({ createdAt: -1 }),
       getConsistencyDays(user._id, 30),
     ]);
@@ -159,12 +159,12 @@ exports.getCreatorEarnings = async (req, res) => {
             _id: null,
             pendingCoins: {
               $sum: {
-                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["pending", "approved", "processing"]] }, "$amountCoins", 0],
               },
             },
             withdrawnCoins: {
               $sum: {
-                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["completed", "paid"]] }, "$amountCoins", 0],
               },
             },
           },
@@ -256,7 +256,7 @@ exports.requestPayout = async (req, res) => {
 
     const existingPending = await Payout.findOne({
       creator: user._id,
-      status: { $in: ["pending", "processing"] },
+      status: { $in: ["pending", "approved", "processing"] },
     });
 
     if (existingPending) {
@@ -393,7 +393,7 @@ exports.getCreatorDashboard = async (req, res) => {
       ),
       Payout.findOne({
         creator: user._id,
-        status: { $in: ["pending", "processing"] },
+        status: { $in: ["pending", "approved", "processing"] },
       }).sort({ createdAt: -1 }),
       Live.countDocuments({ user: user._id }).catch(() => 0),
       getConsistencyDays(user._id, 30),
@@ -404,12 +404,12 @@ exports.getCreatorDashboard = async (req, res) => {
             _id: null,
             pendingCoins: {
               $sum: {
-                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["pending", "approved", "processing"]] }, "$amountCoins", 0],
               },
             },
             withdrawnCoins: {
               $sum: {
-                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["completed", "paid"]] }, "$amountCoins", 0],
               },
             },
           },

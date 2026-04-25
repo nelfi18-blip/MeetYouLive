@@ -412,10 +412,10 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
 
 // ── Payout admin routes ─────────────────────────────────────────────────────
 
-// GET /api/admin/payouts — list payout requests (optional ?status=pending|processing|completed|rejected)
+// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|processing|completed|paid|rejected)
 router.get("/payouts", async (req, res) => {
   try {
-    const allowedStatuses = ["pending", "processing", "completed", "rejected"];
+    const allowedStatuses = ["pending", "approved", "processing", "completed", "paid", "rejected"];
     const filter = {};
     if (req.query.status && allowedStatuses.includes(req.query.status)) {
       filter.status = req.query.status;
@@ -430,30 +430,35 @@ router.get("/payouts", async (req, res) => {
   }
 });
 
-// PATCH /api/admin/payouts/:id — update payout status (complete or reject)
-// Body: { status: "completed" | "rejected" | "processing", notes? }
+// PATCH /api/admin/payouts/:id — update payout status
+// Body: { status: "approved" | "paid" | "completed" | "rejected" | "processing", notes? }
 router.patch("/payouts/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "id inválido" });
     }
     const { status, notes } = req.body;
-    const allowedTransitions = ["processing", "completed", "rejected"];
+    const allowedTransitions = ["approved", "paid", "processing", "completed", "rejected"];
     if (!allowedTransitions.includes(status)) {
-      return res.status(400).json({ message: "Estado inválido. Usa: processing, completed o rejected" });
+      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid, completed o rejected" });
     }
 
     const payout = await Payout.findById(req.params.id);
     if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
 
-    if (payout.status === "completed" || payout.status === "rejected") {
+    const isTerminal = ["completed", "paid", "rejected"].includes(payout.status);
+    if (isTerminal) {
       return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
     }
 
     payout.status = status;
     if (notes !== undefined) payout.notes = notes;
-    if (status === "completed" || status === "rejected") {
+    const isFinalised = ["completed", "paid", "rejected"].includes(status);
+    if (isFinalised) {
       payout.processedAt = new Date();
+    }
+    if (status === "rejected" && notes) {
+      payout.rejectionReason = notes;
     }
     await payout.save();
 

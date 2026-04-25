@@ -8,11 +8,15 @@ const { computeCreatorProgress } = require("../utils/creatorProgress");
 
 const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
-    "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins followersCount"
+    "role creatorStatus isSuspended username name creatorApprovedAt earningsCoins coins agencyEarningsCoins followersCount"
   );
 
   if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
     return { error: "Acceso restringido a creadores aprobados.", user: null };
+  }
+
+  if (user.isSuspended) {
+    return { error: "Tu cuenta está suspendida. No puedes realizar retiros.", user: null };
   }
 
   return { error: null, user };
@@ -64,7 +68,7 @@ exports.getCreatorStats = async (req, res) => {
       Live.countDocuments({ user: user._id }).catch(() => 0),
       Payout.findOne({
         creator: user._id,
-        status: { $in: ["pending", "processing"] },
+        status: { $in: ["pending", "approved", "processing"] },
       }).sort({ createdAt: -1 }),
       getConsistencyDays(user._id, 30),
     ]);
@@ -159,12 +163,12 @@ exports.getCreatorEarnings = async (req, res) => {
             _id: null,
             pendingCoins: {
               $sum: {
-                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["pending", "approved", "processing"]] }, "$amountCoins", 0],
               },
             },
             withdrawnCoins: {
               $sum: {
-                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["paid", "completed"]] }, "$amountCoins", 0],
               },
             },
           },
@@ -256,7 +260,7 @@ exports.requestPayout = async (req, res) => {
 
     const existingPending = await Payout.findOne({
       creator: user._id,
-      status: { $in: ["pending", "processing"] },
+      status: { $in: ["pending", "approved", "processing"] },
     });
 
     if (existingPending) {
@@ -297,6 +301,8 @@ exports.requestPayout = async (req, res) => {
       status: "pending",
       notes: "Solicitud creada automáticamente desde creator dashboard.",
     });
+
+    console.log(`[payout] REQUESTED id=${payout._id} creator=${user._id} coins=${available}`);
 
     return res.json({
       ok: true,
@@ -354,7 +360,7 @@ exports.getCreatorDashboard = async (req, res) => {
       ),
       Payout.findOne({
         creator: user._id,
-        status: { $in: ["pending", "processing"] },
+        status: { $in: ["pending", "approved", "processing"] },
       }).sort({ createdAt: -1 }),
       Live.countDocuments({ user: user._id }).catch(() => 0),
       getConsistencyDays(user._id, 30),
@@ -365,12 +371,12 @@ exports.getCreatorDashboard = async (req, res) => {
             _id: null,
             pendingCoins: {
               $sum: {
-                $cond: [{ $in: ["$status", ["pending", "processing"]] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["pending", "approved", "processing"]] }, "$amountCoins", 0],
               },
             },
             withdrawnCoins: {
               $sum: {
-                $cond: [{ $eq: ["$status", "completed"] }, "$amountCoins", 0],
+                $cond: [{ $in: ["$status", ["paid", "completed"]] }, "$amountCoins", 0],
               },
             },
           },
@@ -541,6 +547,43 @@ exports.getCreatorRequestStatus = async (req, res) => {
     });
   } catch (err) {
     console.error("getCreatorRequestStatus error:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
+// GET /api/creator/payout-history — paginated list of all payout requests for the creator
+exports.getPayoutHistory = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const [payouts, total] = await Promise.all([
+      Payout.find({ creator: user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Payout.countDocuments({ creator: user._id }),
+    ]);
+
+    return res.json({
+      ok: true,
+      payouts,
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    console.error("getPayoutHistory error:", err);
     return res.status(500).json({ ok: false, message: "Error interno del servidor" });
   }
 };

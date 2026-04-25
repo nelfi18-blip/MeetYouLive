@@ -63,7 +63,7 @@ exports.getOverview = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$coinCost" }, count: { $sum: 1 } } },
       ]),
       Payout.aggregate([
-        { $match: { status: "pending" } },
+        { $match: { status: { $in: ["pending", "approved"] } } },
         { $group: { _id: null, total: { $sum: "$amountCoins" } } },
       ]),
       User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),

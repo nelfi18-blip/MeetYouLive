@@ -501,8 +501,8 @@ export default function AgencyPage() {
               <StatCard icon="👥" value={totalInvitados} label="Total invitados" color="#6366f1" />
               <StatCard icon="✅" value={totalActivos} label="Activos" color="#22c55e" />
               <StatCard icon="⏳" value={totalPendientes} label="Pendientes" color="#f59e0b" />
-              <StatCard icon="💰" value={`${agencyData.agencyEarningsCoins || 0} 🪙`} label="Comisión ganada" color="#a855f7" />
-              <StatCard icon="📈" value={`${agencyData.totalAgencyGeneratedCoins || 0} 🪙`} label="Total generado" color="#3b82f6" />
+              <StatCard icon="💰" value={`${(agencyData.agencyEarningsCoins || 0).toLocaleString()} 🪙`} label="Comisión disponible" color="#a855f7" />
+              <StatCard icon="📈" value={`${(agencyData.totalAgencyGeneratedCoins || 0).toLocaleString()} 🪙`} label="Total generado" color="#3b82f6" />
             </div>
 
             {/* ── Agency profile card ── */}

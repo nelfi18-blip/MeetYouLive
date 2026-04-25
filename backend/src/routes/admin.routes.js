@@ -412,52 +412,86 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
 
 // ── Payout admin routes ─────────────────────────────────────────────────────
 
-// GET /api/admin/payouts — list payout requests (optional ?status=pending|processing|completed|rejected)
+// GET /api/admin/payouts — list payout requests with optional status filter and pagination
 router.get("/payouts", async (req, res) => {
   try {
-    const allowedStatuses = ["pending", "processing", "completed", "rejected"];
+    const allowedStatuses = ["pending", "approved", "paid", "rejected", "processing", "completed"];
     const filter = {};
     if (req.query.status && allowedStatuses.includes(req.query.status)) {
       filter.status = req.query.status;
     }
-    const payouts = await Payout.find(filter)
-      .populate("creator", "username name email avatar earningsCoins")
-      .sort({ createdAt: -1 })
-      .limit(200);
-    res.json({ payouts });
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
+
+    const [payouts, total] = await Promise.all([
+      Payout.find(filter)
+        .populate("creator", "username name email avatar earningsCoins creatorStatus isSuspended")
+        .populate("reviewedBy", "username name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Payout.countDocuments(filter),
+    ]);
+    res.json({ payouts, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PATCH /api/admin/payouts/:id — update payout status (complete or reject)
-// Body: { status: "completed" | "rejected" | "processing", notes? }
+// PATCH /api/admin/payouts/:id — update payout status
+// Allowed transitions:
+//   pending   → approved | rejected
+//   approved  → paid | rejected
+//   (legacy)  processing → completed | rejected
+// Body: { status: "approved" | "paid" | "rejected", notes?, rejectionReason? }
 router.patch("/payouts/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "id inválido" });
     }
-    const { status, notes } = req.body;
-    const allowedTransitions = ["processing", "completed", "rejected"];
+    const { status, notes, rejectionReason } = req.body;
+    const allowedTransitions = ["approved", "paid", "rejected", "processing", "completed"];
     if (!allowedTransitions.includes(status)) {
-      return res.status(400).json({ message: "Estado inválido. Usa: processing, completed o rejected" });
+      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid o rejected" });
     }
 
     const payout = await Payout.findById(req.params.id);
     if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
 
-    if (payout.status === "completed" || payout.status === "rejected") {
+    const terminal = ["paid", "completed", "rejected"];
+    if (terminal.includes(payout.status)) {
       return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
     }
 
-    payout.status = status;
-    if (notes !== undefined) payout.notes = notes;
-    if (status === "completed" || status === "rejected") {
+    // Restore earningsCoins to creator when rejecting
+    if (status === "rejected") {
+      await User.findByIdAndUpdate(payout.creator, {
+        $inc: { earningsCoins: payout.amountCoins },
+      });
+      payout.rejectionReason = (typeof rejectionReason === "string" ? rejectionReason : "").slice(0, 300);
       payout.processedAt = new Date();
+      console.log(`[payout] REJECTED id=${payout._id} creator=${payout.creator} coins=${payout.amountCoins} restored by admin=${req.userId}`);
     }
+
+    // Mark processedAt when moving to paid or completed
+    if (status === "paid" || status === "completed") {
+      payout.processedAt = new Date();
+      console.log(`[payout] PAID id=${payout._id} creator=${payout.creator} coins=${payout.amountCoins} by admin=${req.userId}`);
+    }
+
+    if (status === "approved") {
+      console.log(`[payout] APPROVED id=${payout._id} creator=${payout.creator} coins=${payout.amountCoins} by admin=${req.userId}`);
+    }
+
+    payout.status = status;
+    payout.reviewedBy = req.userId;
+    if (notes !== undefined) payout.notes = String(notes).slice(0, 500);
     await payout.save();
 
-    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
+    const populated = await Payout.findById(payout._id)
+      .populate("creator", "username name email earningsCoins")
+      .populate("reviewedBy", "username name");
     res.json({ message: "Solicitud actualizada", payout: populated });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -93,6 +93,8 @@ export default function CreatorPage() {
   const [agencyData, setAgencyData] = useState(null);
   const [agencyCopied, setAgencyCopied] = useState(false);
   const [agencyCopyError, setAgencyCopyError] = useState(false);
+  const [payoutHistory, setPayoutHistory] = useState([]);
+  const [payoutHistoryLoading, setPayoutHistoryLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -118,15 +120,22 @@ export default function CreatorPage() {
 
         if (!isApprovedCreator(userData)) return null;
 
-        const [dashboardRes, earningsRes, agencyRes] = await Promise.all([
+        setPayoutHistoryLoading(true);
+        const [dashboardRes, earningsRes, agencyRes, historyRes] = await Promise.all([
           fetch(`${API_URL}/api/creator/dashboard`, { headers }),
           fetch(`${API_URL}/api/creator/earnings`, { headers }),
           fetch(`${API_URL}/api/agency/me`, { headers }),
+          fetch(`${API_URL}/api/creator/payout-history?limit=10`, { headers }),
         ]);
 
         if (dashboardRes.ok) setDashboard(await dashboardRes.json());
         if (earningsRes.ok) setEarnings(await earningsRes.json());
         if (agencyRes.ok) setAgencyData(await agencyRes.json());
+        if (historyRes.ok) {
+          const hd = await historyRes.json();
+          setPayoutHistory(hd.payouts || []);
+        }
+        setPayoutHistoryLoading(false);
 
         return null;
       })
@@ -393,7 +402,8 @@ export default function CreatorPage() {
             />
             {hasPendingPayout ? (
               <p className="quick-note">
-                Ya tienes una solicitud de retiro en proceso ({formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0)} monedas).
+                ⏳ Ya tienes una solicitud de retiro en proceso ({formatCoins(dashboard?.pendingPayout?.amountCoins ?? 0)} monedas).
+                Los retiros se procesan <strong>manualmente</strong> por el equipo.
               </p>
             ) : availableForPayout < minPayoutCoins ? (
               <p className="quick-note">
@@ -401,6 +411,40 @@ export default function CreatorPage() {
               </p>
             ) : null}
           </FuturisticCard>
+
+          {payoutHistory.length > 0 && (
+            <FuturisticCard className="payout-history-card" accent="cyan" hover={false}>
+              <PremiumSectionHeader
+                title="Historial de retiros"
+                subtitle="Los retiros se procesan manualmente. El equipo te contactará para completar el pago."
+              />
+              <div className="payout-list">
+                {payoutHistoryLoading ? (
+                  <p className="payout-loading">Cargando historial…</p>
+                ) : (
+                  payoutHistory.map((p) => (
+                    <div key={p._id} className="payout-row">
+                      <div className="payout-info">
+                        <span className="payout-amount">{formatCoins(p.amountCoins)} 🪙</span>
+                        <span className="payout-date">
+                          {new Date(p.createdAt).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                      <span className={`payout-badge payout-badge--${p.status}`}>
+                        {p.status === "pending" && "⏳ Pendiente"}
+                        {p.status === "approved" && "✅ Aprobado"}
+                        {p.status === "paid" && "💰 Pagado"}
+                        {p.status === "rejected" && "❌ Rechazado"}
+                        {p.status === "processing" && "⏳ En proceso"}
+                        {p.status === "completed" && "💰 Completado"}
+                        {!["pending","approved","paid","rejected","processing","completed"].includes(p.status) && p.status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </FuturisticCard>
+          )}
 
           {agencyData && (
             <FuturisticCard className="agency-card" accent="cyan" hover={false}>
@@ -520,7 +564,8 @@ export default function CreatorPage() {
         }
         .quick-actions-card,
         .state-card,
-        .agency-card {
+        .agency-card,
+        .payout-history-card {
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -531,6 +576,52 @@ export default function CreatorPage() {
           color: var(--text-muted);
           font-size: 0.79rem;
         }
+        .payout-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .payout-loading {
+          font-size: 0.83rem;
+          color: var(--text-muted);
+          margin: 0;
+        }
+        .payout-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.65rem 0;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .payout-row:last-child { border-bottom: none; }
+        .payout-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .payout-amount {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: #fbbf24;
+        }
+        .payout-date {
+          font-size: 0.75rem;
+          color: #475569;
+        }
+        .payout-badge {
+          font-size: 0.78rem;
+          font-weight: 600;
+          padding: 0.25rem 0.65rem;
+          border-radius: 999px;
+          white-space: nowrap;
+        }
+        .payout-badge--pending { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+        .payout-badge--approved { background: rgba(59,130,246,0.12); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25); }
+        .payout-badge--paid,
+        .payout-badge--completed { background: rgba(34,197,94,0.12); color: #86efac; border: 1px solid rgba(34,197,94,0.25); }
+        .payout-badge--rejected { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .payout-badge--processing { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
         .agency-stats {
           display: grid;
           grid-template-columns: repeat(2, 1fr);

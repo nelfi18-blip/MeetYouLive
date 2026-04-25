@@ -147,9 +147,10 @@ export default function AdminDashboard() {
               <StatCard icon="🎁" title="Regalos enviados" value={(stats.totalGiftsSent ?? 0).toLocaleString()} />
               <StatCard icon="💸" title="Coins en regalos" value={(stats.totalGiftsCoins ?? 0).toLocaleString()} />
               <StatCard
-                icon="💰"
-                title="Pagos pendientes (coins)"
+                icon="💸"
+                title="Retiros pendientes (coins)"
                 value={(stats.pendingPayoutsCoins ?? 0).toLocaleString()}
+                href="/admin/payouts?status=pending"
                 highlight={stats.pendingPayoutsCoins > 0}
               />
             </div>
@@ -261,6 +262,7 @@ export default function AdminDashboard() {
         <div className="quick-grid">
           <Link href="/admin/users" className="quick-btn">👥 Usuarios</Link>
           <Link href="/admin/creators?status=pending" className="quick-btn quick-btn--highlight">⏳ Creadores pendientes</Link>
+          <Link href="/admin/payouts?status=pending" className="quick-btn quick-btn--highlight">💸 Retiros pendientes</Link>
           <Link href="/admin/lives" className="quick-btn">📡 Streams en vivo</Link>
           <Link href="/admin/reports" className="quick-btn quick-btn--danger">🚨 Reportes</Link>
           <Link href="/admin/transactions" className="quick-btn">💰 Transacciones</Link>

@@ -132,6 +132,7 @@ export default function AdminDashboard() {
                 icon="⏳"
                 title="Solicitudes pendientes"
                 value={stats.pendingCreators?.toLocaleString()}
+                sub={stats.pendingCreators > 0 ? "Clic para revisar →" : undefined}
                 href="/admin/creators?status=pending"
                 highlight={stats.pendingCreators > 0}
               />
@@ -139,6 +140,25 @@ export default function AdminDashboard() {
               <StatCard icon="📼" title="Lives totales" value={stats.totalLives?.toLocaleString()} href="/admin/lives" />
             </div>
           </section>
+
+          {stats.pendingCreators > 0 && (
+            <section className="section">
+              <div className="pending-action-banner">
+                <div className="pending-action-info">
+                  <span className="pending-action-icon">⏳</span>
+                  <div>
+                    <div className="pending-action-title">
+                      {stats.pendingCreators} solicitud{stats.pendingCreators !== 1 ? "es" : ""} de creador{stats.pendingCreators !== 1 ? "es" : ""} pendiente{stats.pendingCreators !== 1 ? "s" : ""}
+                    </div>
+                    <div className="pending-action-sub">Revisa y aprueba o rechaza las solicitudes en espera.</div>
+                  </div>
+                </div>
+                <Link href="/admin/creators?status=pending" className="pending-action-btn">
+                  Revisar solicitudes de creadores →
+                </Link>
+              </div>
+            </section>
+          )}
 
           <section className="section">
             <h2 className="section-title">Monetización</h2>
@@ -260,7 +280,9 @@ export default function AdminDashboard() {
         <h3 className="quick-title">Accesos rápidos</h3>
         <div className="quick-grid">
           <Link href="/admin/users" className="quick-btn">👥 Usuarios</Link>
-          <Link href="/admin/creators?status=pending" className="quick-btn quick-btn--highlight">⏳ Creadores pendientes</Link>
+          <Link href="/admin/creators?status=pending" className="quick-btn quick-btn--highlight">
+            ⏳ Creadores pendientes{stats?.pendingCreators > 0 ? ` (${stats.pendingCreators})` : ""}
+          </Link>
           <Link href="/admin/lives" className="quick-btn">📡 Streams en vivo</Link>
           <Link href="/admin/reports" className="quick-btn quick-btn--danger">🚨 Reportes</Link>
           <Link href="/admin/transactions" className="quick-btn">💰 Transacciones</Link>
@@ -532,6 +554,71 @@ export default function AdminDashboard() {
           font-weight: 700;
           font-size: 0.65rem;
           color: #fff;
+        }
+
+        .pending-action-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          background: rgba(251, 191, 36, 0.07);
+          border: 1px solid rgba(251, 191, 36, 0.35);
+          border-radius: 12px;
+          padding: 1rem 1.25rem;
+          animation: card-fade-in 0.35s ease both;
+        }
+
+        .pending-action-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .pending-action-icon {
+          font-size: 1.75rem;
+          flex-shrink: 0;
+        }
+
+        .pending-action-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #fbbf24;
+        }
+
+        .pending-action-sub {
+          font-size: 0.78rem;
+          color: rgba(251, 191, 36, 0.6);
+          margin-top: 0.15rem;
+        }
+
+        .pending-action-btn {
+          background: rgba(251, 191, 36, 0.15);
+          border: 1px solid rgba(251, 191, 36, 0.4);
+          color: #fbbf24;
+          border-radius: 8px;
+          padding: 0.6rem 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 700;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: background 0.15s, border-color 0.15s;
+          flex-shrink: 0;
+        }
+
+        .pending-action-btn:hover {
+          background: rgba(251, 191, 36, 0.22);
+          border-color: rgba(251, 191, 36, 0.6);
+        }
+
+        @media (max-width: 600px) {
+          .pending-action-banner {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .pending-action-btn {
+            width: 100%;
+            text-align: center;
+          }
         }
 
         .quick-links {

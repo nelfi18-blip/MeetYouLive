@@ -10,6 +10,9 @@ import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
 import StatusBadges from "@/components/StatusBadges";
 import LiveFeedOverlay from "@/components/LiveFeedOverlay";
+import LiveGoalPanel from "@/components/LiveGoalPanel";
+import LiveBattlePanel from "@/components/LiveBattlePanel";
+import GiftComboOverlay from "@/components/GiftComboOverlay";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -58,6 +61,9 @@ export default function LiveRoomPage() {
   const [viewerCount, setViewerCount] = useState(0);
   // Incremented on each received gift to trigger TopGifters re-fetch
   const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
+
+  // Recent gifts for combo overlay (keeps last 15 with timestamps)
+  const [recentGiftsForCombo, setRecentGiftsForCombo] = useState([]);
 
   // Live activity overlay events (gifts, joins, messages)
   const [overlayEvents, setOverlayEvents] = useState([]);
@@ -195,6 +201,9 @@ export default function LiveRoomPage() {
 
       // Refresh top gifters leaderboard
       setGiftRefreshTrigger((n) => n + 1);
+
+      // Track for combo overlay
+      setRecentGiftsForCombo((prev) => [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }]);
     };
 
     const onUserJoined = ({ user }) => {
@@ -221,11 +230,15 @@ export default function LiveRoomPage() {
       setTimeout(() => router.push("/live"), 3000);
     };
 
+    // Refresh leaderboard on battle score changes
+    const onBattleScoreUpdated = () => setGiftRefreshTrigger((n) => n + 1);
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
     socket.on("USER_JOINED_LIVE", onUserJoined);
     socket.on("LIVE_ENDED", onLiveEnded);
+    socket.on("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -234,6 +247,7 @@ export default function LiveRoomPage() {
       socket.off("LIVE_GIFT_SENT", onLiveGiftSent);
       socket.off("USER_JOINED_LIVE", onUserJoined);
       socket.off("LIVE_ENDED", onLiveEnded);
+      socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -423,6 +437,9 @@ export default function LiveRoomPage() {
 
       // Refresh leaderboard after sending a gift
       setGiftRefreshTrigger((n) => n + 1);
+
+      // Track for combo overlay (sender side)
+      setRecentGiftsForCombo((prev) => [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }]);
 
       // Show sender's own gift in the overlay immediately
       addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}`);
@@ -791,6 +808,9 @@ export default function LiveRoomPage() {
             {/* Floating reactions (viewer only) */}
             {agoraJoined && !isCreator && <FloatingReactions />}
 
+            {/* Gift combo/streak overlay */}
+            <GiftComboOverlay lastGift={activeGiftEffect} recentGifts={recentGiftsForCombo} />
+
             {/* Live activity overlay — floating event feed on video */}
             <LiveFeedOverlay events={overlayEvents} />
 
@@ -917,10 +937,15 @@ export default function LiveRoomPage() {
               {live.description ? <p className="stream-desc">{live.description}</p> : null}
             </div>
           </div>
+
+          {/* ── Battle Panel (below stream info in main column) ── */}
+          <LiveBattlePanel liveId={id} isCreator={isCreator} />
         </div>
 
         <div className="room-chat">
           <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
+          {/* ── Live Goal Panel (below top gifters in chat sidebar) ── */}
+          <LiveGoalPanel liveId={id} />
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>

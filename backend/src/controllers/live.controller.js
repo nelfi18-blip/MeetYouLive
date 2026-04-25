@@ -283,4 +283,98 @@ function normalizeLiveTitle(title) {
   return trimmed || "Directo en vivo";
 }
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings };
+// ── Battle duration limits ───────────────────────────────────────────────────
+const MIN_BATTLE_DURATION_MINUTES = 1;
+const MAX_BATTLE_DURATION_MINUTES = 60;
+
+// ── Goal endpoints ───────────────────────────────────────────────────────────
+
+const getLiveGoal = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).select("goal").lean();
+    if (!live) return res.status(404).json({ message: "Directo no encontrado" });
+    res.json(live.goal || { active: false, title: "", target: 0, progress: 0, reward: "" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const setLiveGoal = async (req, res) => {
+  try {
+    const { title, target, reward } = req.body;
+    const parsedTarget = Number(target);
+    if (!title || !parsedTarget || parsedTarget < 1) {
+      return res.status(400).json({ message: "title y target (>=1) son requeridos" });
+    }
+    const live = await Live.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, isLive: true },
+      { goal: { active: true, title: String(title).slice(0, 120), target: parsedTarget, progress: 0, reward: String(reward || "").slice(0, 120) } },
+      { new: true }
+    ).select("goal");
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    const io = getIO();
+    if (io) io.to(`live:${req.params.id}`).emit("LIVE_GOAL_UPDATED", { liveId: req.params.id, goal: live.goal });
+    res.json(live.goal);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ── Battle endpoints ─────────────────────────────────────────────────────────
+
+const getLiveBattle = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).select("battle").lean();
+    if (!live) return res.status(404).json({ message: "Directo no encontrado" });
+    res.json(live.battle || { active: false, title: "", leftLabel: "Equipo A", rightLabel: "Equipo B", leftScore: 0, rightScore: 0 });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const startLiveBattle = async (req, res) => {
+  try {
+    const { title, leftLabel, rightLabel, durationMinutes } = req.body;
+    const durMins = Math.max(MIN_BATTLE_DURATION_MINUTES, Math.min(MAX_BATTLE_DURATION_MINUTES, Number(durationMinutes) || 5));
+    const endsAt = new Date(Date.now() + durMins * 60 * 1000);
+    const live = await Live.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, isLive: true },
+      {
+        battle: {
+          active: true,
+          title: String(title || "Batalla").slice(0, 80),
+          leftLabel: String(leftLabel || "Equipo A").slice(0, 40),
+          rightLabel: String(rightLabel || "Equipo B").slice(0, 40),
+          leftScore: 0,
+          rightScore: 0,
+          endsAt,
+        },
+      },
+      { new: true }
+    ).select("battle");
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    const io = getIO();
+    if (io) io.to(`live:${req.params.id}`).emit("BATTLE_STARTED", { liveId: req.params.id, battle: live.battle });
+    res.json(live.battle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const endLiveBattle = async (req, res) => {
+  try {
+    const live = await Live.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, isLive: true },
+      { "battle.active": false },
+      { new: true }
+    ).select("battle");
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    const io = getIO();
+    if (io) io.to(`live:${req.params.id}`).emit("BATTLE_ENDED", { liveId: req.params.id, battle: live.battle });
+    res.json(live.battle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle };

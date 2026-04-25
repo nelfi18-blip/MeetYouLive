@@ -148,7 +148,9 @@ export default function AdminDashboard() {
                   <span className="pending-action-icon">⏳</span>
                   <div>
                     <div className="pending-action-title">
-                      {stats.pendingCreators} solicitud{stats.pendingCreators !== 1 ? "es" : ""} de creador{stats.pendingCreators !== 1 ? "es" : ""} pendiente{stats.pendingCreators !== 1 ? "s" : ""}
+                      {stats.pendingCreators === 1
+                        ? "1 solicitud de creador pendiente"
+                        : `${stats.pendingCreators} solicitudes de creadores pendientes`}
                     </div>
                     <div className="pending-action-sub">Revisa y aprueba o rechaza las solicitudes en espera.</div>
                   </div>

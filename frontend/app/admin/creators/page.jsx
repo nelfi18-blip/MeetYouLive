@@ -78,11 +78,7 @@ function CreatorsInner() {
   }, [authHeader, router, statusFilter]);
 
   useEffect(() => {
-    const urlStatus = searchParams.get("status") || "";
-    if (urlStatus !== statusFilter) {
-      setStatusFilter(urlStatus);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setStatusFilter(searchParams.get("status") || "");
   }, [searchParams]);
 
   useEffect(() => { setPage(1); loadCreators(1); }, [statusFilter]);
@@ -143,7 +139,7 @@ function CreatorsInner() {
         <div className="pending-review-banner">
           <span className="pending-review-icon">⏳</span>
           <span className="pending-review-text">
-            <strong>{filteredCreators.length} solicitud{filteredCreators.length !== 1 ? "es" : ""} pendiente{filteredCreators.length !== 1 ? "s" : ""}</strong> — usa los botones <strong style={{ color: "#34d399" }}>Aprobar</strong> o <strong style={{ color: "#f87171" }}>Rechazar</strong> en cada fila para gestionar las solicitudes.
+            <strong>{filteredCreators.length === 1 ? "1 solicitud pendiente" : `${filteredCreators.length} solicitudes pendientes`}</strong> — usa los botones <strong className="text-approve">Aprobar</strong> o <strong className="text-reject">Rechazar</strong> en cada fila para gestionar las solicitudes.
           </span>
         </div>
       )}
@@ -360,6 +356,8 @@ function CreatorsInner() {
         }
         .pending-review-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
         .pending-review-text { line-height: 1.5; }
+        .text-approve { color: #34d399; }
+        .text-reject { color: #f87171; }
         .page { max-width: 1200px; }
         .page-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }

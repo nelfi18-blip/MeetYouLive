@@ -7,9 +7,14 @@ import { clearAdminToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-function StatCard({ title, value, sub, icon, href, highlight }) {
+function StatCard({ title, value, sub, icon, href, highlight, colorScheme }) {
   const card = (
-    <div className={`stat-card${highlight ? " stat-card--highlight" : ""}${href ? " stat-card--link" : ""}`}>
+    <div className={[
+      "stat-card",
+      highlight ? "stat-card--highlight" : "",
+      href ? "stat-card--link" : "",
+      colorScheme ? `stat-card--${colorScheme}` : "",
+    ].filter(Boolean).join(" ")}>
       <div className="stat-head">
         <div className="stat-icon">{icon}</div>
         <div className="stat-title">{title}</div>
@@ -168,14 +173,85 @@ export default function AdminDashboard() {
               <StatCard icon="🪙" title="Coins comprados" value={(stats.totalCoinsPurchased ?? 0).toLocaleString()} href="/admin/transactions" />
               <StatCard icon="🎁" title="Regalos enviados" value={(stats.totalGiftsSent ?? 0).toLocaleString()} />
               <StatCard icon="💸" title="Coins en regalos" value={(stats.totalGiftsCoins ?? 0).toLocaleString()} />
+              <StatCard icon="🏦" title="Plataforma 40% (est.)" value={(stats.platformEarningsEstimatedCoins ?? 0).toLocaleString()} sub="coins estimados" />
+            </div>
+          </section>
+
+          <section className="section section--payouts">
+            <div className="section-title-row">
+              <h2 className="section-title">💸 Pagos y Retiros</h2>
+              <a href="/admin/payouts" className="section-view-link">Ver retiros →</a>
+            </div>
+            <div className="stats-grid">
+              <StatCard
+                icon="📋"
+                title="Total solicitados"
+                value={(stats.totalPayoutRequests ?? 0).toLocaleString()}
+                href="/admin/payouts"
+              />
+              <StatCard
+                icon="⏳"
+                title="Retiros pendientes"
+                value={(stats.pendingPayoutsCount ?? 0).toLocaleString()}
+                sub={(stats.pendingPayoutsCoins ?? 0).toLocaleString() + " coins"}
+                href="/admin/payouts?status=pending"
+                highlight={stats.pendingPayoutsCount > 0}
+                colorScheme="yellow"
+              />
+              <StatCard
+                icon="🔄"
+                title="En proceso (aprobados)"
+                value={(stats.processingPayoutsCount ?? 0).toLocaleString()}
+                href="/admin/payouts?status=processing"
+                colorScheme="blue"
+              />
+              <StatCard
+                icon="✅"
+                title="Pagados"
+                value={(stats.completedPayoutsCount ?? 0).toLocaleString()}
+                sub={(stats.completedPayoutsCoins ?? 0).toLocaleString() + " coins retirados"}
+                href="/admin/payouts?status=completed"
+                colorScheme="green"
+              />
+              <StatCard
+                icon="❌"
+                title="Rechazados"
+                value={(stats.rejectedPayoutsCount ?? 0).toLocaleString()}
+                href="/admin/payouts?status=rejected"
+                colorScheme="red"
+              />
               <StatCard
                 icon="💰"
-                title="Pagos pendientes (coins)"
-                value={(stats.pendingPayoutsCoins ?? 0).toLocaleString()}
-                highlight={stats.pendingPayoutsCoins > 0}
+                title="Total retirado"
+                value={(stats.completedPayoutsCoins ?? 0).toLocaleString()}
+                sub="coins pagados"
+                colorScheme="green"
               />
             </div>
           </section>
+
+          {stats.pendingPayoutsCount > 0 && (
+            <section className="section">
+              <div className="pending-action-banner pending-action-banner--payouts">
+                <div className="pending-action-info">
+                  <span className="pending-action-icon">💸</span>
+                  <div>
+                    <div className="pending-action-title">
+                      {stats.pendingPayoutsCount === 1
+                        ? "1 retiro pendiente de revisión"
+                        : `${stats.pendingPayoutsCount} retiros pendientes de revisión`}
+                    </div>
+                    <div className="pending-action-sub">
+                      {(stats.pendingPayoutsCoins ?? 0).toLocaleString()} coins en espera de procesamiento.
+                    </div>
+                  </div>
+                </div>
+                <a href="/admin/payouts?status=pending" className="pending-action-btn pending-action-btn--payouts">
+                  Gestionar retiros →
+                </a>
+              </div>
+            </section>
+          )}
 
           <section className="section">
             <h2 className="section-title">Moderación</h2>
@@ -288,6 +364,7 @@ export default function AdminDashboard() {
           <Link href="/admin/lives" className="quick-btn">📡 Streams en vivo</Link>
           <Link href="/admin/reports" className="quick-btn quick-btn--danger">🚨 Reportes</Link>
           <Link href="/admin/transactions" className="quick-btn">💰 Transacciones</Link>
+          <Link href="/admin/payouts" className="quick-btn quick-btn--payouts">💸 Ver retiros{stats?.pendingPayoutsCount > 0 ? ` (${stats.pendingPayoutsCount})` : ""}</Link>
           <Link href="/admin/analytics" className="quick-btn">📊 Analíticas</Link>
           <Link href="/admin/settings" className="quick-btn">⚙️ Configuración</Link>
         </div>
@@ -373,6 +450,31 @@ export default function AdminDashboard() {
           margin: 0 0 0.75rem;
         }
 
+        .section-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.75rem;
+        }
+
+        .section-title-row .section-title {
+          margin: 0;
+        }
+
+        .section-view-link {
+          font-size: 0.78rem;
+          color: #7c3aed;
+          text-decoration: none;
+          font-weight: 600;
+        }
+
+        .section-view-link:hover { color: #a78bfa; }
+
+        .section--payouts {
+          border-left: 3px solid rgba(251, 191, 36, 0.4);
+          padding-left: 0.85rem;
+        }
+
         .stats-grid {
           display: grid;
           grid-template-columns: 1fr;
@@ -421,6 +523,26 @@ export default function AdminDashboard() {
         .stat-card--highlight {
           border-color: rgba(251, 191, 36, 0.3);
           background: rgba(251, 191, 36, 0.04);
+        }
+
+        .stat-card--yellow {
+          border-color: rgba(251, 191, 36, 0.3);
+          background: rgba(251, 191, 36, 0.04);
+        }
+
+        .stat-card--blue {
+          border-color: rgba(59, 130, 246, 0.3);
+          background: rgba(59, 130, 246, 0.04);
+        }
+
+        .stat-card--green {
+          border-color: rgba(34, 197, 94, 0.3);
+          background: rgba(34, 197, 94, 0.04);
+        }
+
+        .stat-card--red {
+          border-color: rgba(239, 68, 68, 0.25);
+          background: rgba(239, 68, 68, 0.04);
         }
 
         .stat-head {
@@ -607,9 +729,20 @@ export default function AdminDashboard() {
           flex-shrink: 0;
         }
 
-        .pending-action-btn:hover {
-          background: rgba(251, 191, 36, 0.22);
-          border-color: rgba(251, 191, 36, 0.6);
+        .pending-action-banner--payouts {
+          background: rgba(251, 191, 36, 0.05);
+          border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        .pending-action-btn--payouts {
+          background: rgba(251, 191, 36, 0.12);
+          border-color: rgba(251, 191, 36, 0.35);
+          color: #fbbf24;
+        }
+
+        .pending-action-btn--payouts:hover {
+          background: rgba(251, 191, 36, 0.2);
+          border-color: rgba(251, 191, 36, 0.55);
         }
 
         @media (max-width: 600px) {
@@ -687,6 +820,16 @@ export default function AdminDashboard() {
 
         .quick-btn--danger:hover {
           background: rgba(239, 68, 68, 0.15);
+        }
+
+        .quick-btn--payouts {
+          background: rgba(251, 191, 36, 0.08);
+          border-color: rgba(251, 191, 36, 0.2);
+          color: #fbbf24;
+        }
+
+        .quick-btn--payouts:hover {
+          background: rgba(251, 191, 36, 0.15);
         }
 
         @keyframes card-fade-in {

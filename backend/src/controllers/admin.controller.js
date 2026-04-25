@@ -44,7 +44,7 @@ exports.getOverview = async (req, res) => {
       subscriptions,
       totalCoinsResult,
       totalGiftsSentResult,
-      pendingPayoutsResult,
+      payoutsByStatusResult,
       recentRegistrations,
     ] = await Promise.all([
       User.countDocuments(),
@@ -63,8 +63,7 @@ exports.getOverview = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$coinCost" }, count: { $sum: 1 } } },
       ]),
       Payout.aggregate([
-        { $match: { status: "pending" } },
-        { $group: { _id: null, total: { $sum: "$amountCoins" } } },
+        { $group: { _id: "$status", count: { $sum: 1 }, totalCoins: { $sum: "$amountCoins" } } },
       ]),
       User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
     ]);
@@ -72,7 +71,23 @@ exports.getOverview = async (req, res) => {
     const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
     const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;
     const totalGiftsCoins = totalGiftsSentResult[0]?.total ?? 0;
-    const pendingPayoutsCoins = pendingPayoutsResult[0]?.total ?? 0;
+
+    // Build payout stats from aggregation by status
+    const payoutStatusMap = {};
+    for (const row of payoutsByStatusResult) {
+      payoutStatusMap[row._id] = { count: row.count, totalCoins: row.totalCoins };
+    }
+    const pendingPayoutsCount = payoutStatusMap["pending"]?.count ?? 0;
+    const pendingPayoutsCoins = payoutStatusMap["pending"]?.totalCoins ?? 0;
+    const processingPayoutsCount = payoutStatusMap["processing"]?.count ?? 0;
+    const completedPayoutsCount = payoutStatusMap["completed"]?.count ?? 0;
+    const completedPayoutsCoins = payoutStatusMap["completed"]?.totalCoins ?? 0;
+    const rejectedPayoutsCount = payoutStatusMap["rejected"]?.count ?? 0;
+    const totalPayoutRequests =
+      pendingPayoutsCount + processingPayoutsCount + completedPayoutsCount + rejectedPayoutsCount;
+
+    // Platform earns an estimated 40% of all gifted coins
+    const platformEarningsEstimatedCoins = Math.round(totalGiftsCoins * 0.4);
 
     return res.json({
       ok: true,
@@ -89,6 +104,13 @@ exports.getOverview = async (req, res) => {
         totalGiftsSent,
         totalGiftsCoins,
         pendingPayoutsCoins,
+        pendingPayoutsCount,
+        processingPayoutsCount,
+        completedPayoutsCount,
+        completedPayoutsCoins,
+        rejectedPayoutsCount,
+        totalPayoutRequests,
+        platformEarningsEstimatedCoins,
         recentRegistrations,
       },
     });

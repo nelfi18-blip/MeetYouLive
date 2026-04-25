@@ -263,6 +263,44 @@ const sendGift = async (req, res) => {
 
     res.status(201).json(giftDoc);
 
+    // Update live goal progress and battle scores (fire-and-forget)
+    if (liveId) {
+      Live.findOne({ _id: liveId, isLive: true }).select("goal battle").then((livDoc) => {
+        if (!livDoc) return;
+        const ioInst = getIO();
+        const updates = {};
+        let goalUpdated = false;
+        let battleUpdated = false;
+
+        if (livDoc.goal?.active && livDoc.goal.target > 0) {
+          updates["goal.progress"] = amount;
+          goalUpdated = true;
+        }
+        if (livDoc.battle?.active) {
+          // Split gift coins equally between both teams (ceil to left, floor to right).
+          // A proper per-team assignment would require the sender to choose a side —
+          // this equal split keeps both team bars moving until that feature is added.
+          const half = Math.floor(amount / 2);
+          const remainder = amount - half; // ceil for left
+          updates["battle.leftScore"] = remainder;
+          updates["battle.rightScore"] = half;
+          battleUpdated = true;
+        }
+
+        if (Object.keys(updates).length === 0) return;
+
+        Live.findByIdAndUpdate(liveId, { $inc: updates }, { new: true }).select("goal battle").then((updated) => {
+          if (!updated || !ioInst) return;
+          if (goalUpdated && updated.goal) {
+            ioInst.to(`live:${liveId}`).emit("LIVE_GOAL_UPDATED", { liveId, goal: updated.goal });
+          }
+          if (battleUpdated && updated.battle) {
+            ioInst.to(`live:${liveId}`).emit("BATTLE_SCORE_UPDATED", { liveId, battle: updated.battle });
+          }
+        }).catch((err) => console.error("[gift] live goal/battle update failed:", err));
+      }).catch((err) => console.error("[gift] live lookup for goal/battle failed:", err));
+    }
+
     // Track gift mission progress (fire-and-forget)
     trackEvent(req.userId, "gift").catch(() => {});
   } catch (err) {

@@ -77,6 +77,10 @@ function CreatorsInner() {
     }
   }, [authHeader, router, statusFilter]);
 
+  useEffect(() => {
+    setStatusFilter(searchParams.get("status") || "");
+  }, [searchParams]);
+
   useEffect(() => { setPage(1); loadCreators(1); }, [statusFilter]);
   useEffect(() => { if (page > 1) loadCreators(page); }, [page]);
 
@@ -129,6 +133,15 @@ function CreatorsInner() {
 
       {actionMsg.text && (
         <div className={`alert alert-${actionMsg.type}`}>{actionMsg.text}</div>
+      )}
+
+      {statusFilter === "pending" && !loading && filteredCreators.length > 0 && (
+        <div className="pending-review-banner">
+          <span className="pending-review-icon">⏳</span>
+          <span className="pending-review-text">
+            <strong>{filteredCreators.length === 1 ? "1 solicitud pendiente" : `${filteredCreators.length} solicitudes pendientes`}</strong> — usa los botones <strong className="text-approve">Aprobar</strong> o <strong className="text-reject">Rechazar</strong> en cada fila para gestionar las solicitudes.
+          </span>
+        </div>
       )}
 
       {/* Status tabs */}
@@ -329,6 +342,22 @@ function CreatorsInner() {
       )}
 
       <style jsx>{`
+        .pending-review-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          background: rgba(251, 191, 36, 0.07);
+          border: 1px solid rgba(251, 191, 36, 0.3);
+          border-radius: 8px;
+          padding: 0.75rem 1rem;
+          font-size: 0.85rem;
+          color: rgba(251, 191, 36, 0.85);
+          margin-bottom: 1rem;
+        }
+        .pending-review-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
+        .pending-review-text { line-height: 1.5; }
+        .text-approve { color: #34d399; }
+        .text-reject { color: #f87171; }
         .page { max-width: 1200px; }
         .page-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
         .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0; }

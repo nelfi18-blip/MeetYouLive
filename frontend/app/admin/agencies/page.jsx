@@ -42,6 +42,9 @@ export default function AdminAgenciesPage() {
   // Expanded history
   const [expandedHistory, setExpandedHistory] = useState(null);
 
+  // Inline remove confirmation
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
     if (!token) { router.replace("/admin/login"); return {}; }
@@ -106,9 +109,13 @@ export default function AdminAgenciesPage() {
   };
 
   const handleRemove = (id) => {
-    if (!window.confirm("¿Eliminar esta relación de agencia permanentemente?")) return;
-    setActionLoading(id + "_remove");
-    doAction(`${API_URL}/api/admin/agency-links/${id}/remove`).finally(() => setActionLoading(null));
+    if (confirmRemoveId === id) {
+      setConfirmRemoveId(null);
+      setActionLoading(id + "_remove");
+      doAction(`${API_URL}/api/admin/agency-links/${id}/remove`).finally(() => setActionLoading(null));
+    } else {
+      setConfirmRemoveId(id);
+    }
   };
 
   const handleOverride = async (relId) => {
@@ -306,13 +313,32 @@ export default function AdminAgenciesPage() {
                         </button>
                       )}
                       {rel.status !== "removed" && (
-                        <button
-                          onClick={() => handleRemove(rel._id)}
-                          disabled={actionLoading === rel._id + "_remove"}
-                          style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef444444", color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
-                        >
-                          🗑 Eliminar
-                        </button>
+                        confirmRemoveId === rel._id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 11, color: "#fbbf24", fontWeight: 600 }}>¿Confirmar eliminación?</span>
+                            <button
+                              onClick={() => handleRemove(rel._id)}
+                              disabled={actionLoading === rel._id + "_remove"}
+                              style={{ background: "rgba(239,68,68,0.2)", border: "1px solid #ef444466", color: "#f87171", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
+                            >
+                              {actionLoading === rel._id + "_remove" ? "…" : "Sí, eliminar"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmRemoveId(null)}
+                              style={{ background: "rgba(100,116,139,0.1)", border: "1px solid #64748b44", color: "#94a3b8", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleRemove(rel._id)}
+                            disabled={actionLoading === rel._id + "_remove"}
+                            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef444444", color: "#f87171", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                          >
+                            🗑 Eliminar
+                          </button>
+                        )
                       )}
                       {rel.status === "active" && (
                         <button

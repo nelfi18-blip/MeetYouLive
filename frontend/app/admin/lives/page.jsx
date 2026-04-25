@@ -15,6 +15,7 @@ export default function AdminLivesPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+  const [confirmEndId, setConfirmEndId] = useState(null);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -54,7 +55,7 @@ export default function AdminLivesPage() {
   };
 
   const endLive = async (liveId) => {
-    if (!confirm("¿Forzar fin de este stream?")) return;
+    setConfirmEndId(null);
     setActionLoading(liveId);
     try {
       const res = await fetch(`${API_URL}/api/admin/lives/${liveId}`, {
@@ -146,13 +147,23 @@ export default function AdminLivesPage() {
                   </span>
                 </div>
 
-                <button
-                  className="btn-end"
-                  onClick={() => endLive(live._id)}
-                  disabled={actionLoading === live._id}
-                >
-                  {actionLoading === live._id ? "Terminando…" : "⏹ Forzar fin"}
-                </button>
+                {confirmEndId === live._id ? (
+                  <div className="confirm-row">
+                    <span className="confirm-text">¿Confirmar fin?</span>
+                    <button className="btn-confirm-yes" onClick={() => endLive(live._id)} disabled={actionLoading === live._id}>
+                      {actionLoading === live._id ? "…" : "Sí, terminar"}
+                    </button>
+                    <button className="btn-confirm-no" onClick={() => setConfirmEndId(null)}>Cancelar</button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn-end"
+                    onClick={() => setConfirmEndId(live._id)}
+                    disabled={actionLoading === live._id}
+                  >
+                    ⏹ Forzar fin
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -252,6 +263,12 @@ export default function AdminLivesPage() {
         .btn-end { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; width: 100%; margin-top: auto; }
         .btn-end:hover:not(:disabled) { background: rgba(239,68,68,0.18); }
         .btn-end:disabled { opacity: 0.5; cursor: not-allowed; }
+        .confirm-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: auto; }
+        .confirm-text { font-size: 0.78rem; color: #fbbf24; font-weight: 600; flex: 1; }
+        .btn-confirm-yes { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35); color: #f87171; border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .btn-confirm-yes:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+        .btn-confirm-yes:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-confirm-no { background: rgba(100,116,139,0.12); border: 1px solid rgba(100,116,139,0.25); color: #94a3b8; border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; }
         .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #1e2535; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .data-table thead { background: #161b27; border-bottom: 1px solid #1e2535; }

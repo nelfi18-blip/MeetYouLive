@@ -81,8 +81,8 @@ function CreatorsInner() {
     setStatusFilter(searchParams.get("status") || "");
   }, [searchParams]);
 
-  useEffect(() => { setPage(1); loadCreators(1); }, [statusFilter]);
-  useEffect(() => { if (page > 1) loadCreators(page); }, [page]);
+  useEffect(() => { setPage(1); loadCreators(1); }, [loadCreators]);
+  useEffect(() => { if (page > 1) loadCreators(page); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showMsg = (type, text) => {
     setActionMsg({ type, text });

@@ -316,6 +316,45 @@ exports.requestPayout = async (req, res) => {
   }
 };
 
+// GET /api/creator/payout-history — paginated payout history for the authenticated creator
+exports.getPayoutHistory = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const MAX_PAYOUT_HISTORY_LIMIT = 50;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(MAX_PAYOUT_HISTORY_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    const [payouts, total] = await Promise.all([
+      Payout.find({ creator: user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Payout.countDocuments({ creator: user._id }),
+    ]);
+
+    return res.json({
+      ok: true,
+      payouts,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.error("getPayoutHistory error:", err);
+    return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
 // GET /api/creator/dashboard — consolidated creator dashboard data (approved creators only)
 exports.getCreatorDashboard = async (req, res) => {
   try {

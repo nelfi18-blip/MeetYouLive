@@ -9,6 +9,7 @@ const {
   getCreatorStats,
   getCreatorEarnings,
   requestPayout,
+  getPayoutHistory,
   getCreatorDashboard,
   submitCreatorRequest,
   getCreatorRequestStatus,
@@ -30,5 +31,6 @@ router.get("/dashboard", creatorLimiter, verifyToken, requireApprovedCreator, ge
 router.get("/stats", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorStats);
 router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorEarnings);
 router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, requestPayout);
+router.get("/payout-history", creatorLimiter, verifyToken, requireApprovedCreator, getPayoutHistory);
 
 module.exports = router;

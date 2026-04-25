@@ -457,6 +457,13 @@ router.patch("/payouts/:id", async (req, res) => {
     }
     await payout.save();
 
+    // Restore earningsCoins atomically if rejected so the creator can retry
+    if (status === "rejected") {
+      await User.findByIdAndUpdate(payout.creator, {
+        $inc: { earningsCoins: payout.amountCoins },
+      });
+    }
+
     const populated = await Payout.findById(payout._id).populate("creator", "username name email");
     res.json({ message: "Solicitud actualizada", payout: populated });
   } catch (err) {

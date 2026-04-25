@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/admin/creators", label: "Creadores", icon: "🎬" },
   { href: "/admin/agencies", label: "Agencias", icon: "🏢" },
   { href: "/admin/lives", label: "Streams", icon: "📡" },
+  { href: "/admin/payouts", label: "Retiros", icon: "💸" },
   { href: "/admin/transactions", label: "Transacciones", icon: "💰" },
   { href: "/admin/revenue", label: "Ingresos", icon: "📈" },
   { href: "/admin/reports", label: "Reportes", icon: "🚨" },

@@ -38,6 +38,7 @@ exports.getOverview = async (req, res) => {
       activeUsersToday,
       totalCreators,
       pendingCreators,
+      suspendedCreators,
       activeLives,
       totalLives,
       openReports,
@@ -46,11 +47,15 @@ exports.getOverview = async (req, res) => {
       totalGiftsSentResult,
       payoutsByStatusResult,
       recentRegistrations,
+      activeAgencies,
+      activeAgencyLinks,
+      agencyCommissionResult,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ lastActiveAt: { $gte: oneDayAgo } }),
       User.countDocuments({ role: "creator", creatorStatus: "approved" }),
       User.countDocuments({ creatorStatus: "pending" }),
+      User.countDocuments({ creatorStatus: "suspended" }),
       Live.countDocuments({ isLive: true }),
       Live.countDocuments(),
       Report.countDocuments({ status: "pending" }),
@@ -66,11 +71,18 @@ exports.getOverview = async (req, res) => {
         { $group: { _id: "$status", count: { $sum: 1 }, totalCoins: { $sum: "$amountCoins" } } },
       ]),
       User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      User.countDocuments({ "agencyProfile.enabled": true }),
+      AgencyRelationship.countDocuments({ status: "active" }),
+      CoinTransaction.aggregate([
+        { $match: { type: "agency_earned" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
     ]);
 
     const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
     const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;
     const totalGiftsCoins = totalGiftsSentResult[0]?.total ?? 0;
+    const totalAgencyCommissionCoins = agencyCommissionResult[0]?.total ?? 0;
 
     // Build payout stats from aggregation by status
     const payoutStatusMap = {};
@@ -79,12 +91,17 @@ exports.getOverview = async (req, res) => {
     }
     const pendingPayoutsCount = payoutStatusMap["pending"]?.count ?? 0;
     const pendingPayoutsCoins = payoutStatusMap["pending"]?.totalCoins ?? 0;
+    const approvedPayoutsCount = payoutStatusMap["approved"]?.count ?? 0;
+    const approvedPayoutsCoins = payoutStatusMap["approved"]?.totalCoins ?? 0;
     const processingPayoutsCount = payoutStatusMap["processing"]?.count ?? 0;
+    const paidPayoutsCount = (payoutStatusMap["paid"]?.count ?? 0) + (payoutStatusMap["completed"]?.count ?? 0);
+    const paidPayoutsCoins = (payoutStatusMap["paid"]?.totalCoins ?? 0) + (payoutStatusMap["completed"]?.totalCoins ?? 0);
     const completedPayoutsCount = payoutStatusMap["completed"]?.count ?? 0;
     const completedPayoutsCoins = payoutStatusMap["completed"]?.totalCoins ?? 0;
     const rejectedPayoutsCount = payoutStatusMap["rejected"]?.count ?? 0;
     const totalPayoutRequests =
-      pendingPayoutsCount + processingPayoutsCount + completedPayoutsCount + rejectedPayoutsCount;
+      pendingPayoutsCount + approvedPayoutsCount + processingPayoutsCount + completedPayoutsCount + rejectedPayoutsCount +
+      (payoutStatusMap["paid"]?.count ?? 0);
 
     // Platform earns an estimated 40% of all gifted coins
     const platformEarningsEstimatedCoins = Math.round(totalGiftsCoins * PLATFORM_EARNINGS_RATE);
@@ -96,6 +113,7 @@ exports.getOverview = async (req, res) => {
         activeUsersToday,
         totalCreators,
         pendingCreators,
+        suspendedCreators,
         activeLives,
         totalLives,
         openReports,
@@ -105,13 +123,20 @@ exports.getOverview = async (req, res) => {
         totalGiftsCoins,
         pendingPayoutsCoins,
         pendingPayoutsCount,
+        approvedPayoutsCount,
+        approvedPayoutsCoins,
         processingPayoutsCount,
+        paidPayoutsCount,
+        paidPayoutsCoins,
         completedPayoutsCount,
         completedPayoutsCoins,
         rejectedPayoutsCount,
         totalPayoutRequests,
         platformEarningsEstimatedCoins,
         recentRegistrations,
+        activeAgencies,
+        activeAgencyLinks,
+        totalAgencyCommissionCoins,
       },
     });
   } catch (error) {

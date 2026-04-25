@@ -173,7 +173,7 @@ export default function AdminDashboard() {
               <StatCard icon="🪙" title="Coins comprados" value={(stats.totalCoinsPurchased ?? 0).toLocaleString()} href="/admin/transactions" />
               <StatCard icon="🎁" title="Regalos enviados" value={(stats.totalGiftsSent ?? 0).toLocaleString()} />
               <StatCard icon="💸" title="Coins en regalos" value={(stats.totalGiftsCoins ?? 0).toLocaleString()} />
-              <StatCard icon="🏦" title="Plataforma 40% (est.)" value={(stats.platformEarningsEstimatedCoins ?? 0).toLocaleString()} sub="coins estimados" />
+              <StatCard icon="🏦" title="Ingresos plataforma (est.)" value={(stats.platformEarningsEstimatedCoins ?? 0).toLocaleString()} sub="40% de coins en regalos" />
             </div>
           </section>
 

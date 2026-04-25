@@ -142,7 +142,7 @@ function AdminPayoutsContent() {
                         <img src={p.creator.avatar} alt="" className="creator-avatar" />
                       ) : (
                         <div className="creator-avatar creator-avatar--ph">
-                          {(p.creator?.name || p.creator?.username || "?")[0].toUpperCase()}
+                          {(p.creator?.name || p.creator?.username || "?")[0]?.toUpperCase() || "?"}
                         </div>
                       )}
                       <div>

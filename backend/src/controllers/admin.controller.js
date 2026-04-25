@@ -8,7 +8,7 @@ const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 
-/** Generate a unique agency invite code for a newly-approved creator.
+const PLATFORM_EARNINGS_RATE = 0.4;
  * Retries up to MAX_ATTEMPTS times to ensure uniqueness. */
 async function generateUniqueAgencyCode(user) {
   const MAX_ATTEMPTS = 10;
@@ -87,7 +87,7 @@ exports.getOverview = async (req, res) => {
       pendingPayoutsCount + processingPayoutsCount + completedPayoutsCount + rejectedPayoutsCount;
 
     // Platform earns an estimated 40% of all gifted coins
-    const platformEarningsEstimatedCoins = Math.round(totalGiftsCoins * 0.4);
+    const platformEarningsEstimatedCoins = Math.round(totalGiftsCoins * PLATFORM_EARNINGS_RATE);
 
     return res.json({
       ok: true,

@@ -433,6 +433,7 @@ router.get("/payouts", async (req, res) => {
 // PATCH /api/admin/payouts/:id — update payout status
 // Body: { status: "approved" | "paid" | "completed" | "rejected" | "processing", notes? }
 router.patch("/payouts/:id", async (req, res) => {
+  const TERMINAL_STATUSES = ["completed", "paid", "rejected"];
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "id inválido" });
@@ -446,19 +447,18 @@ router.patch("/payouts/:id", async (req, res) => {
     const payout = await Payout.findById(req.params.id);
     if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
 
-    const isTerminal = ["completed", "paid", "rejected"].includes(payout.status);
-    if (isTerminal) {
+    if (TERMINAL_STATUSES.includes(payout.status)) {
       return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
     }
 
     payout.status = status;
     if (notes !== undefined) payout.notes = notes;
-    const isFinalised = ["completed", "paid", "rejected"].includes(status);
-    if (isFinalised) {
+    if (TERMINAL_STATUSES.includes(status)) {
       payout.processedAt = new Date();
     }
-    if (status === "rejected" && notes) {
-      payout.rejectionReason = notes;
+    if (status === "rejected") {
+      // Always record a rejection reason for audit trails
+      payout.rejectionReason = notes || "Sin motivo indicado";
     }
     await payout.save();
 

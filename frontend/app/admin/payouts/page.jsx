@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const PAYOUT_PAGE_LIMIT = 50;
 
 const STATUS_LABELS = {
   pending: "Pendiente",
@@ -155,7 +156,7 @@ function AdminPayoutsContent() {
     const token = localStorage.getItem("admin_token");
     if (!token) { router.replace("/admin/login"); return; }
 
-    const params = new URLSearchParams({ page: String(page), limit: "50" });
+    const params = new URLSearchParams({ page: String(page), limit: String(PAYOUT_PAGE_LIMIT) });
     if (statusFilter) params.set("status", statusFilter);
 
     try {

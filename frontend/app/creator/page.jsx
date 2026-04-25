@@ -26,8 +26,21 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const DEFAULT_MIN_PAYOUT_COINS = 100;
 
+const PAYOUT_STATUS_MAP = {
+  pending: "⏳ Pendiente",
+  approved: "✅ Aprobado",
+  paid: "💰 Pagado",
+  rejected: "❌ Rechazado",
+  processing: "⏳ En proceso",
+  completed: "💰 Completado",
+};
+
 function formatCoins(value) {
   return Number(value || 0).toLocaleString("es-ES");
+}
+
+function getPayoutStatusLabel(status) {
+  return PAYOUT_STATUS_MAP[status] || status;
 }
 
 function getStatusConfig(isCreator, status) {
@@ -431,14 +444,8 @@ export default function CreatorPage() {
                         </span>
                       </div>
                       <span className={`payout-badge payout-badge--${p.status}`}>
-                        {p.status === "pending" && "⏳ Pendiente"}
-                        {p.status === "approved" && "✅ Aprobado"}
-                        {p.status === "paid" && "💰 Pagado"}
-                        {p.status === "rejected" && "❌ Rechazado"}
-                        {p.status === "processing" && "⏳ En proceso"}
-                        {p.status === "completed" && "💰 Completado"}
-                        {!["pending","approved","paid","rejected","processing","completed"].includes(p.status) && p.status}
-                      </span>
+                          {getPayoutStatusLabel(p.status)}
+                        </span>
                     </div>
                   ))
                 )}

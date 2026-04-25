@@ -415,13 +415,18 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
 // GET /api/admin/payouts — list payout requests with optional status filter and pagination
 router.get("/payouts", async (req, res) => {
   try {
-    const allowedStatuses = ["pending", "approved", "paid", "rejected", "processing", "completed"];
-    const filter = {};
-    if (req.query.status && allowedStatuses.includes(req.query.status)) {
-      filter.status = req.query.status;
-    }
+    const ALLOWED_PAYOUT_STATUSES = ["pending", "approved", "paid", "rejected", "processing", "completed"];
+    const MAX_PAYOUT_LIMIT = 100;
+    const DEFAULT_PAYOUT_LIMIT = 50;
+    const MAX_REJECTION_REASON_LENGTH = 300;
+    const MAX_NOTES_LENGTH = 500;
+
+    const rawStatus = typeof req.query.status === "string" ? req.query.status : "";
+    const validatedStatus = ALLOWED_PAYOUT_STATUSES.includes(rawStatus) ? rawStatus : null;
+
+    const filter = validatedStatus ? { status: validatedStatus } : {};
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const limit = Math.min(MAX_PAYOUT_LIMIT, Math.max(1, parseInt(req.query.limit) || DEFAULT_PAYOUT_LIMIT));
     const skip = (page - 1) * limit;
 
     const [payouts, total] = await Promise.all([
@@ -446,6 +451,9 @@ router.get("/payouts", async (req, res) => {
 //   (legacy)  processing → completed | rejected
 // Body: { status: "approved" | "paid" | "rejected", notes?, rejectionReason? }
 router.patch("/payouts/:id", async (req, res) => {
+  const MAX_REJECTION_REASON_LENGTH = 300;
+  const MAX_NOTES_LENGTH = 500;
+
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ message: "id inválido" });
@@ -456,7 +464,7 @@ router.patch("/payouts/:id", async (req, res) => {
       return res.status(400).json({ message: "Estado inválido. Usa: approved, paid o rejected" });
     }
 
-    const payout = await Payout.findById(req.params.id);
+    const payout = await Payout.findById(new mongoose.Types.ObjectId(req.params.id));
     if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
 
     const terminal = ["paid", "completed", "rejected"];
@@ -469,7 +477,7 @@ router.patch("/payouts/:id", async (req, res) => {
       await User.findByIdAndUpdate(payout.creator, {
         $inc: { earningsCoins: payout.amountCoins },
       });
-      payout.rejectionReason = (typeof rejectionReason === "string" ? rejectionReason : "").slice(0, 300);
+      payout.rejectionReason = (typeof rejectionReason === "string" ? rejectionReason : "").slice(0, MAX_REJECTION_REASON_LENGTH);
       payout.processedAt = new Date();
       console.log(`[payout] REJECTED id=${payout._id} creator=${payout.creator} coins=${payout.amountCoins} restored by admin=${req.userId}`);
     }
@@ -486,7 +494,7 @@ router.patch("/payouts/:id", async (req, res) => {
 
     payout.status = status;
     payout.reviewedBy = req.userId;
-    if (notes !== undefined) payout.notes = String(notes).slice(0, 500);
+    if (notes !== undefined) payout.notes = String(notes).slice(0, MAX_NOTES_LENGTH);
     await payout.save();
 
     const populated = await Payout.findById(payout._id)

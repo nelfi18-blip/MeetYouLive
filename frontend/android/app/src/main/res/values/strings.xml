@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MeetYouLive</string>
+    <string name="title_activity_main">MeetYouLive</string>
+    <string name="package_name">com.meetyoulive.app</string>
+    <string name="custom_url_scheme">com.meetyoulive.app</string>
+</resources>

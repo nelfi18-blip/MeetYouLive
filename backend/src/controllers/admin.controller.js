@@ -9,7 +9,7 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const mongoose = require("mongoose");
 
 const PLATFORM_EARNINGS_RATE = 0.4;
- * Retries up to MAX_ATTEMPTS times to ensure uniqueness. */
+/** Retries up to MAX_ATTEMPTS times to ensure uniqueness. */
 async function generateUniqueAgencyCode(user) {
   const MAX_ATTEMPTS = 10;
   const base = ((user.username || user.name || "AGY").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 5)) || "AGY";

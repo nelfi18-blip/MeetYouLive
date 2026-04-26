@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const morgan = require("morgan");
 const path = require("path");
 const authRoutes = require("./routes/auth.routes.js");
@@ -35,6 +36,18 @@ const statsRoutes = require("./routes/stats.routes.js");
 const missionsRoutes = require("./routes/missions.routes.js");
 
 const app = express();
+
+// Security headers — applied before CORS and all other middleware.
+// For an API-only server (no HTML served) we use a restrictive default-src directive
+// and disable CORP so the frontend (Vercel) can load /uploads images cross-origin.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: { defaultSrc: ["'none'"] },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 const allowedOrigins = [
   "https://meetyoulive.net",

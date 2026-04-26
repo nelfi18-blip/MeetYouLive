@@ -87,9 +87,19 @@ export default function LiveRoomPage() {
   // Seen gift IDs for dedup
   const seenGiftIdsRef = useRef(new Set());
 
+  /** Recompute the current top fan userId from the local coins map. */
+  const computeTopFan = (map) => {
+    let bestId = null;
+    let bestCoins = 0;
+    for (const [uid, coins] of Object.entries(map)) {
+      if (coins > bestCoins) { bestCoins = coins; bestId = uid; }
+    }
+    return bestId;
+  };
+
   const addOverlayEvent = useCallback((type, icon, text) => {
-    const evId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
-    setOverlayEvents((prev) => [...prev, { id: evId, type, icon, text }]);
+    const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
+    setOverlayEvents((prev) => [...prev, { id: overlayEventId, type, icon, text }]);
   }, []);
 
   // Agora state
@@ -204,11 +214,7 @@ export default function LiveRoomPage() {
       // Update top fan map
       if (senderId && gift.coinCost > 0) {
         topFanMapRef.current[senderId] = (topFanMapRef.current[senderId] || 0) + gift.coinCost;
-        const topId = Object.entries(topFanMapRef.current).reduce(
-          (best, [uid, coins]) => (coins > (topFanMapRef.current[best] || 0) ? uid : best),
-          senderId
-        );
-        setTopFanUserId(topId);
+        setTopFanUserId(computeTopFan(topFanMapRef.current));
       }
 
       // Trigger gift animation effect for all viewers
@@ -533,11 +539,7 @@ export default function LiveRoomPage() {
       // Update local top fan map for the sender
       if (currentUserId && gift.coinCost > 0) {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
-        const topId = Object.entries(topFanMapRef.current).reduce(
-          (best, [uid, coins]) => (coins > (topFanMapRef.current[best] || 0) ? uid : best),
-          currentUserId
-        );
-        setTopFanUserId(topId);
+        setTopFanUserId(computeTopFan(topFanMapRef.current));
       }
     }
 

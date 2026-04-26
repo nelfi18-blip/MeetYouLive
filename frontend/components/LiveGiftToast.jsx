@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 
 /**
  * LiveGiftToast
@@ -15,8 +16,6 @@ import { useEffect, useRef, useState } from "react";
  *   // trigger:
  *   toastRef.current?.push({ senderName, giftIcon, giftName, coinCost, rarity });
  */
-
-import { forwardRef, useImperativeHandle } from "react";
 
 const RARITY_STYLES = {
   common:   { bg: "rgba(30,20,60,0.96)",  accent: "#94a3b8", border: "rgba(148,163,184,0.35)" },

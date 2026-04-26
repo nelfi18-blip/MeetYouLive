@@ -7,6 +7,7 @@ const giftSchema = new mongoose.Schema(
     giftCatalogItem: { type: mongoose.Schema.Types.ObjectId, ref: "GiftCatalog" },
     live: { type: mongoose.Schema.Types.ObjectId, ref: "Live" },
     quantity: { type: Number, required: true, default: 1, min: 1, max: 50 },
+    unitCost: { type: Number, required: true, min: 1 },
     coinCost: { type: Number, required: true, min: 1 },
     creatorShare: { type: Number, required: true, min: 0 },
     platformShare: { type: Number, required: true, min: 0 },

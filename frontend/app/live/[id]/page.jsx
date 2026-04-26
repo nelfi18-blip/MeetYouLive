@@ -601,7 +601,7 @@ export default function LiveRoomPage() {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
         if (currentUsernameRef.current) topFanNamesRef.current[currentUserId] = currentUsernameRef.current;
         setTopFanIds(computeTopFans(topFanMapRef.current));
-        // Deduct from local coin balance to reflect spend immediately (totalCost already in coinCost)
+        // Deduct total cost from local coin balance to reflect spend immediately
         setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
       }
     }

@@ -60,8 +60,8 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         setError(data.message || "Error al enviar el regalo");
         return;
       }
-      const comboLabel = quantity > 1 ? ` x${quantity}` : "";
-      setSuccess(`¡Enviaste${comboLabel} ${selected.icon} ${selected.name}! (${totalCost} 🪙)`);
+      const comboLabel = quantity > 1 ? `x${quantity} ` : "";
+      setSuccess(`¡Enviaste ${comboLabel}${selected.icon} ${selected.name}! (${totalCost} 🪙)`);
       setSelected(null);
       setQuantity(1);
       if (onGiftSent) onGiftSent(data);

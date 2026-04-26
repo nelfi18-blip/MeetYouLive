@@ -217,6 +217,7 @@ const sendGift = async (req, res) => {
       giftCatalogItem: catalogItem._id,
       live: liveId || undefined,
       quantity,
+      unitCost: catalogItem.coinCost,
       coinCost: amount,
       creatorShare: effectiveCreatorShare,
       platformShare,

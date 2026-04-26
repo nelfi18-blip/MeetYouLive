@@ -57,6 +57,7 @@ export default function LiveRoomPage() {
 
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUsername, setCurrentUsername] = useState("");
+  const currentUsernameRef = useRef("");
   const [meLoaded, setMeLoaded] = useState(false);
   const [endingStream, setEndingStream] = useState(false);
   const [showEntryAnim, setShowEntryAnim] = useState(true);
@@ -146,7 +147,11 @@ export default function LiveRoomPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?._id) setCurrentUserId(String(data._id));
-        if (data?.username || data?.name) setCurrentUsername(data.username || data.name || "");
+        if (data?.username || data?.name) {
+          const uname = data.username || data.name || "";
+          setCurrentUsername(uname);
+          currentUsernameRef.current = uname;
+        }
         if (data?.coins !== undefined) setCoinBalance(data.coins);
       })
       .catch(() => {})
@@ -529,8 +534,25 @@ export default function LiveRoomPage() {
   };
 
   const handleGiftSent = useCallback((data) => {
-    const gift = data?.gift || null;
-    const senderName = data?.senderName || "Tú";
+    // Normalize two possible payload shapes:
+    //   1. { gift, senderName }  – already shaped (e.g. from a socket event forwarded here)
+    //   2. raw /api/gifts/send response document – has giftCatalogItem + sender fields
+    let gift = data?.gift || null;
+    let senderName = data?.senderName || null;
+
+    if (!gift && data?.giftCatalogItem) {
+      const cat = data.giftCatalogItem;
+      gift = {
+        name: cat.name || "",
+        icon: cat.icon || "🎁",
+        coinCost: data.coinCost ?? cat.coinCost ?? 0,
+        rarity: cat.rarity || "common",
+        slug: cat.slug || "",
+      };
+    }
+    if (!senderName) {
+      senderName = data?.sender?.username || data?.sender?.name || currentUsernameRef.current || "Tú";
+    }
 
     if (gift) {
       setActiveGiftEffect({ gift, senderName });
@@ -568,7 +590,7 @@ export default function LiveRoomPage() {
       // Update local top fan map for the sender
       if (currentUserId && gift.coinCost > 0) {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
-        if (currentUsername) topFanNamesRef.current[currentUserId] = currentUsername;
+        if (currentUsernameRef.current) topFanNamesRef.current[currentUserId] = currentUsernameRef.current;
         setTopFanIds(computeTopFans(topFanMapRef.current));
         // Deduct from local coin balance to reflect spend immediately
         setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
@@ -858,7 +880,7 @@ export default function LiveRoomPage() {
   }
 
   // Derived rendering helpers
-  const showUrgencyBar = activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft <= 30;
+  const showUrgencyBar = activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft > 0 && boostSecondsLeft <= 30;
 
   return (
     <div className="room">
@@ -871,7 +893,7 @@ export default function LiveRoomPage() {
 
       {/* ── Last-boost urgency countdown bar ── */}
       {showUrgencyBar && (
-        <div className="urgency-countdown-bar" role="alert">
+        <div className="urgency-countdown-bar" role="status" aria-live="polite">
           <span className="ucb-icon">⏳</span>
           <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
           <span className="ucb-fire">🔥</span>

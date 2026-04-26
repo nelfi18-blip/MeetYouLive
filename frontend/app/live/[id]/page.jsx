@@ -15,6 +15,7 @@ import LiveBattlePanel from "@/components/LiveBattlePanel";
 import GiftComboOverlay from "@/components/GiftComboOverlay";
 import LiveEventBanner from "@/components/LiveEventBanner";
 import LiveGiftToast from "@/components/LiveGiftToast";
+import LivePressureHints from "@/components/LivePressureHints";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -99,6 +100,20 @@ export default function LiveRoomPage() {
   // Seen gift IDs for dedup
   const seenGiftIdsRef = useRef(new Set());
 
+  // Goal data from LiveGoalPanel (for goal-based urgency bar)
+  const [goalData, setGoalData] = useState(null);
+  const goalDataRef = useRef(null);
+
+  // Active pressure hint (non-blocking overlay)
+  const [pressureHint, setPressureHint] = useState(null);
+  const hintTimerRef = useRef(null);
+  const lastHintTimeByTypeRef = useRef({});
+  const hintCounterRef = useRef(0);
+
+  // Gift activity window (for "N personas enviando regalos" signal)
+  const giftWindowRef = useRef([]); // [{senderId, ts}]
+  const prevTopFanIdsRef = useRef([]); // track changes to top fan list
+
   /** Recompute the top 3 fan userIds from the local coins map (highest spenders first). */
   const computeTopFans = (map) => {
     return Object.entries(map)
@@ -110,6 +125,22 @@ export default function LiveRoomPage() {
   const addOverlayEvent = useCallback((type, icon, text) => {
     const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
     setOverlayEvents((prev) => [...prev, { id: overlayEventId, type, icon, text }]);
+  }, []);
+
+  /**
+   * Show a pressure hint. Debounced per type (min 6s between same types).
+   * Safe to call from anywhere – no infinite loops.
+   */
+  const showPressureHint = useCallback((type, icon, text, subtext) => {
+    const MIN_INTERVAL_MS = 6000;
+    const now = Date.now();
+    const lastTime = lastHintTimeByTypeRef.current[type] || 0;
+    if (now - lastTime < MIN_INTERVAL_MS) return;
+    lastHintTimeByTypeRef.current[type] = now;
+    const id = `ph_${++hintCounterRef.current}_${now}`;
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    setPressureHint({ id, type, icon, text, subtext: subtext || null });
+    hintTimerRef.current = setTimeout(() => setPressureHint(null), 5000);
   }, []);
 
   // Agora state
@@ -190,6 +221,38 @@ export default function LiveRoomPage() {
     const timerId = setInterval(updateCountdown, 1000);
     return () => clearInterval(timerId);
   }, [activeEvent?.expiresAt]);
+
+  // Top fan pressure: detect when current viewer enters/leaves/approaches top 3
+  useEffect(() => {
+    if (!currentUserId || !meLoaded) return;
+
+    const prevIds = prevTopFanIdsRef.current;
+    const wasTopFan = prevIds.includes(currentUserId);
+    const isTopFan  = topFanIds.includes(currentUserId);
+
+    if (!wasTopFan && isTopFan) {
+      // User just became a top fan – positive feedback, no pressure needed here
+    } else if (wasTopFan && !isTopFan) {
+      // User just LOST their top fan position
+      showPressureHint("lost_top_fan", "⚠️", "Perdiste el Top Fan", "Envía más regalos para recuperarlo");
+    } else if (!isTopFan && topFanIds.length > 0) {
+      // Check proximity: if user has > 70% of what the 3rd fan spent, tease them
+      const thirdFanCoins = topFanMapRef.current[topFanIds[topFanIds.length - 1]] || 0;
+      const myCoins = topFanMapRef.current[currentUserId] || 0;
+      if (thirdFanCoins > 0 && myCoins > 0 && myCoins >= thirdFanCoins * 0.7) {
+        const needed = Math.max(0, thirdFanCoins - myCoins + 1);
+        showPressureHint(
+          "top_fan_close",
+          "👑",
+          "Estás cerca de ser Top Fan",
+          needed > 0 ? `Solo te faltan ${needed} coins` : "¡Envía un regalo ahora!"
+        );
+      }
+    }
+
+    prevTopFanIdsRef.current = topFanIds;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topFanIds, currentUserId, meLoaded]);
 
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -297,6 +360,47 @@ export default function LiveRoomPage() {
 
       // Track for combo overlay
       setRecentGiftsForCombo((prev) => [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }]);
+
+      // ── Pressure signals ────────────────────────────────────────────────────
+
+      // Boost moment: big quantity or high rarity
+      const isEpicPlus = ["epic", "legendary", "mythic"].includes(effectRarity);
+      if (quantity >= 10 || isEpicPlus) {
+        const boostSubtext = quantity >= 50 ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
+        showPressureHint("boost_moment", "💥", "MOMENTO ÉPICO", boostSubtext);
+      }
+
+      // Activity signal: track unique gifters in last 10 s
+      const now = Date.now();
+      const ACTIVITY_WINDOW_MS = 10000;
+      if (senderId) {
+        giftWindowRef.current = [
+          ...giftWindowRef.current.filter((e) => now - e.ts < ACTIVITY_WINDOW_MS),
+          { senderId, ts: now },
+        ];
+        const uniqueSenders = new Set(giftWindowRef.current.map((e) => e.senderId));
+        if (uniqueSenders.size >= 3) {
+          showPressureHint(
+            "activity",
+            "🔥",
+            `${uniqueSenders.size} personas enviando regalos`,
+            "¡El momento es ahora!"
+          );
+        }
+      }
+
+      // Goal contribution: notify when active goal exists
+      const gd = goalDataRef.current;
+      if (gd?.active && !gd?.completed && gift.coinCost > 0) {
+        const remaining = Math.max(0, gd.target - gd.progress);
+        const addedCoins = gift.coinCost * quantity;
+        showPressureHint(
+          "goal_contrib",
+          "🎯",
+          `+${addedCoins} coins a la meta`,
+          remaining > addedCoins ? `Faltan ${Math.max(0, remaining - addedCoins)} coins` : "¡Casi llegamos!"
+        );
+      }
     };
 
     const onUserJoined = ({ user }) => {
@@ -604,6 +708,34 @@ export default function LiveRoomPage() {
         // Deduct total cost from local coin balance to reflect spend immediately
         setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
       }
+
+      // ── Pressure signals (sender side) ──────────────────────────────────────
+
+      // Boost moment for the sender on big gifts
+      const senderEffectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
+      const isSenderEpicPlus = ["epic", "legendary", "mythic"].includes(senderEffectRarity);
+      if (quantity >= 10 || isSenderEpicPlus) {
+        showPressureHint(
+          "boost_moment",
+          "💥",
+          "MOMENTO ÉPICO",
+          quantity >= 50 ? "🚀 ¡Eres increíble!" : "🔥 El live explota contigo"
+        );
+      }
+
+      // Goal contribution feedback for the sender
+      const gd = goalDataRef.current;
+      if (gd?.active && !gd?.completed && gift.coinCost > 0) {
+        const addedCoins = gift.coinCost * quantity;
+        const newProgress = (gd.progress || 0) + addedCoins;
+        const remaining = Math.max(0, gd.target - newProgress);
+        showPressureHint(
+          "goal_contrib",
+          "🎯",
+          `+${addedCoins} coins a la meta`,
+          remaining > 0 ? `Faltan ${remaining} coins` : "¡Meta casi alcanzada!"
+        );
+      }
     }
 
     const qtyMsgLabel = quantity > 1 ? ` x${quantity}` : "";
@@ -619,7 +751,7 @@ export default function LiveRoomPage() {
         isGift: true,
       },
     ]);
-  }, [addOverlayEvent, currentUserId]);
+  }, [addOverlayEvent, currentUserId, showPressureHint]);
 
   const handleJoin = async () => {
     if (!token) {
@@ -890,10 +1022,22 @@ export default function LiveRoomPage() {
   }
 
   // Derived rendering helpers
-  const showUrgencyBar = activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft > 0 && boostSecondsLeft <= 30;
+  const showBoostUrgency = activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft > 0 && boostSecondsLeft <= 30;
+  const showGoalUrgency  = !isCreator && goalData?.active && !goalData?.completed && goalData?.target > 0;
+  const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
+  const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
+
+  /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
+  const handleGoalChange = useCallback((gd) => {
+    goalDataRef.current = gd;
+    setGoalData(gd);
+  }, []);
 
   return (
     <div className="room">
+      {/* ── Non-blocking pressure hint overlay ── */}
+      <LivePressureHints hint={pressureHint} />
+
       {/* ── Live Event Banner ── */}
       {activeEvent && (
         <div style={{ marginBottom: "0.5rem" }}>
@@ -901,12 +1045,26 @@ export default function LiveRoomPage() {
         </div>
       )}
 
-      {/* ── Last-boost urgency countdown bar ── */}
+      {/* ── Urgency bar: boost countdown OR active goal progress ── */}
       {showUrgencyBar && (
         <div className="urgency-countdown-bar" role="status" aria-live="polite">
-          <span className="ucb-icon">⏳</span>
-          <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
-          <span className="ucb-fire">🔥</span>
+          {showBoostUrgency ? (
+            <>
+              <span className="ucb-icon">⏳</span>
+              <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
+              <span className="ucb-fire">🔥</span>
+            </>
+          ) : (
+            <>
+              <span className="ucb-icon">🔥</span>
+              <span className="ucb-text">
+                {goalRemaining > 0
+                  ? `Faltan ${goalRemaining.toLocaleString()} coins para alcanzar la meta`
+                  : "¡Meta casi alcanzada!"}
+              </span>
+              <span className="ucb-fire">🎯</span>
+            </>
+          )}
         </div>
       )}
 
@@ -1211,7 +1369,7 @@ export default function LiveRoomPage() {
           )}
 
           {/* ── Live Goal Panel (below top gifters in chat sidebar) ── */}
-          <LiveGoalPanel liveId={id} />
+          <LiveGoalPanel liveId={id} onGoalChange={handleGoalChange} />
 
           {/* ── Low-coin CTA (viewer only, non-intrusive) ── */}
           {!isCreator && coinBalance !== null && coinBalance < 50 && (

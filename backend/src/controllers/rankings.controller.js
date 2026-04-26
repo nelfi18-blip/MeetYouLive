@@ -67,11 +67,13 @@ const getLiveTopGifters = async (req, res) => {
   }
 };
 
-// GET /api/rankings/creators?period=today|week|alltime&type=gifted|viewed
-// Top 10 creators by coins received or views (public)
+// GET /api/rankings/creators?period=today|week|alltime&type=gifted|viewed&limit=100
+// Top creators by coins received or views (public). Default limit = 100, max = 100.
 const getTopCreators = async (req, res) => {
   try {
     const { period = "week", type = "gifted" } = req.query;
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 100;
 
     const startDate =
       period === "today"
@@ -80,7 +82,7 @@ const getTopCreators = async (req, res) => {
         ? getWeekStart()
         : period === "month"
         ? getMonthStart()
-        : null;
+        : null; // alltime → no date filter
 
     if (type === "viewed") {
       const dateFilter = startDate ? { $match: { createdAt: { $gte: startDate } } } : { $match: {} };
@@ -88,7 +90,7 @@ const getTopCreators = async (req, res) => {
         dateFilter,
         { $group: { _id: "$user", totalViews: { $sum: "$viewerCount" } } },
         { $sort: { totalViews: -1 } },
-        { $limit: 10 },
+        { $limit: limit },
         {
           $lookup: {
             from: "users",
@@ -119,8 +121,9 @@ const getTopCreators = async (req, res) => {
         },
       ]);
       return res.json(
-        topCreators.map((row) => ({
+        topCreators.map((row, i) => ({
           ...row,
+          rank: i + 1,
           creatorLevel: computeCreatorProgress({
             totalLives: row.totalViews ? Math.ceil(row.totalViews / 60) : 0,
             followersCount: row.followersCount || 0,
@@ -135,7 +138,7 @@ const getTopCreators = async (req, res) => {
       { $match: matchQuery },
       { $group: { _id: "$receiver", totalCoins: { $sum: "$coinCost" } } },
       { $sort: { totalCoins: -1 } },
-      { $limit: 10 },
+      { $limit: limit },
       {
         $lookup: {
           from: "users",
@@ -167,8 +170,9 @@ const getTopCreators = async (req, res) => {
     ]);
 
     res.json(
-      topCreators.map((row) => ({
+      topCreators.map((row, i) => ({
         ...row,
+        rank: i + 1,
         creatorLevel: computeCreatorProgress({
           totalCoinsReceived: row.totalCoins || 0,
           followersCount: row.followersCount || 0,
@@ -322,9 +326,69 @@ const getCreatorRankingStats = async (req, res) => {
   }
 };
 
+// GET /api/rankings/creator/:id/fans?period=today|week|alltime&limit=20
+// Top fans (by coins spent) for a specific creator (public)
+const getCreatorFanRanking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de creador inválido" });
+    }
+    const creatorId = new mongoose.Types.ObjectId(id);
+
+    const { period = "alltime" } = req.query;
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 20;
+
+    const startDate =
+      period === "today"
+        ? getTodayStart()
+        : period === "week"
+        ? getWeekStart()
+        : period === "month"
+        ? getMonthStart()
+        : null; // alltime
+
+    const matchQuery = { receiver: creatorId };
+    if (startDate) matchQuery.createdAt = { $gte: startDate };
+
+    const topFans = await Gift.aggregate([
+      { $match: matchQuery },
+      { $group: { _id: "$sender", totalCoins: { $sum: "$coinCost" } } },
+      { $sort: { totalCoins: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "senderInfo",
+        },
+      },
+      { $unwind: { path: "$senderInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          totalCoins: 1,
+          username: "$senderInfo.username",
+          name: "$senderInfo.name",
+          isPremium: "$senderInfo.isPremium",
+          isVIP: "$senderInfo.isVIP",
+        },
+      },
+    ]);
+
+    res.json(topFans.map((fan, i) => ({ ...fan, rank: i + 1 })));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   getLiveTopGifters,
   getTopCreators,
   getFeaturedCreators,
   getCreatorRankingStats,
+  getCreatorFanRanking,
 };

@@ -59,6 +59,14 @@ const CARDS = [
     size: "normal",
   },
   {
+    href: "/ranking",
+    title: "Ranking",
+    sub: "Top creadores de la plataforma",
+    icon: RankingIcon,
+    color: "green",
+    size: "normal",
+  },
+  {
     href: "/profile",
     title: "Mi perfil",
     sub: "Gestiona tu cuenta",
@@ -165,6 +173,13 @@ function PendingIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  );
+}
+function RankingIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
     </svg>
   );
 }
@@ -960,7 +975,7 @@ export default function DashboardPage() {
           <div className="rp-orb" />
 
             <div className="panel-header rp-header">
-              <span className="rp-trophy"><CreatorRequestIcon /></span>
+              <span className="rp-trophy"><RankingIcon /></span>
               <h2 className="panel-title">Mi Ranking</h2>
               {rankStats?.rankWeek && (
                 <span className={`rank-badge-label${rankStats.rankWeek <= 3 ? " rank-badge-podium" : ""}`}>
@@ -1012,6 +1027,21 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Psychology message */}
+            {rankStats?.rankWeek && (
+              <div className="rp-psychology">
+                {rankStats.rankWeek === 1
+                  ? "👑 ¡Eres el #1 esta semana! Mantén tu posición"
+                  : rankStats.rankWeek <= 3
+                  ? `🏆 ¡Estás en el podio! Posición #${rankStats.rankWeek}`
+                  : rankStats.rankWeek <= 10
+                  ? `🔥 ¡Top 10! Posición #${rankStats.rankWeek} — sigue así`
+                  : `🎯 Posición #${rankStats.rankWeek} — Envía más regalos para subir`}
+              </div>
+            )}
+
+            <Link href="/ranking" className="rp-see-all">Ver ranking completo →</Link>
           </div>
         </div>
       )}
@@ -2447,6 +2477,30 @@ export default function DashboardPage() {
           color: #fbbf24;
           font-weight: 700;
         }
+
+        .rp-psychology {
+          margin-top: 0.6rem;
+          padding: 0.6rem 0.85rem;
+          background: rgba(224,64,251,0.08);
+          border: 1px solid rgba(224,64,251,0.2);
+          border-radius: 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-align: center;
+        }
+
+        .rp-see-all {
+          display: inline-block;
+          margin-top: 0.75rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #e040fb;
+          text-decoration: none;
+          letter-spacing: 0.02em;
+        }
+
+        .rp-see-all:hover { text-decoration: underline; }
       `}</style>
     </div>
   );

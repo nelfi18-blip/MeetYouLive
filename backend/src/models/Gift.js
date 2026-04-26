@@ -25,4 +25,9 @@ const giftSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Compound indexes for ranking aggregation queries
+giftSchema.index({ receiver: 1, createdAt: -1 });
+giftSchema.index({ sender: 1, createdAt: -1 });
+giftSchema.index({ live: 1, sender: 1 });
+
 module.exports = mongoose.model("Gift", giftSchema);

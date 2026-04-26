@@ -7,6 +7,7 @@ const {
   getTopCreators,
   getFeaturedCreators,
   getCreatorRankingStats,
+  getCreatorFanRanking,
 } = require("../controllers/rankings.controller");
 
 const rankingsLimiter = rateLimit({
@@ -19,6 +20,7 @@ const rankingsLimiter = rateLimit({
 router.get("/live/:id/top-gifters", rankingsLimiter, getLiveTopGifters);
 router.get("/creators", rankingsLimiter, getTopCreators);
 router.get("/featured", rankingsLimiter, getFeaturedCreators);
+router.get("/creator/:id/fans", rankingsLimiter, getCreatorFanRanking);
 
 // Creator-only endpoint
 router.get("/my-stats", rankingsLimiter, verifyToken, getCreatorRankingStats);

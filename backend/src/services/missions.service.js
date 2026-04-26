@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const UserMissions = require("../models/UserMissions.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { addXP, unlockAchievement, XP_REWARDS } = require("./progression.service.js");
 
 /**
  * Fixed mission definitions.
@@ -159,6 +160,12 @@ async function tryAwardMissionReward(userId, doc, missionId, def) {
     session.endSession();
   }
 
+  // Award XP and check achievements (fire-and-forget, outside transaction)
+  addXP(userId, XP_REWARDS.mission_complete).catch(() => {});
+  if (missionId === "gift_1") {
+    unlockAchievement(userId, "gift_first_sent").catch(() => {});
+  }
+
   return true;
 }
 
@@ -208,9 +215,14 @@ async function tryAwardAllMissionsBonus(userId, date) {
     await UserMissions.findOneAndUpdate({ userId, date }, { $set: { bonusRewarded: false } }).catch(
       (rollbackErr) => console.error("[missions] Failed to roll back bonusRewarded flag:", rollbackErr.message)
     );
+    return;
   } finally {
     session.endSession();
   }
+
+  // Award bonus XP and unlock achievement (fire-and-forget, outside transaction)
+  addXP(userId, XP_REWARDS.all_missions_bonus).catch(() => {});
+  unlockAchievement(userId, "missions_first").catch(() => {});
 }
 
 /**

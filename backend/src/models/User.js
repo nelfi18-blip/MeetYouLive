@@ -164,6 +164,20 @@ const userSchema = new mongoose.Schema(
     referralRewardsEarned: { type: Number, default: 0, min: 0 },
     referralRewardClaimed: { type: Boolean, default: false },
     loginCount: { type: Number, default: 0, min: 0 },
+    xp: { type: Number, default: 0, min: 0 },
+    level: { type: Number, default: 1, min: 1 },
+    unlockedAchievements: {
+      type: [
+        new mongoose.Schema(
+          {
+            id: { type: String, required: true },
+            unlockedAt: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

@@ -9,6 +9,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
 import DailyMissions from "@/components/DailyMissions";
 import DailyStreakCard from "@/components/DailyStreakCard";
+import UserProgressCard from "@/components/UserProgressCard";
 import OnlineUsers from "@/components/OnlineUsers";
 import ActivityBar from "@/components/ActivityBar";
 import ReferralCard from "@/components/ReferralCard";
@@ -690,6 +691,9 @@ export default function DashboardPage() {
 
       {/* ── 🔥 DAILY STREAK CARD ── */}
       {user && <DailyStreakCard onClaimed={handleRewardClaimed} />}
+
+      {/* ── 🧠 PROGRESSION & ACHIEVEMENTS ── */}
+      {user && <UserProgressCard />}
 
       {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
       <Link href="/rooms" className="confidence-entry-card">

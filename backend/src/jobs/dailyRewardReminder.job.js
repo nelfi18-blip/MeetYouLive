@@ -40,7 +40,7 @@ async function runDailyRewardReminderJob() {
         { lastDailyRewardClaimAt: { $lte: cutoff24h } },
       ],
     },
-    "_id pushSettings"
+    "_id pushSettings dailyRewardStreak"
   ).lean();
 
   if (candidates.length === 0) return;
@@ -72,15 +72,24 @@ async function runDailyRewardReminderJob() {
       continue;
     }
 
+    const streak = user.dailyRewardStreak || 0;
+    const hasActiveStreak = streak > 0;
+    const pushTitle = hasActiveStreak
+      ? `⚠️ Tu racha de ${streak} día${streak !== 1 ? "s" : ""} está en riesgo`
+      : "🎁 Ya puedes reclamar tus monedas";
+    const pushBody = hasActiveStreak
+      ? "¡Reclama tu recompensa antes de medianoche para no perder tu racha!"
+      : "¡Tu recompensa diaria está lista! Reclámala ahora";
+
     queueEvent(
       user._id,
       "reward",
       {
-        title: "🎁 Ya puedes reclamar tus monedas",
-        body: "¡Tu recompensa diaria está lista! Reclámala ahora",
+        title: pushTitle,
+        body: pushBody,
         data: { link: "/daily-reward" },
       },
-      { source: "daily_reminder" }
+      { source: "daily_reminder", streak }
     ).catch(() => {});
 
     queued++;

@@ -28,6 +28,8 @@ const truncateText = (text, max = 50) => {
   return safeText.length > max ? safeText.slice(0, max) + "…" : safeText;
 };
 
+const FAN_MEDALS = ["👑", "🥈", "🥉"];
+
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -855,6 +857,9 @@ export default function LiveRoomPage() {
     creatorStatusBadges = [];
   }
 
+  // Derived rendering helpers
+  const showUrgencyBar = activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft <= 30;
+
   return (
     <div className="room">
       {/* ── Live Event Banner ── */}
@@ -865,7 +870,7 @@ export default function LiveRoomPage() {
       )}
 
       {/* ── Last-boost urgency countdown bar ── */}
-      {activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft <= 30 && (
+      {showUrgencyBar && (
         <div className="urgency-countdown-bar" role="alert">
           <span className="ucb-icon">⏳</span>
           <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
@@ -1208,12 +1213,15 @@ export default function LiveRoomPage() {
 
             {chatMessages.map((msg) => {
               const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
-              const FAN_MEDALS = ["👑", "🥈", "🥉"];
+              const chatMsgClass = [
+                "chat-msg",
+                msg.system && "chat-msg-system",
+                msg.isGift && "chat-msg-gift",
+                fanRank === 0 && "chat-msg-top-fan",
+                fanRank > 0 && "chat-msg-vip-fan",
+              ].filter(Boolean).join(" ");
               return (
-                <div
-                  key={msg.id}
-                  className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}${fanRank === 0 ? " chat-msg-top-fan" : fanRank > 0 ? " chat-msg-vip-fan" : ""}`}
-                >
+                <div key={msg.id} className={chatMsgClass}>
                   {msg.system ? (
                     <span className="chat-text-system">{msg.text}</span>
                   ) : msg.isGift ? (

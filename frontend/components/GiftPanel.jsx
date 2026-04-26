@@ -95,6 +95,11 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     setSendSuccess("");
     setInsufficientCoins(false);
 
+    if (isOwnLive) {
+      setSendError("No puedes enviar regalos a tu propio directo");
+      return;
+    }
+
     if (!isLoggedIn) {
       setSendError("Debes iniciar sesión para enviar regalos");
       return;
@@ -231,8 +236,9 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
         {/* ── Creator self-send notice ───────────────────────────────── */}
         {isOwnLive && (
-          <div className="gp-self-notice" role="status">
-            <span>⚠️ Estás enviando un regalo a tu propio directo.</span>
+          <div className="gp-self-notice" role="alert">
+            <span className="gp-self-notice-icon">🚫</span>
+            <span>No puedes enviar regalos a tu propio directo.</span>
           </div>
         )}
 
@@ -594,14 +600,23 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         /* ── Creator self-send notice ─────────────────────────────── */
         .gp-self-notice {
           margin: 0.5rem 1.25rem 0;
-          padding: 0.55rem 0.9rem;
+          padding: 0.65rem 0.9rem;
           border-radius: 10px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #fbbf24;
-          background: rgba(251,191,36,0.08);
-          border: 1px solid rgba(251,191,36,0.25);
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: #f87171;
+          background: rgba(248,113,113,0.08);
+          border: 1px solid rgba(248,113,113,0.35);
           text-align: center;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
+        }
+
+        .gp-self-notice-icon {
+          font-size: 1rem;
           flex-shrink: 0;
         }
 

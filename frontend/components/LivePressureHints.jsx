@@ -41,13 +41,6 @@ export default function LivePressureHints({ hint }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hint?.id]);
 
-  useEffect(() => {
-    return () => {
-      clearTimeout(fadeTimerRef.current);
-      clearTimeout(clearTimerRef.current);
-    };
-  }, []);
-
   if (!current) return null;
 
   const intensityClass =

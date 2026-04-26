@@ -31,6 +31,15 @@ const truncateText = (text, max = 50) => {
 
 const FAN_MEDALS = ["👑", "🥈", "🥉"];
 
+// Gift rarities that qualify as "epic or better" for pressure triggers
+const EPIC_PLUS_RARITIES = ["epic", "legendary", "mythic"];
+
+// Pressure system configuration constants
+const PRESSURE_HINT_MIN_INTERVAL_MS = 6000;   // min time between same-type hints
+const PRESSURE_HINT_DISPLAY_MS      = 4000;   // how long a hint stays visible
+const TOP_FAN_PROXIMITY_THRESHOLD   = 0.7;    // 70% of 3rd fan's coins = "close"
+const GIFT_ACTIVITY_WINDOW_MS       = 10000;  // window for counting unique gifters
+
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -126,10 +135,8 @@ export default function LiveRoomPage() {
    * Returns true if the gift warrants a boost-moment pressure hint.
    * Extracted to avoid duplication between socket and sender-side paths.
    */
-  const isBoostGift = (quantity, rarity) => {
-    const EPIC_PLUS = ["epic", "legendary", "mythic"];
-    return quantity >= 10 || EPIC_PLUS.includes(rarity);
-  };
+  const isBoostGift = (quantity, rarity) =>
+    quantity >= 10 || EPIC_PLUS_RARITIES.includes(rarity);
 
   const boostSubtext = (quantity) =>
     quantity >= 50 ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
@@ -140,19 +147,18 @@ export default function LiveRoomPage() {
   }, []);
 
   /**
-   * Show a pressure hint. Debounced per type (min 6s between same types).
+   * Show a pressure hint. Debounced per type (min interval between same types).
    * Safe to call from anywhere – no infinite loops.
    */
   const showPressureHint = useCallback((type, icon, text, subtext) => {
-    const MIN_INTERVAL_MS = 6000;
     const now = Date.now();
     const lastTime = lastHintTimeByTypeRef.current[type] || 0;
-    if (now - lastTime < MIN_INTERVAL_MS) return;
+    if (now - lastTime < PRESSURE_HINT_MIN_INTERVAL_MS) return;
     lastHintTimeByTypeRef.current[type] = now;
     const id = `ph_${++hintCounterRef.current}_${now}`;
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     setPressureHint({ id, type, icon, text, subtext: subtext || null });
-    hintTimerRef.current = setTimeout(() => setPressureHint(null), 5000);
+    hintTimerRef.current = setTimeout(() => setPressureHint(null), PRESSURE_HINT_DISPLAY_MS + 500);
   }, []);
 
   // Agora state
@@ -251,7 +257,7 @@ export default function LiveRoomPage() {
       // All 3 top fan slots taken — check proximity to the 3rd-place fan
       const thirdFanCoins = topFanMapRef.current[topFanIds[2]] || 0;
       const myCoins = topFanMapRef.current[currentUserId] || 0;
-      if (thirdFanCoins > 0 && myCoins > 0 && myCoins >= thirdFanCoins * 0.7) {
+      if (thirdFanCoins > 0 && myCoins > 0 && myCoins >= thirdFanCoins * TOP_FAN_PROXIMITY_THRESHOLD) {
         const needed = Math.max(0, thirdFanCoins - myCoins + 1);
         showPressureHint(
           "top_fan_close",
@@ -379,12 +385,11 @@ export default function LiveRoomPage() {
         showPressureHint("boost_moment", "💥", "MOMENTO ÉPICO", boostSubtext(quantity));
       }
 
-      // Activity signal: track unique gifters in last 10 s
+      // Activity signal: track unique gifters in last GIFT_ACTIVITY_WINDOW_MS
       const now = Date.now();
-      const ACTIVITY_WINDOW_MS = 10000;
       if (senderId) {
         giftWindowRef.current = [
-          ...giftWindowRef.current.filter((e) => now - e.ts < ACTIVITY_WINDOW_MS),
+          ...giftWindowRef.current.filter((e) => now - e.ts < GIFT_ACTIVITY_WINDOW_MS),
           { senderId, ts: now },
         ];
         const uniqueSenders = new Set(giftWindowRef.current.map((e) => e.senderId));

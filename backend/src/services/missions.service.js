@@ -160,11 +160,8 @@ async function tryAwardMissionReward(userId, doc, missionId, def) {
     session.endSession();
   }
 
-  // Award XP and check achievements (fire-and-forget, outside transaction)
+  // Award XP (fire-and-forget, outside transaction)
   addXP(userId, XP_REWARDS.mission_complete).catch(() => {});
-  if (missionId === "gift_1") {
-    unlockAchievement(userId, "gift_first_sent").catch(() => {});
-  }
 
   return true;
 }
@@ -193,6 +190,7 @@ async function tryAwardAllMissionsBonus(userId, date) {
 
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionSucceeded = false;
   try {
     await User.findByIdAndUpdate(userId, { $inc: { coins: ALL_MISSIONS_BONUS } }, { session });
     await CoinTransaction.create(
@@ -209,16 +207,18 @@ async function tryAwardAllMissionsBonus(userId, date) {
       { session }
     );
     await session.commitTransaction();
+    transactionSucceeded = true;
   } catch (err) {
     await session.abortTransaction();
     console.error("[missions] Failed to award all-missions bonus:", err.message);
     await UserMissions.findOneAndUpdate({ userId, date }, { $set: { bonusRewarded: false } }).catch(
       (rollbackErr) => console.error("[missions] Failed to roll back bonusRewarded flag:", rollbackErr.message)
     );
-    return;
   } finally {
     session.endSession();
   }
+
+  if (!transactionSucceeded) return;
 
   // Award bonus XP and unlock achievement (fire-and-forget, outside transaction)
   addXP(userId, XP_REWARDS.all_missions_bonus).catch(() => {});

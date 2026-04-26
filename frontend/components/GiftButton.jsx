@@ -17,6 +17,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -37,6 +38,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     setError("");
     setSuccess("");
     setLoading(true);
+    const totalCost = selected.coinCost * quantity;
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
@@ -48,6 +50,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         body: JSON.stringify({
           receiverId,
           giftSlug: selected.slug,
+          quantity,
           context: context || (liveId ? "live" : "profile"),
           contextId: liveId || null,
         }),
@@ -57,8 +60,10 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
         setError(data.message || "Error al enviar el regalo");
         return;
       }
-      setSuccess(`¡Enviaste ${selected.icon} ${selected.name}!`);
+      const comboLabel = quantity > 1 ? ` x${quantity}` : "";
+      setSuccess(`¡Enviaste${comboLabel} ${selected.icon} ${selected.name}! (${totalCost} 🪙)`);
       setSelected(null);
+      setQuantity(1);
       if (onGiftSent) onGiftSent(data);
       setTimeout(() => {
         setSuccess("");
@@ -117,7 +122,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
             {selected && (
               <div className="gift-confirm-bar">
                 <span className="gift-confirm-text">
-                  {selected.icon} <strong>{selected.name}</strong> — {selected.coinCost} 🪙
+                  {selected.icon} <strong>{selected.name}</strong>
                   <em className="gift-rarity-label" style={{ color: rStyle(selected).color }}>
                     {" "}· {rStyle(selected).label}
                   </em>
@@ -125,12 +130,29 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
               </div>
             )}
 
+            <div className="gift-qty-row" role="group" aria-label="Cantidad">
+              {[1, 5, 10, 50].map((q) => (
+                <button
+                  key={q}
+                  className={`gift-qty-btn${quantity === q ? " gift-qty-btn-active" : ""}`}
+                  onClick={() => setQuantity(q)}
+                  aria-pressed={quantity === q}
+                >
+                  x{q}
+                </button>
+              ))}
+            </div>
+
             <button
               className="gift-send-btn"
               onClick={send}
               disabled={!selected || loading}
             >
-              {loading ? "Enviando…" : selected ? `Enviar ${selected.icon} · ${selected.coinCost} 🪙` : "Selecciona un regalo"}
+              {loading
+                ? "Enviando…"
+                : selected
+                  ? `Enviar ${selected.icon}${quantity > 1 ? ` x${quantity}` : ""} · ${selected.coinCost * quantity} 🪙`
+                  : "Selecciona un regalo"}
             </button>
           </div>
         </>
@@ -303,6 +325,38 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           font-style: normal;
           font-weight: 600;
           font-size: 0.75rem;
+        }
+
+        .gift-qty-row {
+          display: flex;
+          gap: 0.35rem;
+        }
+
+        .gift-qty-btn {
+          padding: 0.3rem 0.65rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.5);
+          font-size: 0.72rem;
+          font-weight: 800;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s ease;
+          letter-spacing: 0.02em;
+        }
+
+        .gift-qty-btn:hover {
+          background: rgba(255,255,255,0.09);
+          border-color: rgba(224,64,251,0.45);
+          color: #fff;
+        }
+
+        .gift-qty-btn-active {
+          background: rgba(224,64,251,0.18);
+          border-color: #e040fb;
+          color: #e040fb;
+          box-shadow: 0 0 8px rgba(224,64,251,0.3);
         }
 
         .gift-send-btn {

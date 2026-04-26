@@ -48,6 +48,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const [coinBalance, setCoinBalance]   = useState(initialCoinBalance ?? null);
   const [activeCategory, setActiveCategory] = useState("popular");
   const [selectedGift, setSelectedGift] = useState(null);
+  const [quantity, setQuantity]         = useState(1);
 
   const [showConfirm, setShowConfirm]   = useState(false);
   const [sending, setSending]           = useState(false);
@@ -105,7 +106,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       return;
     }
 
-    if (coinBalance !== null && coinBalance < gift.coinCost) {
+    if (coinBalance !== null && coinBalance < gift.coinCost * quantity) {
       setSelectedGift(gift);
       setInsufficientCoins(true);
       return;
@@ -120,6 +121,8 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     setSending(true);
     setSendError("");
 
+    const totalCost = selectedGift.coinCost * quantity;
+
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
@@ -131,6 +134,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         body: JSON.stringify({
           receiverId,
           giftSlug: selectedGift.slug,
+          quantity,
           context: context || (liveId ? "live" : "profile"),
           contextId: liveId || null,
         }),
@@ -148,10 +152,12 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       }
 
       // Success
-      setCoinBalance((prev) => (prev !== null ? prev - selectedGift.coinCost : prev));
-      setSendSuccess("🎁 ¡Regalo enviado!");
+      setCoinBalance((prev) => (prev !== null ? prev - totalCost : prev));
+      const comboLabel = quantity > 1 ? ` x${quantity} combo` : "";
+      setSendSuccess(`🎁 ¡Regalo enviado!${comboLabel}`);
       setShowConfirm(false);
       setSelectedGift(null);
+      setQuantity(1);
       if (onGiftSent) onGiftSent(data);
       setTimeout(() => setSendSuccess(""), 3000);
     } catch {
@@ -260,7 +266,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             <span className="gp-insufficient-icon">🪙</span>
             <div className="gp-insufficient-text">
               <strong>Monedas insuficientes</strong>
-              <span>Necesitas {selectedGift.coinCost} monedas para enviar {selectedGift.icon} {selectedGift.name}.</span>
+              <span>Necesitas {selectedGift.coinCost * quantity} monedas para enviar {quantity > 1 ? `x${quantity} ` : ""}{selectedGift.icon} {selectedGift.name}.</span>
             </div>
             <button
               className="gp-insufficient-btn"
@@ -323,6 +329,33 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             </div>
           )}
         </div>
+
+        {/* ── Quantity selector ─────────────────────────────────────── */}
+        <div className="gp-qty-bar" role="group" aria-label="Cantidad de regalos">
+          {[1, 5, 10, 50].map((q) => (
+            <button
+              key={q}
+              className={`gp-qty-btn${quantity === q ? " gp-qty-btn-active" : ""}${q >= 10 ? " gp-qty-btn-big" : ""}`}
+              onClick={() => {
+                setQuantity(q);
+                // Re-check balance when quantity changes
+                if (selectedGift && coinBalance !== null && coinBalance < selectedGift.coinCost * q) {
+                  setInsufficientCoins(true);
+                } else {
+                  setInsufficientCoins(false);
+                }
+              }}
+              aria-pressed={quantity === q}
+            >
+              x{q}
+            </button>
+          ))}
+          {selectedGift && (
+            <span className="gp-qty-total">
+              Total: 🪙 {(selectedGift.coinCost * quantity).toLocaleString()}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Confirmation modal ──────────────────────────────────────── */}
@@ -337,7 +370,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             />
 
             <span className="gp-modal-icon">{selectedGift.icon}</span>
-            <h3 className="gp-modal-title">{selectedGift.name}</h3>
+            <h3 className="gp-modal-title">{selectedGift.name}{quantity > 1 ? <span className="gp-modal-qty"> x{quantity}</span> : null}</h3>
             <span
               className="gp-modal-rarity"
               style={{ color: rs(selectedGift).color }}
@@ -345,15 +378,21 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               {rs(selectedGift).label}
             </span>
 
+            {quantity > 1 && (
+              <div className="gp-modal-cost-row">
+                <span className="gp-modal-cost-label">Coste unitario</span>
+                <span className="gp-modal-cost-value">🪙 {selectedGift.coinCost}</span>
+              </div>
+            )}
             <div className="gp-modal-cost-row">
-              <span className="gp-modal-cost-label">Coste</span>
-              <span className="gp-modal-cost-value">🪙 {selectedGift.coinCost}</span>
+              <span className="gp-modal-cost-label">{quantity > 1 ? "Total" : "Coste"}</span>
+              <span className="gp-modal-cost-value gp-modal-cost-total">🪙 {(selectedGift.coinCost * quantity).toLocaleString()}</span>
             </div>
 
             {coinBalance !== null && (
               <div className="gp-modal-balance-row">
                 <span className="gp-modal-balance-label">Tu saldo</span>
-                <span className="gp-modal-balance-value">🪙 {coinBalance.toLocaleString()}</span>
+                <span className={`gp-modal-balance-value${coinBalance < selectedGift.coinCost * quantity ? " gp-balance-low" : ""}`}>🪙 {coinBalance.toLocaleString()}</span>
               </div>
             )}
 
@@ -380,7 +419,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 {sending ? (
                   <><span className="gp-btn-spinner" /> Enviando…</>
                 ) : (
-                  `Enviar ${selectedGift.icon}`
+                  `Enviar ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${(selectedGift.coinCost * quantity).toLocaleString()}`
                 )}
               </button>
             </div>
@@ -975,6 +1014,79 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           animation: gp-spin 0.6s linear infinite;
           display: inline-block;
           flex-shrink: 0;
+        }
+
+        .gp-modal-cost-total {
+          font-size: 1rem;
+          font-weight: 900;
+        }
+
+        .gp-modal-qty {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #e040fb;
+          margin-left: 0.3rem;
+        }
+
+        .gp-balance-low {
+          color: #f87171 !important;
+        }
+
+        /* ── Quantity selector bar ─────────────────────────────────── */
+        .gp-qty-bar {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.65rem 1.25rem 0.75rem;
+          border-top: 1px solid rgba(255,255,255,0.06);
+          flex-shrink: 0;
+          flex-wrap: wrap;
+        }
+
+        .gp-qty-btn {
+          padding: 0.38rem 0.8rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.55);
+          font-size: 0.78rem;
+          font-weight: 800;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.18s ease;
+          letter-spacing: 0.02em;
+        }
+
+        .gp-qty-btn:hover {
+          background: rgba(255,255,255,0.1);
+          border-color: rgba(224,64,251,0.5);
+          color: #fff;
+        }
+
+        .gp-qty-btn-active {
+          background: linear-gradient(135deg,rgba(139,92,246,0.3),rgba(217,70,239,0.25));
+          border-color: #e040fb;
+          color: #e040fb;
+          box-shadow: 0 0 10px rgba(224,64,251,0.3);
+        }
+
+        .gp-qty-btn-big {
+          border-color: rgba(245,158,11,0.35);
+        }
+
+        .gp-qty-btn-big.gp-qty-btn-active {
+          background: linear-gradient(135deg,rgba(245,158,11,0.3),rgba(251,191,36,0.2));
+          border-color: #fbbf24;
+          color: #fbbf24;
+          box-shadow: 0 0 12px rgba(251,191,36,0.35);
+        }
+
+        .gp-qty-total {
+          margin-left: auto;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #fbbf24;
+          letter-spacing: 0.01em;
         }
 
         /* ── Animations ───────────────────────────────────────────── */

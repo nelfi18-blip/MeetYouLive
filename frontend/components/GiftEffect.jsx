@@ -1,8 +1,15 @@
 "use client";
 
-const BIG_RARITIES = ["legendary", "mythic"];
+const BIG_RARITIES = ["epic", "legendary", "mythic"];
 
 const FULLSCREEN_CFG = {
+  epic: {
+    overlayBg: "radial-gradient(ellipse at center, rgba(192,132,252,0.2) 0%, rgba(0,0,0,0.88) 100%)",
+    glowColor: "rgba(192,132,252,0.65)",
+    accent: "#c084fc",
+    particles: ["✨", "💜", "⚡", "💫", "✨"],
+    duration: "4.5s",
+  },
   legendary: {
     overlayBg: "radial-gradient(ellipse at center, rgba(251,191,36,0.22) 0%, rgba(0,0,0,0.88) 100%)",
     glowColor: "rgba(251,191,36,0.7)",

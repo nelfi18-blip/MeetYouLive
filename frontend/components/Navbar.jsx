@@ -37,6 +37,7 @@ function ProfileIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" 
 function MatchIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>; }
 function CrushIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function CoinIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/></svg>; }
+function BellIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
 function LogoutIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
 function ChevronIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>; }
 
@@ -50,6 +51,7 @@ export default function Navbar() {
   const [role, setRole] = useState("");
   const [creatorStatus, setCreatorStatus] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const token =
@@ -67,6 +69,37 @@ export default function Navbar() {
       .then((d) => { if (d) setCoins(d.coins); })
       .catch(() => {});
   }, [session, syncFromUser]);
+
+  // Unread notification count — fetch on mount and poll every 60s
+  useEffect(() => {
+    const fetchCount = () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) return;
+      fetch(`${API_URL}/api/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (d) setUnreadCount(d.count || 0); })
+        .catch(() => {});
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 60_000);
+
+    // Real-time bump: providers.jsx dispatches "notif:new" via socket
+    const handleNew = () => setUnreadCount((c) => c + 1);
+    // Reset when user visits the notifications page
+    const handleReadAll = () => setUnreadCount(0);
+
+    window.addEventListener("notif:new", handleNew);
+    window.addEventListener("notif:read-all", handleReadAll);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notif:new", handleNew);
+      window.removeEventListener("notif:read-all", handleReadAll);
+    };
+  }, [session]);
 
   const handleLogout = () => {
     clearToken();
@@ -130,6 +163,14 @@ export default function Navbar() {
 
         {/* Right section */}
         <div className="navbar-right">
+          {/* Notification bell */}
+          <Link href="/notifications" className="notif-bell" onClick={() => setUnreadCount(0)}>
+            <BellIcon />
+            {unreadCount > 0 && (
+              <span className="notif-bell-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
+            )}
+          </Link>
+
           {coins !== null && (
             <Link href="/coins" className="coins-badge">
               <CoinIcon />
@@ -297,6 +338,44 @@ export default function Navbar() {
           gap: 0.75rem;
           position: relative;
           flex-shrink: 0;
+        }
+
+        /* ── Notification Bell ─── */
+        .notif-bell {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          color: var(--text-muted) !important;
+          border: 1px solid transparent;
+          transition: all var(--transition);
+          flex-shrink: 0;
+        }
+        .notif-bell:hover {
+          color: var(--text) !important;
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.08);
+        }
+        .notif-bell-badge {
+          position: absolute;
+          top: 1px;
+          right: 1px;
+          min-width: 16px;
+          height: 16px;
+          padding: 0 4px;
+          background: var(--accent);
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 800;
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 8px rgba(224,64,251,0.7);
+          line-height: 1;
         }
 
         .coins-badge {

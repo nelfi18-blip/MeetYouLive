@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { createNotification } = require("../services/notification.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -264,6 +265,16 @@ const sendGift = async (req, res) => {
 
     res.status(201).json(giftDoc);
 
+    // Gift-received persisted notification (fire-and-forget)
+    const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+    const giftName = giftDoc.giftCatalogItem?.name || "un regalo";
+    createNotification(receiverId, {
+      type: "gift",
+      title: "🎁 Recibiste un regalo",
+      message: `${senderName} te envió ${giftName}`,
+      data: { liveId: liveId || null, giftId: String(giftDoc._id) },
+    }).catch(() => {});
+
     // Push updated top-3 ranking to the live room (fire-and-forget)
     if (liveId) {
       const liveObjId = new mongoose.Types.ObjectId(liveId);
@@ -279,6 +290,38 @@ const sendGift = async (req, res) => {
         const ioInst = getIO();
         if (ioInst) {
           ioInst.to(`live:${liveId}`).emit("LIVE_RANKING_UPDATED", { liveId, topFans });
+        }
+        // Top-fan position change detection — inferred without an extra query.
+        // If the sender is now #1 with total T, their pre-gift total was T - amount.
+        // If that pre-gift total was less than the #2 fan's current total, the sender
+        // was NOT #1 before this gift: they just took the top spot.
+        if (topFans.length > 0) {
+          const leader = topFans[0];
+          const senderId = String(req.userId);
+          if (leader && String(leader.userId) === senderId) {
+            const senderTotalBefore = (leader.totalCoins || 0) - amount;
+            const runner = topFans[1];
+            // Sender wasn't #1 before if there was no runner-up, or the runner-up's
+            // total exceeded the sender's pre-gift total.
+            const senderWasNotLeader = !runner || runner.totalCoins > senderTotalBefore;
+            if (senderWasNotLeader) {
+              createNotification(senderId, {
+                type: "top_fan",
+                title: "👑 Eres Top Fan",
+                message: "Ahora eres el fan #1 en este live",
+                data: { liveId },
+              }).catch(() => {});
+              // Notify the displaced #1 (now #2)
+              if (runner) {
+                createNotification(String(runner.userId), {
+                  type: "top_fan_lost",
+                  title: "⚠️ Perdiste el Top Fan",
+                  message: "Alguien te superó, vuelve al live",
+                  data: { liveId },
+                }).catch(() => {});
+              }
+            }
+          }
         }
       }).catch((err) => console.error("[gift] top-fan ranking push failed:", err));
     }

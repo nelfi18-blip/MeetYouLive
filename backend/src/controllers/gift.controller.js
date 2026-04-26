@@ -200,23 +200,6 @@ const sendGift = async (req, res) => {
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
 
-    // Snapshot the current #1 gifter for this live BEFORE this gift is saved
-    // so we can detect a top-fan position change afterwards.
-    let prevTopFanId = null;
-    if (liveId) {
-      try {
-        const topBefore = await Gift.aggregate([
-          { $match: { live: new mongoose.Types.ObjectId(liveId) } },
-          { $group: { _id: "$sender", totalCoins: { $sum: "$coinCost" } } },
-          { $sort: { totalCoins: -1 } },
-          { $limit: 1 },
-        ]);
-        prevTopFanId = topBefore[0]?._id ? String(topBefore[0]._id) : null;
-      } catch {
-        // non-critical — ignore
-      }
-    }
-
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
     const giftDoc = await Gift.create({
@@ -308,26 +291,35 @@ const sendGift = async (req, res) => {
         if (ioInst) {
           ioInst.to(`live:${liveId}`).emit("LIVE_RANKING_UPDATED", { liveId, topFans });
         }
-        // Top-fan position change notifications
+        // Top-fan position change detection — inferred without an extra query.
+        // If the sender is now #1 with total T, their pre-gift total was T - amount.
+        // If that pre-gift total was less than the #2 fan's current total, the sender
+        // was NOT #1 before this gift: they just took the top spot.
         if (topFans.length > 0) {
-          const newTopFanId = String(topFans[0].userId);
+          const leader = topFans[0];
           const senderId = String(req.userId);
-          if (newTopFanId === senderId && prevTopFanId !== senderId) {
-            // Sender just became #1
-            createNotification(senderId, {
-              type: "top_fan",
-              title: "👑 Eres Top Fan",
-              message: "Ahora eres el fan #1 en este live",
-              data: { liveId },
-            }).catch(() => {});
-            // Notify the previous #1 that they lost the spot
-            if (prevTopFanId && prevTopFanId !== senderId) {
-              createNotification(prevTopFanId, {
-                type: "top_fan_lost",
-                title: "⚠️ Perdiste el Top Fan",
-                message: "Alguien te superó, vuelve al live",
+          if (leader && String(leader.userId) === senderId) {
+            const senderTotalBefore = (leader.totalCoins || 0) - amount;
+            const runner = topFans[1];
+            // Sender wasn't #1 before if there was no runner-up, or the runner-up's
+            // total exceeded the sender's pre-gift total.
+            const senderWasNotLeader = !runner || runner.totalCoins > senderTotalBefore;
+            if (senderWasNotLeader) {
+              createNotification(senderId, {
+                type: "top_fan",
+                title: "👑 Eres Top Fan",
+                message: "Ahora eres el fan #1 en este live",
                 data: { liveId },
               }).catch(() => {});
+              // Notify the displaced #1 (now #2)
+              if (runner) {
+                createNotification(String(runner.userId), {
+                  type: "top_fan_lost",
+                  title: "⚠️ Perdiste el Top Fan",
+                  message: "Alguien te superó, vuelve al live",
+                  data: { liveId },
+                }).catch(() => {});
+              }
             }
           }
         }

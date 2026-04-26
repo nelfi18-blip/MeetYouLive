@@ -46,7 +46,10 @@ const createBulkNotifications = async (userIds, { type, title, message, data = {
       createdAt: now,
       updatedAt: now,
     }));
-    await Notification.insertMany(docs, { ordered: false });
+    const result = await Notification.insertMany(docs, { ordered: false });
+    if (result.length < docs.length) {
+      console.warn(`[notifications] Bulk insert: ${result.length}/${docs.length} documents saved`);
+    }
     const io = getIO();
     if (io) {
       const payload = { type, title, message, data, isRead: false, createdAt: now };

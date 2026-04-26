@@ -76,6 +76,9 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         .then((data) => { if (data?.coins !== undefined) setCoinBalance(data.coins); })
         .catch(() => {});
     }
+  // Intentionally run only once on mount. `initialCoinBalance` is used only as an
+  // initial seed (captured in useState), so re-running when it changes would cause
+  // duplicate fetches if the parent updates the prop later.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -15,6 +15,7 @@ export default function StartLivePage() {
   const [language, setLanguage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [entryCost, setEntryCost] = useState(10);
+  const [isVipOnly, setIsVipOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isApprovedCreator, setIsApprovedCreator] = useState(false);
@@ -78,6 +79,7 @@ export default function StartLivePage() {
           language,
           isPrivate,
           entryCost: isPrivate ? Number(entryCost) : 0,
+          isVipOnly,
         }),
       });
       const data = await res.json();
@@ -239,6 +241,32 @@ export default function StartLivePage() {
             </div>
           )}
 
+          {/* VIP-only toggle */}
+          <div className="form-group">
+            <label className="form-label">Acceso VIP 💎</label>
+            <div className="privacy-toggle">
+              <button
+                type="button"
+                className={`privacy-btn${!isVipOnly ? " active" : ""}`}
+                onClick={() => setIsVipOnly(false)}
+              >
+                🌍 Todos
+              </button>
+              <button
+                type="button"
+                className={`privacy-btn${isVipOnly ? " privacy-btn-vip-active" : ""}`}
+                onClick={() => setIsVipOnly(true)}
+              >
+                💎 Solo VIP
+              </button>
+            </div>
+            {isVipOnly && (
+              <p className="privacy-hint">
+                Solo usuarios con suscripción VIP 💎 podrán ver este directo.
+              </p>
+            )}
+          </div>
+
           <button
             type="submit"
             className="btn btn-primary btn-lg btn-block"
@@ -346,6 +374,17 @@ export default function StartLivePage() {
           border-color: var(--accent);
           background: rgba(255, 15, 138, 0.1);
           color: var(--accent);
+        }
+
+        .privacy-btn-vip-active {
+          border-color: rgba(251,191,36,0.6);
+          background: rgba(251,191,36,0.15);
+          color: #fbbf24;
+        }
+
+        .privacy-btn-vip-active:hover {
+          background: rgba(251,191,36,0.22);
+          box-shadow: 0 0 10px rgba(251,191,36,0.25);
         }
 
         .privacy-hint {

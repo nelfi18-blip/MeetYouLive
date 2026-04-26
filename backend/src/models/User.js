@@ -91,6 +91,8 @@ const userSchema = new mongoose.Schema(
     agencyProfile: { type: agencyProfileSchema, default: () => ({}) },
     agencyRelationship: { type: agencyRelationshipSchema, default: () => ({}) },
     isPremium: { type: Boolean, default: false },
+    isVIP: { type: Boolean, default: false },
+    vipExpiresAt: { type: Date, default: null },
     verificationPhoto: { type: String, default: "" },
     verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
     isVerified: { type: Boolean, default: false },

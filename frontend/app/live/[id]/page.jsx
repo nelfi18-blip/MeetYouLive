@@ -99,6 +99,9 @@ export default function LiveRoomPage() {
   // Top 3 fan user IDs sorted by spend (index 0 = #1 fan)
   const [topFanIds, setTopFanIds] = useState([]);
 
+  const [currentUserIsVIP, setCurrentUserIsVIP] = useState(false);
+  const currentUserIsVIPRef = useRef(false);
+
   // Viewer coin balance (for low-coin CTA)
   const [coinBalance, setCoinBalance] = useState(null);
 
@@ -204,6 +207,9 @@ export default function LiveRoomPage() {
           currentUsernameRef.current = uname;
         }
         if (data?.coins !== undefined) setCoinBalance(data.coins);
+        const vip = !!(data?.isVIP);
+        setCurrentUserIsVIP(vip);
+        currentUserIsVIPRef.current = vip;
       })
       .catch(() => {})
       .finally(() => setMeLoaded(true));
@@ -294,12 +300,13 @@ export default function LiveRoomPage() {
     const onChatMessage = ({ user, text }) => {
       const displayName = user?.username || "Anónimo";
       const userId = user?.userId || null;
+      const isVIP = !!(user?.isVIP);
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: displayName, userId, text, system: false },
+        { id: ++msgCounterRef.current, user: displayName, userId, text, system: false, isVIP },
       ]);
       // Show recent chat messages in the video overlay (truncated)
-      addOverlayEvent("chat", "💬", `${displayName}: ${truncateText(text)}`);
+      addOverlayEvent("chat", isVIP ? "💎" : "💬", `${displayName}: ${truncateText(text)}`);
     };
 
     const onViewerCountUpdate = ({ liveId: updatedId, count }) => {
@@ -643,7 +650,7 @@ export default function LiveRoomPage() {
     // Add message locally immediately (optimistic, sender sees it as "Tú")
     setChatMessages((prev) => [
       ...prev,
-      { id: ++msgCounterRef.current, user: "Tú", text, system: false },
+      { id: ++msgCounterRef.current, user: "Tú", text, system: false, isVIP: currentUserIsVIPRef.current },
     ]);
     setChatInput("");
 
@@ -654,7 +661,7 @@ export default function LiveRoomPage() {
     socket.emit("live_chat_message", {
       liveId: id,
       text,
-      user: { username: currentUsername || "Anónimo" },
+      user: { username: currentUsername || "Anónimo", ...(currentUserId ? { userId: currentUserId } : {}) },
     });
   };
 
@@ -823,6 +830,23 @@ export default function LiveRoomPage() {
     }
   };
 
+  const handleToggleVipOnly = async () => {
+    if (!token) return;
+    const newVal = !live.isVipOnly;
+    try {
+      const res = await fetch(`${API_URL}/api/lives/${id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ isVipOnly: newVal }),
+      });
+      if (res.ok) {
+        setLive((prev) => prev ? { ...prev, isVipOnly: newVal } : prev);
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
   if (error) {
     return (
       <div className="viewer-error">
@@ -964,6 +988,54 @@ export default function LiveRoomPage() {
           .paywall-buy-coins:hover {
             background: rgba(251,191,36,0.2);
             box-shadow: 0 0 12px rgba(251,191,36,0.2);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (live.isVipOnly && !live.hasVipAccess) {
+    return (
+      <div className="viewer-page">
+        <div className="paywall card" style={{ borderColor: "rgba(251,191,36,0.35)", background: "linear-gradient(135deg, rgba(251,191,36,0.06), rgba(224,64,251,0.06))" }}>
+          <div className="paywall-icon">💎</div>
+          <h2 className="paywall-title">{live.title}</h2>
+          <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
+          <p className="paywall-desc" style={{ color: "#fbbf24" }}>
+            Este contenido es solo para usuarios VIP 💎
+          </p>
+          <p className="paywall-desc">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
+          <Link href="/subscription" className="btn btn-vip-cta btn-lg">
+            💎 Hazte VIP
+          </Link>
+          <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
+        </div>
+
+        <style jsx>{`
+          .viewer-page { display: flex; flex-direction: column; gap: 1rem; }
+          .paywall {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 3rem 2rem;
+            max-width: 480px;
+            margin: 2rem auto;
+            text-align: center;
+          }
+          .paywall-icon { font-size: 3rem; }
+          .paywall-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
+          .paywall-streamer { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+          .paywall-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; }
+          .btn-vip-cta {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #000;
+            font-weight: 800;
+            border: none;
+          }
+          .btn-vip-cta:hover {
+            background: linear-gradient(135deg, #fde68a, #fbbf24);
+            box-shadow: 0 0 18px rgba(251,191,36,0.45);
           }
         `}</style>
       </div>
@@ -1118,6 +1190,7 @@ export default function LiveRoomPage() {
                     {viewerCount}
                   </span>
                   {live.isPrivate && <span className="chr-private-tag">🔒 Privado</span>}
+                  {live.isVipOnly && <span className="chr-private-tag" style={{ borderColor: "rgba(251,191,36,0.4)", color: "#fbbf24", background: "rgba(251,191,36,0.08)" }}>💎 VIP</span>}
                 </div>
               </div>
             </div>
@@ -1277,6 +1350,13 @@ export default function LiveRoomPage() {
                         ✕ Parar evento
                       </button>
                     )}
+                    <button
+                      className={`btn-event${live.isVipOnly ? " btn-event-vip-active" : " btn-event-vip"}`}
+                      onClick={handleToggleVipOnly}
+                      title={live.isVipOnly ? "Desactivar modo VIP-only" : "Activar modo VIP-only (solo usuarios 💎 VIP)"}
+                    >
+                      {live.isVipOnly ? "💎 VIP-only ON" : "💎 VIP-only"}
+                    </button>
                   </div>
                 </>
               ) : (
@@ -1393,6 +1473,21 @@ export default function LiveRoomPage() {
             </Link>
           )}
 
+          {/* ── VIP CTA (viewer only, non-VIP) ── */}
+          {!isCreator && !currentUserIsVIP && (
+            <Link href="/subscription" className="vip-live-cta">
+              💎 <strong>Hazte VIP</strong> · Destaca en el live · Acceso exclusivo
+            </Link>
+          )}
+
+          {/* ── VIP badge (viewer, already VIP) ── */}
+          {!isCreator && currentUserIsVIP && (
+            <div className="vip-active-badge">
+              <span>💎</span>
+              <span>VIP activo · Disfruta de tus ventajas exclusivas</span>
+            </div>
+          )}
+
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>
@@ -1423,6 +1518,7 @@ export default function LiveRoomPage() {
                 "chat-msg",
                 msg.system && "chat-msg-system",
                 msg.isGift && "chat-msg-gift",
+                msg.isVIP && !msg.system && "chat-msg-vip-user",
                 fanRank === 0 && "chat-msg-top-fan",
                 fanRank > 0 && "chat-msg-vip-fan",
               ].filter(Boolean).join(" ");
@@ -1433,6 +1529,7 @@ export default function LiveRoomPage() {
                   ) : msg.isGift ? (
                     <>
                       <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
+                      {msg.isVIP && <span className="chat-vip-badge" title="Usuario VIP">💎</span>}
                       {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
                       <span className="chat-user chat-user-gift">{msg.user}</span>
                       <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
@@ -1442,6 +1539,7 @@ export default function LiveRoomPage() {
                     </>
                   ) : (
                     <>
+                      {msg.isVIP && <span className="chat-vip-badge" title="Usuario VIP">💎</span>}
                       {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
                       <span className="chat-user">{msg.user}</span>
                       <span className="chat-text">{msg.text}</span>
@@ -1638,6 +1736,40 @@ export default function LiveRoomPage() {
         .low-coins-cta:hover {
           background: rgba(251,191,36,0.12);
           border-color: rgba(251,191,36,0.45);
+        }
+
+        .vip-live-cta {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.75rem;
+          margin-bottom: 0.4rem;
+          background: linear-gradient(90deg, rgba(251,191,36,0.1), rgba(224,64,251,0.06));
+          border: 1px solid rgba(251,191,36,0.35);
+          border-radius: var(--radius-sm);
+          font-size: 0.75rem;
+          color: #fbbf24;
+          text-decoration: none;
+          transition: background 0.18s, box-shadow 0.18s;
+        }
+
+        .vip-live-cta:hover {
+          background: linear-gradient(90deg, rgba(251,191,36,0.18), rgba(224,64,251,0.12));
+          box-shadow: 0 0 10px rgba(251,191,36,0.2);
+        }
+
+        .vip-active-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.75rem;
+          margin-bottom: 0.4rem;
+          background: rgba(251,191,36,0.08);
+          border: 1px solid rgba(251,191,36,0.3);
+          border-radius: var(--radius-sm);
+          font-size: 0.72rem;
+          color: #fbbf24;
+          font-weight: 600;
         }
 
         /* ── Creator prompts panel ── */
@@ -2682,6 +2814,51 @@ export default function LiveRoomPage() {
 
         .btn-event-stop:hover {
           background: rgba(100,116,139,0.25);
+        }
+
+        .btn-event-vip {
+          background: rgba(251,191,36,0.08);
+          border-color: rgba(251,191,36,0.35);
+          color: #fbbf24;
+        }
+
+        .btn-event-vip:hover {
+          background: rgba(251,191,36,0.18);
+          box-shadow: 0 0 10px rgba(251,191,36,0.25);
+        }
+
+        .btn-event-vip-active {
+          background: rgba(251,191,36,0.2);
+          border-color: rgba(251,191,36,0.6);
+          color: #fbbf24;
+          box-shadow: 0 0 10px rgba(251,191,36,0.3);
+        }
+
+        .btn-event-vip-active:hover {
+          background: rgba(251,191,36,0.28);
+        }
+
+        /* ── VIP chat badge ── */
+        .chat-vip-badge {
+          font-size: 0.72rem;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+
+        .chat-msg-vip-user {
+          background: linear-gradient(135deg, rgba(251,191,36,0.06), rgba(224,64,251,0.04));
+          border-radius: 0.5rem;
+          padding: 0.15rem 0.4rem;
+          border-left: 2px solid rgba(251,191,36,0.45);
+        }
+
+        .chat-msg-vip-user .chat-user {
+          color: #fbbf24;
+          text-shadow: 0 0 6px rgba(251,191,36,0.3);
+        }
+
+        .chat-msg-vip-user .chat-text {
+          color: rgba(255,255,255,0.92);
         }
 
         /* ── Top fan crown in chat ── */

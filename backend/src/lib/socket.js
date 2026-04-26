@@ -230,17 +230,35 @@ const initSocket = (httpServer) => {
       io.to(roomKey).emit("VIEWER_COUNT_UPDATE", { liveId, count });
     });
 
-    socket.on("live_chat_message", ({ liveId, text, user }) => {
+    socket.on("live_chat_message", async ({ liveId, text, user }) => {
       if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
       if (!text || typeof text !== "string") return;
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;
 
+      // Resolve VIP status from the authenticated user record (not from client payload)
+      let isVIP = false;
+      if (socket._userId) {
+        try {
+          const User = require("../models/User.js");
+          const dbUser = await User.findById(socket._userId).select("isVIP").lean();
+          isVIP = !!(dbUser && dbUser.isVIP);
+        } catch (_) {
+          // non-fatal
+        }
+      }
+
+      const safeUser = {
+        username: (user && typeof user.username === "string") ? user.username.slice(0, 100) : "Anónimo",
+        userId: (user && typeof user.userId === "string") ? user.userId : null,
+        isVIP,
+      };
+
       const roomKey = `live:${liveId}`;
       // Broadcast to all room members except the sender
       socket.to(roomKey).emit("LIVE_CHAT_MESSAGE", {
         liveId,
-        user: user || { username: "Anónimo" },
+        user: safeUser,
         text: safeText,
         timestamp: Date.now(),
       });

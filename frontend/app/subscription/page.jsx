@@ -31,12 +31,13 @@ function CrownIcon() {
 }
 
 const BENEFITS = [
-  "Sin anuncios en toda la plataforma",
-  "Acceso a directos exclusivos para suscriptores",
-  "Badge especial de suscriptor en tu perfil",
-  "Descuentos en paquetes de monedas",
-  "Prioridad en el soporte",
-  "Acceso anticipado a nuevas funciones",
+  "💎 Badge VIP en chat, directos y perfil",
+  "🚀 Mensajes destacados en el chat (color especial)",
+  "🎬 Acceso a directos exclusivos VIP",
+  "🪙 +10% de monedas bonus en cada compra",
+  "🎁 Regalos especiales y descuentos exclusivos",
+  "⚡ Prioridad en el soporte",
+  "🔓 Acceso anticipado a nuevas funciones",
 ];
 
 export default function SubscriptionPage() {
@@ -141,9 +142,9 @@ export default function SubscriptionPage() {
         <div className="sub-hero-content">
           <div className="sub-crown"><CrownIcon /></div>
           <div>
-            <div className="sub-badge">✨ Suscripción Premium</div>
-            <h1 className="sub-title">Desbloquea la experiencia completa</h1>
-            <p className="sub-desc">Accede a funciones exclusivas y apoya a tus creadores favoritos</p>
+            <div className="sub-badge">💎 VIP</div>
+            <h1 className="sub-title">Hazte VIP y destaca en MeetYou</h1>
+            <p className="sub-desc">Badge 💎 VIP, mensajes destacados en chat y acceso a directos exclusivos</p>
           </div>
         </div>
 
@@ -173,7 +174,7 @@ export default function SubscriptionPage() {
       <div className="benefits-card card">
         <div className="benefits-header">
           <div className="benefits-icon"><StarIcon /></div>
-          <h2 className="benefits-title">Beneficios incluidos</h2>
+          <h2 className="benefits-title">Beneficios VIP 💎</h2>
         </div>
         <ul className="benefits-list">
           {BENEFITS.map((benefit) => (
@@ -193,13 +194,13 @@ export default function SubscriptionPage() {
               <span className="price-amount">9,99 €</span>
               <span className="price-period">/ mes</span>
             </div>
-            <p className="action-desc">Cancela en cualquier momento. Sin compromisos.</p>
+            <p className="action-desc">Usuarios VIP ganan más atención. Destaca en el live. Acceso exclusivo.</p>
             <button
               className="btn btn-primary btn-lg sub-btn"
               onClick={handleSubscribe}
               disabled={actionLoading}
             >
-              {actionLoading ? "Redirigiendo…" : "✨ Suscribirse ahora"}
+              {actionLoading ? "Redirigiendo…" : "💎 Hazte VIP"}
             </button>
           </>
         ) : isPastDue ? (

@@ -12,6 +12,7 @@ const liveSchema = new mongoose.Schema(
     viewerCount: { type: Number, default: 0 },
     endedAt: { type: Date },
     isPrivate: { type: Boolean, default: false },
+    isVipOnly: { type: Boolean, default: false },
     entryCost: { type: Number, default: 0, min: 0 },
     paidViewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     chatEnabled: { type: Boolean, default: true },

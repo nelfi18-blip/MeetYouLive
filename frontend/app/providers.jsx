@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
@@ -47,14 +47,6 @@ function SocketManager() {
     initPushNotifications(backendToken);
   }, [session]);
 
-  // Dispatch a window event when a new persisted notification arrives so the
-  // Navbar bell can increment its count without needing a shared context.
-  const handleNewNotification = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("notif:new"));
-    }
-  }, []);
-
   useEffect(() => {
     // Resolve the backend JWT: OAuth users have it on session, email/password
     // users store it in localStorage.
@@ -89,7 +81,6 @@ function SocketManager() {
     socket.on("CALL_INCOMING", handleCallIncoming);
     socket.on("CRUSH_RECEIVED", handleCrushReceived);
     socket.on("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
-    socket.on("NEW_NOTIFICATION", handleNewNotification);
 
     return () => {
       joinedRef.current = false;
@@ -100,9 +91,8 @@ function SocketManager() {
       socket.off("CALL_INCOMING", handleCallIncoming);
       socket.off("CRUSH_RECEIVED", handleCrushReceived);
       socket.off("SUPER_CRUSH_RECEIVED", handleSuperCrushReceived);
-      socket.off("NEW_NOTIFICATION", handleNewNotification);
     };
-  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived, handleNewNotification]);
+  }, [session, handleLiveStarted, handleGiftSent, handleMatchCreated, handleCallIncoming, handleCrushReceived, handleSuperCrushReceived]);
 
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }

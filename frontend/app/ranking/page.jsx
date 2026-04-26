@@ -48,7 +48,7 @@ function getPsychologyMessage(rank, total) {
   if (rank <= 10) return { icon: "🔥", text: `¡Top 10! Estás en posición #${rank}`, color: "#fb923c" };
   if (rank <= 20) return { icon: "⚡", text: `Posición #${rank} — Sube al Top 10`, color: "#22d3ee" };
   if (rank <= 50) return { icon: "🎯", text: `Estás en posición #${rank}. ¡Puedes llegar al Top 20!`, color: "#a78bfa" };
-  return { icon: "🚀", text: `Posición #${rank} — Envía más regalos para subir`, color: "#94a3b8" };
+  return { icon: "🚀", text: `Posición #${rank} — Recibe más regalos para subir`, color: "#94a3b8" };
 }
 
 export default function RankingPage() {
@@ -90,16 +90,23 @@ export default function RankingPage() {
     fetchRanking(period);
   }, [period, fetchRanking]);
 
-  // Compute my rank from the creators list
+  // Compute my rank from the creators list (works for all periods)
+  // For 'week' period, also use server-side rankWeek as fallback
   useEffect(() => {
     if (!myStats) return;
-    // myStats.rankWeek only reflects week. For today/alltime we rely on position in the list.
+    // Try to find the user's own userId in the list
+    // myStats doesn't expose userId directly; use rankWeek for week period
+    // For today/alltime, the server doesn't return the user's position via my-stats,
+    // so we look up in the fetched creators list using the week rank as a hint only.
+    // The most reliable signal: if period === "week", use myStats.rankWeek.
+    // For other periods, we cannot determine rank without a separate request,
+    // so we clear it to avoid showing stale data.
     if (period === "week" && myStats.rankWeek) {
       setMyRank(myStats.rankWeek);
     } else {
       setMyRank(null);
     }
-  }, [period, creators, myStats]);
+  }, [period, myStats]);
 
   const psychMsg = getPsychologyMessage(myRank, creators.length);
 
@@ -132,7 +139,7 @@ export default function RankingPage() {
           <span className="rk-my-icon">{psychMsg.icon}</span>
           <span className="rk-my-text" style={{ color: psychMsg.color }}>{psychMsg.text}</span>
           {myRank && myRank > 10 && (
-            <span className="rk-my-hint">Envía más regalos para subir</span>
+            <span className="rk-my-hint">Recibe más regalos para subir</span>
           )}
         </div>
       )}

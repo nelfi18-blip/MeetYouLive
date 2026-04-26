@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import GiftPanel from "@/components/GiftPanel";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,6 +21,7 @@ export default function ChatConversationPage() {
   const [isMatch, setIsMatch] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState("");
+  const [showGiftPanel, setShowGiftPanel] = useState(false);
   const bottomRef = useRef(null);
 
   const otherName = otherUser?.username || otherUser?.name || "Usuario";
@@ -237,6 +239,17 @@ export default function ChatConversationPage() {
       </div>
 
       <form className="chat-input-bar card" onSubmit={sendMessage}>
+        {otherUser?._id && currentUserId && String(otherUser._id) !== String(currentUserId) && (
+          <button
+            type="button"
+            className="gift-btn-chat"
+            onClick={() => setShowGiftPanel(true)}
+            aria-label="Enviar regalo"
+            title="Enviar regalo 🎁"
+          >
+            🎁
+          </button>
+        )}
         <input
           className="input chat-input"
           type="text"
@@ -254,6 +267,15 @@ export default function ChatConversationPage() {
           {sending ? "…" : "Enviar"}
         </button>
       </form>
+
+      {showGiftPanel && otherUser?._id && (
+        <GiftPanel
+          receiverId={String(otherUser._id)}
+          context="profile"
+          onClose={() => setShowGiftPanel(false)}
+          onGiftSent={() => setShowGiftPanel(false)}
+        />
+      )}
 
       <style jsx>{`
         .chat-page {
@@ -439,6 +461,36 @@ export default function ChatConversationPage() {
           font-size: 0.875rem;
           background: var(--grad-primary);
           box-shadow: 0 2px 12px rgba(255,15,138,0.4);
+        }
+
+        /* Gift button in input bar */
+        .gift-btn-chat {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          flex-shrink: 0;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(224,64,251,0.45);
+          background: rgba(224,64,251,0.1);
+          font-size: 1.1rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          animation: chatGiftGlow 2.5s ease-in-out infinite;
+          font-family: inherit;
+        }
+
+        .gift-btn-chat:hover {
+          background: rgba(224,64,251,0.22);
+          border-color: rgba(224,64,251,0.75);
+          box-shadow: 0 0 14px rgba(224,64,251,0.35);
+          transform: scale(1.08);
+        }
+
+        @keyframes chatGiftGlow {
+          0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
+          50% { box-shadow: 0 0 14px rgba(224,64,251,0.4); }
         }
 
         /* Skeletons */

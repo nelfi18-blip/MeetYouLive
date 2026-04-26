@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { createNotification } = require("../services/notification.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -199,6 +200,23 @@ const sendGift = async (req, res) => {
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
 
+    // Snapshot the current #1 gifter for this live BEFORE this gift is saved
+    // so we can detect a top-fan position change afterwards.
+    let prevTopFanId = null;
+    if (liveId) {
+      try {
+        const topBefore = await Gift.aggregate([
+          { $match: { live: new mongoose.Types.ObjectId(liveId) } },
+          { $group: { _id: "$sender", totalCoins: { $sum: "$coinCost" } } },
+          { $sort: { totalCoins: -1 } },
+          { $limit: 1 },
+        ]);
+        prevTopFanId = topBefore[0]?._id ? String(topBefore[0]._id) : null;
+      } catch {
+        // non-critical — ignore
+      }
+    }
+
     const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
     const giftDoc = await Gift.create({
@@ -264,6 +282,16 @@ const sendGift = async (req, res) => {
 
     res.status(201).json(giftDoc);
 
+    // Gift-received persisted notification (fire-and-forget)
+    const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+    const giftName = giftDoc.giftCatalogItem?.name || "un regalo";
+    createNotification(receiverId, {
+      type: "gift",
+      title: "🎁 Recibiste un regalo",
+      message: `${senderName} te envió ${giftName}`,
+      data: { liveId: liveId || null, giftId: String(giftDoc._id) },
+    }).catch(() => {});
+
     // Push updated top-3 ranking to the live room (fire-and-forget)
     if (liveId) {
       const liveObjId = new mongoose.Types.ObjectId(liveId);
@@ -279,6 +307,29 @@ const sendGift = async (req, res) => {
         const ioInst = getIO();
         if (ioInst) {
           ioInst.to(`live:${liveId}`).emit("LIVE_RANKING_UPDATED", { liveId, topFans });
+        }
+        // Top-fan position change notifications
+        if (topFans.length > 0) {
+          const newTopFanId = String(topFans[0].userId);
+          const senderId = String(req.userId);
+          if (newTopFanId === senderId && prevTopFanId !== senderId) {
+            // Sender just became #1
+            createNotification(senderId, {
+              type: "top_fan",
+              title: "👑 Eres Top Fan",
+              message: "Ahora eres el fan #1 en este live",
+              data: { liveId },
+            }).catch(() => {});
+            // Notify the previous #1 that they lost the spot
+            if (prevTopFanId && prevTopFanId !== senderId) {
+              createNotification(prevTopFanId, {
+                type: "top_fan_lost",
+                title: "⚠️ Perdiste el Top Fan",
+                message: "Alguien te superó, vuelve al live",
+                data: { liveId },
+              }).catch(() => {});
+            }
+          }
         }
       }).catch((err) => console.error("[gift] top-fan ranking push failed:", err));
     }

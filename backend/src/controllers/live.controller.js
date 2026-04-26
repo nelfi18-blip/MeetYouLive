@@ -5,6 +5,7 @@ const Gift = require("../models/Gift.js");
 const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { createBulkNotifications } = require("../services/notification.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -73,6 +74,14 @@ const startLive = async (req, res) => {
         { link: `/live/${String(live._id)}` },
         "live"
       ).catch(() => {});
+
+      // Persisted in-app notifications for followers (fire-and-forget)
+      createBulkNotifications(followerIds, {
+        type: "live",
+        title: "🔴 Live activo",
+        message: `${creatorUsername || "Un creador"} está en vivo ahora`,
+        data: { liveId: String(live._id), creatorId: String(req.userId) },
+      });
     }
 
     res.status(201).json(live);

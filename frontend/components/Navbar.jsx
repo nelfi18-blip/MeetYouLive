@@ -171,7 +171,7 @@ export default function Navbar() {
           )}
 
           {/* Notification bell */}
-          <Link href="/notifications" className="notif-bell" onClick={() => setUnreadCount(0)}>
+          <Link href="/notifications" className="notif-bell">
             <BellIcon />
             {unreadCount > 0 && (
               <span className="notif-bell-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>

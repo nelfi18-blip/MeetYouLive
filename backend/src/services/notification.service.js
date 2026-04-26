@@ -52,9 +52,18 @@ const createBulkNotifications = async (userIds, { type, title, message, data = {
     }
     const io = getIO();
     if (io) {
-      const payload = { type, title, message, data, isRead: false, createdAt: now };
-      for (const userId of userIds) {
-        io.to(String(userId)).emit("NEW_NOTIFICATION", payload);
+      // Emit to each user with their specific document _id so clients can reference it
+      for (let i = 0; i < result.length; i++) {
+        const doc = result[i];
+        io.to(String(doc.userId)).emit("NEW_NOTIFICATION", {
+          _id: doc._id,
+          type,
+          title,
+          message,
+          data,
+          isRead: false,
+          createdAt: now,
+        });
       }
     }
   } catch (err) {

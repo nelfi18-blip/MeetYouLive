@@ -273,7 +273,7 @@ const sendGift = async (req, res) => {
       title: "🎁 Recibiste un regalo",
       message: `${senderName} te envió ${giftName}`,
       data: { liveId: liveId || null, giftId: String(giftDoc._id) },
-    }).catch(() => {});
+    }).catch((err) => console.error("[notifications] gift notification failed:", err.message));
 
     // Push updated top-3 ranking to the live room (fire-and-forget)
     if (liveId) {
@@ -310,7 +310,7 @@ const sendGift = async (req, res) => {
                 title: "👑 Eres Top Fan",
                 message: "Ahora eres el fan #1 en este live",
                 data: { liveId },
-              }).catch(() => {});
+              }).catch((err) => console.error("[notifications] top_fan notification failed:", err.message));
               // Notify the displaced #1 (now #2)
               if (runner) {
                 createNotification(String(runner.userId), {
@@ -318,7 +318,7 @@ const sendGift = async (req, res) => {
                   title: "⚠️ Perdiste el Top Fan",
                   message: "Alguien te superó, vuelve al live",
                   data: { liveId },
-                }).catch(() => {});
+                }).catch((err) => console.error("[notifications] top_fan_lost notification failed:", err.message));
               }
             }
           }

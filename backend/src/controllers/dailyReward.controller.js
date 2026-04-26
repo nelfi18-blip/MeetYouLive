@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const { queueEvent } = require("../services/push.service.js");
+const { addXP, unlockAchievement, getDailyRewardXP } = require("../services/progression.service.js");
 
 // Maximum daily reward coins (awarded at streak >= 30 days)
 const MAX_STREAK_TIER_COINS = 100;
@@ -127,6 +128,15 @@ const claimDailyReward = async (req, res) => {
         },
         { streak: responsePayload.streak, coins: responsePayload.coinsAwarded }
       ).catch(() => {});
+
+      // Award XP and check streak achievements (fire-and-forget)
+      const xpAmount = getDailyRewardXP(responsePayload.streak);
+      addXP(req.userId, xpAmount).catch(() => {});
+      const streak = responsePayload.streak;
+      if (streak >= 30) unlockAchievement(req.userId, "streak_30").catch(() => {});
+      else if (streak >= 14) unlockAchievement(req.userId, "streak_14").catch(() => {});
+      else if (streak >= 7) unlockAchievement(req.userId, "streak_7").catch(() => {});
+      else if (streak >= 3) unlockAchievement(req.userId, "streak_3").catch(() => {});
 
       return res.json(responsePayload);
     } catch (err) {

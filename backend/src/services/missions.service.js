@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const UserMissions = require("../models/UserMissions.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { addXP, unlockAchievement, XP_REWARDS } = require("./progression.service.js");
 
 /**
  * Fixed mission definitions.
@@ -159,6 +160,9 @@ async function tryAwardMissionReward(userId, doc, missionId, def) {
     session.endSession();
   }
 
+  // Award XP (fire-and-forget, outside transaction)
+  addXP(userId, XP_REWARDS.mission_complete).catch(() => {});
+
   return true;
 }
 
@@ -186,6 +190,7 @@ async function tryAwardAllMissionsBonus(userId, date) {
 
   const session = await mongoose.startSession();
   session.startTransaction();
+  let transactionSucceeded = false;
   try {
     await User.findByIdAndUpdate(userId, { $inc: { coins: ALL_MISSIONS_BONUS } }, { session });
     await CoinTransaction.create(
@@ -202,6 +207,7 @@ async function tryAwardAllMissionsBonus(userId, date) {
       { session }
     );
     await session.commitTransaction();
+    transactionSucceeded = true;
   } catch (err) {
     await session.abortTransaction();
     console.error("[missions] Failed to award all-missions bonus:", err.message);
@@ -211,6 +217,12 @@ async function tryAwardAllMissionsBonus(userId, date) {
   } finally {
     session.endSession();
   }
+
+  if (!transactionSucceeded) return;
+
+  // Award bonus XP and unlock achievement (fire-and-forget, outside transaction)
+  addXP(userId, XP_REWARDS.all_missions_bonus).catch(() => {});
+  unlockAchievement(userId, "missions_first").catch(() => {});
 }
 
 /**

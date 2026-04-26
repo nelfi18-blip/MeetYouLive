@@ -35,6 +35,7 @@ const referralRoutes = require("./routes/referral.routes.js");
 const statsRoutes = require("./routes/stats.routes.js");
 const missionsRoutes = require("./routes/missions.routes.js");
 const notificationRoutes = require("./routes/notification.routes.js");
+const progressionRoutes = require("./routes/progression.routes.js");
 
 const app = express();
 
@@ -135,5 +136,6 @@ app.use("/api/referral", referralRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/missions", missionsRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/user", progressionRoutes);
 
 module.exports = app;

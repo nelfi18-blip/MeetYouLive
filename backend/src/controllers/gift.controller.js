@@ -9,6 +9,7 @@ const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createNotification } = require("../services/notification.service.js");
+const { unlockAchievement } = require("../services/progression.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -326,6 +327,8 @@ const sendGift = async (req, res) => {
                 message: "Ahora eres el fan #1 en este live",
                 data: { liveId },
               }).catch((err) => console.error("[notifications] top_fan notification failed:", err.message));
+              // Unlock top-fan achievement (fire-and-forget)
+              unlockAchievement(senderId, "top_fan_first").catch(() => {});
               // Notify the displaced #1 (now #2)
               if (runner) {
                 createNotification(String(runner.userId), {
@@ -381,6 +384,9 @@ const sendGift = async (req, res) => {
 
     // Track gift mission progress (fire-and-forget)
     trackEvent(req.userId, "gift").catch(() => {});
+
+    // Unlock first-gift achievement (fire-and-forget)
+    unlockAchievement(req.userId, "gift_first_sent").catch(() => {});
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });

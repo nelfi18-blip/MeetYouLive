@@ -156,6 +156,10 @@ export default function DailyStreakCard({ onClaimed }) {
         )}
       </div>
 
+      {canClaim && streak > 0 && (
+        <p className="dsc-risk-warn">⚠️ Tu racha está en riesgo — reclama antes de medianoche</p>
+      )}
+
       {claimError && <p className="dsc-error">{claimError}</p>}
 
       <style jsx>{`
@@ -299,6 +303,18 @@ export default function DailyStreakCard({ onClaimed }) {
           font-size: 0.75rem;
           color: #f87171;
           margin: 0;
+        }
+
+        .dsc-risk-warn {
+          width: 100%;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: #fca5a5;
+          margin: 0;
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.25);
+          border-radius: 8px;
+          padding: 0.4rem 0.65rem;
         }
 
         @media (max-width: 480px) {

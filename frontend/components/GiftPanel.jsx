@@ -32,15 +32,20 @@ const CATEGORIES = [
  *  - onClose     {()=>void} Callback to close the panel
  *  - onGiftSent  {(data)=>void} Callback after successful send
  */
-export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent }) {
+export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive }) {
   const router = useRouter();
+
+  /* ── Auth check ────────────────────────────────────────────────────── */
+  const [isLoggedIn] = useState(() =>
+    typeof window !== "undefined" && !!localStorage.getItem("token")
+  );
 
   /* ── State ─────────────────────────────────────────────────────────── */
   const [catalog, setCatalog]           = useState([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
 
-  const [coinBalance, setCoinBalance]   = useState(null);
+  const [coinBalance, setCoinBalance]   = useState(initialCoinBalance ?? null);
   const [activeCategory, setActiveCategory] = useState("popular");
   const [selectedGift, setSelectedGift] = useState(null);
 
@@ -62,8 +67,8 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       .catch((err) => setCatalogError(`No se pudo cargar el catálogo de regalos (${err.message})`))
       .finally(() => setLoadingCatalog(false));
 
-    // Fetch coin balance
-    if (token) {
+    // Fetch coin balance only if not provided by parent and user is logged in
+    if (token && initialCoinBalance === undefined) {
       fetch(`${API_URL}/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -71,6 +76,10 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         .then((data) => { if (data?.coins !== undefined) setCoinBalance(data.coins); })
         .catch(() => {});
     }
+  // Intentionally run only once on mount. `initialCoinBalance` is used only as an
+  // initial seed (captured in useState), so re-running when it changes would cause
+  // duplicate fetches if the parent updates the prop later.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── Filtered gifts for active category ────────────────────────────── */
@@ -80,11 +89,16 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     return catalog.filter((g) => cat.rarities.includes(g.rarity));
   }, [catalog, activeCategory]);
 
-  /* ── Tap a gift card → check balance, show confirm ─────────────────── */
+  /* ── Tap a gift card → check login, balance, show confirm ──────────── */
   const handleSelectGift = (gift) => {
     setSendError("");
     setSendSuccess("");
     setInsufficientCoins(false);
+
+    if (!isLoggedIn) {
+      setSendError("Debes iniciar sesión para enviar regalos");
+      return;
+    }
 
     if (coinBalance !== null && coinBalance < gift.coinCost) {
       setSelectedGift(gift);
@@ -130,7 +144,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
       // Success
       setCoinBalance((prev) => (prev !== null ? prev - selectedGift.coinCost : prev));
-      setSendSuccess(`¡Enviaste ${selectedGift.icon} ${selectedGift.name}!`);
+      setSendSuccess("🎁 ¡Regalo enviado!");
       setShowConfirm(false);
       setSelectedGift(null);
       if (onGiftSent) onGiftSent(data);
@@ -197,6 +211,30 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             </button>
           ))}
         </div>
+
+        {/* ── Not logged in notice ───────────────────────────────────── */}
+        {!isLoggedIn && (
+          <div className="gp-not-logged-in" role="alert">
+            <span className="gp-nli-icon">🔐</span>
+            <div className="gp-nli-text">
+              <strong>Inicia sesión para enviar regalos</strong>
+              <span>Crea una cuenta o inicia sesión para apoyar al creador.</span>
+            </div>
+            <button
+              className="gp-insufficient-btn"
+              onClick={() => router.push("/login")}
+            >
+              Iniciar sesión
+            </button>
+          </div>
+        )}
+
+        {/* ── Creator self-send notice ───────────────────────────────── */}
+        {isOwnLive && (
+          <div className="gp-self-notice" role="status">
+            <span>⚠️ Estás enviando un regalo a tu propio directo.</span>
+          </div>
+        )}
 
         {/* ── Feedback banners ──────────────────────────────────────── */}
         {sendSuccess && (
@@ -515,6 +553,56 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           color: #f87171;
           background: rgba(248,113,113,0.1);
           border: 1px solid rgba(248,113,113,0.22);
+        }
+
+        /* ── Not logged in ────────────────────────────────────────── */
+        .gp-not-logged-in {
+          margin: 0.5rem 1.25rem 0;
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          background: rgba(99,102,241,0.08);
+          border: 1px solid rgba(99,102,241,0.3);
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-shrink: 0;
+        }
+
+        .gp-nli-icon {
+          font-size: 1.4rem;
+          flex-shrink: 0;
+        }
+
+        .gp-nli-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          flex: 1;
+        }
+
+        .gp-nli-text strong {
+          color: #a5b4fc;
+          font-size: 0.82rem;
+          font-weight: 800;
+        }
+
+        .gp-nli-text span {
+          color: rgba(255,255,255,0.55);
+          font-size: 0.75rem;
+        }
+
+        /* ── Creator self-send notice ─────────────────────────────── */
+        .gp-self-notice {
+          margin: 0.5rem 1.25rem 0;
+          padding: 0.55rem 0.9rem;
+          border-radius: 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.08);
+          border: 1px solid rgba(251,191,36,0.25);
+          text-align: center;
+          flex-shrink: 0;
         }
 
         /* ── Insufficient coins ───────────────────────────────────── */

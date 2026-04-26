@@ -1295,7 +1295,7 @@ export default function LiveRoomPage() {
         <div className="quick-dock">
           <button className="dock-btn dock-gift" onClick={() => setShowGiftPanel(true)}>
             <span className="dock-icon">🎁</span>
-            <span className="dock-label">Regalo</span>
+            <span className="dock-label">Enviar regalo</span>
           </button>
           {privateCallEnabled ? (
             <button
@@ -1324,6 +1324,8 @@ export default function LiveRoomPage() {
           context="live"
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={handleGiftSent}
+          initialCoinBalance={coinBalance}
+          isOwnLive={isCreator}
         />
       ) : null}
 

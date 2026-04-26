@@ -194,8 +194,10 @@ const respondCall = async (req, res) => {
       if (call.type === "paid_creator" && call.callCoins > 0) {
         const fullCreatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
 
-        // Look up the canonical AgencyRelationship for the percentage at this moment
-        const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
+        // Look up the canonical AgencyRelationship for the percentage at this moment.
+        // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
+        // matching the same safety rule enforced in gift.controller.js.
+        const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
         let creatorNetShare = fullCreatorShare;
         let agencyShare = 0;
         let referrerId = null;
@@ -442,8 +444,10 @@ const tickCall = async (req, res) => {
     const pricePerMinute = call.callCoins;
     const fullCreatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
 
-    // Look up the canonical AgencyRelationship for the percentage at this moment
-    const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active" });
+    // Look up the canonical AgencyRelationship for the percentage at this moment.
+    // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
+    // matching the same safety rule enforced in gift.controller.js.
+    const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
     let creatorNetShare = fullCreatorShare;
     let agencyShare = 0;
     let referrerId = null;

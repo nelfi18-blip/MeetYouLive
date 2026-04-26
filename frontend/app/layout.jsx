@@ -33,7 +33,7 @@ export const metadata = {
     siteName: "MeetYouLive",
     images: [
       {
-        url: "/logo.svg",
+        url: "/icon-512.png",
         width: 512,
         height: 512,
       },

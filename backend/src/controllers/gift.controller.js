@@ -343,82 +343,6 @@ const getReceivedGifts = async (req, res) => {
   }
 };
 
-// POST /api/gifts/send — accepts giftSlug instead of giftId
-const sendGiftBySlug = async (req, res) => {
-  const { giftSlug, receiverId, context, contextId } = req.body;
-  if (!receiverId || !giftSlug) {
-    return res.status(400).json({ message: "receiverId y giftSlug son requeridos" });
-  }
-
-  if (String(req.userId) === String(receiverId)) {
-    return res.status(400).json({ message: "No puedes enviarte un regalo a ti mismo" });
-  }
-
-  let catalogItem;
-  try {
-    catalogItem = await GiftCatalog.findOne({ slug: giftSlug, active: true });
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-  if (!catalogItem) {
-    return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
-  }
-
-  const amount = catalogItem.coinCost;
-
-  const session = await mongoose.startSession();
-  let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
-  try {
-    await session.withTransaction(async () => {
-      transferResult = await transferCoins(req.userId, receiverId, amount, session);
-    });
-
-    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
-    const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-
-    const resolvedContext = context || "profile";
-    const resolvedContextId = contextId || null;
-    const giftDoc = await Gift.create({
-      sender: req.userId,
-      receiver: receiverId,
-      giftCatalogItem: catalogItem._id,
-      coinCost: amount,
-      creatorShare: effectiveCreatorShare,
-      platformShare,
-      agencyShare: agencyShare || 0,
-      referrerId: referrerId || undefined,
-      agencyPercentageApplied: agencyPercentageApplied || 0,
-      context: resolvedContext,
-      contextId: resolvedContextId,
-    });
-    await giftDoc.populate("sender", "username name");
-    await giftDoc.populate("giftCatalogItem", "name icon coinCost");
-
-    recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id);
-
-    if (agencyShare > 0 && referrerId) {
-      CoinTransaction.create({
-        userId: referrerId,
-        type: "agency_earned",
-        amount: agencyShare,
-        reason: `Comisión de agencia por regalo de ${req.userId}`,
-        status: "completed",
-        metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
-      }).catch((err) => console.error("[agency tx] Failed to record agency earning:", err));
-    }
-
-    res.status(201).json(giftDoc);
-
-    // Track gift mission progress (fire-and-forget)
-    trackEvent(req.userId, "gift").catch(() => {});
-  } catch (err) {
-    const status = err.status || 500;
-    res.status(status).json({ message: err.message });
-  } finally {
-    session.endSession();
-  }
-};
-
 // ── Admin: gift catalog management ────────────────────────────────────────────
 
 const adminGetCatalog = async (req, res) => {
@@ -483,7 +407,6 @@ const adminDeleteCatalogItem = async (req, res) => {
 
 module.exports = {
   sendGift,
-  sendGiftBySlug,
   getReceivedGifts,
   getGiftCatalog,
   adminGetCatalog,

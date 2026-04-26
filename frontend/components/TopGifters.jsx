@@ -53,8 +53,6 @@ export default function TopGifters({ liveId, refreshTrigger }) {
       .finally(() => setLoading(false));
   }, [liveId, refreshTrigger]);
 
-  if (!loading && gifters.length === 0) return null;
-
   return (
     <div className="top-gifters">
       <div className="tg-header">
@@ -68,6 +66,13 @@ export default function TopGifters({ liveId, refreshTrigger }) {
           ? [...Array(3)].map((_, i) => (
               <div key={`tg-skeleton-${i}`} className="tg-skeleton" />
             ))
+          : gifters.length === 0
+          ? (
+              <div className="tg-empty">
+                <span className="tg-empty-icon">⭐</span>
+                <span className="tg-empty-text">Sé el primer fan</span>
+              </div>
+            )
           : gifters.map((g, i) => {
               const cfg = RANK_CFG[i] || RANK_CFG[2];
               const displayName = g.username || g.name || "Anónimo";
@@ -175,6 +180,23 @@ export default function TopGifters({ liveId, refreshTrigger }) {
           display: flex;
           flex-direction: column;
           gap: 0.4rem;
+        }
+
+        .tg-empty {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 0.6rem;
+          opacity: 0.7;
+        }
+
+        .tg-empty-icon { font-size: 1rem; }
+
+        .tg-empty-text {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          letter-spacing: 0.03em;
         }
 
         .tg-skeleton {

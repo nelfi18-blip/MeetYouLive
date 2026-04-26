@@ -74,9 +74,18 @@ export default function LiveRoomPage() {
   // Live engagement event (x2 coins, boost, etc.)
   const [activeEvent, setActiveEvent] = useState(null);
 
+  // Countdown seconds for last_boost events (for urgency banner)
+  const [boostSecondsLeft, setBoostSecondsLeft] = useState(null);
+
   // Top fan tracking: userId → totalCoins (for chat badge highlighting)
   const topFanMapRef = useRef({});
-  const [topFanUserId, setTopFanUserId] = useState(null);
+  // Top fan name lookup: userId → username
+  const topFanNamesRef = useRef({});
+  // Top 3 fan user IDs sorted by spend (index 0 = #1 fan)
+  const [topFanIds, setTopFanIds] = useState([]);
+
+  // Viewer coin balance (for low-coin CTA)
+  const [coinBalance, setCoinBalance] = useState(null);
 
   // Ref for the gift toast component
   const giftToastRef = useRef(null);
@@ -87,14 +96,12 @@ export default function LiveRoomPage() {
   // Seen gift IDs for dedup
   const seenGiftIdsRef = useRef(new Set());
 
-  /** Recompute the current top fan userId from the local coins map. */
-  const computeTopFan = (map) => {
-    let bestId = null;
-    let bestCoins = 0;
-    for (const [uid, coins] of Object.entries(map)) {
-      if (coins > bestCoins) { bestCoins = coins; bestId = uid; }
-    }
-    return bestId;
+  /** Recompute the top 3 fan userIds from the local coins map (highest spenders first). */
+  const computeTopFans = (map) => {
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([uid]) => uid);
   };
 
   const addOverlayEvent = useCallback((type, icon, text) => {
@@ -138,6 +145,7 @@ export default function LiveRoomPage() {
       .then((data) => {
         if (data?._id) setCurrentUserId(String(data._id));
         if (data?.username || data?.name) setCurrentUsername(data.username || data.name || "");
+        if (data?.coins !== undefined) setCoinBalance(data.coins);
       })
       .catch(() => {})
       .finally(() => setMeLoaded(true));
@@ -160,6 +168,21 @@ export default function LiveRoomPage() {
       setViewerCount(live.viewerCount ?? live.viewers ?? 0);
     }
   }, [live]);
+
+  // Countdown timer for last_boost live events (drives urgency banner)
+  useEffect(() => {
+    if (!activeEvent?.expiresAt) {
+      setBoostSecondsLeft(null);
+      return;
+    }
+    const updateCountdown = () => {
+      const diff = Math.max(0, Math.ceil((new Date(activeEvent.expiresAt) - Date.now()) / 1000));
+      setBoostSecondsLeft(diff);
+    };
+    updateCountdown();
+    const timerId = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timerId);
+  }, [activeEvent?.expiresAt]);
 
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -214,7 +237,8 @@ export default function LiveRoomPage() {
       // Update top fan map
       if (senderId && gift.coinCost > 0) {
         topFanMapRef.current[senderId] = (topFanMapRef.current[senderId] || 0) + gift.coinCost;
-        setTopFanUserId(computeTopFan(topFanMapRef.current));
+        if (senderName) topFanNamesRef.current[senderId] = senderName;
+        setTopFanIds(computeTopFans(topFanMapRef.current));
       }
 
       // Trigger gift animation effect for all viewers
@@ -293,13 +317,16 @@ export default function LiveRoomPage() {
     // Live ranking push from server (more efficient than polling)
     const onRankingUpdated = ({ topFans }) => {
       if (!Array.isArray(topFans) || topFans.length === 0) return;
-      // Update local top fan map from server data
+      // Update local top fan map and names from server data
       const newMap = {};
       for (const fan of topFans) {
-        if (fan.userId) newMap[String(fan.userId)] = fan.totalCoins || 0;
+        if (fan.userId) {
+          newMap[String(fan.userId)] = fan.totalCoins || 0;
+          if (fan.username) topFanNamesRef.current[String(fan.userId)] = fan.username;
+        }
       }
       topFanMapRef.current = { ...topFanMapRef.current, ...newMap };
-      if (topFans[0]?.userId) setTopFanUserId(String(topFans[0].userId));
+      setTopFanIds(computeTopFans(topFanMapRef.current));
       setGiftRefreshTrigger((n) => n + 1);
     };
 
@@ -539,7 +566,10 @@ export default function LiveRoomPage() {
       // Update local top fan map for the sender
       if (currentUserId && gift.coinCost > 0) {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
-        setTopFanUserId(computeTopFan(topFanMapRef.current));
+        if (currentUsername) topFanNamesRef.current[currentUserId] = currentUsername;
+        setTopFanIds(computeTopFans(topFanMapRef.current));
+        // Deduct from local coin balance to reflect spend immediately
+        setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
       }
     }
 
@@ -834,6 +864,15 @@ export default function LiveRoomPage() {
         </div>
       )}
 
+      {/* ── Last-boost urgency countdown bar ── */}
+      {activeEvent?.type === "last_boost" && boostSecondsLeft !== null && boostSecondsLeft <= 30 && (
+        <div className="urgency-countdown-bar" role="alert">
+          <span className="ucb-icon">⏳</span>
+          <span className="ucb-text">¡Últimos {boostSecondsLeft} segundos para llegar a la meta!</span>
+          <span className="ucb-fire">🔥</span>
+        </div>
+      )}
+
       {/* ── Gift toast (absolute-positioned, rendered via ref) ── */}
       <LiveGiftToast ref={giftToastRef} minCoins={50} />
 
@@ -1104,12 +1143,45 @@ export default function LiveRoomPage() {
 
           {/* ── Battle Panel (below stream info in main column) ── */}
           <LiveBattlePanel liveId={id} isCreator={isCreator} />
+
+          {/* ── Creator prompts panel ── */}
+          {isCreator && (
+            <div className="creator-prompts">
+              <div className="cp-header">💡 Sugerencias para ti</div>
+              <div className="cp-list">
+                <div className="cp-item">🎯 Activa una meta para motivar a tus fans</div>
+                <div className="cp-item">💬 Invita a tus fans a completar el objetivo</div>
+                <div className="cp-item">⚔️ Inicia una batalla para aumentar regalos</div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="room-chat">
           <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
+
+          {/* ── Fan del live VIP card ── */}
+          {topFanIds.length > 0 && topFanNamesRef.current[topFanIds[0]] && (
+            <div className="fan-del-live">
+              <span className="fdl-crown">👑</span>
+              <div className="fdl-info">
+                <span className="fdl-label">Fan del live</span>
+                <span className="fdl-name">@{topFanNamesRef.current[topFanIds[0]]}</span>
+              </div>
+              <span className="fdl-badge">💎 VIP</span>
+            </div>
+          )}
+
           {/* ── Live Goal Panel (below top gifters in chat sidebar) ── */}
           <LiveGoalPanel liveId={id} />
+
+          {/* ── Low-coin CTA (viewer only, non-intrusive) ── */}
+          {!isCreator && coinBalance !== null && coinBalance < 50 && (
+            <Link href="/coins" className="low-coins-cta">
+              🪙 Saldo bajo · <strong>Compra coins para apoyar</strong>
+            </Link>
+          )}
+
           <div className="chat-header">
             <span className="chat-header-icon">💬</span>
             <span>Chat en vivo</span>
@@ -1135,18 +1207,19 @@ export default function LiveRoomPage() {
             )}
 
             {chatMessages.map((msg) => {
-              const isTopFan = !msg.system && msg.userId && topFanUserId && msg.userId === topFanUserId;
+              const fanRank = !msg.system && msg.userId ? topFanIds.indexOf(msg.userId) : -1;
+              const FAN_MEDALS = ["👑", "🥈", "🥉"];
               return (
                 <div
                   key={msg.id}
-                  className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}${isTopFan ? " chat-msg-top-fan" : ""}`}
+                  className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}${fanRank === 0 ? " chat-msg-top-fan" : fanRank > 0 ? " chat-msg-vip-fan" : ""}`}
                 >
                   {msg.system ? (
                     <span className="chat-text-system">{msg.text}</span>
                   ) : msg.isGift ? (
                     <>
                       <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
-                      {isTopFan && <span className="chat-crown" title="Top Fan">👑</span>}
+                      {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
                       <span className="chat-user chat-user-gift">{msg.user}</span>
                       <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
                       {msg.gift?.coinCost > 0 && (
@@ -1155,7 +1228,7 @@ export default function LiveRoomPage() {
                     </>
                   ) : (
                     <>
-                      {isTopFan && <span className="chat-crown" title="Top Fan">👑</span>}
+                      {fanRank >= 0 && <span className="chat-crown" title={fanRank === 0 ? "Top Fan" : `Fan #${fanRank + 1}`}>{FAN_MEDALS[fanRank]}</span>}
                       <span className="chat-user">{msg.user}</span>
                       <span className="chat-text">{msg.text}</span>
                     </>
@@ -1229,6 +1302,169 @@ export default function LiveRoomPage() {
           display: flex;
           flex-direction: column;
           gap: 0;
+        }
+
+        /* ── Urgency countdown bar ── */
+        .urgency-countdown-bar {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+          padding: 0.5rem 1rem;
+          margin-bottom: 0.5rem;
+          background: linear-gradient(90deg, rgba(220,38,38,0.9) 0%, rgba(185,28,28,0.9) 100%);
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(255,255,255,0.15);
+          animation: ucbSlide 0.35s ease both, ucbPulse 0.65s ease-in-out infinite;
+          box-shadow: 0 0 28px rgba(220,38,38,0.55);
+        }
+
+        @keyframes ucbSlide {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes ucbPulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(220,38,38,0.4); }
+          50%       { box-shadow: 0 0 38px rgba(220,38,38,0.75); }
+        }
+
+        .ucb-icon { font-size: 1.15rem; flex-shrink: 0; animation: ucbIconBounce 0.7s ease-in-out infinite; }
+        @keyframes ucbIconBounce {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.2); }
+        }
+
+        .ucb-text {
+          flex: 1;
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: #fff;
+          text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+          letter-spacing: 0.01em;
+        }
+
+        .ucb-fire { font-size: 1.1rem; flex-shrink: 0; }
+
+        /* ── Fan del live card ── */
+        .fan-del-live {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
+          margin-bottom: 0.4rem;
+          background: linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(245,158,11,0.08) 100%);
+          border: 1px solid rgba(251,191,36,0.35);
+          border-radius: var(--radius-sm);
+          box-shadow: 0 0 14px rgba(251,191,36,0.1);
+          animation: fdlIn 0.4s ease both;
+        }
+
+        @keyframes fdlIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .fdl-crown { font-size: 1.1rem; flex-shrink: 0; animation: crownFloat 2s ease-in-out infinite; }
+
+        @keyframes crownFloat {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(-3px); }
+        }
+
+        .fdl-info { flex: 1; display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+
+        .fdl-label {
+          font-size: 0.58rem;
+          font-weight: 700;
+          color: rgba(251,191,36,0.8);
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .fdl-name {
+          font-size: 0.76rem;
+          font-weight: 800;
+          color: #fde68a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .fdl-badge {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.15);
+          border: 1px solid rgba(251,191,36,0.45);
+          border-radius: 999px;
+          padding: 0.15rem 0.5rem;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        /* ── Low-coins CTA ── */
+        .low-coins-cta {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.75rem;
+          margin-bottom: 0.4rem;
+          background: rgba(251,191,36,0.06);
+          border: 1px solid rgba(251,191,36,0.25);
+          border-radius: var(--radius-sm);
+          font-size: 0.75rem;
+          color: #fbbf24;
+          text-decoration: none;
+          transition: background 0.18s, border-color 0.18s;
+        }
+
+        .low-coins-cta:hover {
+          background: rgba(251,191,36,0.12);
+          border-color: rgba(251,191,36,0.45);
+        }
+
+        /* ── Creator prompts panel ── */
+        .creator-prompts {
+          background: linear-gradient(135deg, rgba(12,6,28,0.9) 0%, rgba(22,10,46,0.9) 100%);
+          border: 1px solid rgba(139,92,246,0.22);
+          border-radius: var(--radius-sm);
+          padding: 0.65rem 0.85rem;
+          animation: cpIn 0.35s ease both;
+        }
+
+        @keyframes cpIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .cp-header {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #a78bfa;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin-bottom: 0.5rem;
+        }
+
+        .cp-list { display: flex; flex-direction: column; gap: 0.3rem; }
+
+        .cp-item {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          padding: 0.3rem 0.45rem;
+          border-radius: 6px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.04);
+        }
+
+        /* ── VIP fan chat highlight (rank 2-3) ── */
+        .chat-msg-vip-fan {
+          background: rgba(192,132,252,0.04);
+          border-left: 2px solid rgba(192,132,252,0.3);
+          border-radius: 0 0.5rem 0.5rem 0;
+          padding-left: 0.45rem;
         }
 
         .room-layout {

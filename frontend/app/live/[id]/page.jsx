@@ -137,6 +137,8 @@ export default function LiveRoomPage() {
   const prevCoinBalanceRef = useRef(null);
   // Prevent the goal_urgent trigger from firing more than once per boost event
   const boostPaywallTriggeredRef = useRef(false);
+  // Tracks whether the current user is the creator of this live room (kept in sync via effect)
+  const isCreatorRef = useRef(false);
 
   /** Recompute the top 3 fan userIds from the local coins map (highest spenders first). */
   const computeTopFans = (map) => {
@@ -195,14 +197,13 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!currentUserId || !meLoaded) return;
     if (coinBalance === null) return;
-    const isCreatorCheck = !!(live?.user?._id && currentUserId === String(live.user._id));
-    if (isCreatorCheck) { prevCoinBalanceRef.current = coinBalance; return; }
+    if (isCreatorRef.current) { prevCoinBalanceRef.current = coinBalance; return; }
     const prev = prevCoinBalanceRef.current;
     prevCoinBalanceRef.current = coinBalance;
     if (prev !== null && prev >= 50 && coinBalance < 50) {
       triggerPaywall("low_coins");
     }
-  }, [coinBalance, currentUserId, meLoaded, live, triggerPaywall]);
+  }, [coinBalance, currentUserId, meLoaded, triggerPaywall]);
 
   // Reset boost paywall guard when a new last_boost event becomes active
   useEffect(() => {
@@ -216,13 +217,17 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!currentUserId || !meLoaded) return;
     if (!boostSecondsLeft || boostSecondsLeft > 30) return;
-    const isCreatorCheck = !!(live?.user?._id && currentUserId === String(live.user._id));
-    if (isCreatorCheck) return;
+    if (isCreatorRef.current) return;
     if (!boostPaywallTriggeredRef.current) {
       boostPaywallTriggeredRef.current = true;
       triggerPaywall("goal_urgent");
     }
-  }, [boostSecondsLeft, currentUserId, meLoaded, live, triggerPaywall]);
+  }, [boostSecondsLeft, currentUserId, meLoaded, triggerPaywall]);
+
+  // Keep isCreatorRef in sync whenever currentUserId or live data changes
+  useEffect(() => {
+    isCreatorRef.current = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
+  }, [currentUserId, live]);
 
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);

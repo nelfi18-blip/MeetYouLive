@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 const CONFIGS = {
@@ -36,6 +36,8 @@ const CONFIGS = {
   },
 };
 
+const AUTO_DISMISS_MS = 8000;
+
 /**
  * PaywallModal
  *
@@ -50,7 +52,14 @@ const CONFIGS = {
  */
 export default function PaywallModal({ reason, onClose }) {
   const [visible, setVisible] = useState(false);
-  const timerRef = useRef(null);
+  // Keep onClose in a ref so callbacks always call the latest version
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    setTimeout(() => onCloseRef.current?.(), 350); // wait for slide-out animation
+  }, []);
 
   // Animate in on mount
   useEffect(() => {
@@ -58,17 +67,11 @@ export default function PaywallModal({ reason, onClose }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Auto-dismiss after 8 s
+  // Auto-dismiss after AUTO_DISMISS_MS
   useEffect(() => {
-    timerRef.current = setTimeout(() => handleClose(), 8000);
-    return () => clearTimeout(timerRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(() => onClose?.(), 350); // wait for slide-out animation
-  };
+    const timer = setTimeout(handleClose, AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [handleClose]);
 
   const cfg = CONFIGS[reason] || CONFIGS.low_coins;
 
@@ -243,3 +246,4 @@ export default function PaywallModal({ reason, onClose }) {
     </>
   );
 }
+

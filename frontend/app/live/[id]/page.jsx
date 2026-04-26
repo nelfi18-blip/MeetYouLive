@@ -122,6 +122,18 @@ export default function LiveRoomPage() {
       .map(([uid]) => uid);
   };
 
+  /**
+   * Returns true if the gift warrants a boost-moment pressure hint.
+   * Extracted to avoid duplication between socket and sender-side paths.
+   */
+  const isBoostGift = (quantity, rarity) => {
+    const EPIC_PLUS = ["epic", "legendary", "mythic"];
+    return quantity >= 10 || EPIC_PLUS.includes(rarity);
+  };
+
+  const boostSubtext = (quantity) =>
+    quantity >= 50 ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
+
   const addOverlayEvent = useCallback((type, icon, text) => {
     const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
     setOverlayEvents((prev) => [...prev, { id: overlayEventId, type, icon, text }]);
@@ -235,9 +247,9 @@ export default function LiveRoomPage() {
     } else if (wasTopFan && !isTopFan) {
       // User just LOST their top fan position
       showPressureHint("lost_top_fan", "⚠️", "Perdiste el Top Fan", "Envía más regalos para recuperarlo");
-    } else if (!isTopFan && topFanIds.length > 0) {
-      // Check proximity: if user has > 70% of what the 3rd fan spent, tease them
-      const thirdFanCoins = topFanMapRef.current[topFanIds[topFanIds.length - 1]] || 0;
+    } else if (!isTopFan && topFanIds.length >= 3) {
+      // All 3 top fan slots taken — check proximity to the 3rd-place fan
+      const thirdFanCoins = topFanMapRef.current[topFanIds[2]] || 0;
       const myCoins = topFanMapRef.current[currentUserId] || 0;
       if (thirdFanCoins > 0 && myCoins > 0 && myCoins >= thirdFanCoins * 0.7) {
         const needed = Math.max(0, thirdFanCoins - myCoins + 1);
@@ -251,8 +263,7 @@ export default function LiveRoomPage() {
     }
 
     prevTopFanIdsRef.current = topFanIds;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topFanIds, currentUserId, meLoaded]);
+  }, [topFanIds, currentUserId, meLoaded, showPressureHint]);
 
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -364,10 +375,8 @@ export default function LiveRoomPage() {
       // ── Pressure signals ────────────────────────────────────────────────────
 
       // Boost moment: big quantity or high rarity
-      const isEpicPlus = ["epic", "legendary", "mythic"].includes(effectRarity);
-      if (quantity >= 10 || isEpicPlus) {
-        const boostSubtext = quantity >= 50 ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
-        showPressureHint("boost_moment", "💥", "MOMENTO ÉPICO", boostSubtext);
+      if (isBoostGift(quantity, effectRarity)) {
+        showPressureHint("boost_moment", "💥", "MOMENTO ÉPICO", boostSubtext(quantity));
       }
 
       // Activity signal: track unique gifters in last 10 s
@@ -713,8 +722,7 @@ export default function LiveRoomPage() {
 
       // Boost moment for the sender on big gifts
       const senderEffectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
-      const isSenderEpicPlus = ["epic", "legendary", "mythic"].includes(senderEffectRarity);
-      if (quantity >= 10 || isSenderEpicPlus) {
+      if (isBoostGift(quantity, senderEffectRarity)) {
         showPressureHint(
           "boost_moment",
           "💥",

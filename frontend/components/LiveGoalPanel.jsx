@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -11,10 +11,10 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
   const prevProgressRef = useRef(0);
   const [bump, setBump] = useState(false);
 
-  const updateGoal = (data) => {
+  const updateGoal = useCallback((data) => {
     setGoal(data);
     if (typeof onGoalChange === "function") onGoalChange(data);
-  };
+  }, [onGoalChange]);
 
   // Fetch initial goal state
   useEffect(() => {
@@ -29,8 +29,7 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
       })
       .catch((err) => console.error("[LiveGoalPanel] fetch goal failed:", err))
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId]);
+  }, [liveId, updateGoal]);
 
   // Listen for real-time goal updates
   useEffect(() => {
@@ -45,8 +44,7 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
     };
     socket.on("LIVE_GOAL_UPDATED", onGoalUpdated);
     return () => socket.off("LIVE_GOAL_UPDATED", onGoalUpdated);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId]);
+  }, [liveId, updateGoal]);
 
   if (loading || !goal || !goal.active || goal.target <= 0) return null;
 

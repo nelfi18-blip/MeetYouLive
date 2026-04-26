@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 const INVITER_REWARD = 50;
 const INVITED_REWARD = 20;
@@ -123,6 +124,11 @@ const claimReferral = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // Analytics: referral_converted (fire-and-forget, after transaction commits)
+    trackAnalyticsEvent("referral_converted", String(invited._id), {
+      inviterId: String(invited.referredBy),
+    });
 
     res.json({
       message: "¡Recompensa reclamada! Has recibido monedas por unirte con un código de referido.",

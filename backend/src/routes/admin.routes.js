@@ -34,6 +34,7 @@ const {
   getRevenueMetrics,
   getSettings,
   updateSettings,
+  getMetricsOverview,
 } = require("../controllers/admin.controller.js");
 
 const router = Router();
@@ -154,6 +155,7 @@ router.get("/lives/history", getLiveHistory);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
 router.get("/revenue", getRevenueMetrics);
+router.get("/metrics/overview", getMetricsOverview);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

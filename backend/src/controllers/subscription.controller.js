@@ -1,6 +1,7 @@
 const Stripe = require("stripe");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -71,6 +72,8 @@ const cancelSubscription = async (req, res) => {
     await sub.save();
     // Revoke premium and VIP status immediately on manual cancellation
     await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipExpiresAt: null });
+    // Analytics: vip_canceled (fire-and-forget)
+    trackAnalyticsEvent("vip_canceled", String(req.userId), {});
     res.json({ message: "Suscripción cancelada" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -101,6 +104,10 @@ const handleSubscriptionWebhook = async (event) => {
     );
     // Grant premium and VIP access on successful subscription checkout
     await User.findByIdAndUpdate(userId, { isPremium: true, isVIP: true, vipExpiresAt: periodEnd });
+    // Analytics: vip_subscribed (fire-and-forget)
+    trackAnalyticsEvent("vip_subscribed", userId, {
+      amount_usd: session.amount_total != null ? session.amount_total / 100 : null,
+    });
   }
 
   if (event.type === "invoice.payment_succeeded") {
@@ -138,6 +145,8 @@ const handleSubscriptionWebhook = async (event) => {
     // Revoke premium access and VIP status when subscription is fully deleted in Stripe
     if (sub?.user) {
       await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipExpiresAt: null });
+      // Analytics: vip_canceled (fire-and-forget)
+      trackAnalyticsEvent("vip_canceled", String(sub.user), {});
     }
   }
 

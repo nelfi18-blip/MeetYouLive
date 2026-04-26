@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
@@ -122,6 +123,11 @@ router.post("/register", authLimiter, async (req, res) => {
         : (err && err.message) || "Unknown email error";
       console.error("[register] Failed to send verification email:", detail);
     });
+
+    // Analytics: referral_shared — track that the inviter's link was used (fire-and-forget)
+    if (referredBy) {
+      trackAnalyticsEvent("referral_shared", String(referredBy), { invitedUserId: String(user._id) });
+    }
 
     res.status(201).json({ message: "Cuenta creada. Revisa tu email para verificar tu cuenta.", requiresVerification: true, userId: user._id });
   } catch (err) {

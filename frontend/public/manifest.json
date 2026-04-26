@@ -4,7 +4,7 @@
   "description": "live dating and streaming app",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },

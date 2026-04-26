@@ -11,7 +11,7 @@ const { createBulkNotifications } = require("../services/notification.service.js
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
 
 const startLive = async (req, res) => {
-  const { title, description, category, language, isPrivate, entryCost } = req.body;
+  const { title, description, category, language, isPrivate, entryCost, isVipOnly } = req.body;
   if (!title) return res.status(400).json({ message: "title es requerido" });
 
   let isApprovedCreator = false;
@@ -50,6 +50,7 @@ const startLive = async (req, res) => {
       streamKey,
       isLive: true,
       isPrivate: Boolean(isPrivate),
+      isVipOnly: Boolean(isVipOnly),
       entryCost: costCoins,
     });
 
@@ -161,20 +162,36 @@ const hasLiveAccess = (live, userId) => {
   return live.paidViewers.some((pv) => pv.toString() === userId.toString());
 };
 
+// Helper that checks whether userId has VIP-only access to a live stream
+const hasVipAccess = async (live, userId) => {
+  if (!live.isVipOnly) return true;
+  if (!userId) return false;
+  const creatorId = live.user._id ? live.user._id.toString() : live.user.toString();
+  if (creatorId === userId.toString()) return true;
+  const user = await User.findById(userId).select("isVIP").lean();
+  return !!(user && user.isVIP);
+};
+
 const getLiveById = async (req, res) => {
   try {
     const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
 
     const access = hasLiveAccess(live, req.userId);
+    const vipAccess = await hasVipAccess(live, req.userId);
     const liveObj = live.toObject();
     delete liveObj.paidViewers;
 
     if (!access) {
       delete liveObj.streamKey;
       liveObj.hasAccess = false;
+    } else if (!vipAccess) {
+      delete liveObj.streamKey;
+      liveObj.hasAccess = true;
+      liveObj.hasVipAccess = false;
     } else {
       liveObj.hasAccess = true;
+      liveObj.hasVipAccess = true;
     }
 
     res.json(liveObj);
@@ -260,11 +277,12 @@ const getMyLives = async (req, res) => {
 
 const updateLiveSettings = async (req, res) => {
   try {
-    const { chatEnabled, giftsEnabled, isPrivate } = req.body;
+    const { chatEnabled, giftsEnabled, isPrivate, isVipOnly } = req.body;
     const update = {};
     if (typeof chatEnabled === "boolean") update.chatEnabled = chatEnabled;
     if (typeof giftsEnabled === "boolean") update.giftsEnabled = giftsEnabled;
     if (typeof isPrivate === "boolean") update.isPrivate = isPrivate;
+    if (typeof isVipOnly === "boolean") update.isVipOnly = isVipOnly;
 
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ message: "No hay cambios válidos para aplicar" });

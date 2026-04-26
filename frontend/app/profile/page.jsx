@@ -674,6 +674,9 @@ export default function ProfilePage() {
                     {user.isVerified && (
                       <span className="role-badge verified" title="Identidad verificada">✓ Verificado</span>
                     )}
+                    {user.isVIP && (
+                      <span className="role-badge vip" title="Usuario VIP">💎 VIP</span>
+                    )}
                   </div>
                   {(() => {
                     const badges = computeStatusBadges(user, { isBoosted });
@@ -1049,27 +1052,41 @@ export default function ProfilePage() {
           {/* Referral promo */}
           <ReferralCard />
 
-          {/* Premium upsell */}
-          <div className="premium-upsell-card">
-            <div className="premium-upsell-header">
-              <span className="premium-upsell-gem">💎</span>
-              <div>
-                <h2 className="premium-upsell-title">Desbloquea más con monedas</h2>
-                <p className="premium-upsell-sub">Accede a funciones exclusivas y destaca entre todos</p>
+          {/* VIP upsell / status card */}
+          {user.isVIP ? (
+            <div className="premium-upsell-card" style={{ borderColor: "rgba(251,191,36,0.5)", background: "linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(224,64,251,0.08) 100%)" }}>
+              <div className="premium-upsell-header">
+                <span className="premium-upsell-gem">💎</span>
+                <div>
+                  <h2 className="premium-upsell-title">Eres VIP 💎</h2>
+                  <p className="premium-upsell-sub">Disfrutas de badge exclusivo, mensajes destacados y acceso a directos VIP</p>
+                </div>
+              </div>
+              <div className="premium-upsell-actions">
+                <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                  ⚙️ Gestionar suscripción
+                </Link>
               </div>
             </div>
-            <div className="premium-upsell-actions">
-              <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
-                🪙 Comprar monedas
-              </Link>
-              <Link href="/matches" className="premium-upsell-btn premium-upsell-btn-ghost">
-                👀 Ver quién te dio like
-              </Link>
-              <Link href="/matches" className="premium-upsell-btn premium-upsell-btn-ghost">
-                ⚡ Llamar ahora
-              </Link>
+          ) : (
+            <div className="premium-upsell-card">
+              <div className="premium-upsell-header">
+                <span className="premium-upsell-gem">💎</span>
+                <div>
+                  <h2 className="premium-upsell-title">Hazte VIP y destaca</h2>
+                  <p className="premium-upsell-sub">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
+                </div>
+              </div>
+              <div className="premium-upsell-actions">
+                <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                  💎 Hazte VIP
+                </Link>
+                <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-ghost">
+                  🪙 Comprar monedas
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Quick actions */}
           <div className="actions-card">
@@ -1654,6 +1671,14 @@ export default function ProfilePage() {
           color: var(--success);
           border-color: rgba(52,211,153,0.3);
           margin-left: 0.35rem;
+        }
+
+        .role-badge.vip {
+          background: rgba(251,191,36,0.12);
+          color: #fbbf24;
+          border-color: rgba(251,191,36,0.35);
+          margin-left: 0.35rem;
+          text-shadow: 0 0 8px rgba(251,191,36,0.4);
         }
 
         /* Interests & Intent */

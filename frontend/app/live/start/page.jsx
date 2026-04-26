@@ -15,6 +15,7 @@ export default function StartLivePage() {
   const [language, setLanguage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [entryCost, setEntryCost] = useState(10);
+  const [isVipOnly, setIsVipOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isApprovedCreator, setIsApprovedCreator] = useState(false);
@@ -78,6 +79,7 @@ export default function StartLivePage() {
           language,
           isPrivate,
           entryCost: isPrivate ? Number(entryCost) : 0,
+          isVipOnly,
         }),
       });
       const data = await res.json();
@@ -238,6 +240,33 @@ export default function StartLivePage() {
               />
             </div>
           )}
+
+          {/* VIP-only toggle */}
+          <div className="form-group">
+            <label className="form-label">Acceso VIP 💎</label>
+            <div className="privacy-toggle">
+              <button
+                type="button"
+                className={`privacy-btn${!isVipOnly ? " active" : ""}`}
+                onClick={() => setIsVipOnly(false)}
+              >
+                🌍 Todos
+              </button>
+              <button
+                type="button"
+                className={`privacy-btn${isVipOnly ? " active" : ""}`}
+                style={isVipOnly ? { borderColor: "rgba(251,191,36,0.6)", background: "rgba(251,191,36,0.15)", color: "#fbbf24" } : {}}
+                onClick={() => setIsVipOnly(true)}
+              >
+                💎 Solo VIP
+              </button>
+            </div>
+            {isVipOnly && (
+              <p className="privacy-hint">
+                Solo usuarios con suscripción VIP 💎 podrán ver este directo.
+              </p>
+            )}
+          </div>
 
           <button
             type="submit"

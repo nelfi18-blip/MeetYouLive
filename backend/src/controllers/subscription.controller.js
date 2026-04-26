@@ -48,7 +48,13 @@ const createSubscriptionSession = async (req, res) => {
 const getSubscriptionStatus = async (req, res) => {
   try {
     const sub = await Subscription.findOne({ user: req.userId });
-    res.json({ status: sub?.status || "inactive", currentPeriodEnd: sub?.currentPeriodEnd });
+    const user = await User.findById(req.userId).select("isVIP vipExpiresAt").lean();
+    res.json({
+      status: sub?.status || "inactive",
+      currentPeriodEnd: sub?.currentPeriodEnd,
+      isVIP: !!(user?.isVIP),
+      vipExpiresAt: user?.vipExpiresAt || null,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -63,8 +69,8 @@ const cancelSubscription = async (req, res) => {
     await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
     sub.status = "canceled";
     await sub.save();
-    // Revoke premium status immediately on manual cancellation
-    await User.findByIdAndUpdate(req.userId, { isPremium: false });
+    // Revoke premium and VIP status immediately on manual cancellation
+    await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipExpiresAt: null });
     res.json({ message: "Suscripción cancelada" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -81,6 +87,7 @@ const handleSubscriptionWebhook = async (event) => {
 
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    const periodEnd = new Date(stripeSubscription.current_period_end * 1000);
     await Subscription.findOneAndUpdate(
       { user: userId },
       {
@@ -88,23 +95,33 @@ const handleSubscriptionWebhook = async (event) => {
         stripeCustomerId: session.customer,
         stripeSubscriptionId: session.subscription,
         status: "active",
-        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+        currentPeriodEnd: periodEnd,
       },
       { upsert: true, new: true }
     );
-    // Grant premium access on successful subscription checkout
-    await User.findByIdAndUpdate(userId, { isPremium: true });
+    // Grant premium and VIP access on successful subscription checkout
+    await User.findByIdAndUpdate(userId, { isPremium: true, isVIP: true, vipExpiresAt: periodEnd });
   }
 
   if (event.type === "invoice.payment_succeeded") {
     // Re-activate premium on successful renewal (e.g. after past_due recovery)
+    const invoiceObj = event.data.object;
+    let periodEnd = null;
+    if (invoiceObj.subscription) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(invoiceObj.subscription);
+        periodEnd = new Date(stripeSub.current_period_end * 1000);
+      } catch (_) {
+        // non-fatal: period end is best-effort for renewal
+      }
+    }
     const sub = await Subscription.findOneAndUpdate(
-      { stripeCustomerId: event.data.object.customer },
-      { status: "active" },
+      { stripeCustomerId: invoiceObj.customer },
+      { status: "active", ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}) },
       { new: true }
     );
     if (sub?.user) {
-      await User.findByIdAndUpdate(sub.user, { isPremium: true });
+      await User.findByIdAndUpdate(sub.user, { isPremium: true, isVIP: true, ...(periodEnd ? { vipExpiresAt: periodEnd } : {}) });
     }
   }
 
@@ -114,9 +131,9 @@ const handleSubscriptionWebhook = async (event) => {
       { status: "canceled" },
       { new: true }
     );
-    // Revoke premium access when subscription is fully deleted in Stripe
+    // Revoke premium access and VIP status when subscription is fully deleted in Stripe
     if (sub?.user) {
-      await User.findByIdAndUpdate(sub.user, { isPremium: false });
+      await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipExpiresAt: null });
     }
   }
 

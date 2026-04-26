@@ -224,7 +224,7 @@ export default function LiveRoomPage() {
       if (updatedId === id) setViewerCount(count);
     };
 
-    const onLiveGiftSent = ({ senderName, senderId, giftId, gift }) => {
+    const onLiveGiftSent = ({ senderName, senderId, giftId, gift, quantity: qty }) => {
       if (!gift) return;
 
       // Dedup: skip if we've already processed this giftId
@@ -241,6 +241,8 @@ export default function LiveRoomPage() {
       // Skip if this user is the sender (they already have immediate local feedback)
       if (senderId && currentUserId && senderId === currentUserId) return;
 
+      const quantity = qty && qty > 1 ? qty : 1;
+
       // Update top fan map
       if (senderId && gift.coinCost > 0) {
         topFanMapRef.current[senderId] = (topFanMapRef.current[senderId] || 0) + gift.coinCost;
@@ -249,7 +251,8 @@ export default function LiveRoomPage() {
       }
 
       // Trigger gift animation effect for all viewers
-      setActiveGiftEffect({ gift, senderName });
+      const effectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
+      setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
@@ -257,18 +260,19 @@ export default function LiveRoomPage() {
 
       giftEffectTimeoutRef.current = setTimeout(
         () => setActiveGiftEffect(null),
-        ["mythic", "legendary"].includes(gift?.rarity) ? 7000 : ["epic", "rare"].includes(gift?.rarity) ? 4500 : 2200,
+        ["mythic", "legendary"].includes(effectRarity) ? 7000 : ["epic", "rare"].includes(effectRarity) ? 4500 : 2200,
       );
       recentGiftTimeoutRef.current = setTimeout(() => setRecentGift(null), 6000);
 
       // Add gift event to the chat / activity feed
+      const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
       setChatMessages((prev) => [
         ...prev,
         {
           id: ++msgCounterRef.current,
           user: senderName,
           userId: senderId || null,
-          text: `${gift.icon || "🎁"} ${gift.name || "regalo"}`,
+          text: `${gift.icon || "🎁"} ${gift.name || "regalo"}${qtyLabel}`,
           gift,
           system: false,
           isGift: true,
@@ -276,7 +280,7 @@ export default function LiveRoomPage() {
       ]);
 
       // Show gift event in the video overlay
-      addOverlayEvent("gift", gift.icon || "🎁", `${senderName} envió ${gift.name || "un regalo"}`);
+      addOverlayEvent("gift", gift.icon || "🎁", `${senderName} envió ${gift.name || "un regalo"}${qtyLabel}`);
 
       // Animated toast notification for high-value gifts
       giftToastRef.current?.push({
@@ -285,6 +289,7 @@ export default function LiveRoomPage() {
         giftName: gift.name || "regalo",
         coinCost: gift.coinCost || 0,
         rarity: gift.rarity || "common",
+        quantity,
       });
 
       // Refresh top gifters leaderboard
@@ -539,6 +544,7 @@ export default function LiveRoomPage() {
     //   2. raw /api/gifts/send response document – has giftCatalogItem + sender fields
     let gift = data?.gift || null;
     let senderName = data?.senderName || null;
+    const quantity = data?.quantity ?? 1;
 
     if (!gift && data?.giftCatalogItem) {
       const cat = data.giftCatalogItem;
@@ -555,7 +561,8 @@ export default function LiveRoomPage() {
     }
 
     if (gift) {
-      setActiveGiftEffect({ gift, senderName });
+      const effectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
+      setActiveGiftEffect({ gift: { ...gift, rarity: effectRarity }, senderName, quantity });
       setRecentGift({ ...gift, senderName });
 
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
@@ -563,7 +570,7 @@ export default function LiveRoomPage() {
 
       giftEffectTimeoutRef.current = setTimeout(() => {
         setActiveGiftEffect(null);
-      }, ["mythic", "legendary"].includes(gift?.rarity) ? 7000 : ["epic", "rare"].includes(gift?.rarity) ? 4500 : 2200);
+      }, ["mythic", "legendary"].includes(effectRarity) ? 7000 : ["epic", "rare"].includes(effectRarity) ? 4500 : 2200);
 
       recentGiftTimeoutRef.current = setTimeout(() => {
         setRecentGift(null);
@@ -575,8 +582,9 @@ export default function LiveRoomPage() {
       // Track for combo overlay (sender side)
       setRecentGiftsForCombo((prev) => [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }]);
 
+      const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
       // Show sender's own gift in the overlay immediately
-      addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}`);
+      addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}${qtyLabel}`);
 
       // Animated toast for sender
       giftToastRef.current?.push({
@@ -585,6 +593,7 @@ export default function LiveRoomPage() {
         giftName: gift.name || "regalo",
         coinCost: gift.coinCost || 0,
         rarity: gift.rarity || "common",
+        quantity,
       });
 
       // Update local top fan map for the sender
@@ -592,18 +601,19 @@ export default function LiveRoomPage() {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
         if (currentUsernameRef.current) topFanNamesRef.current[currentUserId] = currentUsernameRef.current;
         setTopFanIds(computeTopFans(topFanMapRef.current));
-        // Deduct from local coin balance to reflect spend immediately
+        // Deduct total cost from local coin balance to reflect spend immediately
         setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
       }
     }
 
+    const qtyMsgLabel = quantity > 1 ? ` x${quantity}` : "";
     setChatMessages((prev) => [
       ...prev,
       {
         id: ++msgCounterRef.current,
         user: senderName,
         userId: currentUserId || null,
-        text: `${gift?.icon || "🎁"} ${gift?.name || "regalo"}`,
+        text: `${gift?.icon || "🎁"} ${gift?.name || "regalo"}${qtyMsgLabel}`,
         gift,
         system: false,
         isGift: true,
@@ -997,6 +1007,7 @@ export default function LiveRoomPage() {
               <GiftEffect
                 gift={activeGiftEffect.gift}
                 senderName={activeGiftEffect.senderName}
+                quantity={activeGiftEffect.quantity}
               />
             ) : null}
 

@@ -34,11 +34,11 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
   const counterRef = useRef(0);
 
   useImperativeHandle(ref, () => ({
-    push({ senderName, giftIcon, giftName, coinCost, rarity }) {
+    push({ senderName, giftIcon, giftName, coinCost, rarity, quantity }) {
       if (coinCost < minCoins) return;
       const id = `lgt_${++counterRef.current}_${Date.now()}`;
       setToasts((prev) => {
-        const next = [...prev, { id, senderName, giftIcon, giftName, coinCost, rarity }];
+        const next = [...prev, { id, senderName, giftIcon, giftName, coinCost, rarity, quantity: quantity || 1 }];
         return next.slice(-MAX_VISIBLE);
       });
       setTimeout(() => {
@@ -69,6 +69,7 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
               <span className="lgt-text">
                 {" envió "}
                 <strong>{t.giftName || "un regalo"}</strong>
+                {t.quantity > 1 && <span className="lgt-qty"> x{t.quantity}</span>}
               </span>
             </div>
             <span className="lgt-coins" style={{ color: rs.accent }}>
@@ -142,6 +143,13 @@ const LiveGiftToast = forwardRef(function LiveGiftToast({ minCoins = 50 }, ref) 
 
         .lgt-sender {
           font-weight: 800;
+        }
+
+        .lgt-qty {
+          font-size: 0.78rem;
+          font-weight: 900;
+          color: #e040fb;
+          margin-left: 0.15rem;
         }
 
         .lgt-coins {

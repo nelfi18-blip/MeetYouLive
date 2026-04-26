@@ -33,14 +33,18 @@ const SMALL_CFG = {
   epic:     { glow: "0 0 30px rgba(192,132,252,0.55)", border: "1px solid rgba(192,132,252,0.45)",bg: "rgba(28,12,52,0.85)",  duration: "4.5s", iconSize: "2rem"    },
 };
 
-export default function GiftEffect({ gift, senderName }) {
+export default function GiftEffect({ gift, senderName, quantity }) {
   if (!gift) return null;
 
+  const qty = quantity && quantity > 1 ? quantity : 1;
   const rarity = gift.rarity || "common";
-  const isBig = BIG_RARITIES.includes(rarity);
+  // Force big animation for large packs regardless of rarity
+  const isBig = BIG_RARITIES.includes(rarity) || qty >= 10;
+  // For big-pack small-rarity gifts, use epic config as minimum
+  const effectiveRarity = isBig && !BIG_RARITIES.includes(rarity) ? "epic" : rarity;
 
   if (isBig) {
-    const cfg = FULLSCREEN_CFG[rarity];
+    const cfg = FULLSCREEN_CFG[effectiveRarity] || FULLSCREEN_CFG.epic;
     return (
       <>
         <div className="gift-fullscreen" style={{ background: cfg.overlayBg, animationDuration: cfg.duration }}>
@@ -53,6 +57,11 @@ export default function GiftEffect({ gift, senderName }) {
             <div className="gfs-icon" style={{ filter: `drop-shadow(0 0 24px ${cfg.glowColor})` }}>
               {gift.icon || "🎁"}
             </div>
+            {qty > 1 && (
+              <div className="gfs-combo-badge" style={{ background: cfg.glowColor, color: "#fff" }}>
+                x{qty} combo 🔥
+              </div>
+            )}
             <div className="gfs-gift-name" style={{ color: cfg.accent }}>{gift.name || "Regalo"}</div>
             <div className="gfs-sender">
               <span className="gfs-sender-label">enviado por</span>
@@ -62,7 +71,7 @@ export default function GiftEffect({ gift, senderName }) {
             </div>
             {gift.coinCost > 0 && (
               <div className="gfs-coins" style={{ borderColor: cfg.accent }}>
-                🪙 {gift.coinCost} coins
+                🪙 {gift.coinCost} coins{qty > 1 ? ` (x${qty})` : ""}
               </div>
             )}
           </div>
@@ -175,12 +184,28 @@ export default function GiftEffect({ gift, senderName }) {
             background: rgba(0,0,0,0.4);
             letter-spacing: 0.04em;
           }
+
+          .gfs-combo-badge {
+            font-size: 0.9rem;
+            font-weight: 900;
+            padding: 0.25rem 0.85rem;
+            border-radius: 999px;
+            letter-spacing: 0.04em;
+            background: rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: gfs-combo-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+          }
+
+          @keyframes gfs-combo-pop {
+            from { transform: scale(0.4); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+          }
         `}</style>
       </>
     );
   }
 
-  // Small pill for common / uncommon / rare / epic
+  // Small pill for common / uncommon / rare / epic (qty < 10)
   const style = SMALL_CFG[rarity] || SMALL_CFG.common;
 
   return (
@@ -196,7 +221,9 @@ export default function GiftEffect({ gift, senderName }) {
       >
         <div className="gift-icon">{gift.icon || "🎁"}</div>
         <div className="gift-copy">
-          <div className="gift-title">{gift.name || "Regalo"}</div>
+          <div className="gift-title">
+            {gift.name || "Regalo"}{qty > 1 ? <span className="gift-qty-label"> x{qty}</span> : null}
+          </div>
           <div className="gift-subtitle">
             {senderName || "Alguien"} envió un regalo
           </div>
@@ -240,6 +267,13 @@ export default function GiftEffect({ gift, senderName }) {
           font-size: 0.95rem;
           font-weight: 800;
           color: #fff;
+        }
+
+        .gift-qty-label {
+          font-size: 0.8rem;
+          font-weight: 900;
+          color: #e040fb;
+          margin-left: 0.2rem;
         }
 
         .gift-subtitle {

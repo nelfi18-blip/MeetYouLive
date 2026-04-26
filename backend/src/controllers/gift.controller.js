@@ -140,10 +140,19 @@ const getGiftCatalog = async (req, res) => {
   }
 };
 
+const VALID_QUANTITIES = new Set([1, 5, 10, 50]);
+const MAX_QUANTITY = 50;
+
 const sendGift = async (req, res) => {
-  const { receiverId, giftId, giftSlug, liveId, context, contextId, message } = req.body;
+  const { receiverId, giftId, giftSlug, liveId, context, contextId, message, quantity: rawQuantity } = req.body;
   if (!receiverId || (!giftId && !giftSlug)) {
     return res.status(400).json({ message: "receiverId y giftId (o giftSlug) son requeridos" });
+  }
+
+  // Validate quantity: must be one of the allowed pack sizes
+  const quantity = Number.isInteger(rawQuantity) ? rawQuantity : 1;
+  if (!VALID_QUANTITIES.has(quantity) || quantity > MAX_QUANTITY) {
+    return res.status(400).json({ message: "Cantidad inválida. Valores permitidos: 1, 5, 10, 50" });
   }
 
   // Validate receiverId is a proper ObjectId before any comparison/lookup
@@ -186,7 +195,7 @@ const sendGift = async (req, res) => {
     }
   }
 
-  const amount = catalogItem.coinCost;
+  const amount = catalogItem.coinCost * quantity;  // total cost — always calculated server-side
 
   const session = await mongoose.startSession();
   // Declared outside the transaction so it's accessible when building the Gift document
@@ -207,6 +216,8 @@ const sendGift = async (req, res) => {
       receiver: receiverId,
       giftCatalogItem: catalogItem._id,
       live: liveId || undefined,
+      quantity,
+      unitCost: catalogItem.coinCost,
       coinCost: amount,
       creatorShare: effectiveCreatorShare,
       platformShare,
@@ -244,6 +255,7 @@ const sendGift = async (req, res) => {
         giftName: giftDoc.giftCatalogItem?.name || "",
         giftIcon: giftDoc.giftCatalogItem?.icon || "🎁",
         coinCost: amount,
+        quantity,
         liveId: liveId || null,
       });
       // Broadcast to all viewers in the live room so everyone sees the gift effect
@@ -252,10 +264,12 @@ const sendGift = async (req, res) => {
           senderName,
           senderId: String(req.userId),
           giftId: String(giftDoc._id),
+          quantity,
           gift: {
             name: giftDoc.giftCatalogItem?.name || "",
             icon: giftDoc.giftCatalogItem?.icon || "🎁",
             coinCost: amount,
+            unitCost: catalogItem.coinCost,
             rarity: catalogItem.rarity,
           },
           liveId,
@@ -268,10 +282,11 @@ const sendGift = async (req, res) => {
     // Gift-received persisted notification (fire-and-forget)
     const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
     const giftName = giftDoc.giftCatalogItem?.name || "un regalo";
+    const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
     createNotification(receiverId, {
       type: "gift",
       title: "🎁 Recibiste un regalo",
-      message: `${senderName} te envió ${giftName}`,
+      message: `${senderName} te envió ${giftName}${qtyLabel}`,
       data: { liveId: liveId || null, giftId: String(giftDoc._id) },
     }).catch((err) => console.error("[notifications] gift notification failed:", err.message));
 

@@ -13,7 +13,7 @@ export default function LiveGoalPanel({ liveId, onGoalChange }) {
 
   const updateGoal = useCallback((data) => {
     setGoal(data);
-    if (typeof onGoalChange === "function") onGoalChange(data);
+    onGoalChange?.(data);
   }, [onGoalChange]);
 
   // Fetch initial goal state

@@ -39,6 +39,8 @@ const PRESSURE_HINT_MIN_INTERVAL_MS = 6000;   // min time between same-type hint
 const PRESSURE_HINT_DISPLAY_MS      = 4000;   // how long a hint stays visible
 const TOP_FAN_PROXIMITY_THRESHOLD   = 0.7;    // 70% of 3rd fan's coins = "close"
 const GIFT_ACTIVITY_WINDOW_MS       = 10000;  // window for counting unique gifters
+const BOOST_QUANTITY_THRESHOLD      = 10;     // qty >= this triggers a boost moment
+const BOOST_MEGA_THRESHOLD          = 50;     // qty >= this triggers "mega" subtext
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -136,10 +138,10 @@ export default function LiveRoomPage() {
    * Extracted to avoid duplication between socket and sender-side paths.
    */
   const isBoostGift = (quantity, rarity) =>
-    quantity >= 10 || EPIC_PLUS_RARITIES.includes(rarity);
+    quantity >= BOOST_QUANTITY_THRESHOLD || EPIC_PLUS_RARITIES.includes(rarity);
 
   const boostSubtext = (quantity) =>
-    quantity >= 50 ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
+    quantity >= BOOST_MEGA_THRESHOLD ? "🚀 Sigue enviando para ganar" : "🔥 Racha activa";
 
   const addOverlayEvent = useCallback((type, icon, text) => {
     const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
@@ -726,13 +728,13 @@ export default function LiveRoomPage() {
       // ── Pressure signals (sender side) ──────────────────────────────────────
 
       // Boost moment for the sender on big gifts
-      const senderEffectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
+      const senderEffectRarity = quantity >= BOOST_MEGA_THRESHOLD ? "mythic" : quantity >= BOOST_QUANTITY_THRESHOLD ? "epic" : gift.rarity;
       if (isBoostGift(quantity, senderEffectRarity)) {
         showPressureHint(
           "boost_moment",
           "💥",
           "MOMENTO ÉPICO",
-          quantity >= 50 ? "🚀 ¡Eres increíble!" : "🔥 El live explota contigo"
+          quantity >= BOOST_MEGA_THRESHOLD ? "🚀 ¡Eres increíble!" : "🔥 El live explota contigo"
         );
       }
 

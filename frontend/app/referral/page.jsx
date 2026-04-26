@@ -168,7 +168,7 @@ export default function ReferralPage() {
             </li>
             <li className="req-item">
               <span className="req-bullet">2</span>
-              <span>Completa su perfil <strong>o</strong> inicia sesión 2 veces</span>
+              <span>Completa su perfil <strong>o</strong> inicia sesión al menos 2 veces (cualquiera de las dos vale)</span>
             </li>
             <li className="req-item">
               <span className="req-bullet">3</span>

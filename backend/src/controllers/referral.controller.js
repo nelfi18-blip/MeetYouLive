@@ -154,7 +154,7 @@ const getMyInvites = async (req, res) => {
     res.json({
       invites: invites.map((u) => ({
         id: u._id,
-        username: u.username || u.name || "Usuario",
+        username: u.username || u.name || `Usuario-${u._id.toString().slice(-6)}`,
         rewardClaimed: Boolean(u.referralRewardClaimed),
         joinedAt: u.createdAt,
       })),

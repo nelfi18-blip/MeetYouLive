@@ -10,6 +10,7 @@ const { getIO } = require("../lib/socket.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createNotification } = require("../services/notification.service.js");
 const { unlockAchievement } = require("../services/progression.service.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
@@ -279,6 +280,13 @@ const sendGift = async (req, res) => {
     }
 
     res.status(201).json(giftDoc);
+
+    // Analytics: gift_sent (fire-and-forget)
+    trackAnalyticsEvent("gift_sent", String(req.userId), {
+      amount,
+      quantity,
+      liveId: liveId || null,
+    });
 
     // Gift-received persisted notification (fire-and-forget)
     const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";

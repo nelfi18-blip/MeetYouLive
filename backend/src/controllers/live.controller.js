@@ -6,6 +6,7 @@ const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent } = requi
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -99,6 +100,15 @@ const endLive = async (req, res) => {
       { new: true }
     );
     if (!live) return res.status(404).json({ message: "Live no encontrado" });
+
+    // Analytics: live_duration (fire-and-forget)
+    const durationSeconds = live.endedAt && live.createdAt
+      ? Math.max(0, Math.round((live.endedAt - live.createdAt) / 1000))
+      : 0;
+    trackAnalyticsEvent("live_duration", String(live.user), {
+      liveId: String(live._id),
+      durationSeconds,
+    });
 
     // Notify all viewers in the live room that the stream has ended
     const io = getIO();
@@ -210,6 +220,7 @@ const joinLive = async (req, res) => {
       delete liveObj.paidViewers;
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
+      trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
       return res.json(liveObj);
     }
 
@@ -227,6 +238,7 @@ const joinLive = async (req, res) => {
       delete liveObj.paidViewers;
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
+      trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
       return res.json(liveObj);
     }
 
@@ -259,6 +271,7 @@ const joinLive = async (req, res) => {
     delete liveObj.paidViewers;
     liveObj.hasAccess = true;
     trackEvent(req.userId, "live_join").catch(() => {});
+    trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
     res.json(liveObj);
   } catch (err) {
     res.status(500).json({ message: err.message });

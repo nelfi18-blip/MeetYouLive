@@ -7,6 +7,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const SparkTransaction = require("../models/SparkTransaction.js");
 const { SPARK_PACKAGES } = require("./sparks.controller.js");
 const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
+const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -300,6 +301,11 @@ const handlePaymentCompleted = async (session) => {
         incrementBy: resolvedPackage.coins,
         previousCoins,
         newCoins: updatedCoins,
+      });
+      // Analytics: coins_purchased (fire-and-forget)
+      trackAnalyticsEvent("coins_purchased", String(user._id), {
+        amount_usd: resolvedPackage.priceUsd,
+        coins: resolvedPackage.coins,
       });
       return;
     } catch (err) {

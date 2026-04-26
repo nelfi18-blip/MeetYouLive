@@ -841,11 +841,12 @@ exports.updateSettings = async (req, res) => {
  * Returns a concise snapshot of key business metrics computed from the
  * AnalyticsEvent collection plus existing User data:
  *   - DAU   : daily active users (lastActiveAt in the last 24 h)
- *   - revenue30d : total USD revenue from coin purchases (last 30 days)
- *   - vipRevenue30d : estimated USD revenue from new VIP subscriptions (last 30 days)
- *   - arppu  : average revenue per paying user (revenue / distinct paying users, last 30 d)
- *   - conversionRate : paying users / total users
- *   - payingUsers30d : distinct users who purchased coins (last 30 days)
+ *   - revenue30d : total USD revenue from all paying sources (last 30 days)
+ *   - coinRevenue30d : USD revenue from coin purchases (last 30 days)
+ *   - vipRevenue30d : USD revenue from new VIP subscriptions (last 30 days)
+ *   - arppu  : average revenue per paying user across all revenue streams (last 30 d)
+ *   - conversionRate : paying users (coins + VIP) / total users (%)
+ *   - payingUsers30d : distinct users who made any purchase (coins or VIP, last 30 days)
  *   - totalUsers : total registered users
  *   - giftsSent30d : total gift_sent events (last 30 days)
  *   - liveJoins30d : total live_joined events (last 30 days)
@@ -883,7 +884,13 @@ exports.getMetricsOverview = async (req, res) => {
       // VIP subscription revenue (new subscriptions only, not renewals)
       AnalyticsEvent.aggregate([
         { $match: { event: "vip_subscribed", createdAt: { $gte: thirtyDaysAgo } } },
-        { $group: { _id: null, totalRevenue: { $sum: "$data.amount_usd" } } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$data.amount_usd" },
+            payingUserIds: { $addToSet: "$userId" },
+          },
+        },
       ]),
       AnalyticsEvent.countDocuments({ event: "gift_sent", createdAt: { $gte: thirtyDaysAgo } }),
       AnalyticsEvent.countDocuments({ event: "live_joined", createdAt: { $gte: thirtyDaysAgo } }),
@@ -893,9 +900,15 @@ exports.getMetricsOverview = async (req, res) => {
     const coinRevenue30d = parseFloat((coinRevenueResult[0]?.totalRevenue ?? 0).toFixed(2));
     const vipRevenue30d = parseFloat((vipRevenueResult[0]?.totalRevenue ?? 0).toFixed(2));
     const revenue30d = parseFloat((coinRevenue30d + vipRevenue30d).toFixed(2));
-    const payingUsers30d = coinRevenueResult[0]?.payingUserIds?.length ?? 0;
+
+    // Distinct paying users across both revenue streams
+    const coinPayerIds = new Set((coinRevenueResult[0]?.payingUserIds ?? []).map(String));
+    const vipPayerIds = new Set((vipRevenueResult[0]?.payingUserIds ?? []).map(String));
+    const allPayerIds = new Set([...coinPayerIds, ...vipPayerIds]);
+    const payingUsers30d = allPayerIds.size;
+
     const arppu = payingUsers30d > 0
-      ? parseFloat((coinRevenue30d / payingUsers30d).toFixed(2))
+      ? parseFloat((revenue30d / payingUsers30d).toFixed(2))
       : 0;
     const conversionRate = totalUsers > 0
       ? parseFloat(((payingUsers30d / totalUsers) * 100).toFixed(2))

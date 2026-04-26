@@ -283,7 +283,7 @@ const sendGift = async (req, res) => {
 
     // Analytics: gift_sent (fire-and-forget)
     trackAnalyticsEvent("gift_sent", String(req.userId), {
-      amount: amount,
+      amount,
       quantity,
       liveId: liveId || null,
     });

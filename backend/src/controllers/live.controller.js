@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
-const { getIO, hasLiveHost } = require("../lib/socket.js");
+const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 
@@ -377,4 +377,79 @@ const endLiveBattle = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle };
+
+// ── Live Events ──────────────────────────────────────────────────────────────
+
+const ALLOWED_EVENT_TYPES = {
+  x2_coins: { label: "🔥 ¡Evento x2 Coins! Envía regalos ahora", icon: "🔥", defaultDuration: 120 },
+  last_boost: { label: "⏳ ¡Últimos 30 segundos! ¡Envía todo ahora!", icon: "⏳", defaultDuration: 60 },
+  custom: { label: "🎉 ¡Evento especial en vivo!", icon: "🎉", defaultDuration: 90 },
+};
+
+const MAX_EVENT_DURATION_SECS = 600;
+
+const triggerLiveEvent = async (req, res) => {
+  try {
+    const { type, label, durationSecs } = req.body;
+
+    const cfg = ALLOWED_EVENT_TYPES[type];
+    if (!cfg) {
+      return res.status(400).json({ message: "Tipo de evento inválido. Usa: x2_coins, last_boost, custom" });
+    }
+
+    // Verify the requester owns this live and it's still active
+    const live = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true }).select("_id").lean();
+    if (!live) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+
+    const resolvedLabel = (type === "custom" && label && typeof label === "string")
+      ? String(label).slice(0, 100)
+      : cfg.label;
+    const resolvedDuration = Math.min(
+      MAX_EVENT_DURATION_SECS,
+      Math.max(10, Number.isInteger(Number(durationSecs)) ? Number(durationSecs) : cfg.defaultDuration)
+    );
+
+    setLiveEvent(req.params.id, {
+      type,
+      label: resolvedLabel,
+      icon: cfg.icon,
+      durationSecs: resolvedDuration,
+    });
+
+    res.json({ type, label: resolvedLabel, icon: cfg.icon, durationSecs: resolvedDuration });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const stopLiveEvent = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true }).select("_id").lean();
+    if (!live) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+    clearLiveEvent(req.params.id);
+    res.json({ message: "Evento finalizado" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getActiveLiveEvent = async (req, res) => {
+  try {
+    const ev = getLiveEvent(req.params.id);
+    if (!ev) return res.json(null);
+    res.json({
+      type: ev.type,
+      label: ev.label,
+      icon: ev.icon,
+      expiresAt: ev.expiresAt ? ev.expiresAt.toISOString() : null,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent };

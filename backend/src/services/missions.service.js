@@ -25,16 +25,16 @@ const MISSION_DEFINITIONS = [
   {
     id: "live_1",
     icon: "🎥",
-    label: "Entra a 1 directo",
-    target: 1,
-    coins: 10,
+    label: "Entra a 2 directos",
+    target: 2,
+    coins: 15,
   },
   {
     id: "gift_1",
     icon: "🎁",
-    label: "Envía 1 regalo",
-    target: 1,
-    coins: 20,
+    label: "Envía 3 regalos",
+    target: 3,
+    coins: 30,
   },
 ];
 

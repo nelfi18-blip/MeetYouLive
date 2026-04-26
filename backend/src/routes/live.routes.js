@@ -4,6 +4,7 @@ const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middle
 const {
   startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings,
   getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle,
+  triggerLiveEvent, stopLiveEvent, getActiveLiveEvent,
 } = require("../controllers/live.controller.js");
 
 const router = Router();
@@ -30,5 +31,10 @@ router.post("/:id/goal", liveLimiter, verifyToken, setLiveGoal);
 router.get("/:id/battle", liveLimiter, getLiveBattle);
 router.post("/:id/battle/start", liveLimiter, verifyToken, startLiveBattle);
 router.post("/:id/battle/end", liveLimiter, verifyToken, endLiveBattle);
+
+// Live event endpoints
+router.get("/:id/event", liveLimiter, getActiveLiveEvent);
+router.post("/:id/event", liveLimiter, verifyToken, triggerLiveEvent);
+router.delete("/:id/event", liveLimiter, verifyToken, stopLiveEvent);
 
 module.exports = router;

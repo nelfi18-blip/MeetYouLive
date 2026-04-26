@@ -13,6 +13,8 @@ import LiveFeedOverlay from "@/components/LiveFeedOverlay";
 import LiveGoalPanel from "@/components/LiveGoalPanel";
 import LiveBattlePanel from "@/components/LiveBattlePanel";
 import GiftComboOverlay from "@/components/GiftComboOverlay";
+import LiveEventBanner from "@/components/LiveEventBanner";
+import LiveGiftToast from "@/components/LiveGiftToast";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -69,9 +71,35 @@ export default function LiveRoomPage() {
   const [overlayEvents, setOverlayEvents] = useState([]);
   const overlayCounterRef = useRef(0);
 
+  // Live engagement event (x2 coins, boost, etc.)
+  const [activeEvent, setActiveEvent] = useState(null);
+
+  // Top fan tracking: userId → totalCoins (for chat badge highlighting)
+  const topFanMapRef = useRef({});
+  const [topFanUserId, setTopFanUserId] = useState(null);
+
+  // Ref for the gift toast component
+  const giftToastRef = useRef(null);
+
+  // Creator event controls
+  const [triggeringEvent, setTriggeringEvent] = useState(false);
+
+  // Seen gift IDs for dedup
+  const seenGiftIdsRef = useRef(new Set());
+
+  /** Recompute the current top fan userId from the local coins map. */
+  const computeTopFan = (map) => {
+    let bestId = null;
+    let bestCoins = 0;
+    for (const [uid, coins] of Object.entries(map)) {
+      if (coins > bestCoins) { bestCoins = coins; bestId = uid; }
+    }
+    return bestId;
+  };
+
   const addOverlayEvent = useCallback((type, icon, text) => {
-    const id = `ov_${++overlayCounterRef.current}_${Date.now()}`;
-    setOverlayEvents((prev) => [...prev, { id, type, icon, text }]);
+    const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
+    setOverlayEvents((prev) => [...prev, { id: overlayEventId, type, icon, text }]);
   }, []);
 
   // Agora state
@@ -153,9 +181,10 @@ export default function LiveRoomPage() {
 
     const onChatMessage = ({ user, text }) => {
       const displayName = user?.username || "Anónimo";
+      const userId = user?.userId || null;
       setChatMessages((prev) => [
         ...prev,
-        { id: ++msgCounterRef.current, user: displayName, text, system: false },
+        { id: ++msgCounterRef.current, user: displayName, userId, text, system: false },
       ]);
       // Show recent chat messages in the video overlay (truncated)
       addOverlayEvent("chat", "💬", `${displayName}: ${truncateText(text)}`);
@@ -165,10 +194,28 @@ export default function LiveRoomPage() {
       if (updatedId === id) setViewerCount(count);
     };
 
-    const onLiveGiftSent = ({ senderName, senderId, gift }) => {
+    const onLiveGiftSent = ({ senderName, senderId, giftId, gift }) => {
       if (!gift) return;
+
+      // Dedup: skip if we've already processed this giftId
+      if (giftId) {
+        if (seenGiftIdsRef.current.has(giftId)) return;
+        seenGiftIdsRef.current.add(giftId);
+        // Keep seen set bounded
+        if (seenGiftIdsRef.current.size > 200) {
+          const first = seenGiftIdsRef.current.values().next().value;
+          seenGiftIdsRef.current.delete(first);
+        }
+      }
+
       // Skip if this user is the sender (they already have immediate local feedback)
       if (senderId && currentUserId && senderId === currentUserId) return;
+
+      // Update top fan map
+      if (senderId && gift.coinCost > 0) {
+        topFanMapRef.current[senderId] = (topFanMapRef.current[senderId] || 0) + gift.coinCost;
+        setTopFanUserId(computeTopFan(topFanMapRef.current));
+      }
 
       // Trigger gift animation effect for all viewers
       setActiveGiftEffect({ gift, senderName });
@@ -189,6 +236,7 @@ export default function LiveRoomPage() {
         {
           id: ++msgCounterRef.current,
           user: senderName,
+          userId: senderId || null,
           text: `${gift.icon || "🎁"} ${gift.name || "regalo"}`,
           gift,
           system: false,
@@ -198,6 +246,15 @@ export default function LiveRoomPage() {
 
       // Show gift event in the video overlay
       addOverlayEvent("gift", gift.icon || "🎁", `${senderName} envió ${gift.name || "un regalo"}`);
+
+      // Animated toast notification for high-value gifts
+      giftToastRef.current?.push({
+        senderName,
+        giftIcon: gift.icon || "🎁",
+        giftName: gift.name || "regalo",
+        coinCost: gift.coinCost || 0,
+        rarity: gift.rarity || "common",
+      });
 
       // Refresh top gifters leaderboard
       setGiftRefreshTrigger((n) => n + 1);
@@ -233,12 +290,35 @@ export default function LiveRoomPage() {
     // Refresh leaderboard on battle score changes
     const onBattleScoreUpdated = () => setGiftRefreshTrigger((n) => n + 1);
 
+    // Live ranking push from server (more efficient than polling)
+    const onRankingUpdated = ({ topFans }) => {
+      if (!Array.isArray(topFans) || topFans.length === 0) return;
+      // Update local top fan map from server data
+      const newMap = {};
+      for (const fan of topFans) {
+        if (fan.userId) newMap[String(fan.userId)] = fan.totalCoins || 0;
+      }
+      topFanMapRef.current = { ...topFanMapRef.current, ...newMap };
+      if (topFans[0]?.userId) setTopFanUserId(String(topFans[0].userId));
+      setGiftRefreshTrigger((n) => n + 1);
+    };
+
+    // Live engagement events
+    const onLiveEventStarted = ({ type, label, icon, expiresAt, durationSecs }) => {
+      setActiveEvent({ type, label, icon, expiresAt, durationSecs });
+      addOverlayEvent("event", icon || "🔥", label);
+    };
+    const onLiveEventEnded = () => setActiveEvent(null);
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
     socket.on("USER_JOINED_LIVE", onUserJoined);
     socket.on("LIVE_ENDED", onLiveEnded);
     socket.on("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
+    socket.on("LIVE_RANKING_UPDATED", onRankingUpdated);
+    socket.on("LIVE_EVENT_STARTED", onLiveEventStarted);
+    socket.on("LIVE_EVENT_ENDED", onLiveEventEnded);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -248,6 +328,9 @@ export default function LiveRoomPage() {
       socket.off("USER_JOINED_LIVE", onUserJoined);
       socket.off("LIVE_ENDED", onLiveEnded);
       socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
+      socket.off("LIVE_RANKING_UPDATED", onRankingUpdated);
+      socket.off("LIVE_EVENT_STARTED", onLiveEventStarted);
+      socket.off("LIVE_EVENT_ENDED", onLiveEventEnded);
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -443,6 +526,21 @@ export default function LiveRoomPage() {
 
       // Show sender's own gift in the overlay immediately
       addOverlayEvent("gift", gift.icon || "🎁", `Tú enviaste ${gift.name || "un regalo"}`);
+
+      // Animated toast for sender
+      giftToastRef.current?.push({
+        senderName,
+        giftIcon: gift.icon || "🎁",
+        giftName: gift.name || "regalo",
+        coinCost: gift.coinCost || 0,
+        rarity: gift.rarity || "common",
+      });
+
+      // Update local top fan map for the sender
+      if (currentUserId && gift.coinCost > 0) {
+        topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
+        setTopFanUserId(computeTopFan(topFanMapRef.current));
+      }
     }
 
     setChatMessages((prev) => [
@@ -450,13 +548,14 @@ export default function LiveRoomPage() {
       {
         id: ++msgCounterRef.current,
         user: senderName,
+        userId: currentUserId || null,
         text: `${gift?.icon || "🎁"} ${gift?.name || "regalo"}`,
         gift,
         system: false,
         isGift: true,
       },
     ]);
-  }, [addOverlayEvent]);
+  }, [addOverlayEvent, currentUserId]);
 
   const handleJoin = async () => {
     if (!token) {
@@ -482,6 +581,34 @@ export default function LiveRoomPage() {
       setJoinError("No se pudo conectar con el servidor");
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleTriggerEvent = async (type) => {
+    if (!token) return;
+    setTriggeringEvent(true);
+    try {
+      await fetch(`${API_URL}/api/lives/${id}/event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type }),
+      });
+    } catch {
+      // non-fatal
+    } finally {
+      setTriggeringEvent(false);
+    }
+  };
+
+  const handleStopEvent = async () => {
+    if (!token) return;
+    try {
+      await fetch(`${API_URL}/api/lives/${id}/event`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // non-fatal
     }
   };
 
@@ -700,6 +827,16 @@ export default function LiveRoomPage() {
 
   return (
     <div className="room">
+      {/* ── Live Event Banner ── */}
+      {activeEvent && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <LiveEventBanner event={activeEvent} onClose={isCreator ? handleStopEvent : null} />
+        </div>
+      )}
+
+      {/* ── Gift toast (absolute-positioned, rendered via ref) ── */}
+      <LiveGiftToast ref={giftToastRef} minCoins={50} />
+
       <div className="room-layout">
         <div className="room-main">
           {/* ── Premium creator header bar ── */}
@@ -864,6 +1001,33 @@ export default function LiveRoomPage() {
                   >
                     {endingStream ? "Finalizando…" : "⏹ Finalizar"}
                   </button>
+                  {/* Creator event controls */}
+                  <div className="creator-events">
+                    {!activeEvent ? (
+                      <>
+                        <button
+                          className="btn-event btn-event-fire"
+                          onClick={() => handleTriggerEvent("x2_coins")}
+                          disabled={triggeringEvent}
+                          title="Iniciar evento x2 Coins (2 min)"
+                        >
+                          🔥 Evento x2
+                        </button>
+                        <button
+                          className="btn-event btn-event-boost"
+                          onClick={() => handleTriggerEvent("last_boost")}
+                          disabled={triggeringEvent}
+                          title="Activar boost final (60s)"
+                        >
+                          ⏳ Boost
+                        </button>
+                      </>
+                    ) : (
+                      <button className="btn-event btn-event-stop" onClick={handleStopEvent}>
+                        ✕ Parar evento
+                      </button>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -970,30 +1134,35 @@ export default function LiveRoomPage() {
               </div>
             )}
 
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}`}
-              >
-                {msg.system ? (
-                  <span className="chat-text-system">{msg.text}</span>
-                ) : msg.isGift ? (
-                  <>
-                    <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
-                    <span className="chat-user chat-user-gift">{msg.user}</span>
-                    <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
-                    {msg.gift?.cost && (
-                      <span className="chat-gift-coins">🪙 {msg.gift.cost}</span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <span className="chat-user">{msg.user}</span>
-                    <span className="chat-text">{msg.text}</span>
-                  </>
-                )}
-              </div>
-            ))}
+            {chatMessages.map((msg) => {
+              const isTopFan = !msg.system && msg.userId && topFanUserId && msg.userId === topFanUserId;
+              return (
+                <div
+                  key={msg.id}
+                  className={`chat-msg${msg.system ? " chat-msg-system" : ""}${msg.isGift ? " chat-msg-gift" : ""}${isTopFan ? " chat-msg-top-fan" : ""}`}
+                >
+                  {msg.system ? (
+                    <span className="chat-text-system">{msg.text}</span>
+                  ) : msg.isGift ? (
+                    <>
+                      <span className="chat-gift-icon">{msg.gift?.icon || "🎁"}</span>
+                      {isTopFan && <span className="chat-crown" title="Top Fan">👑</span>}
+                      <span className="chat-user chat-user-gift">{msg.user}</span>
+                      <span className="chat-text chat-text-gift">envió {msg.gift?.name || "un regalo"}</span>
+                      {msg.gift?.coinCost > 0 && (
+                        <span className="chat-gift-coins">🪙 {msg.gift.coinCost}</span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {isTopFan && <span className="chat-crown" title="Top Fan">👑</span>}
+                      <span className="chat-user">{msg.user}</span>
+                      <span className="chat-text">{msg.text}</span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
             <div ref={chatEndRef} />
           </div>
 
@@ -2000,6 +2169,92 @@ export default function LiveRoomPage() {
 
         .chat-send-btn:hover:not(:disabled) { opacity: 0.85; transform: scale(1.08); }
         .chat-send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── Creator event controls ── */
+        .creator-events {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          flex-wrap: wrap;
+        }
+
+        .btn-event {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.3rem 0.8rem;
+          border-radius: var(--radius-pill, 999px);
+          font-size: 0.75rem;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.18s;
+          border: 1px solid transparent;
+          letter-spacing: 0.02em;
+        }
+
+        .btn-event:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-event-fire {
+          background: rgba(251,101,6,0.15);
+          border-color: rgba(251,101,6,0.55);
+          color: #fdba74;
+          animation: eventBtnGlow 2.5s ease-in-out infinite;
+        }
+
+        .btn-event-fire:hover:not(:disabled) {
+          background: rgba(251,101,6,0.3);
+          box-shadow: 0 0 14px rgba(251,101,6,0.45);
+        }
+
+        @keyframes eventBtnGlow {
+          0%, 100% { box-shadow: 0 0 4px rgba(251,101,6,0.2); }
+          50%       { box-shadow: 0 0 12px rgba(251,101,6,0.5); }
+        }
+
+        .btn-event-boost {
+          background: rgba(220,38,38,0.12);
+          border-color: rgba(220,38,38,0.5);
+          color: #fca5a5;
+        }
+
+        .btn-event-boost:hover:not(:disabled) {
+          background: rgba(220,38,38,0.25);
+          box-shadow: 0 0 12px rgba(220,38,38,0.35);
+        }
+
+        .btn-event-stop {
+          background: rgba(100,116,139,0.15);
+          border-color: rgba(100,116,139,0.45);
+          color: #94a3b8;
+        }
+
+        .btn-event-stop:hover {
+          background: rgba(100,116,139,0.25);
+        }
+
+        /* ── Top fan crown in chat ── */
+        .chat-crown {
+          font-size: 0.8rem;
+          line-height: 1;
+          flex-shrink: 0;
+          animation: crownBob 2s ease-in-out infinite;
+        }
+
+        @keyframes crownBob {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(-2px); }
+        }
+
+        .chat-msg-top-fan {
+          background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(245,158,11,0.04));
+          border-radius: 0.5rem;
+          padding: 0.15rem 0.4rem;
+          border-left: 2px solid rgba(251,191,36,0.55);
+        }
+
+        .chat-msg-top-fan .chat-user {
+          color: #fbbf24;
+        }
       `}</style>
     </div>
   );

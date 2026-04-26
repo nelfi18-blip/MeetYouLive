@@ -16,6 +16,7 @@ import GiftComboOverlay from "@/components/GiftComboOverlay";
 import LiveEventBanner from "@/components/LiveEventBanner";
 import LiveGiftToast from "@/components/LiveGiftToast";
 import LivePressureHints from "@/components/LivePressureHints";
+import PaywallModal from "@/components/PaywallModal";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -128,6 +129,17 @@ export default function LiveRoomPage() {
   const giftWindowRef = useRef([]); // [{senderId, ts}]
   const prevTopFanIdsRef = useRef([]); // track changes to top fan list
 
+  // Contextual paywall modal
+  const [paywallReason, setPaywallReason] = useState(null); // null | 'low_coins' | 'lost_top_fan' | 'goal_urgent'
+  // Per-reason debounce: reason → last-shown timestamp (5 min cooldown)
+  const paywallCooldownRef = useRef({});
+  // Track previous coinBalance to detect drops below 50
+  const prevCoinBalanceRef = useRef(null);
+  // Prevent the goal_urgent trigger from firing more than once per boost event
+  const boostPaywallTriggeredRef = useRef(false);
+  // Tracks whether the current user is the creator of this live room (kept in sync via effect)
+  const isCreatorRef = useRef(false);
+
   /** Recompute the top 3 fan userIds from the local coins map (highest spenders first). */
   const computeTopFans = (map) => {
     return Object.entries(map)
@@ -165,6 +177,57 @@ export default function LiveRoomPage() {
     setPressureHint({ id, type, icon, text, subtext: subtext || null });
     hintTimerRef.current = setTimeout(() => setPressureHint(null), PRESSURE_HINT_DISPLAY_MS + 500);
   }, []);
+
+  /**
+   * Show the contextual paywall modal. Debounced per reason (5-min cooldown).
+   * Never shown to the creator of the live room.
+   */
+  const PAYWALL_COOLDOWN_MS = 5 * 60 * 1000;
+  const triggerPaywall = useCallback((reason) => {
+    if (!currentUserId) return;
+    const now = Date.now();
+    const last = paywallCooldownRef.current[reason] || 0;
+    if (now - last < PAYWALL_COOLDOWN_MS) return;
+    paywallCooldownRef.current[reason] = now;
+    setPaywallReason(reason);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  // Trigger paywall: coinBalance drops from ≥50 to <50 during the session
+  useEffect(() => {
+    if (!currentUserId || !meLoaded) return;
+    if (coinBalance === null) return;
+    if (isCreatorRef.current) { prevCoinBalanceRef.current = coinBalance; return; }
+    const prev = prevCoinBalanceRef.current;
+    prevCoinBalanceRef.current = coinBalance;
+    if (prev !== null && prev >= 50 && coinBalance < 50) {
+      triggerPaywall("low_coins");
+    }
+  }, [coinBalance, currentUserId, meLoaded, triggerPaywall]);
+
+  // Reset boost paywall guard when a new last_boost event becomes active
+  useEffect(() => {
+    if (activeEvent?.type === "last_boost") {
+      boostPaywallTriggeredRef.current = false;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEvent?.type, activeEvent?.expiresAt]);
+
+  // Trigger paywall: last_boost event hits ≤30 s remaining
+  useEffect(() => {
+    if (!currentUserId || !meLoaded) return;
+    if (!boostSecondsLeft || boostSecondsLeft > 30) return;
+    if (isCreatorRef.current) return;
+    if (!boostPaywallTriggeredRef.current) {
+      boostPaywallTriggeredRef.current = true;
+      triggerPaywall("goal_urgent");
+    }
+  }, [boostSecondsLeft, currentUserId, meLoaded, triggerPaywall]);
+
+  // Keep isCreatorRef in sync whenever currentUserId or live data changes
+  useEffect(() => {
+    isCreatorRef.current = !!(currentUserId && live?.user?._id && currentUserId === String(live.user._id));
+  }, [currentUserId, live]);
 
   // Agora state
   const [agoraJoined, setAgoraJoined] = useState(false);
@@ -261,6 +324,7 @@ export default function LiveRoomPage() {
     } else if (wasTopFan && !isTopFan) {
       // User just LOST their top fan position
       showPressureHint("lost_top_fan", "⚠️", "Perdiste el Top Fan", "Envía más regalos para recuperarlo");
+      triggerPaywall("lost_top_fan");
     } else if (!isTopFan && topFanIds.length >= 3) {
       // All 3 top fan slots taken — check proximity to the 3rd-place fan
       const thirdFanCoins = topFanMapRef.current[topFanIds[2]] || 0;
@@ -277,7 +341,7 @@ export default function LiveRoomPage() {
     }
 
     prevTopFanIdsRef.current = topFanIds;
-  }, [topFanIds, currentUserId, meLoaded, showPressureHint]);
+  }, [topFanIds, currentUserId, meLoaded, showPressureHint, triggerPaywall]);
 
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1124,6 +1188,11 @@ export default function LiveRoomPage() {
     <div className="room">
       {/* ── Non-blocking pressure hint overlay ── */}
       <LivePressureHints hint={pressureHint} />
+
+      {/* ── Contextual paywall modal ── */}
+      {paywallReason && !isCreator && (
+        <PaywallModal reason={paywallReason} onClose={() => setPaywallReason(null)} />
+      )}
 
       {/* ── Live Event Banner ── */}
       {activeEvent && (

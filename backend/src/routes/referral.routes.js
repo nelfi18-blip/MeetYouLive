@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { getMyReferral, claimReferral } = require("../controllers/referral.controller.js");
+const { getMyReferral, claimReferral, getMyInvites } = require("../controllers/referral.controller.js");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 
 const router = Router();
@@ -18,6 +18,7 @@ const claimLimiter = rateLimit({
 });
 
 router.get("/me", readLimiter, verifyToken, getMyReferral);
+router.get("/invites", readLimiter, verifyToken, getMyInvites);
 router.post("/claim", claimLimiter, verifyToken, claimReferral);
 
 module.exports = router;

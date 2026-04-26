@@ -136,4 +136,32 @@ const claimReferral = async (req, res) => {
   }
 };
 
-module.exports = { getMyReferral, claimReferral };
+/**
+ * GET /api/referral/invites
+ * Returns the list of users referred by the authenticated user (up to 50, most recent first).
+ * For each invited user returns a safe subset: anonymised name, join date, and reward status.
+ */
+const MAX_INVITES = 50;
+
+const getMyInvites = async (req, res) => {
+  try {
+    const invites = await User.find({ referredBy: req.userId })
+      .select("username name referralRewardClaimed createdAt")
+      .sort({ createdAt: -1 })
+      .limit(MAX_INVITES)
+      .lean();
+
+    res.json({
+      invites: invites.map((u) => ({
+        id: u._id,
+        username: u.username || u.name || `Usuario-${u._id.toString().slice(-6)}`,
+        rewardClaimed: Boolean(u.referralRewardClaimed),
+        joinedAt: u.createdAt,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { getMyReferral, claimReferral, getMyInvites };

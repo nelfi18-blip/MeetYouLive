@@ -144,6 +144,9 @@ const getGiftCatalog = async (req, res) => {
 const VALID_QUANTITIES = new Set([1, 5, 10, 50]);
 const MAX_QUANTITY = 50;
 
+// Bundle discount rates applied to x10 and x50 packs (e.g. 0.10 = 10% off)
+const BUNDLE_DISCOUNTS = { 10: 0.10, 50: 0.20 };
+
 const sendGift = async (req, res) => {
   const { receiverId, giftId, giftSlug, liveId, context, contextId, message, quantity: rawQuantity } = req.body;
   if (!receiverId || (!giftId && !giftSlug)) {
@@ -196,7 +199,9 @@ const sendGift = async (req, res) => {
     }
   }
 
-  const amount = catalogItem.coinCost * quantity;  // total cost — always calculated server-side
+  // Apply bundle discount for x10 and x50 packs
+  const bundleDiscount = BUNDLE_DISCOUNTS[quantity] || 0;
+  const amount = Math.floor(catalogItem.coinCost * quantity * (1 - bundleDiscount)); // total cost — always calculated server-side
 
   const session = await mongoose.startSession();
   // Declared outside the transaction so it's accessible when building the Gift document

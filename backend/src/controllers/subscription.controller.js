@@ -106,8 +106,12 @@ const handleSubscriptionWebhook = async (event) => {
   if (event.type === "invoice.payment_succeeded") {
     // Re-activate premium on successful renewal (e.g. after past_due recovery)
     const invoiceObj = event.data.object;
+    // Try to get period end from invoice line items first (no extra API call)
     let periodEnd = null;
-    if (invoiceObj.subscription) {
+    const linePeriodEnd = invoiceObj.lines?.data?.[0]?.period?.end;
+    if (linePeriodEnd) {
+      periodEnd = new Date(linePeriodEnd * 1000);
+    } else if (invoiceObj.subscription) {
       try {
         const stripeSub = await stripe.subscriptions.retrieve(invoiceObj.subscription);
         periodEnd = new Date(stripeSub.current_period_end * 1000);

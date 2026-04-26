@@ -254,8 +254,7 @@ export default function StartLivePage() {
               </button>
               <button
                 type="button"
-                className={`privacy-btn${isVipOnly ? " active" : ""}`}
-                style={isVipOnly ? { borderColor: "rgba(251,191,36,0.6)", background: "rgba(251,191,36,0.15)", color: "#fbbf24" } : {}}
+                className={`privacy-btn${isVipOnly ? " privacy-btn-vip-active" : ""}`}
                 onClick={() => setIsVipOnly(true)}
               >
                 💎 Solo VIP
@@ -375,6 +374,17 @@ export default function StartLivePage() {
           border-color: var(--accent);
           background: rgba(255, 15, 138, 0.1);
           color: var(--accent);
+        }
+
+        .privacy-btn-vip-active {
+          border-color: rgba(251,191,36,0.6);
+          background: rgba(251,191,36,0.15);
+          color: #fbbf24;
+        }
+
+        .privacy-btn-vip-active:hover {
+          background: rgba(251,191,36,0.22);
+          box-shadow: 0 0 10px rgba(251,191,36,0.25);
         }
 
         .privacy-hint {

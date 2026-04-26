@@ -661,7 +661,7 @@ export default function LiveRoomPage() {
     socket.emit("live_chat_message", {
       liveId: id,
       text,
-      user: { username: currentUsername || "Anónimo", userId: currentUserId || undefined },
+      user: { username: currentUsername || "Anónimo", ...(currentUserId ? { userId: currentUserId } : {}) },
     });
   };
 
@@ -1005,7 +1005,7 @@ export default function LiveRoomPage() {
             Este contenido es solo para usuarios VIP 💎
           </p>
           <p className="paywall-desc">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
-          <Link href="/subscription" className="btn btn-primary btn-lg" style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#000", fontWeight: 800 }}>
+          <Link href="/subscription" className="btn btn-vip-cta btn-lg">
             💎 Hazte VIP
           </Link>
           <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
@@ -1027,6 +1027,16 @@ export default function LiveRoomPage() {
           .paywall-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin: 0; }
           .paywall-streamer { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
           .paywall-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; }
+          .btn-vip-cta {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #000;
+            font-weight: 800;
+            border: none;
+          }
+          .btn-vip-cta:hover {
+            background: linear-gradient(135deg, #fde68a, #fbbf24);
+            box-shadow: 0 0 18px rgba(251,191,36,0.45);
+          }
         `}</style>
       </div>
     );

@@ -1054,7 +1054,7 @@ export default function ProfilePage() {
 
           {/* VIP upsell / status card */}
           {user.isVIP ? (
-            <div className="premium-upsell-card" style={{ borderColor: "rgba(251,191,36,0.5)", background: "linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(224,64,251,0.08) 100%)" }}>
+            <div className="premium-upsell-card premium-upsell-card-vip">
               <div className="premium-upsell-header">
                 <span className="premium-upsell-gem">💎</span>
                 <div>
@@ -1551,6 +1551,11 @@ export default function ProfilePage() {
         .premium-upsell-btn-ghost:hover {
           background: rgba(255,255,255,0.08);
           color: var(--text);
+        }
+
+        .premium-upsell-card-vip {
+          background: linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(224,64,251,0.08) 100%);
+          border-color: rgba(251,191,36,0.5);
         }
 
         /* Actions */

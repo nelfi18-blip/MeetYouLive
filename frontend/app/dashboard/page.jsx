@@ -8,6 +8,7 @@ import { setToken, clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
 import DailyMissions from "@/components/DailyMissions";
+import DailyStreakCard from "@/components/DailyStreakCard";
 import OnlineUsers from "@/components/OnlineUsers";
 import ActivityBar from "@/components/ActivityBar";
 import ReferralCard from "@/components/ReferralCard";
@@ -687,6 +688,9 @@ export default function DashboardPage() {
       {/* ── 🎯 DAILY MISSIONS ── */}
       {user && <DailyMissions />}
 
+      {/* ── 🔥 DAILY STREAK CARD ── */}
+      {user && <DailyStreakCard onClaimed={handleRewardClaimed} />}
+
       {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
       <Link href="/rooms" className="confidence-entry-card">
         <div className="confidence-entry-glow" />
@@ -705,6 +709,35 @@ export default function DashboardPage() {
 
       {/* ── 🎁 REFERRAL CARD ── */}
       <ReferralCard />
+
+      {/* ── 🤝 CREATOR INVITE CARD (approved creators only) ── */}
+      {isCreatorApproved && user?.agencyProfile?.agencyCode && (
+        <div className="creator-invite-card">
+          <div className="creator-invite-orb" />
+          <div className="creator-invite-left">
+            <span className="creator-invite-icon"><AgencyIcon /></span>
+            <div className="creator-invite-text">
+              <span className="creator-invite-title">Invita creadores y gana comisión</span>
+              <span className="creator-invite-sub">
+                Comparte tu código de agencia · Gana hasta un{" "}
+                {user.agencyProfile.subCreatorPercentageDefault ?? 10}% de comisión por sus regalos
+              </span>
+            </div>
+          </div>
+          <div className="creator-invite-actions">
+            <button
+              className="creator-invite-copy"
+              onClick={() => {
+                const link = `${typeof window !== "undefined" ? window.location.origin : ""}/creator-request?creatorInvite=${user.agencyProfile.agencyCode}`;
+                navigator.clipboard.writeText(link).catch(() => {});
+              }}
+            >
+              Copiar enlace
+            </button>
+            <Link href="/agency" className="creator-invite-btn">Ver agencia</Link>
+          </div>
+        </div>
+      )}
 
       {/* Navigation cards grid */}
       {!isCreatorApproved && creatorStatus === "none" && (
@@ -1566,6 +1599,104 @@ export default function DashboardPage() {
         }
 
         /* ── Cards grid ──────── */
+        .creator-invite-card {
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(139,92,246,0.08) 100%);
+          border: 1px solid rgba(99,102,241,0.25);
+          border-radius: 14px;
+          padding: 0.9rem 1rem;
+          flex-wrap: wrap;
+        }
+        .creator-invite-orb {
+          position: absolute;
+          width: 160px; height: 160px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%);
+          top: -70px; right: -50px;
+          pointer-events: none;
+          filter: blur(40px);
+        }
+        .creator-invite-left {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          flex: 1;
+          min-width: 0;
+        }
+        .creator-invite-icon {
+          width: 26px; height: 26px;
+          flex-shrink: 0;
+          color: #818cf8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .creator-invite-icon :global(svg) { width: 26px; height: 26px; }
+        .creator-invite-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          min-width: 0;
+        }
+        .creator-invite-title {
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: #f1f5f9;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .creator-invite-sub {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.5);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .creator-invite-actions {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
+        .creator-invite-copy {
+          background: rgba(99,102,241,0.15);
+          border: 1px solid rgba(99,102,241,0.3);
+          color: #a5b4fc;
+          border-radius: 8px;
+          padding: 0.38rem 0.75rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s;
+          white-space: nowrap;
+        }
+        .creator-invite-copy:hover { background: rgba(99,102,241,0.25); color: #c7d2fe; }
+        .creator-invite-btn {
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: #fff;
+          border-radius: 8px;
+          padding: 0.38rem 0.85rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: opacity 0.15s;
+        }
+        .creator-invite-btn:hover { opacity: 0.88; }
+        @media (max-width: 480px) {
+          .creator-invite-card { flex-direction: column; align-items: flex-start; }
+          .creator-invite-actions { width: 100%; }
+          .creator-invite-copy, .creator-invite-btn { flex: 1; text-align: center; }
+        }
+
         .creator-cta-banner {
           display: flex;
           align-items: center;

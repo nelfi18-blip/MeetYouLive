@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,6 +12,14 @@ const RARITY_STYLES = {
   epic:      { color: "#c084fc", glow: "rgba(192,132,252,0.45)",  label: "Épico"     },
   legendary: { color: "#fbbf24", glow: "rgba(251,191,36,0.45)",   label: "Legendario" },
   mythic:    { color: "#f43f5e", glow: "rgba(244,63,94,0.5)",     label: "Mítico"    },
+};
+
+const buildSendLabel = (gift, qty) => {
+  const total = bundleTotal(gift.coinCost, qty);
+  const savings = bundleSavings(gift.coinCost, qty);
+  const bundleEmoji = BUNDLE_CONFIG[qty] ? ` ${BUNDLE_CONFIG[qty].emoji}` : "";
+  const savingsText = savings > 0 ? ` (ahorras ${savings}🪙)` : "";
+  return `Enviar ${gift.icon}${qty > 1 ? ` x${qty}` : ""}${bundleEmoji} · ${total} 🪙${savingsText}`;
 };
 
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
@@ -38,7 +47,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     setError("");
     setSuccess("");
     setLoading(true);
-    const totalCost = selected.coinCost * quantity;
+    const totalCost = bundleTotal(selected.coinCost, quantity);
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
@@ -131,16 +140,22 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
             )}
 
             <div className="gift-qty-row" role="group" aria-label="Cantidad">
-              {[1, 5, 10, 50].map((q) => (
-                <button
-                  key={q}
-                  className={`gift-qty-btn${quantity === q ? " gift-qty-btn-active" : ""}`}
-                  onClick={() => setQuantity(q)}
-                  aria-pressed={quantity === q}
-                >
-                  x{q}
-                </button>
-              ))}
+              {[1, 5, 10, 50].map((q) => {
+                const bundle = BUNDLE_CONFIG[q];
+                return (
+                  <button
+                    key={q}
+                    className={`gift-qty-btn${quantity === q ? " gift-qty-btn-active" : ""}${bundle ? " gift-qty-btn-bundle" : ""}`}
+                    onClick={() => setQuantity(q)}
+                    aria-pressed={quantity === q}
+                  >
+                    x{q}
+                    {bundle && (
+                      <span className="gift-qty-bundle-badge">{bundle.emoji} -{bundle.discountPct}%</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <button
@@ -151,7 +166,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
               {loading
                 ? "Enviando…"
                 : selected
-                  ? `Enviar ${selected.icon}${quantity > 1 ? ` x${quantity}` : ""} · ${selected.coinCost * quantity} 🪙`
+                  ? buildSendLabel(selected, quantity)
                   : "Selecciona un regalo"}
             </button>
           </div>
@@ -344,6 +359,29 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           font-family: inherit;
           transition: all 0.15s ease;
           letter-spacing: 0.02em;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.05rem;
+          line-height: 1.2;
+        }
+
+        .gift-qty-bundle-badge {
+          font-size: 0.54rem;
+          font-weight: 900;
+          opacity: 0.85;
+          line-height: 1;
+        }
+
+        .gift-qty-btn-bundle {
+          border-color: rgba(245,158,11,0.35);
+        }
+
+        .gift-qty-btn-bundle.gift-qty-btn-active {
+          background: linear-gradient(135deg,rgba(245,158,11,0.25),rgba(251,191,36,0.15));
+          border-color: #fbbf24;
+          color: #fbbf24;
+          box-shadow: 0 0 8px rgba(251,191,36,0.3);
         }
 
         .gift-qty-btn:hover {

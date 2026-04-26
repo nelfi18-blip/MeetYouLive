@@ -11,6 +11,71 @@ const liveViewers = new Map();
 // In-memory map of active live hosts: liveId (string) → Set<socketId>
 const liveHosts = new Map();
 
+// In-memory map of active live events: liveId (string) → { type, label, icon, expiresAt, timerId }
+const liveEvents = new Map();
+
+/** Get the current active event for a live, or null if none. */
+const getLiveEvent = (liveId) => {
+  const ev = liveEvents.get(String(liveId));
+  if (!ev) return null;
+  if (ev.expiresAt && new Date() > ev.expiresAt) {
+    clearTimeout(ev.timerId);
+    liveEvents.delete(String(liveId));
+    return null;
+  }
+  return ev;
+};
+
+/**
+ * Set a live event. Automatically clears any previous event for that live.
+ * Emits LIVE_EVENT_STARTED to the live room socket.
+ * @param {string} liveId
+ * @param {{ type: string, label: string, icon: string, durationSecs: number }} opts
+ */
+const setLiveEvent = (liveId, { type, label, icon, durationSecs }) => {
+  const id = String(liveId);
+  // Clear any existing event
+  const existing = liveEvents.get(id);
+  if (existing) {
+    clearTimeout(existing.timerId);
+    liveEvents.delete(id);
+  }
+
+  const expiresAt = new Date(Date.now() + durationSecs * 1000);
+  const timerId = setTimeout(() => {
+    liveEvents.delete(id);
+    if (io) {
+      io.to(`live:${id}`).emit("LIVE_EVENT_ENDED", { liveId: id });
+    }
+  }, durationSecs * 1000);
+
+  liveEvents.set(id, { type, label, icon, expiresAt, timerId });
+
+  if (io) {
+    io.to(`live:${id}`).emit("LIVE_EVENT_STARTED", {
+      liveId: id,
+      type,
+      label,
+      icon,
+      expiresAt: expiresAt.toISOString(),
+      durationSecs,
+    });
+  }
+};
+
+/** Manually clear a live event for the given live room. */
+const clearLiveEvent = (liveId) => {
+  const id = String(liveId);
+  const ev = liveEvents.get(id);
+  if (ev) {
+    clearTimeout(ev.timerId);
+    liveEvents.delete(id);
+    if (io) {
+      io.to(`live:${id}`).emit("LIVE_EVENT_ENDED", { liveId: id });
+    }
+  }
+};
+
 /** Return current viewer count for a live stream. */
 const getLiveViewerCount = (liveId) => {
   const viewers = liveViewers.get(liveId);
@@ -242,4 +307,4 @@ const initSocket = (httpServer) => {
  */
 const getIO = () => io;
 
-module.exports = { initSocket, getIO, getOnlineUsers, hasLiveHost };
+module.exports = { initSocket, getIO, getOnlineUsers, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent };

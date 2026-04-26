@@ -250,6 +250,7 @@ const sendGift = async (req, res) => {
         io.to(`live:${liveId}`).emit("LIVE_GIFT_SENT", {
           senderName,
           senderId: String(req.userId),
+          giftId: String(giftDoc._id),
           gift: {
             name: giftDoc.giftCatalogItem?.name || "",
             icon: giftDoc.giftCatalogItem?.icon || "🎁",
@@ -262,6 +263,25 @@ const sendGift = async (req, res) => {
     }
 
     res.status(201).json(giftDoc);
+
+    // Push updated top-3 ranking to the live room (fire-and-forget)
+    if (liveId) {
+      const liveObjId = new mongoose.Types.ObjectId(liveId);
+      Gift.aggregate([
+        { $match: { live: liveObjId } },
+        { $group: { _id: "$sender", totalCoins: { $sum: "$coinCost" } } },
+        { $sort: { totalCoins: -1 } },
+        { $limit: 3 },
+        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "u" } },
+        { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, userId: "$_id", totalCoins: 1, username: "$u.username", name: "$u.name" } },
+      ]).then((topFans) => {
+        const ioInst = getIO();
+        if (ioInst) {
+          ioInst.to(`live:${liveId}`).emit("LIVE_RANKING_UPDATED", { liveId, topFans });
+        }
+      }).catch((err) => console.error("[gift] top-fan ranking push failed:", err));
+    }
 
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {

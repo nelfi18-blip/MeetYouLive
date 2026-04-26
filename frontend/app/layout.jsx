@@ -4,6 +4,7 @@ import NavbarWrapper from "../components/NavbarWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 
 export const metadata = {
+  metadataBase: new URL("https://meetyoulive.net"),
   title: "MeetYouLive",
   description: "live dating and streaming app",
   manifest: "/site.webmanifest",

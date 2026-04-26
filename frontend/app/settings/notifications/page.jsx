@@ -23,13 +23,17 @@ export default function NotificationSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  const token = session?.backendToken;
+  // Support both OAuth (session.backendToken) and email/password (localStorage) auth flows.
+  const localStorageToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = localStorageToken || session?.backendToken || null;
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    // Only redirect when there is definitely no session of any kind.
+    // Email/password users have no NextAuth session but do have a localStorage token.
+    if (status === "unauthenticated" && !token) {
       router.replace("/login");
     }
-  }, [status, router]);
+  }, [status, token, router]);
 
   const fetchSettings = useCallback(async () => {
     if (!token) return;

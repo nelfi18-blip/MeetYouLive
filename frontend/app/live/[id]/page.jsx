@@ -238,8 +238,10 @@ export default function LiveRoomPage() {
   const localVideoContainerRef = useRef(null);
   const remoteVideoContainerRef = useRef(null);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const [token, setToken] = useState(null);
+  useEffect(() => {
+    setToken(localStorage.getItem("token"));
+  }, []);
 
   useEffect(() => {
     fetch(`${API_URL}/api/lives/${id}`, {
@@ -641,32 +643,42 @@ export default function LiveRoomPage() {
 
           // Subscribe to existing remote users
           for (const user of client.remoteUsers) {
-            if (user.hasVideo) {
-              await client.subscribe(user, "video");
-              if (remoteVideoContainerRef.current) {
-                user.videoTrack?.play(remoteVideoContainerRef.current);
+            try {
+              if (user.hasVideo) {
+                await client.subscribe(user, "video");
+                if (remoteVideoContainerRef.current) {
+                  user.videoTrack?.play(remoteVideoContainerRef.current);
+                }
               }
-            }
-            if (user.hasAudio) {
-              await client.subscribe(user, "audio");
-              user.audioTrack?.play();
+              if (user.hasAudio) {
+                await client.subscribe(user, "audio");
+                try { user.audioTrack?.play(); } catch (_) {}
+              }
+            } catch (err) {
+              console.error("[Agora] subscribe existing user error:", err);
             }
           }
 
           client.on("user-published", async (user, mediaType) => {
-            await client.subscribe(user, mediaType);
-            if (mediaType === "video" && remoteVideoContainerRef.current) {
-              user.videoTrack?.play(remoteVideoContainerRef.current);
-            }
-            if (mediaType === "audio") {
-              user.audioTrack?.play();
+            try {
+              await client.subscribe(user, mediaType);
+              if (mediaType === "video" && remoteVideoContainerRef.current) {
+                user.videoTrack?.play(remoteVideoContainerRef.current);
+              }
+              if (mediaType === "audio") {
+                try { user.audioTrack?.play(); } catch (_) {}
+              }
+            } catch (err) {
+              console.error("[Agora] user-published error:", err);
             }
           });
 
           client.on("user-unpublished", (user, mediaType) => {
-            if (mediaType === "video") {
-              user.videoTrack?.stop();
-            }
+            try {
+              if (mediaType === "video") {
+                user.videoTrack?.stop();
+              }
+            } catch (_) {}
           });
         }
 

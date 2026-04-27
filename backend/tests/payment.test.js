@@ -1,8 +1,10 @@
 "use strict";
 
 /**
- * Payment safety tests — logic-only, no real MongoDB required.
- * These tests exercise the business logic directly without hitting the database.
+ * Payment safety tests — logic-only.
+ * These particular tests do not interact with the database and run in-process.
+ * The test suite may be extended with database-backed tests using the setup.js
+ * helper (which connects to MongoDB before all tests).
  */
 
 // ─── Helpers copied / derived from source files ──────────────────────────────

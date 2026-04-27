@@ -4,7 +4,7 @@ const { z } = require("zod");
 
 const coinPurchaseSchema = z.object({
   packageId: z
-    .number({ invalid_type_error: "packageId debe ser un número entero positivo" })
+    .number({ invalid_type_error: "packageId debe ser un número" })
     .int("packageId debe ser un número entero")
     .positive("packageId debe ser un número positivo"),
 });

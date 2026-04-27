@@ -91,8 +91,9 @@ const useBoost = async (req, res) => {
     return res.status(400).json({ message: "Tipo de boost inválido. Usa: " + Object.keys(BOOST_COSTS).join(", ") });
   }
   const cost = BOOST_COSTS[boostType];
-  const session = await mongoose.startSession();
+  let session;
   try {
+    session = await mongoose.startSession();
     let result;
     await session.withTransaction(async () => {
       const user = await User.findById(req.userId).session(session);
@@ -135,7 +136,7 @@ const useBoost = async (req, res) => {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 

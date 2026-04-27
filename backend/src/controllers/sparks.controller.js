@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const SparkTransaction = require("../models/SparkTransaction.js");
 
@@ -90,27 +91,51 @@ const useBoost = async (req, res) => {
     return res.status(400).json({ message: "Tipo de boost inválido. Usa: " + Object.keys(BOOST_COSTS).join(", ") });
   }
   const cost = BOOST_COSTS[boostType];
+  const session = await mongoose.startSession();
   try {
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    if (user.sparks < cost) {
-      return res.status(400).json({ message: "Sparks insuficientes para este boost" });
-    }
+    let result;
+    await session.withTransaction(async () => {
+      const user = await User.findById(req.userId).session(session);
+      if (!user) {
+        const err = new Error("Usuario no encontrado");
+        err.status = 404;
+        throw err;
+      }
+      if (user.sparks < cost) {
+        const err = new Error("Sparks insuficientes para este boost");
+        err.status = 400;
+        throw err;
+      }
 
-    await User.findByIdAndUpdate(req.userId, { $inc: { sparks: -cost } });
+      const updated = await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { sparks: -cost } },
+        { session, new: true }
+      );
 
-    SparkTransaction.create({
-      userId: req.userId,
-      type: "boost_used",
-      amount: -cost,
-      reason: `Boost activado: ${boostType}`,
-      status: "completed",
-      metadata: { boostType },
-    }).catch((err) => console.error("[spark tx] Failed to record boost:", err));
+      await SparkTransaction.create(
+        [
+          {
+            userId: req.userId,
+            type: "boost_used",
+            amount: -cost,
+            reason: `Boost activado: ${boostType}`,
+            status: "completed",
+            metadata: { boostType },
+          },
+        ],
+        { session }
+      );
 
-    res.json({ message: "Boost activado", boostType, sparkCost: cost });
+      result = { remainingSparks: updated.sparks };
+    });
+
+    res.json({ message: "Boost activado", boostType, sparkCost: cost, remainingSparks: result.remainingSparks });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    const status = err.status || 500;
+    res.status(status).json({ message: err.message });
+  } finally {
+    session.endSession();
   }
 };
 

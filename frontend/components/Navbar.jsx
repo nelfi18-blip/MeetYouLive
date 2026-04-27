@@ -115,9 +115,13 @@ export default function Navbar() {
     "Usuario";
   const effectiveRole = role || session?.backendUser?.role || "";
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
+  
+  // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
     effectiveRole === "admin"
       ? t("role.admin")
+      : effectiveRole === "moderator"
+      ? "Moderador"
       : isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })
       ? "Creador"
       : effectiveCreatorStatus === "pending"

@@ -44,7 +44,7 @@ function BellIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { t, syncFromUser } = useLanguage();
+  const { t, lang, setLang, syncFromUser } = useLanguage();
   const [coins, setCoins] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
@@ -219,6 +219,19 @@ export default function Navbar() {
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
                   <LogoutIcon /> {t("nav.logout")}
                 </button>
+                <div className="dropdown-divider" />
+                <div className="dropdown-langs">
+                  {["es", "en", "pt"].map((code) => (
+                    <button
+                      key={code}
+                      className={`dropdown-lang-btn${lang === code ? " active" : ""}`}
+                      onClick={() => { setLang(code); setMenuOpen(false); }}
+                      aria-label={t(`lang.${code}`)}
+                    >
+                      {t(`lang.${code}`)}
+                    </button>
+                  ))}
+                </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-legal">
                   <Link href="/terms" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Términos</Link>
@@ -620,6 +633,38 @@ export default function Navbar() {
 
         @media (max-width: 480px) {
           .coins-badge { display: none; }
+        }
+
+        /* ── Language switcher ─── */
+        .dropdown-langs {
+          display: flex;
+          gap: 0.4rem;
+          padding: 0.45rem 0.75rem;
+        }
+
+        .dropdown-lang-btn {
+          background: transparent;
+          border: 1px solid rgba(224,64,251,0.25);
+          border-radius: 999px;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          padding: 0.25rem 0.6rem;
+          text-transform: uppercase;
+          transition: all 0.15s;
+        }
+
+        .dropdown-lang-btn:hover {
+          background: rgba(224,64,251,0.1);
+          color: var(--text);
+        }
+
+        .dropdown-lang-btn.active {
+          background: rgba(224,64,251,0.2);
+          border-color: rgba(224,64,251,0.55);
+          color: #e040fb;
         }
       `}</style>
     </>

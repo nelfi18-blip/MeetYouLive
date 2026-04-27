@@ -92,6 +92,7 @@ const userSchema = new mongoose.Schema(
     agencyRelationship: { type: agencyRelationshipSchema, default: () => ({}) },
     isPremium: { type: Boolean, default: false },
     isVIP: { type: Boolean, default: false },
+    vipTier: { type: String, enum: ["silver", "gold", "platinum", null], default: null },
     vipExpiresAt: { type: Date, default: null },
     verificationPhoto: { type: String, default: "" },
     verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
@@ -164,6 +165,13 @@ const userSchema = new mongoose.Schema(
     referralRewardsEarned: { type: Number, default: 0, min: 0 },
     referralRewardClaimed: { type: Boolean, default: false },
     loginCount: { type: Number, default: 0, min: 0 },
+    // Stripe Connect — for automated creator payouts
+    stripeAccountId: { type: String, default: null },
+    stripeAccountStatus: {
+      type: String,
+      enum: ["pending", "restricted", "enabled", null],
+      default: null,
+    },
     xp: { type: Number, default: 0, min: 0 },
     level: { type: Number, default: 1, min: 1 },
     unlockedAchievements: {

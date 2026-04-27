@@ -1,10 +1,16 @@
 const mongoose = require("mongoose");
+const Stripe = require("stripe");
 const Gift = require("../models/Gift");
 const User = require("../models/User");
 const Payout = require("../models/Payout");
 const Live = require("../models/Live");
 const VideoCall = require("../models/VideoCall");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
+
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+
+// Minimum Stripe transfer in cents ($1.00)
+const STRIPE_MIN_TRANSFER_CENTS = 100;
 
 const requireApprovedCreatorHelper = async (userId) => {
   const user = await User.findById(userId).select(
@@ -243,6 +249,9 @@ exports.requestPayout = async (req, res) => {
     }
 
     const MIN_PAYOUT_COINS = 100;
+    // 1 coin = $0.10 USD; platform takes 40%, creator keeps 60%
+    const COINS_PER_USD = 10;
+    const PLATFORM_FEE_PCT = 0.40;
     const available = user.earningsCoins || 0;
 
     if (available < MIN_PAYOUT_COINS) {
@@ -280,7 +289,7 @@ exports.requestPayout = async (req, res) => {
       {
         $set: { earningsCoins: 0 },
       },
-      { new: true }
+      { new: true, select: "stripeAccountId stripeAccountStatus" }
     );
 
     if (!updatedUser) {
@@ -291,16 +300,50 @@ exports.requestPayout = async (req, res) => {
       });
     }
 
+    // Attempt an automated Stripe Connect Transfer when the creator has a verified account
+    let autoTransferSucceeded = false;
+    let stripeTransferId = null;
+    if (
+      stripe &&
+      updatedUser.stripeAccountId &&
+      updatedUser.stripeAccountStatus === "enabled"
+    ) {
+      try {
+        // Compute the creator's net payout in USD cents after platform fee
+        const grossUsd = available / COINS_PER_USD;
+        const creatorUsd = grossUsd * (1 - PLATFORM_FEE_PCT);
+        const amountCents = Math.floor(creatorUsd * 100);
+        if (amountCents >= STRIPE_MIN_TRANSFER_CENTS) {
+          const transfer = await stripe.transfers.create({
+            amount: amountCents,
+            currency: "usd",
+            destination: updatedUser.stripeAccountId,
+            metadata: { userId: String(user._id), amountCoins: String(available) },
+          });
+          stripeTransferId = transfer.id;
+          autoTransferSucceeded = true;
+        }
+      } catch (stripeErr) {
+        console.error("[requestPayout] Stripe transfer failed, falling back to manual:", stripeErr.message);
+        // Non-fatal: the payout is still recorded as pending for manual processing
+      }
+    }
+
     const payout = await Payout.create({
       creator: user._id,
       amountCoins: available,
-      status: "pending",
-      notes: "Solicitud creada automáticamente desde creator dashboard.",
+      status: autoTransferSucceeded ? "processing" : "pending",
+      notes: autoTransferSucceeded
+        ? `Transferencia automática Stripe iniciada. Transfer ID: ${stripeTransferId}`
+        : "Solicitud creada automáticamente desde creator dashboard.",
     });
 
     return res.json({
       ok: true,
-      message: "Solicitud de retiro registrada correctamente.",
+      message: autoTransferSucceeded
+        ? "Pago automático iniciado correctamente. Se procesará en 1-2 días hábiles."
+        : "Solicitud de retiro registrada correctamente.",
+      autoTransfer: autoTransferSucceeded,
       payout: {
         _id: payout._id,
         amountCoins: payout.amountCoins,
@@ -581,5 +624,91 @@ exports.getCreatorRequestStatus = async (req, res) => {
   } catch (err) {
     console.error("getCreatorRequestStatus error:", err);
     return res.status(500).json({ ok: false, message: "Error interno del servidor" });
+  }
+};
+
+// ── Stripe Connect ─────────────────────────────────────────────────────────
+
+/**
+ * POST /api/creator/payout/connect-onboarding
+ * Creates a Stripe Connect Express account (if the creator doesn't have one yet)
+ * and returns an onboarding URL so the creator can set up their payout details.
+ */
+exports.connectOnboarding = async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "Pagos no configurados en este entorno." });
+    }
+
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+    if (error) return res.status(403).json({ ok: false, message: error });
+
+    let fullUser = await User.findById(user._id).select("email stripeAccountId stripeAccountStatus");
+    if (!fullUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    let accountId = fullUser.stripeAccountId;
+
+    if (!accountId) {
+      // Create a new Stripe Express connected account
+      const account = await stripe.accounts.create({
+        type: "express",
+        email: fullUser.email,
+        capabilities: { transfers: { requested: true } },
+        metadata: { userId: String(user._id) },
+      });
+      accountId = account.id;
+      await User.findByIdAndUpdate(user._id, {
+        stripeAccountId: accountId,
+        stripeAccountStatus: "pending",
+      });
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${process.env.FRONTEND_URL}/creator/payout?connect=refresh`,
+      return_url: `${process.env.FRONTEND_URL}/creator/payout?connect=success`,
+      type: "account_onboarding",
+    });
+
+    res.json({ ok: true, url: accountLink.url });
+  } catch (err) {
+    console.error("connectOnboarding error:", err);
+    res.status(500).json({ ok: false, message: "Error al iniciar el proceso de vinculación con Stripe." });
+  }
+};
+
+/**
+ * GET /api/creator/payout/connect-status
+ * Returns whether the creator's Stripe Connect account is fully onboarded.
+ */
+exports.getConnectStatus = async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(503).json({ ok: false, message: "Pagos no configurados en este entorno." });
+    }
+
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+    if (error) return res.status(403).json({ ok: false, message: error });
+
+    const fullUser = await User.findById(user._id).select("stripeAccountId stripeAccountStatus").lean();
+    if (!fullUser?.stripeAccountId) {
+      return res.json({ ok: true, connected: false, status: null });
+    }
+
+    // Refresh status from Stripe (live check)
+    const account = await stripe.accounts.retrieve(fullUser.stripeAccountId);
+    const enabled = account.charges_enabled && account.payouts_enabled;
+    const newStatus = enabled ? "enabled" : account.requirements?.currently_due?.length > 0 ? "restricted" : "pending";
+
+    if (newStatus !== fullUser.stripeAccountStatus) {
+      await User.findByIdAndUpdate(user._id, { stripeAccountStatus: newStatus });
+    }
+
+    res.json({ ok: true, connected: enabled, status: newStatus, accountId: fullUser.stripeAccountId });
+  } catch (err) {
+    console.error("getConnectStatus error:", err);
+    res.status(500).json({ ok: false, message: "Error al verificar el estado de la cuenta de Stripe." });
   }
 };

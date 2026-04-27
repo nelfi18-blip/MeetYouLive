@@ -2,6 +2,7 @@ const Stripe = require("stripe");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -46,14 +47,81 @@ const createSubscriptionSession = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/subscriptions/subscribe-tier
+ * Creates a Stripe Checkout session for a specific VIP tier.
+ * Body: { tier: "silver" | "gold" | "platinum" }
+ */
+const createTierSubscriptionSession = async (req, res) => {
+  try {
+    const { tier } = req.body;
+    if (!TIER_IDS.includes(tier)) {
+      return res.status(400).json({
+        message: `Tier inválido. Valores permitidos: ${TIER_IDS.join(", ")}`,
+      });
+    }
+
+    const priceId = getStripePriceId(tier);
+    if (!priceId) {
+      return res.status(503).json({
+        message: `El tier ${tier} no está configurado en este momento.`,
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    let sub = await Subscription.findOne({ user: req.userId });
+    let customerId = sub?.stripeCustomerId;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email });
+      customerId = customer.id;
+      await Subscription.findOneAndUpdate(
+        { user: req.userId },
+        { user: req.userId, stripeCustomerId: customerId },
+        { upsert: true, new: true }
+      );
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { userId: String(req.userId), vipTier: tier },
+      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/vip`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * GET /api/subscriptions/tiers — returns the available VIP tier definitions
+ * (without internal Stripe Price IDs, which are server-only).
+ */
+const getVipTiers = (_req, res) => {
+  const tiers = TIER_IDS.map((id) => {
+    // eslint-disable-next-line no-unused-vars
+    const { stripePriceIdEnvKey, ...safe } = VIP_TIERS[id];
+    return { ...safe, available: Boolean(getStripePriceId(id)) };
+  });
+  res.json({ tiers });
+};
+
 const getSubscriptionStatus = async (req, res) => {
   try {
     const sub = await Subscription.findOne({ user: req.userId });
-    const user = await User.findById(req.userId).select("isVIP vipExpiresAt").lean();
+    const user = await User.findById(req.userId).select("isVIP vipTier vipExpiresAt").lean();
     res.json({
       status: sub?.status || "inactive",
       currentPeriodEnd: sub?.currentPeriodEnd,
       isVIP: !!(user?.isVIP),
+      vipTier: user?.vipTier || null,
       vipExpiresAt: user?.vipExpiresAt || null,
     });
   } catch (err) {
@@ -71,7 +139,7 @@ const cancelSubscription = async (req, res) => {
     sub.status = "canceled";
     await sub.save();
     // Revoke premium and VIP status immediately on manual cancellation
-    await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipExpiresAt: null });
+    await User.findByIdAndUpdate(req.userId, { isPremium: false, isVIP: false, vipTier: null, vipExpiresAt: null });
     // Analytics: vip_canceled (fire-and-forget)
     trackAnalyticsEvent("vip_canceled", String(req.userId), {});
     res.json({ message: "Suscripción cancelada" });
@@ -91,6 +159,8 @@ const handleSubscriptionWebhook = async (event) => {
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
     const periodEnd = new Date(stripeSubscription.current_period_end * 1000);
+    // vipTier is set in metadata when using createTierSubscriptionSession; falls back to null for legacy checkout
+    const vipTier = TIER_IDS.includes(session.metadata?.vipTier) ? session.metadata.vipTier : null;
     await Subscription.findOneAndUpdate(
       { user: userId },
       {
@@ -103,10 +173,11 @@ const handleSubscriptionWebhook = async (event) => {
       { upsert: true, new: true }
     );
     // Grant premium and VIP access on successful subscription checkout
-    await User.findByIdAndUpdate(userId, { isPremium: true, isVIP: true, vipExpiresAt: periodEnd });
+    await User.findByIdAndUpdate(userId, { isPremium: true, isVIP: true, vipTier, vipExpiresAt: periodEnd });
     // Analytics: vip_subscribed (fire-and-forget)
     trackAnalyticsEvent("vip_subscribed", userId, {
       amount_usd: session.amount_total != null ? session.amount_total / 100 : null,
+      vipTier,
     });
   }
 
@@ -144,7 +215,7 @@ const handleSubscriptionWebhook = async (event) => {
     );
     // Revoke premium access and VIP status when subscription is fully deleted in Stripe
     if (sub?.user) {
-      await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipExpiresAt: null });
+      await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipTier: null, vipExpiresAt: null });
       // Analytics: vip_canceled (fire-and-forget)
       trackAnalyticsEvent("vip_canceled", String(sub.user), {});
     }
@@ -161,4 +232,4 @@ const handleSubscriptionWebhook = async (event) => {
   }
 };
 
-module.exports = { createSubscriptionSession, getSubscriptionStatus, cancelSubscription, handleSubscriptionWebhook };
+module.exports = { createSubscriptionSession, createTierSubscriptionSession, getVipTiers, getSubscriptionStatus, cancelSubscription, handleSubscriptionWebhook };

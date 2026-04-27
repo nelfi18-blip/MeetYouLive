@@ -2,6 +2,7 @@ const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin } = require("../middlewares/admin.middleware.js");
+const { validate, giftSendSchema } = require("../middlewares/validate.middleware.js");
 const {
   sendGift,
   getReceivedGifts,
@@ -21,8 +22,8 @@ const giftLimiter = rateLimit({
 });
 
 router.get("/", getGiftCatalog);
-router.post("/", giftLimiter, verifyToken, sendGift);
-router.post("/send", giftLimiter, verifyToken, sendGift);
+router.post("/", giftLimiter, verifyToken, validate(giftSendSchema), sendGift);
+router.post("/send", giftLimiter, verifyToken, validate(giftSendSchema), sendGift);
 router.get("/received", giftLimiter, verifyToken, getReceivedGifts);
 
 // Admin: gift catalog management

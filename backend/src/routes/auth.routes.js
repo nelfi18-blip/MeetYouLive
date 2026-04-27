@@ -7,6 +7,7 @@ const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
 
 /**
  * Generate a unique 6-character alphanumeric referral code (uppercase).
@@ -70,7 +71,7 @@ function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
-router.post("/register", authLimiter, async (req, res) => {
+router.post("/register", authLimiter, validate(registerSchema), async (req, res) => {
   const { username, password, ref, agencyCode } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
@@ -146,7 +147,7 @@ router.post("/register", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/login", authLimiter, async (req, res) => {
+router.post("/login", authLimiter, validate(loginSchema), async (req, res) => {
   const { password } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email || !password) {

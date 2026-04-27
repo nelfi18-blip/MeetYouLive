@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { validate, coinPurchaseSchema } = require("../middlewares/validate.middleware.js");
 const { createCheckoutSession, createCoinCheckoutSession, createSparkCheckoutSession } = require("../controllers/payment.controller.js");
 const { canWatchVideo } = require("../controllers/video.controller.js");
 
@@ -13,7 +14,7 @@ const paymentLimiter = rateLimit({
 });
 
 router.post("/checkout/:videoId", paymentLimiter, verifyToken, createCheckoutSession);
-router.post("/coins", paymentLimiter, verifyToken, createCoinCheckoutSession);
+router.post("/coins", paymentLimiter, verifyToken, validate(coinPurchaseSchema), createCoinCheckoutSession);
 router.post("/sparks", paymentLimiter, verifyToken, createSparkCheckoutSession);
 router.get("/access/:videoId", paymentLimiter, verifyToken, canWatchVideo);
 

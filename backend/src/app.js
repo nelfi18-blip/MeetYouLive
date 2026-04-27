@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const path = require("path");
+const { initSentry, sentryErrorHandler } = require("./middlewares/sentry.middleware.js");
 const authRoutes = require("./routes/auth.routes.js");
 const userRoutes = require("./routes/user.routes.js");
 const googleRoutes = require("./routes/google.routes.js");
@@ -38,6 +39,9 @@ const notificationRoutes = require("./routes/notification.routes.js");
 const progressionRoutes = require("./routes/progression.routes.js");
 
 const app = express();
+
+// Error monitoring — must be initialised before any other middleware.
+initSentry(app);
 
 // Security headers — applied before CORS and all other middleware.
 // For an API-only server (no HTML served) we use a restrictive default-src directive
@@ -137,5 +141,9 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/missions", missionsRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/user", progressionRoutes);
+
+// Sentry error handler — must come before the 404/generic error handler
+// so Sentry captures unhandled errors from all routes above.
+app.use(sentryErrorHandler());
 
 module.exports = app;

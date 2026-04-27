@@ -2,6 +2,7 @@ const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { getPackages, getBalance, getTransactions, useBoost } = require("../controllers/sparks.controller.js");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { validate, sparkBoostSchema } = require("../middlewares/validate.middleware.js");
 
 const router = Router();
 
@@ -20,6 +21,6 @@ const boostLimiter = rateLimit({
 router.get("/packages", getPackages);
 router.get("/balance", sparksLimiter, verifyToken, getBalance);
 router.get("/transactions", sparksLimiter, verifyToken, getTransactions);
-router.post("/boost", boostLimiter, verifyToken, useBoost);
+router.post("/boost", boostLimiter, verifyToken, validate(sparkBoostSchema), useBoost);
 
 module.exports = router;

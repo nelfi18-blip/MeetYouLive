@@ -2,6 +2,7 @@ const { Router } = require("express");
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const Stripe = require("stripe");
+const User = require("../models/User.js");
 const { handlePaymentCompleted } = require("../controllers/payment.controller.js");
 const { handleSubscriptionWebhook } = require("../controllers/subscription.controller.js");
 
@@ -11,6 +12,10 @@ const SUBSCRIPTION_EVENTS = new Set([
   "invoice.payment_succeeded",
   "invoice.payment_failed",
   "customer.subscription.deleted",
+]);
+
+const CONNECT_EVENTS = new Set([
+  "account.updated",
 ]);
 
 const router = Router();
@@ -53,6 +58,23 @@ router.post(
         await handlePaymentCompleted(event.data.object);
       } else if (SUBSCRIPTION_EVENTS.has(event.type)) {
         await handleSubscriptionWebhook(event);
+      } else if (CONNECT_EVENTS.has(event.type)) {
+        // account.updated — sync Stripe Connect account status to the User document
+        const account = event.data.object;
+        if (account.id && account.metadata?.userId) {
+          const enabled = account.charges_enabled && account.payouts_enabled;
+          const status = enabled
+            ? "enabled"
+            : account.requirements?.currently_due?.length > 0
+            ? "restricted"
+            : "pending";
+          await User.findOneAndUpdate(
+            { stripeAccountId: account.id },
+            { stripeAccountStatus: status }
+          ).catch((err) =>
+            console.error("[webhook] Failed to update stripeAccountStatus:", err.message)
+          );
+        }
       } else {
         console.log("[stripe webhook] event ignored", {
           eventId: event.id,

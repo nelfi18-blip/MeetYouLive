@@ -478,4 +478,138 @@ router.patch("/payouts/:id", async (req, res) => {
   }
 });
 
+// ── Fraud admin routes ──────────────────────────────────────────────────────
+
+const FraudAlert = require("../models/FraudAlert.js");
+
+// GET /api/admin/fraud/alerts — paginated alerts sorted by severity then date
+router.get("/fraud/alerts", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    const allowedStatuses = ["pending", "reviewed", "dismissed"];
+    const allowedSeverities = ["low", "medium", "high", "critical"];
+    const allowedAlertTypes = [
+      "rate_limit_exceeded",
+      "velocity_exceeded",
+      "self_gifting",
+      "new_account_restriction",
+      "duplicate_transaction",
+    ];
+    if (req.query.status && allowedStatuses.includes(req.query.status)) filter.status = req.query.status;
+    if (req.query.severity && allowedSeverities.includes(req.query.severity)) filter.severity = req.query.severity;
+    if (req.query.alertType && allowedAlertTypes.includes(req.query.alertType)) filter.alertType = req.query.alertType;
+
+    const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+
+    const [alerts, total] = await Promise.all([
+      FraudAlert.find(filter)
+        .populate("userId", "username name email avatar")
+        .populate("reviewedBy", "username name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      FraudAlert.countDocuments(filter),
+    ]);
+
+    // Sort by severity weight within the returned page
+    alerts.sort((a, b) => {
+      const diff = (SEVERITY_ORDER[a.severity] ?? 4) - (SEVERITY_ORDER[b.severity] ?? 4);
+      return diff !== 0 ? diff : new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json({ alerts, total, page, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/admin/fraud/alerts/:id/review — mark as reviewed with optional notes
+router.post("/fraud/alerts/:id/review", async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "ID inválido" });
+    }
+    const { status } = req.body;
+    // Sanitize notes to a plain string, preventing object injection
+    const notes = typeof req.body.notes === "string" ? req.body.notes.trim() : "";
+    const allowedStatuses = ["reviewed", "dismissed"];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: "Estado inválido. Usa: reviewed o dismissed" });
+    }
+    const alert = await FraudAlert.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        reviewNotes: notes,
+        reviewedBy: req.userId,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    );
+    if (!alert) return res.status(404).json({ message: "Alerta no encontrada" });
+    res.json({ alert });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/admin/fraud/stats — aggregate fraud stats
+router.get("/fraud/stats", async (req, res) => {
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // last 30 days
+
+    const [total, blocked, bySeverity, byType, flaggedUsers] = await Promise.all([
+      FraudAlert.countDocuments({ createdAt: { $gte: since } }),
+      FraudAlert.countDocuments({ blocked: true, createdAt: { $gte: since } }),
+      FraudAlert.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: "$severity", count: { $sum: 1 } } },
+      ]),
+      FraudAlert.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: "$alertType", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      FraudAlert.aggregate([
+        { $match: { blocked: true, createdAt: { $gte: since } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+            pipeline: [{ $project: { username: 1, name: 1, email: 1 } }],
+          },
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      ]),
+    ]);
+
+    res.json({
+      period: "last_30_days",
+      totalAlerts: total,
+      blockedTransactions: blocked,
+      bySeverity: Object.fromEntries(bySeverity.map((s) => [s._id, s.count])),
+      byType: Object.fromEntries(byType.map((s) => [s._id, s.count])),
+      topFlaggedUsers: flaggedUsers.map((f) => ({
+        userId: f._id,
+        count: f.count,
+        username: f.user?.username || "",
+        name: f.user?.name || "",
+        email: f.user?.email || "",
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

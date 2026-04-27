@@ -29,29 +29,121 @@ If upgrading Render is not an option, use UptimeRobot to ping the health endpoin
 
 ---
 
-## 3. SSL Troubleshooting — `api.meetyoulive.net`
+## 3. SSL Checklist — `api.meetyoulive.net`
 
-### Common SSL issues and fixes
+A broken SSL certificate on the backend causes an `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` error in the browser and makes the entire frontend crash with "Application error". Use this checklist to diagnose and fix it.
 
-**Verify DNS record type (must be CNAME, not A record):**
+---
+
+### 3.1 Diagnose the Problem
+
+**Check the API health endpoint in a browser or terminal:**
+```bash
+curl -v https://api.meetyoulive.net/api/health
 ```
+- ✅ Returns `{"status":"ok","message":"Servidor de MeetYouLive activo"}` → SSL is fine.
+- ❌ Returns `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` or `SSL_ERROR_RX_RECORD_TOO_LONG` → certificate is broken or missing. Continue to 3.2.
+
+**Check the certificate from the command line:**
+```bash
+openssl s_client -connect api.meetyoulive.net:443 -servername api.meetyoulive.net < /dev/null 2>&1 | grep -E "subject|issuer|Verify|error"
+```
+- ✅ `Verify return code: 0 (ok)` → certificate is valid.
+- ❌ Any other verify code → certificate is invalid or expired.
+
+---
+
+### 3.2 Verify DNS Configuration (must be CNAME, not A record)
+
+Render uses a shared IP pool. An `A` record will break SSL because the certificate is issued to the `.onrender.com` hostname, not a raw IP.
+
+```bash
 dig api.meetyoulive.net
+# or, on Windows/mobile:
+nslookup api.meetyoulive.net
 ```
-- ✅ Should return a `CNAME` pointing to `<service>.onrender.com`
-- ❌ If you see an `A` record, update your DNS provider to use `CNAME`
 
-**Re-provision SSL certificate in Render:**
-1. Go to Render dashboard → your service → **Settings → Custom Domains**
-2. Remove the existing custom domain
-3. Re-add `api.meetyoulive.net`
-4. Wait 2–5 minutes for certificate provisioning
+**Expected result (✅ correct):**
+```
+api.meetyoulive.net.  CNAME  <service-name>.onrender.com.
+```
 
-**Temporary fallback:**
-If SSL is broken, use the `.onrender.com` URL directly:
+**Wrong result (❌ fix required):**
 ```
-https://<service-name>.onrender.com
+api.meetyoulive.net.  A  <IP address>
 ```
-Update `NEXT_PUBLIC_API_URL` in Vercel environment variables to the `.onrender.com` URL until the custom domain is fixed.
+
+**How to fix in GoDaddy:**
+1. Log in to [godaddy.com](https://godaddy.com) → **DNS** for `meetyoulive.net`.
+2. Find the `api` record.
+3. If it is type `A`, delete it.
+4. Add a new record:
+   - **Type:** `CNAME`
+   - **Name:** `api`
+   - **Value:** `<service-name>.onrender.com` (the `.onrender.com` URL of your backend service — visible in Render dashboard → Settings → Domains)
+   - **TTL:** 600 seconds (or lowest available)
+5. Save and wait up to 10 minutes for DNS propagation.
+
+---
+
+### 3.3 Re-provision the SSL Certificate in Render
+
+After the DNS record is correct, force Render to re-issue the certificate:
+
+1. Log in to [dashboard.render.com](https://dashboard.render.com).
+2. Select your backend service (`meetyoulive-backend`).
+3. Go to **Settings → Custom Domains**.
+4. If `api.meetyoulive.net` shows **Certificate Failed** or **Pending**:
+   - Click **Delete** (remove the custom domain entry).
+   - Click **Add Custom Domain**.
+   - Enter `api.meetyoulive.net` again and confirm.
+5. Wait **2–5 minutes**. Render will call Let's Encrypt to issue a new certificate.
+6. The status should change to **Active** with a green checkmark.
+
+> **Tip:** Render provisions certificates via Let's Encrypt (ACME HTTP-01 challenge). The DNS `CNAME` must be correct *before* you add the domain back, otherwise the challenge will fail and you'll need to retry.
+
+---
+
+### 3.4 Immediate Fallback (Use `.onrender.com` URL Directly)
+
+If the SSL fix takes more than a few minutes and you need the app running now:
+
+1. In [Vercel dashboard](https://vercel.com) → your project → **Settings → Environment Variables**.
+2. Change `NEXT_PUBLIC_API_URL` from `https://api.meetyoulive.net` to your direct Render URL:
+   ```
+   https://<service-name>.onrender.com
+   ```
+3. Click **Save**, then go to **Deployments → Redeploy** (or trigger a **Manual Deploy**).
+4. Verify the frontend loads by opening `https://www.meetyoulive.net`.
+
+> **Remember to revert** `NEXT_PUBLIC_API_URL` back to `https://api.meetyoulive.net` once the custom-domain certificate is active again.
+
+---
+
+### 3.5 Post-Fix Verification
+
+Run all of these checks after fixing SSL:
+
+| Check | Command / Action | Expected result |
+|-------|-----------------|-----------------|
+| Certificate valid | `curl -v https://api.meetyoulive.net/api/health` | HTTP 200, JSON body |
+| No SSL error in browser | Open `https://api.meetyoulive.net/api/health` in Chrome | No `ERR_SSL_*` warning |
+| Frontend loads | Open `https://www.meetyoulive.net` | Home page renders without "Application error" |
+| WebSocket works | Log in → open a live stream → DevTools → Network → WS | `wss://api.meetyoulive.net` connection established |
+| OAuth flow works | Open incognito → click **Iniciar sesión con Google** | Redirects back and session is active |
+
+---
+
+### 3.6 Prevention Checklist
+
+Do these things to avoid future SSL breakage:
+
+- [ ] **Use CNAME, never A record** for `api.meetyoulive.net` (see 3.2).
+- [ ] **Set up an UptimeRobot monitor** on `https://api.meetyoulive.net/api/health` (see Section 2) — it will alert you if the endpoint goes down, which can indicate a broken certificate.
+- [ ] **Check Render custom domain status** after any DNS change: go to Settings → Custom Domains and confirm the badge shows **Active**.
+- [ ] **Never change the DNS record type from CNAME to A** unless you move the backend off Render.
+- [ ] **Renewal is automatic** — Render auto-renews Let's Encrypt certificates every 60–90 days. No manual action is needed as long as the CNAME record stays correct.
+- [ ] **Bookmark the Render dashboard** to quickly access Settings → Custom Domains when issues arise.
 
 ---
 

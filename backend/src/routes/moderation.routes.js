@@ -65,7 +65,7 @@ router.patch("/users/:id/suspend", moderationLimiter, verifyToken, requireModera
     return res.status(400).json({ message: "isSuspended debe ser boolean" });
   }
   try {
-    const targetUser = await User.findById(req.params.id).select("role");
+    const targetUser = await User.findById(req.params.id).select("role isSuspended");
     if (!targetUser) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -73,12 +73,15 @@ router.patch("/users/:id/suspend", moderationLimiter, verifyToken, requireModera
     if (req.userRole === "moderator" && (targetUser.role === "admin" || targetUser.role === "moderator")) {
       return res.status(403).json({ message: "Los moderadores no pueden suspender a admins o moderadores" });
     }
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isSuspended },
-      { new: true }
-    ).select("username email isSuspended");
-    res.json(user);
+    // Update the same document instance
+    targetUser.isSuspended = isSuspended;
+    await targetUser.save();
+    res.json({
+      _id: targetUser._id,
+      username: targetUser.username,
+      email: targetUser.email,
+      isSuspended: targetUser.isSuspended,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -91,7 +94,7 @@ router.patch("/users/:id/block", moderationLimiter, verifyToken, requireModerato
     return res.status(400).json({ message: "isBlocked debe ser boolean" });
   }
   try {
-    const targetUser = await User.findById(req.params.id).select("role");
+    const targetUser = await User.findById(req.params.id).select("role isBlocked");
     if (!targetUser) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -99,12 +102,15 @@ router.patch("/users/:id/block", moderationLimiter, verifyToken, requireModerato
     if (req.userRole === "moderator" && (targetUser.role === "admin" || targetUser.role === "moderator")) {
       return res.status(403).json({ message: "Los moderadores no pueden bloquear a admins o moderadores" });
     }
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isBlocked },
-      { new: true }
-    ).select("username email isBlocked");
-    res.json(user);
+    // Update the same document instance
+    targetUser.isBlocked = isBlocked;
+    await targetUser.save();
+    res.json({
+      _id: targetUser._id,
+      username: targetUser.username,
+      email: targetUser.email,
+      isBlocked: targetUser.isBlocked,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

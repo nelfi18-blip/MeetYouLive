@@ -121,12 +121,12 @@ export default function Navbar() {
     effectiveRole === "admin"
       ? t("role.admin")
       : effectiveRole === "moderator"
-      ? "Moderador"
+      ? t("role.moderator")
       : isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })
-      ? "Creador"
+      ? t("role.creator")
       : effectiveCreatorStatus === "pending"
-      ? "Creador (pendiente)"
-      : "Miembro";
+      ? t("role.creator_pending")
+      : t("role.member");
   const initial = displayName[0].toUpperCase();
 
   return (

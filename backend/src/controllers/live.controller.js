@@ -136,8 +136,10 @@ const getLives = async (req, res) => {
       .filter((live) => live.user.role !== "admin" && live.user.role !== "moderator")
       .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => {
-        // Remove role from user object before sending to client
-        const { role, ...userWithoutRole } = live.user;
+        // Remove role from user object before sending to client (defensive check for user existence)
+        const userWithoutRole = live.user && typeof live.user === 'object' 
+          ? (() => { const { role, ...rest } = live.user; return rest; })()
+          : live.user;
         return {
           ...live,
           user: userWithoutRole,

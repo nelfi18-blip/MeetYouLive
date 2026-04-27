@@ -492,4 +492,234 @@ const getActiveLiveEvent = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent };
+// ── Multi-guest management (Tango-style) ────────────────────────────────────
+
+const requestJoinLive = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, isLive: true });
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
+
+    const creatorId = String(live.user);
+    const requesterId = String(req.userId);
+
+    // Cannot request if you are the creator
+    if (creatorId === requesterId) {
+      return res.status(400).json({ message: "El creador no puede solicitar unirse" });
+    }
+
+    // Check if already a guest
+    const isGuest = live.guests.some((g) => String(g.userId) === requesterId);
+    if (isGuest) {
+      return res.status(400).json({ message: "Ya eres un invitado en este directo" });
+    }
+
+    // Check if already requested
+    const hasRequest = live.guestRequests.some((r) => String(r.userId) === requesterId && r.status === "pending");
+    if (hasRequest) {
+      return res.status(400).json({ message: "Ya has enviado una solicitud pendiente" });
+    }
+
+    // Check max guests limit
+    const activeGuests = live.guests.filter((g) => g.status === "active");
+    if (activeGuests.length >= live.maxGuests) {
+      return res.status(400).json({ message: "El directo ya tiene el máximo de invitados" });
+    }
+
+    // Add request
+    live.guestRequests.push({ userId: requesterId, status: "pending" });
+    await live.save();
+
+    // Notify host via socket
+    const io = getIO();
+    if (io) {
+      const user = await User.findById(requesterId).select("username name").lean();
+      io.to(creatorId).emit("GUEST_REQUEST_RECEIVED", {
+        liveId: req.params.id,
+        userId: requesterId,
+        username: user?.username || user?.name || "Usuario",
+      });
+    }
+
+    res.json({ message: "Solicitud enviada al creador" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const approveGuest = async (req, res) => {
+  try {
+    const { guestUserId } = req.body;
+    if (!guestUserId) return res.status(400).json({ message: "guestUserId es requerido" });
+
+    const live = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+
+    // Check max guests limit
+    const activeGuests = live.guests.filter((g) => g.status === "active");
+    if (activeGuests.length >= live.maxGuests) {
+      return res.status(400).json({ message: "El directo ya tiene el máximo de invitados" });
+    }
+
+    // Find and update the request
+    const request = live.guestRequests.find((r) => String(r.userId) === String(guestUserId) && r.status === "pending");
+    if (!request) {
+      return res.status(404).json({ message: "Solicitud no encontrada o ya procesada" });
+    }
+
+    request.status = "approved";
+
+    // Add to guests
+    const alreadyGuest = live.guests.some((g) => String(g.userId) === String(guestUserId));
+    if (!alreadyGuest) {
+      live.guests.push({ userId: guestUserId, status: "active" });
+    }
+
+    await live.save();
+
+    // Notify the approved guest and broadcast to the room
+    const io = getIO();
+    if (io) {
+      const user = await User.findById(guestUserId).select("username name avatar").lean();
+      const guestData = {
+        userId: String(guestUserId),
+        username: user?.username || user?.name || "Invitado",
+        avatar: user?.avatar || "",
+      };
+
+      // Notify the guest
+      io.to(String(guestUserId)).emit("GUEST_APPROVED", {
+        liveId: req.params.id,
+      });
+
+      // Broadcast to all viewers in the room
+      io.to(`live:${req.params.id}`).emit("GUEST_JOINED", {
+        liveId: req.params.id,
+        guest: guestData,
+      });
+    }
+
+    res.json({ message: "Invitado aprobado" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const declineGuest = async (req, res) => {
+  try {
+    const { guestUserId } = req.body;
+    if (!guestUserId) return res.status(400).json({ message: "guestUserId es requerido" });
+
+    const live = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+
+    const request = live.guestRequests.find((r) => String(r.userId) === String(guestUserId) && r.status === "pending");
+    if (!request) {
+      return res.status(404).json({ message: "Solicitud no encontrada o ya procesada" });
+    }
+
+    request.status = "declined";
+    await live.save();
+
+    // Notify the declined guest
+    const io = getIO();
+    if (io) {
+      io.to(String(guestUserId)).emit("GUEST_DECLINED", {
+        liveId: req.params.id,
+      });
+    }
+
+    res.json({ message: "Solicitud rechazada" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const leaveAsGuest = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, isLive: true });
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
+
+    const guestIndex = live.guests.findIndex((g) => String(g.userId) === String(req.userId));
+    if (guestIndex === -1) {
+      return res.status(404).json({ message: "No eres un invitado en este directo" });
+    }
+
+    // Remove guest
+    live.guests.splice(guestIndex, 1);
+    await live.save();
+
+    // Broadcast to all viewers in the room
+    const io = getIO();
+    if (io) {
+      io.to(`live:${req.params.id}`).emit("GUEST_LEFT", {
+        liveId: req.params.id,
+        userId: String(req.userId),
+      });
+    }
+
+    res.json({ message: "Has salido como invitado" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const removeGuest = async (req, res) => {
+  try {
+    const { guestUserId } = req.params;
+    if (!guestUserId) return res.status(400).json({ message: "guestUserId es requerido" });
+
+    const live = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!live) return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+
+    const guestIndex = live.guests.findIndex((g) => String(g.userId) === String(guestUserId));
+    if (guestIndex === -1) {
+      return res.status(404).json({ message: "Invitado no encontrado" });
+    }
+
+    // Remove guest
+    live.guests.splice(guestIndex, 1);
+    await live.save();
+
+    // Notify the removed guest and broadcast to the room
+    const io = getIO();
+    if (io) {
+      io.to(String(guestUserId)).emit("GUEST_REMOVED", {
+        liveId: req.params.id,
+      });
+
+      io.to(`live:${req.params.id}`).emit("GUEST_LEFT", {
+        liveId: req.params.id,
+        userId: String(guestUserId),
+      });
+    }
+
+    res.json({ message: "Invitado removido" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const getGuests = async (req, res) => {
+  try {
+    const live = await Live.findOne({ _id: req.params.id, isLive: true })
+      .select("guests guestRequests user")
+      .populate("guests.userId", "username name avatar")
+      .populate("guestRequests.userId", "username name avatar")
+      .lean();
+
+    if (!live) return res.status(404).json({ message: "Directo no encontrado" });
+
+    // Only the host can see pending requests
+    const isHost = String(live.user) === String(req.userId);
+    const response = {
+      guests: live.guests || [],
+      guestRequests: isHost ? (live.guestRequests || []).filter((r) => r.status === "pending") : [],
+    };
+
+    res.json(response);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent, requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests };

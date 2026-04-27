@@ -1,5 +1,23 @@
 const mongoose = require("mongoose");
 
+const guestSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    joinedAt: { type: Date, default: Date.now },
+    status: { type: String, enum: ["active", "disconnected"], default: "active" },
+  },
+  { _id: false }
+);
+
+const guestRequestSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    requestedAt: { type: Date, default: Date.now },
+    status: { type: String, enum: ["pending", "approved", "declined"], default: "pending" },
+  },
+  { _id: false }
+);
+
 const liveSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -17,6 +35,10 @@ const liveSchema = new mongoose.Schema(
     paidViewers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     chatEnabled: { type: Boolean, default: true },
     giftsEnabled: { type: Boolean, default: true },
+    // Multi-guest streaming support (Tango-style)
+    guests: { type: [guestSchema], default: [] },
+    guestRequests: { type: [guestRequestSchema], default: [] },
+    maxGuests: { type: Number, default: 3, min: 0, max: 10 },
     goal: {
       active:   { type: Boolean, default: false },
       title:    { type: String,  default: "" },

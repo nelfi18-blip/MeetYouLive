@@ -129,6 +129,12 @@ router.get("/:id/public", userLimiter, async (req, res) => {
       "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    
+    // Hide admin and moderator profiles from public view
+    if (user.role === "admin" || user.role === "moderator") {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    
     const profile = user.toObject();
     const photoFields = serializeUserPhotoFields(req, profile);
     profile.avatar = photoFields.avatar;
@@ -337,12 +343,14 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const now = new Date();
 
     // Boosted users (active boost) appear first, then newest first.
+    // Exclude admin and moderator roles from public discovery
     const users = await User.aggregate([
       {
         $match: {
           _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
           isBlocked: false,
           onboardingComplete: true,
+          role: { $nin: ["admin", "moderator"] },
         },
       },
       {

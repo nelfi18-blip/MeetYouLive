@@ -5,6 +5,7 @@ const {
   startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings,
   getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle,
   triggerLiveEvent, stopLiveEvent, getActiveLiveEvent,
+  requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests,
 } = require("../controllers/live.controller.js");
 
 const router = Router();
@@ -36,5 +37,13 @@ router.post("/:id/battle/end", liveLimiter, verifyToken, endLiveBattle);
 router.get("/:id/event", liveLimiter, getActiveLiveEvent);
 router.post("/:id/event", liveLimiter, verifyToken, triggerLiveEvent);
 router.delete("/:id/event", liveLimiter, verifyToken, stopLiveEvent);
+
+// Multi-guest endpoints (Tango-style)
+router.post("/:id/request-join", liveLimiter, verifyToken, requestJoinLive);
+router.post("/:id/approve-guest", liveLimiter, verifyToken, approveGuest);
+router.post("/:id/decline-guest", liveLimiter, verifyToken, declineGuest);
+router.delete("/:id/leave-guest", liveLimiter, verifyToken, leaveAsGuest);
+router.delete("/:id/remove-guest/:guestUserId", liveLimiter, verifyToken, removeGuest);
+router.get("/:id/guests", liveLimiter, optionalVerifyToken, getGuests);
 
 module.exports = router;

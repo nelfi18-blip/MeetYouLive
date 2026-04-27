@@ -30,22 +30,28 @@ const getToken = async (req, res) => {
   }
 
   try {
-    // Determine role: publisher for creator/call participant, subscriber for viewer
+    // Determine role: publisher for creator/call participant/approved guest, subscriber for viewer
     let role = RtcRole.SUBSCRIBER;
 
     if (roleParam !== "subscriber") {
-      // Check once whether the requester is the live creator or a call participant
-      const [isLiveCreator, isCallParticipant] = await Promise.all([
+      // Check once whether the requester is the live creator, a call participant, or an approved guest
+      const [isLiveCreator, isCallParticipant, isApprovedGuest] = await Promise.all([
         Live.exists({ _id: channelName, user: req.userId, isLive: true }),
         VideoCall.exists({
           _id: channelName,
           $or: [{ caller: req.userId }, { recipient: req.userId }],
           status: { $in: ["pending", "accepted"] },
         }),
+        Live.exists({
+          _id: channelName,
+          isLive: true,
+          "guests.userId": req.userId,
+          "guests.status": "active",
+        }),
       ]);
 
       if (roleParam === "publisher" || roleParam === undefined) {
-        if (isLiveCreator || isCallParticipant) {
+        if (isLiveCreator || isCallParticipant || isApprovedGuest) {
           role = RtcRole.PUBLISHER;
         }
       }

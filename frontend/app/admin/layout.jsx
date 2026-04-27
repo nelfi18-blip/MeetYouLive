@@ -115,6 +115,7 @@ export default function AdminLayout({ children }) {
               <div className="admin-avatar">{(adminUser.name || adminUser.username || "A")[0].toUpperCase()}</div>
               <div className="admin-meta">
                 <div className="admin-name">{adminUser.name || adminUser.username}</div>
+                {/* Note: Admin panel uses hardcoded labels as it's separate from main app i18n */}
                 <div className="admin-role">{userRole === "moderator" ? "Moderador" : "Administrador"}</div>
               </div>
             </div>

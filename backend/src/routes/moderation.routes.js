@@ -65,7 +65,7 @@ router.patch("/users/:id/suspend", moderationLimiter, verifyToken, requireModera
     return res.status(400).json({ message: "isSuspended debe ser boolean" });
   }
   try {
-    const targetUser = await User.findById(req.params.id).select("role isSuspended");
+    const targetUser = await User.findById(req.params.id).select("role isSuspended username email");
     if (!targetUser) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -94,7 +94,7 @@ router.patch("/users/:id/block", moderationLimiter, verifyToken, requireModerato
     return res.status(400).json({ message: "isBlocked debe ser boolean" });
   }
   try {
-    const targetUser = await User.findById(req.params.id).select("role isBlocked");
+    const targetUser = await User.findById(req.params.id).select("role isBlocked username email");
     if (!targetUser) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }

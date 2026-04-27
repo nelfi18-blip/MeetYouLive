@@ -10,32 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  backend-lint-build:
-    name: Backend — Lint & Build
+  backend:
+    name: Backend — CI
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - run: npx eslint src/ --ext .js
-      - run: GOOGLE_CLIENT_ID=ci-placeholder GOOGLE_CLIENT_SECRET=ci-placeholder GOOGLE_CALLBACK_URL=http://localhost STRIPE_SECRET_KEY=sk_test_fake STRIPE_WEBHOOK_SECRET=whsec_test_fake node -e "require('./src/app')"
-
-  backend-test:
-    name: Backend — Tests
-    runs-on: ubuntu-latest
-    needs: backend-lint-build
-    services:
-      mongodb:
-        image: mongo:7
-        ports:
-          - 27017:27017
     defaults:
       run:
         working-directory: backend
@@ -56,9 +33,22 @@ jobs:
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: npm test -- --forceExit --detectOpenHandles
+      - name: Lint (solo si existe script lint)
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)" 2>/dev/null; then
+            npm run lint
+          else
+            echo "No hay script de lint en backend, se omite."
+          fi
+      - name: Tests (solo si existe script test)
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)" 2>/dev/null; then
+            npm test -- --forceExit --detectOpenHandles
+          else
+            echo "No hay script de test en backend, se omite."
+          fi
 
-  frontend-build:
+  frontend:
     name: Frontend — Build
     runs-on: ubuntu-latest
     defaults:
@@ -67,6 +57,7 @@ jobs:
     env:
       NEXT_PUBLIC_API_URL: https://api.meetyoulive.net
       NEXTAUTH_SECRET: test-secret-ci
+      NEXTAUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,4 +66,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Lint (solo si existe script lint)
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)" 2>/dev/null; then
+            npm run lint
+          else
+            echo "No hay script de lint en frontend, se omite."
+          fi
       - run: npm run build

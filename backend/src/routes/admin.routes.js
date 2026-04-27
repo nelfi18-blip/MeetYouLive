@@ -128,15 +128,19 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
   }
 });
 
+// Moderator-accessible routes (also accessible by admin)
+router.get("/reports", adminLimiter, verifyToken, requireModeratorOrAdmin, getReports);
+router.patch("/reports/:id", adminLimiter, verifyToken, requireModeratorOrAdmin, updateReport);
+router.get("/users", adminLimiter, verifyToken, requireModeratorOrAdmin, getUsers);
+router.get("/lives", adminLimiter, verifyToken, requireModeratorOrAdmin, getActiveLives);
+router.get("/lives/history", adminLimiter, verifyToken, requireModeratorOrAdmin, getLiveHistory);
+
 // All routes below require a valid JWT and admin role
 router.use(adminLimiter, verifyToken, requireAdmin);
 
 router.get("/overview", getOverview);
-router.get("/users", getUsers);
 router.patch("/users/:id/suspend", suspendUser);
 router.patch("/users/:id/unsuspend", unsuspendUser);
-router.get("/reports", getReports);
-router.patch("/reports/:id", updateReport);
 router.patch("/make-admin", makeAdmin);
 router.get("/creator-requests", getCreatorRequests);
 router.patch("/creator-requests/:id/approve", approveCreator);
@@ -150,8 +154,6 @@ router.patch("/creators/:id/suspend", suspendCreator);
 router.patch("/creators/:id/reactivate", reactivateCreator);
 router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);
-router.get("/lives", getActiveLives);
-router.get("/lives/history", getLiveHistory);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
 router.get("/revenue", getRevenueMetrics);
@@ -161,7 +163,7 @@ router.patch("/settings", updateSettings);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;
-  if (!["user", "creator", "admin"].includes(role)) {
+  if (!["user", "creator", "admin", "moderator"].includes(role)) {
     return res.status(400).json({ message: "Rol inválido" });
   }
   try {

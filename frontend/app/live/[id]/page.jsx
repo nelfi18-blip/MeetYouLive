@@ -652,7 +652,7 @@ export default function LiveRoomPage() {
               }
               if (user.hasAudio) {
                 await client.subscribe(user, "audio");
-                try { user.audioTrack?.play(); } catch (_) {}
+                try { user.audioTrack?.play(); } catch (err) { console.warn("[Agora] audio autoplay blocked:", err); }
               }
             } catch (err) {
               console.error("[Agora] subscribe existing user error:", err);
@@ -666,7 +666,7 @@ export default function LiveRoomPage() {
                 user.videoTrack?.play(remoteVideoContainerRef.current);
               }
               if (mediaType === "audio") {
-                try { user.audioTrack?.play(); } catch (_) {}
+                try { user.audioTrack?.play(); } catch (err) { console.warn("[Agora] audio autoplay blocked:", err); }
               }
             } catch (err) {
               console.error("[Agora] user-published error:", err);
@@ -678,7 +678,7 @@ export default function LiveRoomPage() {
               if (mediaType === "video") {
                 user.videoTrack?.stop();
               }
-            } catch (_) {}
+            } catch (err) { console.warn("[Agora] video stop error:", err); }
           });
         }
 

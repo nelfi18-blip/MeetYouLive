@@ -851,6 +851,12 @@ export default function LiveRoomPage() {
     ]);
   }, [addOverlayEvent, currentUserId, showPressureHint]);
 
+  /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
+  const handleGoalChange = useCallback((gd) => {
+    goalDataRef.current = gd;
+    setGoalData(gd);
+  }, []);
+
   const handleJoin = async () => {
     if (!token) {
       setJoinError("Debes iniciar sesión para unirte a este directo privado.");
@@ -1189,12 +1195,6 @@ export default function LiveRoomPage() {
   const showGoalUrgency  = !isCreator && goalData?.active && !goalData?.completed && goalData?.target > 0;
   const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
-
-  /** Keep goalDataRef in sync so socket callbacks (closed over refs) can access it. */
-  const handleGoalChange = useCallback((gd) => {
-    goalDataRef.current = gd;
-    setGoalData(gd);
-  }, []);
 
   return (
     <div className="room">

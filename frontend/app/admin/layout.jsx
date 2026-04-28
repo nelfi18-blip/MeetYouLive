@@ -7,23 +7,24 @@ import Image from "next/image";
 import { clearAdminToken } from "@/lib/token";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: "⊞", exact: true },
-  { href: "/admin/users", label: "Usuarios", icon: "👥" },
-  { href: "/admin/creators", label: "Creadores", icon: "🎬" },
-  { href: "/admin/agencies", label: "Agencias", icon: "🏢" },
-  { href: "/admin/lives", label: "Streams", icon: "📡" },
-  { href: "/admin/payouts", label: "Retiros", icon: "💸" },
-  { href: "/admin/transactions", label: "Transacciones", icon: "💰" },
-  { href: "/admin/revenue", label: "Ingresos", icon: "📈" },
-  { href: "/admin/reports", label: "Reportes", icon: "🚨" },
-  { href: "/admin/analytics", label: "Analíticas", icon: "📊" },
-  { href: "/admin/settings", label: "Configuración", icon: "⚙️" },
+  { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
+  { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator"] },
+  { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin"] },
+  { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
+  { href: "/admin/lives", label: "Streams", icon: "📡", roles: ["admin", "moderator"] },
+  { href: "/admin/payouts", label: "Retiros", icon: "💸", roles: ["admin"] },
+  { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
+  { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin"] },
+  { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator"] },
+  { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
+  { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
 ];
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [adminUser, setAdminUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -35,7 +36,11 @@ export default function AdminLayout({ children }) {
     }
     try {
       const raw = localStorage.getItem("admin_user");
-      if (raw) setAdminUser(JSON.parse(raw));
+      if (raw) {
+        const user = JSON.parse(raw);
+        setAdminUser(user);
+        setUserRole(user.role || "admin");
+      }
     } catch {
       // ignore
     }
@@ -91,7 +96,7 @@ export default function AdminLayout({ children }) {
           </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter(item => !item.roles || item.roles.includes(userRole)).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -110,7 +115,8 @@ export default function AdminLayout({ children }) {
               <div className="admin-avatar">{(adminUser.name || adminUser.username || "A")[0].toUpperCase()}</div>
               <div className="admin-meta">
                 <div className="admin-name">{adminUser.name || adminUser.username}</div>
-                <div className="admin-role">Administrador</div>
+                {/* Note: Admin panel uses hardcoded labels as it's separate from main app i18n */}
+                <div className="admin-role">{userRole === "moderator" ? "Moderador" : "Administrador"}</div>
               </div>
             </div>
           )}

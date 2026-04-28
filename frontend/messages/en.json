@@ -16,6 +16,7 @@
   },
   "role": {
     "admin": "Administrator",
+    "moderator": "Moderator",
     "creator": "Creator",
     "creator_pending": "Creator (pending)",
     "member": "Member"

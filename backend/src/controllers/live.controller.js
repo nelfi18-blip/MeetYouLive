@@ -130,21 +130,31 @@ const getLives = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    // Filter out lives from admin/moderator users
     const sanitizedLives = (Array.isArray(lives) ? lives : [])
       .filter((live) => live && live._id && live.user)
+ copilot/feature-role-privacy-moderator-panel
+      .filter((live) => live.user.role !== "admin" && live.user.role !== "moderator")
+
       .filter((live) => {
         // Exclude admin and moderator streamers from public explore
         const userRole = live.user?.role;
         return userRole !== "admin" && userRole !== "moderator";
       })
+ main
       .filter((live) => hasLiveHost(String(live._id)))
-      .map((live) => ({
-        ...live,
-        title: normalizeLiveTitle(live.title),
-        description: typeof live.description === "string" ? live.description : "",
-        viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
-        entryCost: Number.isFinite(live.entryCost) ? Math.max(0, live.entryCost) : 0,
-      }));
+      .map((live) => {
+        // Remove role from user object before sending to client
+        const { role, ...userWithoutRole } = live.user || {};
+        return {
+          ...live,
+          user: userWithoutRole,
+          title: normalizeLiveTitle(live.title),
+          description: typeof live.description === "string" ? live.description : "",
+          viewerCount: Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0,
+          entryCost: Number.isFinite(live.entryCost) ? Math.max(0, live.entryCost) : 0,
+        };
+      });
 
     if (sanitizedLives.length > 0) {
       const liveIds = sanitizedLives.map((l) => l._id);
@@ -189,13 +199,23 @@ const hasVipAccess = async (live, userId) => {
 
 const getLiveById = async (req, res) => {
   try {
-    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile");
+    const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
+    
+    // Hide admin/moderator lives from public
+    if (live.user.role === "admin" || live.user.role === "moderator") {
+      return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
+    }
 
     const access = hasLiveAccess(live, req.userId);
     const vipAccess = await hasVipAccess(live, req.userId);
     const liveObj = live.toObject();
     delete liveObj.paidViewers;
+    
+    // Remove role from user object
+    if (liveObj.user && liveObj.user.role) {
+      delete liveObj.user.role;
+    }
 
     if (!access) {
       delete liveObj.streamKey;

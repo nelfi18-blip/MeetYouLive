@@ -115,14 +115,18 @@ export default function Navbar() {
     "Usuario";
   const effectiveRole = role || session?.backendUser?.role || "";
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
+  
+  // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
     effectiveRole === "admin"
       ? t("role.admin")
+      : effectiveRole === "moderator"
+      ? t("role.moderator")
       : isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })
-      ? "Creador"
+      ? t("role.creator")
       : effectiveCreatorStatus === "pending"
-      ? "Creador (pendiente)"
-      : "Miembro";
+      ? t("role.creator_pending")
+      : t("role.member");
   const initial = displayName[0].toUpperCase();
 
   return (

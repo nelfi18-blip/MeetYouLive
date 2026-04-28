@@ -135,7 +135,11 @@ const getLives = async (req, res) => {
       .filter((live) => {
         // Exclude admin and moderator streamers from public explore
         const userRole = live.user?.role;
-        return userRole !== "admin" && userRole !== "moderator";
+        // If role is missing or is admin/moderator, exclude it
+        if (!userRole || userRole === "admin" || userRole === "moderator") {
+          return false;
+        }
+        return true;
       })
       .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => ({

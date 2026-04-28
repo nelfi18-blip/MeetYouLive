@@ -25,7 +25,7 @@ import { computeStatusBadges } from "@/lib/statusBadges";
  */
 export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush, superCrushPrice, onMessage, onVideoCall, onPrivateCall, loading }) {
   // Defensive: never render admin or moderator cards publicly
-  if (user.role === "admin" || user.role === "moderator") {
+  if (!user || user.role === "admin" || user.role === "moderator") {
     return null;
   }
 

@@ -348,23 +348,21 @@ export default function ExplorePage() {
           {users.length > 0 && (
             <>
               <div className="discover-grid">
-                {users
-                  .filter((user) => user.role !== "admin" && user.role !== "moderator")
-                  .map((user) => (
-                    <ProfileCard
-                      key={user._id}
-                      user={user}
-                      liked={likedIds.has(user._id)}
-                      matched={matchIds.has(user._id)}
-                      onLike={handleLike}
-                      onSuperCrush={handleSuperCrush}
-                      superCrushPrice={superCrushPrice}
-                      onMessage={handleMessage}
-                      onVideoCall={handleVideoCall}
-                      onPrivateCall={handlePrivateCall}
-                      loading={discoverLoading}
-                    />
-                  ))}
+                {users.map((user) => (
+                  <ProfileCard
+                    key={user._id}
+                    user={user}
+                    liked={likedIds.has(user._id)}
+                    matched={matchIds.has(user._id)}
+                    onLike={handleLike}
+                    onSuperCrush={handleSuperCrush}
+                    superCrushPrice={superCrushPrice}
+                    onMessage={handleMessage}
+                    onVideoCall={handleVideoCall}
+                    onPrivateCall={handlePrivateCall}
+                    loading={discoverLoading}
+                  />
+                ))}
               </div>
 
               {hasMore && (

@@ -50,18 +50,17 @@ export default function FeaturedCreators() {
   const [activeTab, setActiveTab] = useState("live");
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Fetch current user info
+  // Fetch current user info from backend to get role/creatorStatus
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) return;
+    if (!session?.backendToken) return;
     
     fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${session.backendToken}` },
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((user) => { if (user) setCurrentUser(user); })
       .catch(() => {});
-  }, []);
+  }, [session]);
 
   // Check if current user is an approved creator
   const isCreator = isApprovedCreator(currentUser);

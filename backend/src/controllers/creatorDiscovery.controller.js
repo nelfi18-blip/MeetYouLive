@@ -14,13 +14,15 @@ const getCreatorsForDiscovery = async (req, res) => {
     const maxLimit = Math.min(parseInt(limit, 10) || 20, 50);
 
     // Find approved creators only (exclude admin/moderator)
+    // Sort by followersCount to get most popular creators deterministically
     const creators = await User.find({
       role: "creator",
       creatorStatus: "approved",
       username: { $ne: null },
     })
       .select("_id username name avatar isPremium isVerifiedCreator followersCount")
-      .limit(maxLimit)
+      .sort({ followersCount: -1, _id: 1 }) // Deterministic sorting
+      .limit(maxLimit * 2) // Get more than needed for filtering
       .lean();
 
     if (!creators || creators.length === 0) {
@@ -164,7 +166,10 @@ const getCreatorsForDiscovery = async (req, res) => {
       return (b.totalReceivedCoins || 0) - (a.totalReceivedCoins || 0);
     });
 
-    res.json(result);
+    // Limit to requested amount after sorting
+    const finalResult = result.slice(0, maxLimit);
+
+    res.json(finalResult);
   } catch (err) {
     console.error("[creatorDiscovery] Error:", err);
     res.status(500).json({ message: "Error al cargar creadores" });

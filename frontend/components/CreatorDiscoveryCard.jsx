@@ -11,7 +11,7 @@ export default function CreatorDiscoveryCard({ creator }) {
   const displayName = creator.username || creator.name || "Creador";
   const initial = displayName[0]?.toUpperCase() || "C";
   
-  const hasAvatar = creator.avatar && typeof creator.avatar === "string" && creator.avatar.trim();
+  const hasAvatar = creator.avatar && typeof creator.avatar === "string" && creator.avatar.trim().length > 0;
   const avatarUrl = hasAvatar ? `${process.env.NEXT_PUBLIC_API_URL}/${creator.avatar}` : null;
 
   return (

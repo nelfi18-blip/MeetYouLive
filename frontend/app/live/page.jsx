@@ -188,7 +188,7 @@ export default function LivePage() {
           </div>
 
           <h3 className="empty-title">No hay directos ahora mismo</h3>
-          <p className="empty-sub">💫 Sé el primero en comenzar uno y destacar</p>
+          <p className="empty-sub">💫 Descubre creadores destacados mientras tanto</p>
 
           {/* FOMO indicators */}
           <div className="empty-fomo-row">
@@ -209,7 +209,7 @@ export default function LivePage() {
         </div>
       )}
 
-      {/* ── Creator rankings / featured ── */}
+      {/* ── Creator discovery / featured ── */}
       <section className="section-block">
         <div className="section-header">
           <h2 className="section-title">⭐ Creadores destacados</h2>

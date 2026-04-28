@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
+import CreatorDiscoveryCard from "./CreatorDiscoveryCard";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -40,18 +43,172 @@ const PODIUM = [
 ];
 
 export default function FeaturedCreators() {
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const { data: session } = useSession();
+  const [data, setData] = useState(null);
+  const [discoveryCreators, setDiscoveryCreators] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("live");
+  const [currentUser, setCurrentUser] = useState(null);
 
+  // Fetch current user info
   useEffect(() => {
-    fetch(`${API_URL}/api/rankings/featured`)
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setData(d); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then((user) => { if (user) setCurrentUser(user); })
+      .catch(() => {});
   }, []);
 
+  // Check if current user is an approved creator
+  const isCreator = isApprovedCreator(currentUser);
+
+  useEffect(() => {
+    // For creators: show creator ranking
+    // For normal users: show Tango-style discovery
+    if (isCreator) {
+      fetch(`${API_URL}/api/rankings/featured`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d) setData(d); })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      fetch(`${API_URL}/api/creators/discovery?limit=20`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d) setDiscoveryCreators(d); })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [isCreator]);
+
+  // For normal users: show Tango-style discovery cards
+  if (!isCreator) {
+    const isEmpty = !loading && discoveryCreators.length === 0;
+
+    return (
+      <div className="fc-section">
+        <div className="fc-header">
+          <div>
+            <h2 className="fc-title">
+              <span className="fc-title-icon">✨</span>
+              Descubre Creadores
+            </h2>
+            <p className="fc-sub">Conecta con los creadores más populares</p>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="fc-discovery-grid">
+            {[...Array(6)].map((_, i) => (
+              <div key={`fc-skeleton-${i}`} className="fc-skeleton-discovery" />
+            ))}
+          </div>
+        )}
+
+        {!loading && isEmpty && (
+          <div className="fc-empty">
+            <span className="fc-empty-icon">🌟</span>
+            <p>No hay creadores destacados en este momento. ¡Vuelve pronto!</p>
+          </div>
+        )}
+
+        {!loading && !isEmpty && (
+          <div className="fc-discovery-grid">
+            {discoveryCreators.map((creator) => (
+              <CreatorDiscoveryCard key={creator.userId} creator={creator} />
+            ))}
+          </div>
+        )}
+
+        <style jsx>{`
+          .fc-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .fc-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+          }
+
+          .fc-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+          }
+
+          .fc-title-icon {
+            font-size: 1.1rem;
+            animation: trophyBob 3s ease-in-out infinite;
+          }
+
+          @keyframes trophyBob {
+            0%, 100% { transform: rotate(-8deg) scale(1); }
+            50%       { transform: rotate(8deg) scale(1.08); }
+          }
+
+          .fc-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 0.2rem 0 0;
+          }
+
+          .fc-discovery-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+          }
+
+          @media (min-width: 640px) {
+            .fc-discovery-grid { grid-template-columns: repeat(2, 1fr); }
+          }
+
+          @media (min-width: 900px) {
+            .fc-discovery-grid { grid-template-columns: repeat(3, 1fr); }
+          }
+
+          .fc-skeleton-discovery {
+            height: 340px;
+            border-radius: var(--radius);
+            background: rgba(255,255,255,0.04);
+            animation: fcShimmer 1.4s infinite;
+          }
+
+          @keyframes fcShimmer {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+          }
+
+          .fc-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 2.5rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            border: 1px dashed rgba(139,92,246,0.18);
+            border-radius: var(--radius);
+            background: rgba(15,8,32,0.35);
+          }
+
+          .fc-empty-icon { font-size: 2rem; }
+          .fc-empty p { margin: 0; text-align: center; }
+        `}</style>
+      </div>
+    );
+  }
+
+  // For creators: show creator ranking view
   const items =
     activeTab === "live"
       ? data?.liveNow  || []
@@ -68,9 +225,9 @@ export default function FeaturedCreators() {
         <div>
           <h2 className="fc-title">
             <span className="fc-title-icon">🏆</span>
-            Creadores Destacados
+            Ranking de Creadores
           </h2>
-          <p className="fc-sub">Descubre quién está triunfando ahora mismo</p>
+          <p className="fc-sub">Compite con otros creadores por el top</p>
         </div>
       </div>
 

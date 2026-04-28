@@ -125,13 +125,19 @@ const endLive = async (req, res) => {
 const getLives = async (req, res) => {
   try {
     const lives = await Live.find({ isLive: true })
-      .populate("user", "username name avatar")
+      .populate("user", "username name avatar role")
       .select("-streamKey -paidViewers")
       .sort({ createdAt: -1 })
       .lean();
 
     const sanitizedLives = (Array.isArray(lives) ? lives : [])
       .filter((live) => live && live._id && live.user)
+      .filter((live) => {
+        // Exclude admin and moderator streamers from public explore
+        const userRole = live.user?.role;
+        if (userRole === "admin" || userRole === "moderator") return false;
+        return true;
+      })
       .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => ({
         ...live,

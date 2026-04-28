@@ -343,6 +343,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
           _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
           isBlocked: false,
           onboardingComplete: true,
+          role: { $nin: ["admin", "moderator"] },
         },
       },
       {

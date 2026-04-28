@@ -133,7 +133,15 @@ const getLives = async (req, res) => {
     // Filter out lives from admin/moderator users
     const sanitizedLives = (Array.isArray(lives) ? lives : [])
       .filter((live) => live && live._id && live.user)
+ copilot/feature-role-privacy-moderator-panel
       .filter((live) => live.user.role !== "admin" && live.user.role !== "moderator")
+
+      .filter((live) => {
+        // Exclude admin and moderator streamers from public explore
+        const userRole = live.user?.role;
+        return userRole !== "admin" && userRole !== "moderator";
+      })
+ main
       .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => {
         // Remove role from user object before sending to client

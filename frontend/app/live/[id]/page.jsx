@@ -188,8 +188,9 @@ export default function LiveRoomPage() {
    * Queued gifts will be displayed one at a time without overlapping.
    */
   const addGiftToQueue = useCallback((giftData) => {
+    giftQueueIdRef.current += 1;
     const queueItem = {
-      id: `gift_${++giftQueueIdRef.current}_${Date.now()}`,
+      id: `gift_${giftQueueIdRef.current}_${Date.now()}`,
       ...giftData,
     };
     setGiftQueue((prev) => [...prev, queueItem]);

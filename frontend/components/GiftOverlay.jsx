@@ -74,6 +74,8 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
 
   // Render super gift (fullscreen)
   if (currentGift.isSuper) {
+    const sentText = "envió"; // TODO: i18n - "sent" | "envió" | "enviou"
+    
     return (
       <div className="gift-overlay gift-overlay--super">
         <div className="gift-overlay__bg" />
@@ -82,7 +84,7 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
             {currentGift.icon || "🎁"}
           </div>
           <div className="gift-overlay__text-super">
-            🔥 <strong>{currentGift.senderName}</strong> envió
+            🔥 <strong>{currentGift.senderName}</strong> {sentText}
           </div>
           <div className="gift-overlay__gift-name-super">
             {currentGift.giftName}

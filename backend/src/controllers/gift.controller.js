@@ -32,7 +32,7 @@ const DEFAULT_CATALOG = [
   { name: "Fire Kiss",      slug: "fire-kiss",      icon: "🔥", coinCost: 100,  category: "energy", isSuper: false, rarity: "rare",      sortOrder: 10 },
   { name: "Lightning Bolt", slug: "lightning-bolt", icon: "⚡", coinCost: 200,  category: "energy", isSuper: true,  rarity: "rare",      sortOrder: 11 },
   { name: "Energy Boost",   slug: "energy-boost",   icon: "💥", coinCost: 250,  category: "energy", isSuper: true,  rarity: "epic",      sortOrder: 12 },
-  { name: "Cosmic Power",   slug: "cosmic-power",   icon: "✨", coinCost: 500,  category: "energy", isSuper: true,  rarity: "legendary", sortOrder: 13 },
+  { name: "Cosmic Power",   slug: "cosmic-power",   icon: "💫", coinCost: 500,  category: "energy", isSuper: true,  rarity: "legendary", sortOrder: 13 },
 
   // ═══════════════════════════════════════════════════════════════
   // LUXURY (cars, crown, jet, diamond)

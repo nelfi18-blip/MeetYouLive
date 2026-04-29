@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 const PARTICLE_LEFT_MIN = 10;  // Minimum left position (%)
 const PARTICLE_LEFT_RANGE = 80; // Range of left positions (%)
 
+// Helper function for random particle positioning
+const getRandomParticleLeft = () => `${PARTICLE_LEFT_MIN + Math.random() * PARTICLE_LEFT_RANGE}%`;
+
 /**
  * GiftAnimation - displays floating or full-screen gift animations
  * 
@@ -85,7 +88,7 @@ export default function GiftAnimation({ gift, onComplete, senderName }) {
                 key={i}
                 className="gift-anim-particle"
                 style={{
-                  left: `${PARTICLE_LEFT_MIN + Math.random() * PARTICLE_LEFT_RANGE}%`,
+                  left: getRandomParticleLeft(),
                   animationDelay: `${Math.random() * 1}s`,
                   animationDuration: `${2 + Math.random() * 2}s`,
                 }}

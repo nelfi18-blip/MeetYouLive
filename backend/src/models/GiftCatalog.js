@@ -7,11 +7,20 @@ const giftCatalogSchema = new mongoose.Schema(
     icon: { type: String, required: true, trim: true },
     coinCost: { type: Number, required: true, min: 1 },
     active: { type: Boolean, default: true },
+    category: {
+      type: String,
+      enum: ["luxury", "energy", "emotional", "show", "exclusive"],
+      default: "emotional",
+    },
+    isSuper: { type: Boolean, default: false },
     rarity: {
       type: String,
       enum: ["common", "uncommon", "rare", "epic", "legendary", "mythic"],
       default: "common",
     },
+    animationUrl: { type: String, trim: true, default: "" },
+    iconUrl: { type: String, trim: true, default: "" },
+    soundUrl: { type: String, trim: true, default: "" },
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }

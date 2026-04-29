@@ -17,12 +17,49 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
-  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common",    sortOrder: 1 },
-  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon",  sortOrder: 2 },
-  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare",      sortOrder: 3 },
-  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic",      sortOrder: 4 },
-  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary", sortOrder: 5 },
-  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic",    sortOrder: 6 },
+  // ═══════════════════════════════════════════════════════════════
+  // EMOTIONAL (hearts, kiss, hug)
+  // ═══════════════════════════════════════════════════════════════
+  { name: "Neon Heart",     slug: "neon-heart",     icon: "💗", coinCost: 20,   category: "emotional", isSuper: false, rarity: "common",    sortOrder: 1 },
+  { name: "Love Kiss",      slug: "love-kiss",      icon: "💋", coinCost: 50,   category: "emotional", isSuper: false, rarity: "uncommon",  sortOrder: 2 },
+  { name: "Warm Hug",       slug: "warm-hug",       icon: "🤗", coinCost: 80,   category: "emotional", isSuper: false, rarity: "uncommon",  sortOrder: 3 },
+  { name: "Heart Burst",    slug: "heart-burst",    icon: "💖", coinCost: 150,  category: "emotional", isSuper: true,  rarity: "rare",      sortOrder: 4 },
+  { name: "Golden Hearts",  slug: "golden-hearts",  icon: "💛", coinCost: 300,  category: "emotional", isSuper: true,  rarity: "epic",      sortOrder: 5 },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ENERGY (lightning, fire, boost)
+  // ═══════════════════════════════════════════════════════════════
+  { name: "Fire Kiss",      slug: "fire-kiss",      icon: "🔥", coinCost: 100,  category: "energy", isSuper: false, rarity: "rare",      sortOrder: 10 },
+  { name: "Lightning Bolt", slug: "lightning-bolt", icon: "⚡", coinCost: 200,  category: "energy", isSuper: true,  rarity: "rare",      sortOrder: 11 },
+  { name: "Energy Boost",   slug: "energy-boost",   icon: "💥", coinCost: 250,  category: "energy", isSuper: true,  rarity: "epic",      sortOrder: 12 },
+  { name: "Cosmic Power",   slug: "cosmic-power",   icon: "✨", coinCost: 500,  category: "energy", isSuper: true,  rarity: "legendary", sortOrder: 13 },
+
+  // ═══════════════════════════════════════════════════════════════
+  // LUXURY (cars, crown, jet, diamond)
+  // ═══════════════════════════════════════════════════════════════
+  { name: "Diamond Wink",   slug: "diamond-wink",   icon: "💎", coinCost: 250,  category: "luxury", isSuper: false, rarity: "epic",      sortOrder: 20 },
+  { name: "Golden Ring",    slug: "golden-ring",    icon: "💍", coinCost: 400,  category: "luxury", isSuper: false, rarity: "epic",      sortOrder: 21 },
+  { name: "Royal Crown",    slug: "royal-crown",    icon: "👑", coinCost: 800,  category: "luxury", isSuper: true,  rarity: "legendary", sortOrder: 22 },
+  { name: "Luxury Car",     slug: "luxury-car",     icon: "🚗", coinCost: 1500, category: "luxury", isSuper: true,  rarity: "legendary", sortOrder: 23 },
+  { name: "Private Jet",    slug: "private-jet",    icon: "✈️", coinCost: 3000, category: "luxury", isSuper: true,  rarity: "mythic",    sortOrder: 24 },
+
+  // ═══════════════════════════════════════════════════════════════
+  // SHOW (fireworks, rocket, party)
+  // ═══════════════════════════════════════════════════════════════
+  { name: "Moon Rose",      slug: "moon-rose",      icon: "🌹", coinCost: 50,   category: "show", isSuper: false, rarity: "uncommon",  sortOrder: 30 },
+  { name: "Party Popper",   slug: "party-popper",   icon: "🎉", coinCost: 120,  category: "show", isSuper: false, rarity: "rare",      sortOrder: 31 },
+  { name: "Fireworks",      slug: "fireworks",      icon: "🎆", coinCost: 350,  category: "show", isSuper: true,  rarity: "epic",      sortOrder: 32 },
+  { name: "Rocket Launch",  slug: "rocket-launch",  icon: "🚀", coinCost: 600,  category: "show", isSuper: true,  rarity: "legendary", sortOrder: 33 },
+  { name: "Stage Show",     slug: "stage-show",     icon: "🎭", coinCost: 1000, category: "show", isSuper: true,  rarity: "legendary", sortOrder: 34 },
+
+  // ═══════════════════════════════════════════════════════════════
+  // EXCLUSIVE (portal, aura, mystical, VR effects)
+  // ═══════════════════════════════════════════════════════════════
+  { name: "Secret Flame",   slug: "secret-flame",   icon: "🕯️", coinCost: 500,  category: "exclusive", isSuper: false, rarity: "legendary", sortOrder: 40 },
+  { name: "Magic Portal",   slug: "magic-portal",   icon: "🌀", coinCost: 1200, category: "exclusive", isSuper: true,  rarity: "legendary", sortOrder: 41 },
+  { name: "Golden Aura",    slug: "golden-aura",    icon: "✨", coinCost: 2000, category: "exclusive", isSuper: true,  rarity: "mythic",    sortOrder: 42 },
+  { name: "Mystical Dream", slug: "mystical-dream", icon: "🔮", coinCost: 2500, category: "exclusive", isSuper: true,  rarity: "mythic",    sortOrder: 43 },
+  { name: "VR Universe",    slug: "vr-universe",    icon: "🌌", coinCost: 5000, category: "exclusive", isSuper: true,  rarity: "mythic",    sortOrder: 44 },
 ];
 
 const seedGiftCatalog = async () => {
@@ -256,13 +293,25 @@ const sendGift = async (req, res) => {
     const io = getIO();
     if (io) {
       const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+      const giftData = {
+        name: giftDoc.giftCatalogItem?.name || "",
+        icon: giftDoc.giftCatalogItem?.icon || "🎁",
+        coinCost: amount,
+        unitCost: catalogItem.coinCost,
+        rarity: catalogItem.rarity,
+        category: catalogItem.category || "emotional",
+        isSuper: catalogItem.isSuper || false,
+        quantity,
+      };
+
       io.to(String(receiverId)).emit("GIFT_SENT", {
         senderName,
         receiverId: String(receiverId),
-        giftName: giftDoc.giftCatalogItem?.name || "",
-        giftIcon: giftDoc.giftCatalogItem?.icon || "🎁",
+        giftName: giftData.name,
+        giftIcon: giftData.icon,
         coinCost: amount,
         quantity,
+        gift: giftData,
         liveId: liveId || null,
       });
       // Broadcast to all viewers in the live room so everyone sees the gift effect
@@ -272,13 +321,7 @@ const sendGift = async (req, res) => {
           senderId: String(req.userId),
           giftId: String(giftDoc._id),
           quantity,
-          gift: {
-            name: giftDoc.giftCatalogItem?.name || "",
-            icon: giftDoc.giftCatalogItem?.icon || "🎁",
-            coinCost: amount,
-            unitCost: catalogItem.coinCost,
-            rarity: catalogItem.rarity,
-          },
+          gift: giftData,
           liveId,
         });
       }

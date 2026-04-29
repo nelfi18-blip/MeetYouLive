@@ -476,7 +476,7 @@ const adminGetCatalog = async (req, res) => {
 
 const adminCreateCatalogItem = async (req, res) => {
   try {
-    const { name, slug, icon, coinCost, active, rarity } = req.body;
+    const { name, slug, icon, coinCost, active, rarity, category, isSuper, animationUrl, iconUrl, soundUrl, sortOrder } = req.body;
     if (!name || !slug || !icon || !coinCost) {
       return res.status(400).json({ message: "name, slug, icon y coinCost son requeridos" });
     }
@@ -487,6 +487,12 @@ const adminCreateCatalogItem = async (req, res) => {
       coinCost,
       active: active !== false,
       rarity: rarity || "common",
+      category: category || "emotional",
+      isSuper: isSuper || false,
+      animationUrl: animationUrl || "",
+      iconUrl: iconUrl || "",
+      soundUrl: soundUrl || "",
+      sortOrder: sortOrder || 0,
     });
     res.status(201).json(item);
   } catch (err) {
@@ -496,7 +502,7 @@ const adminCreateCatalogItem = async (req, res) => {
 
 const adminUpdateCatalogItem = async (req, res) => {
   try {
-    const { name, slug, icon, coinCost, active, rarity } = req.body;
+    const { name, slug, icon, coinCost, active, rarity, category, isSuper, animationUrl, iconUrl, soundUrl, sortOrder } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (slug !== undefined) updates.slug = slug;
@@ -504,6 +510,12 @@ const adminUpdateCatalogItem = async (req, res) => {
     if (coinCost !== undefined) updates.coinCost = coinCost;
     if (active !== undefined) updates.active = active;
     if (rarity !== undefined) updates.rarity = rarity;
+    if (category !== undefined) updates.category = category;
+    if (isSuper !== undefined) updates.isSuper = isSuper;
+    if (animationUrl !== undefined) updates.animationUrl = animationUrl;
+    if (iconUrl !== undefined) updates.iconUrl = iconUrl;
+    if (soundUrl !== undefined) updates.soundUrl = soundUrl;
+    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
     const item = await GiftCatalog.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,

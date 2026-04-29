@@ -74,7 +74,11 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
 
   // Render super gift (fullscreen)
   if (currentGift.isSuper) {
-    const sentText = "envió"; // TODO: i18n - "sent" | "envió" | "enviou"
+    // TODO: Implement i18n support using next-intl's useTranslations() hook
+    // when the live page migrates to the i18n system. Pattern:
+    // const t = useTranslations('giftOverlay');
+    // const sentText = t('sent'); // with keys in messages/{en,es,pt}.json
+    const sentText = "envió"; // Spanish default - matches current live page pattern
     
     return (
       <div className="gift-overlay gift-overlay--super">

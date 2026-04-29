@@ -335,7 +335,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                     <span className="gp-card-name">{g.name}</span>
 
                     {/* Coin cost */}
-                    <span className="gp-card-cost">🪙 {g.coinCost.toLocaleString()}</span>
+                    <span className="gp-card-cost">🪙 {g.coinCost.toLocaleString('es-ES')}</span>
                   </button>
                 );
               })}

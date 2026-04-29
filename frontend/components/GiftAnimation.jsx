@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+// Particle spawn configuration
+const PARTICLE_LEFT_MIN = 10;  // Minimum left position (%)
+const PARTICLE_LEFT_RANGE = 80; // Range of left positions (%)
+
 /**
  * GiftAnimation - displays floating or full-screen gift animations
  * 
@@ -76,12 +80,12 @@ export default function GiftAnimation({ gift, onComplete, senderName }) {
 
           {/* Particle effects */}
           <div className="gift-anim-particles">
-            {[...Array(20)].map((_, i) => (
+            {Array.from({ length: 20 }, (_, i) => (
               <div
                 key={i}
                 className="gift-anim-particle"
                 style={{
-                  left: `${10 + Math.random() * 80}%`,
+                  left: `${PARTICLE_LEFT_MIN + Math.random() * PARTICLE_LEFT_RANGE}%`,
                   animationDelay: `${Math.random() * 1}s`,
                   animationDuration: `${2 + Math.random() * 2}s`,
                 }}

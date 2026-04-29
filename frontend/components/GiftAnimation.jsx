@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+// Animation duration constants
+const SUPER_GIFT_DURATION = 4000;  // Full-screen super gift animation duration (ms)
+const NORMAL_GIFT_DURATION = 2500; // Floating normal gift animation duration (ms)
+
 // Particle spawn configuration
-const PARTICLE_LEFT_MIN = 10;  // Minimum left position (%)
-const PARTICLE_LEFT_RANGE = 80; // Range of left positions (%)
+// Particles spawn between 10% and 90% horizontally to stay within viewport
+const PARTICLE_LEFT_MIN = 10;     // Minimum left position (%) - provides left padding
+const PARTICLE_LEFT_RANGE = 80;   // Range of left positions (%) - provides right padding
 
 // Helper function for random particle positioning
 const getRandomParticleLeft = () => `${PARTICLE_LEFT_MIN + Math.random() * PARTICLE_LEFT_RANGE}%`;
@@ -21,7 +26,7 @@ export default function GiftAnimation({ gift, onComplete, senderName }) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const duration = gift.isSuper ? 4000 : 2500;
+    const duration = gift.isSuper ? SUPER_GIFT_DURATION : NORMAL_GIFT_DURATION;
     const timer = setTimeout(() => {
       setVisible(false);
       if (onComplete) onComplete();

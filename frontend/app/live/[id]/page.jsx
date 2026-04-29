@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
 import GiftPanel from "@/components/GiftPanel";
+import GiftAnimation from "@/components/GiftAnimation";
 import TopGifters from "@/components/TopGifters";
 import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
@@ -55,6 +56,7 @@ export default function LiveRoomPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
+  const [giftAnimation, setGiftAnimation] = useState(null);
 
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
@@ -404,6 +406,12 @@ export default function LiveRoomPage() {
         if (senderName) topFanNamesRef.current[senderId] = senderName;
         setTopFanIds(computeTopFans(topFanMapRef.current));
       }
+
+      // Trigger NEW gift animation (super or normal)
+      setGiftAnimation({
+        gift: { ...gift, quantity },
+        senderName,
+      });
 
       // Trigger gift animation effect for all viewers
       const effectRarity = quantity >= 50 ? "mythic" : quantity >= 10 ? "epic" : gift.rarity;
@@ -1337,6 +1345,15 @@ export default function LiveRoomPage() {
                 quantity={activeGiftEffect.quantity}
               />
             ) : null}
+
+            {/* New gift animation system */}
+            {giftAnimation && (
+              <GiftAnimation
+                gift={giftAnimation.gift}
+                senderName={giftAnimation.senderName}
+                onComplete={() => setGiftAnimation(null)}
+              />
+            )}
 
             {/* Entry join animation */}
             {agoraJoined && showEntryAnim && !isCreator && (

@@ -17,12 +17,12 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
-  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common",    sortOrder: 1 },
-  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon",  sortOrder: 2 },
-  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare",      sortOrder: 3 },
-  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic",      sortOrder: 4 },
-  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary", sortOrder: 5 },
-  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic",    sortOrder: 6 },
+  { name: "Neon Heart",   slug: "neon-heart",   icon: "💗", coinCost: 20,   rarity: "common",    sortOrder: 1, isSuper: false },
+  { name: "Moon Rose",    slug: "moon-rose",    icon: "🌹", coinCost: 50,   rarity: "uncommon",  sortOrder: 2, isSuper: false },
+  { name: "Fire Kiss",    slug: "fire-kiss",    icon: "🔥", coinCost: 100,  rarity: "rare",      sortOrder: 3, isSuper: false },
+  { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic",      sortOrder: 4, isSuper: true,  animationUrl: "https://cdn.example.com/animations/diamond-wink.json", soundUrl: "https://cdn.example.com/sounds/epic.mp3" },
+  { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary", sortOrder: 5, isSuper: true,  animationUrl: "https://cdn.example.com/animations/golden-ring.json", soundUrl: "https://cdn.example.com/sounds/legendary.mp3" },
+  { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic",    sortOrder: 6, isSuper: true,  animationUrl: "https://cdn.example.com/animations/secret-flame.json", soundUrl: "https://cdn.example.com/sounds/mythic.mp3" },
 ];
 
 const seedGiftCatalog = async () => {
@@ -236,7 +236,7 @@ const sendGift = async (req, res) => {
       message,
     });
     await giftDoc.populate("sender", "username name");
-    await giftDoc.populate("giftCatalogItem", "name icon coinCost");
+    await giftDoc.populate("giftCatalogItem", "name icon coinCost rarity isSuper animationUrl soundUrl");
 
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
 
@@ -278,6 +278,9 @@ const sendGift = async (req, res) => {
             coinCost: amount,
             unitCost: catalogItem.coinCost,
             rarity: catalogItem.rarity,
+            isSuper: catalogItem.isSuper || false,
+            animationUrl: catalogItem.animationUrl || null,
+            soundUrl: catalogItem.soundUrl || null,
           },
           liveId,
         });

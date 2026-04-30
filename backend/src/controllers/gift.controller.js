@@ -607,7 +607,7 @@ const sendGift = async (req, res) => {
         if (!livDoc) return;
 
         // Get current combo state for this user (Mongoose Map)
-        const combos = livDoc.userCombos || new Map();
+        const combos = livDoc.userCombos;
         const existingCombo = combos.get(senderId);
 
         let newComboCount = 1;
@@ -623,9 +623,9 @@ const sendGift = async (req, res) => {
           // else: outside window, reset to 1
         }
 
-        // Update combo state
+        // Update combo state. Store senderId as string to match Map key type.
         combos.set(senderId, {
-          userId: req.userId,
+          userId: senderId, // Use string ID to avoid ObjectId serialization issues
           username: senderUsername,
           comboCount: newComboCount,
           lastGiftAt: now,

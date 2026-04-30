@@ -17,6 +17,9 @@ export default function GiftComboNotification({ combo }) {
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
+    // Safeguard: Validate combo data before displaying
+    // Backend emits only combos >= 2, but this defensive check prevents
+    // display issues if socket event structure changes in the future
     if (!combo || !combo.username || !combo.comboCount || combo.comboCount < 2) {
       return;
     }

@@ -173,6 +173,6 @@ socket.on("GIFT_COMBO", (data) => {
 
 ## Code References
 - Backend Model: `backend/src/models/Live.js`
-- Backend Controller: `backend/src/controllers/gift.controller.js` (lines ~599-651)
+- Backend Controller: `backend/src/controllers/gift.controller.js` (combo tracking in sendGift function)
 - Frontend Component: `frontend/components/GiftComboNotification.jsx`
 - Live Page Integration: `frontend/app/live/[id]/page.jsx`

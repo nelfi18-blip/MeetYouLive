@@ -16,6 +16,7 @@ import LiveFeedOverlay from "@/components/LiveFeedOverlay";
 import LiveGoalPanel from "@/components/LiveGoalPanel";
 import LiveBattlePanel from "@/components/LiveBattlePanel";
 import GiftComboOverlay from "@/components/GiftComboOverlay";
+import GiftComboNotification from "@/components/GiftComboNotification";
 import LiveEventBanner from "@/components/LiveEventBanner";
 import LiveGiftToast from "@/components/LiveGiftToast";
 import LivePressureHints from "@/components/LivePressureHints";
@@ -98,6 +99,9 @@ export default function LiveRoomPage() {
 
   // Recent gifts for combo overlay (keeps last 15 with timestamps)
   const [recentGiftsForCombo, setRecentGiftsForCombo] = useState([]);
+
+  // User combo notification (rapid gift streaks)
+  const [currentCombo, setCurrentCombo] = useState(null);
 
   // Live activity overlay events (gifts, joins, messages)
   const [overlayEvents, setOverlayEvents] = useState([]);
@@ -628,6 +632,15 @@ export default function LiveRoomPage() {
       });
     };
 
+    // Gift combo notification handler
+    const onGiftCombo = ({ userId, username, comboCount }) => {
+      setCurrentCombo({
+        userId,
+        username,
+        comboCount,
+      });
+    };
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
@@ -639,6 +652,7 @@ export default function LiveRoomPage() {
     socket.on("LIVE_EVENT_STARTED", onLiveEventStarted);
     socket.on("LIVE_EVENT_ENDED", onLiveEventEnded);
     socket.on("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
+    socket.on("GIFT_COMBO", onGiftCombo);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -653,6 +667,7 @@ export default function LiveRoomPage() {
       socket.off("LIVE_EVENT_STARTED", onLiveEventStarted);
       socket.off("LIVE_EVENT_ENDED", onLiveEventEnded);
       socket.off("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
+      socket.off("GIFT_COMBO", onGiftCombo);
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1337,6 +1352,9 @@ export default function LiveRoomPage() {
           setGiftQueue((prev) => prev.slice(1));
         }}
       />
+
+      {/* ── Gift combo notification (rapid gift streaks) ── */}
+      <GiftComboNotification combo={currentCombo} />
 
       <div className="room-layout">
         <div className="room-main">

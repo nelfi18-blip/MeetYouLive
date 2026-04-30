@@ -27,6 +27,21 @@ const topSupporterSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// userComboSchema: Documents the structure of combo entries stored in the userCombos Map.
+// IMPORTANT: Mongoose Maps with "of: schema" do NOT enforce validation on Map values.
+// The schema definition here serves ONLY as developer documentation for the expected structure.
+// At runtime, Map values are stored as plain objects without schema validation or type coercion.
+// userId is stored as String to match the Map key type (avoids ObjectId serialization issues).
+const userComboSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    username: { type: String },
+    comboCount: { type: Number, default: 1, min: 1 },
+    lastGiftAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const liveSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -65,6 +80,8 @@ const liveSchema = new mongoose.Schema(
       endsAt:     { type: Date },
     },
     topSupporter: { type: topSupporterSchema, default: null },
+    // Combo tracking: map of userId -> combo state (for gift streak system)
+    userCombos: { type: Map, of: userComboSchema, default: new Map() },
   },
   { timestamps: true }
 );

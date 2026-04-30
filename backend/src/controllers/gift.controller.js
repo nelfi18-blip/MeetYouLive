@@ -567,6 +567,7 @@ const sendGift = async (req, res) => {
             _id: liveId,
             $or: [
               { topSupporter: null },
+              { topSupporter: { $exists: false } },
               { "topSupporter.totalCoins": { $lt: senderTotalCoins } },
             ],
           },

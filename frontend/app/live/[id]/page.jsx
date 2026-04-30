@@ -8,6 +8,7 @@ import GiftPanel from "@/components/GiftPanel";
 import GiftAnimation from "@/components/GiftAnimation";
 import SuperGiftAnimation from "@/components/gifts/SuperGiftAnimation";
 import TopGifters from "@/components/TopGifters";
+import TopSupporterBadge from "@/components/TopSupporterBadge";
 import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
 import StatusBadges from "@/components/StatusBadges";
@@ -91,6 +92,9 @@ export default function LiveRoomPage() {
   const [viewerCount, setViewerCount] = useState(0);
   // Incremented on each received gift to trigger TopGifters re-fetch
   const [giftRefreshTrigger, setGiftRefreshTrigger] = useState(0);
+
+  // Top supporter tracking (current leader in the room)
+  const [topSupporter, setTopSupporter] = useState(null);
 
   // Recent gifts for combo overlay (keeps last 15 with timestamps)
   const [recentGiftsForCombo, setRecentGiftsForCombo] = useState([]);
@@ -276,7 +280,17 @@ export default function LiveRoomPage() {
         if (!res.ok) throw new Error("Error al cargar el directo");
         return res.json();
       })
-      .then((data) => setLive(data))
+      .then((data) => {
+        setLive(data);
+        // Initialize top supporter from live data
+        if (data.topSupporter && data.topSupporter.username) {
+          setTopSupporter({
+            userId: data.topSupporter.userId,
+            username: data.topSupporter.username,
+            totalCoins: data.topSupporter.totalCoins || 0,
+          });
+        }
+      })
       .catch(() => setError("Directo no encontrado o ya finalizado"));
   }, [id, token]);
 
@@ -605,6 +619,15 @@ export default function LiveRoomPage() {
       });
     };
 
+    // Top supporter update handler
+    const onTopSupporterUpdate = ({ userId, username, totalCoins }) => {
+      setTopSupporter({
+        userId,
+        username,
+        totalCoins,
+      });
+    };
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
@@ -615,6 +638,7 @@ export default function LiveRoomPage() {
     socket.on("LIVE_RANKING_UPDATED", onRankingUpdated);
     socket.on("LIVE_EVENT_STARTED", onLiveEventStarted);
     socket.on("LIVE_EVENT_ENDED", onLiveEventEnded);
+    socket.on("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -628,6 +652,7 @@ export default function LiveRoomPage() {
       socket.off("LIVE_RANKING_UPDATED", onRankingUpdated);
       socket.off("LIVE_EVENT_STARTED", onLiveEventStarted);
       socket.off("LIVE_EVENT_ENDED", onLiveEventEnded);
+      socket.off("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1624,6 +1649,9 @@ export default function LiveRoomPage() {
 
         <div className="room-chat">
           <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
+
+          {/* ── Top Supporter Badge ── */}
+          <TopSupporterBadge topSupporter={topSupporter} />
 
           {/* ── Fan del live VIP card ── */}
           {topFanIds.length > 0 && topFanNamesRef.current[topFanIds[0]] && (

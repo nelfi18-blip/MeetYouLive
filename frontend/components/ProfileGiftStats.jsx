@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// Backend avatar format: /uploads/{fieldname}-{userId}-{timestamp}.{ext}
+// Example: /uploads/avatar-507f1f77bcf86cd799439011-1704067200000.jpg
+const AVATAR_PATH_PATTERN = /^\/uploads\/[a-zA-Z0-9_-]+-[a-zA-Z0-9]+-\d+\.[a-zA-Z0-9]+$/;
+
 /**
  * Normalize avatar URL to ensure it's safe and properly formatted
  * Only allows avatars from our backend to prevent XSS
- * Backend format: /uploads/${fieldname}-${userId}-${timestamp}.${ext}
- * Example: /uploads/avatar-507f1f77bcf86cd799439011-1704067200000.jpg
  */
 const normalizeAvatarUrl = (avatarValue) => {
   if (typeof avatarValue !== "string") return "";
@@ -24,9 +26,7 @@ const normalizeAvatarUrl = (avatarValue) => {
     return "";
   }
   // If it's a relative path matching the backend upload format
-  // Pattern: /uploads/{fieldname}-{userId}-{timestamp}.{ext}
-  // Allows alphanumeric, hyphens, and underscores in the base name with a required extension
-  if (/^\/uploads\/[a-zA-Z0-9_-]+-[a-zA-Z0-9]+-\d+\.[a-zA-Z0-9]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
+  if (AVATAR_PATH_PATTERN.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
     return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
   }
   return "";

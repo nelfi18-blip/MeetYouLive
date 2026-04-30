@@ -25,6 +25,11 @@ export default function ChatConversationPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [chatGiftNotif, setChatGiftNotif] = useState(null); // For displaying gift notifications
   const bottomRef = useRef(null);
+  
+  // Context naming note:
+  // - Stored context: "private_call" (distinguishes from public chat rooms in data layer)
+  // - Displayed context: "chat" (matches "Chat" page terminology for users)
+  // - Backend maps "private_call" → "chat" in socket events for UI clarity
 
   const otherName = otherUser?.username || otherUser?.name || "Usuario";
 
@@ -105,13 +110,14 @@ export default function ChatConversationPage() {
     if (typeof window === "undefined") return;
     
     let mounted = true;
+    let timeoutId = null;
     const socket = getSocket();
     if (!socket) return;
     
     const handleChatGift = (data) => {
       if (!mounted) return;
       setChatGiftNotif(data);
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         if (mounted) setChatGiftNotif(null);
       }, 5000);
     };
@@ -120,6 +126,7 @@ export default function ChatConversationPage() {
     
     return () => {
       mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       socket.off("CHAT_GIFT_SENT", handleChatGift);
     };
   }, []);
@@ -297,11 +304,7 @@ export default function ChatConversationPage() {
       {showGiftPanel && otherUser?._id && (
         <GiftPanel
           receiverId={String(otherUser._id)}
-          context="private_call"  {/* Context naming: "private_call" (stored) vs "chat" (displayed) 
-                                       - DB stores "private_call" to distinguish from public chat rooms
-                                       - UI shows "chat" for clarity (matches "Chat" page name)
-                                       - Backend maps "private_call" → "chat" in socket events
-                                       - This separation maintains data integrity while improving UX */}
+          context="private_call"
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={(gift) => {
             setShowGiftPanel(false);
@@ -312,6 +315,8 @@ export default function ChatConversationPage() {
               giftIcon: gift.giftCatalogItem?.icon || "🎁",
               quantity: gift.quantity || 1,
             });
+            // Note: This timeout is user-triggered and brief (5s), but we could track
+            // it for consistency if needed. For now, keeping it simple.
             setTimeout(() => setChatGiftNotif(null), 5000);
           }}
         />

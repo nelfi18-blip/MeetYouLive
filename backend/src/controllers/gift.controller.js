@@ -549,6 +549,7 @@ const sendGift = async (req, res) => {
     if (liveId) {
       const liveObjId = new mongoose.Types.ObjectId(liveId);
       const senderId = new mongoose.Types.ObjectId(req.userId);
+      const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
       
       // Get total coins spent by the current sender in this live
       Gift.aggregate([
@@ -559,45 +560,38 @@ const sendGift = async (req, res) => {
         
         const senderTotalCoins = result[0].totalCoins || 0;
         
-        // Fetch username separately since giftDoc may not be in scope
-        User.findById(senderId).select("username name").then((senderUser) => {
-          if (!senderUser) return;
-          
-          const senderUsername = senderUser.username || senderUser.name || "Alguien";
-          
-          // Atomic update: only set this user as top supporter if their total exceeds current top
-          // This prevents race conditions when multiple gifts are sent simultaneously
-          Live.findOneAndUpdate(
-            {
-              _id: liveId,
-              $or: [
-                { topSupporter: null },
-                { "topSupporter.totalCoins": { $lt: senderTotalCoins } },
-              ],
-            },
-            {
-              $set: {
-                "topSupporter.userId": req.userId,
-                "topSupporter.username": senderUsername,
-                "topSupporter.totalCoins": senderTotalCoins,
-              }
-            },
-            { new: true }
-          ).then((updated) => {
-            // Only emit if the update actually happened (user became new top supporter)
-            if (updated) {
-              const ioInst = getIO();
-              if (ioInst) {
-                ioInst.to(`live:${liveId}`).emit("TOP_SUPPORTER_UPDATE", {
-                  liveId,
-                  userId: String(req.userId),
-                  username: senderUsername,
-                  totalCoins: senderTotalCoins,
-                });
-              }
+        // Atomic update: only set this user as top supporter if their total exceeds current top
+        // This prevents race conditions when multiple gifts are sent simultaneously
+        Live.findOneAndUpdate(
+          {
+            _id: liveId,
+            $or: [
+              { topSupporter: null },
+              { "topSupporter.totalCoins": { $lt: senderTotalCoins } },
+            ],
+          },
+          {
+            $set: {
+              "topSupporter.userId": req.userId,
+              "topSupporter.username": senderUsername,
+              "topSupporter.totalCoins": senderTotalCoins,
             }
-          }).catch((err) => console.error("[gift] top supporter update failed:", err));
-        }).catch((err) => console.error("[gift] top supporter user lookup failed:", err));
+          },
+          { new: true }
+        ).then((updated) => {
+          // Only emit if the update actually happened (user became new top supporter)
+          if (updated) {
+            const ioInst = getIO();
+            if (ioInst) {
+              ioInst.to(`live:${liveId}`).emit("TOP_SUPPORTER_UPDATE", {
+                liveId,
+                userId: String(req.userId),
+                username: senderUsername,
+                totalCoins: senderTotalCoins,
+              });
+            }
+          }
+        }).catch((err) => console.error("[gift] top supporter update failed:", err));
       }).catch((err) => console.error("[gift] top supporter aggregation failed:", err));
     }
 

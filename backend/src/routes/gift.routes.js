@@ -8,6 +8,8 @@ const {
   sendGift,
   getReceivedGifts,
   getGiftCatalog,
+  getProfileGiftStats,
+  getTopSupporters,
   adminGetCatalog,
   adminCreateCatalogItem,
   adminUpdateCatalogItem,
@@ -26,6 +28,10 @@ router.get("/", getGiftCatalog);
 router.post("/", giftLimiter, verifyToken, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
 router.post("/send", giftLimiter, verifyToken, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
 router.get("/received", giftLimiter, verifyToken, getReceivedGifts);
+
+// Profile gift stats and top supporters
+router.get("/profile-stats/:userId", getProfileGiftStats);
+router.get("/top-supporters/:userId", getTopSupporters);
 
 // Admin: gift catalog management
 router.get("/catalog", verifyToken, requireAdmin, adminGetCatalog);

@@ -112,6 +112,12 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       return;
     }
 
+    // RESTRICTION: Super gifts only allowed in live context
+    if (gift.isSuper && context !== "live" && !liveId) {
+      setSendError("Este regalo solo se puede enviar en directo 🔥");
+      return;
+    }
+
     if (coinBalance !== null && coinBalance < bundleTotal(gift.coinCost, quantity)) {
       setSelectedGift(gift);
       setInsufficientCoins(true);
@@ -299,13 +305,23 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               {gifts.map((g) => {
                 const r = rs(g);
                 const isSelected = selectedGift?._id === g._id;
+                const isSuperGift = g.isSuper;
+                const isLiveContext = context === "live" || !!liveId;
+                const isRestricted = isSuperGift && !isLiveContext;
+                
                 return (
                   <button
                     key={g._id}
                     role="listitem"
+copilot/add-unique-gift-system
                     aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${g.isSuper ? " — ¡Super Regalo!" : ""}`}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${g.isSuper ? " gp-card-super" : ""}`}
+
+                    aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
+                    aria-pressed={isSelected}
+                    className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
+ main
                     style={{
                       "--rc": r.color,
                       "--rg": r.glow,
@@ -327,6 +343,13 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                     <span className="gp-rarity-badge" style={{ background: r.gradient }}>
                       {r.label}
                     </span>
+                    
+                    {/* Live-only badge for super gifts in non-live context */}
+                    {isRestricted && (
+                      <span className="gp-live-only-badge" title="Este regalo solo se puede enviar en directo">
+                        🔥 DIRECTO
+                      </span>
+                    )}
 
                     {/* Gift icon */}
                     <span className="gp-card-icon">{g.icon}</span>
@@ -814,6 +837,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           box-shadow: 0 0 22px var(--rg) !important;
           transform: translateY(-3px) scale(1.02) !important;
         }
+        
+        /* Restricted card (super gifts outside live) */
+        .gp-card-restricted {
+          opacity: 0.6;
+          filter: grayscale(0.3);
+          cursor: not-allowed !important;
+        }
+        
+        .gp-card-restricted:hover {
+          transform: none !important;
+          box-shadow: none !important;
+        }
 
         /* Super gift styling */
         .gp-card-super {
@@ -883,6 +918,25 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           padding: 0.15rem 0.4rem;
           border-radius: 999px;
           line-height: 1.3;
+        }
+        
+        /* Live-only badge for restricted super gifts */
+        .gp-live-only-badge {
+          position: absolute;
+          bottom: 5px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 0.48rem;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: #fff;
+          background: linear-gradient(135deg, #f97316, #fb923c);
+          padding: 0.2rem 0.5rem;
+          border-radius: 999px;
+          line-height: 1.2;
+          white-space: nowrap;
+          box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
         }
 
         .gp-card-icon {

@@ -186,6 +186,25 @@ const userSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    // Profile gift stats
+    totalReceivedGifts: { type: Number, default: 0, min: 0 },
+    totalReceivedCoins: { type: Number, default: 0, min: 0 },
+    topGifts: {
+      type: [
+        new mongoose.Schema(
+          {
+            giftId: { type: mongoose.Schema.Types.ObjectId, ref: "GiftCatalog", required: true },
+            giftName: { type: String, required: true },
+            giftIcon: { type: String, required: true },
+            count: { type: Number, required: true, min: 1 },
+            totalCoins: { type: Number, required: true, min: 0 },
+            lastReceivedAt: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

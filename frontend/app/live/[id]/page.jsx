@@ -18,6 +18,7 @@ import LiveEventBanner from "@/components/LiveEventBanner";
 import LiveGiftToast from "@/components/LiveGiftToast";
 import LivePressureHints from "@/components/LivePressureHints";
 import PaywallModal from "@/components/PaywallModal";
+import GiftOverlay from "@/components/GiftOverlay";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -56,7 +57,14 @@ export default function LiveRoomPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
+ copilot/add-unique-gift-system
   const [giftAnimation, setGiftAnimation] = useState(null);
+
+  
+  // Gift queue for new overlay system
+  const [giftQueue, setGiftQueue] = useState([]);
+  const giftQueueIdRef = useRef(0);
+ main
 
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");
@@ -178,6 +186,19 @@ export default function LiveRoomPage() {
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     setPressureHint({ id, type, icon, text, subtext: subtext || null });
     hintTimerRef.current = setTimeout(() => setPressureHint(null), PRESSURE_HINT_DISPLAY_MS + 500);
+  }, []);
+
+  /**
+   * Add gift to the queue for the new overlay system.
+   * Queued gifts will be displayed one at a time without overlapping.
+   */
+  const addGiftToQueue = useCallback((giftData) => {
+    giftQueueIdRef.current += 1;
+    const queueItem = {
+      id: `gift_${giftQueueIdRef.current}_${Date.now()}`,
+      ...giftData,
+    };
+    setGiftQueue((prev) => [...prev, queueItem]);
   }, []);
 
   /**
@@ -426,6 +447,21 @@ export default function LiveRoomPage() {
         ["mythic", "legendary"].includes(effectRarity) ? 7000 : ["epic", "rare"].includes(effectRarity) ? 4500 : 2200,
       );
       recentGiftTimeoutRef.current = setTimeout(() => setRecentGift(null), 6000);
+
+      // Add gift to the new overlay queue system for enhanced animations
+      addGiftToQueue({
+        giftId: giftId || null,
+        giftName: gift.name || "Regalo",
+        senderId: senderId || null,
+        senderName: senderName || "Alguien",
+        receiverId: live?.user?._id || null,
+        coins: gift.coinCost || 0,
+        isSuper: gift.isSuper || false,
+        animationUrl: gift.animationUrl || null,
+        soundUrl: gift.soundUrl || null,
+        icon: gift.icon || "🎁",
+        rarity: effectRarity,
+      });
 
       // Add gift event to the chat / activity feed
       const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
@@ -1246,6 +1282,15 @@ export default function LiveRoomPage() {
 
       {/* ── Gift toast (absolute-positioned, rendered via ref) ── */}
       <LiveGiftToast ref={giftToastRef} minCoins={50} />
+
+      {/* ── Gift overlay queue system (new Tango/TikTok style animations) ── */}
+      <GiftOverlay 
+        giftQueue={giftQueue}
+        onGiftProcessed={() => {
+          // Remove processed gift from queue
+          setGiftQueue((prev) => prev.slice(1));
+        }}
+      />
 
       <div className="room-layout">
         <div className="room-main">

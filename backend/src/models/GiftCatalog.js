@@ -22,6 +22,9 @@ const giftCatalogSchema = new mongoose.Schema(
     iconUrl: { type: String, trim: true, default: "" },
     soundUrl: { type: String, trim: true, default: "" },
     sortOrder: { type: Number, default: 0 },
+    isSuper: { type: Boolean, default: false },
+    animationUrl: { type: String, trim: true },
+    soundUrl: { type: String, trim: true },
   },
   { timestamps: true }
 );

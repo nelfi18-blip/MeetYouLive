@@ -20,8 +20,26 @@ export default function ProfileGiftStats({ userId }) {
 
     // Fetch gift stats and top supporters in parallel
     Promise.all([
-      fetch(`${API_URL}/api/gifts/profile-stats/${userId}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${API_URL}/api/gifts/top-supporters/${userId}?limit=5`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_URL}/api/gifts/profile-stats/${userId}`)
+        .then((r) => {
+          if (!r.ok) {
+            return r.text().then((msg) => {
+              console.error(`[ProfileGiftStats] Failed to load stats (${r.status}):`, msg);
+              return null;
+            });
+          }
+          return r.json();
+        }),
+      fetch(`${API_URL}/api/gifts/top-supporters/${userId}?limit=5`)
+        .then((r) => {
+          if (!r.ok) {
+            return r.text().then((msg) => {
+              console.error(`[ProfileGiftStats] Failed to load supporters (${r.status}):`, msg);
+              return null;
+            });
+          }
+          return r.json();
+        }),
     ])
       .then(([statsData, supportersData]) => {
         setStats(statsData || { totalReceivedGifts: 0, totalReceivedCoins: 0, topGifts: [] });

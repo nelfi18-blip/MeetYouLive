@@ -103,13 +103,21 @@ export default function ChatConversationPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    const handleChatGift = (data) => {
-      setChatGiftNotif(data);
-      setTimeout(() => setChatGiftNotif(null), 5000);
-    };
-    
-    window.addEventListener("CHAT_GIFT_SENT", handleChatGift);
-    return () => window.removeEventListener("CHAT_GIFT_SENT", handleChatGift);
+    // Import socket helper
+    import("@/lib/socket").then(({ default: getSocket }) => {
+      const socket = getSocket();
+      if (!socket) return;
+      
+      const handleChatGift = (data) => {
+        setChatGiftNotif(data);
+        setTimeout(() => setChatGiftNotif(null), 5000);
+      };
+      
+      socket.on("CHAT_GIFT_SENT", handleChatGift);
+      return () => {
+        socket.off("CHAT_GIFT_SENT", handleChatGift);
+      };
+    }).catch((err) => console.error("[chat] Failed to connect socket:", err));
   }, []);
 
   const sendMessage = async (e) => {

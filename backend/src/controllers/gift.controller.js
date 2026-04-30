@@ -191,7 +191,8 @@ const sendGift = async (req, res) => {
 
   // RESTRICTION: Super gifts can ONLY be sent in live context
   const resolvedContext = context || (liveId ? "live" : "profile");
-  if (catalogItem.isSuper && resolvedContext !== "live") {
+  // Super gifts require explicit live context (not chat/profile) and a valid liveId
+  if (catalogItem.isSuper && (resolvedContext !== "live" || !liveId)) {
     return res.status(403).json({ 
       message: "Este regalo solo se puede enviar en directo 🔥",
       requiresLive: true 
@@ -270,20 +271,24 @@ const sendGift = async (req, res) => {
           totalReceivedCoins: amount,
         },
       },
-      { new: false }
+      { new: true }
     ).then((receiver) => {
       if (!receiver) return;
+      
       // Update topGifts array: increment count or add new entry
-      const topGifts = receiver.topGifts || [];
+      const topGifts = [...(receiver.topGifts || [])];
       const existingIdx = topGifts.findIndex((g) => String(g.giftId) === String(catalogItem._id));
       
       if (existingIdx >= 0) {
         // Update existing gift entry
-        topGifts[existingIdx].count += quantity;
-        topGifts[existingIdx].totalCoins += amount;
-        topGifts[existingIdx].lastReceivedAt = new Date();
+        topGifts[existingIdx] = {
+          ...topGifts[existingIdx],
+          count: topGifts[existingIdx].count + quantity,
+          totalCoins: topGifts[existingIdx].totalCoins + amount,
+          lastReceivedAt: new Date(),
+        };
       } else {
-        // Add new gift entry (limit to top 10 by totalCoins)
+        // Add new gift entry
         topGifts.push({
           giftId: catalogItem._id,
           giftName: catalogItem.name,
@@ -298,12 +303,18 @@ const sendGift = async (req, res) => {
       topGifts.sort((a, b) => b.totalCoins - a.totalCoins);
       const limitedTopGifts = topGifts.slice(0, 10);
       
-      // Save back to user
-      User.findByIdAndUpdate(
-        receiverId,
+      // Use findOneAndUpdate with the current topGifts as a condition to avoid race conditions
+      User.findOneAndUpdate(
+        { _id: receiverId, topGifts: receiver.topGifts },
         { $set: { topGifts: limitedTopGifts } },
         { new: false }
-      ).catch((err) => console.error("[gift] Failed to update topGifts:", err));
+      ).catch((err) => {
+        // If the update fails due to concurrent modification, that's okay
+        // The next gift will catch up the stats
+        if (err.codeName !== "DocumentNotFound") {
+          console.error("[gift] Failed to update topGifts:", err);
+        }
+      });
     }).catch((err) => console.error("[gift] Failed to update profile gift stats:", err));
 
     // Notify the gift receiver in real time

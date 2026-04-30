@@ -24,7 +24,8 @@ const giftCatalogSchema = new mongoose.Schema(
       enum: ["small", "medium", "fullscreen"],
       default: "small",
     },
-    // Legacy field for backward compatibility - will be derived from type
+    // Legacy field for backward compatibility - kept for existing code that reads it
+    // NOTE: This field is automatically synced from type field via pre-save hook
     isSuper: { type: Boolean, default: false },
     rarity: {
       type: String,
@@ -39,5 +40,11 @@ const giftCatalogSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Pre-save hook: automatically sync isSuper field from type field for backward compatibility
+giftCatalogSchema.pre("save", function (next) {
+  this.isSuper = this.type === "super";
+  next();
+});
 
 module.exports = mongoose.model("GiftCatalog", giftCatalogSchema);

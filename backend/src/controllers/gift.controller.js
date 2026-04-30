@@ -298,7 +298,7 @@ const sendGift = async (req, res) => {
       message,
     });
     await giftDoc.populate("sender", "username name");
-    await giftDoc.populate("giftCatalogItem", "name icon coinCost rarity isSuper type animationType animationUrl soundUrl sound");
+    await giftDoc.populate("giftCatalogItem", "name icon coinCost rarity isSuper type animationType animationUrl soundUrl");
 
     recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
 
@@ -412,7 +412,7 @@ const sendGift = async (req, res) => {
             type: catalogItem.type || "basic",
             animationType: catalogItem.animationType || "small",
             animationUrl: catalogItem.animationUrl || null,
-            soundUrl: catalogItem.soundUrl || catalogItem.sound || null,
+            soundUrl: catalogItem.soundUrl || null,
           },
           liveId,
         });

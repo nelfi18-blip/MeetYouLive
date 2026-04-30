@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 // Animation configuration constants
 const SUPER_GIFT_DURATION_MS = 4000;        // Duration of super gift animation (4 seconds)
 const ULTRA_HIGH_VALUE_THRESHOLD = 2000;    // Coins threshold for "MÍTICO" badge
-const HIGH_VALUE_THRESHOLD = 800;           // Coins threshold for enhanced effects
 
 /**
  * SuperGiftAnimation - Full-screen animation overlay for super tier gifts
@@ -16,7 +15,7 @@ const HIGH_VALUE_THRESHOLD = 800;           // Coins threshold for enhanced effe
  * - Animated gift icon with glow effects
  * - Large sender name display
  * - Neon/glow visual effects
- * - Auto-disappears after 3-5 seconds
+ * - Auto-disappears after 4 seconds
  * - Pauses UI interaction briefly
  * 
  * Props:
@@ -39,9 +38,8 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
 
   if (!visible) return null;
 
-  // Determine animation intensity based on value
+  // Determine badge text based on value
   const isUltraHigh = value >= ULTRA_HIGH_VALUE_THRESHOLD;
-  const isHigh = value >= HIGH_VALUE_THRESHOLD;
 
   return (
     <>

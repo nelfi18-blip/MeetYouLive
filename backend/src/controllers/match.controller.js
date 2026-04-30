@@ -202,6 +202,7 @@ exports.superCrushUser = async (req, res) => {
         const rel = await AgencyRelationship.findOne({
           subCreator: toObjId,
           status: "active",
+          subCreatorAgreed: true,
         }).session(session);
         const agencyPct = rel?.percentage > 0 ? rel.percentage : null;
         const split = calculateSplit(SUPER_CRUSH_PRICE, agencyPct);

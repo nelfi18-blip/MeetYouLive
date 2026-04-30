@@ -190,7 +190,7 @@ exports.superCrushUser = async (req, res) => {
 
       // Revenue split
       const isCreatorTarget =
-        target.role === "creator" && target.creatorStatus === "approved";
+        (target.role === "creator" || target.role === "subCreator") && target.creatorStatus === "approved";
 
       let platformShare = 0;
       let creatorNetShare = 0;

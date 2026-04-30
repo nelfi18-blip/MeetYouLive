@@ -23,7 +23,7 @@ const startLive = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado" });
     }
-    isApprovedCreator = user.role === "creator" && user.creatorStatus === "approved";
+    isApprovedCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
     creatorUsername = user.username || user.name || "";
     // Only approved creators can start live streams
     if (!isApprovedCreator) {

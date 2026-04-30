@@ -69,7 +69,7 @@ const myContent = async (req, res) => {
 const createContent = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+    if (!user || !((user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved")) {
       return res.status(403).json({ message: "Solo los creadores aprobados pueden publicar contenido exclusivo" });
     }
 

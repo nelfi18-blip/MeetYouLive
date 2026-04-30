@@ -16,6 +16,7 @@ const {
   getCreatorRequestStatus,
   connectOnboarding,
   getConnectStatus,
+  getCreatorInviteCode,
 } = require("../controllers/creator.controller");
 
 const creatorLimiter = rateLimit({
@@ -35,6 +36,7 @@ router.get("/stats", creatorLimiter, verifyToken, requireApprovedCreator, getCre
 router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorEarnings);
 router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, validate(payoutRequestSchema), requestPayout);
 router.get("/payout-history", creatorLimiter, verifyToken, requireApprovedCreator, getPayoutHistory);
+router.get("/invite-code", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorInviteCode);
 
 // Stripe Connect
 router.post("/payout/connect-onboarding", creatorLimiter, verifyToken, requireApprovedCreator, connectOnboarding);

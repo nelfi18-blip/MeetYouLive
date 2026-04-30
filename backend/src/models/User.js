@@ -165,6 +165,9 @@ const userSchema = new mongoose.Schema(
     referralRewardsEarned: { type: Number, default: 0, min: 0 },
     referralRewardClaimed: { type: Boolean, default: false },
     loginCount: { type: Number, default: 0, min: 0 },
+    // Creator invite system
+    invitedByCreator: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    creatorInviteCode: { type: String, unique: true, sparse: true },
     // Stripe Connect — for automated creator payouts
     stripeAccountId: { type: String, default: null },
     stripeAccountStatus: {

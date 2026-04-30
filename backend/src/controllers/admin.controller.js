@@ -24,6 +24,22 @@ async function generateUniqueAgencyCode(user) {
   return base + Date.now().toString(36).toUpperCase().slice(-5);
 }
 
+/** Generate unique creator invite code for viral growth */
+async function generateUniqueCreatorInviteCode(user) {
+  const crypto = require("crypto");
+  const MAX_ATTEMPTS = 10;
+  const base = ((user.username || user.name || "CRT").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4)) || "CRT";
+  
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase().slice(0, 5);
+    const code = base + randomPart;
+    const exists = await User.exists({ creatorInviteCode: code });
+    if (!exists) return code;
+  }
+  // Fallback: timestamp-based suffix guaranteed to be unique
+  return "CRT" + Date.now().toString(36).toUpperCase().slice(-6);
+}
+
 const ALLOWED_CREATOR_STATUSES = ["pending", "approved", "rejected", "suspended"];
 const DEFAULT_CREATOR_STATUSES = ["pending", "approved", "suspended"];
 const MAX_REVIEW_NOTE_LENGTH = 300;
@@ -287,6 +303,11 @@ exports.approveCreator = async (req, res) => {
     // Auto-generate agency invite code so every approved creator can share invite links
     if (!targetUser.agencyProfile?.agencyCode) {
       updates["agencyProfile.agencyCode"] = await generateUniqueAgencyCode(targetUser);
+    }
+
+    // Auto-generate creator invite code for viral growth
+    if (!targetUser.creatorInviteCode) {
+      updates.creatorInviteCode = await generateUniqueCreatorInviteCode(targetUser);
     }
 
     // If user registered or applied via an agency invite link, auto-create a pending relationship

@@ -712,3 +712,33 @@ exports.getConnectStatus = async (req, res) => {
     res.status(500).json({ ok: false, message: "Error al verificar el estado de la cuenta de Stripe." });
   }
 };
+
+// Get creator's invite code for viral growth
+exports.getCreatorInviteCode = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const fullUser = await User.findById(userId).select("creatorInviteCode");
+    if (!fullUser.creatorInviteCode) {
+      return res.json({
+        ok: true,
+        code: null,
+        message: "No tienes código de invitación asignado aún. Contacta al soporte.",
+      });
+    }
+
+    res.json({
+      ok: true,
+      code: fullUser.creatorInviteCode,
+      inviteUrl: `${process.env.FRONTEND_URL || "https://meetyoulive.vercel.app"}/creator-request?creatorInvite=${fullUser.creatorInviteCode}`,
+    });
+  } catch (error) {
+    console.error("[getCreatorInviteCode] Error:", error);
+    res.status(500).json({ ok: false, message: error.message });
+  }
+};

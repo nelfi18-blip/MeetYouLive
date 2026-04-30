@@ -9,7 +9,7 @@ The Gift Combo System encourages rapid gift sending by tracking consecutive gift
 - Added `userComboSchema` to track combo state per user
 - Added `userCombos` Map field to Live model
 - Schema includes:
-  - `userId`: User ObjectId
+  - `userId`: User ID (String)
   - `username`: User's display name
   - `comboCount`: Current combo streak count
   - `lastGiftAt`: Timestamp of last gift
@@ -137,6 +137,7 @@ socket.on("GIFT_COMBO", (data) => {
 ### Backend
 - **Fire-and-forget**: Combo tracking is async, doesn't block gift transaction
 - **Database operations**: Single document update per gift
+  - **Note**: Current implementation queries and updates the database for every gift. For high-traffic scenarios, consider using Redis or in-memory caching for temporary combo state, then periodically syncing to MongoDB.
 - **Memory**: Mongoose Map stores combos in-memory until save
 - **Cleanup**: Old combo entries remain until overwritten (acceptable for short-lived live sessions)
 

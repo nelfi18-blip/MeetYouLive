@@ -74,6 +74,11 @@ export default function GiftComboNotification({ combo }) {
           --color-shadow-glow: rgba(255, 64, 129, 0.4);
           --color-shadow-inset: rgba(255, 255, 255, 0.2);
           --color-gold: rgba(255, 215, 0, 0.3);
+          --color-gold-solid: #ffd700;
+          --color-gold-glow: rgba(255, 215, 0, 0.8);
+          --color-text-white: #fff;
+          --color-text-shadow: rgba(0, 0, 0, 0.5);
+          --color-text-shadow-dark: rgba(0, 0, 0, 0.3);
           
           position: fixed;
           top: 20%;
@@ -201,19 +206,19 @@ export default function GiftComboNotification({ combo }) {
         .gcn-username {
           font-size: 1em;
           font-weight: 700;
-          color: #fff;
-          text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          color: var(--color-text-white);
+          text-shadow: 0 2px 8px var(--color-text-shadow);
           line-height: 1.2;
         }
 
         .gcn-combo {
           font-size: 1.3em;
           font-weight: 900;
-          color: #ffd700;
+          color: var(--color-gold-solid);
           text-shadow: 
-            0 0 10px rgba(255,215,0,0.8),
-            0 2px 8px rgba(0,0,0,0.5),
-            2px 2px 0 rgba(0,0,0,0.3);
+            0 0 10px var(--color-gold-glow),
+            0 2px 8px var(--color-text-shadow),
+            2px 2px 0 var(--color-text-shadow-dark);
           letter-spacing: 0.05em;
           line-height: 1;
         }

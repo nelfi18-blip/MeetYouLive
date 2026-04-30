@@ -127,8 +127,8 @@ const transferCoins = async (senderId, receiverId, amount, session) => {
 
   await User.findByIdAndUpdate(senderObjId, { $inc: { coins: -amount } }, { session });
 
-  // Only credit earningsCoins to approved creators
-  const canEarn = receiver.role === "creator" && receiver.creatorStatus === "approved";
+  // Only credit earningsCoins to approved creators or subCreators
+  const canEarn = (receiver.role === "creator" || receiver.role === "subCreator") && receiver.creatorStatus === "approved";
 
   // Always derive creatorSide as totalCoins - platformShare so all shares sum to totalCoins.
   // Agency percentage (if any) is applied only to creatorSide per business rules.

@@ -43,7 +43,7 @@ const inviteCall = async (req, res) => {
 
     // For paid creator calls: recipient must be a creator with private calls enabled
     if (callType === "paid_creator") {
-      const creator = await User.findOne({ _id: recipientId, role: "creator", creatorStatus: "approved" });
+      const creator = await User.findOne({ _id: recipientId, creatorStatus: "approved" }).where("role").in(["creator", "subCreator"]);
       if (!creator) {
         return res.status(403).json({ message: "El usuario no es un creador aprobado" });
       }

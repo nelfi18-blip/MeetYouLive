@@ -13,10 +13,10 @@ const getCreatorsForDiscovery = async (req, res) => {
     const { limit = 20 } = req.query;
     const maxLimit = Math.min(parseInt(limit, 10) || 20, 50);
 
-    // Find approved creators only (exclude admin/moderator)
+    // Find approved creators only (both creator and subCreator roles, exclude admin/moderator)
     // Sort by followersCount to get most popular creators deterministically
     const creators = await User.find({
-      role: "creator",
+      role: { $in: ["creator", "subCreator"] },
       creatorStatus: "approved",
       username: { $ne: null },
     })

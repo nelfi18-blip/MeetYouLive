@@ -253,6 +253,10 @@ router.patch("/agencies/:creatorId/enable", async (req, res) => {
     if (creator.role !== "creator" || creator.creatorStatus !== "approved") {
       return res.status(400).json({ message: "Solo los creadores aprobados pueden tener agencia habilitada" });
     }
+    // Prevent subCreators from becoming agencies
+    if (creator.role === "subCreator") {
+      return res.status(400).json({ message: "Los sub-creadores no pueden tener agencia habilitada" });
+    }
     // Prevent an active/pending sub-creator from also becoming an agency
     const rel = creator.agencyRelationship;
     if (rel && rel.parentCreatorId && ["active", "pending", "suspended"].includes(rel.status)) {

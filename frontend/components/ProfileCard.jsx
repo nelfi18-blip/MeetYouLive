@@ -31,7 +31,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
 
   const displayName = user.username || user.name || "Usuario";
   const initial = displayName[0].toUpperCase();
-  const isCreator = user.role === "creator";
+  const isCreator = user.role === "creator" || user.role === "subCreator";
   const isLive = isCreator && user.isLive && user.liveId;
   const langs = user.languages?.length
     ? user.languages

@@ -101,9 +101,10 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
       // Silently ignore invalid codes so registration is never blocked
     }
 
-    // Resolve creator invite code — if valid, set invitedByCreator and status to pending
+    // Resolve creator invite code — if valid, set invitedByCreator, role to subCreator, and status to pending
     let invitedByCreator = null;
     let creatorStatus = "none";
+    let userRole = "user";
     if (creatorInvite) {
       const safeInviteCode = String(creatorInvite).trim().toUpperCase();
       const inviterCreator = await User.findOne({
@@ -113,7 +114,8 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
       }).select("_id").lean();
       if (inviterCreator) {
         invitedByCreator = inviterCreator._id;
-        creatorStatus = "pending"; // User with invite starts as pending
+        creatorStatus = "pending"; // SubCreator starts as pending
+        userRole = "subCreator"; // Set role to subCreator, not creator
       }
       // Silently ignore invalid codes so registration is never blocked
     }
@@ -131,6 +133,7 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
       emailVerificationExpires: expires,
       referralCode,
       referredBy,
+      role: userRole,
       creatorStatus,
       ...(pendingAgencyCode ? { pendingAgencyCode } : {}),
       ...(invitedByCreator ? { invitedByCreator } : {}),

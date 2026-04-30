@@ -282,8 +282,11 @@ exports.approveCreator = async (req, res) => {
     const targetUser = await User.findById(req.params.id);
     if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
 
+    // Determine if this is a subCreator or regular creator approval
+    const isSubCreatorApproval = targetUser.invitedByCreator && targetUser.role === "subCreator";
+
     const updates = {
-      role: "creator",
+      role: isSubCreatorApproval ? "subCreator" : "creator", // Keep subCreator role if invited
       creatorStatus: "approved",
       isVerifiedCreator: true,
       creatorApprovedAt: new Date(),
@@ -300,18 +303,59 @@ exports.approveCreator = async (req, res) => {
       if (app.category?.trim()) updates["creatorProfile.category"] = app.category;
     }
 
-    // Auto-generate agency invite code so every approved creator can share invite links
-    if (!targetUser.agencyProfile?.agencyCode) {
-      updates["agencyProfile.agencyCode"] = await generateUniqueAgencyCode(targetUser);
+    // Only generate codes for full creators, not subCreators
+    if (!isSubCreatorApproval) {
+      // Auto-generate agency invite code so every approved creator can share invite links
+      if (!targetUser.agencyProfile?.agencyCode) {
+        updates["agencyProfile.agencyCode"] = await generateUniqueAgencyCode(targetUser);
+      }
+
+      // Auto-generate creator invite code for viral growth
+      if (!targetUser.creatorInviteCode) {
+        updates.creatorInviteCode = await generateUniqueCreatorInviteCode(targetUser);
+      }
     }
 
-    // Auto-generate creator invite code for viral growth
-    if (!targetUser.creatorInviteCode) {
-      updates.creatorInviteCode = await generateUniqueCreatorInviteCode(targetUser);
+    // If this is a subCreator, auto-create agency relationship with parent
+    if (isSubCreatorApproval && targetUser.invitedByCreator) {
+      try {
+        const parentCreator = await User.findOne({
+          _id: targetUser.invitedByCreator,
+          role: "creator",
+          creatorStatus: "approved",
+        }).select("_id agencyProfile");
+
+        if (parentCreator) {
+          const existingRel = await AgencyRelationship.findOne({
+            subCreator: targetUser._id,
+            status: { $in: ["pending", "active", "suspended"] },
+          });
+
+          if (!existingRel) {
+            const pct = Math.min(30, Math.max(5, parentCreator.agencyProfile?.subCreatorPercentageDefault || 20));
+            await AgencyRelationship.create({
+              parentCreator: parentCreator._id,
+              subCreator: targetUser._id,
+              percentage: pct,
+              status: "pending", // Still requires parent and subCreator agreement
+              createdBy: req.userId, // Admin who approved
+              notes: "Auto-creado desde invitación de creador",
+            });
+          }
+        }
+      } catch (relErr) {
+        console.error(
+          "[approveCreator] Failed to auto-create creator invite relationship for userId=%s parentId=%s:",
+          targetUser._id,
+          targetUser.invitedByCreator,
+          relErr
+        );
+      }
     }
 
     // If user registered or applied via an agency invite link, auto-create a pending relationship
-    if (targetUser.pendingAgencyCode) {
+    // (This is for the legacy agency code flow)
+    if (targetUser.pendingAgencyCode && !isSubCreatorApproval) {
       try {
         const agencyOwner = await User.findOne({
           "agencyProfile.agencyCode": targetUser.pendingAgencyCode,

@@ -102,7 +102,7 @@ const getTopCreators = async (req, res) => {
         { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
         {
           $match: {
-            "u.role": "creator",
+            "u.role": { $in: ["creator", "subCreator"] },
             "u.creatorStatus": "approved",
             "u.username": { $ne: null },
           },
@@ -150,7 +150,7 @@ const getTopCreators = async (req, res) => {
       { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
       {
         $match: {
-          "u.role": "creator",
+          "u.role": { $in: ["creator", "subCreator"] },
           "u.creatorStatus": "approved",
           "u.username": { $ne: null },
         },
@@ -207,7 +207,7 @@ const getFeaturedCreators = async (req, res) => {
       { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
       {
         $match: {
-          "u.role": "creator",
+          "u.role": { $in: ["creator", "subCreator"] },
           "u.creatorStatus": "approved",
           "u.username": { $ne: null },
         },
@@ -252,7 +252,7 @@ const getCreatorRankingStats = async (req, res) => {
     const user = await User.findById(req.userId).select(
       "role creatorStatus"
     );
-    if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+    if (!user || !((user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved")) {
       return res.status(403).json({ message: "Acceso restringido a creadores aprobados." });
     }
 
@@ -304,7 +304,7 @@ const getCreatorRankingStats = async (req, res) => {
         },
         { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
         {
-          $match: { "u.role": "creator", "u.creatorStatus": "approved" },
+          $match: { "u.role": { $in: ["creator", "subCreator"] }, "u.creatorStatus": "approved" },
         },
         { $project: { _id: 1, weekCoins: 1 } },
       ]),

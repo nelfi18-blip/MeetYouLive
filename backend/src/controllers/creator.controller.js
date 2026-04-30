@@ -17,7 +17,15 @@ const requireApprovedCreatorHelper = async (userId) => {
     "role creatorStatus username name creatorApprovedAt earningsCoins coins agencyEarningsCoins followersCount"
   );
 
-  if (!user || user.role !== "creator" || user.creatorStatus !== "approved") {
+  if (!user) {
+    return { error: "Usuario no encontrado.", user: null };
+  }
+
+  // Allow both creator and subCreator roles with approved status
+  const isCreator = user.role === "creator" && user.creatorStatus === "approved";
+  const isSubCreator = user.role === "subCreator" && user.creatorStatus === "approved";
+
+  if (!isCreator && !isSubCreator) {
     return { error: "Acceso restringido a creadores aprobados.", user: null };
   }
 
@@ -593,7 +601,7 @@ exports.submitCreatorRequest = async (req, res) => {
       // Silently ignore invalid codes
     }
 
-    // If creator invite code is provided, validate it and set invitedByCreator
+    // If creator invite code is provided, validate it and set invitedByCreator + role to subCreator
     let invitedByCreator = user.invitedByCreator || null;
     if (creatorInvite && !invitedByCreator) {
       const safeInviteCode = String(creatorInvite).trim().toUpperCase();
@@ -605,6 +613,7 @@ exports.submitCreatorRequest = async (req, res) => {
       if (inviterCreator) {
         invitedByCreator = inviterCreator._id;
         user.invitedByCreator = invitedByCreator;
+        user.role = "subCreator"; // Set role to subCreator
       }
       // Silently ignore invalid codes
     }

@@ -18,6 +18,7 @@
     "admin": "Administrador",
     "moderator": "Moderador",
     "creator": "Creador",
+    "subCreator": "Sub-Creador",
     "creator_pending": "Creador (pendiente)",
     "member": "Miembro"
   },

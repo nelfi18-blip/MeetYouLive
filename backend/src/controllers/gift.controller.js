@@ -557,40 +557,41 @@ const sendGift = async (req, res) => {
         if (!result || result.length === 0) return;
         
         const senderTotalCoins = result[0].totalCoins || 0;
-        const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Usuario";
+        const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
         
-        // Update top supporter if current user has spent more
-        Live.findById(liveId).select("topSupporter").then((livDoc) => {
-          if (!livDoc) return;
-          
-          const currentTopCoins = livDoc.topSupporter?.totalCoins || 0;
-          
-          // If current sender has more coins than the top supporter, update it
-          if (senderTotalCoins > currentTopCoins) {
-            Live.findByIdAndUpdate(
-              liveId,
-              {
-                $set: {
-                  "topSupporter.userId": req.userId,
-                  "topSupporter.username": senderUsername,
-                  "topSupporter.totalCoins": senderTotalCoins,
-                }
-              },
-              { new: true }
-            ).then(() => {
-              // Emit socket event to notify all viewers
-              const ioInst = getIO();
-              if (ioInst) {
-                ioInst.to(`live:${liveId}`).emit("TOP_SUPPORTER_UPDATE", {
-                  liveId,
-                  userId: String(req.userId),
-                  username: senderUsername,
-                  totalCoins: senderTotalCoins,
-                });
-              }
-            }).catch((err) => console.error("[gift] top supporter update failed:", err));
+        // Atomic update: only set this user as top supporter if their total exceeds current top
+        // This prevents race conditions when multiple gifts are sent simultaneously
+        Live.findOneAndUpdate(
+          {
+            _id: liveId,
+            $or: [
+              { "topSupporter.totalCoins": { $lt: senderTotalCoins } },
+              { "topSupporter.totalCoins": { $exists: false } },
+              { topSupporter: null },
+            ],
+          },
+          {
+            $set: {
+              "topSupporter.userId": req.userId,
+              "topSupporter.username": senderUsername,
+              "topSupporter.totalCoins": senderTotalCoins,
+            }
+          },
+          { new: true }
+        ).then((updated) => {
+          // Only emit if the update actually happened (user became new top supporter)
+          if (updated) {
+            const ioInst = getIO();
+            if (ioInst) {
+              ioInst.to(`live:${liveId}`).emit("TOP_SUPPORTER_UPDATE", {
+                liveId,
+                userId: String(req.userId),
+                username: senderUsername,
+                totalCoins: senderTotalCoins,
+              });
+            }
           }
-        }).catch((err) => console.error("[gift] top supporter lookup failed:", err));
+        }).catch((err) => console.error("[gift] top supporter update failed:", err));
       }).catch((err) => console.error("[gift] top supporter aggregation failed:", err));
     }
 

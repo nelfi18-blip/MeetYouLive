@@ -5,7 +5,7 @@
  * Shows a crown icon with the username and total coins spent, with a glow effect
  */
 export default function TopSupporterBadge({ topSupporter }) {
-  if (!topSupporter || !topSupporter.username) {
+  if (!topSupporter || !topSupporter.username || topSupporter.totalCoins == null) {
     return null;
   }
 
@@ -16,7 +16,7 @@ export default function TopSupporterBadge({ topSupporter }) {
         <div className="supporter-info">
           <span className="supporter-label">Top Supporter</span>
           <span className="supporter-username">{topSupporter.username}</span>
-          <span className="supporter-coins">{topSupporter.totalCoins.toLocaleString()} coins</span>
+          <span className="supporter-coins">{(topSupporter.totalCoins || 0).toLocaleString()} coins</span>
         </div>
       </div>
 

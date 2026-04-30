@@ -163,8 +163,10 @@ const unlockContent = async (req, res) => {
 
       const amount = contentDoc.coinPrice;
 
-      // Look up the canonical AgencyRelationship for the percentage at this moment
-      const agencyRel = await AgencyRelationship.findOne({ subCreator: contentDoc.creator, status: "active" }).session(session);
+      // Look up the canonical AgencyRelationship for the percentage at this moment.
+      // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
+      // matching the same safety rule enforced in gift.controller.js and videoCall.controller.js.
+      const agencyRel = await AgencyRelationship.findOne({ subCreator: contentDoc.creator, status: "active", subCreatorAgreed: true }).session(session);
       const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
 
       // Platform always takes fixed 40%; agency share comes from creator's 60% only.

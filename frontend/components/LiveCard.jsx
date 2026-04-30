@@ -4,6 +4,7 @@ import Link from "next/link";
 import Badge from "./Badge";
 import StatusBadges from "./StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 /**
  * Reusable LiveCard component for live-stream listings.
@@ -24,8 +25,8 @@ export default function LiveCard({ live }) {
   const safeGiftsTotal = Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0;
   const safeTotalCoins = Number.isFinite(live.totalCoinsEarned) ? Math.max(0, live.totalCoinsEarned) : 0;
 
-  // Check if creator is approved
-  const isApprovedCreator = (live.user?.role === "creator" || live.user?.role === "subCreator") && live.user?.creatorStatus === "approved";
+  // Use the canonical creator check helper
+  const isCreatorApproved = isApprovedCreator(live.user);
   
   // Check if live is new (created less than 10 minutes ago)
   const isNew = live.createdAt ? (Date.now() - new Date(live.createdAt).getTime()) < 10 * 60 * 1000 : false;
@@ -60,7 +61,7 @@ export default function LiveCard({ live }) {
             {live.isTrending && (
               <span className="live-tag-trending">🔥 TRENDING</span>
             )}
-            {isApprovedCreator && safeViewerCount >= 50 && (
+            {isCreatorApproved && safeViewerCount >= 50 && (
               <span className="live-tag-top">⭐ TOP</span>
             )}
             {isNew && (
@@ -104,7 +105,7 @@ export default function LiveCard({ live }) {
               <span className="live-avatar-dot" />
             </div>
             <span className="live-username">@{username}</span>
-            {((live.user?.role === "creator" || live.user?.role === "subCreator") && live.user?.creatorStatus === "approved") && (
+            {isCreatorApproved && (
               <span className="live-creator-badge">⭐</span>
             )}
             {live.isPrivate && live.entryCost != null && (

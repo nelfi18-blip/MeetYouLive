@@ -6,6 +6,7 @@ import Link from "next/link";
 import GiftEffect from "@/components/GiftEffect";
 import GiftPanel from "@/components/GiftPanel";
 import GiftAnimation from "@/components/GiftAnimation";
+import SuperGiftAnimation from "@/components/gifts/SuperGiftAnimation";
 import TopGifters from "@/components/TopGifters";
 import FloatingReactions from "@/components/FloatingReactions";
 import FollowButton from "@/components/FollowButton";
@@ -58,6 +59,9 @@ export default function LiveRoomPage() {
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
   const [giftAnimation, setGiftAnimation] = useState(null);
+  
+  // Super gift animation state (for new 3-tier system)
+  const [superGiftAnimation, setSuperGiftAnimation] = useState(null);
 
   
   // Gift queue for new overlay system
@@ -584,9 +588,27 @@ export default function LiveRoomPage() {
     };
     const onLiveEventEnded = () => setActiveEvent(null);
 
+    // Super gift event handler (new 3-tier system)
+    const onSuperGift = ({ sender, gift, value, animationType, quantity }) => {
+      if (!gift) return;
+      
+      // Trigger full-screen super gift animation
+      setSuperGiftAnimation({
+        gift: {
+          icon: gift.icon || "🎁",
+          name: gift.name || "Super Regalo",
+          animationType: animationType || "fullscreen",
+        },
+        sender: sender || "Alguien",
+        value: value || 0,
+        quantity: quantity || 1,
+      });
+    };
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
+    socket.on("super_gift", onSuperGift);
     socket.on("USER_JOINED_LIVE", onUserJoined);
     socket.on("LIVE_ENDED", onLiveEnded);
     socket.on("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
@@ -599,6 +621,7 @@ export default function LiveRoomPage() {
       socket.off("LIVE_CHAT_MESSAGE", onChatMessage);
       socket.off("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
       socket.off("LIVE_GIFT_SENT", onLiveGiftSent);
+      socket.off("super_gift", onSuperGift);
       socket.off("USER_JOINED_LIVE", onUserJoined);
       socket.off("LIVE_ENDED", onLiveEnded);
       socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
@@ -1395,6 +1418,16 @@ export default function LiveRoomPage() {
                 gift={giftAnimation.gift}
                 senderName={giftAnimation.senderName}
                 onComplete={() => setGiftAnimation(null)}
+              />
+            )}
+
+            {/* Super gift animation (3-tier system) */}
+            {superGiftAnimation && (
+              <SuperGiftAnimation
+                gift={superGiftAnimation.gift}
+                sender={superGiftAnimation.sender}
+                value={superGiftAnimation.value}
+                onComplete={() => setSuperGiftAnimation(null)}
               />
             )}
 

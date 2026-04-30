@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
+import { getGiftTier } from "../lib/giftTiers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -19,8 +20,12 @@ const RARITY = {
 
 
 const CATEGORIES = [
-  { id: "popular",    label: "🔥 Popular",      filter: (g) => g.coinCost <= 200 && ["common", "uncommon", "rare"].includes(g.rarity) },
-  { id: "high-impact",label: "💫 Alto Impacto", filter: (g) => g.isSuper === true },
+  // ═══ NEW 3-TIER SYSTEM ═══
+  { id: "basic",      label: "💝 Básicos",       filter: (g) => getGiftTier(g) === "basic" },
+  { id: "premium",    label: "⭐ Premium",       filter: (g) => getGiftTier(g) === "premium" },
+  { id: "super",      label: "🔥 Super",         filter: (g) => getGiftTier(g) === "super" },
+  
+  // ═══ CATEGORY-BASED FILTERS (SECONDARY) ═══
   { id: "emotional",  label: "💖 Emocional",    filter: (g) => g.category === "emotional" },
   { id: "energy",     label: "⚡ Energía",      filter: (g) => g.category === "energy" },
   { id: "luxury",     label: "💎 Lujo",         filter: (g) => g.category === "luxury" },
@@ -52,7 +57,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const [catalogError, setCatalogError] = useState("");
 
   const [coinBalance, setCoinBalance]   = useState(initialCoinBalance ?? null);
-  const [activeCategory, setActiveCategory] = useState("popular");
+  const [activeCategory, setActiveCategory] = useState("basic");
   const [selectedGift, setSelectedGift] = useState(null);
   const [quantity, setQuantity]         = useState(1);
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 // Animation configuration constants
 const SUPER_GIFT_DURATION_MS = 4000;        // Duration of super gift animation (4 seconds)
 const ULTRA_HIGH_VALUE_THRESHOLD = 2000;    // Coins threshold for "MÍTICO" badge
+const PARTICLE_COUNT = 30;                  // Number of particle effects
 
 /**
  * SuperGiftAnimation - Full-screen animation overlay for super tier gifts
@@ -85,7 +86,7 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
 
         {/* Particle effects */}
         <div className="super-gift-particles">
-          {Array.from({ length: 30 }, (_, i) => (
+          {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
             <div
               key={i}
               className="super-gift-particle"

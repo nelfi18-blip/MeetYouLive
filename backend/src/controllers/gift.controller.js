@@ -15,6 +15,13 @@ const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 // 60% goes to the creator, 40% is the platform commission
 const COMMISSION_RATE = 0.40;
 
+// Gift tier boundaries (shared with frontend/lib/giftTiers.js)
+const TIER_BOUNDARIES = {
+  BASIC_MAX: 100,      // Basic tier: 0-100 coins
+  PREMIUM_MAX: 500,    // Premium tier: 101-500 coins
+  // Super tier: 501+ coins
+};
+
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
   // ═══════════════════════════════════════════════════════════════
@@ -237,11 +244,11 @@ const sendGift = async (req, res) => {
   
   // Determine gift type with proper fallback logic for backward compatibility:
   // - Use explicit `type` field if present
-  // - Otherwise derive from coinCost: basic (≤100), premium (101-500), super (>500)
+  // - Otherwise derive from coinCost using TIER_BOUNDARIES
   // - Or use legacy isSuper flag as final fallback
   const giftType = catalogItem.type || (
-    catalogItem.coinCost > 500 ? "super" :
-    catalogItem.coinCost > 100 ? "premium" :
+    catalogItem.coinCost > TIER_BOUNDARIES.PREMIUM_MAX ? "super" :
+    catalogItem.coinCost > TIER_BOUNDARIES.BASIC_MAX ? "premium" :
     catalogItem.isSuper ? "super" : "basic"
   );
   

@@ -189,8 +189,13 @@ const sendGift = async (req, res) => {
     return res.status(404).json({ message: "Regalo no encontrado en el catálogo" });
   }
 
-  // RESTRICTION: Super gifts can ONLY be sent in live context
+  // Context resolution: Uses explicit context from request body if provided, otherwise infers:
+  // - "live" if liveId is present
+  // - "profile" as default
+  // Valid contexts: "live" (live stream), "private_call" (chat), "profile" (user profile)
   const resolvedContext = context || (liveId ? "live" : "profile");
+
+  // RESTRICTION: Super gifts can ONLY be sent in live context
   // Super gifts require explicit live context (not chat/profile) and a valid liveId
   if (catalogItem.isSuper && (resolvedContext !== "live" || !liveId)) {
     return res.status(403).json({ 
@@ -226,11 +231,6 @@ const sendGift = async (req, res) => {
     // Accurately reflect whether the receiver earned from this gift
     const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
 
-    // Context resolution: Uses explicit context from request body if provided, otherwise infers:
-    // - "live" if liveId is present
-    // - "profile" as default
-    // Valid contexts: "live" (live stream), "private_call" (chat), "profile" (user profile)
-    const resolvedContext = context || (liveId ? "live" : "profile");
     const resolvedContextId = contextId || liveId || null;
     const giftDoc = await Gift.create({
       sender: req.userId,
@@ -348,6 +348,7 @@ const sendGift = async (req, res) => {
         });
       } else if (resolvedContext === "private_call") {
         // CHAT GIFTS: Only sender and receiver (small animation, no fullscreen)
+        // Note: Stored context is "private_call" but socket event context is "chat" for frontend clarity
         const chatGiftData = {
           senderName,
           senderId: String(req.userId),
@@ -356,7 +357,7 @@ const sendGift = async (req, res) => {
           giftIcon: giftDoc.giftCatalogItem?.icon || "🎁",
           coinCost: amount,
           quantity,
-          context: "chat",
+          context: "chat", // Simplified label for frontend display
         };
         io.to(String(req.userId)).emit("CHAT_GIFT_SENT", chatGiftData);
         io.to(String(receiverId)).emit("CHAT_GIFT_SENT", chatGiftData);

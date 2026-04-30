@@ -6,6 +6,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
  * Normalize avatar URL to ensure it's safe and properly formatted
+ * Only allows avatars from our backend to prevent XSS
  */
 const normalizeAvatarUrl = (avatarValue) => {
   if (typeof avatarValue !== "string") return "";
@@ -20,8 +21,9 @@ const normalizeAvatarUrl = (avatarValue) => {
     // Don't render untrusted external URLs
     return "";
   }
-  // If it's a relative path (e.g., uploads/avatar-...), prepend backend URL
-  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
+  // If it's a relative path (e.g., /uploads/avatar-123-456.jpg)
+  // Pattern prevents directory traversal by requiring a proper filename with extension
+  if (/^\/uploads\/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
     return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
   }
   return "";

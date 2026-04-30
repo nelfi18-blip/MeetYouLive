@@ -313,15 +313,9 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                   <button
                     key={g._id}
                     role="listitem"
-copilot/add-unique-gift-system
-                    aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${g.isSuper ? " — ¡Super Regalo!" : ""}`}
-                    aria-pressed={isSelected}
-                    className={`gp-card${isSelected ? " gp-card-selected" : ""}${g.isSuper ? " gp-card-super" : ""}`}
-
                     aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
- main
                     style={{
                       "--rc": r.color,
                       "--rg": r.glow,

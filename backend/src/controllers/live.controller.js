@@ -141,7 +141,6 @@ const getLives = async (req, res) => {
         const userRole = live.user?.role;
         return userRole !== "admin" && userRole !== "moderator";
       })
- main
       .filter((live) => hasLiveHost(String(live._id)))
       .map((live) => {
         // Remove role from user object before sending to client

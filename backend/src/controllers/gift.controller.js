@@ -601,6 +601,7 @@ const sendGift = async (req, res) => {
       const COMBO_WINDOW_MS = 3000; // 3 seconds
       const now = new Date();
       const senderId = String(req.userId);
+      // Note: "Alguien" is Spanish for "Someone" - consistent with backend's Spanish text convention
       const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
 
       Live.findById(liveId).select("userCombos").then((livDoc) => {

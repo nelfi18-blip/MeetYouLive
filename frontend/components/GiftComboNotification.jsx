@@ -71,9 +71,19 @@ export default function GiftComboNotification({ combo }) {
           --color-tertiary: rgba(239, 68, 68, 0.95);
           --color-border: rgba(255, 255, 255, 0.3);
           --color-shadow-primary: rgba(244, 63, 94, 0.6);
+          --color-shadow-primary-strong: rgba(244, 63, 94, 0.7);
+          --color-shadow-primary-stronger: rgba(244, 63, 94, 0.8);
+          --color-shadow-primary-strongest: rgba(244, 63, 94, 0.9);
+          --color-shadow-primary-full: rgba(244, 63, 94, 1);
           --color-shadow-glow: rgba(255, 64, 129, 0.4);
+          --color-shadow-glow-medium: rgba(255, 64, 129, 0.5);
+          --color-shadow-glow-strong: rgba(255, 64, 129, 0.6);
+          --color-shadow-glow-stronger: rgba(255, 64, 129, 0.7);
+          --color-shadow-glow-strongest: rgba(255, 64, 129, 0.8);
           --color-shadow-inset: rgba(255, 255, 255, 0.2);
+          --color-shadow-inset-strong: rgba(255, 255, 255, 0.3);
           --color-gold: rgba(255, 215, 0, 0.3);
+          --color-gold-medium: rgba(255, 215, 0, 0.5);
           --color-gold-solid: #ffd700;
           --color-gold-glow: rgba(255, 215, 0, 0.8);
           --color-text-white: #fff;
@@ -135,8 +145,8 @@ export default function GiftComboNotification({ combo }) {
                      gcnShake 0.6s ease-in-out 0.4s both,
                      gcnPulse 0.8s ease-in-out infinite;
           box-shadow: 
-            0 10px 40px rgba(244, 63, 94, 0.7),
-            0 0 100px rgba(255, 64, 129, 0.5),
+            0 10px 40px var(--color-shadow-primary-strong),
+            0 0 100px var(--color-shadow-glow-medium),
             inset 0 1px 0 var(--color-shadow-inset);
         }
         
@@ -146,23 +156,23 @@ export default function GiftComboNotification({ combo }) {
                      gcnShake 0.6s ease-in-out 0.4s both,
                      gcnPulseMega 0.6s ease-in-out infinite;
           box-shadow: 
-            0 12px 48px rgba(244, 63, 94, 0.8),
-            0 0 120px rgba(255, 64, 129, 0.6),
+            0 12px 48px var(--color-shadow-primary-stronger),
+            0 0 120px var(--color-shadow-glow-strong),
             0 0 160px var(--color-gold),
-            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            inset 0 1px 0 var(--color-shadow-inset-strong);
         }
 
         @keyframes gcnPulse {
           0%, 100% { 
             box-shadow: 
-              0 10px 40px rgba(244, 63, 94, 0.7),
-              0 0 100px rgba(255, 64, 129, 0.5),
+              0 10px 40px var(--color-shadow-primary-strong),
+              0 0 100px var(--color-shadow-glow-medium),
               inset 0 1px 0 var(--color-shadow-inset);
           }
           50% { 
             box-shadow: 
-              0 10px 40px rgba(244, 63, 94, 0.9),
-              0 0 120px rgba(255, 64, 129, 0.7),
+              0 10px 40px var(--color-shadow-primary-strongest),
+              0 0 120px var(--color-shadow-glow-stronger),
               inset 0 1px 0 var(--color-shadow-inset);
           }
         }
@@ -170,17 +180,17 @@ export default function GiftComboNotification({ combo }) {
         @keyframes gcnPulseMega {
           0%, 100% { 
             box-shadow: 
-              0 12px 48px rgba(244, 63, 94, 0.8),
-              0 0 120px rgba(255, 64, 129, 0.6),
+              0 12px 48px var(--color-shadow-primary-stronger),
+              0 0 120px var(--color-shadow-glow-strong),
               0 0 160px var(--color-gold),
-              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+              inset 0 1px 0 var(--color-shadow-inset-strong);
           }
           50% { 
             box-shadow: 
-              0 14px 56px rgba(244, 63, 94, 1),
-              0 0 140px rgba(255, 64, 129, 0.8),
-              0 0 200px rgba(255, 215, 0, 0.5),
-              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+              0 14px 56px var(--color-shadow-primary-full),
+              0 0 140px var(--color-shadow-glow-strongest),
+              0 0 200px var(--color-gold-medium),
+              inset 0 1px 0 var(--color-shadow-inset-strong);
           }
         }
 

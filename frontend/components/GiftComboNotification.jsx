@@ -21,6 +21,7 @@ export default function GiftComboNotification({ combo }) {
     // Backend emits only combos >= 2, but this defensive check prevents
     // display issues if socket event structure changes in the future
     if (!combo || !combo.username || !combo.comboCount || combo.comboCount < 2) {
+      setVisible(false); // Explicitly hide if validation fails
       return;
     }
 

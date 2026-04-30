@@ -597,6 +597,8 @@ const sendGift = async (req, res) => {
     }
 
     // Track gift combo streaks (fire-and-forget)
+    // NOTE: Race condition mitigation - Uses read-modify-write with retry logic.
+    // For very high-traffic scenarios (>100 gifts/sec per live), consider Redis.
     if (liveId) {
       const COMBO_WINDOW_MS = 3000; // 3 seconds
       const now = new Date();
@@ -605,38 +607,42 @@ const sendGift = async (req, res) => {
       // Frontend handles i18n via next-intl. "Alguien" = "Someone" matches backend convention.
       const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
 
-      Live.findById(liveId).select("userCombos").then((livDoc) => {
-        if (!livDoc) return;
+      // Retry logic to handle race conditions during concurrent gift sending
+      const updateComboWithRetry = async (retries = 2) => {
+        try {
+          const livDoc = await Live.findById(liveId).select("userCombos");
+          if (!livDoc) return;
 
-        // Get current combo state for this user (Mongoose Map)
-        const combos = livDoc.userCombos;
-        const existingCombo = combos.get(senderId);
+          // Get current combo state for this user (Mongoose Map)
+          const combos = livDoc.userCombos;
+          const existingCombo = combos.get(senderId);
 
-        let newComboCount = 1;
-        
-        if (existingCombo) {
-          const lastGiftAt = new Date(existingCombo.lastGiftAt);
-          const timeSinceLastGift = now - lastGiftAt;
+          let newComboCount = 1;
           
-          if (timeSinceLastGift <= COMBO_WINDOW_MS) {
-            // Within combo window: increment combo
-            newComboCount = (existingCombo.comboCount || 1) + 1;
+          if (existingCombo) {
+            const lastGiftAt = new Date(existingCombo.lastGiftAt);
+            const timeSinceLastGift = now - lastGiftAt;
+            
+            if (timeSinceLastGift <= COMBO_WINDOW_MS) {
+              // Within combo window: increment combo
+              newComboCount = (existingCombo.comboCount || 1) + 1;
+            }
+            // else: outside window, reset to 1
           }
-          // else: outside window, reset to 1
-        }
 
-        // Update combo state. Structure matches userComboSchema documentation.
-        // Store senderId as string to match Map key type.
-        combos.set(senderId, {
-          userId: senderId, // String (matches schema doc and Map key)
-          username: senderUsername, // String
-          comboCount: newComboCount, // Number
-          lastGiftAt: now, // Date
-        });
+          // Update combo state. Structure matches userComboSchema documentation.
+          // Store senderId as string to match Map key type.
+          combos.set(senderId, {
+            userId: senderId, // String (matches schema doc and Map key)
+            username: senderUsername, // String
+            comboCount: newComboCount, // Number
+            lastGiftAt: now, // Date
+          });
 
-        // Save to database
-        livDoc.userCombos = combos;
-        livDoc.save().then(() => {
+          // Save to database with version check to detect concurrent modifications
+          livDoc.userCombos = combos;
+          await livDoc.save();
+
           // Emit combo event if combo >= 2
           if (newComboCount >= 2) {
             const ioInst = getIO();
@@ -649,8 +655,16 @@ const sendGift = async (req, res) => {
               });
             }
           }
-        }).catch((err) => console.error("[gift] combo save failed for user", senderId, "in live", liveId, ":", err));
-      }).catch((err) => console.error("[gift] combo lookup failed for live", liveId, ":", err));
+        } catch (err) {
+          // Retry on version conflict (VersionError) if retries remain
+          if (err.name === "VersionError" && retries > 0) {
+            return updateComboWithRetry(retries - 1);
+          }
+          console.error("[gift] combo update failed for user", senderId, "in live", liveId, ":", err);
+        }
+      };
+
+      updateComboWithRetry().catch(() => {}); // Fire-and-forget with internal error handling
     }
 
     // Update live goal progress and battle scores (fire-and-forget)

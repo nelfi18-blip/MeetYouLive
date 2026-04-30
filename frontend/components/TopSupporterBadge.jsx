@@ -5,7 +5,7 @@
  * Shows a crown icon with the username and total coins spent, with a glow effect
  */
 export default function TopSupporterBadge({ topSupporter }) {
-  if (!topSupporter || !topSupporter.username || topSupporter.totalCoins == null) {
+  if (!topSupporter?.username || topSupporter?.totalCoins == null) {
     return null;
   }
 

@@ -596,6 +596,60 @@ const sendGift = async (req, res) => {
       }).catch((err) => console.error("[gift] top supporter aggregation failed:", err));
     }
 
+    // Track gift combo streaks (fire-and-forget)
+    if (liveId) {
+      const COMBO_WINDOW_MS = 3000; // 3 seconds
+      const now = new Date();
+      const senderId = String(req.userId);
+      const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+
+      Live.findById(liveId).select("userCombos").then((livDoc) => {
+        if (!livDoc) return;
+
+        // Get current combo state for this user (Mongoose Map)
+        const combos = livDoc.userCombos || new Map();
+        const existingCombo = combos.get(senderId);
+
+        let newComboCount = 1;
+        
+        if (existingCombo) {
+          const lastGiftAt = new Date(existingCombo.lastGiftAt);
+          const timeSinceLastGift = now - lastGiftAt;
+          
+          if (timeSinceLastGift <= COMBO_WINDOW_MS) {
+            // Within combo window: increment combo
+            newComboCount = (existingCombo.comboCount || 1) + 1;
+          }
+          // else: outside window, reset to 1
+        }
+
+        // Update combo state
+        combos.set(senderId, {
+          userId: req.userId,
+          username: senderUsername,
+          comboCount: newComboCount,
+          lastGiftAt: now,
+        });
+
+        // Save to database
+        livDoc.userCombos = combos;
+        livDoc.save().then(() => {
+          // Emit combo event if combo >= 2
+          if (newComboCount >= 2) {
+            const ioInst = getIO();
+            if (ioInst) {
+              ioInst.to(`live:${liveId}`).emit("GIFT_COMBO", {
+                liveId,
+                userId: senderId,
+                username: senderUsername,
+                comboCount: newComboCount,
+              });
+            }
+          }
+        }).catch((err) => console.error("[gift] combo save failed:", err));
+      }).catch((err) => console.error("[gift] combo lookup failed:", err));
+    }
+
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {
       Live.findOne({ _id: liveId, isLive: true }).select("goal battle").then((livDoc) => {

@@ -27,6 +27,16 @@ const topSupporterSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const userComboSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    username: { type: String },
+    comboCount: { type: Number, default: 1, min: 1 },
+    lastGiftAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const liveSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -65,6 +75,8 @@ const liveSchema = new mongoose.Schema(
       endsAt:     { type: Date },
     },
     topSupporter: { type: topSupporterSchema, default: null },
+    // Combo tracking: map of userId -> combo state (for gift streak system)
+    userCombos: { type: Map, of: userComboSchema, default: new Map() },
   },
   { timestamps: true }
 );

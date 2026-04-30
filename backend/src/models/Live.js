@@ -82,6 +82,8 @@ const liveSchema = new mongoose.Schema(
     topSupporter: { type: topSupporterSchema, default: null },
     // Combo tracking: map of userId -> combo state (for gift streak system)
     userCombos: { type: Map, of: userComboSchema, default: new Map() },
+    // Discovery & engagement flags
+    isTrending: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

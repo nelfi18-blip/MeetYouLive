@@ -57,14 +57,12 @@ export default function LiveRoomPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [activeGiftEffect, setActiveGiftEffect] = useState(null);
   const [recentGift, setRecentGift] = useState(null);
- copilot/add-unique-gift-system
   const [giftAnimation, setGiftAnimation] = useState(null);
 
   
   // Gift queue for new overlay system
   const [giftQueue, setGiftQueue] = useState([]);
   const giftQueueIdRef = useRef(0);
- main
 
   const [startingCall, setStartingCall] = useState(false);
   const [callError, setCallError] = useState("");

@@ -17,7 +17,6 @@ const COMMISSION_RATE = 0.40;
 
 // Default catalog items seeded when the collection is empty
 const DEFAULT_CATALOG = [
- copilot/add-unique-gift-system
   // ═══════════════════════════════════════════════════════════════
   // EMOTIONAL (hearts, kiss, hug)
   // ═══════════════════════════════════════════════════════════════
@@ -68,7 +67,6 @@ const DEFAULT_CATALOG = [
   { name: "Diamond Wink", slug: "diamond-wink", icon: "💎", coinCost: 250,  rarity: "epic",      sortOrder: 4, isSuper: true },
   { name: "Golden Ring",  slug: "golden-ring",  icon: "💍", coinCost: 500,  rarity: "legendary", sortOrder: 5, isSuper: true },
   { name: "Secret Flame", slug: "secret-flame", icon: "🕯️", coinCost: 1000, rarity: "mythic",    sortOrder: 6, isSuper: true },
-main
 ];
 
 const seedGiftCatalog = async () => {
@@ -380,7 +378,6 @@ const sendGift = async (req, res) => {
     const io = getIO();
     if (io) {
       const senderName = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
- copilot/add-unique-gift-system
       const giftData = {
         name: giftDoc.giftCatalogItem?.name || "",
         icon: giftDoc.giftCatalogItem?.icon || "🎁",
@@ -392,32 +389,15 @@ const sendGift = async (req, res) => {
         quantity,
       };
 
-      io.to(String(receiverId)).emit("GIFT_SENT", {
-        senderName,
-        receiverId: String(receiverId),
-        giftName: giftData.name,
-        giftIcon: giftData.icon,
-        coinCost: amount,
-        quantity,
-        gift: giftData,
-        liveId: liveId || null,
-      });
-      // Broadcast to all viewers in the live room so everyone sees the gift effect
-      if (liveId) {
-
       
       // Context-specific socket events
       if (resolvedContext === "live") {
         // LIVE GIFTS: Full broadcast to all viewers in the live room
-main
         io.to(`live:${liveId}`).emit("LIVE_GIFT_SENT", {
           senderName,
           senderId: String(req.userId),
           giftId: String(giftDoc._id),
           quantity,
-copilot/add-unique-gift-system
-          gift: giftData,
-
           gift: {
             name: giftDoc.giftCatalogItem?.name || "",
             icon: giftDoc.giftCatalogItem?.icon || "🎁",
@@ -428,7 +408,6 @@ copilot/add-unique-gift-system
             animationUrl: catalogItem.animationUrl || null,
             soundUrl: catalogItem.soundUrl || null,
           },
- main
           liveId,
         });
       } else if (resolvedContext === "private_call") {

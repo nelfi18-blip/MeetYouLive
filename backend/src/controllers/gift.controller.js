@@ -195,8 +195,8 @@ const sendGift = async (req, res) => {
   // Valid contexts: "live" (live stream), "private_call" (chat), "profile" (user profile)
   const resolvedContext = context || (liveId ? "live" : "profile");
 
-  // RESTRICTION: Super gifts can ONLY be sent in live context
-  // Super gifts require explicit live context (not chat/profile) and a valid liveId
+  // RESTRICTION: Super gifts can ONLY be sent in live context with a valid liveId
+  // Both conditions must be met: correct context AND liveId present
   if (catalogItem.isSuper && (resolvedContext !== "live" || !liveId)) {
     return res.status(403).json({ 
       message: "Este regalo solo se puede enviar en directo 🔥",

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
+import getSocket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -104,30 +105,22 @@ export default function ChatConversationPage() {
     if (typeof window === "undefined") return;
     
     let mounted = true;
-    let socket = null;
+    const socket = getSocket();
+    if (!socket) return;
     
-    // Import socket helper
-    import("@/lib/socket").then(({ default: getSocket }) => {
+    const handleChatGift = (data) => {
       if (!mounted) return;
-      socket = getSocket();
-      if (!socket) return;
-      
-      const handleChatGift = (data) => {
-        if (!mounted) return;
-        setChatGiftNotif(data);
-        setTimeout(() => {
-          if (mounted) setChatGiftNotif(null);
-        }, 5000);
-      };
-      
-      socket.on("CHAT_GIFT_SENT", handleChatGift);
-    }).catch((err) => console.error("[chat] Failed to connect socket:", err));
+      setChatGiftNotif(data);
+      setTimeout(() => {
+        if (mounted) setChatGiftNotif(null);
+      }, 5000);
+    };
+    
+    socket.on("CHAT_GIFT_SENT", handleChatGift);
     
     return () => {
       mounted = false;
-      if (socket) {
-        socket.off("CHAT_GIFT_SENT");
-      }
+      socket.off("CHAT_GIFT_SENT", handleChatGift);
     };
   }, []);
 

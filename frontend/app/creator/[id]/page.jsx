@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import GiftButton from "@/components/GiftButton";
 import ExclusiveContent from "@/components/ExclusiveContent";
+import ProfileGiftStats from "@/components/ProfileGiftStats";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -127,6 +128,9 @@ export default function CreatorProfilePage() {
               />
             )}
           </div>
+
+          {/* Profile gift stats section */}
+          {creator.role === "creator" && <ProfileGiftStats userId={creator._id} />}
 
           {/* Exclusive content section */}
           <ExclusiveContent creatorId={id} />

@@ -22,6 +22,7 @@ export default function ChatConversationPage() {
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState("");
   const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [chatGiftNotif, setChatGiftNotif] = useState(null); // For displaying gift notifications
   const bottomRef = useRef(null);
 
   const otherName = otherUser?.username || otherUser?.name || "Usuario";
@@ -97,6 +98,19 @@ export default function ChatConversationPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Socket listener for chat gifts
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const handleChatGift = (data) => {
+      setChatGiftNotif(data);
+      setTimeout(() => setChatGiftNotif(null), 5000);
+    };
+    
+    window.addEventListener("CHAT_GIFT_SENT", handleChatGift);
+    return () => window.removeEventListener("CHAT_GIFT_SENT", handleChatGift);
+  }, []);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -271,10 +285,32 @@ export default function ChatConversationPage() {
       {showGiftPanel && otherUser?._id && (
         <GiftPanel
           receiverId={String(otherUser._id)}
-          context="profile"
+          context="private_call"
           onClose={() => setShowGiftPanel(false)}
-          onGiftSent={() => setShowGiftPanel(false)}
+          onGiftSent={(gift) => {
+            setShowGiftPanel(false);
+            // Show gift notification in chat
+            setChatGiftNotif({
+              senderName: "Tú",
+              giftName: gift.giftCatalogItem?.name || "un regalo",
+              giftIcon: gift.giftCatalogItem?.icon || "🎁",
+              quantity: gift.quantity || 1,
+            });
+            setTimeout(() => setChatGiftNotif(null), 5000);
+          }}
         />
+      )}
+
+      {/* Chat gift notification */}
+      {chatGiftNotif && (
+        <div className="chat-gift-notif">
+          <span className="chat-gift-icon">{chatGiftNotif.giftIcon}</span>
+          <span className="chat-gift-text">
+            🎁 <strong>{chatGiftNotif.senderName}</strong> envió{" "}
+            {chatGiftNotif.quantity > 1 ? `${chatGiftNotif.quantity}x ` : ""}
+            <strong>{chatGiftNotif.giftName}</strong>
+          </span>
+        </div>
       )}
 
       <style jsx>{`
@@ -491,6 +527,66 @@ export default function ChatConversationPage() {
         @keyframes chatGiftGlow {
           0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
           50% { box-shadow: 0 0 14px rgba(224,64,251,0.4); }
+        }
+
+        /* Chat gift notification */
+        .chat-gift-notif {
+          position: fixed;
+          top: 100px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 150;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.85rem 1.25rem;
+          background: linear-gradient(135deg, rgba(224,64,251,0.95), rgba(139,92,246,0.95));
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: var(--radius);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 20px rgba(224,64,251,0.4);
+          backdrop-filter: blur(8px);
+          animation: giftNotifSlideDown 0.3s ease, giftNotifPulse 0.5s ease 0.3s;
+        }
+
+        .chat-gift-icon {
+          font-size: 2rem;
+          line-height: 1;
+          filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+          animation: giftIconBounce 0.6s ease;
+        }
+
+        .chat-gift-text {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #fff;
+          line-height: 1.3;
+        }
+
+        .chat-gift-text strong {
+          font-weight: 800;
+        }
+
+        @keyframes giftNotifSlideDown {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+
+        @keyframes giftNotifPulse {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50% { transform: translateX(-50%) scale(1.05); }
+        }
+
+        @keyframes giftIconBounce {
+          0%, 100% { transform: scale(1); }
+          25% { transform: scale(1.2) rotate(-10deg); }
+          50% { transform: scale(1.1) rotate(10deg); }
+          75% { transform: scale(1.15) rotate(-5deg); }
         }
 
         /* Skeletons */

@@ -86,6 +86,7 @@ export default function GiftComboNotification({ combo }) {
           --color-gold-medium: rgba(255, 215, 0, 0.5);
           --color-gold-solid: #ffd700;
           --color-gold-glow: rgba(255, 215, 0, 0.8);
+          --color-fire-glow: rgba(255, 165, 0, 0.8);
           --color-text-white: #fff;
           --color-text-shadow: rgba(0, 0, 0, 0.5);
           --color-text-shadow-dark: rgba(0, 0, 0, 0.3);
@@ -198,7 +199,7 @@ export default function GiftComboNotification({ combo }) {
           font-size: 2.5em;
           line-height: 1;
           animation: gcnFireSpin 0.5s ease-in-out;
-          filter: drop-shadow(0 0 10px rgba(255,165,0,0.8));
+          filter: drop-shadow(0 0 10px var(--color-fire-glow));
         }
 
         @keyframes gcnFireSpin {

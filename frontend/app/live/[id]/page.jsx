@@ -22,6 +22,7 @@ import LiveGiftToast from "@/components/LiveGiftToast";
 import LivePressureHints from "@/components/LivePressureHints";
 import PaywallModal from "@/components/PaywallModal";
 import GiftOverlay from "@/components/GiftOverlay";
+import LiveEventFeed from "@/components/LiveEventFeed";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -107,6 +108,10 @@ export default function LiveRoomPage() {
   const [overlayEvents, setOverlayEvents] = useState([]);
   const overlayCounterRef = useRef(0);
 
+  // Live event feed (top supporter, combo streak, super gift)
+  const [eventFeedItems, setEventFeedItems] = useState([]);
+  const eventFeedCounterRef = useRef(0);
+
   // Live engagement event (x2 coins, boost, etc.)
   const [activeEvent, setActiveEvent] = useState(null);
 
@@ -181,6 +186,12 @@ export default function LiveRoomPage() {
   const addOverlayEvent = useCallback((type, icon, text) => {
     const overlayEventId = `ov_${++overlayCounterRef.current}_${Date.now()}`;
     setOverlayEvents((prev) => [...prev, { id: overlayEventId, type, icon, text }]);
+  }, []);
+
+  // Helper function to add events to the live event feed
+  const addEventFeedItem = useCallback((type, data) => {
+    const eventId = `event_${++eventFeedCounterRef.current}_${Date.now()}`;
+    setEventFeedItems((prev) => [...prev, { id: eventId, type, data }]);
   }, []);
 
   /**
@@ -482,6 +493,16 @@ export default function LiveRoomPage() {
         icon: gift.icon || "🎁",
         rarity: effectRarity,
       });
+      
+      // Add super gift notification to event feed if it's a super gift
+      if (gift.isSuper || EPIC_PLUS_RARITIES.includes(effectRarity)) {
+        addEventFeedItem("super_gift", {
+          icon: gift.icon || "✨",
+          name: gift.name || "Regalo épico",
+          sender: senderName || "Alguien",
+          quantity: quantity || 1,
+        });
+      }
 
       // Add gift event to the chat / activity feed
       const qtyLabel = quantity > 1 ? ` x${quantity}` : "";
@@ -515,7 +536,27 @@ export default function LiveRoomPage() {
       setGiftRefreshTrigger((n) => n + 1);
 
       // Track for combo overlay
-      setRecentGiftsForCombo((prev) => [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }]);
+      setRecentGiftsForCombo((prev) => {
+        const updated = [...prev.slice(-14), { gift, senderName, timestamp: Date.now() }];
+        
+        // Check for combo/streak and trigger event feed notification
+        const now = Date.now();
+        const recentWindow = updated.filter((g) => now - g.timestamp < 4000); // 4 second window
+        
+        if (recentWindow.length >= 3) { // Show feed notification for combos of 3+
+          const latestIcon = gift.icon;
+          const streakCount = recentWindow.filter((g) => g.gift?.icon === latestIcon).length;
+          const isStreak = streakCount >= 3 && streakCount === recentWindow.length;
+          
+          addEventFeedItem("combo_streak", {
+            count: recentWindow.length,
+            isStreak,
+            streakIcon: latestIcon,
+          });
+        }
+        
+        return updated;
+      });
 
       // ── Pressure signals ────────────────────────────────────────────────────
 
@@ -621,6 +662,14 @@ export default function LiveRoomPage() {
         value: value || 0,
         quantity: quantity || 1,
       });
+      
+      // Add to event feed
+      addEventFeedItem("super_gift", {
+        icon: gift.icon || "✨",
+        name: gift.name || "Super Regalo",
+        sender: sender || "Alguien",
+        quantity: quantity || 1,
+      });
     };
 
     // Top supporter update handler
@@ -630,6 +679,14 @@ export default function LiveRoomPage() {
         username,
         totalCoins,
       });
+      
+      // Add to event feed only if username is valid
+      if (username && totalCoins > 0) {
+        addEventFeedItem("top_supporter", {
+          username,
+          totalCoins,
+        });
+      }
     };
 
     // Gift combo notification handler
@@ -671,7 +728,7 @@ export default function LiveRoomPage() {
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, meLoaded, currentUserId, currentUsername, addOverlayEvent]);
+  }, [id, meLoaded, currentUserId, currentUsername, addOverlayEvent, addEventFeedItem]);
 
   // Mark live as truly active only when the creator is present in the room.
   useEffect(() => {
@@ -1487,6 +1544,9 @@ export default function LiveRoomPage() {
 
             {/* Gift combo/streak overlay */}
             <GiftComboOverlay recentGifts={recentGiftsForCombo} />
+
+            {/* Live event feed - top supporter, combo streaks, super gifts */}
+            <LiveEventFeed events={eventFeedItems} />
 
             {/* Live activity overlay — floating event feed on video */}
             <LiveFeedOverlay events={overlayEvents} />

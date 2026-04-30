@@ -234,7 +234,17 @@ const sendGift = async (req, res) => {
 
   // RESTRICTION: Super gifts can ONLY be sent in live context with a valid liveId
   // Both conditions must be met: correct context AND liveId present
-  const giftType = catalogItem.type || (catalogItem.isSuper ? "super" : "basic");
+  
+  // Determine gift type with proper fallback logic for backward compatibility:
+  // - Use explicit `type` field if present
+  // - Otherwise derive from coinCost: basic (≤100), premium (101-500), super (>500)
+  // - Or use legacy isSuper flag as final fallback
+  const giftType = catalogItem.type || (
+    catalogItem.coinCost > 500 ? "super" :
+    catalogItem.coinCost > 100 ? "premium" :
+    catalogItem.isSuper ? "super" : "basic"
+  );
+  
   if (giftType === "super" && (resolvedContext !== "live" || !liveId)) {
     return res.status(403).json({ 
       message: "Este regalo solo se puede enviar en directo 🔥",

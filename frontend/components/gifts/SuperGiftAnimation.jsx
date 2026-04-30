@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+// Animation configuration constants
+const SUPER_GIFT_DURATION_MS = 4000;        // Duration of super gift animation (4 seconds)
+const ULTRA_HIGH_VALUE_THRESHOLD = 2000;    // Coins threshold for "MÍTICO" badge
+const HIGH_VALUE_THRESHOLD = 800;           // Coins threshold for enhanced effects
+
 /**
  * SuperGiftAnimation - Full-screen animation overlay for super tier gifts
  * 
@@ -24,13 +29,10 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // Super gift animation duration: 4 seconds
-    const duration = 4000;
-    
     const timer = setTimeout(() => {
       setVisible(false);
       if (onComplete) onComplete();
-    }, duration);
+    }, SUPER_GIFT_DURATION_MS);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -38,8 +40,8 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
   if (!visible) return null;
 
   // Determine animation intensity based on value
-  const isUltraHigh = value >= 2000;
-  const isHigh = value >= 800;
+  const isUltraHigh = value >= ULTRA_HIGH_VALUE_THRESHOLD;
+  const isHigh = value >= HIGH_VALUE_THRESHOLD;
 
   return (
     <>

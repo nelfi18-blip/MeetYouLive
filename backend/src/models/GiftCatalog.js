@@ -33,8 +33,8 @@ const giftCatalogSchema = new mongoose.Schema(
     },
     animationUrl: { type: String, trim: true, default: "" },
     iconUrl: { type: String, trim: true, default: "" },
+    // Sound file URL for gift animations (optional)
     soundUrl: { type: String, trim: true, default: "" },
-    sound: { type: String, trim: true, default: "" }, // Alternative sound field
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }

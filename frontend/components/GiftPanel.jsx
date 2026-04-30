@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
+import { getGiftTier } from "../lib/giftTiers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -20,9 +21,9 @@ const RARITY = {
 
 const CATEGORIES = [
   // ═══ NEW 3-TIER SYSTEM ═══
-  { id: "basic",      label: "💝 Básicos",       filter: (g) => (g.type === "basic" || (!g.type && g.coinCost <= 100)) },
-  { id: "premium",    label: "⭐ Premium",       filter: (g) => (g.type === "premium" || (!g.type && g.coinCost > 100 && g.coinCost <= 500 && !g.isSuper)) },
-  { id: "super",      label: "🔥 Super",         filter: (g) => (g.type === "super" || (!g.type && (g.isSuper || g.coinCost > 500))) },
+  { id: "basic",      label: "💝 Básicos",       filter: (g) => getGiftTier(g) === "basic" },
+  { id: "premium",    label: "⭐ Premium",       filter: (g) => getGiftTier(g) === "premium" },
+  { id: "super",      label: "🔥 Super",         filter: (g) => getGiftTier(g) === "super" },
   
   // ═══ CATEGORY-BASED FILTERS (SECONDARY) ═══
   { id: "emotional",  label: "💖 Emocional",    filter: (g) => g.category === "emotional" },

@@ -18,6 +18,15 @@ const guestRequestSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const topSupporterSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    username: { type: String },
+    totalCoins: { type: Number, default: 0, min: 0 },
+  },
+  { _id: false }
+);
+
 const liveSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -55,11 +64,7 @@ const liveSchema = new mongoose.Schema(
       rightScore: { type: Number,  default: 0, min: 0 },
       endsAt:     { type: Date },
     },
-    topSupporter: {
-      userId:     { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      username:   { type: String },
-      totalCoins: { type: Number, default: 0, min: 0 },
-    },
+    topSupporter: { type: topSupporterSchema, default: null },
   },
   { timestamps: true }
 );

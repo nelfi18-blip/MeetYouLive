@@ -283,11 +283,11 @@ export default function LiveRoomPage() {
       .then((data) => {
         setLive(data);
         // Initialize top supporter from live data
-        if (data.topSupporter && data.topSupporter.username) {
+        if (data.topSupporter && data.topSupporter.username && data.topSupporter.totalCoins != null) {
           setTopSupporter({
             userId: data.topSupporter.userId,
             username: data.topSupporter.username,
-            totalCoins: data.topSupporter.totalCoins || 0,
+            totalCoins: data.topSupporter.totalCoins,
           });
         }
       })

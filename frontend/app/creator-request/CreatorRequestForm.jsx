@@ -127,7 +127,7 @@ export default function CreatorRequestForm() {
 
   useEffect(() => {
     if (!inviteCode) return;
-    fetch(`${API_URL}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
+    fetch(`${API_URL}/api/user/creator-invite-info?code=${encodeURIComponent(inviteCode)}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.valid && data.creator) setInviterInfo(data.creator); })
       .catch((err) => console.warn("[creator-request] invite-info fetch failed:", err));
@@ -311,7 +311,7 @@ export default function CreatorRequestForm() {
       ? "Recupera lo que gastas creando contenido"
       : behaviorSegment === "active"
       ? "Ya estás listo para monetizar"
-      : "Activa tu modo creador";
+      : "Acceso a creadores limitado";
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -370,7 +370,7 @@ export default function CreatorRequestForm() {
         tiktok: form.socialLinks.tiktok.trim(),
         youtube: form.socialLinks.youtube.trim(),
       },
-      ...(inviteCode ? { agencyCode: inviteCode } : {}),
+      ...(inviteCode ? { creatorInvite: inviteCode } : {}),
     };
   };
 
@@ -433,10 +433,13 @@ export default function CreatorRequestForm() {
           <CreatorIcon />
         </div>
 
-        <h1 className="title">Empieza a ganar dinero hoy 💰</h1>
+        <h1 className="title">
+          {inviterInfo ? "Tienes invitación de creador 🎉" : "Acceso a creadores limitado"}
+        </h1>
         <p className="sub">
-          Convierte tu tiempo en ingresos reales y activa tu modo creador.
-          Solicita acceso en minutos.
+          {inviterInfo
+            ? "Has sido invitado a unirte como creador. Completa tu solicitud y espera la aprobación del equipo."
+            : "El acceso a creadores está restringido. Solicita acceso o usa un enlace de invitación de un creador existente."}
         </p>
 
         {inviterInfo && (
@@ -445,11 +448,8 @@ export default function CreatorRequestForm() {
               <img src={inviterInfo.avatar} alt="" className="invite-avatar" />
             )}
             <div className="invite-text">
-              <div className="invite-label">Fuiste invitado por</div>
-              <div className="invite-name">{inviterInfo.name || inviterInfo.username}</div>
-              {inviterInfo.agencyName && (
-                <div className="invite-agency">{inviterInfo.agencyName}</div>
-              )}
+              <div className="invite-label">Invitado por</div>
+              <div className="invite-name">{inviterInfo.displayName || inviterInfo.name || inviterInfo.username}</div>
             </div>
           </div>
         )}
@@ -483,10 +483,12 @@ export default function CreatorRequestForm() {
 
         {isPending || success ? (
           <div className="status-box status-pending">
-            <span className="status-icon">🚀</span>
+            <span className="status-icon">⏳</span>
             <div>
-              <div className="status-title">Solicitud enviada 🚀</div>
-              <div className="status-desc">Nuestro equipo la revisará pronto.</div>
+              <div className="status-title">Solicitud en revisión</div>
+              <div className="status-desc">
+                Tu solicitud ha sido enviada. Un administrador la revisará pronto y te notificaremos por email.
+              </div>
             </div>
           </div>
         ) : isApproved ? (
@@ -571,7 +573,7 @@ export default function CreatorRequestForm() {
                     Continuar
                   </button>
                   <button className="btn-submit" type="submit" disabled={submitting}>
-                    {submitting ? "Enviando…" : CTA_START_EARNING}
+                    {submitting ? "Enviando…" : inviterInfo ? "Solicitar acceso" : "Solicitar acceso"}
                   </button>
                 </div>
                 <div className="hint">Puedes enviar ahora mismo; los datos opcionales ayudan a revisar tu perfil más rápido.</div>

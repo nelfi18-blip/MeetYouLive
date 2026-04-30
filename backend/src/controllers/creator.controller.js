@@ -537,7 +537,7 @@ exports.submitCreatorRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Ya eres un creador aprobado" });
     }
 
-    const { displayName, bio, category, country, languages, socialLinks, agencyCode } = req.body;
+    const { displayName, bio, category, country, languages, socialLinks, agencyCode, creatorInvite } = req.body;
 
     if (!displayName || !displayName.trim()) {
       return res.status(400).json({ ok: false, message: "El nombre de creador es requerido" });
@@ -589,6 +589,22 @@ exports.submitCreatorRequest = async (req, res) => {
       }).select("_id").lean();
       if (agencyOwner) {
         user.pendingAgencyCode = safeCode;
+      }
+      // Silently ignore invalid codes
+    }
+
+    // If creator invite code is provided, validate it and set invitedByCreator
+    let invitedByCreator = user.invitedByCreator || null;
+    if (creatorInvite && !invitedByCreator) {
+      const safeInviteCode = String(creatorInvite).trim().toUpperCase();
+      const inviterCreator = await User.findOne({
+        creatorInviteCode: safeInviteCode,
+        role: "creator",
+        creatorStatus: "approved",
+      }).select("_id");
+      if (inviterCreator) {
+        invitedByCreator = inviterCreator._id;
+        user.invitedByCreator = invitedByCreator;
       }
       // Silently ignore invalid codes
     }

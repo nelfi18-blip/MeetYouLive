@@ -55,6 +55,11 @@ const liveSchema = new mongoose.Schema(
       rightScore: { type: Number,  default: 0, min: 0 },
       endsAt:     { type: Date },
     },
+    topSupporter: {
+      userId:     { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      username:   { type: String },
+      totalCoins: { type: Number, default: 0, min: 0 },
+    },
   },
   { timestamps: true }
 );

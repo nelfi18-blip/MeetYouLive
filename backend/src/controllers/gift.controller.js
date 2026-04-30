@@ -389,19 +389,6 @@ const sendGift = async (req, res) => {
         quantity,
       };
 
-      io.to(String(receiverId)).emit("GIFT_SENT", {
-        senderName,
-        receiverId: String(receiverId),
-        giftName: giftData.name,
-        giftIcon: giftData.icon,
-        coinCost: amount,
-        quantity,
-        gift: giftData,
-        liveId: liveId || null,
-      });
-      // Broadcast to all viewers in the live room so everyone sees the gift effect
-      if (liveId) {
-
       
       // Context-specific socket events
       if (resolvedContext === "live") {

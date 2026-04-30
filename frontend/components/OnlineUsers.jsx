@@ -11,7 +11,7 @@ function getInitial(user) {
 }
 
 function UserCard({ user, onChat, onCall, chatLoading }) {
-  const isCreator = user.role === "creator" && user.creatorStatus === "approved";
+  const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
 
   return (
     <div className="online-card">

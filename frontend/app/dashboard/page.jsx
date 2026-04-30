@@ -714,8 +714,8 @@ export default function DashboardPage() {
       {/* ── 🎁 REFERRAL CARD ── */}
       <ReferralCard />
 
-      {/* ── 🤝 CREATOR INVITE CARD (approved creators only) ── */}
-      {isCreatorApproved && user?.agencyProfile?.agencyCode && (
+      {/* ── 🤝 CREATOR INVITE CARD (full creators only, not subCreators) ── */}
+      {user?.role === "creator" && isCreatorApproved && user?.creatorInviteCode && (
         <div className="creator-invite-card">
           <div className="creator-invite-orb" />
           <div className="creator-invite-left">
@@ -723,8 +723,7 @@ export default function DashboardPage() {
             <div className="creator-invite-text">
               <span className="creator-invite-title">Invita creadores y gana comisión</span>
               <span className="creator-invite-sub">
-                Comparte tu código de agencia · Gana hasta un{" "}
-                {user.agencyProfile.subCreatorPercentageDefault ?? 10}% de comisión por sus regalos
+                Comparte tu código de invitación · Los invitados se convierten en sub-creadores
               </span>
             </div>
           </div>
@@ -732,7 +731,7 @@ export default function DashboardPage() {
             <button
               className="creator-invite-copy"
               onClick={() => {
-                const link = `${typeof window !== "undefined" ? window.location.origin : ""}/creator-request?creatorInvite=${user.agencyProfile.agencyCode}`;
+                const link = `${typeof window !== "undefined" ? window.location.origin : ""}/creator-request?creatorInvite=${user.creatorInviteCode}`;
                 navigator.clipboard.writeText(link).catch(() => {});
               }}
             >

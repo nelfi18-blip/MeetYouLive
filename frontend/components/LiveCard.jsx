@@ -77,7 +77,7 @@ export default function LiveCard({ live }) {
               <span className="live-avatar-dot" />
             </div>
             <span className="live-username">@{username}</span>
-            {(live.user?.role === "creator" || live.user?.creatorStatus === "approved") && (
+            {((live.user?.role === "creator" || live.user?.role === "subCreator") && live.user?.creatorStatus === "approved") && (
               <span className="live-creator-badge">⭐</span>
             )}
             {live.isPrivate && live.entryCost != null && (

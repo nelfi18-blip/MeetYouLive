@@ -122,6 +122,8 @@ export default function Navbar() {
       ? t("role.admin")
       : effectiveRole === "moderator"
       ? t("role.moderator")
+      : effectiveRole === "subCreator" && effectiveCreatorStatus === "approved"
+      ? t("role.subCreator")
       : isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })
       ? t("role.creator")
       : effectiveCreatorStatus === "pending"

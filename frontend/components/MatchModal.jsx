@@ -22,7 +22,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const [particles, setParticles] = useState([]);
 
   const displayName = user?.username || user?.name || "Usuario";
-  const isCreator = user?.role === "creator";
+  const isCreator = user?.role === "creator" || user?.role === "subCreator";
   const isLive = isCreator && user?.isLive && user?.liveId;
   const privateCallEnabled = isCreator && user?.creatorProfile?.privateCallEnabled;
   const pricePerMinute = user?.creatorProfile?.pricePerMinute ?? 0;

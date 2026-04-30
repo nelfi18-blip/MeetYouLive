@@ -6,9 +6,6 @@ const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 const { getIO } = require("../lib/socket.js");
 
-// 60% goes to the creator, 40% is the platform commission
-const CREATOR_SHARE_RATE = 0.60;
-
 // Helper: refund coins to caller for a paid call
 const refundPaidCall = async (callerId, coins) => {
   if (coins > 0) {
@@ -190,26 +187,19 @@ const respondCall = async (req, res) => {
         call.startedAt = new Date();
       }
 
-      // Credit creator for paid calls — 60% creator share, 40% platform
+      // Credit creator for paid calls — platform takes 40% first, remaining 60% split
       if (call.type === "paid_creator" && call.callCoins > 0) {
-        const fullCreatorShare = Math.floor(call.callCoins * CREATOR_SHARE_RATE);
-
         // Look up the canonical AgencyRelationship for the percentage at this moment.
         // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
         // matching the same safety rule enforced in gift.controller.js.
         const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
-        let creatorNetShare = fullCreatorShare;
-        let agencyShare = 0;
-        let referrerId = null;
-        let agencyPercentageApplied = 0;
-
-        if (agencyRel && agencyRel.percentage > 0) {
-          const split = calculateSplit(call.callCoins, agencyRel.percentage);
-          agencyShare = split.agencyShare;
-          creatorNetShare = split.creatorNetShare;
-          referrerId = agencyRel.parentCreator;
-          agencyPercentageApplied = agencyRel.percentage;
-        }
+        const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
+        
+        // Use calculateSplit to ensure platform always gets exactly 40%
+        const split = calculateSplit(call.callCoins, agencyPercentage);
+        const { platformShare, creatorNetShare, agencyShare } = split;
+        const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
+        const agencyPercentageApplied = agencyPercentage || 0;
 
         await User.findByIdAndUpdate(call.recipient, {
           $inc: { earningsCoins: creatorNetShare },
@@ -222,10 +212,9 @@ const respondCall = async (req, res) => {
         }
 
         // Track billing totals on the call document
-        const platformShareFirst = call.callCoins - fullCreatorShare;
         call.totalCoinsCharged = (call.totalCoinsCharged || 0) + call.callCoins;
         call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
-        call.platformShare = (call.platformShare || 0) + platformShareFirst;
+        call.platformShare = (call.platformShare || 0) + platformShare;
         call.agencyShare = (call.agencyShare || 0) + agencyShare;
         if (referrerId && !call.referrerId) {
           call.referrerId = referrerId;
@@ -442,24 +431,18 @@ const tickCall = async (req, res) => {
     }
 
     const pricePerMinute = call.callCoins;
-    const fullCreatorShare = Math.floor(pricePerMinute * CREATOR_SHARE_RATE);
 
     // Look up the canonical AgencyRelationship for the percentage at this moment.
     // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
     // matching the same safety rule enforced in gift.controller.js.
     const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
-    let creatorNetShare = fullCreatorShare;
-    let agencyShare = 0;
-    let referrerId = null;
-    let agencyPercentageApplied = 0;
-
-    if (agencyRel && agencyRel.percentage > 0) {
-      const split = calculateSplit(pricePerMinute, agencyRel.percentage);
-      agencyShare = split.agencyShare;
-      creatorNetShare = split.creatorNetShare;
-      referrerId = agencyRel.parentCreator;
-      agencyPercentageApplied = agencyRel.percentage;
-    }
+    const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
+    
+    // Use calculateSplit to ensure platform always gets exactly 40%
+    const split = calculateSplit(pricePerMinute, agencyPercentage);
+    const { platformShare, creatorNetShare, agencyShare } = split;
+    const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
+    const agencyPercentageApplied = agencyPercentage || 0;
 
     // Atomically deduct coins from caller
     const updatedCaller = await User.findOneAndUpdate(
@@ -489,12 +472,11 @@ const tickCall = async (req, res) => {
     }
 
     // Increment running billing totals on the call document
-    const platformShareTick = pricePerMinute - fullCreatorShare;
     const tickUpdate = {
       $inc: {
         totalCoinsCharged: pricePerMinute,
         creatorShare: creatorNetShare,
-        platformShare: platformShareTick,
+        platformShare,
         agencyShare,
       },
     };

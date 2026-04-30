@@ -28,8 +28,9 @@ const topSupporterSchema = new mongoose.Schema(
 );
 
 // userComboSchema: Documents the structure of combo entries stored in the userCombos Map.
-// Note: Mongoose Maps don't enforce schema validation on values, so this serves as
-// documentation for the expected structure. Map values are plain objects at save time.
+// IMPORTANT: Mongoose Maps with "of: schema" do NOT enforce validation on Map values.
+// The schema definition here serves ONLY as developer documentation for the expected structure.
+// At runtime, Map values are stored as plain objects without schema validation or type coercion.
 // userId is stored as String to match the Map key type (avoids ObjectId serialization issues).
 const userComboSchema = new mongoose.Schema(
   {

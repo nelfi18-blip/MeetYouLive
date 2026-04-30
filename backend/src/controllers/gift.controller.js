@@ -601,7 +601,8 @@ const sendGift = async (req, res) => {
       const COMBO_WINDOW_MS = 3000; // 3 seconds
       const now = new Date();
       const senderId = String(req.userId);
-      // Note: "Alguien" is Spanish for "Someone" - consistent with backend's Spanish text convention
+      // Note: Backend uses Spanish text throughout (messages, error responses, fallbacks).
+      // Frontend handles i18n via next-intl. "Alguien" = "Someone" matches backend convention.
       const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
 
       Live.findById(liveId).select("userCombos").then((livDoc) => {
@@ -624,12 +625,13 @@ const sendGift = async (req, res) => {
           // else: outside window, reset to 1
         }
 
-        // Update combo state. Store senderId as string to match Map key type.
+        // Update combo state. Structure matches userComboSchema documentation.
+        // Store senderId as string to match Map key type.
         combos.set(senderId, {
-          userId: senderId, // Use string ID to avoid ObjectId serialization issues
-          username: senderUsername,
-          comboCount: newComboCount,
-          lastGiftAt: now,
+          userId: senderId, // String (matches schema doc and Map key)
+          username: senderUsername, // String
+          comboCount: newComboCount, // Number
+          lastGiftAt: now, // Date
         });
 
         // Save to database

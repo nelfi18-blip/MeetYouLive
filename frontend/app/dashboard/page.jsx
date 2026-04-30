@@ -504,19 +504,19 @@ export default function DashboardPage() {
     behaviorSegment === "new"
       ? {
           title: "¿Quieres ganar dinero en vivo?",
-          sub: "Activa tu perfil de creador y empieza a monetizar tus directos.",
-          button: "Empezar a ganar dinero",
+          sub: "Solicita acceso y empieza a monetizar tus directos.",
+          button: "Solicitar acceso",
         }
       : behaviorSegment === "spender"
       ? {
           title: "Recupera lo que gastas creando contenido",
           sub: "Convierte tu actividad en ingresos con regalos, lives y contenido premium.",
-          button: "Activar modo creador 💰",
+          button: "Solicitar acceso de creador",
         }
       : {
-          title: "Ya estás listo para monetizar",
-          sub: "Solicita acceso de creador y desbloquea herramientas premium de ingresos.",
-          button: "Empezar a ganar dinero",
+          title: "Acceso a creadores limitado",
+          sub: "Solicita acceso o usa invitación de creador existente.",
+          button: "Solicitar acceso",
         };
   const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
   const liveStatusLabel = isCreatorApproved

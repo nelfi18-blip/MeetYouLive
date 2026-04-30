@@ -713,4 +713,38 @@ router.get("/online", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Validate creator invite code and return inviter info (public endpoint)
+router.get("/creator-invite-info", userLimiter, async (req, res) => {
+  try {
+    const code = req.query.code ? String(req.query.code).trim().toUpperCase() : "";
+    if (!code) {
+      return res.status(400).json({ valid: false, message: "Código requerido" });
+    }
+
+    const inviter = await User.findOne({
+      creatorInviteCode: code,
+      role: "creator",
+      creatorStatus: "approved",
+    }).select("username name avatar creatorProfile");
+
+    if (!inviter) {
+      return res.json({ valid: false, message: "Código inválido o expirado" });
+    }
+
+    res.json({
+      valid: true,
+      creator: {
+        id: inviter._id,
+        username: inviter.username,
+        name: inviter.name,
+        avatar: inviter.avatar,
+        displayName: inviter.creatorProfile?.displayName || inviter.name || inviter.username,
+      },
+    });
+  } catch (err) {
+    console.error("[creator-invite-info] Error:", err);
+    res.status(500).json({ valid: false, message: err.message });
+  }
+});
+
 module.exports = router;

@@ -72,7 +72,7 @@ function getLatestResetRequestedAtMs(user) {
 }
 
 router.post("/register", authLimiter, validate(registerSchema), async (req, res) => {
-  const { username, password, ref, agencyCode } = req.body;
+  const { username, password, ref, agencyCode, creatorInvite } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
     return res.status(400).json({ message: "username, email y password son requeridos" });
@@ -101,6 +101,23 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
       // Silently ignore invalid codes so registration is never blocked
     }
 
+    // Resolve creator invite code — if valid, set invitedByCreator and status to pending
+    let invitedByCreator = null;
+    let creatorStatus = "none";
+    if (creatorInvite) {
+      const safeInviteCode = String(creatorInvite).trim().toUpperCase();
+      const inviterCreator = await User.findOne({
+        creatorInviteCode: safeInviteCode,
+        role: "creator",
+        creatorStatus: "approved",
+      }).select("_id").lean();
+      if (inviterCreator) {
+        invitedByCreator = inviterCreator._id;
+        creatorStatus = "pending"; // User with invite starts as pending
+      }
+      // Silently ignore invalid codes so registration is never blocked
+    }
+
     const code = generateSixDigitCode();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -114,7 +131,9 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
       emailVerificationExpires: expires,
       referralCode,
       referredBy,
+      creatorStatus,
       ...(pendingAgencyCode ? { pendingAgencyCode } : {}),
+      ...(invitedByCreator ? { invitedByCreator } : {}),
     });
 
     // Send verification email (non-blocking — don't fail registration if email fails)

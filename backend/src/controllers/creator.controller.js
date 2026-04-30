@@ -537,7 +537,7 @@ exports.submitCreatorRequest = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Ya eres un creador aprobado" });
     }
 
-    const { displayName, bio, category, country, languages, socialLinks, agencyCode } = req.body;
+    const { displayName, bio, category, country, languages, socialLinks, agencyCode, creatorInvite } = req.body;
 
     if (!displayName || !displayName.trim()) {
       return res.status(400).json({ ok: false, message: "El nombre de creador es requerido" });
@@ -589,6 +589,22 @@ exports.submitCreatorRequest = async (req, res) => {
       }).select("_id").lean();
       if (agencyOwner) {
         user.pendingAgencyCode = safeCode;
+      }
+      // Silently ignore invalid codes
+    }
+
+    // If creator invite code is provided, validate it and set invitedByCreator
+    let invitedByCreator = user.invitedByCreator || null;
+    if (creatorInvite && !invitedByCreator) {
+      const safeInviteCode = String(creatorInvite).trim().toUpperCase();
+      const inviterCreator = await User.findOne({
+        creatorInviteCode: safeInviteCode,
+        role: "creator",
+        creatorStatus: "approved",
+      }).select("_id");
+      if (inviterCreator) {
+        invitedByCreator = inviterCreator._id;
+        user.invitedByCreator = invitedByCreator;
       }
       // Silently ignore invalid codes
     }
@@ -710,5 +726,35 @@ exports.getConnectStatus = async (req, res) => {
   } catch (err) {
     console.error("getConnectStatus error:", err);
     res.status(500).json({ ok: false, message: "Error al verificar el estado de la cuenta de Stripe." });
+  }
+};
+
+// Get creator's invite code for viral growth
+exports.getCreatorInviteCode = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    const { error, user } = await requireApprovedCreatorHelper(userId);
+
+    if (error) {
+      return res.status(403).json({ ok: false, message: error });
+    }
+
+    const fullUser = await User.findById(userId).select("creatorInviteCode");
+    if (!fullUser.creatorInviteCode) {
+      return res.json({
+        ok: true,
+        code: null,
+        message: "No tienes código de invitación asignado aún. Contacta al soporte.",
+      });
+    }
+
+    res.json({
+      ok: true,
+      code: fullUser.creatorInviteCode,
+      inviteUrl: `${process.env.FRONTEND_URL || "https://meetyoulive.vercel.app"}/creator-request?creatorInvite=${fullUser.creatorInviteCode}`,
+    });
+  } catch (error) {
+    console.error("[getCreatorInviteCode] Error:", error);
+    res.status(500).json({ ok: false, message: error.message });
   }
 };

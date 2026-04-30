@@ -113,8 +113,8 @@ db.lives.findOne({ _id: ObjectId("liveId") }, { userCombos: 1 })
 // Expected structure:
 {
   userCombos: {
-    "userId1": {
-      userId: ObjectId("userId1"),
+    "userId1": {  // String key (user ID)
+      userId: "userId1",  // String value (matches key)
       username: "Juan",
       comboCount: 5,
       lastGiftAt: ISODate("2026-04-30T...")

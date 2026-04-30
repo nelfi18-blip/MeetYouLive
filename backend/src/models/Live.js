@@ -30,9 +30,10 @@ const topSupporterSchema = new mongoose.Schema(
 // userComboSchema: Documents the structure of combo entries stored in the userCombos Map.
 // Note: Mongoose Maps don't enforce schema validation on values, so this serves as
 // documentation for the expected structure. Map values are plain objects at save time.
+// userId is stored as String to match the Map key type (avoids ObjectId serialization issues).
 const userComboSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    userId: { type: String, required: true },
     username: { type: String },
     comboCount: { type: Number, default: 1, min: 1 },
     lastGiftAt: { type: Date, default: Date.now },

@@ -65,6 +65,16 @@ export default function GiftComboNotification({ combo }) {
 
       <style jsx>{`
         .gcn {
+          /* Color variables for consistency and maintainability */
+          --color-primary: rgba(255, 64, 129, 0.95);
+          --color-secondary: rgba(244, 63, 94, 0.95);
+          --color-tertiary: rgba(239, 68, 68, 0.95);
+          --color-border: rgba(255, 255, 255, 0.3);
+          --color-shadow-primary: rgba(244, 63, 94, 0.6);
+          --color-shadow-glow: rgba(255, 64, 129, 0.4);
+          --color-shadow-inset: rgba(255, 255, 255, 0.2);
+          --color-gold: rgba(255, 215, 0, 0.3);
+          
           position: fixed;
           top: 20%;
           left: 50%;
@@ -75,12 +85,12 @@ export default function GiftComboNotification({ combo }) {
           gap: 0.75rem;
           padding: 1rem 1.5rem;
           border-radius: 16px;
-          background: linear-gradient(135deg, rgba(255,64,129,0.95) 0%, rgba(244,63,94,0.95) 50%, rgba(239,68,68,0.95) 100%);
-          border: 2px solid rgba(255,255,255,0.3);
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 50%, var(--color-tertiary) 100%);
+          border: 2px solid var(--color-border);
           box-shadow: 
-            0 8px 32px rgba(244,63,94,0.6),
-            0 0 80px rgba(255,64,129,0.4),
-            inset 0 1px 0 rgba(255,255,255,0.2);
+            0 8px 32px var(--color-shadow-primary),
+            0 0 80px var(--color-shadow-glow),
+            inset 0 1px 0 var(--color-shadow-inset);
           animation: gcnSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both,
                      gcnShake 0.6s ease-in-out 0.4s both;
           pointer-events: none;
@@ -120,9 +130,9 @@ export default function GiftComboNotification({ combo }) {
                      gcnShake 0.6s ease-in-out 0.4s both,
                      gcnPulse 0.8s ease-in-out infinite;
           box-shadow: 
-            0 10px 40px rgba(244,63,94,0.7),
-            0 0 100px rgba(255,64,129,0.5),
-            inset 0 1px 0 rgba(255,255,255,0.2);
+            0 10px 40px rgba(244, 63, 94, 0.7),
+            0 0 100px rgba(255, 64, 129, 0.5),
+            inset 0 1px 0 var(--color-shadow-inset);
         }
         
         .gcn-mega { 
@@ -131,41 +141,41 @@ export default function GiftComboNotification({ combo }) {
                      gcnShake 0.6s ease-in-out 0.4s both,
                      gcnPulseMega 0.6s ease-in-out infinite;
           box-shadow: 
-            0 12px 48px rgba(244,63,94,0.8),
-            0 0 120px rgba(255,64,129,0.6),
-            0 0 160px rgba(255,215,0,0.3),
-            inset 0 1px 0 rgba(255,255,255,0.3);
+            0 12px 48px rgba(244, 63, 94, 0.8),
+            0 0 120px rgba(255, 64, 129, 0.6),
+            0 0 160px var(--color-gold),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
         @keyframes gcnPulse {
           0%, 100% { 
             box-shadow: 
-              0 10px 40px rgba(244,63,94,0.7),
-              0 0 100px rgba(255,64,129,0.5),
-              inset 0 1px 0 rgba(255,255,255,0.2);
+              0 10px 40px rgba(244, 63, 94, 0.7),
+              0 0 100px rgba(255, 64, 129, 0.5),
+              inset 0 1px 0 var(--color-shadow-inset);
           }
           50% { 
             box-shadow: 
-              0 10px 40px rgba(244,63,94,0.9),
-              0 0 120px rgba(255,64,129,0.7),
-              inset 0 1px 0 rgba(255,255,255,0.2);
+              0 10px 40px rgba(244, 63, 94, 0.9),
+              0 0 120px rgba(255, 64, 129, 0.7),
+              inset 0 1px 0 var(--color-shadow-inset);
           }
         }
 
         @keyframes gcnPulseMega {
           0%, 100% { 
             box-shadow: 
-              0 12px 48px rgba(244,63,94,0.8),
-              0 0 120px rgba(255,64,129,0.6),
-              0 0 160px rgba(255,215,0,0.3),
-              inset 0 1px 0 rgba(255,255,255,0.3);
+              0 12px 48px rgba(244, 63, 94, 0.8),
+              0 0 120px rgba(255, 64, 129, 0.6),
+              0 0 160px var(--color-gold),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
           }
           50% { 
             box-shadow: 
-              0 14px 56px rgba(244,63,94,1),
-              0 0 140px rgba(255,64,129,0.8),
-              0 0 200px rgba(255,215,0,0.5),
-              inset 0 1px 0 rgba(255,255,255,0.3);
+              0 14px 56px rgba(244, 63, 94, 1),
+              0 0 140px rgba(255, 64, 129, 0.8),
+              0 0 200px rgba(255, 215, 0, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
           }
         }
 

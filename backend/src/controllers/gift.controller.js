@@ -649,8 +649,8 @@ const sendGift = async (req, res) => {
               });
             }
           }
-        }).catch((err) => console.error("[gift] combo save failed:", err));
-      }).catch((err) => console.error("[gift] combo lookup failed:", err));
+        }).catch((err) => console.error("[gift] combo save failed for user", senderId, "in live", liveId, ":", err));
+      }).catch((err) => console.error("[gift] combo lookup failed for live", liveId, ":", err));
     }
 
     // Update live goal progress and battle scores (fire-and-forget)

@@ -601,7 +601,6 @@ exports.getCreatorDashboard = async (req, res) => {
       
       agencyMetrics = {
         totalSubCreators,
-        subCreatorEarnings: commissionEarned,
         commissionEarned,
       };
     }

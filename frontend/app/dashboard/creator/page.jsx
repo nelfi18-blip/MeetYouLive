@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,18 +14,9 @@ export default function CreatorEarningsDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
+  const fetchDashboardData = useCallback(async () => {
+    if (!session?.backendToken) return;
 
-    if (status === "authenticated" && session?.backendToken) {
-      fetchDashboardData();
-    }
-  }, [status, session, router]);
-
-  const fetchDashboardData = async () => {
     try {
       setLoading(true);
       const res = await fetch(`${API_URL}/api/creator/dashboard`, {
@@ -47,7 +38,18 @@ export default function CreatorEarningsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
+    }
+
+    if (status === "authenticated") {
+      fetchDashboardData();
+    }
+  }, [status, router, fetchDashboardData]);
 
   if (status === "loading" || loading) {
     return (
@@ -171,7 +173,7 @@ export default function CreatorEarningsDashboard() {
               <span>Estadísticas de Agencia</span>
               <span>🏢</span>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <StatCard
                 title="Total invitados"
                 icon="👥"
@@ -187,19 +189,9 @@ export default function CreatorEarningsDashboard() {
                 color="from-teal-600 to-teal-800"
               >
                 <p className="text-4xl font-bold">
-                  {agencyMetrics.subCreatorEarnings.toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-300 mt-1">monedas</p>
-              </StatCard>
-              <StatCard
-                title="Comisión ganada"
-                icon="🎯"
-                color="from-orange-600 to-orange-800"
-              >
-                <p className="text-4xl font-bold">
                   {agencyMetrics.commissionEarned.toLocaleString()}
                 </p>
-                <p className="text-sm text-gray-300 mt-1">monedas</p>
+                <p className="text-sm text-gray-300 mt-1">monedas ganadas</p>
               </StatCard>
             </div>
           </div>

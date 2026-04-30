@@ -545,6 +545,57 @@ const sendGift = async (req, res) => {
       }).catch((err) => console.error("[gift] top-fan ranking push failed:", err));
     }
 
+    // Update top supporter for the live room (fire-and-forget)
+    if (liveId) {
+      const liveObjId = new mongoose.Types.ObjectId(liveId);
+      const senderId = new mongoose.Types.ObjectId(req.userId);
+      const senderUsername = giftDoc.sender?.username || giftDoc.sender?.name || "Alguien";
+      
+      // Get total coins spent by the current sender in this live
+      Gift.aggregate([
+        { $match: { live: liveObjId, sender: senderId } },
+        { $group: { _id: null, totalCoins: { $sum: "$coinCost" } } },
+      ]).then((result) => {
+        if (!result || result.length === 0) return;
+        
+        const senderTotalCoins = result[0].totalCoins || 0;
+        
+        // Atomic update: only set this user as top supporter if their total exceeds current top
+        // This prevents race conditions when multiple gifts are sent simultaneously
+        Live.findOneAndUpdate(
+          {
+            _id: liveId,
+            $or: [
+              { topSupporter: null },
+              { topSupporter: { $exists: false } },
+              { "topSupporter.totalCoins": { $lt: senderTotalCoins } },
+            ],
+          },
+          {
+            $set: {
+              "topSupporter.userId": req.userId,
+              "topSupporter.username": senderUsername,
+              "topSupporter.totalCoins": senderTotalCoins,
+            }
+          },
+          { new: true }
+        ).then((updated) => {
+          // Only emit if the update actually happened (user became new top supporter)
+          if (updated) {
+            const ioInst = getIO();
+            if (ioInst) {
+              ioInst.to(`live:${liveId}`).emit("TOP_SUPPORTER_UPDATE", {
+                liveId,
+                userId: String(req.userId),
+                username: senderUsername,
+                totalCoins: senderTotalCoins,
+              });
+            }
+          }
+        }).catch((err) => console.error("[gift] top supporter update failed:", err));
+      }).catch((err) => console.error("[gift] top supporter aggregation failed:", err));
+    }
+
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {
       Live.findOne({ _id: liveId, isLive: true }).select("goal battle").then((livDoc) => {

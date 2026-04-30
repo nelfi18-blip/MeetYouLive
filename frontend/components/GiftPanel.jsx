@@ -19,8 +19,12 @@ const RARITY = {
 
 
 const CATEGORIES = [
-  { id: "popular",    label: "🔥 Popular",      filter: (g) => g.coinCost <= 200 && ["common", "uncommon", "rare"].includes(g.rarity) },
-  { id: "high-impact",label: "💫 Alto Impacto", filter: (g) => g.isSuper === true },
+  // ═══ NEW 3-TIER SYSTEM ═══
+  { id: "basic",      label: "💝 Básicos",       filter: (g) => (g.type === "basic" || (!g.type && g.coinCost <= 100)) },
+  { id: "premium",    label: "⭐ Premium",       filter: (g) => (g.type === "premium" || (!g.type && g.coinCost > 100 && g.coinCost <= 500 && !g.isSuper)) },
+  { id: "super",      label: "🔥 Super",         filter: (g) => (g.type === "super" || (!g.type && (g.isSuper || g.coinCost > 500))) },
+  
+  // ═══ CATEGORY-BASED FILTERS (SECONDARY) ═══
   { id: "emotional",  label: "💖 Emocional",    filter: (g) => g.category === "emotional" },
   { id: "energy",     label: "⚡ Energía",      filter: (g) => g.category === "energy" },
   { id: "luxury",     label: "💎 Lujo",         filter: (g) => g.category === "luxury" },
@@ -52,7 +56,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const [catalogError, setCatalogError] = useState("");
 
   const [coinBalance, setCoinBalance]   = useState(initialCoinBalance ?? null);
-  const [activeCategory, setActiveCategory] = useState("popular");
+  const [activeCategory, setActiveCategory] = useState("basic");
   const [selectedGift, setSelectedGift] = useState(null);
   const [quantity, setQuantity]         = useState(1);
 

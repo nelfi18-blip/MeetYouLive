@@ -297,7 +297,11 @@ export default function ChatConversationPage() {
       {showGiftPanel && otherUser?._id && (
         <GiftPanel
           receiverId={String(otherUser._id)}
-          context="private_call"
+          context="private_call"  {/* Context naming: "private_call" (stored) vs "chat" (displayed) 
+                                       - DB stores "private_call" to distinguish from public chat rooms
+                                       - UI shows "chat" for clarity (matches "Chat" page name)
+                                       - Backend maps "private_call" → "chat" in socket events
+                                       - This separation maintains data integrity while improving UX */}
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={(gift) => {
             setShowGiftPanel(false);

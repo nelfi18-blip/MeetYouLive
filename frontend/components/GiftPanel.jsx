@@ -19,9 +19,13 @@ const RARITY = {
 
 
 const CATEGORIES = [
-  { id: "popular",  label: "🔥 Popular",  rarities: ["common", "uncommon", "rare"]            },
-  { id: "premium",  label: "💎 Premium",  rarities: ["rare", "epic"]                           },
-  { id: "vip",      label: "👑 VIP",      rarities: ["legendary", "mythic"]                    },
+  { id: "popular",    label: "🔥 Popular",      filter: (g) => g.coinCost <= 200 && ["common", "uncommon", "rare"].includes(g.rarity) },
+  { id: "high-impact",label: "💫 Alto Impacto", filter: (g) => g.isSuper === true },
+  { id: "emotional",  label: "💖 Emocional",    filter: (g) => g.category === "emotional" },
+  { id: "energy",     label: "⚡ Energía",      filter: (g) => g.category === "energy" },
+  { id: "luxury",     label: "💎 Lujo",         filter: (g) => g.category === "luxury" },
+  { id: "show",       label: "🎆 Espectáculo",  filter: (g) => g.category === "show" },
+  { id: "exclusive",  label: "🌀 Exclusivo",    filter: (g) => g.category === "exclusive" },
 ];
 
 /**
@@ -89,7 +93,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const filteredGifts = useCallback(() => {
     const cat = CATEGORIES.find((c) => c.id === activeCategory);
     if (!cat) return catalog;
-    return catalog.filter((g) => cat.rarities.includes(g.rarity));
+    return catalog.filter(cat.filter);
   }, [catalog, activeCategory]);
 
   /* ── Tap a gift card → check login, balance, show confirm ──────────── */
@@ -309,9 +313,15 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                   <button
                     key={g._id}
                     role="listitem"
+copilot/add-unique-gift-system
+                    aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${g.isSuper ? " — ¡Super Regalo!" : ""}`}
+                    aria-pressed={isSelected}
+                    className={`gp-card${isSelected ? " gp-card-selected" : ""}${g.isSuper ? " gp-card-super" : ""}`}
+
                     aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
+ main
                     style={{
                       "--rc": r.color,
                       "--rg": r.glow,
@@ -321,6 +331,13 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                   >
                     {/* Rarity glow overlay */}
                     <span className="gp-card-glow" />
+
+                    {/* Super badge */}
+                    {g.isSuper && (
+                      <span className="gp-super-badge" title="¡Super Regalo!">
+                        ⭐ SUPER
+                      </span>
+                    )}
 
                     {/* Rarity badge */}
                     <span className="gp-rarity-badge" style={{ background: r.gradient }}>
@@ -341,7 +358,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                     <span className="gp-card-name">{g.name}</span>
 
                     {/* Coin cost */}
-                    <span className="gp-card-cost">🪙 {g.coinCost}</span>
+                    <span className="gp-card-cost">🪙 {g.coinCost.toLocaleString('es-ES')}</span>
                   </button>
                 );
               })}
@@ -831,6 +848,45 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         .gp-card-restricted:hover {
           transform: none !important;
           box-shadow: none !important;
+        }
+
+        /* Super gift styling */
+        .gp-card-super {
+          border-width: 2px;
+          animation: gp-super-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes gp-super-pulse {
+          0%, 100% { box-shadow: 0 0 10px var(--rg), 0 0 20px var(--rg); }
+          50% { box-shadow: 0 0 20px var(--rg), 0 0 30px var(--rg); }
+        }
+
+        .gp-card-super:hover {
+          box-shadow: 0 0 24px var(--rg), 0 0 36px var(--rg) !important;
+        }
+
+        /* Super badge */
+        .gp-super-badge {
+          position: absolute;
+          top: 5px;
+          left: 5px;
+          font-size: 0.48rem;
+          font-weight: 900;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          color: #fbbf24;
+          background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.15));
+          border: 1px solid rgba(251,191,36,0.5);
+          padding: 0.15rem 0.35rem;
+          border-radius: 999px;
+          line-height: 1.2;
+          z-index: 2;
+          animation: gp-super-shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes gp-super-shimmer {
+          0%, 100% { opacity: 0.9; }
+          50% { opacity: 1; }
         }
 
         /* Rarity glow layer (subtle inner glow) */

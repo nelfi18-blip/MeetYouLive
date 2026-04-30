@@ -5,6 +5,8 @@ const User = require("../models/User");
 const Payout = require("../models/Payout");
 const Live = require("../models/Live");
 const VideoCall = require("../models/VideoCall");
+const CoinTransaction = require("../models/CoinTransaction");
+const AgencyRelationship = require("../models/AgencyRelationship");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -416,7 +418,24 @@ exports.getCreatorDashboard = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
-    const [giftAgg, callAgg, activeLive, pendingPayout, liveCount, consistencyDays, payoutAgg] = await Promise.all([
+    // Calculate start of today (UTC)
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const [
+      giftAgg,
+      callAgg,
+      activeLive,
+      pendingPayout,
+      liveCount,
+      consistencyDays,
+      payoutAgg,
+      todayEarningsAgg,
+      topSupporterAgg,
+      agencyRelationships,
+      subCreatorEarnings,
+    ] = await Promise.all([
+      // Total gift earnings
       Gift.aggregate([
         { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
         {
@@ -428,6 +447,7 @@ exports.getCreatorDashboard = async (req, res) => {
           },
         },
       ]),
+      // Total call earnings
       VideoCall.aggregate([
         { $match: { recipient: new mongoose.Types.ObjectId(user._id), status: "ended", type: "paid_creator" } },
         {
@@ -439,15 +459,20 @@ exports.getCreatorDashboard = async (req, res) => {
           },
         },
       ]),
+      // Active live
       Live.findOne({ user: user._id, isLive: true }).select(
         "_id title viewerCount chatEnabled giftsEnabled isPrivate entryCost"
       ),
+      // Pending payout
       Payout.findOne({
         creator: user._id,
         status: { $in: ["pending", "approved", "processing"] },
       }).sort({ createdAt: -1 }),
+      // Total lives count
       Live.countDocuments({ user: user._id }).catch(() => 0),
+      // Consistency days
       getConsistencyDays(user._id, 30),
+      // Payout aggregation
       Payout.aggregate([
         { $match: { creator: new mongoose.Types.ObjectId(user._id) } },
         {
@@ -463,6 +488,74 @@ exports.getCreatorDashboard = async (req, res) => {
                 $cond: [{ $in: ["$status", ["completed", "paid"]] }, "$amountCoins", 0],
               },
             },
+          },
+        },
+      ]),
+      // Today's earnings from CoinTransaction
+      CoinTransaction.aggregate([
+        {
+          $match: {
+            userId: new mongoose.Types.ObjectId(user._id),
+            type: { $in: ["gift_received", "call_earned", "content_earned", "agency_earned"] },
+            status: "completed",
+            createdAt: { $gte: todayStart },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            todayEarnings: { $sum: "$amount" },
+          },
+        },
+      ]),
+      // Top supporter from all lives
+      Gift.aggregate([
+        { $match: { receiver: new mongoose.Types.ObjectId(user._id) } },
+        {
+          $group: {
+            _id: "$sender",
+            totalCoins: { $sum: "$coinCost" },
+          },
+        },
+        { $sort: { totalCoins: -1 } },
+        { $limit: 1 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "senderInfo",
+          },
+        },
+        { $unwind: { path: "$senderInfo", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            userId: "$_id",
+            username: "$senderInfo.username",
+            name: "$senderInfo.name",
+            totalCoins: 1,
+          },
+        },
+      ]),
+      // Agency relationships (if creator is a parent)
+      AgencyRelationship.find({
+        parentCreator: user._id,
+        status: "active",
+        subCreatorAgreed: true,
+      }).select("subCreator percentage"),
+      // Sub-creator earnings from agency_earned transactions
+      CoinTransaction.aggregate([
+        {
+          $match: {
+            userId: new mongoose.Types.ObjectId(user._id),
+            type: "agency_earned",
+            status: "completed",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalAgencyEarned: { $sum: "$amount" },
           },
         },
       ]),
@@ -482,6 +575,36 @@ exports.getCreatorDashboard = async (req, res) => {
 
     const pendingCoins = payoutAgg[0]?.pendingCoins || 0;
     const withdrawnCoins = payoutAgg[0]?.withdrawnCoins || 0;
+    
+    // Today's earnings
+    const todayEarnings = todayEarningsAgg[0]?.todayEarnings || 0;
+
+    // Total earnings (from creator shares + call earnings)
+    const totalEarnings = (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0);
+
+    // Top supporter
+    const topSupporter = topSupporterAgg[0]
+      ? {
+          username: topSupporterAgg[0].username || topSupporterAgg[0].name || "Usuario",
+          totalCoins: topSupporterAgg[0].totalCoins || 0,
+        }
+      : null;
+
+    // Average earnings per live
+    const avgEarningsPerLive = liveCount > 0 ? Math.floor(totalEarnings / liveCount) : 0;
+
+    // Agency metrics (if user has sub-creators)
+    let agencyMetrics = null;
+    if (agencyRelationships && agencyRelationships.length > 0) {
+      const totalSubCreators = agencyRelationships.length;
+      const commissionEarned = subCreatorEarnings[0]?.totalAgencyEarned || 0;
+      
+      agencyMetrics = {
+        totalSubCreators,
+        commissionEarned,
+      };
+    }
+
     const creatorLevel = computeCreatorProgress({
       totalCoinsReceived: totals.totalCoinsReceived || 0,
       totalCreatorShare: totals.totalCreatorShare || 0,
@@ -507,8 +630,7 @@ exports.getCreatorDashboard = async (req, res) => {
       consistencyDays: consistencyDays || 0,
       pendingPayoutCoins: pendingCoins,
       withdrawnCoins,
-      totalEarnedLifetime:
-        (totals.totalCreatorShare || 0) + (callTotals.totalCallEarnings || 0),
+      totalEarnedLifetime: totalEarnings,
       creatorLevel,
       pendingPayout: pendingPayout
         ? {
@@ -518,6 +640,13 @@ exports.getCreatorDashboard = async (req, res) => {
             createdAt: pendingPayout.createdAt,
           }
         : null,
+      // New metrics for Creator Earnings Dashboard
+      todayEarnings,
+      totalEarnings,
+      totalGiftsReceived: totals.totalGiftCount || 0,
+      topSupporter,
+      avgEarningsPerLive,
+      agencyMetrics,
     });
   } catch (err) {
     console.error("getCreatorDashboard error:", err);

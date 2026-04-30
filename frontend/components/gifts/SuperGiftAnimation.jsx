@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 // Animation configuration constants
 const SUPER_GIFT_DURATION_MS = 4000;        // Duration of super gift animation (4 seconds)
@@ -27,6 +27,16 @@ const PARTICLE_COUNT = 30;                  // Number of particle effects
  */
 export default function SuperGiftAnimation({ gift, sender, value, onComplete }) {
   const [visible, setVisible] = useState(true);
+
+  // Generate stable particle configurations (prevents jumping on re-renders)
+  const particles = useMemo(() => {
+    return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+      left: `${10 + Math.random() * 80}%`,
+      delay: `${Math.random() * 2}s`,
+      duration: `${2 + Math.random() * 3}s`,
+      icon: i % 4 === 0 ? "✨" : i % 4 === 1 ? "💫" : i % 4 === 2 ? "⭐" : "🌟",
+    }));
+  }, []); // Empty deps = generate only once on mount
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -86,17 +96,17 @@ export default function SuperGiftAnimation({ gift, sender, value, onComplete }) 
 
         {/* Particle effects */}
         <div className="super-gift-particles">
-          {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
+          {particles.map((p, i) => (
             <div
               key={i}
               className="super-gift-particle"
               style={{
-                left: `${10 + Math.random() * 80}%`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${2 + Math.random() * 3}s`,
+                left: p.left,
+                animationDelay: p.delay,
+                animationDuration: p.duration,
               }}
             >
-              {i % 4 === 0 ? "✨" : i % 4 === 1 ? "💫" : i % 4 === 2 ? "⭐" : "🌟"}
+              {p.icon}
             </div>
           ))}
         </div>

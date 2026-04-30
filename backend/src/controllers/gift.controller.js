@@ -243,9 +243,11 @@ const sendGift = async (req, res) => {
   // Both conditions must be met: correct context AND liveId present
   
   // Determine gift type with proper fallback logic for backward compatibility:
-  // - Use explicit `type` field if present
-  // - Otherwise derive from coinCost using TIER_BOUNDARIES
-  // - Or use legacy isSuper flag as final fallback
+  // 1. Use explicit `type` field if present (new system)
+  // 2. Derive from coinCost using TIER_BOUNDARIES (for gifts without type field)
+  // 3. Use legacy isSuper flag as final fallback (for old data migration)
+  // Note: The pre-save hook on GiftCatalog syncs isSuper from type for new saves,
+  //       but the isSuper fallback handles existing documents without type field
   const giftType = catalogItem.type || (
     catalogItem.coinCost > TIER_BOUNDARIES.PREMIUM_MAX ? "super" :
     catalogItem.coinCost > TIER_BOUNDARIES.BASIC_MAX ? "premium" :

@@ -5,6 +5,29 @@ import { useEffect, useState } from "react";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
+ * Normalize avatar URL to ensure it's safe and properly formatted
+ */
+const normalizeAvatarUrl = (avatarValue) => {
+  if (typeof avatarValue !== "string") return "";
+  const trimmed = avatarValue.trim();
+  if (!trimmed) return "";
+  // If it's already a full URL from our backend, allow it
+  if (/^https?:\/\//i.test(trimmed)) {
+    // Only allow URLs from our backend domain
+    if (typeof API_URL === "string" && trimmed.startsWith(API_URL)) {
+      return trimmed;
+    }
+    // Don't render untrusted external URLs
+    return "";
+  }
+  // If it's a relative path (e.g., uploads/avatar-...), prepend backend URL
+  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
+    return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
+  }
+  return "";
+};
+
+/**
  * ProfileGiftStats — displays gift stats and top supporters for a user profile
  * 
  * Props:
@@ -108,8 +131,12 @@ export default function ProfileGiftStats({ userId }) {
               <div key={supporter.userId || idx} className="pgs-supporter-card">
                 <div className="pgs-supporter-rank">#{idx + 1}</div>
                 <div className="pgs-supporter-avatar">
-                  {supporter.avatar ? (
-                    <img src={supporter.avatar} alt={supporter.username || supporter.name} />
+                  {normalizeAvatarUrl(supporter.avatar) ? (
+                    <img 
+                      src={normalizeAvatarUrl(supporter.avatar)} 
+                      alt={supporter.username || supporter.name || "Usuario"}
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
                   ) : (
                     <div className="pgs-supporter-placeholder">
                       {(supporter.username || supporter.name || "?")[0].toUpperCase()}

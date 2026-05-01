@@ -84,6 +84,15 @@ const liveSchema = new mongoose.Schema(
     userCombos: { type: Map, of: userComboSchema, default: new Map() },
     // Discovery & engagement flags
     isTrending: { type: Boolean, default: false },
+    // VS Battle system
+    isVsActive: { type: Boolean, default: false },
+    opponentId: { type: mongoose.Schema.Types.ObjectId, ref: "Live" },
+    vsStartTime: { type: Date },
+    vsDuration: { type: Number, default: 0, min: 0 }, // in seconds
+    vsScore: {
+      host: { type: Number, default: 0, min: 0 },
+      opponent: { type: Number, default: 0, min: 0 },
+    },
   },
   { timestamps: true }
 );

@@ -6,6 +6,7 @@ const {
   getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle,
   triggerLiveEvent, stopLiveEvent, getActiveLiveEvent,
   requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests,
+  startVsBattle,
 } = require("../controllers/live.controller.js");
 
 const router = Router();
@@ -45,5 +46,8 @@ router.post("/:id/decline-guest", liveLimiter, verifyToken, declineGuest);
 router.delete("/:id/leave-guest", liveLimiter, verifyToken, leaveAsGuest);
 router.delete("/:id/remove-guest/:guestUserId", liveLimiter, verifyToken, removeGuest);
 router.get("/:id/guests", liveLimiter, optionalVerifyToken, getGuests);
+
+// VS Battle endpoints
+router.post("/:id/start-vs", liveLimiter, verifyToken, startVsBattle);
 
 module.exports = router;

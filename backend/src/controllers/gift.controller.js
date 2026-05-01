@@ -669,12 +669,19 @@ const sendGift = async (req, res) => {
 
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {
-      Live.findOne({ _id: liveId, isLive: true }).select("goal battle").then((livDoc) => {
+      // Validate and cast to ObjectId to prevent NoSQL injection
+      if (!mongoose.Types.ObjectId.isValid(liveId)) {
+        console.error("[gift] Invalid liveId for goal/battle/vs update:", liveId);
+        return;
+      }
+      const liveObjId = new mongoose.Types.ObjectId(liveId);
+      Live.findOne({ _id: liveObjId, isLive: true }).select("goal battle isVsActive opponentId vsScore user").then(async (livDoc) => {
         if (!livDoc) return;
         const ioInst = getIO();
         const updates = {};
         let goalUpdated = false;
         let battleUpdated = false;
+        let vsUpdated = false;
 
         if (livDoc.goal?.active && livDoc.goal.target > 0) {
           updates["goal.progress"] = amount;
@@ -690,19 +697,57 @@ const sendGift = async (req, res) => {
           updates["battle.rightScore"] = half;
           battleUpdated = true;
         }
+        
+        // VS Battle: Add coins to the host's score (receiver is the host of this live)
+        if (livDoc.isVsActive && livDoc.opponentId) {
+          updates["vsScore.host"] = amount;
+          vsUpdated = true;
+        }
 
         if (Object.keys(updates).length === 0) return;
 
-        Live.findByIdAndUpdate(liveId, { $inc: updates }, { new: true }).select("goal battle").then((updated) => {
+        Live.findByIdAndUpdate(liveObjId, { $inc: updates }, { new: true }).select("goal battle isVsActive opponentId vsScore").then(async (updated) => {
           if (!updated || !ioInst) return;
           if (goalUpdated && updated.goal) {
-            ioInst.to(`live:${liveId}`).emit("LIVE_GOAL_UPDATED", { liveId, goal: updated.goal });
+            ioInst.to(`live:${liveObjId}`).emit("LIVE_GOAL_UPDATED", { liveId: String(liveObjId), goal: updated.goal });
           }
           if (battleUpdated && updated.battle) {
-            ioInst.to(`live:${liveId}`).emit("BATTLE_SCORE_UPDATED", { liveId, battle: updated.battle });
+            ioInst.to(`live:${liveObjId}`).emit("BATTLE_SCORE_UPDATED", { liveId: String(liveObjId), battle: updated.battle });
           }
-        }).catch((err) => console.error("[gift] live goal/battle update failed:", err));
-      }).catch((err) => console.error("[gift] live lookup for goal/battle failed:", err));
+          
+          // VS Battle: Update both rooms with current scores
+          // NOTE: For high-traffic scenarios (>100 gifts/sec), consider using Redis cache
+          // for opponent scores to reduce database load during VS battles.
+          if (vsUpdated && updated.isVsActive && updated.opponentId) {
+            const opponentLive = await Live.findById(updated.opponentId).select("vsScore");
+            if (opponentLive && opponentLive.vsScore) {
+              const hostScore = updated.vsScore?.host || 0;
+              const opponentScore = opponentLive.vsScore?.host || 0;
+              
+              // Update both lives with opponent scores in parallel
+              await Promise.all([
+                Live.findByIdAndUpdate(liveObjId, { 
+                  $set: { "vsScore.opponent": opponentScore } 
+                }),
+                Live.findByIdAndUpdate(updated.opponentId, { 
+                  $set: { "vsScore.opponent": hostScore } 
+                }),
+              ]);
+              
+              // Emit to both rooms
+              ioInst.to(`live:${liveObjId}`).emit("vs_update", {
+                hostScore,
+                opponentScore,
+              });
+              
+              ioInst.to(`live:${updated.opponentId}`).emit("vs_update", {
+                hostScore: opponentScore,
+                opponentScore: hostScore,
+              });
+            }
+          }
+        }).catch((err) => console.error("[gift] live goal/battle/vs update failed:", err));
+      }).catch((err) => console.error("[gift] live lookup for goal/battle/vs failed:", err));
     }
 
     // Track gift mission progress (fire-and-forget)

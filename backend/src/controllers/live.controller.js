@@ -812,14 +812,15 @@ const startVsBattle = async (req, res) => {
     opponentLive.vsDuration = vsDuration;
     opponentLive.vsScore = { host: 0, opponent: 0 };
     
-    await hostLive.save();
-    await opponentLive.save();
+    await Promise.all([hostLive.save(), opponentLive.save()]);
     
     // Emit VS battle started to both rooms
     const io = getIO();
     if (io) {
-      const hostUser = await User.findById(hostLive.user).select("username name").lean();
-      const opponentUser = await User.findById(opponentLive.user).select("username name").lean();
+      const [hostUser, opponentUser] = await Promise.all([
+        User.findById(hostLive.user).select("username name").lean(),
+        User.findById(opponentLive.user).select("username name").lean(),
+      ]);
       
       const battleData = {
         vsStartTime: vsStartTime.toISOString(),
@@ -868,8 +869,10 @@ const startVsBattle = async (req, res) => {
 // Helper function to automatically end VS battle when time expires
 const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
   try {
-    const hostLive = await Live.findById(hostLiveId);
-    const opponentLive = await Live.findById(opponentLiveId);
+    const [hostLive, opponentLive] = await Promise.all([
+      Live.findById(hostLiveId),
+      Live.findById(opponentLiveId),
+    ]);
     
     if (!hostLive || !opponentLive) return;
     if (!hostLive.isVsActive || !opponentLive.isVsActive) return;
@@ -898,14 +901,15 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
     opponentLive.vsDuration = 0;
     opponentLive.vsScore = { host: 0, opponent: 0 };
     
-    await hostLive.save();
-    await opponentLive.save();
+    await Promise.all([hostLive.save(), opponentLive.save()]);
     
     // Emit VS result to both rooms
     const io = getIO();
     if (io) {
-      const hostUser = await User.findById(hostLive.user).select("username name").lean();
-      const opponentUser = await User.findById(opponentLive.user).select("username name").lean();
+      const [hostUser, opponentUser] = await Promise.all([
+        User.findById(hostLive.user).select("username name").lean(),
+        User.findById(opponentLive.user).select("username name").lean(),
+      ]);
       
       io.to(`live:${hostLiveId}`).emit("vs_result", {
         winner,

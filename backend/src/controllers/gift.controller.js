@@ -669,7 +669,11 @@ const sendGift = async (req, res) => {
 
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {
-      // Cast to ObjectId to prevent NoSQL injection
+      // Validate and cast to ObjectId to prevent NoSQL injection
+      if (!mongoose.Types.ObjectId.isValid(liveId)) {
+        console.error("[gift] Invalid liveId for goal/battle/vs update:", liveId);
+        return;
+      }
       const liveObjId = new mongoose.Types.ObjectId(liveId);
       Live.findOne({ _id: liveObjId, isLive: true }).select("goal battle isVsActive opponentId vsScore user").then(async (livDoc) => {
         if (!livDoc) return;
@@ -712,6 +716,8 @@ const sendGift = async (req, res) => {
           }
           
           // VS Battle: Update both rooms with current scores
+          // NOTE: For high-traffic scenarios (>100 gifts/sec), consider using Redis cache
+          // for opponent scores to reduce database load during VS battles.
           if (vsUpdated && updated.isVsActive && updated.opponentId) {
             const opponentLive = await Live.findById(updated.opponentId).select("vsScore");
             if (opponentLive && opponentLive.vsScore) {

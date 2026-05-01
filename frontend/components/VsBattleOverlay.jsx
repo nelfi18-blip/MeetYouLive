@@ -27,6 +27,8 @@ export default function VsBattleOverlay({
   result = null,
 }) {
   const [timeLeft, setTimeLeft] = useState(0);
+  // Display scores are kept in local state to enable smooth animations
+  // when the props change rapidly during battle
   const [displayHostScore, setDisplayHostScore] = useState(hostScore);
   const [displayOpponentScore, setDisplayOpponentScore] = useState(opponentScore);
   const [scoreChangeHost, setScoreChangeHost] = useState(0);
@@ -180,6 +182,7 @@ export default function VsBattleOverlay({
               {winner === "tie" ? "🤝" : "🏆"}
             </div>
             <h2 className="result-title">
+              {/* TODO: Add i18n support for multi-language */}
               {winner === "tie" ? "¡Empate!" : `¡${winner === "host" ? hostUsername : opponentUsername} Ganó!`}
             </h2>
             <div className="result-scores">

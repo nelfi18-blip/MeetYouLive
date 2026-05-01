@@ -724,6 +724,7 @@ export default function LiveRoomPage() {
       setVsResult(null);
       
       // Add notification to chat
+      // TODO: Add i18n support for multi-language
       setChatMessages((prev) => [
         ...prev,
         {
@@ -765,6 +766,7 @@ export default function LiveRoomPage() {
         ? `🤝 ¡Batalla VS terminada en empate! ${hostScore} - ${opponentScore}`
         : `🏆 ¡${winner === "host" ? hostUsername : opponentUsername} ganó la batalla VS! ${hostScore} - ${opponentScore}`;
       
+      // TODO: Add i18n support for multi-language
       setChatMessages((prev) => [
         ...prev,
         {

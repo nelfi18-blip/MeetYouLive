@@ -724,15 +724,15 @@ const sendGift = async (req, res) => {
               const hostScore = updated.vsScore?.host || 0;
               const opponentScore = opponentLive.vsScore?.host || 0;
               
-              // Update host's live room with opponent score
-              await Live.findByIdAndUpdate(liveObjId, { 
-                $set: { "vsScore.opponent": opponentScore } 
-              });
-              
-              // Update opponent's live room with host score
-              await Live.findByIdAndUpdate(updated.opponentId, { 
-                $set: { "vsScore.opponent": hostScore } 
-              });
+              // Update both lives with opponent scores in parallel
+              await Promise.all([
+                Live.findByIdAndUpdate(liveObjId, { 
+                  $set: { "vsScore.opponent": opponentScore } 
+                }),
+                Live.findByIdAndUpdate(updated.opponentId, { 
+                  $set: { "vsScore.opponent": hostScore } 
+                }),
+              ]);
               
               // Emit to both rooms
               ioInst.to(`live:${liveObjId}`).emit("vs_update", {

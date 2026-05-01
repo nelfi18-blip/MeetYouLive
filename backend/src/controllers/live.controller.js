@@ -853,6 +853,10 @@ const startVsBattle = async (req, res) => {
       setTimeout(() => {
         endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id));
       }, delay);
+    } else {
+      // If delay is negative (battle should have already ended), end it immediately
+      // This can happen if database operations are slow or system time changed
+      endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id)).catch(() => {});
     }
     
     res.json({

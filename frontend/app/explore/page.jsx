@@ -10,10 +10,13 @@ import UrgencyBanner from "@/components/UrgencyBanner";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
 
-const CATEGORIES = ["Todos", "Gaming", "Música", "Charla", "Arte", "Educación", "Otro"];
+const CATEGORIES = ["Todos", "Música", "Gaming", "Chat", "Dating"];
 const CAT_ICONS = {
-  Todos: "🌐", Gaming: "🎮", Música: "🎵", Charla: "💬",
-  Arte: "🎨", Educación: "📚", Otro: "✨",
+  Todos: "🌐", 
+  Música: "🎵", 
+  Gaming: "🎮", 
+  Chat: "💬",
+  Dating: "💕",
 };
 
 function LiveTabIcon() {

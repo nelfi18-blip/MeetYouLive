@@ -4,13 +4,15 @@ import Link from "next/link";
 import Badge from "./Badge";
 import StatusBadges from "./StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 /**
  * Reusable LiveCard component for live-stream listings.
  *
  * Props:
  *  - live: { _id, title, description, viewerCount, giftsTotal, giftsCount,
- *            isPrivate, entryCost, user: { username, avatar }, category }
+ *            totalCoinsEarned, isTrending, isPrivate, entryCost, 
+ *            user: { username, avatar, creatorStatus }, category, battle: { active } }
  */
 export default function LiveCard({ live }) {
   if (!live || typeof live !== "object" || !live._id) return null;
@@ -21,6 +23,16 @@ export default function LiveCard({ live }) {
   const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
   const safeViewerCount = Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0;
   const safeGiftsTotal = Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0;
+  const safeTotalCoins = Number.isFinite(live.totalCoinsEarned) ? Math.max(0, live.totalCoinsEarned) : 0;
+
+  // Use the canonical creator check helper
+  const isCreatorApproved = isApprovedCreator(live.user);
+  
+  // Check if live is new (created less than 10 minutes ago)
+  const isNew = live.createdAt ? (Date.now() - new Date(live.createdAt).getTime()) < 10 * 60 * 1000 : false;
+  
+  // Check if battle mode is active
+  const isBattle = live.battle?.active === true;
 
   const statusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },
@@ -39,6 +51,22 @@ export default function LiveCard({ live }) {
             {live.category && (
               <span className="live-category-tag">{live.category}</span>
             )}
+            {isBattle && (
+              <span className="live-vs-badge">⚔️ VS</span>
+            )}
+          </div>
+
+          {/* Top tags - trending, top creator, new */}
+          <div className="live-top-tags">
+            {live.isTrending && (
+              <span className="live-tag-trending">🔥 TRENDING</span>
+            )}
+            {isCreatorApproved && safeViewerCount >= 50 && (
+              <span className="live-tag-top">⭐ TOP</span>
+            )}
+            {isNew && (
+              <span className="live-tag-new">✨ NUEVO</span>
+            )}
           </div>
 
           {live.isPrivate && (
@@ -55,9 +83,9 @@ export default function LiveCard({ live }) {
                 {safeViewerCount}
               </span>
             )}
-            {safeGiftsTotal > 0 && (
-              <span className="live-stat-chip live-stat-gifts">
-                🎁 {safeGiftsTotal}
+            {safeTotalCoins > 0 && (
+              <span className="live-stat-chip live-stat-coins">
+                💎 {safeTotalCoins}
               </span>
             )}
           </div>
@@ -77,7 +105,7 @@ export default function LiveCard({ live }) {
               <span className="live-avatar-dot" />
             </div>
             <span className="live-username">@{username}</span>
-            {((live.user?.role === "creator" || live.user?.role === "subCreator") && live.user?.creatorStatus === "approved") && (
+            {isCreatorApproved && (
               <span className="live-creator-badge">⭐</span>
             )}
             {live.isPrivate && live.entryCost != null && (
@@ -123,9 +151,9 @@ export default function LiveCard({ live }) {
           box-shadow: var(--shadow), 0 0 20px rgba(139, 92, 246, 0.18);
         }
 
-        /* Thumbnail */
+        /* Thumbnail - increased height for stronger presence */
         .live-thumb {
-          height: 162px;
+          height: 200px;
           position: relative;
           overflow: hidden;
           display: flex;
@@ -143,17 +171,18 @@ export default function LiveCard({ live }) {
           content: '';
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.1), transparent 65%);
+          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15), transparent 65%);
         }
 
         .live-thumb-badges {
           position: absolute;
-          top: 0.65rem;
-          left: 0.65rem;
+          top: 0.75rem;
+          left: 0.75rem;
           z-index: 2;
           display: flex;
-          gap: 0.35rem;
+          gap: 0.4rem;
           align-items: center;
+          flex-wrap: wrap;
         }
 
         .live-category-tag {
@@ -168,10 +197,77 @@ export default function LiveCard({ live }) {
           backdrop-filter: blur(8px);
         }
 
+        .live-vs-badge {
+          font-size: 0.62rem;
+          font-weight: 900;
+          letter-spacing: 0.05em;
+          padding: 0.2rem 0.6rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.25));
+          color: #fca5a5;
+          border: 1px solid rgba(239,68,68,0.4);
+          backdrop-filter: blur(8px);
+        }
+
+        /* Top right tags */
+        .live-top-tags {
+          position: absolute;
+          top: 0.75rem;
+          right: 0.75rem;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          align-items: flex-end;
+        }
+
+        .live-tag-trending {
+          font-size: 0.62rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          padding: 0.22rem 0.65rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.3));
+          color: #fff;
+          border: 1px solid rgba(239,68,68,0.5);
+          backdrop-filter: blur(10px);
+          box-shadow: 0 2px 12px rgba(239,68,68,0.3);
+          animation: trendingPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes trendingPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 2px 12px rgba(239,68,68,0.3); }
+          50% { transform: scale(1.05); box-shadow: 0 4px 20px rgba(239,68,68,0.5); }
+        }
+
+        .live-tag-top {
+          font-size: 0.6rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          padding: 0.2rem 0.6rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25));
+          color: #fde68a;
+          border: 1px solid rgba(251,191,36,0.4);
+          backdrop-filter: blur(10px);
+        }
+
+        .live-tag-new {
+          font-size: 0.6rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          padding: 0.2rem 0.6rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(124,58,237,0.25));
+          color: #c4b5fd;
+          border: 1px solid rgba(139,92,246,0.4);
+          backdrop-filter: blur(10px);
+        }
+
         .live-private-badge {
           position: absolute;
-          top: 0.65rem;
-          right: 0.65rem;
+          bottom: 3rem;
+          right: 0.75rem;
           z-index: 2;
           background: rgba(139,92,246,0.85);
           color: #fff;
@@ -185,11 +281,11 @@ export default function LiveCard({ live }) {
 
         .live-thumb-stats {
           position: absolute;
-          bottom: 0.65rem;
-          right: 0.65rem;
+          bottom: 0.75rem;
+          right: 0.75rem;
           display: flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: 0.4rem;
           z-index: 2;
         }
 
@@ -197,14 +293,20 @@ export default function LiveCard({ live }) {
           display: flex;
           align-items: center;
           gap: 0.3rem;
-          background: rgba(6,4,17,0.8);
+          background: rgba(6,4,17,0.85);
           color: var(--text);
-          font-size: 0.72rem;
-          font-weight: 600;
-          padding: 0.22rem 0.6rem;
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.28rem 0.7rem;
           border-radius: 999px;
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.08);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .live-stat-coins {
+          background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(124,58,237,0.3));
+          color: #c4b5fd;
+          border-color: rgba(139,92,246,0.3);
         }
 
         .live-stat-gifts {
@@ -213,8 +315,8 @@ export default function LiveCard({ live }) {
         }
 
         .live-thumb-play {
-          font-size: 2.5rem;
-          opacity: 0.12;
+          font-size: 3rem;
+          opacity: 0.1;
           position: relative;
           z-index: 1;
           color: var(--text);

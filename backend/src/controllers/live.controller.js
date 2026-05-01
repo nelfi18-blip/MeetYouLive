@@ -125,7 +125,7 @@ const endLive = async (req, res) => {
 const getLives = async (req, res) => {
   try {
     const lives = await Live.find({ isLive: true })
-      .populate("user", "username name avatar role")
+      .populate("user", "username name avatar role creatorStatus")
       .select("-streamKey -paidViewers")
       .sort({ createdAt: -1 })
       .lean();
@@ -161,10 +161,22 @@ const getLives = async (req, res) => {
       const giftMap = {};
       for (const g of giftTotals) giftMap[String(g._id)] = g;
 
+      // Calculate trending status based on engagement metrics
+      // A live is trending if: viewer count >= 10 OR coins earned >= 500
+      const TRENDING_VIEWER_THRESHOLD = 10;
+      const TRENDING_COINS_THRESHOLD = 500;
+
       for (const live of sanitizedLives) {
         const stats = giftMap[String(live._id)];
-        live.giftsTotal = stats?.giftsTotal ?? 0;
+        const totalCoinsEarned = stats?.giftsTotal ?? 0;
+        const viewerCount = live.viewerCount || 0;
+
+        live.giftsTotal = totalCoinsEarned;
         live.giftsCount = stats?.giftsCount ?? 0;
+        live.totalCoinsEarned = totalCoinsEarned;
+        
+        // Determine trending status
+        live.isTrending = viewerCount >= TRENDING_VIEWER_THRESHOLD || totalCoinsEarned >= TRENDING_COINS_THRESHOLD;
       }
     }
 

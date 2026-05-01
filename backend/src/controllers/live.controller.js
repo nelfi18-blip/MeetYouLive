@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
@@ -763,6 +764,10 @@ const startVsBattle = async (req, res) => {
     
     if (!opponentLiveId) {
       return res.status(400).json({ message: "opponentLiveId es requerido" });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(opponentLiveId)) {
+      return res.status(400).json({ message: "opponentLiveId inválido" });
     }
     
     if (!durationMinutes || durationMinutes < 1 || durationMinutes > 60) {

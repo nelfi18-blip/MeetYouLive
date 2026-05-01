@@ -81,7 +81,7 @@ El frontend se construye exitosamente sin errores ni advertencias:
 
 1. **Mejor Compatibilidad**: El formato ICO verdadero para favicon asegura compatibilidad con todos los navegadores y plataformas.
 2. **Estándares Web**: Todos los íconos ahora usan dimensiones estándar esperadas por PWAs, iOS, y Android.
-3. **Previe ws Sociales**: La imagen Open Graph (`og-image.png`) mejora la apariencia cuando se comparten enlaces en redes sociales.
+3. **Previews Sociales**: La imagen Open Graph (`og-image.png`) mejora la apariencia cuando se comparten enlaces en redes sociales.
 4. **Consistencia de Marca**: Todos los íconos ahora se generan desde el mismo archivo fuente (`logo.svg`), asegurando consistencia visual.
 
 ## Estado Final

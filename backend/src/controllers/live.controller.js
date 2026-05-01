@@ -842,6 +842,9 @@ const startVsBattle = async (req, res) => {
     }
     
     // Schedule automatic battle end
+    // NOTE: setTimeout is used for simplicity but will be lost on server restart.
+    // For production use, implement a job queue (e.g., Bull) or periodic check on server startup
+    // to handle battles that should have ended while the server was down.
     const endTime = vsStartTime.getTime() + (vsDuration * 1000);
     const delay = endTime - Date.now();
     
@@ -884,14 +887,14 @@ const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
     
     // Reset VS battle state for both lives
     hostLive.isVsActive = false;
-    hostLive.opponentId = undefined;
-    hostLive.vsStartTime = undefined;
+    hostLive.opponentId = null;
+    hostLive.vsStartTime = null;
     hostLive.vsDuration = 0;
     hostLive.vsScore = { host: 0, opponent: 0 };
     
     opponentLive.isVsActive = false;
-    opponentLive.opponentId = undefined;
-    opponentLive.vsStartTime = undefined;
+    opponentLive.opponentId = null;
+    opponentLive.vsStartTime = null;
     opponentLive.vsDuration = 0;
     opponentLive.vsScore = { host: 0, opponent: 0 };
     

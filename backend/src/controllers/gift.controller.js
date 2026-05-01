@@ -669,7 +669,9 @@ const sendGift = async (req, res) => {
 
     // Update live goal progress and battle scores (fire-and-forget)
     if (liveId) {
-      Live.findOne({ _id: liveId, isLive: true }).select("goal battle isVsActive opponentId vsScore user").then(async (livDoc) => {
+      // Cast to ObjectId to prevent NoSQL injection
+      const liveObjId = new mongoose.Types.ObjectId(liveId);
+      Live.findOne({ _id: liveObjId, isLive: true }).select("goal battle isVsActive opponentId vsScore user").then(async (livDoc) => {
         if (!livDoc) return;
         const ioInst = getIO();
         const updates = {};
@@ -700,13 +702,13 @@ const sendGift = async (req, res) => {
 
         if (Object.keys(updates).length === 0) return;
 
-        Live.findByIdAndUpdate(liveId, { $inc: updates }, { new: true }).select("goal battle isVsActive opponentId vsScore").then(async (updated) => {
+        Live.findByIdAndUpdate(liveObjId, { $inc: updates }, { new: true }).select("goal battle isVsActive opponentId vsScore").then(async (updated) => {
           if (!updated || !ioInst) return;
           if (goalUpdated && updated.goal) {
-            ioInst.to(`live:${liveId}`).emit("LIVE_GOAL_UPDATED", { liveId, goal: updated.goal });
+            ioInst.to(`live:${liveObjId}`).emit("LIVE_GOAL_UPDATED", { liveId: String(liveObjId), goal: updated.goal });
           }
           if (battleUpdated && updated.battle) {
-            ioInst.to(`live:${liveId}`).emit("BATTLE_SCORE_UPDATED", { liveId, battle: updated.battle });
+            ioInst.to(`live:${liveObjId}`).emit("BATTLE_SCORE_UPDATED", { liveId: String(liveObjId), battle: updated.battle });
           }
           
           // VS Battle: Update both rooms with current scores
@@ -717,7 +719,7 @@ const sendGift = async (req, res) => {
               const opponentScore = opponentLive.vsScore?.host || 0;
               
               // Update host's live room with opponent score
-              await Live.findByIdAndUpdate(liveId, { 
+              await Live.findByIdAndUpdate(liveObjId, { 
                 $set: { "vsScore.opponent": opponentScore } 
               });
               
@@ -727,7 +729,7 @@ const sendGift = async (req, res) => {
               });
               
               // Emit to both rooms
-              ioInst.to(`live:${liveId}`).emit("vs_update", {
+              ioInst.to(`live:${liveObjId}`).emit("vs_update", {
                 hostScore,
                 opponentScore,
               });
@@ -738,8 +740,8 @@ const sendGift = async (req, res) => {
               });
             }
           }
-        }).catch((err) => console.error("[gift] live goal/battle update failed:", err));
-      }).catch((err) => console.error("[gift] live lookup for goal/battle failed:", err));
+        }).catch((err) => console.error("[gift] live goal/battle/vs update failed:", err));
+      }).catch((err) => console.error("[gift] live lookup for goal/battle/vs failed:", err));
     }
 
     // Track gift mission progress (fire-and-forget)

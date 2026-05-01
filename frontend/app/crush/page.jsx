@@ -1573,7 +1573,8 @@ export default function CrushPage() {
       if (res.status === 401) { router.replace("/login"); return; }
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const newUsers = data.users || [];
+      const newUsers = (data.users || [])
+        .filter(u => u && u.role !== "admin" && u.role !== "moderator"); // Defensive filter
       setUsers((prev) => (pageNum === 1 ? newUsers : [...prev, ...newUsers]));
       setHasMore(newUsers.length === USERS_PER_PAGE);
     } catch {

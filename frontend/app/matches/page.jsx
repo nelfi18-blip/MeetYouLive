@@ -64,7 +64,12 @@ export default function MatchesPage() {
         return r.ok ? r.json() : null;
       })
       .then((d) => {
-        if (d) setMatches(d.matches || []);
+        if (d) {
+          // Defensive filter: exclude admin/moderator from matches
+          const safeMatches = (d.matches || [])
+            .filter(u => u && u.role !== "admin" && u.role !== "moderator");
+          setMatches(safeMatches);
+        }
       })
       .catch(() => setError("No se pudieron cargar los matches"))
       .finally(() => setLoading(false));

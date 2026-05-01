@@ -755,4 +755,169 @@ const getGuests = async (req, res) => {
   }
 };
 
-module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent, requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests };
+// ── VS Battle system ────────────────────────────────────────────────────────
+
+const startVsBattle = async (req, res) => {
+  try {
+    const { opponentLiveId, durationMinutes } = req.body;
+    
+    if (!opponentLiveId) {
+      return res.status(400).json({ message: "opponentLiveId es requerido" });
+    }
+    
+    if (!durationMinutes || durationMinutes < 1 || durationMinutes > 60) {
+      return res.status(400).json({ message: "durationMinutes debe estar entre 1 y 60" });
+    }
+    
+    const hostLive = await Live.findOne({ _id: req.params.id, user: req.userId, isLive: true });
+    if (!hostLive) {
+      return res.status(404).json({ message: "Directo no encontrado o sin permisos" });
+    }
+    
+    if (hostLive.isVsActive) {
+      return res.status(400).json({ message: "Ya tienes una batalla activa" });
+    }
+    
+    const opponentLive = await Live.findOne({ _id: opponentLiveId, isLive: true });
+    if (!opponentLive) {
+      return res.status(404).json({ message: "Directo oponente no encontrado o no está en vivo" });
+    }
+    
+    if (opponentLive.isVsActive) {
+      return res.status(400).json({ message: "El oponente ya tiene una batalla activa" });
+    }
+    
+    if (String(hostLive._id) === String(opponentLive._id)) {
+      return res.status(400).json({ message: "No puedes iniciar una batalla contigo mismo" });
+    }
+    
+    const vsStartTime = new Date();
+    const vsDuration = durationMinutes * 60; // Convert to seconds
+    
+    // Update both lives to activate VS battle
+    hostLive.isVsActive = true;
+    hostLive.opponentId = opponentLive._id;
+    hostLive.vsStartTime = vsStartTime;
+    hostLive.vsDuration = vsDuration;
+    hostLive.vsScore = { host: 0, opponent: 0 };
+    
+    opponentLive.isVsActive = true;
+    opponentLive.opponentId = hostLive._id;
+    opponentLive.vsStartTime = vsStartTime;
+    opponentLive.vsDuration = vsDuration;
+    opponentLive.vsScore = { host: 0, opponent: 0 };
+    
+    await hostLive.save();
+    await opponentLive.save();
+    
+    // Emit VS battle started to both rooms
+    const io = getIO();
+    if (io) {
+      const hostUser = await User.findById(hostLive.user).select("username name").lean();
+      const opponentUser = await User.findById(opponentLive.user).select("username name").lean();
+      
+      const battleData = {
+        vsStartTime: vsStartTime.toISOString(),
+        vsDuration,
+        hostLiveId: String(hostLive._id),
+        hostUsername: hostUser?.username || hostUser?.name || "Host",
+        opponentLiveId: String(opponentLive._id),
+        opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+      };
+      
+      io.to(`live:${hostLive._id}`).emit("vs_battle_started", {
+        ...battleData,
+        role: "host",
+      });
+      
+      io.to(`live:${opponentLive._id}`).emit("vs_battle_started", {
+        ...battleData,
+        role: "opponent",
+      });
+    }
+    
+    // Schedule automatic battle end
+    const endTime = vsStartTime.getTime() + (vsDuration * 1000);
+    const delay = endTime - Date.now();
+    
+    if (delay > 0) {
+      setTimeout(() => {
+        endVsBattleAutomatically(String(hostLive._id), String(opponentLive._id));
+      }, delay);
+    }
+    
+    res.json({
+      message: "Batalla VS iniciada",
+      vsStartTime,
+      vsDuration,
+      opponentLiveId: String(opponentLive._id),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Helper function to automatically end VS battle when time expires
+const endVsBattleAutomatically = async (hostLiveId, opponentLiveId) => {
+  try {
+    const hostLive = await Live.findById(hostLiveId);
+    const opponentLive = await Live.findById(opponentLiveId);
+    
+    if (!hostLive || !opponentLive) return;
+    if (!hostLive.isVsActive || !opponentLive.isVsActive) return;
+    
+    // Determine winner based on scores
+    const hostScore = hostLive.vsScore?.host || 0;
+    const opponentScore = hostLive.vsScore?.opponent || 0;
+    
+    let winner = "tie";
+    if (hostScore > opponentScore) {
+      winner = "host";
+    } else if (opponentScore > hostScore) {
+      winner = "opponent";
+    }
+    
+    // Reset VS battle state for both lives
+    hostLive.isVsActive = false;
+    hostLive.opponentId = undefined;
+    hostLive.vsStartTime = undefined;
+    hostLive.vsDuration = 0;
+    hostLive.vsScore = { host: 0, opponent: 0 };
+    
+    opponentLive.isVsActive = false;
+    opponentLive.opponentId = undefined;
+    opponentLive.vsStartTime = undefined;
+    opponentLive.vsDuration = 0;
+    opponentLive.vsScore = { host: 0, opponent: 0 };
+    
+    await hostLive.save();
+    await opponentLive.save();
+    
+    // Emit VS result to both rooms
+    const io = getIO();
+    if (io) {
+      const hostUser = await User.findById(hostLive.user).select("username name").lean();
+      const opponentUser = await User.findById(opponentLive.user).select("username name").lean();
+      
+      io.to(`live:${hostLiveId}`).emit("vs_result", {
+        winner,
+        hostScore,
+        opponentScore,
+        hostUsername: hostUser?.username || hostUser?.name || "Host",
+        opponentUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+      });
+      
+      io.to(`live:${opponentLiveId}`).emit("vs_result", {
+        winner: winner === "host" ? "opponent" : (winner === "opponent" ? "host" : "tie"),
+        hostScore: opponentScore,
+        opponentScore: hostScore,
+        hostUsername: opponentUser?.username || opponentUser?.name || "Oponente",
+        opponentUsername: hostUser?.username || hostUser?.name || "Host",
+      });
+    }
+  } catch (err) {
+    console.error("[VS Battle] Auto-end failed:", err);
+  }
+};
+
+module.exports = { startLive, endLive, getLives, getLiveById, joinLive, getMyLives, updateLiveSettings, getLiveGoal, setLiveGoal, getLiveBattle, startLiveBattle, endLiveBattle, triggerLiveEvent, stopLiveEvent, getActiveLiveEvent, requestJoinLive, approveGuest, declineGuest, leaveAsGuest, removeGuest, getGuests, startVsBattle };

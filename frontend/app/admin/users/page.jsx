@@ -105,7 +105,12 @@ function AdminUsersInner() {
   };
 
   const doHardDelete = async (userId, userInfo) => {
-    const confirmMsg = `Esto eliminará completamente el usuario "${userInfo}" y sus datos relacionados. No se puede deshacer.\n\n¿Continuar?`;
+    // Sanitize userInfo for display (truncate and remove potentially harmful characters)
+    const sanitizedInfo = String(userInfo || 'este usuario')
+      .replace(/[<>'"]/g, '') // Remove potentially harmful characters
+      .substring(0, 50); // Limit length
+    
+    const confirmMsg = `Esto eliminará completamente el usuario "${sanitizedInfo}" y sus datos relacionados. No se puede deshacer.\n\n¿Continuar?`;
     if (!confirm(confirmMsg)) return;
 
     setActionLoading(userId + "hard-delete");

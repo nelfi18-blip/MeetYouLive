@@ -7,23 +7,27 @@ const getVideos = async (req, res) => {
     // Only return public videos to unauthenticated callers.
     // Exclude videos from admin/moderator accounts
     const videos = await Video.find({ isPrivate: false })
-      .populate("user", "username name role")
+      .populate("user", "username name role") // Include role for filtering
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
     
-    // Filter out videos from admin/moderator users
-    const publicVideos = videos.filter(v => {
+    // Filter and clean in a single pass for better performance
+    const publicVideos = videos.reduce((acc, v) => {
       const userRole = v.user?.role;
-      return userRole !== "admin" && userRole !== "moderator";
-    }).map(v => {
-      // Remove role from user object before sending
+      // Skip admin/moderator videos
+      if (userRole === "admin" || userRole === "moderator") {
+        return acc;
+      }
+      // Remove role from user object before adding to results
       if (v.user) {
         const { role, ...userWithoutRole } = v.user;
-        return { ...v, user: userWithoutRole };
+        acc.push({ ...v, user: userWithoutRole });
+      } else {
+        acc.push(v);
       }
-      return v;
-    });
+      return acc;
+    }, []);
     
     res.json(publicVideos);
   } catch (err) {

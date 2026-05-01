@@ -228,8 +228,8 @@ router.delete("/lives/:id", async (req, res) => {
   }
 });
 
-// Hard delete user (test cleanup)
-router.delete("/users/:id/hard-delete", hardDeleteUser);
+// Hard delete user (test cleanup) - requires admin authentication
+router.delete("/users/:id/hard-delete", verifyToken, requireAdmin, hardDeleteUser);
 
 // ── Agency admin routes ─────────────────────────────────────────────────────
 

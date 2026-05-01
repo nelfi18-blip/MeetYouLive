@@ -1128,12 +1128,21 @@ exports.hardDeleteUser = async (req, res) => {
       // Payouts by user
       Payout.deleteMany({ userId: targetUserId }),
       
-      // Remove user from followers/following arrays
+      // Remove user from followers arrays and update counts
       User.updateMany(
         { followers: targetUserId },
-        { $pull: { followers: targetUserId }, $inc: { followersCount: -1 } }
-      ),
+        { 
+          $pull: { followers: targetUserId }
+        }
+      ).then(() => {
+        // After removing from arrays, recalculate follower counts for affected users
+        return User.updateMany(
+          { followers: { $exists: true } },
+          [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }]
+        );
+      }),
       
+      // Remove user from following arrays
       User.updateMany(
         { following: targetUserId },
         { $pull: { following: targetUserId } }

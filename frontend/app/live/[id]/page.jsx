@@ -23,6 +23,7 @@ import LivePressureHints from "@/components/LivePressureHints";
 import PaywallModal from "@/components/PaywallModal";
 import GiftOverlay from "@/components/GiftOverlay";
 import LiveEventFeed from "@/components/LiveEventFeed";
+import VsBattleOverlay from "@/components/VsBattleOverlay";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
@@ -164,6 +165,13 @@ export default function LiveRoomPage() {
   const boostPaywallTriggeredRef = useRef(false);
   // Tracks whether the current user is the creator of this live room (kept in sync via effect)
   const isCreatorRef = useRef(false);
+
+  // VS Battle state
+  const [vsBattleActive, setVsBattleActive] = useState(false);
+  const [vsBattleData, setVsBattleData] = useState(null);
+  const [vsHostScore, setVsHostScore] = useState(0);
+  const [vsOpponentScore, setVsOpponentScore] = useState(0);
+  const [vsResult, setVsResult] = useState(null);
 
   /** Recompute the top 3 fan userIds from the local coins map (highest spenders first). */
   const computeTopFans = (map) => {
@@ -698,6 +706,83 @@ export default function LiveRoomPage() {
       });
     };
 
+    // VS Battle event handlers
+    const onVsBattleStarted = (data) => {
+      const { vsStartTime, vsDuration, hostLiveId, hostUsername, opponentLiveId, opponentUsername, role } = data;
+      setVsBattleActive(true);
+      setVsBattleData({
+        vsStartTime,
+        vsDuration,
+        hostLiveId,
+        hostUsername,
+        opponentLiveId,
+        opponentUsername,
+        role,
+      });
+      setVsHostScore(0);
+      setVsOpponentScore(0);
+      setVsResult(null);
+      
+      // Add notification to chat
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgCounterRef.current,
+          user: "Sistema",
+          text: `🔥 ¡BATALLA VS iniciada! ${hostUsername} vs ${opponentUsername}`,
+          system: true,
+        },
+      ]);
+      
+      // Add to event feed
+      addEventFeedItem("vs_battle_started", {
+        hostUsername,
+        opponentUsername,
+      });
+    };
+
+    const onVsUpdate = ({ hostScore, opponentScore }) => {
+      setVsHostScore(hostScore || 0);
+      setVsOpponentScore(opponentScore || 0);
+    };
+
+    const onVsResult = (data) => {
+      const { winner, hostScore, opponentScore, hostUsername, opponentUsername } = data;
+      setVsResult({
+        winner,
+        hostScore,
+        opponentScore,
+        hostUsername,
+        opponentUsername,
+      });
+      
+      // Update final scores
+      setVsHostScore(hostScore || 0);
+      setVsOpponentScore(opponentScore || 0);
+      
+      // Add notification to chat
+      const resultMsg = winner === "tie" 
+        ? `🤝 ¡Batalla VS terminada en empate! ${hostScore} - ${opponentScore}`
+        : `🏆 ¡${winner === "host" ? hostUsername : opponentUsername} ganó la batalla VS! ${hostScore} - ${opponentScore}`;
+      
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgCounterRef.current,
+          user: "Sistema",
+          text: resultMsg,
+          system: true,
+        },
+      ]);
+      
+      // End battle after showing result for 5 seconds
+      setTimeout(() => {
+        setVsBattleActive(false);
+        setVsBattleData(null);
+        setVsResult(null);
+      }, 5000);
+    };
+
     socket.on("LIVE_CHAT_MESSAGE", onChatMessage);
     socket.on("VIEWER_COUNT_UPDATE", onViewerCountUpdate);
     socket.on("LIVE_GIFT_SENT", onLiveGiftSent);
@@ -710,6 +795,9 @@ export default function LiveRoomPage() {
     socket.on("LIVE_EVENT_ENDED", onLiveEventEnded);
     socket.on("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
     socket.on("GIFT_COMBO", onGiftCombo);
+    socket.on("vs_battle_started", onVsBattleStarted);
+    socket.on("vs_update", onVsUpdate);
+    socket.on("vs_result", onVsResult);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -725,6 +813,9 @@ export default function LiveRoomPage() {
       socket.off("LIVE_EVENT_ENDED", onLiveEventEnded);
       socket.off("TOP_SUPPORTER_UPDATE", onTopSupporterUpdate);
       socket.off("GIFT_COMBO", onGiftCombo);
+      socket.off("vs_battle_started", onVsBattleStarted);
+      socket.off("vs_update", onVsUpdate);
+      socket.off("vs_result", onVsResult);
       socket.emit("leave_live_room", { liveId: id });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1547,6 +1638,20 @@ export default function LiveRoomPage() {
 
             {/* Live event feed - top supporter, combo streaks, super gifts */}
             <LiveEventFeed events={eventFeedItems} />
+
+            {/* VS Battle Overlay */}
+            {vsBattleActive && vsBattleData && (
+              <VsBattleOverlay
+                battleData={vsBattleData}
+                isActive={vsBattleActive}
+                hostScore={vsHostScore}
+                opponentScore={vsOpponentScore}
+                hostUsername={vsBattleData.hostUsername}
+                opponentUsername={vsBattleData.opponentUsername}
+                hostLiveId={vsBattleData.hostLiveId}
+                opponentLiveId={vsBattleData.opponentLiveId}
+              />
+            )}
 
             {/* Live activity overlay — floating event feed on video */}
             <LiveFeedOverlay events={overlayEvents} />

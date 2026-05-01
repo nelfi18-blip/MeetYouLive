@@ -7,6 +7,12 @@ const Gift = require("../models/Gift.js");
 const Payout = require("../models/Payout.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const AnalyticsEvent = require("../models/AnalyticsEvent.js");
+const Message = require("../models/Message.js");
+const Chat = require("../models/Chat.js");
+const Video = require("../models/Video.js");
+const Notification = require("../models/Notification.js");
+const Like = require("../models/Like.js");
+const Purchase = require("../models/Purchase.js");
 const mongoose = require("mongoose");
 
 const PLATFORM_EARNINGS_RATE = 0.4;
@@ -998,5 +1004,169 @@ exports.getMetricsOverview = async (req, res) => {
   } catch (error) {
     console.error("Admin metrics overview error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo métricas" });
+  }
+};
+
+/**
+ * Hard delete a user and all their related data (test cleanup only)
+ * DELETE /api/admin/users/:id/hard-delete
+ * 
+ * Safety rules:
+ * - Admin cannot delete themselves
+ * - Cannot delete the last remaining admin
+ * - Prefer not deleting admin/moderator accounts unless explicitly needed
+ */
+exports.hardDeleteUser = async (req, res) => {
+  const { id: targetUserId } = req.params;
+  
+  try {
+    // Validate target user ID
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ 
+        ok: false, 
+        message: "ID de usuario no válido" 
+      });
+    }
+
+    // Rule 1: Admin cannot delete themselves
+    if (String(targetUserId) === String(req.userId)) {
+      return res.status(400).json({ 
+        ok: false, 
+        message: "No puedes eliminar tu propia cuenta de administrador" 
+      });
+    }
+
+    // Fetch target user
+    const targetUser = await User.findById(targetUserId).select("role username name email");
+    if (!targetUser) {
+      return res.status(404).json({ 
+        ok: false, 
+        message: "Usuario no encontrado" 
+      });
+    }
+
+    // Rule 3: Check if deleting last admin
+    if (targetUser.role === "admin") {
+      const adminCount = await User.countDocuments({ role: "admin" });
+      if (adminCount <= 1) {
+        return res.status(400).json({ 
+          ok: false, 
+          message: "No se puede eliminar al último administrador del sistema" 
+        });
+      }
+    }
+
+    // Rule 4: Warn if trying to delete admin/moderator (but allow if not the last)
+    if (targetUser.role === "admin" || targetUser.role === "moderator") {
+      console.warn(`Admin ${req.userId} is deleting ${targetUser.role} account ${targetUserId}`);
+    }
+
+    // Delete related data
+    // Use Promise.allSettled to continue even if some deletions fail
+    const cleanupResults = await Promise.allSettled([
+      // Messages involving user (both sent and in chats they're part of)
+      Message.deleteMany({ 
+        $or: [
+          { sender: targetUserId },
+          { receiver: targetUserId }
+        ]
+      }),
+      
+      // Chats involving user
+      Chat.deleteMany({ participants: targetUserId }),
+      
+      // Lives by user
+      Live.deleteMany({ user: targetUserId }),
+      
+      // Videos by user
+      Video.deleteMany({ user: targetUserId }),
+      
+      // Gifts sent by user
+      Gift.deleteMany({ sender: targetUserId }),
+      
+      // Gifts received by user
+      Gift.deleteMany({ receiver: targetUserId }),
+      
+      // Coin transactions by user
+      CoinTransaction.deleteMany({ userId: targetUserId }),
+      
+      // Reports by user
+      Report.deleteMany({ reporter: targetUserId }),
+      
+      // Reports about user
+      Report.deleteMany({ reportedUserId: targetUserId }),
+      
+      // Subscriptions by user
+      Subscription.deleteMany({ userId: targetUserId }),
+      
+      // Purchases by user
+      Purchase.deleteMany({ userId: targetUserId }),
+      
+      // Notifications to/from user
+      Notification.deleteMany({ 
+        $or: [
+          { userId: targetUserId },
+          { "data.fromUserId": targetUserId }
+        ]
+      }),
+      
+      // Likes from user
+      Like.deleteMany({ from: targetUserId }),
+      
+      // Likes to user
+      Like.deleteMany({ to: targetUserId }),
+      
+      // Agency relationships where user is parent
+      AgencyRelationship.deleteMany({ parentCreator: targetUserId }),
+      
+      // Agency relationships where user is sub-creator
+      AgencyRelationship.deleteMany({ subCreator: targetUserId }),
+      
+      // Analytics events by user
+      AnalyticsEvent.deleteMany({ userId: targetUserId }),
+      
+      // Payouts by user
+      Payout.deleteMany({ userId: targetUserId }),
+      
+      // Remove user from followers/following arrays
+      User.updateMany(
+        { followers: targetUserId },
+        { $pull: { followers: targetUserId }, $inc: { followersCount: -1 } }
+      ),
+      
+      User.updateMany(
+        { following: targetUserId },
+        { $pull: { following: targetUserId } }
+      ),
+    ]);
+
+    // Log any cleanup failures (but don't stop the deletion)
+    cleanupResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.error(`Cleanup step ${index} failed:`, result.reason);
+      }
+    });
+
+    // Finally, delete the user document
+    await User.findByIdAndDelete(targetUserId);
+
+    return res.json({ 
+      ok: true, 
+      message: `Usuario ${targetUser.username || targetUser.email} eliminado completamente`,
+      deletedUser: {
+        id: targetUserId,
+        username: targetUser.username,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role
+      }
+    });
+
+  } catch (error) {
+    console.error("Hard delete user error:", error);
+    return res.status(500).json({ 
+      ok: false, 
+      message: "Error al eliminar usuario: " + error.message 
+    });
   }
 };

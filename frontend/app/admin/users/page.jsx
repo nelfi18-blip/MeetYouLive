@@ -104,6 +104,30 @@ function AdminUsersInner() {
     }
   };
 
+  const doHardDelete = async (userId, userInfo) => {
+    const confirmMsg = `Esto eliminará completamente el usuario "${userInfo}" y sus datos relacionados. No se puede deshacer.\n\n¿Continuar?`;
+    if (!confirm(confirmMsg)) return;
+
+    setActionLoading(userId + "hard-delete");
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}/hard-delete`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { 
+        showMsg("error", d.message || "Error al eliminar usuario."); 
+        return; 
+      }
+      showMsg("success", "Usuario eliminado completamente.");
+      await loadUsers(page);
+    } catch {
+      showMsg("error", "Error de conexión.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const totalPages = Math.ceil(total / 50);
 
   return (
@@ -246,6 +270,14 @@ function AdminUsersInner() {
                               {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
                             </button>
                           )}
+                          <button
+                            className="btn-action btn-danger"
+                            onClick={() => doHardDelete(u._id, u.username || u.email)}
+                            disabled={!!actionLoading}
+                            title="Eliminar usuario permanentemente (no se puede deshacer)"
+                          >
+                            {actionLoading === u._id + "hard-delete" ? "…" : "🗑️ Eliminar prueba"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -475,6 +507,9 @@ function AdminUsersInner() {
 
         .btn-yellow { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251, 191, 36, 0.18); }
+
+        .btn-danger { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3); color: #ef4444; }
+        .btn-danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.2); }
 
         .pagination {
           display: flex;

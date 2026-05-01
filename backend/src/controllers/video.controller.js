@@ -5,11 +5,27 @@ const User = require("../models/User.js");
 const getVideos = async (req, res) => {
   try {
     // Only return public videos to unauthenticated callers.
+    // Exclude videos from admin/moderator accounts
     const videos = await Video.find({ isPrivate: false })
-      .populate("user", "username name")
+      .populate("user", "username name role")
       .sort({ createdAt: -1 })
-      .limit(100);
-    res.json(videos);
+      .limit(100)
+      .lean();
+    
+    // Filter out videos from admin/moderator users
+    const publicVideos = videos.filter(v => {
+      const userRole = v.user?.role;
+      return userRole !== "admin" && userRole !== "moderator";
+    }).map(v => {
+      // Remove role from user object before sending
+      if (v.user) {
+        const { role, ...userWithoutRole } = v.user;
+        return { ...v, user: userWithoutRole };
+      }
+      return v;
+    });
+    
+    res.json(publicVideos);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

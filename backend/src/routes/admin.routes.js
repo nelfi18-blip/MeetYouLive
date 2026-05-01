@@ -35,6 +35,7 @@ const {
   getSettings,
   updateSettings,
   getMetricsOverview,
+  hardDeleteUser,
 } = require("../controllers/admin.controller.js");
 
 const router = Router();
@@ -226,6 +227,9 @@ router.delete("/lives/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+// Hard delete user (test cleanup)
+router.delete("/users/:id/hard-delete", hardDeleteUser);
 
 // ── Agency admin routes ─────────────────────────────────────────────────────
 

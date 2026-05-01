@@ -727,7 +727,7 @@ export default function LiveRoomPage() {
       setChatMessages((prev) => [
         ...prev,
         {
-          id: ++msgCounterRef.current,
+          id: msgCounterRef.current++,
           user: "Sistema",
           text: `🔥 ¡BATALLA VS iniciada! ${hostUsername} vs ${opponentUsername}`,
           system: true,
@@ -768,7 +768,7 @@ export default function LiveRoomPage() {
       setChatMessages((prev) => [
         ...prev,
         {
-          id: ++msgCounterRef.current,
+          id: msgCounterRef.current++,
           user: "Sistema",
           text: resultMsg,
           system: true,
@@ -1650,6 +1650,7 @@ export default function LiveRoomPage() {
                 opponentUsername={vsBattleData.opponentUsername}
                 hostLiveId={vsBattleData.hostLiveId}
                 opponentLiveId={vsBattleData.opponentLiveId}
+                result={vsResult}
               />
             )}
 

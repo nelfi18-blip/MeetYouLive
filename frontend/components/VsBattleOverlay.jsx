@@ -24,19 +24,19 @@ export default function VsBattleOverlay({
   hostLiveId = null,
   opponentLiveId = null,
   onBattleEnd = null,
+  result = null,
 }) {
   const [timeLeft, setTimeLeft] = useState(0);
   const [displayHostScore, setDisplayHostScore] = useState(hostScore);
   const [displayOpponentScore, setDisplayOpponentScore] = useState(opponentScore);
   const [scoreChangeHost, setScoreChangeHost] = useState(0);
   const [scoreChangeOpponent, setScoreChangeOpponent] = useState(0);
-  const [showResult, setShowResult] = useState(false);
-  const [winner, setWinner] = useState(null);
   
   const prevHostScoreRef = useRef(hostScore);
   const prevOpponentScoreRef = useRef(opponentScore);
   const timerIntervalRef = useRef(null);
-  const scoreAnimTimeoutRef = useRef(null);
+  const scoreAnimTimeoutHostRef = useRef(null);
+  const scoreAnimTimeoutOpponentRef = useRef(null);
 
   // Initialize timer
   useEffect(() => {
@@ -73,8 +73,8 @@ export default function VsBattleOverlay({
       const change = hostScore - prevHostScoreRef.current;
       if (change > 0) {
         setScoreChangeHost(change);
-        if (scoreAnimTimeoutRef.current) clearTimeout(scoreAnimTimeoutRef.current);
-        scoreAnimTimeoutRef.current = setTimeout(() => {
+        if (scoreAnimTimeoutHostRef.current) clearTimeout(scoreAnimTimeoutHostRef.current);
+        scoreAnimTimeoutHostRef.current = setTimeout(() => {
           setScoreChangeHost(0);
         }, 1500);
       }
@@ -88,8 +88,8 @@ export default function VsBattleOverlay({
       const change = opponentScore - prevOpponentScoreRef.current;
       if (change > 0) {
         setScoreChangeOpponent(change);
-        if (scoreAnimTimeoutRef.current) clearTimeout(scoreAnimTimeoutRef.current);
-        scoreAnimTimeoutRef.current = setTimeout(() => {
+        if (scoreAnimTimeoutOpponentRef.current) clearTimeout(scoreAnimTimeoutOpponentRef.current);
+        scoreAnimTimeoutOpponentRef.current = setTimeout(() => {
           setScoreChangeOpponent(0);
         }, 1500);
       }
@@ -114,6 +114,10 @@ export default function VsBattleOverlay({
   const isHostLeading = displayHostScore > displayOpponentScore;
   const isOpponentLeading = displayOpponentScore > displayHostScore;
   const isTied = displayHostScore === displayOpponentScore;
+
+  // Show result modal from parent result prop
+  const showResult = result !== null;
+  const winner = result?.winner || null;
 
   if (!isActive && !showResult) return null;
 

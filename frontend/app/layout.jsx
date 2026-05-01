@@ -34,9 +34,10 @@ export const metadata = {
     siteName: "MeetYouLive",
     images: [
       {
-        url: "/icon-512.png",
-        width: 512,
-        height: 512,
+        url: "/og-image.png",
+        width: 1200,
+        height: 835,
+        alt: "MeetYouLive - Conecta en vivo",
       },
     ],
     locale: "es_US",

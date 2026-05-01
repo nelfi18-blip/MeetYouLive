@@ -1062,7 +1062,8 @@ exports.hardDeleteUser = async (req, res) => {
     }
 
     // Delete related data
-    // Use Promise.allSettled to continue even if some deletions fail
+    // Use Promise.allSettled to continue even if some deletions fail (critical safety feature)
+    // This ensures the user is deleted even if some related collections have issues
     const cleanupResults = await Promise.allSettled([
       // Messages involving user (both sent and in chats they're part of)
       Message.deleteMany({ 
@@ -1127,27 +1128,31 @@ exports.hardDeleteUser = async (req, res) => {
       
       // Payouts by user
       Payout.deleteMany({ userId: targetUserId }),
-      
-      // Remove user from followers arrays and update counts
-      User.updateMany(
-        { followers: targetUserId },
-        { 
-          $pull: { followers: targetUserId }
-        }
-      ).then(() => {
-        // After removing from arrays, recalculate follower counts for affected users
-        return User.updateMany(
-          { followers: { $exists: true } },
-          [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }]
-        );
-      }),
-      
-      // Remove user from following arrays
-      User.updateMany(
-        { following: targetUserId },
-        { $pull: { following: targetUserId } }
-      ),
     ]);
+
+    // Remove user from followers arrays and recalculate counts for affected users only
+    // This is done separately to ensure we only update counts for users who were actually affected
+    const affectedFollowers = await User.find({ followers: targetUserId }).select("_id").lean();
+    const affectedFollowerIds = affectedFollowers.map(u => u._id);
+    
+    if (affectedFollowerIds.length > 0) {
+      await User.updateMany(
+        { _id: { $in: affectedFollowerIds } },
+        { $pull: { followers: targetUserId } }
+      );
+      
+      // Recalculate follower counts only for affected users
+      await User.updateMany(
+        { _id: { $in: affectedFollowerIds } },
+        [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }]
+      );
+    }
+    
+    // Remove user from following arrays (no count field to update)
+    await User.updateMany(
+      { following: targetUserId },
+      { $pull: { following: targetUserId } }
+    );
 
     // Log any cleanup failures (but don't stop the deletion)
     cleanupResults.forEach((result, index) => {

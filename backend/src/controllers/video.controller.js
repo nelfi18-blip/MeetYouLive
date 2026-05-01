@@ -10,7 +10,7 @@ const getVideos = async (req, res) => {
       .populate("user", "username name role") // Include role for filtering
       .sort({ createdAt: -1 })
       .limit(100)
-      .lean();
+      .lean(); // lean() gives plain JS objects, safe to mutate
     
     // Filter and clean in a single pass for better performance
     const publicVideos = videos.reduce((acc, v) => {
@@ -19,13 +19,11 @@ const getVideos = async (req, res) => {
       if (userRole === "admin" || userRole === "moderator") {
         return acc;
       }
-      // Remove role from user object before adding to results
+      // Remove role from user object (safe to mutate since using .lean())
       if (v.user) {
-        const { role, ...userWithoutRole } = v.user;
-        acc.push({ ...v, user: userWithoutRole });
-      } else {
-        acc.push(v);
+        delete v.user.role;
       }
+      acc.push(v);
       return acc;
     }, []);
     

@@ -109,11 +109,52 @@ When a battle is started, a timer is automatically scheduled to end the battle w
 - VS battle state is automatically cleared when the battle ends
 - If either live ends before the battle timer expires, the battle continues in the other live room (but scoring stops)
 
+## Frontend Implementation
+
+### VsBattleOverlay Component (`frontend/components/VsBattleOverlay.jsx`)
+A real-time battle UI overlay that displays the VS battle between two creators.
+
+**Features:**
+- **Split-screen layout**: Visual representation of host vs opponent
+- **Timer countdown**: Real-time countdown display (MM:SS format)
+- **Score progress bar**: Animated horizontal bar showing relative scores
+- **Glowing VS text**: Center VS text with dynamic glow effects based on leader
+- **Score change animations**: Pop-up "+N" animations when scores increase
+- **Leader highlight**: Crown icon and glow effect for the leading creator
+- **Result modal**: Full-screen result display with winner announcement
+
+**Props:**
+- `battleData`: Object containing vsStartTime, vsDuration, hostUsername, opponentUsername, etc.
+- `isActive`: Boolean indicating if battle is currently active
+- `hostScore`: Current host score
+- `opponentScore`: Current opponent score
+- `hostUsername`: Host creator's username
+- `opponentUsername`: Opponent creator's username
+- `hostLiveId`: Host live room ID
+- `opponentLiveId`: Opponent live room ID
+
+**Socket Event Integration** (`frontend/app/live/[id]/page.jsx`):
+1. **vs_battle_started**: Initializes battle state, displays notification in chat
+2. **vs_update**: Updates scores in real-time, triggers score change animations
+3. **vs_result**: Shows final result modal for 5 seconds, then clears battle state
+
+**Animations:**
+- Score bar: Smooth width transitions with cubic-bezier easing
+- Score changes: Pop-up animation (+N) fades out after 1.5s
+- Leader glow: Pulsing glow effect on score bar and creator name
+- VS text: Continuous glow animation, changes color based on leader
+- Result modal: Slide-up animation with icon pop effect
+
+**Mobile Responsive:**
+- Scaled down text sizes
+- Adjusted spacing and padding
+- Maintains readability on small screens
+
 ## Future Enhancements
 
 Potential improvements for future versions:
 - Add a VS battle acceptance flow (require opponent approval)
-- Display live VS battle UI in the frontend
+- ~~Display live VS battle UI in the frontend~~ ✅ Implemented
 - Add VS battle history and leaderboards
 - Allow viewers to switch between both live rooms during battle
 - Add notifications when a VS battle is started or ends

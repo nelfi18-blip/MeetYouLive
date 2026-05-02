@@ -116,7 +116,8 @@ export default function ExplorePage() {
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const newUsers = data.users || [];
+      const newUsers = (data.users || [])
+        .filter(u => u && u.role !== "admin" && u.role !== "moderator"); // Defensive filter
       setUsers((prev) => (page === 1 ? newUsers : [...prev, ...newUsers]));
       setHasMore(newUsers.length === USERS_PER_PAGE);
     } catch {

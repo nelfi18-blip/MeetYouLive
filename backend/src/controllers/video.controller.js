@@ -5,11 +5,29 @@ const User = require("../models/User.js");
 const getVideos = async (req, res) => {
   try {
     // Only return public videos to unauthenticated callers.
+    // Exclude videos from admin/moderator accounts
     const videos = await Video.find({ isPrivate: false })
-      .populate("user", "username name")
+      .populate("user", "username name role") // Include role for filtering
       .sort({ createdAt: -1 })
-      .limit(100);
-    res.json(videos);
+      .limit(100)
+      .lean(); // lean() gives plain JS objects, safe to mutate
+    
+    // Filter and clean in a single pass for better performance
+    const publicVideos = videos.reduce((acc, v) => {
+      const userRole = v.user?.role;
+      // Skip admin/moderator videos
+      if (userRole === "admin" || userRole === "moderator") {
+        return acc;
+      }
+      // Remove role from user object (safe to mutate since using .lean())
+      if (v.user) {
+        delete v.user.role;
+      }
+      acc.push(v);
+      return acc;
+    }, []);
+    
+    res.json(publicVideos);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

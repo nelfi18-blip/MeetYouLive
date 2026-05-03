@@ -2,6 +2,7 @@ const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin, requireModeratorOrAdmin } = require("../middlewares/admin.middleware.js");
+const { logStaffAction } = require("../services/audit.service.js");
 const Report = require("../models/Report.js");
 const User = require("../models/User.js");
 
@@ -52,6 +53,18 @@ router.patch("/reports/:id", moderationLimiter, verifyToken, requireModeratorOrA
   try {
     const report = await Report.findByIdAndUpdate(req.params.id, { status }, { new: true });
     if (!report) return res.status(404).json({ message: "Reporte no encontrado" });
+    
+    // Log the report status update
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole,
+      action: "update_report_status",
+      targetType: "Report",
+      targetId: req.params.id,
+      details: { newStatus: status, reportType: report.targetType },
+      ipAddress: req.ip,
+    });
+    
     res.json(report);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -76,6 +89,19 @@ router.patch("/users/:id/suspend", moderationLimiter, verifyToken, requireModera
     // Update the same document instance
     targetUser.isSuspended = isSuspended;
     await targetUser.save();
+    
+    // Log the suspension action
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole,
+      action: isSuspended ? "suspend_user" : "unsuspend_user",
+      targetType: "User",
+      targetId: req.params.id,
+      targetIdentifier: targetUser.username || targetUser.email,
+      details: { isSuspended, targetRole: targetUser.role },
+      ipAddress: req.ip,
+    });
+    
     res.json({
       _id: targetUser._id,
       username: targetUser.username,
@@ -105,6 +131,19 @@ router.patch("/users/:id/block", moderationLimiter, verifyToken, requireModerato
     // Update the same document instance
     targetUser.isBlocked = isBlocked;
     await targetUser.save();
+    
+    // Log the block action
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole,
+      action: isBlocked ? "block_user" : "unblock_user",
+      targetType: "User",
+      targetId: req.params.id,
+      targetIdentifier: targetUser.username || targetUser.email,
+      details: { isBlocked, targetRole: targetUser.role },
+      ipAddress: req.ip,
+    });
+    
     res.json({
       _id: targetUser._id,
       username: targetUser.username,

@@ -8,14 +8,14 @@ import { clearAdminToken } from "@/lib/token";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
-  { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator"] },
-  { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin"] },
+  { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator", "support"] },
+  { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin", "creator_manager"] },
   { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
   { href: "/admin/lives", label: "Streams", icon: "📡", roles: ["admin", "moderator"] },
-  { href: "/admin/payouts", label: "Retiros", icon: "💸", roles: ["admin"] },
+  { href: "/admin/payouts", label: "Retiros", icon: "💸", roles: ["admin", "finance"] },
   { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
-  { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin"] },
-  { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator"] },
+  { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
+  { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
   { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
   { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
 ];
@@ -116,7 +116,14 @@ export default function AdminLayout({ children }) {
               <div className="admin-meta">
                 <div className="admin-name">{adminUser.name || adminUser.username}</div>
                 {/* Note: Admin panel uses hardcoded labels as it's separate from main app i18n */}
-                <div className="admin-role">{userRole === "moderator" ? "Moderador" : "Administrador"}</div>
+                <div className="admin-role">
+                  {userRole === "moderator" && "Moderador"}
+                  {userRole === "admin" && "Administrador"}
+                  {userRole === "support" && "Soporte"}
+                  {userRole === "creator_manager" && "Gestor de Creadores"}
+                  {userRole === "finance" && "Finanzas"}
+                  {userRole === "content_reviewer" && "Revisor de Contenido"}
+                </div>
               </div>
             </div>
           )}

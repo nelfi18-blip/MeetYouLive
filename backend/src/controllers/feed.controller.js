@@ -60,7 +60,9 @@ const getFeed = async (req, res) => {
     // ⭐ Featured creators - use query to filter directly
     const featuredCreators = await User.find({
       role: { $in: ["creator", "subCreator"] },
-      creatorStatus: "approved"
+      creatorStatus: "approved",
+      isBlocked: false,
+      isSuspended: false
     })
       .sort({ earningsCoins: -1 })
       .limit(12)

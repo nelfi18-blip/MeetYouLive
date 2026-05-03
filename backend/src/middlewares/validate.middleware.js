@@ -45,13 +45,7 @@ const payoutRequestSchema = z.object({
       errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: zelle, paypal, bank, stripe, other" }),
     })
     .default("stripe"),
-  paymentDetails: z
-    .string({ invalid_type_error: "paymentDetails debe ser texto" })
-    .optional()
-    .refine(
-      (val) => !val || val.length >= 5,
-      { message: "paymentDetails debe tener al menos 5 caracteres si se proporciona" }
-    ),
+  paymentDetails: z.string().optional().or(z.string().min(5, "paymentDetails debe tener al menos 5 caracteres")),
 });
 
 const registerSchema = z.object({

@@ -16,7 +16,7 @@ export default function CreatorEarningsDashboard() {
   const [payoutHistory, setPayoutHistory] = useState([]);
   const [showPayoutForm, setShowPayoutForm] = useState(false);
   const [payoutFormData, setPayoutFormData] = useState({
-    method: "paypal",
+    method: "stripe",
     paymentDetails: "",
   });
   const [payoutLoading, setPayoutLoading] = useState(false);
@@ -90,7 +90,7 @@ export default function CreatorEarningsDashboard() {
 
       setPayoutMessage({ type: "success", text: data.message });
       setShowPayoutForm(false);
-      setPayoutFormData({ method: "paypal", paymentDetails: "" });
+      setPayoutFormData({ method: "stripe", paymentDetails: "" });
       
       // Refresh dashboard and payout history
       await Promise.all([fetchDashboardData(), fetchPayoutHistory()]);
@@ -151,7 +151,7 @@ export default function CreatorEarningsDashboard() {
     agencyMetrics = null,
     totalLives = 0,
     earningsCoins = 0,
-  } = dashboardData;
+  } = dashboardData || {};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white py-8 px-4">

@@ -29,6 +29,11 @@ function StatusBadge({ status }) {
   );
 }
 
+function truncateText(text, maxLength = 30) {
+  if (!text) return "";
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+}
+
 function AdminPayoutsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -221,7 +226,7 @@ function AdminPayoutsContent() {
                     <td className="details-cell">
                       {p.paymentDetails && (
                         <div className="payment-details" title={p.paymentDetails}>
-                          {p.paymentDetails.length > 30 ? `${p.paymentDetails.substring(0, 30)}...` : p.paymentDetails}
+                          {truncateText(p.paymentDetails)}
                         </div>
                       )}
                       {p.rejectionReason && (
@@ -231,7 +236,7 @@ function AdminPayoutsContent() {
                       )}
                       {p.notes && (
                         <div className="notes-text" title={p.notes}>
-                          {p.notes.length > 30 ? `${p.notes.substring(0, 30)}...` : p.notes}
+                          {truncateText(p.notes)}
                         </div>
                       )}
                       {!p.paymentDetails && !p.rejectionReason && !p.notes && <span className="no-notes">—</span>}

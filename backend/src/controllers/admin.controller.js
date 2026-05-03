@@ -1203,12 +1203,8 @@ exports.getPayouts = async (req, res) => {
     const ALLOWED_STATUSES = ["pending", "approved", "rejected", "paid"];
     const filter = {};
     
-    if (status) {
-      // Only use status if it's in the whitelist
-      const sanitizedStatus = ALLOWED_STATUSES.find(s => s === status);
-      if (sanitizedStatus) {
-        filter.status = sanitizedStatus;
-      }
+    if (status && ALLOWED_STATUSES.includes(status)) {
+      filter.status = status;
     }
 
     const [payouts, total] = await Promise.all([

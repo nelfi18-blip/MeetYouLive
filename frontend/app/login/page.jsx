@@ -88,13 +88,13 @@ function LoginForm() {
     if (localToken) {
       // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
       setToken(localToken);
-      router.replace("/dashboard");
+      router.replace("/");
       return;
     }
 
     // Keep the loading screen visible while the NextAuth session is being
     // read. This prevents Google OAuth users from briefly seeing the login
-    // form (and thinking login failed) before the redirect to /dashboard fires.
+    // form (and thinking login failed) before the redirect to home fires.
     if (status === "loading") return;
 
     if (status === "authenticated") {
@@ -103,9 +103,9 @@ function LoginForm() {
         // navigation has already started.
         timeoutIdsRef.current.forEach(clearTimeout);
         timeoutIdsRef.current = [];
-        console.log("[login] session.backendToken available – saving token and redirecting to /dashboard");
+        console.log("[login] session.backendToken available – saving token and redirecting to home");
         setToken(session.backendToken);
-        router.replace("/dashboard");
+        router.replace("/");
         return;
       }
 
@@ -135,7 +135,7 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to /dashboard`);
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to home`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];
@@ -144,7 +144,7 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/dashboard");
+                router.replace("/");
                 return;
               }
 
@@ -400,7 +400,7 @@ function LoginForm() {
 
       if (data.token) {
         setToken(data.token);
-        router.replace("/dashboard");
+        router.replace("/");
         return;
       }
 

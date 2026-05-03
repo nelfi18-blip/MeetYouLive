@@ -15,6 +15,7 @@ const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
+const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const mongoose = require("mongoose");
 
 const PLATFORM_EARNINGS_RATE = 0.4;
@@ -54,6 +55,11 @@ const MAX_REVIEW_NOTE_LENGTH = 300;
 
 exports.getOverview = async (req, res) => {
   try {
+    // Cleanup stale lives first (fire-and-forget)
+    cleanupStaleLives().catch((err) => {
+      console.error("Background stale live cleanup failed:", err);
+    });
+
     const now = new Date();
     const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
@@ -64,7 +70,7 @@ exports.getOverview = async (req, res) => {
       totalCreators,
       pendingCreators,
       suspendedCreators,
-      activeLives,
+      activeLivesMarkedActive,
       totalLives,
       openReports,
       subscriptions,
@@ -81,7 +87,7 @@ exports.getOverview = async (req, res) => {
       User.countDocuments({ role: "creator", creatorStatus: "approved" }),
       User.countDocuments({ creatorStatus: "pending" }),
       User.countDocuments({ creatorStatus: "suspended" }),
-      Live.countDocuments({ isLive: true }),
+      Live.find({ isLive: true }).select("createdAt isLive endedAt").lean(),
       Live.countDocuments(),
       Report.countDocuments({ status: "pending" }),
       Subscription.countDocuments({ status: "active" }),
@@ -103,6 +109,9 @@ exports.getOverview = async (req, res) => {
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
     ]);
+
+    // Filter to count only truly active lives (not stale/ghost)
+    const activeLives = activeLivesMarkedActive.filter(live => isLiveActuallyActive(live)).length;
 
     const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
     const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;
@@ -495,11 +504,21 @@ exports.verifyUser = async (req, res) => {
 
 exports.getActiveLives = async (req, res) => {
   try {
+    // First, cleanup any stale lives (runs in background)
+    cleanupStaleLives().catch((err) => {
+      console.error("Background stale live cleanup failed:", err);
+    });
+
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar role")
       .sort({ createdAt: -1 })
-      .limit(100);
-    return res.json({ ok: true, lives });
+      .limit(100)
+      .lean();
+    
+    // Filter out stale/ghost lives that exceed max duration
+    const activeLives = lives.filter(live => isLiveActuallyActive(live));
+    
+    return res.json({ ok: true, lives: activeLives });
   } catch (error) {
     console.error("Admin active lives error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo streams activos" });

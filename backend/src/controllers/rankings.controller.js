@@ -4,6 +4,7 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const { hasLiveHost } = require("../lib/socket.js");
 const { computeCreatorProgress } = require("../utils/creatorProgress");
+const { isLiveActuallyActive } = require("../services/live.service.js");
 
 const getTodayStart = () => {
   const d = new Date();
@@ -237,7 +238,8 @@ const getFeaturedCreators = async (req, res) => {
     ]);
 
     const liveNow = (Array.isArray(liveNowRaw) ? liveNowRaw : [])
-      .filter((live) => live && live._id && hasLiveHost(String(live._id)));
+      .filter((live) => live && live._id && hasLiveHost(String(live._id)))
+      .filter((live) => isLiveActuallyActive(live));
 
     res.json({ liveNow, topToday, topWeek });
   } catch (err) {

@@ -104,11 +104,12 @@ function AdminPayoutsContent() {
 
   const handleRejectConfirm = useCallback(async () => {
     if (!rejectModal) return;
-    if (!rejectNotes.trim() || rejectNotes.trim().length < 5) {
+    const trimmedReason = rejectNotes.trim();
+    if (!trimmedReason || trimmedReason.length < 5) {
       setActionError("La razón de rechazo debe tener al menos 5 caracteres");
       return;
     }
-    await updateStatus(rejectModal.id, "reject", rejectNotes.trim());
+    await updateStatus(rejectModal.id, "reject", trimmedReason);
     setRejectModal(null);
     setRejectNotes("");
   }, [rejectModal, rejectNotes, updateStatus]);

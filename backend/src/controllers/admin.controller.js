@@ -1199,9 +1199,16 @@ exports.getPayouts = async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
+    // Whitelist allowed statuses to prevent injection
+    const ALLOWED_STATUSES = ["pending", "approved", "rejected", "paid"];
     const filter = {};
-    if (status && ["pending", "approved", "rejected", "paid"].includes(status)) {
-      filter.status = status;
+    
+    if (status) {
+      // Only use status if it's in the whitelist
+      const sanitizedStatus = ALLOWED_STATUSES.find(s => s === status);
+      if (sanitizedStatus) {
+        filter.status = sanitizedStatus;
+      }
     }
 
     const [payouts, total] = await Promise.all([
@@ -1238,7 +1245,7 @@ exports.updatePayout = async (req, res) => {
   try {
     const { id } = req.params;
     const { action, rejectionReason, notes } = req.body;
-    const adminId = req.userId || req.user?.id;
+    const adminId = req.userId;
 
     if (!["approve", "reject", "mark_paid"].includes(action)) {
       return res.status(400).json({

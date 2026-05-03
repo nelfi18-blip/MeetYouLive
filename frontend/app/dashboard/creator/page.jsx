@@ -253,14 +253,13 @@ export default function CreatorEarningsDashboard() {
                   <textarea
                     value={payoutFormData.paymentDetails}
                     onChange={(e) => setPayoutFormData({ ...payoutFormData, paymentDetails: e.target.value })}
-                    placeholder="Proporciona los detalles necesarios para procesar tu pago"
+                    placeholder="Proporciona los detalles necesarios para procesar tu pago (opcional)"
                     className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none resize-none"
                     rows={3}
-                    minLength={5}
                     maxLength={500}
                   />
                   <p className="text-xs text-white/60 mt-1">
-                    Mínimo 5 caracteres. Esta información será usada por el administrador para procesar tu pago.
+                    Opcional. Si lo proporcionas, mínimo 5 caracteres. Esta información será usada por el administrador para procesar tu pago.
                   </p>
                 </div>
                 <button

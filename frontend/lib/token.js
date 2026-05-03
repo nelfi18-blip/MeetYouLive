@@ -58,3 +58,46 @@ export function getAdminToken() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("admin_token");
 }
+
+/**
+ * Clear all authentication tokens and sessions for account switching.
+ * Removes admin tokens, user tokens, and all related auth state.
+ */
+export function clearAllAuth() {
+  if (typeof window === "undefined") return;
+  
+  // Clear admin tokens
+  localStorage.removeItem("admin_token");
+  localStorage.removeItem("admin_user");
+  
+  // Clear user tokens
+  localStorage.removeItem("token");
+  
+  // Clear NextAuth session storage (if any)
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith("next-auth") || key.startsWith("__Secure-next-auth")) {
+      localStorage.removeItem(key);
+    }
+  });
+  
+  // Clear all auth cookies
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  document.cookie = `${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  
+  // Clear NextAuth cookies (multiple possible names)
+  const authCookieNames = [
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.csrf-token",
+    "__Host-next-auth.csrf-token",
+    "next-auth.callback-url",
+    "__Secure-next-auth.callback-url"
+  ];
+  
+  authCookieNames.forEach(cookieName => {
+    document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  });
+}

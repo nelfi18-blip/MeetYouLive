@@ -12,7 +12,9 @@
     "myProfile": "My profile",
     "buyCoins": "Buy coins",
     "premiumSubscription": "Premium Subscription",
-    "logout": "Log out"
+    "logout": "Log out",
+    "switchAccount": "Switch account",
+    "switchAccountConfirm": "Switch account? This will log you out."
   },
   "role": {
     "admin": "Administrator",

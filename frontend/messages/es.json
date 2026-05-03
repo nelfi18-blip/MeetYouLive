@@ -12,7 +12,9 @@
     "myProfile": "Mi perfil",
     "buyCoins": "Comprar monedas",
     "premiumSubscription": "Suscripción Premium",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "switchAccount": "Cambiar cuenta",
+    "switchAccountConfirm": "¿Cambiar de cuenta? Esto cerrará tu sesión actual."
   },
   "role": {
     "admin": "Administrador",

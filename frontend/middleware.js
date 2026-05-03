@@ -49,9 +49,11 @@ export function middleware(request) {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
 
-  // Admin users must not access regular user pages — redirect to /admin.
+  // Admin users must not access regular user pages — redirect with message.
   if (adminSession && (isProtectedRoute || isAuthPage)) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    const url = new URL("/admin/blocked", request.url);
+    url.searchParams.set("from", pathname);
+    return NextResponse.redirect(url);
   }
 
   // ── Regular user routing ───────────────────────────────────────────────────

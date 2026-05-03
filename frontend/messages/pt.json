@@ -12,7 +12,9 @@
     "myProfile": "Meu perfil",
     "buyCoins": "Comprar moedas",
     "premiumSubscription": "Assinatura Premium",
-    "logout": "Sair"
+    "logout": "Sair",
+    "switchAccount": "Mudar conta",
+    "switchAccountConfirm": "Mudar de conta? Isso encerrará sua sessão atual."
   },
   "role": {
     "admin": "Administrador",

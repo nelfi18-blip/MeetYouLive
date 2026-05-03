@@ -55,6 +55,14 @@ exports.requestWithdrawal = async (req, res) => {
     // Calculate USD amount
     const amountUSD = amountCoins / COINS_PER_USD;
 
+    // Create withdrawal request first
+    const withdrawalRequest = await WithdrawalRequest.create({
+      userId,
+      amountCoins,
+      amountUSD,
+      status: "pending",
+    });
+
     // Deduct coins from user's earnings balance
     user.earningsCoins -= amountCoins;
     await user.save();
@@ -67,14 +75,6 @@ exports.requestWithdrawal = async (req, res) => {
       reason: "Retiro solicitado - monedas bloqueadas temporalmente",
       status: "completed",
       metadata: { withdrawalType: "request", withdrawalId: withdrawalRequest._id },
-    });
-
-    // Create withdrawal request
-    const withdrawalRequest = await WithdrawalRequest.create({
-      userId,
-      amountCoins,
-      amountUSD,
-      status: "pending",
     });
 
     return res.status(201).json({

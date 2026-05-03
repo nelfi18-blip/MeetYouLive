@@ -18,8 +18,8 @@ function FeedIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" f
 
 /* ── Nav link definitions (keys resolved via t() at render time) ── */
 const NAV_LINK_DEFS = [
-  { href: "/dashboard", key: "nav.home",    icon: HomeIcon    },
-  { href: "/feed",      key: "nav.feed",    icon: FeedIcon    },
+  { href: "/",          key: "nav.home",    icon: HomeIcon    },
+  { href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon },
   { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
   { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
   { href: "/live",      key: "nav.live",    icon: LiveIcon    },
@@ -30,9 +30,9 @@ const NAV_LINK_DEFS = [
   { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
 ];
 
-/* ── Bottom nav link definitions (Feed, Match, Live, Chats, Profile) ── */
+/* ── Bottom nav link definitions (Home, Match, Live, Chats, Profile) ── */
 const BOTTOM_NAV_DEFS = [
-  { href: "/feed",      key: "nav.feed",    icon: FeedIcon    },
+  { href: "/",          key: "nav.home",    icon: HomeIcon    },
   { href: "/matches",   key: "nav.match",   icon: MatchIcon   },
   { href: "/live",      key: "nav.live",    icon: LiveIcon    },
   { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },

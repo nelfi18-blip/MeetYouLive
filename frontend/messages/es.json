@@ -2,6 +2,7 @@
   "nav": {
     "home": "Inicio",
     "feed": "Feed",
+    "dashboard": "Panel",
     "explore": "Explorar",
     "live": "Directos",
     "videos": "Vídeos",
@@ -85,11 +86,33 @@
     "exploreLive": "Explorar directos",
     "myChats": "Mis chats"
   },
+  "home": {
+    "heroTitle": "Descubre Personas Increíbles",
+    "heroSubtitle": "Streams en vivo • Conexiones reales • Comunidad activa",
+    "liveNow": "En Vivo Ahora",
+    "seeAll": "Ver todos",
+    "noLiveStreams": "No hay streams en vivo ahora. ¡Vuelve pronto!",
+    "findYourMatch": "Encuentra Tu Match",
+    "seeMatches": "Ver matches",
+    "noMoreProfiles": "No hay más perfiles disponibles. ¡Vuelve más tarde!",
+    "topCreators": "Top Creadores",
+    "seeRanking": "Ver ranking",
+    "noCreators": "No hay creadores disponibles",
+    "allLives": "Todos los Lives",
+    "noStreamsAvailable": "No hay streams disponibles",
+    "loadMore": "Cargar más"
+  },
+  "feed": {
+    "giftsOnlyDuringLive": "Los regalos solo están disponibles durante streams en vivo",
+    "greetingSent": "¡Saludo enviado!",
+    "greetingError": "Error al enviar el saludo"
+  },
   "common": {
     "loading": "Cargando...",
     "save": "Guardar",
     "cancel": "Cancelar",
     "error": "Ha ocurrido un error",
-    "success": "Operación exitosa"
+    "success": "Operación exitosa",
+    "coins": "monedas"
   }
 }

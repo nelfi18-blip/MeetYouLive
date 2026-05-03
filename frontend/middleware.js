@@ -61,10 +61,10 @@ export function middleware(request) {
   // Only redirect away from auth pages once the backend session is confirmed.
   // Using only nextAuthSession here would cause a redirect loop: Google OAuth
   // sets the NextAuth cookie before the backend token is fetched, so the
-  // dashboard would have no token and redirect back to /login, which the
-  // middleware would immediately bounce back to /dashboard — infinitely.
+  // home page would have no token and redirect back to /login, which the
+  // middleware would immediately bounce back to home — infinitely.
   if (backendSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Block unauthenticated access to protected routes (either session type is

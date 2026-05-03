@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { clearAllAuth } from "@/lib/token";
 
-export default function AdminBlockedPage() {
+function BlockedContent() {
   const searchParams = useSearchParams();
   const [attemptedPath, setAttemptedPath] = useState("");
 
@@ -35,6 +35,50 @@ export default function AdminBlockedPage() {
   };
 
   return (
+    <>
+      {/* Logo */}
+      <div className="blocked-logo">
+        <Image src="/logo.svg" alt="MeetYouLive logo" width={56} height={56} priority />
+      </div>
+
+      {/* Icon */}
+      <div className="blocked-icon">🔒</div>
+
+      {/* Title */}
+      <h1 className="blocked-title">Acceso Restringido</h1>
+
+      {/* Message */}
+      <div className="blocked-message">
+        <p className="blocked-main-text">
+          Estás conectado como <strong>administrador</strong>.
+        </p>
+        <p className="blocked-sub-text">
+          {attemptedPath 
+            ? `Para acceder al ${getPathLabel(attemptedPath)}, necesitas cambiar de cuenta e iniciar sesión como creador o usuario.`
+            : "Para acceder a las áreas de usuario/creador, necesitas cambiar de cuenta."}
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="blocked-actions">
+        <button className="btn btn-switch" onClick={handleSwitchAccount}>
+          🔄 Cambiar a cuenta de usuario
+        </button>
+        <Link href="/admin" className="btn btn-back">
+          ← Volver al panel de administrador
+        </Link>
+      </div>
+
+      {/* Help text */}
+      <p className="blocked-help">
+        Al cambiar de cuenta se cerrarán todas tus sesiones activas.
+      </p>
+    </>
+  );
+}
+
+export default function AdminBlockedPage() {
+  return (
     <div className="blocked-page">
       {/* Aurora orbs */}
       <div className="orb orb-1" />
@@ -44,43 +88,16 @@ export default function AdminBlockedPage() {
       <div className="grid-overlay" aria-hidden="true" />
 
       <div className="blocked-card">
-        {/* Logo */}
-        <div className="blocked-logo">
-          <Image src="/logo.svg" alt="MeetYouLive logo" width={56} height={56} priority />
-        </div>
-
-        {/* Icon */}
-        <div className="blocked-icon">🔒</div>
-
-        {/* Title */}
-        <h1 className="blocked-title">Acceso Restringido</h1>
-
-        {/* Message */}
-        <div className="blocked-message">
-          <p className="blocked-main-text">
-            Estás conectado como <strong>administrador</strong>.
-          </p>
-          <p className="blocked-sub-text">
-            {attemptedPath 
-              ? `Para acceder al ${getPathLabel(attemptedPath)}, necesitas cambiar de cuenta e iniciar sesión como creador o usuario.`
-              : "Para acceder a las áreas de usuario/creador, necesitas cambiar de cuenta."}
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="blocked-actions">
-          <button className="btn btn-switch" onClick={handleSwitchAccount}>
-            🔄 Cambiar a cuenta de usuario
-          </button>
-          <Link href="/admin" className="btn btn-back">
-            ← Volver al panel de administrador
-          </Link>
-        </div>
-
-        {/* Help text */}
-        <p className="blocked-help">
-          Al cambiar de cuenta se cerrarán todas tus sesiones activas.
-        </p>
+        <Suspense fallback={
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            <div className="blocked-logo">
+              <Image src="/logo.svg" alt="MeetYouLive logo" width={56} height={56} priority />
+            </div>
+            <p style={{ color: "#94a3b8", marginTop: "1rem" }}>Cargando...</p>
+          </div>
+        }>
+          <BlockedContent />
+        </Suspense>
       </div>
 
       <style jsx>{`

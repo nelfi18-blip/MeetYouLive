@@ -41,6 +41,8 @@ const {
   updateSettings,
   getMetricsOverview,
   hardDeleteUser,
+  getPayouts,
+  updatePayout,
 } = require("../controllers/admin.controller.js");
 
 const router = Router();
@@ -570,6 +572,18 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
   }
 });
 
+copilot/add-limited-staff-roles
+
+// ── Payout admin routes ─────────────────────────────────────────────────────
+
+// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|rejected|paid)
+router.get("/payouts", verifyToken, requireAdmin, getPayouts);
+
+// PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
+// Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes? }
+router.patch("/payouts/:id", verifyToken, requireAdmin, updatePayout);
+
+ main
 // ── Fraud admin routes ──────────────────────────────────────────────────────
 
 const FraudAlert = require("../models/FraudAlert.js");

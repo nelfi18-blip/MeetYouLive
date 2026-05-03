@@ -258,10 +258,11 @@ exports.requestPayout = async (req, res) => {
       return res.status(403).json({ ok: false, message: error });
     }
 
+    const { method = "stripe", paymentDetails = "" } = req.body;
+
     const MIN_PAYOUT_COINS = 100;
-    // 1 coin = $0.10 USD; platform takes 40%, creator keeps 60%
+    // 1 coin = $0.10 USD
     const COINS_PER_USD = 10;
-    const PLATFORM_FEE_PCT = 0.40;
     const available = user.earningsCoins || 0;
 
     if (available < MIN_PAYOUT_COINS) {
@@ -275,7 +276,7 @@ exports.requestPayout = async (req, res) => {
 
     const existingPending = await Payout.findOne({
       creator: user._id,
-      status: { $in: ["pending", "approved", "processing"] },
+      status: { $in: ["pending", "approved"] },
     });
 
     if (existingPending) {
@@ -291,6 +292,7 @@ exports.requestPayout = async (req, res) => {
       });
     }
 
+    // Reserve coins atomically
     const updatedUser = await User.findOneAndUpdate(
       {
         _id: user._id,
@@ -299,7 +301,7 @@ exports.requestPayout = async (req, res) => {
       {
         $set: { earningsCoins: 0 },
       },
-      { new: true, select: "stripeAccountId stripeAccountStatus" }
+      { new: true }
     );
 
     if (!updatedUser) {
@@ -310,53 +312,28 @@ exports.requestPayout = async (req, res) => {
       });
     }
 
-    // Attempt an automated Stripe Connect Transfer when the creator has a verified account
-    let autoTransferSucceeded = false;
-    let stripeTransferId = null;
-    if (
-      stripe &&
-      updatedUser.stripeAccountId &&
-      updatedUser.stripeAccountStatus === "enabled"
-    ) {
-      try {
-        // Compute the creator's net payout in USD cents after platform fee
-        const grossUsd = available / COINS_PER_USD;
-        const creatorUsd = grossUsd * (1 - PLATFORM_FEE_PCT);
-        const amountCents = Math.floor(creatorUsd * 100);
-        if (amountCents >= STRIPE_MIN_TRANSFER_CENTS) {
-          const transfer = await stripe.transfers.create({
-            amount: amountCents,
-            currency: "usd",
-            destination: updatedUser.stripeAccountId,
-            metadata: { userId: String(user._id), amountCoins: String(available) },
-          });
-          stripeTransferId = transfer.id;
-          autoTransferSucceeded = true;
-        }
-      } catch (stripeErr) {
-        console.error("[requestPayout] Stripe transfer failed, falling back to manual:", stripeErr.message);
-        // Non-fatal: the payout is still recorded as pending for manual processing
-      }
-    }
+    // Calculate USD amount
+    const amountUsd = available / COINS_PER_USD;
 
     const payout = await Payout.create({
       creator: user._id,
       amountCoins: available,
-      status: autoTransferSucceeded ? "processing" : "pending",
-      notes: autoTransferSucceeded
-        ? `Transferencia automática Stripe iniciada. Transfer ID: ${stripeTransferId}`
-        : "Solicitud creada automáticamente desde creator dashboard.",
+      amountUsd,
+      method,
+      paymentDetails,
+      status: "pending",
+      requestedAt: new Date(),
+      notes: `Solicitud creada desde creator dashboard. Método: ${method}`,
     });
 
     return res.json({
       ok: true,
-      message: autoTransferSucceeded
-        ? "Pago automático iniciado correctamente. Se procesará en 1-2 días hábiles."
-        : "Solicitud de retiro registrada correctamente.",
-      autoTransfer: autoTransferSucceeded,
+      message: "Solicitud de retiro registrada correctamente.",
       payout: {
         _id: payout._id,
         amountCoins: payout.amountCoins,
+        amountUsd: payout.amountUsd,
+        method: payout.method,
         status: payout.status,
         createdAt: payout.createdAt,
       },

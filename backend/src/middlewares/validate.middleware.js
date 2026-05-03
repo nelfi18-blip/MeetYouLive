@@ -41,14 +41,11 @@ const payoutRequestSchema = z.object({
     .positive("amount debe ser un valor positivo")
     .optional(),
   method: z
-    .enum(["bank_transfer", "paypal", "crypto", "stripe"], {
-      errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: bank_transfer, paypal, crypto, stripe" }),
+    .enum(["zelle", "paypal", "bank", "stripe", "other"], {
+      errorMap: () => ({ message: "Método de pago inválido. Valores permitidos: zelle, paypal, bank, stripe, other" }),
     })
-    .optional(),
-  details: z
-    .string({ invalid_type_error: "details debe ser texto" })
-    .min(5, "details debe tener al menos 5 caracteres")
-    .optional(),
+    .default("stripe"),
+  paymentDetails: z.string().optional().or(z.string().min(5, "paymentDetails debe tener al menos 5 caracteres")),
 });
 
 const registerSchema = z.object({

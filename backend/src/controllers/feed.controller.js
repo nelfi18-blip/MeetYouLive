@@ -22,34 +22,33 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
  */
 const getFeed = async (req, res) => {
   try {
-    // 🔴 Active live streams ONLY
-    const activeLives = await Live.find({
+    // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
+    const allLives = await Live.find({
       isLive: true,
-      $or: [
-        { endedAt: { $exists: false } },
-        { endedAt: null }
-      ]
+      endedAt: null
     })
       .sort({ viewerCount: -1 })
-      .limit(12)
+      .limit(30) // Fetch more to ensure we get 12 after filtering
       .populate("user", "name avatar role creatorStatus")
       .lean();
 
     // Filter out staff roles and ensure only approved creators
-    const filteredLives = activeLives.filter((live) => {
-      if (!live.user) return false;
-      const userRole = live.user.role;
-      // Exclude all staff roles
-      if (STAFF_ROLES.includes(userRole)) return false;
-      // Only include approved creators or subCreators
-      const isApprovedCreator = (userRole === "creator" || userRole === "subCreator") && 
-                                live.user.creatorStatus === "approved";
-      return isApprovedCreator;
-    });
+    const filteredLives = allLives
+      .filter((live) => {
+        if (!live.user) return false;
+        const userRole = live.user.role;
+        // Exclude all staff roles
+        if (STAFF_ROLES.includes(userRole)) return false;
+        // Only include approved creators or subCreators
+        const isApprovedCreator = (userRole === "creator" || userRole === "subCreator") && 
+                                  live.user.creatorStatus === "approved";
+        return isApprovedCreator;
+      })
+      .slice(0, 12); // Take only first 12 after filtering
 
-    // ❤️ Recommended users (NO admin, NO staff)
+    // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
     const recommendedProfiles = await User.find({
-      role: "user",
+      role: "user", // Excludes creators and all staff roles
       isBlocked: false,
       isSuspended: false,
       onboardingComplete: true
@@ -58,7 +57,7 @@ const getFeed = async (req, res) => {
       .select("name birthdate avatar location")
       .lean();
 
-    // ⭐ Featured creators
+    // ⭐ Featured creators - use query to filter directly
     const featuredCreators = await User.find({
       role: { $in: ["creator", "subCreator"] },
       creatorStatus: "approved"

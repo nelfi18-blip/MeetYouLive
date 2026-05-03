@@ -35,6 +35,7 @@ router.get("/dashboard", creatorLimiter, verifyToken, requireApprovedCreator, ge
 router.get("/stats", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorStats);
 router.get("/earnings", creatorLimiter, verifyToken, requireApprovedCreator, getCreatorEarnings);
 router.post("/payout", creatorLimiter, verifyToken, requireApprovedCreator, validate(payoutRequestSchema), requestPayout);
+router.post("/request-payout", creatorLimiter, verifyToken, requireApprovedCreator, validate(payoutRequestSchema), requestPayout);
 router.get("/payout-history", creatorLimiter, verifyToken, requireApprovedCreator, getPayoutHistory);
 
 // Only full creators can generate invite codes (subCreators cannot)

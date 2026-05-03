@@ -73,7 +73,7 @@ export default function CreatorEarningsDashboard() {
     setPayoutMessage(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/creator/payout`, {
+      const res = await fetch(`${API_URL}/api/creator/request-payout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,7 +88,7 @@ export default function CreatorEarningsDashboard() {
         throw new Error(data.message || "Error al solicitar retiro");
       }
 
-      setPayoutMessage({ type: "success", text: data.message });
+      setPayoutMessage({ type: "success", text: "Solicitud de retiro enviada" });
       setShowPayoutForm(false);
       setPayoutFormData({ method: "stripe", paymentDetails: "" });
       
@@ -217,13 +217,13 @@ export default function CreatorEarningsDashboard() {
                   : "bg-white text-indigo-600 hover:bg-gray-100"
               }`}
             >
-              {showPayoutForm ? "Cancelar" : "Solicitar retiro"}
+              {showPayoutForm ? "Cancelar" : "💰 Retirar dinero"}
             </button>
           </div>
 
           {earningsCoins < 100 && (
             <p className="text-sm text-yellow-300 mt-2">
-              ⚠️ Necesitas al menos 100 monedas para solicitar un retiro
+              ⚠️ Mínimo para retiro: 100 monedas
             </p>
           )}
 

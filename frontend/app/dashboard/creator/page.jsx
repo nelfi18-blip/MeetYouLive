@@ -21,6 +21,12 @@ export default function CreatorEarningsDashboard() {
   });
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutMessage, setPayoutMessage] = useState(null);
+  
+  // New withdrawal request states
+  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
+  const [withdrawalMessage, setWithdrawalMessage] = useState(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session?.backendToken) return;
@@ -98,6 +104,46 @@ export default function CreatorEarningsDashboard() {
       setPayoutMessage({ type: "error", text: err.message });
     } finally {
       setPayoutLoading(false);
+    }
+  };
+  
+  // New withdrawal request handler
+  const handleRequestWithdrawal = async (e) => {
+    e.preventDefault();
+    setWithdrawalLoading(true);
+    setWithdrawalMessage(null);
+
+    try {
+      const amountCoins = parseInt(withdrawalAmount, 10);
+      if (!amountCoins || amountCoins < 1000) {
+        throw new Error("El mínimo de retiro es 1000 monedas");
+      }
+
+      const res = await fetch(`${API_URL}/api/withdraw/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({ amountCoins }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Error al solicitar retiro");
+      }
+
+      setWithdrawalMessage({ type: "success", text: "Solicitud de retiro enviada exitosamente" });
+      setShowWithdrawalForm(false);
+      setWithdrawalAmount("");
+      
+      // Refresh dashboard data
+      await fetchDashboardData();
+    } catch (err) {
+      setWithdrawalMessage({ type: "error", text: err.message });
+    } finally {
+      setWithdrawalLoading(false);
     }
   };
 
@@ -197,12 +243,91 @@ export default function CreatorEarningsDashboard() {
           />
         </div>
 
+        {/* Withdrawal Message */}
+        {withdrawalMessage && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            withdrawalMessage.type === "success" 
+              ? "bg-green-500/20 border border-green-500" 
+              : "bg-red-500/20 border border-red-500"
+          }`}>
+            <p>{withdrawalMessage.text}</p>
+          </div>
+        )}
+
         {/* Withdrawal Section */}
         <div className="mb-8 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 shadow-xl border border-white/10">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
                 <span>Disponible para retiro</span>
+                <span>💵</span>
+              </h2>
+              <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} monedas</p>
+              <p className="text-sm text-white/70 mt-1">≈ ${(earningsCoins / 10).toFixed(2)} USD</p>
+            </div>
+            <button
+              onClick={() => setShowWithdrawalForm(!showWithdrawalForm)}
+              disabled={earningsCoins < 1000}
+              className={`px-6 py-3 rounded-lg font-semibold transition ${
+                earningsCoins < 1000
+                  ? "bg-gray-600 cursor-not-allowed opacity-50"
+                  : "bg-white text-indigo-600 hover:bg-gray-100"
+              }`}
+            >
+              {showWithdrawalForm ? "Cancelar" : "💰 Retirar ganancias"}
+            </button>
+          </div>
+
+          {earningsCoins < 1000 && (
+            <p className="text-sm text-yellow-300 mt-2">
+              ⚠️ Mínimo para retiro: 1,000 monedas
+            </p>
+          )}
+
+          {/* Withdrawal Request Form */}
+          {showWithdrawalForm && (
+            <form onSubmit={handleRequestWithdrawal} className="mt-6 pt-6 border-t border-white/20">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Cantidad a retirar (monedas)
+                  </label>
+                  <input
+                    type="number"
+                    min="1000"
+                    max={earningsCoins}
+                    value={withdrawalAmount}
+                    onChange={(e) => setWithdrawalAmount(e.target.value)}
+                    placeholder="Mínimo 1,000 monedas"
+                    className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none text-white"
+                    required
+                  />
+                  <p className="text-xs text-white/60 mt-1">
+                    Equivalente: ${((parseInt(withdrawalAmount) || 0) / 10).toFixed(2)} USD
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={withdrawalLoading}
+                  className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-semibold py-3 rounded-lg transition disabled:opacity-50"
+                >
+                  {withdrawalLoading ? "Procesando..." : "Solicitar retiro"}
+                </button>
+                <p className="text-xs text-white/60">
+                  Tu solicitud será revisada por un administrador. Las monedas se bloquearán temporalmente hasta que se apruebe o rechace la solicitud.
+                </p>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Original Payout Section - keeping for legacy */}
+        {false && (
+        <div className="mb-8 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 shadow-xl border border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                <span>Sistema de pagos (Legacy)</span>
                 <span>💵</span>
               </h2>
               <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} monedas</p>

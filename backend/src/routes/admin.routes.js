@@ -581,7 +581,6 @@ router.get("/payouts", verifyToken, requireAdmin, getPayouts);
 // Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes? }
 router.patch("/payouts/:id", verifyToken, requireAdmin, updatePayout);
 
- main
 // ── Fraud admin routes ──────────────────────────────────────────────────────
 
 const FraudAlert = require("../models/FraudAlert.js");

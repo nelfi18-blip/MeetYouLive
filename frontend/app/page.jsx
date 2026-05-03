@@ -48,30 +48,27 @@ export default function HomePage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Feed error:", err);
         setError(err.message || t("common.error"));
         setLoading(false);
       });
   }, [session]);
 
-  // Helper to check if can advance to next profile
-  const canAdvanceToNextProfile = () => {
-    return data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1;
+  // Handle advancing to next profile
+  const handleNextProfile = () => {
+    if (data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1) {
+      setCurrentMatchIndex(currentMatchIndex + 1);
+    }
   };
 
   // Handle match actions
-  const handleLike = (userId) => {
-    // Move to next profile
-    if (canAdvanceToNextProfile()) {
-      setCurrentMatchIndex(currentMatchIndex + 1);
-    }
+  const handleLike = () => {
+    // TODO: Send like to backend API
+    handleNextProfile();
   };
 
-  const handleSkip = (userId) => {
-    // Move to next profile
-    if (canAdvanceToNextProfile()) {
-      setCurrentMatchIndex(currentMatchIndex + 1);
-    }
+  const handleSkip = () => {
+    // TODO: Track skip event if needed
+    handleNextProfile();
   };
 
   const handleChat = (userId) => {
@@ -97,7 +94,6 @@ export default function HomePage() {
   if (!data) return null;
 
   const currentMatch = data.recommendedProfiles?.[currentMatchIndex];
-  const hasMoreMatches = data.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1;
 
   return (
     <>

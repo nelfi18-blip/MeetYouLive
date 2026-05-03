@@ -86,11 +86,33 @@
     "exploreLive": "Explore live",
     "myChats": "My chats"
   },
+  "home": {
+    "heroTitle": "Discover Amazing People",
+    "heroSubtitle": "Live streams • Real connections • Active community",
+    "liveNow": "Live Now",
+    "seeAll": "See all",
+    "noLiveStreams": "No live streams now. Come back soon!",
+    "findYourMatch": "Find Your Match",
+    "seeMatches": "See matches",
+    "noMoreProfiles": "No more profiles available. Come back later!",
+    "topCreators": "Top Creators",
+    "seeRanking": "See ranking",
+    "noCreators": "No creators available",
+    "allLives": "All Lives",
+    "noStreamsAvailable": "No streams available",
+    "loadMore": "Load more"
+  },
+  "feed": {
+    "giftsOnlyDuringLive": "Gifts are only available during live streams",
+    "greetingSent": "Greeting sent!",
+    "greetingError": "Error sending greeting"
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
     "error": "An error occurred",
-    "success": "Operation successful"
+    "success": "Operation successful",
+    "coins": "coins"
   }
 }

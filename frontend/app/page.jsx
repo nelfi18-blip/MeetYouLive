@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import LiveCard from "@/components/LiveCard";
 import MatchCard from "@/components/MatchCard";
 
@@ -11,23 +12,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations();
+  
+  // Use refs to track loading states to prevent stale closures
+  const loadingLiveNowRef = useRef(false);
+  const loadingMatchRef = useRef(false);
+  const loadingTopCreatorsRef = useRef(false);
+  const loadingLiveGridRef = useRef(false);
   
   // Section 1: Live Now (horizontal scroll)
   const [liveNowStreams, setLiveNowStreams] = useState([]);
-  const [loadingLiveNow, setLoadingLiveNow] = useState(false);
   
   // Section 2: Match Swipe (single card)
   const [currentMatchProfile, setCurrentMatchProfile] = useState(null);
   const [matchQueue, setMatchQueue] = useState([]);
-  const [loadingMatch, setLoadingMatch] = useState(false);
   
   // Section 3: Top Creators
   const [topCreators, setTopCreators] = useState([]);
-  const [loadingTopCreators, setLoadingTopCreators] = useState(false);
   
   // Section 4: Live Grid (infinite scroll)
   const [liveGridStreams, setLiveGridStreams] = useState([]);
-  const [loadingLiveGrid, setLoadingLiveGrid] = useState(false);
   const [liveGridPage, setLiveGridPage] = useState(1);
   const [hasMoreLiveGrid, setHasMoreLiveGrid] = useState(true);
   
@@ -42,9 +46,9 @@ export default function HomePage() {
 
   // Fetch Section 1: Live Now (horizontal scroll)
   const fetchLiveNow = useCallback(async () => {
-    if (!session?.backendToken || loadingLiveNow) return;
+    if (!session?.backendToken || loadingLiveNowRef.current) return;
     
-    setLoadingLiveNow(true);
+    loadingLiveNowRef.current = true;
     try {
       const response = await fetch(`${API_URL}/api/feed/live-only?limit=10`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
@@ -57,15 +61,15 @@ export default function HomePage() {
     } catch (err) {
       console.error("Error fetching live now:", err);
     } finally {
-      setLoadingLiveNow(false);
+      loadingLiveNowRef.current = false;
     }
-  }, [session?.backendToken, loadingLiveNow]);
+  }, [session?.backendToken]);
 
   // Fetch Section 2: Match profiles queue
   const fetchMatchProfiles = useCallback(async () => {
-    if (!session?.backendToken || loadingMatch) return;
+    if (!session?.backendToken || loadingMatchRef.current) return;
     
-    setLoadingMatch(true);
+    loadingMatchRef.current = true;
     try {
       const response = await fetch(`${API_URL}/api/feed/match-only?limit=10`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
@@ -82,15 +86,15 @@ export default function HomePage() {
     } catch (err) {
       console.error("Error fetching match profiles:", err);
     } finally {
-      setLoadingMatch(false);
+      loadingMatchRef.current = false;
     }
-  }, [session?.backendToken, loadingMatch]);
+  }, [session?.backendToken]);
 
   // Fetch Section 3: Top Creators
   const fetchTopCreators = useCallback(async () => {
-    if (!session?.backendToken || loadingTopCreators) return;
+    if (!session?.backendToken || loadingTopCreatorsRef.current) return;
     
-    setLoadingTopCreators(true);
+    loadingTopCreatorsRef.current = true;
     try {
       const response = await fetch(`${API_URL}/api/rankings/top?limit=6`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
@@ -103,15 +107,15 @@ export default function HomePage() {
     } catch (err) {
       console.error("Error fetching top creators:", err);
     } finally {
-      setLoadingTopCreators(false);
+      loadingTopCreatorsRef.current = false;
     }
-  }, [session?.backendToken, loadingTopCreators]);
+  }, [session?.backendToken]);
 
   // Fetch Section 4: Live Grid (infinite scroll)
   const fetchLiveGrid = useCallback(async (reset = false) => {
-    if (!session?.backendToken || loadingLiveGrid) return;
+    if (!session?.backendToken || loadingLiveGridRef.current) return;
     
-    setLoadingLiveGrid(true);
+    loadingLiveGridRef.current = true;
     try {
       const currentPage = reset ? 1 : liveGridPage;
       const response = await fetch(`${API_URL}/api/feed/live-only?limit=12`, {
@@ -135,9 +139,9 @@ export default function HomePage() {
     } catch (err) {
       console.error("Error fetching live grid:", err);
     } finally {
-      setLoadingLiveGrid(false);
+      loadingLiveGridRef.current = false;
     }
-  }, [session?.backendToken, loadingLiveGrid, liveGridPage]);
+  }, [session?.backendToken, liveGridPage]);
 
   // Load all sections on mount
   useEffect(() => {
@@ -147,7 +151,7 @@ export default function HomePage() {
       fetchTopCreators();
       fetchLiveGrid(true);
     }
-  }, [session?.backendToken]);
+  }, [session?.backendToken, fetchLiveNow, fetchMatchProfiles, fetchTopCreators, fetchLiveGrid]);
 
   // Handle match actions
   const handleLike = async (userId) => {
@@ -201,7 +205,7 @@ export default function HomePage() {
     if (liveId) {
       router.push(`/live/${liveId}?openGifts=true`);
     } else {
-      alert("Los regalos solo están disponibles durante streams en vivo");
+      alert(t("feed.giftsOnlyDuringLive") || "Gifts are only available during live streams");
     }
   };
 
@@ -219,13 +223,13 @@ export default function HomePage() {
       });
 
       if (response.ok) {
-        alert("¡Saludo enviado!");
+        alert(t("feed.greetingSent") || "Greeting sent!");
       } else {
-        alert("Error al enviar el saludo");
+        alert(t("feed.greetingError") || "Error sending greeting");
       }
     } catch (err) {
       console.error("Send greeting error:", err);
-      alert("Error al enviar el saludo");
+      alert(t("feed.greetingError") || "Error sending greeting");
     }
   };
 
@@ -239,7 +243,7 @@ export default function HomePage() {
       <div className="home-page">
         <div className="home-loading">
           <div className="spinner"></div>
-          <p>Cargando...</p>
+          <p>{t("common.loading") || "Loading..."}</p>
         </div>
       </div>
     );
@@ -252,31 +256,31 @@ export default function HomePage() {
           
           {/* Hero Section */}
           <div className="home-hero">
-            <h1 className="home-title">Descubre Personas Increíbles</h1>
-            <p className="home-subtitle">Streams en vivo • Conexiones reales • Comunidad activa</p>
+            <h1 className="home-title">{t("home.heroTitle") || "Discover Amazing People"}</h1>
+            <p className="home-subtitle">{t("home.heroSubtitle") || "Live streams • Real connections • Active community"}</p>
           </div>
 
           {/* Section 1: LIVE NOW (horizontal scroll) */}
           <section className="home-section live-now-section">
             <div className="section-header">
               <h2 className="section-title">
-                <span className="live-pulse">🔴</span> En Vivo Ahora
+                <span className="live-pulse">🔴</span> {t("home.liveNow") || "Live Now"}
               </h2>
               <button 
                 className="section-link"
                 onClick={() => router.push('/explore')}
               >
-                Ver todos →
+                {t("home.seeAll") || "See all"} →
               </button>
             </div>
             
-            {loadingLiveNow ? (
+            {loadingLiveNowRef.current ? (
               <div className="section-loading">
                 <div className="spinner-sm"></div>
               </div>
             ) : liveNowStreams.length === 0 ? (
               <div className="section-empty">
-                <p>No hay streams en vivo ahora. ¡Vuelve pronto!</p>
+                <p>{t("home.noLiveStreams") || "No live streams now. Come back soon!"}</p>
               </div>
             ) : (
               <div className="live-now-scroll">
@@ -293,23 +297,23 @@ export default function HomePage() {
           <section className="home-section match-section">
             <div className="section-header">
               <h2 className="section-title">
-                <span>❤️</span> Encuentra Tu Match
+                <span>❤️</span> {t("home.findYourMatch") || "Find Your Match"}
               </h2>
               <button 
                 className="section-link"
                 onClick={() => router.push('/matches')}
               >
-                Ver matches →
+                {t("home.seeMatches") || "See matches"} →
               </button>
             </div>
             
-            {loadingMatch ? (
+            {loadingMatchRef.current ? (
               <div className="section-loading">
                 <div className="spinner-sm"></div>
               </div>
             ) : !currentMatchProfile ? (
               <div className="section-empty">
-                <p>No hay más perfiles disponibles. ¡Vuelve más tarde!</p>
+                <p>{t("home.noMoreProfiles") || "No more profiles available. Come back later!"}</p>
               </div>
             ) : (
               <div className="match-swipe-container">
@@ -337,23 +341,23 @@ export default function HomePage() {
           <section className="home-section top-creators-section">
             <div className="section-header">
               <h2 className="section-title">
-                <span>🔥</span> Top Creadores
+                <span>🔥</span> {t("home.topCreators") || "Top Creators"}
               </h2>
               <button 
                 className="section-link"
                 onClick={() => router.push('/ranking')}
               >
-                Ver ranking →
+                {t("home.seeRanking") || "See ranking"} →
               </button>
             </div>
             
-            {loadingTopCreators ? (
+            {loadingTopCreatorsRef.current ? (
               <div className="section-loading">
                 <div className="spinner-sm"></div>
               </div>
             ) : topCreators.length === 0 ? (
               <div className="section-empty">
-                <p>No hay creadores disponibles</p>
+                <p>{t("home.noCreators") || "No creators available"}</p>
               </div>
             ) : (
               <div className="top-creators-grid">
@@ -376,7 +380,7 @@ export default function HomePage() {
                     <div className="creator-info">
                       <h3 className="creator-name">{creator.username}</h3>
                       <p className="creator-coins">
-                        💰 {creator.totalCoinsEarned?.toLocaleString() || 0} coins
+                        💰 {creator.totalCoinsEarned?.toLocaleString() || 0} {t("common.coins") || "coins"}
                       </p>
                     </div>
                   </div>
@@ -389,13 +393,13 @@ export default function HomePage() {
           <section className="home-section live-grid-section">
             <div className="section-header">
               <h2 className="section-title">
-                <span>📺</span> Todos los Lives
+                <span>📺</span> {t("home.allLives") || "All Lives"}
               </h2>
             </div>
             
-            {liveGridStreams.length === 0 && !loadingLiveGrid ? (
+            {liveGridStreams.length === 0 && !loadingLiveGridRef.current ? (
               <div className="section-empty">
-                <p>No hay streams disponibles</p>
+                <p>{t("home.noStreamsAvailable") || "No streams available"}</p>
               </div>
             ) : (
               <>
@@ -407,19 +411,19 @@ export default function HomePage() {
                   ))}
                 </div>
                 
-                {loadingLiveGrid && (
+                {loadingLiveGridRef.current && (
                   <div className="section-loading">
                     <div className="spinner-sm"></div>
                   </div>
                 )}
                 
-                {!loadingLiveGrid && hasMoreLiveGrid && liveGridStreams.length > 0 && (
+                {!loadingLiveGridRef.current && hasMoreLiveGrid && liveGridStreams.length > 0 && (
                   <div className="load-more-container">
                     <button 
                       onClick={() => fetchLiveGrid(false)} 
                       className="load-more-btn"
                     >
-                      Cargar más
+                      {t("home.loadMore") || "Load more"}
                     </button>
                   </div>
                 )}

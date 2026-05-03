@@ -39,7 +39,7 @@ export default function HomePage() {
     })
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Error al cargar el feed");
+          throw new Error(t("common.error"));
         }
         return res.json();
       })
@@ -49,24 +49,27 @@ export default function HomePage() {
       })
       .catch((err) => {
         console.error("Feed error:", err);
-        setError(err.message || "Error al cargar el feed");
+        setError(err.message || t("common.error"));
         setLoading(false);
       });
   }, [session]);
 
+  // Helper to check if can advance to next profile
+  const canAdvanceToNextProfile = () => {
+    return data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1;
+  };
+
   // Handle match actions
   const handleLike = (userId) => {
-    console.log("Like user:", userId);
     // Move to next profile
-    if (data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1) {
+    if (canAdvanceToNextProfile()) {
       setCurrentMatchIndex(currentMatchIndex + 1);
     }
   };
 
   const handleSkip = (userId) => {
-    console.log("Skip user:", userId);
     // Move to next profile
-    if (data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1) {
+    if (canAdvanceToNextProfile()) {
       setCurrentMatchIndex(currentMatchIndex + 1);
     }
   };

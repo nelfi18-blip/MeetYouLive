@@ -104,6 +104,8 @@
     "loadMore": "Carregar mais",
     "becomeCreator": "Solicitar acesso de criador",
     "becomeCreatorDesc": "Ganhe dinheiro transmitindo e recebendo presentes",
+    "noContent": "Nenhum conteúdo disponível",
+    "noContentDesc": "Não foi possível carregar o conteúdo no momento. Por favor, tente novamente mais tarde.",
     "skipProfile": "Pular",
     "likeProfile": "Curtir",
     "chatProfile": "Mensagem",
@@ -121,6 +123,8 @@
     "error": "Ocorreu um erro",
     "success": "Operação bem-sucedida",
     "coins": "moedas",
-    "apply": "Solicitar"
+    "apply": "Solicitar",
+    "timeout": "Tempo limite esgotado",
+    "retry": "Tentar novamente"
   }
 }

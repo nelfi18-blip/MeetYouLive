@@ -104,6 +104,8 @@
     "loadMore": "Load more",
     "becomeCreator": "Request creator access",
     "becomeCreatorDesc": "Earn money streaming and receiving gifts",
+    "noContent": "No content available",
+    "noContentDesc": "We couldn't load any content right now. Please try again later.",
     "skipProfile": "Skip",
     "likeProfile": "Like",
     "chatProfile": "Message",
@@ -121,6 +123,8 @@
     "error": "An error occurred",
     "success": "Operation successful",
     "coins": "coins",
-    "apply": "Apply"
+    "apply": "Apply",
+    "timeout": "Request timed out",
+    "retry": "Retry"
   }
 }

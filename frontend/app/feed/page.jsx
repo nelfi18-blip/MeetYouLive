@@ -138,6 +138,51 @@ export default function FeedPage() {
     router.push(`/live/${liveId}`);
   };
 
+  // Handle send gift
+  const handleSendGift = async (userId, liveId) => {
+    if (!session?.backendToken) return;
+    // Redirect to live stream with gift panel open, or open gift modal
+    if (liveId) {
+      router.push(`/live/${liveId}?openGifts=true`);
+    } else {
+      // TODO: Show gift selection modal for non-live users
+      alert("Los regalos solo están disponibles durante streams en vivo");
+    }
+  };
+
+  // Handle send greeting
+  const handleSendGreeting = async (userId) => {
+    if (!session?.backendToken) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/feed/send-greeting`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({ userId, message: "👋" }),
+      });
+
+      if (response.ok) {
+        alert("¡Saludo enviado!");
+      } else {
+        alert("Error al enviar el saludo");
+      }
+    } catch (err) {
+      console.error("Send greeting error:", err);
+      alert("Error al enviar el saludo");
+    }
+  };
+
+  // Handle unlock chat
+  const handleUnlockChat = async (userId) => {
+    if (!session?.backendToken) return;
+    // For now, just redirect to chat
+    // TODO: Implement premium unlock flow with coins
+    router.push(`/chats?user=${userId}`);
+  };
+
   if (status === "loading") {
     return (
       <div className="feed-page">
@@ -220,6 +265,10 @@ export default function FeedPage() {
                         hasGreeting: false,
                         isLiveNow: false,
                       }}
+                      onSendGift={handleSendGift}
+                      onSendGreeting={handleSendGreeting}
+                      onUnlockChat={handleUnlockChat}
+                      onJoinLive={handleJoinLive}
                     />
                   </div>
                 );

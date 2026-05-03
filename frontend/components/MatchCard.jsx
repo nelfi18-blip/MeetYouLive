@@ -2,19 +2,35 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import FeedMonetizationActions from "./FeedMonetizationActions";
 
 /**
  * MatchCard component - Tinder-style card for dating profiles
  * 
  * Props:
- *  - user: { _id, username, name, avatar, bio, birthdate, location, interests, tags, profilePhotos }
+ *  - user: { _id, username, name, avatar, bio, birthdate, location, interests, tags, profilePhotos, role }
  *  - onLike: (userId) => void
  *  - onSkip: (userId) => void
  *  - onChat: (userId) => void (for matches only)
  *  - isMatch: boolean
- *  - hooks: { visitCount, hasGreeting, isLiveNow }
+ *  - hooks: { visitCount, hasGreeting, isLiveNow, liveId }
+ *  - onSendGift: (userId, liveId?) => void
+ *  - onSendGreeting: (userId) => void
+ *  - onUnlockChat: (userId) => void
+ *  - onJoinLive: (liveId) => void
  */
-export default function MatchCard({ user, onLike, onSkip, onChat, isMatch, hooks = {} }) {
+export default function MatchCard({ 
+  user, 
+  onLike, 
+  onSkip, 
+  onChat, 
+  isMatch, 
+  hooks = {},
+  onSendGift,
+  onSendGreeting,
+  onUnlockChat,
+  onJoinLive,
+}) {
   const [imageIndex, setImageIndex] = useState(0);
 
   if (!user || !user._id) return null;
@@ -28,6 +44,7 @@ export default function MatchCard({ user, onLike, onSkip, onChat, isMatch, hooks
 
   const currentPhoto = photos[imageIndex] || null;
   const hasMultiplePhotos = photos.length > 1;
+  const isCreator = user.role === "creator" || user.role === "subCreator";
 
   const handlePrevPhoto = (e) => {
     e.stopPropagation();
@@ -146,6 +163,21 @@ export default function MatchCard({ user, onLike, onSkip, onChat, isMatch, hooks
                   <span key={idx} className="match-interest-badge">{interest}</span>
                 ))}
               </div>
+            )}
+
+            {/* Monetization actions */}
+            {(onSendGift || onSendGreeting || onUnlockChat || onJoinLive) && (
+              <FeedMonetizationActions
+                userId={user._id}
+                isLive={hooks.isLiveNow || false}
+                liveId={hooks.liveId}
+                isCreator={isCreator}
+                onSendGift={onSendGift}
+                onSendGreeting={onSendGreeting}
+                onUnlockChat={onUnlockChat}
+                onJoinLive={onJoinLive}
+                compact
+              />
             )}
           </div>
         </div>

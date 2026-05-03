@@ -2,6 +2,7 @@ import "./globals.css";
 import Providers from "./providers";
 import NavbarWrapper from "../components/NavbarWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
+import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
 
 export const metadata = {
   metadataBase: new URL("https://meetyoulive.net"),
@@ -63,6 +64,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <IncomingCallNotification />
+          <FloatingGoLiveButton />
         </Providers>
       </body>
     </html>

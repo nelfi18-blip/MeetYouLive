@@ -30,6 +30,15 @@ const NAV_LINK_DEFS = [
   { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
 ];
 
+/* ── Bottom nav link definitions (Feed, Match, Live, Chats, Profile) ── */
+const BOTTOM_NAV_DEFS = [
+  { href: "/feed",      key: "nav.feed",    icon: FeedIcon    },
+  { href: "/matches",   key: "nav.match",   icon: MatchIcon   },
+  { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+  { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
+  { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
+];
+
 /* ── SVG icon components ─────────────────────────── */
 function HomeIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>; }
 function ExploreIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
@@ -42,6 +51,7 @@ function CoinIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" 
 function LogoutIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
 function ChevronIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>; }
 function BellIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
+function DashboardIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>; }
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -224,6 +234,11 @@ export default function Navbar() {
                 <Link href="/profile" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                   <ProfileIcon /> {t("nav.myProfile")}
                 </Link>
+                {isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus }) && (
+                  <Link href="/dashboard/creator" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <DashboardIcon /> {t("nav.creatorDashboard")}
+                  </Link>
+                )}
                 <Link href="/coins" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                   <CoinIcon /> {t("nav.buyCoins")}
                 </Link>
@@ -266,7 +281,7 @@ export default function Navbar() {
 
       {/* Bottom nav for mobile */}
       <nav className="bottom-nav">
-        {NAV_LINK_DEFS.map((link) => {
+        {BOTTOM_NAV_DEFS.map((link) => {
           const active = pathname === link.href;
           const Icon = link.icon;
           return (

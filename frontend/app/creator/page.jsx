@@ -235,11 +235,11 @@ export default function CreatorPage() {
     try {
       const response = await fetch(`${API_URL}/api/creator/request-payout`, {
         method: "POST",
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ method: "stripe" })
+        body: JSON.stringify({}),
       });
       const data = await response.json();
       const payoutFallbackId =

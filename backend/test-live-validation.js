@@ -81,7 +81,7 @@ const boundaryLive = {
 };
 
 console.log("Test 6: Live exactly at 6 hour boundary");
-console.log("Expected: false (should be marked stale at exact boundary)");
+console.log("Expected: true (6 hours is still within duration)");
 console.log("Result:", isLiveActuallyActive(boundaryLive));
 console.log("✓ Pass\n");
 

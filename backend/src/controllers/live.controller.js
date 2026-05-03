@@ -9,7 +9,7 @@ const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
-const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
+const { isLiveActuallyActive, cleanupStaleLives, markLiveAsEnded } = require("../services/live.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -225,7 +225,7 @@ const getLiveById = async (req, res) => {
     // Validate the live is actually active (not stale)
     if (!isLiveActuallyActive(live)) {
       // Mark it as ended if it's stale
-      await Live.findByIdAndUpdate(req.params.id, { isLive: false, endedAt: new Date() });
+      await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
     
@@ -270,7 +270,7 @@ const joinLive = async (req, res) => {
     // Validate the live is actually active (not stale)
     if (!isLiveActuallyActive(live)) {
       // Mark it as ended if it's stale
-      await Live.findByIdAndUpdate(req.params.id, { isLive: false, endedAt: new Date() });
+      await markLiveAsEnded(req.params.id);
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 

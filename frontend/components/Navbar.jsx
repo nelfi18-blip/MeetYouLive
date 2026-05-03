@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken } from "@/lib/token";
+import { clearToken, clearAllAuth } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -104,6 +104,13 @@ export default function Navbar() {
   const handleLogout = () => {
     clearToken();
     signOut({ callbackUrl: "/login" });
+  };
+
+  const handleSwitchAccount = () => {
+    if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
+      clearAllAuth();
+      window.location.href = "/login";
+    }
   };
 
   const displayName =
@@ -222,6 +229,9 @@ export default function Navbar() {
                   <StarNavIcon /> {t("nav.premiumSubscription")}
                 </Link>
                 <div className="dropdown-divider" />
+                <button className="dropdown-item" onClick={handleSwitchAccount}>
+                  🔄 {t("nav.switchAccount") || "Cambiar cuenta"}
+                </button>
                 <button className="dropdown-item dropdown-logout" onClick={handleLogout}>
                   <LogoutIcon /> {t("nav.logout")}
                 </button>

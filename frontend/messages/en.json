@@ -12,7 +12,30 @@
     "myProfile": "My profile",
     "buyCoins": "Buy coins",
     "premiumSubscription": "Premium Subscription",
-    "logout": "Log out"
+    "logout": "Log out",
+    "switchAccount": "Switch account",
+    "switchAccountConfirm": "Switch account? This will log you out."
+  },
+  "adminBlocked": {
+    "title": "Access Restricted",
+    "loggedInAs": "You are logged in as",
+    "admin": "administrator",
+    "needToSwitch": "To access {path}, you need to switch accounts and log in as a creator or user.",
+    "needToSwitchGeneric": "To access user/creator areas, you need to switch accounts.",
+    "switchButton": "Switch to user account",
+    "backButton": "Back to admin panel",
+    "helpText": "Switching accounts will close all your active sessions.",
+    "paths": {
+      "dashboard": "dashboard",
+      "creator": "creator panel",
+      "live": "live streams",
+      "profile": "user profile",
+      "chats": "chats",
+      "matches": "matches",
+      "explore": "explore",
+      "login": "user login",
+      "default": "this section"
+    }
   },
   "role": {
     "admin": "Administrator",

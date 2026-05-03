@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { clearAdminToken } from "@/lib/token";
+import { clearAdminToken, clearAllAuth } from "@/lib/token";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
@@ -72,6 +72,14 @@ export default function AdminLayout({ children }) {
     window.location.href = "/admin/login";
   };
 
+  const handleSwitchAccount = () => {
+    // Admin panel uses hardcoded Spanish labels as it's internal-only and separate from main app i18n
+    if (confirm("¿Cambiar a cuenta de usuario/creador? Esto cerrará tu sesión de administrador.")) {
+      clearAllAuth();
+      window.location.href = "/login";
+    }
+  };
+
   const isActive = (item) => {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
@@ -127,6 +135,9 @@ export default function AdminLayout({ children }) {
               </div>
             </div>
           )}
+          <button className="switch-account-btn" onClick={handleSwitchAccount}>
+            🔄 Cambiar cuenta
+          </button>
           <button className="logout-btn" onClick={handleLogout}>
             ⏻ Cerrar sesión
           </button>
@@ -355,6 +366,23 @@ export default function AdminLayout({ children }) {
         }
 
         .admin-role { font-size: 0.75rem; color: #64748b; }
+
+        .switch-account-btn {
+          width: 100%;
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          color: #60a5fa;
+          border-radius: 8px;
+          padding: 0.5rem 0.75rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s;
+          text-align: left;
+        }
+
+        .switch-account-btn:hover { background: rgba(59, 130, 246, 0.16); }
 
         .logout-btn {
           width: 100%;

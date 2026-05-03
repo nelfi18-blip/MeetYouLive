@@ -29,33 +29,66 @@ export default function HomePage() {
   useEffect(() => {
     if (!session?.backendToken) return;
 
-    setLoading(true);
-    setError("");
+    const fetchHomeData = async () => {
+      setLoading(true);
+      setError("");
 
-    fetch(`${API_URL}/api/feed`, {
-      headers: {
-        Authorization: `Bearer ${session.backendToken}`,
-      },
-    })
-      .then((res) => {
+      // Timeout protection (8 seconds)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      try {
+        const res = await fetch(`${API_URL}/api/feed`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
         if (!res.ok) {
           throw new Error(t("common.error"));
         }
-        return res.json();
-      })
-      .then((feedData) => {
-        setData(feedData);
+
+        const feedData = await res.json();
+        
+        // Set data with fallback for empty arrays
+        setData({
+          activeLives: feedData.activeLives || [],
+          recommendedProfiles: feedData.recommendedProfiles || [],
+          featuredCreators: feedData.featuredCreators || [],
+        });
+      } catch (err) {
+        console.error("Home fetch error:", err);
+        clearTimeout(timeout);
+        
+        // Set error message
+        if (err.name === "AbortError") {
+          setError(t("common.timeout") || "Request timed out");
+        } else {
+          setError(err.message || t("common.error"));
+        }
+        
+        // Set empty data to prevent crashes
+        setData({
+          activeLives: [],
+          recommendedProfiles: [],
+          featuredCreators: [],
+        });
+      } finally {
+        // ALWAYS stop loading
         setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || t("common.error"));
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchHomeData();
   }, [session, t]);
 
   // Handle advancing to next profile
   const handleNextProfile = () => {
-    if (data?.recommendedProfiles && currentMatchIndex < data.recommendedProfiles.length - 1) {
+    const profiles = data?.recommendedProfiles || [];
+    if (profiles.length > 0 && currentMatchIndex < profiles.length - 1) {
       setCurrentMatchIndex(currentMatchIndex + 1);
     }
   };
@@ -91,9 +124,34 @@ export default function HomePage() {
     );
   }
 
-  if (!data) return null;
+  // Fallback UI when no data (API failed or returned empty)
+  if (!data || (!data.activeLives?.length && !data.recommendedProfiles?.length && !data.featuredCreators?.length)) {
+    return (
+      <div className="home-page">
+        <div className="home-container">
+          {error && (
+            <div className="home-error">
+              <p>{error}</p>
+            </div>
+          )}
+          
+          <div className="home-empty-state">
+            <div className="empty-icon">😔</div>
+            <h2>{t("home.noContent") || "No content available"}</h2>
+            <p>{t("home.noContentDesc") || "We couldn't load any content right now. Please try again later."}</p>
+            <button 
+              className="retry-btn"
+              onClick={() => window.location.reload()}
+            >
+              {t("common.retry") || "Retry"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const currentMatch = data.recommendedProfiles?.[currentMatchIndex];
+  const currentMatch = (data.recommendedProfiles || [])[currentMatchIndex];
 
   return (
     <>
@@ -131,13 +189,13 @@ export default function HomePage() {
           </div>
 
           {/* Section 2: LIVE - En Vivo ahora */}
-          {data.activeLives && data.activeLives.length > 0 ? (
+          {(data.activeLives || []).length > 0 ? (
             <div className="home-section lives-section">
               <div className="section-header">
                 <h2 className="section-title">🔴 {t("home.liveNow")}</h2>
               </div>
               <div className="lives-scroll">
-                {data.activeLives.map((live) => (
+                {(data.activeLives || []).map((live) => (
                   <div key={live._id} className="live-card-wrapper">
                     <LiveCard live={live} />
                   </div>
@@ -156,13 +214,13 @@ export default function HomePage() {
           )}
 
           {/* Section 3: FEATURED CREATORS - Creadores destacados */}
-          {data.featuredCreators && data.featuredCreators.length > 0 && (
+          {(data.featuredCreators || []).length > 0 && (
             <div className="home-section creators-section">
               <div className="section-header">
                 <h2 className="section-title">⭐ {t("home.topCreators")}</h2>
               </div>
               <div className="creators-grid">
-                {data.featuredCreators.map((creator) => (
+                {(data.featuredCreators || []).map((creator) => (
                   <div key={creator._id} className="creator-card">
                     <div className="creator-avatar">
                       <img 
@@ -248,6 +306,57 @@ export default function HomePage() {
           border-radius: var(--radius);
           margin-bottom: 1.5rem;
           color: #fca5a5;
+        }
+
+        .home-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 4rem 2rem;
+          text-align: center;
+          background: rgba(30,12,60,0.6);
+          border: 1px solid rgba(139,92,246,0.3);
+          border-radius: var(--radius);
+          margin: 2rem auto;
+          max-width: 500px;
+        }
+
+        .empty-icon {
+          font-size: 4rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .home-empty-state h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 0.75rem 0;
+        }
+
+        .home-empty-state p {
+          font-size: 1rem;
+          color: var(--text-muted);
+          margin: 0 0 2rem 0;
+          line-height: 1.6;
+        }
+
+        .retry-btn {
+          padding: 0.75rem 2rem;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          border: none;
+          color: white;
+          border-radius: 999px;
+          font-weight: 700;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 4px 15px rgba(224,64,251,0.3);
+        }
+
+        .retry-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(224,64,251,0.5);
         }
 
         .home-section {

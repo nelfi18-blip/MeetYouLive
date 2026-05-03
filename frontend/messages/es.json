@@ -104,6 +104,8 @@
     "loadMore": "Cargar más",
     "becomeCreator": "Solicita acceso a creador",
     "becomeCreatorDesc": "Gana dinero haciendo directos y recibiendo regalos",
+    "noContent": "Sin contenido disponible",
+    "noContentDesc": "No pudimos cargar contenido en este momento. Por favor, inténtalo más tarde.",
     "skipProfile": "Pasar",
     "likeProfile": "Me gusta",
     "chatProfile": "Mensaje",
@@ -121,6 +123,8 @@
     "error": "Ha ocurrido un error",
     "success": "Operación exitosa",
     "coins": "monedas",
-    "apply": "Solicitar"
+    "apply": "Solicitar",
+    "timeout": "Tiempo de espera agotado",
+    "retry": "Reintentar"
   }
 }

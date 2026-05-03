@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
@@ -343,14 +344,14 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const now = new Date();
 
     // Boosted users (active boost) appear first, then newest first.
-    // Exclude admin and moderator roles from public discovery
+    // Exclude all staff roles from public discovery
     const users = await User.aggregate([
       {
         $match: {
           _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
           isBlocked: false,
           onboardingComplete: true,
-          role: { $nin: ["admin", "moderator"] },
+          role: { $nin: STAFF_ROLES },
         },
       },
       {

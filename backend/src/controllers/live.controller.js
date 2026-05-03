@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
+const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
@@ -211,8 +212,8 @@ const getLiveById = async (req, res) => {
     const live = await Live.findOne({ _id: req.params.id, isLive: true }).populate("user", "username name avatar creatorProfile role");
     if (!live) return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     
-    // Hide admin/moderator lives from public
-    if (live.user.role === "admin" || live.user.role === "moderator") {
+    // Hide staff lives from public
+    if (STAFF_ROLES.includes(live.user.role)) {
       return res.status(404).json({ message: "Directo no encontrado o ya finalizado" });
     }
 

@@ -4,7 +4,12 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
-const { requireAdmin, requireModeratorOrAdmin } = require("../middlewares/admin.middleware.js");
+const { 
+  requireAdmin, 
+  requireModeratorOrAdmin, 
+  requirePermission 
+} = require("../middlewares/admin.middleware.js");
+const { logStaffAction } = require("../services/audit.service.js");
 const User = require("../models/User.js");
 const Video = require("../models/Video.js");
 const Live = require("../models/Live.js");
@@ -75,10 +80,12 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
       });
     }
 
-    if (adminUser.role !== "admin") {
-      console.log("❌ No es admin. Rol actual:", adminUser.role);
+    // Allow all staff roles to log in to admin panel
+    const staffRoles = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+    if (!staffRoles.includes(adminUser.role)) {
+      console.log("❌ No es staff. Rol actual:", adminUser.role);
       return res.status(403).json({
-        message: "Acceso solo para administradores",
+        message: "Acceso solo para personal autorizado",
       });
     }
 
@@ -129,48 +136,189 @@ router.post("/login", adminLoginLimiter, async (req, res) => {
   }
 });
 
-// Moderator-accessible routes (also accessible by admin)
-router.get("/reports", adminLimiter, verifyToken, requireModeratorOrAdmin, getReports);
-router.patch("/reports/:id", adminLimiter, verifyToken, requireModeratorOrAdmin, updateReport);
-router.get("/users", adminLimiter, verifyToken, requireModeratorOrAdmin, getUsers);
-router.get("/lives", adminLimiter, verifyToken, requireModeratorOrAdmin, getActiveLives);
-router.get("/lives/history", adminLimiter, verifyToken, requireModeratorOrAdmin, getLiveHistory);
+// Routes accessible by moderators, content_reviewers, and admin
+router.get("/reports", adminLimiter, verifyToken, requirePermission("VIEW_REPORTS"), getReports);
+router.patch("/reports/:id", adminLimiter, verifyToken, requirePermission("UPDATE_REPORTS"), updateReport);
 
-// All routes below require a valid JWT and admin role
+// Users view: admin, support, moderator
+router.get("/users", adminLimiter, verifyToken, requirePermission("VIEW_USERS"), getUsers);
+
+// Lives view: admin, moderator
+router.get("/lives", adminLimiter, verifyToken, requirePermission("VIEW_LIVES"), getActiveLives);
+router.get("/lives/history", adminLimiter, verifyToken, requirePermission("VIEW_LIVES"), getLiveHistory);
+
+// Creator requests: admin, creator_manager
+router.get("/creator-requests", adminLimiter, verifyToken, requirePermission("VIEW_CREATOR_REQUESTS"), getCreatorRequests);
+router.patch("/creator-requests/:id/approve", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), approveCreator);
+router.patch("/creator-requests/:id/reject", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), rejectCreator);
+router.patch("/creator-requests/:id/suspend", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), suspendCreator);
+
+// Creators management: admin, creator_manager
+router.get("/creators", adminLimiter, verifyToken, requirePermission("MANAGE_CREATORS"), getCreators);
+router.get("/creators/:id", adminLimiter, verifyToken, requirePermission("MANAGE_CREATORS"), getCreatorDetail);
+router.patch("/creators/:id/approve", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), approveCreator);
+router.patch("/creators/:id/reject", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), rejectCreator);
+router.patch("/creators/:id/suspend", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), suspendCreator);
+router.patch("/creators/:id/reactivate", adminLimiter, verifyToken, requirePermission("APPROVE_CREATORS"), reactivateCreator);
+
+// Payouts: admin, finance
+router.get("/payouts", adminLimiter, verifyToken, requirePermission("VIEW_PAYOUTS"), async (req, res) => {
+  try {
+    const allowedStatuses = ["pending", "approved", "processing", "completed", "paid", "rejected"];
+    const filter = {};
+    if (req.query.status && allowedStatuses.includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+    const payouts = await Payout.find(filter)
+      .populate("creator", "username name email avatar earningsCoins")
+      .sort({ createdAt: -1 })
+      .limit(200);
+    res.json({ payouts });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDATE_PAYOUTS"), async (req, res) => {
+  const TERMINAL_STATUSES = ["completed", "paid", "rejected"];
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "id inválido" });
+    }
+    const { status, notes } = req.body;
+    const allowedTransitions = ["approved", "paid", "processing", "completed", "rejected"];
+    if (!allowedTransitions.includes(status)) {
+      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid, completed o rejected" });
+    }
+
+    const payout = await Payout.findById(req.params.id).populate("creator", "username email");
+    if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
+
+    if (TERMINAL_STATUSES.includes(payout.status)) {
+      return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
+    }
+
+    const oldStatus = payout.status;
+    payout.status = status;
+    if (notes !== undefined) payout.notes = notes;
+    if (TERMINAL_STATUSES.includes(status)) {
+      payout.processedAt = new Date();
+    }
+    if (status === "rejected") {
+      payout.rejectionReason = notes || "Sin motivo indicado";
+    }
+    await payout.save();
+
+    // Restore earningsCoins atomically if rejected so the creator can retry
+    if (status === "rejected") {
+      await User.findByIdAndUpdate(payout.creator, {
+        $inc: { earningsCoins: payout.amountCoins },
+      });
+    }
+
+    // Log the payout status change
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole,
+      action: "update_payout_status",
+      targetType: "User",
+      targetId: payout.creator._id,
+      targetIdentifier: payout.creator.username || payout.creator.email,
+      details: { payoutId: payout._id, oldStatus, newStatus: status, notes },
+      ipAddress: req.ip,
+    });
+
+    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
+    res.json({ message: "Solicitud actualizada", payout: populated });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Revenue: admin, finance
+router.get("/revenue", adminLimiter, verifyToken, requirePermission("VIEW_REVENUE"), getRevenueMetrics);
+
+// All routes below require admin role only
 router.use(adminLimiter, verifyToken, requireAdmin);
 
 router.get("/overview", getOverview);
 router.patch("/users/:id/suspend", suspendUser);
 router.patch("/users/:id/unsuspend", unsuspendUser);
 router.patch("/make-admin", makeAdmin);
-router.get("/creator-requests", getCreatorRequests);
-router.patch("/creator-requests/:id/approve", approveCreator);
-router.patch("/creator-requests/:id/reject", rejectCreator);
-router.patch("/creator-requests/:id/suspend", suspendCreator);
-router.get("/creators", getCreators);
-router.get("/creators/:id", getCreatorDetail);
-router.patch("/creators/:id/approve", approveCreator);
-router.patch("/creators/:id/reject", rejectCreator);
-router.patch("/creators/:id/suspend", suspendCreator);
-router.patch("/creators/:id/reactivate", reactivateCreator);
 router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
-router.get("/revenue", getRevenueMetrics);
 router.get("/metrics/overview", getMetricsOverview);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 
 router.patch("/users/:id/role", async (req, res) => {
   const { role } = req.body;
-  if (!["user", "creator", "admin", "moderator"].includes(role)) {
+  const allRoles = ["user", "creator", "subCreator", "admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+  
+  if (!allRoles.includes(role)) {
     return res.status(400).json({ message: "Rol inválido" });
   }
+  
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select("-password");
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
+    // Get current staff user info
+    const staffUser = await User.findById(req.userId).select("role");
+    if (!staffUser) {
+      return res.status(401).json({ message: "Usuario no autenticado" });
+    }
+    
+    // Only admin can change roles
+    if (staffUser.role !== "admin") {
+      await logStaffAction({
+        staffId: req.userId,
+        staffRole: staffUser.role,
+        action: "attempted_role_change",
+        targetType: "User",
+        targetId: req.params.id,
+        details: { requestedRole: role, denied: true },
+        ipAddress: req.ip,
+      });
+      return res.status(403).json({ message: "Solo los administradores pueden cambiar roles" });
+    }
+    
+    // Prevent changing own role
+    if (req.userId === req.params.id) {
+      await logStaffAction({
+        staffId: req.userId,
+        staffRole: staffUser.role,
+        action: "attempted_self_role_change",
+        targetType: "User",
+        targetId: req.params.id,
+        details: { requestedRole: role, denied: true },
+        ipAddress: req.ip,
+      });
+      return res.status(403).json({ message: "No puedes cambiar tu propio rol" });
+    }
+    
+    const targetUser = await User.findById(req.params.id).select("role username email");
+    if (!targetUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    
+    const oldRole = targetUser.role;
+    targetUser.role = role;
+    await targetUser.save();
+    
+    // Log the role change
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: staffUser.role,
+      action: "change_user_role",
+      targetType: "User",
+      targetId: req.params.id,
+      targetIdentifier: targetUser.username || targetUser.email,
+      details: { oldRole, newRole: role },
+      ipAddress: req.ip,
+    });
+    
+    const userResponse = await User.findById(req.params.id).select("-password");
+    res.json(userResponse);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -417,72 +565,6 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
     }
 
     res.json({ message: "Relación eliminada" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ── Payout admin routes ─────────────────────────────────────────────────────
-
-// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|processing|completed|paid|rejected)
-router.get("/payouts", async (req, res) => {
-  try {
-    const allowedStatuses = ["pending", "approved", "processing", "completed", "paid", "rejected"];
-    const filter = {};
-    if (req.query.status && allowedStatuses.includes(req.query.status)) {
-      filter.status = req.query.status;
-    }
-    const payouts = await Payout.find(filter)
-      .populate("creator", "username name email avatar earningsCoins")
-      .sort({ createdAt: -1 })
-      .limit(200);
-    res.json({ payouts });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// PATCH /api/admin/payouts/:id — update payout status
-// Body: { status: "approved" | "paid" | "completed" | "rejected" | "processing", notes? }
-router.patch("/payouts/:id", async (req, res) => {
-  const TERMINAL_STATUSES = ["completed", "paid", "rejected"];
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "id inválido" });
-    }
-    const { status, notes } = req.body;
-    const allowedTransitions = ["approved", "paid", "processing", "completed", "rejected"];
-    if (!allowedTransitions.includes(status)) {
-      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid, completed o rejected" });
-    }
-
-    const payout = await Payout.findById(req.params.id);
-    if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
-
-    if (TERMINAL_STATUSES.includes(payout.status)) {
-      return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
-    }
-
-    payout.status = status;
-    if (notes !== undefined) payout.notes = notes;
-    if (TERMINAL_STATUSES.includes(status)) {
-      payout.processedAt = new Date();
-    }
-    if (status === "rejected") {
-      // Always record a rejection reason for audit trails
-      payout.rejectionReason = notes || "Sin motivo indicado";
-    }
-    await payout.save();
-
-    // Restore earningsCoins atomically if rejected so the creator can retry
-    if (status === "rejected") {
-      await User.findByIdAndUpdate(payout.creator, {
-        $inc: { earningsCoins: payout.amountCoins },
-      });
-    }
-
-    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
-    res.json({ message: "Solicitud actualizada", payout: populated });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

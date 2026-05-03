@@ -47,15 +47,40 @@ const getFeed = async (req, res) => {
       .slice(0, 12); // Take only first 12 after filtering
 
     // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
-    const recommendedProfiles = await User.find({
-      role: "user", // Excludes creators and all staff roles
-      isBlocked: false,
-      isSuspended: false,
-      onboardingComplete: true
-    })
-      .limit(12)
-      .select("name birthdate avatar location")
-      .lean();
+    // Add randomization for variety
+    const recommendedProfiles = await User.aggregate([
+      {
+        $match: {
+          role: "user", // Excludes creators and all staff roles
+          isBlocked: false,
+          isSuspended: false,
+          onboardingComplete: true
+        }
+      },
+      { $sample: { size: 12 } }, // Randomize selection
+      {
+        $project: {
+          name: 1,
+          avatar: 1,
+          location: 1,
+          // Calculate age from birthdate without exposing raw birthdate
+          age: {
+            $cond: {
+              if: { $ne: ["$birthdate", null] },
+              then: {
+                $floor: {
+                  $divide: [
+                    { $subtract: [new Date(), "$birthdate"] },
+                    365.25 * 24 * 60 * 60 * 1000
+                  ]
+                }
+              },
+              else: null
+            }
+          }
+        }
+      }
+    ]);
 
     // ⭐ Featured creators - use query to filter directly
     const featuredCreators = await User.find({

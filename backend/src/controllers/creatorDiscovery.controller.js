@@ -46,7 +46,7 @@ const getCreatorsForDiscovery = async (req, res) => {
         },
       ]),
 
-      // Current live status - fetch full live docs for validation
+      // Current live status - fetch live docs with validation fields
       Live.find({ user: { $in: creatorIds }, isLive: true })
         .select("user _id viewerCount createdAt endedAt isLive")
         .lean(),

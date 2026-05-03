@@ -70,7 +70,7 @@ exports.getOverview = async (req, res) => {
       totalCreators,
       pendingCreators,
       suspendedCreators,
-      activeLivesRaw,
+      activeLivesMarkedActive,
       totalLives,
       openReports,
       subscriptions,
@@ -111,7 +111,7 @@ exports.getOverview = async (req, res) => {
     ]);
 
     // Filter to count only truly active lives (not stale/ghost)
-    const activeLives = activeLivesRaw.filter(live => isLiveActuallyActive(live)).length;
+    const activeLives = activeLivesMarkedActive.filter(live => isLiveActuallyActive(live)).length;
 
     const totalCoinsPurchased = totalCoinsResult[0]?.total ?? 0;
     const totalGiftsSent = totalGiftsSentResult[0]?.count ?? 0;

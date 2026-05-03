@@ -62,7 +62,7 @@ async function markLiveAsEnded(liveId) {
     );
     return updated;
   } catch (err) {
-    console.error(`Error marking live ${liveId} as ended:`, err);
+    console.error("Error marking live as ended:", err.message);
     return null;
   }
 }

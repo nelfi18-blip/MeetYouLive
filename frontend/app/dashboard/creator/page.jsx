@@ -21,6 +21,12 @@ export default function CreatorEarningsDashboard() {
   });
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutMessage, setPayoutMessage] = useState(null);
+  
+  // New withdrawal request states
+  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
+  const [withdrawalMessage, setWithdrawalMessage] = useState(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session?.backendToken) return;
@@ -98,6 +104,46 @@ export default function CreatorEarningsDashboard() {
       setPayoutMessage({ type: "error", text: err.message });
     } finally {
       setPayoutLoading(false);
+    }
+  };
+  
+  // New withdrawal request handler
+  const handleRequestWithdrawal = async (e) => {
+    e.preventDefault();
+    setWithdrawalLoading(true);
+    setWithdrawalMessage(null);
+
+    try {
+      const amountCoins = parseInt(withdrawalAmount, 10);
+      if (!amountCoins || amountCoins < 1000) {
+        throw new Error("El mínimo de retiro es 1000 monedas");
+      }
+
+      const res = await fetch(`${API_URL}/api/withdraw/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({ amountCoins }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Error al solicitar retiro");
+      }
+
+      setWithdrawalMessage({ type: "success", text: "Solicitud de retiro enviada exitosamente" });
+      setShowWithdrawalForm(false);
+      setWithdrawalAmount("");
+      
+      // Refresh dashboard data
+      await fetchDashboardData();
+    } catch (err) {
+      setWithdrawalMessage({ type: "error", text: err.message });
+    } finally {
+      setWithdrawalLoading(false);
     }
   };
 
@@ -197,126 +243,83 @@ export default function CreatorEarningsDashboard() {
           />
         </div>
 
+        {/* Withdrawal Message */}
+        {withdrawalMessage && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            withdrawalMessage.type === "success" 
+              ? "bg-green-500/20 border border-green-500" 
+              : "bg-red-500/20 border border-red-500"
+          }`}>
+            <p>{withdrawalMessage.text}</p>
+          </div>
+        )}
+
         {/* Withdrawal Section */}
         <div className="mb-8 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-6 shadow-xl border border-white/10">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                <span>Disponible para retiro</span>
-                <span>💵</span>
+                <span>Disponible para retiro 💵</span>
               </h2>
               <p className="text-4xl font-bold">{earningsCoins.toLocaleString()} monedas</p>
               <p className="text-sm text-white/70 mt-1">≈ ${(earningsCoins / 10).toFixed(2)} USD</p>
             </div>
             <button
-              onClick={() => setShowPayoutForm(!showPayoutForm)}
-              disabled={earningsCoins < 100}
+              onClick={() => setShowWithdrawalForm(!showWithdrawalForm)}
+              disabled={earningsCoins < 1000}
               className={`px-6 py-3 rounded-lg font-semibold transition ${
-                earningsCoins < 100
+                earningsCoins < 1000
                   ? "bg-gray-600 cursor-not-allowed opacity-50"
                   : "bg-white text-indigo-600 hover:bg-gray-100"
               }`}
             >
-              {showPayoutForm ? "Cancelar" : "💰 Retirar dinero"}
+              {showWithdrawalForm ? "Cancelar" : "💰 Retirar ganancias"}
             </button>
           </div>
 
-          {earningsCoins < 100 && (
+          {earningsCoins < 1000 && (
             <p className="text-sm text-yellow-300 mt-2">
-              ⚠️ Mínimo para retiro: 100 monedas
+              ⚠️ Mínimo para retiro: 1,000 monedas
             </p>
           )}
 
-          {/* Payout Request Form */}
-          {showPayoutForm && (
-            <form onSubmit={handleRequestPayout} className="mt-6 pt-6 border-t border-white/20">
+          {/* Withdrawal Request Form */}
+          {showWithdrawalForm && (
+            <form onSubmit={handleRequestWithdrawal} className="mt-6 pt-6 border-t border-white/20">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Método de pago</label>
-                  <select
-                    value={payoutFormData.method}
-                    onChange={(e) => setPayoutFormData({ ...payoutFormData, method: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none"
-                    required
-                  >
-                    <option value="paypal">PayPal</option>
-                    <option value="zelle">Zelle</option>
-                    <option value="bank">Transferencia bancaria</option>
-                    <option value="stripe">Stripe Connect</option>
-                    <option value="other">Otro</option>
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium mb-2">
-                    Detalles de pago (email, número de cuenta, etc.)
+                    Cantidad a retirar (monedas)
                   </label>
-                  <textarea
-                    value={payoutFormData.paymentDetails}
-                    onChange={(e) => setPayoutFormData({ ...payoutFormData, paymentDetails: e.target.value })}
-                    placeholder="Proporciona los detalles necesarios para procesar tu pago (opcional)"
-                    className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none resize-none"
-                    rows={3}
-                    maxLength={500}
+                  <input
+                    type="number"
+                    min="1000"
+                    max={earningsCoins}
+                    value={withdrawalAmount}
+                    onChange={(e) => setWithdrawalAmount(e.target.value)}
+                    placeholder="Mínimo 1,000 monedas"
+                    className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 focus:border-white/40 outline-none text-white"
+                    required
                   />
                   <p className="text-xs text-white/60 mt-1">
-                    Opcional. Si lo proporcionas, mínimo 5 caracteres. Esta información será usada por el administrador para procesar tu pago.
+                    Equivalente: ${((parseInt(withdrawalAmount) || 0) / 10).toFixed(2)} USD
                   </p>
                 </div>
                 <button
                   type="submit"
-                  disabled={payoutLoading}
-                  className="w-full bg-white text-indigo-600 font-bold py-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={withdrawalLoading}
+                  className="w-full bg-white text-indigo-600 hover:bg-gray-100 font-semibold py-3 rounded-lg transition disabled:opacity-50"
                 >
-                  {payoutLoading ? "Procesando..." : `Solicitar retiro de ${earningsCoins.toLocaleString()} monedas`}
+                  {withdrawalLoading ? "Procesando..." : "Solicitar retiro"}
                 </button>
+                <p className="text-xs text-white/60">
+                  Tu solicitud será revisada por un administrador. Las monedas se bloquearán temporalmente hasta que se apruebe o rechace la solicitud.
+                </p>
               </div>
             </form>
           )}
-
-          {/* Payout History */}
-          {payoutHistory.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-white/20">
-              <h3 className="text-lg font-semibold mb-4">Historial de retiros</h3>
-              <div className="space-y-3">
-                {payoutHistory.slice(0, 5).map((payout) => (
-                  <div
-                    key={payout._id}
-                    className="flex items-center justify-between bg-white/5 rounded-lg p-3"
-                  >
-                    <div>
-                      <p className="font-medium">{payout.amountCoins.toLocaleString()} monedas</p>
-                      <p className="text-sm text-white/60">
-                        {new Date(payout.createdAt).toLocaleDateString()} • {payout.method}
-                      </p>
-                      {payout.rejectionReason && (
-                        <p className="text-sm text-red-300 mt-1">Razón: {payout.rejectionReason}</p>
-                      )}
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        payout.status === "paid"
-                          ? "bg-green-500/20 text-green-300"
-                          : payout.status === "approved"
-                          ? "bg-blue-500/20 text-blue-300"
-                          : payout.status === "rejected"
-                          ? "bg-red-500/20 text-red-300"
-                          : "bg-yellow-500/20 text-yellow-300"
-                      }`}
-                    >
-                      {payout.status === "paid"
-                        ? "Pagado"
-                        : payout.status === "approved"
-                        ? "Aprobado"
-                        : payout.status === "rejected"
-                        ? "Rechazado"
-                        : "Pendiente"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+
 
         {/* Section 2: Top Fan and Gifts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

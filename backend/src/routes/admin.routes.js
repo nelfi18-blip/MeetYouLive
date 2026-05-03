@@ -45,6 +45,12 @@ const {
   updatePayout,
 } = require("../controllers/admin.controller.js");
 
+const {
+  listWithdrawals,
+  approveWithdrawal,
+  rejectWithdrawal,
+} = require("../controllers/withdraw.controller.js");
+
 const router = Router();
 
 const adminLimiter = rateLimit({
@@ -714,5 +720,10 @@ router.get("/fraud/stats", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+// Withdrawals
+router.get("/withdrawals", adminLimiter, verifyToken, requireAdmin, listWithdrawals);
+router.patch("/withdrawals/:id/approve", adminLimiter, verifyToken, requireAdmin, approveWithdrawal);
+router.patch("/withdrawals/:id/reject", adminLimiter, verifyToken, requireAdmin, rejectWithdrawal);
 
 module.exports = router;

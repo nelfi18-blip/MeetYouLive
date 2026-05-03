@@ -63,6 +63,8 @@ const getHybridFeed = async (req, res) => {
  */
 const getLiveStreams = async (count, currentUserId) => {
   try {
+    const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+    
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator followersCount")
       .select("-streamKey -paidViewers")
@@ -73,8 +75,8 @@ const getLiveStreams = async (count, currentUserId) => {
       .filter((live) => live && live._id && live.user)
       .filter((live) => {
         const userRole = live.user?.role;
-        // Exclude admin/moderator and ensure approved creators only
-        if (userRole === "admin" || userRole === "moderator") return false;
+        // Exclude all staff roles (admin/moderator/support/creator_manager/finance/content_reviewer)
+        if (STAFF_ROLES.includes(userRole)) return false;
         const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
         return approved && isLiveActuallyActive(live);
       });
@@ -310,6 +312,8 @@ const getTopFeed = async (req, res) => {
 
 const getTopLiveStreams = async (count) => {
   try {
+    const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+    
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator")
       .select("-streamKey -paidViewers")
@@ -319,7 +323,8 @@ const getTopLiveStreams = async (count) => {
       .filter((live) => live && live._id && live.user)
       .filter((live) => {
         const userRole = live.user?.role;
-        if (userRole === "admin" || userRole === "moderator") return false;
+        // Exclude all staff roles
+        if (STAFF_ROLES.includes(userRole)) return false;
         const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
         return approved && isLiveActuallyActive(live);
       });

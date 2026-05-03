@@ -233,9 +233,13 @@ export default function CreatorPage() {
     setPayoutSuccess("");
 
     try {
-      const response = await fetch(`${API_URL}/api/creator/payout`, {
+      const response = await fetch(`${API_URL}/api/creator/request-payout`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ method: "stripe" })
       });
       const data = await response.json();
       const payoutFallbackId =
@@ -245,7 +249,7 @@ export default function CreatorPage() {
 
       if (!response.ok) throw new Error(data.message || "No pudimos procesar el retiro");
 
-      setPayoutSuccess(data.message || "Solicitud enviada correctamente.");
+      setPayoutSuccess("Solicitud de retiro enviada");
       setDashboard((prev) => {
         if (!prev) return prev;
         return {

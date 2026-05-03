@@ -126,7 +126,7 @@ export default function CreatorQuickActions({
             disabled={payoutDisabled}
           >
             <span className="qa-btn-icon"><CoinIcon size={14} /></span>
-            <span>Solicitar retiro</span>
+            <span>💰 Retirar dinero</span>
             <span className="qa-btn-right"><ArrowRightIcon size={12} /></span>
           </button>
         </>

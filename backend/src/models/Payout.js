@@ -9,14 +9,28 @@ const payoutSchema = new mongoose.Schema(
       index: true,
     },
     amountCoins: { type: Number, required: true, min: 1 },
+    amountUsd: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["pending", "approved", "processing", "completed", "paid", "rejected"],
+      enum: ["pending", "approved", "rejected", "paid"],
       default: "pending",
     },
+    method: {
+      type: String,
+      enum: ["zelle", "paypal", "bank", "stripe", "other"],
+      default: "stripe",
+    },
+    paymentDetails: { type: String, default: "" },
     rejectionReason: { type: String, default: "" },
     notes: { type: String, default: "" },
-    processedAt: { type: Date, default: null },
+    requestedAt: { type: Date, default: Date.now },
+    approvedAt: { type: Date, default: null },
+    paidAt: { type: Date, default: null },
+    processedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true }
 );

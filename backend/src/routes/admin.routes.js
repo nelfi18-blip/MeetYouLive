@@ -221,10 +221,10 @@ router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDAT
       staffId: req.userId,
       staffRole: req.userRole,
       action: "update_payout_status",
-      targetType: "User",
-      targetId: payout.creator._id,
-      targetIdentifier: payout.creator.username || payout.creator.email,
-      details: { payoutId: payout._id, oldStatus, newStatus: status, notes },
+      targetType: "Other",
+      targetId: payout._id,
+      targetIdentifier: `Payout ${payout._id} for ${payout.creator.username || payout.creator.email}`,
+      details: { payoutId: payout._id, creatorId: payout.creator._id, oldStatus, newStatus: status, notes },
       ipAddress: req.ip,
     });
 
@@ -283,7 +283,7 @@ router.patch("/users/:id/role", async (req, res) => {
     }
     
     // Prevent changing own role
-    if (req.userId === req.params.id) {
+    if (req.userId.toString() === req.params.id.toString()) {
       await logStaffAction({
         staffId: req.userId,
         staffRole: staffUser.role,

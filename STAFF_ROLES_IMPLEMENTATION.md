@@ -163,6 +163,8 @@ Log fields:
 
 ### Components
 - **UnauthorizedPage.jsx**: Displayed when user tries to access forbidden section
+  - Note: Uses hardcoded Spanish text like the rest of the admin panel
+  - Admin panel is separate from main app i18n system
 
 ## Testing Checklist
 

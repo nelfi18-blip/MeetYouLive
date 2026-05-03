@@ -120,6 +120,7 @@
     "cancel": "Cancel",
     "error": "An error occurred",
     "success": "Operation successful",
-    "coins": "coins"
+    "coins": "coins",
+    "apply": "Apply"
   }
 }

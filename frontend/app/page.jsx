@@ -51,7 +51,7 @@ export default function HomePage() {
         setError(err.message || t("common.error"));
         setLoading(false);
       });
-  }, [session]);
+  }, [session, t]);
 
   // Handle advancing to next profile
   const handleNextProfile = () => {
@@ -194,7 +194,7 @@ export default function HomePage() {
               <h3 className="cta-title">{t("home.becomeCreator")}</h3>
               <p className="cta-desc">{t("home.becomeCreatorDesc")}</p>
               <button className="cta-btn" onClick={handleCreatorRequest}>
-                {t("home.becomeCreator")}
+                {t("common.apply")}
               </button>
             </div>
           </div>

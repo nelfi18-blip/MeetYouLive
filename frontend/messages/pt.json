@@ -120,6 +120,7 @@
     "cancel": "Cancelar",
     "error": "Ocorreu um erro",
     "success": "Operação bem-sucedida",
-    "coins": "moedas"
+    "coins": "moedas",
+    "apply": "Solicitar"
   }
 }

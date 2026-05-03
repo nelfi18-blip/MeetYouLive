@@ -30,15 +30,6 @@ exports.requestWithdrawal = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Check if user is an approved creator
-    const isApprovedCreator = 
-      (user.role === "creator" || user.role === "subCreator") && 
-      user.creatorStatus === "approved";
-    
-    if (!isApprovedCreator) {
-      return res.status(403).json({ message: "Solo creadores aprobados pueden solicitar retiros" });
-    }
-
     // Check sufficient balance
     const availableCoins = user.earningsCoins || 0;
     if (availableCoins < amountCoins) {
@@ -75,7 +66,7 @@ exports.requestWithdrawal = async (req, res) => {
       amount: -amountCoins,
       reason: "Retiro solicitado - monedas bloqueadas temporalmente",
       status: "completed",
-      metadata: { withdrawalType: "request" },
+      metadata: { withdrawalType: "request", withdrawalId: withdrawalRequest._id },
     });
 
     // Create withdrawal request
@@ -194,7 +185,7 @@ exports.rejectWithdrawal = async (req, res) => {
         amount: request.amountCoins,
         reason: "Retiro rechazado - monedas restauradas",
         status: "completed",
-        metadata: { withdrawalId: request._id },
+        metadata: { withdrawalId: request._id, withdrawalRejection: true },
       });
     }
 

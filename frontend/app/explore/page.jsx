@@ -313,7 +313,7 @@ export default function ExplorePage() {
               <p>
                 {search || category !== "Todos"
                   ? "No hay directos que coincidan con tu búsqueda."
-                  : "No hay directos activos en este momento. ¡Vuelve más tarde!"}
+                  : "No hay directos ahora mismo. ¡Vuelve más tarde!"}
               </p>
             </div>
           ) : (

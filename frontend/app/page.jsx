@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLanguage } from "@/contexts/LanguageContext";
 import LiveCard from "@/components/LiveCard";
 import MatchCard from "@/components/MatchCard";
 
@@ -12,7 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const t = useTranslations();
+  const { t } = useLanguage();
   
   // Use refs to track loading states to prevent stale closures
   const loadingLiveNowRef = useRef(false);

@@ -91,16 +91,23 @@
     "heroSubtitle": "Live streams • Real connections • Active community",
     "liveNow": "Live Now",
     "seeAll": "See all",
-    "noLiveStreams": "No live streams now. Come back soon!",
-    "findYourMatch": "Find Your Match",
+    "noLiveStreams": "No live streams right now",
+    "findYourMatch": "Find your match",
+    "matchSubtitle": "Recommended people for you",
     "seeMatches": "See matches",
     "noMoreProfiles": "No more profiles available. Come back later!",
-    "topCreators": "Top Creators",
+    "topCreators": "Featured Creators",
     "seeRanking": "See ranking",
     "noCreators": "No creators available",
     "allLives": "All Lives",
     "noStreamsAvailable": "No streams available",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "becomeCreator": "Request creator access",
+    "becomeCreatorDesc": "Earn money streaming and receiving gifts",
+    "skipProfile": "Skip",
+    "likeProfile": "Like",
+    "chatProfile": "Message",
+    "enterLive": "Enter"
   },
   "feed": {
     "giftsOnlyDuringLive": "Gifts are only available during live streams",
@@ -113,6 +120,7 @@
     "cancel": "Cancel",
     "error": "An error occurred",
     "success": "Operation successful",
-    "coins": "coins"
+    "coins": "coins",
+    "apply": "Apply"
   }
 }

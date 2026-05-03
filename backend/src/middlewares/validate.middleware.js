@@ -47,10 +47,11 @@ const payoutRequestSchema = z.object({
     .default("stripe"),
   paymentDetails: z
     .string({ invalid_type_error: "paymentDetails debe ser texto" })
-    .min(5, "paymentDetails debe tener al menos 5 caracteres")
-    .max(500, "paymentDetails no puede superar 500 caracteres")
     .optional()
-    .default(""),
+    .refine(
+      (val) => !val || val.length >= 5,
+      { message: "paymentDetails debe tener al menos 5 caracteres si se proporciona" }
+    ),
 });
 
 const registerSchema = z.object({

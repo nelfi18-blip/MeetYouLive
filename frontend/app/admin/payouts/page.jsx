@@ -306,7 +306,7 @@ function AdminPayoutsContent() {
               <button 
                 className="btn-modal-confirm" 
                 onClick={handleRejectConfirm}
-                disabled={!rejectNotes.trim() || rejectNotes.trim().length < 5}
+                disabled={rejectNotes.trim().length < 5}
               >
                 Confirmar rechazo
               </button>

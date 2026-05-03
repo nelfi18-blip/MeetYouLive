@@ -24,23 +24,7 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Get user
-    const user = await User.findById(userId).select("earningsCoins role creatorStatus");
-    if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
-
-    // Check sufficient balance
-    const availableCoins = user.earningsCoins || 0;
-    if (availableCoins < amountCoins) {
-      return res.status(400).json({
-        message: "Saldo insuficiente",
-        available: availableCoins,
-        requested: amountCoins,
-      });
-    }
-
-    // Check for existing pending/approved requests
+    // Check for existing pending/approved requests first
     const existingRequest = await WithdrawalRequest.findOne({
       userId,
       status: { $in: ["pending", "approved"] },
@@ -52,20 +36,45 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
+    // Atomically deduct coins from user's earnings balance
+    // This prevents race conditions and ensures sufficient funds
+    const user = await User.findOneAndUpdate(
+      {
+        _id: userId,
+        earningsCoins: { $gte: amountCoins },
+      },
+      {
+        $inc: { earningsCoins: -amountCoins },
+      },
+      {
+        new: true,
+        select: "earningsCoins role creatorStatus",
+      }
+    );
+
+    // If user not found or insufficient balance
+    if (!user) {
+      const userCheck = await User.findById(userId).select("earningsCoins");
+      if (!userCheck) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      return res.status(400).json({
+        message: "Saldo insuficiente",
+        available: userCheck.earningsCoins || 0,
+        requested: amountCoins,
+      });
+    }
+
     // Calculate USD amount
     const amountUSD = amountCoins / COINS_PER_USD;
 
-    // Create withdrawal request first
+    // Create withdrawal request
     const withdrawalRequest = await WithdrawalRequest.create({
       userId,
       amountCoins,
       amountUSD,
       status: "pending",
     });
-
-    // Deduct coins from user's earnings balance
-    user.earningsCoins -= amountCoins;
-    await user.save();
 
     // Create coin transaction record
     await CoinTransaction.create({

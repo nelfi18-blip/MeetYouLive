@@ -1184,3 +1184,160 @@ exports.hardDeleteUser = async (req, res) => {
     });
   }
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PAYOUT MANAGEMENT
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/payouts — list all payout requests with filters
+ */
+exports.getPayouts = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter = {};
+    if (status && ["pending", "approved", "rejected", "paid"].includes(status)) {
+      filter.status = status;
+    }
+
+    const [payouts, total] = await Promise.all([
+      Payout.find(filter)
+        .populate("creator", "username name email avatar role creatorStatus")
+        .populate("processedBy", "username name email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Payout.countDocuments(filter),
+    ]);
+
+    return res.json({
+      ok: true,
+      payouts,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("Admin getPayouts error:", error);
+    return res.status(500).json({ ok: false, message: "Error al obtener retiros" });
+  }
+};
+
+/**
+ * PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
+ */
+exports.updatePayout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, rejectionReason, notes } = req.body;
+    const adminId = req.userId || req.user?.id;
+
+    if (!["approve", "reject", "mark_paid"].includes(action)) {
+      return res.status(400).json({
+        ok: false,
+        message: "Acción inválida. Use: approve, reject, mark_paid",
+      });
+    }
+
+    const payout = await Payout.findById(id);
+    if (!payout) {
+      return res.status(404).json({ ok: false, message: "Retiro no encontrado" });
+    }
+
+    // Only pending payouts can be approved or rejected
+    if (action === "approve" && payout.status !== "pending") {
+      return res.status(400).json({
+        ok: false,
+        message: "Solo se pueden aprobar retiros pendientes",
+      });
+    }
+
+    if (action === "reject" && payout.status !== "pending") {
+      return res.status(400).json({
+        ok: false,
+        message: "Solo se pueden rechazar retiros pendientes",
+      });
+    }
+
+    // Only approved payouts can be marked as paid
+    if (action === "mark_paid" && payout.status !== "approved") {
+      return res.status(400).json({
+        ok: false,
+        message: "Solo se pueden marcar como pagados retiros aprobados",
+      });
+    }
+
+    if (action === "approve") {
+      payout.status = "approved";
+      payout.approvedAt = new Date();
+      payout.processedBy = adminId;
+      if (notes) payout.notes = notes;
+      await payout.save();
+
+      console.log(`[Admin] Payout ${id} approved by admin ${adminId}`);
+
+      return res.json({
+        ok: true,
+        message: "Retiro aprobado correctamente",
+        payout,
+      });
+    }
+
+    if (action === "reject") {
+      if (!rejectionReason || rejectionReason.trim().length < 5) {
+        return res.status(400).json({
+          ok: false,
+          message: "Se requiere una razón de rechazo (mínimo 5 caracteres)",
+        });
+      }
+
+      // Return reserved coins back to creator
+      await User.findByIdAndUpdate(
+        payout.creator,
+        { $inc: { earningsCoins: payout.amountCoins } },
+        { new: true }
+      );
+
+      payout.status = "rejected";
+      payout.rejectionReason = rejectionReason;
+      payout.processedBy = adminId;
+      if (notes) payout.notes = notes;
+      await payout.save();
+
+      console.log(`[Admin] Payout ${id} rejected by admin ${adminId}. Coins restored: ${payout.amountCoins}`);
+
+      return res.json({
+        ok: true,
+        message: "Retiro rechazado. Monedas devueltas al creador.",
+        payout,
+      });
+    }
+
+    if (action === "mark_paid") {
+      payout.status = "paid";
+      payout.paidAt = new Date();
+      payout.processedBy = adminId;
+      if (notes) payout.notes = notes;
+      await payout.save();
+
+      console.log(`[Admin] Payout ${id} marked as paid by admin ${adminId}`);
+
+      return res.json({
+        ok: true,
+        message: "Retiro marcado como pagado",
+        payout,
+      });
+    }
+  } catch (error) {
+    console.error("Admin updatePayout error:", error);
+    return res.status(500).json({ ok: false, message: "Error al actualizar retiro" });
+  }
+};

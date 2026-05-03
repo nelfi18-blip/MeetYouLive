@@ -56,7 +56,7 @@ export default function HomePage() {
       })
         .then((r) => {
           if (!r.ok) {
-            console.error("Failed to fetch user data:", r.status, r.statusText);
+            console.error("Failed to load user profile for role-based UI:", r.status, r.statusText);
             return null;
           }
           return r.json();
@@ -298,7 +298,7 @@ export default function HomePage() {
                   <div className="tool-icon">💰</div>
                   <div className="tool-info">
                     <h3 className="tool-title">{t("home.yourBalance") || "Tu saldo"}</h3>
-                    <p className="tool-value">{userData.earningsCoins?.toLocaleString() || 0} {t("common.coins") || "coins"}</p>
+                    <p className="tool-value">{(userData.earningsCoins ?? 0).toLocaleString()} {t("common.coins") || "coins"}</p>
                   </div>
                 </div>
 
@@ -926,7 +926,7 @@ export default function HomePage() {
         /* Floating Go Live Button */
         .floating-go-live-btn {
           position: fixed;
-          bottom: 100px;
+          bottom: 110px; /* Adjusted to avoid overlap with bottom nav (typically 60-80px) */
           right: 2rem;
           z-index: 999;
           display: flex;
@@ -1013,7 +1013,7 @@ export default function HomePage() {
           }
 
           .floating-go-live-btn {
-            bottom: 80px;
+            bottom: 90px; /* Adjusted for mobile bottom nav */
             right: 1rem;
             padding: 0.75rem 1.25rem;
             font-size: 0.9rem;

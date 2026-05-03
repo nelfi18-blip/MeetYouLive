@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { clearAllAuth } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function BlockedContent() {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const [attemptedPath, setAttemptedPath] = useState("");
 
   useEffect(() => {
@@ -23,15 +25,15 @@ function BlockedContent() {
   };
 
   const getPathLabel = (path) => {
-    if (path.startsWith("/dashboard")) return "dashboard";
-    if (path.startsWith("/creator")) return "panel de creador";
-    if (path.startsWith("/live")) return "transmisiones en vivo";
-    if (path.startsWith("/profile")) return "perfil de usuario";
-    if (path.startsWith("/chats")) return "chats";
-    if (path.startsWith("/matches")) return "matches";
-    if (path.startsWith("/explore")) return "explorar";
-    if (path.startsWith("/login")) return "inicio de sesión de usuario";
-    return "esta sección";
+    if (path.startsWith("/dashboard")) return t("adminBlocked.paths.dashboard");
+    if (path.startsWith("/creator")) return t("adminBlocked.paths.creator");
+    if (path.startsWith("/live")) return t("adminBlocked.paths.live");
+    if (path.startsWith("/profile")) return t("adminBlocked.paths.profile");
+    if (path.startsWith("/chats")) return t("adminBlocked.paths.chats");
+    if (path.startsWith("/matches")) return t("adminBlocked.paths.matches");
+    if (path.startsWith("/explore")) return t("adminBlocked.paths.explore");
+    if (path.startsWith("/login")) return t("adminBlocked.paths.login");
+    return t("adminBlocked.paths.default");
   };
 
   return (
@@ -45,33 +47,33 @@ function BlockedContent() {
       <div className="blocked-icon">🔒</div>
 
       {/* Title */}
-      <h1 className="blocked-title">Acceso Restringido</h1>
+      <h1 className="blocked-title">{t("adminBlocked.title")}</h1>
 
       {/* Message */}
       <div className="blocked-message">
         <p className="blocked-main-text">
-          Estás conectado como <strong>administrador</strong>.
+          {t("adminBlocked.loggedInAs")} <strong>{t("adminBlocked.admin")}</strong>.
         </p>
         <p className="blocked-sub-text">
           {attemptedPath 
-            ? `Para acceder al ${getPathLabel(attemptedPath)}, necesitas cambiar de cuenta e iniciar sesión como creador o usuario.`
-            : "Para acceder a las áreas de usuario/creador, necesitas cambiar de cuenta."}
+            ? t("adminBlocked.needToSwitch").replace("{path}", getPathLabel(attemptedPath))
+            : t("adminBlocked.needToSwitchGeneric")}
         </p>
       </div>
 
       {/* Actions */}
       <div className="blocked-actions">
         <button className="btn btn-switch" onClick={handleSwitchAccount}>
-          🔄 Cambiar a cuenta de usuario
+          🔄 {t("adminBlocked.switchButton")}
         </button>
         <Link href="/admin" className="btn btn-back">
-          ← Volver al panel de administrador
+          ← {t("adminBlocked.backButton")}
         </Link>
       </div>
 
       {/* Help text */}
       <p className="blocked-help">
-        Al cambiar de cuenta se cerrarán todas tus sesiones activas.
+        {t("adminBlocked.helpText")}
       </p>
     </>
   );

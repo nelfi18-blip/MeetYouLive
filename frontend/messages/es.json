@@ -16,6 +16,27 @@
     "switchAccount": "Cambiar cuenta",
     "switchAccountConfirm": "¿Cambiar de cuenta? Esto cerrará tu sesión actual."
   },
+  "adminBlocked": {
+    "title": "Acceso Restringido",
+    "loggedInAs": "Estás conectado como",
+    "admin": "administrador",
+    "needToSwitch": "Para acceder al {path}, necesitas cambiar de cuenta e iniciar sesión como creador o usuario.",
+    "needToSwitchGeneric": "Para acceder a las áreas de usuario/creador, necesitas cambiar de cuenta.",
+    "switchButton": "Cambiar a cuenta de usuario",
+    "backButton": "Volver al panel de administrador",
+    "helpText": "Al cambiar de cuenta se cerrarán todas tus sesiones activas.",
+    "paths": {
+      "dashboard": "dashboard",
+      "creator": "panel de creador",
+      "live": "transmisiones en vivo",
+      "profile": "perfil de usuario",
+      "chats": "chats",
+      "matches": "matches",
+      "explore": "explorar",
+      "login": "inicio de sesión de usuario",
+      "default": "esta sección"
+    }
+  },
   "role": {
     "admin": "Administrador",
     "moderator": "Moderador",

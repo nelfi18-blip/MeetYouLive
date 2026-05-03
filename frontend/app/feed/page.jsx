@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import LiveCard from "@/components/LiveCard";
@@ -8,22 +8,12 @@ import MatchCard from "@/components/MatchCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const TABS = [
-  { id: "for-you", label: "Para Ti", icon: "⭐" },
-  { id: "match", label: "Match", icon: "❤️" },
-  { id: "live", label: "Live", icon: "🔴" },
-  { id: "top", label: "Top", icon: "🔥" },
-];
-
 export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("for-you");
-  const [feed, setFeed] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -32,158 +22,41 @@ export default function FeedPage() {
     }
   }, [status, router]);
 
-  // Fetch feed data based on active tab
-  const fetchFeed = useCallback(async (reset = false) => {
+  // Fetch feed data
+  useEffect(() => {
     if (!session?.backendToken) return;
-    if (loading) return;
 
     setLoading(true);
     setError("");
 
-    try {
-      const currentPage = reset ? 1 : page;
-      let endpoint = "";
-
-      switch (activeTab) {
-        case "for-you":
-          endpoint = `/api/feed/hybrid?limit=20`;
-          break;
-        case "match":
-          endpoint = `/api/feed/match-only?limit=20`;
-          break;
-        case "live":
-          endpoint = `/api/feed/live-only?limit=20`;
-          break;
-        case "top":
-          endpoint = `/api/feed/top?limit=20`;
-          break;
-        default:
-          endpoint = `/api/feed/hybrid?limit=20`;
-      }
-
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-        },
+    fetch(`${API_URL}/api/feed`, {
+      headers: {
+        Authorization: `Bearer ${session.backendToken}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Error al cargar el feed");
+        }
+        return res.json();
+      })
+      .then((feedData) => {
+        setData(feedData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Feed error:", err);
+        setError(err.message || "Error al cargar el feed");
+        setLoading(false);
       });
-
-      if (!response.ok) {
-        throw new Error("Error al cargar el feed");
-      }
-
-      const data = await response.json();
-      const newFeed = data.feed || [];
-
-      if (reset) {
-        setFeed(newFeed);
-        setPage(2);
-      } else {
-        setFeed((prev) => [...prev, ...newFeed]);
-        setPage((p) => p + 1);
-      }
-
-      setHasMore(newFeed.length > 0);
-    } catch (err) {
-      console.error("Feed error:", err);
-      setError(err.message || "Error al cargar el feed");
-    } finally {
-      setLoading(false);
-    }
-  }, [session, activeTab, page, loading]);
-
-  // Load feed when tab changes
-  useEffect(() => {
-    if (session?.backendToken) {
-      setFeed([]);
-      setPage(1);
-      setHasMore(true);
-      fetchFeed(true);
-    }
-  }, [activeTab, session]);
-
-  // Handle like action
-  const handleLike = async (userId) => {
-    if (!session?.backendToken) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/matches/like/${userId}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-      });
-
-      if (response.ok) {
-        // Remove card from feed
-        setFeed((prev) => prev.filter((item) => item._id !== userId));
-      }
-    } catch (err) {
-      console.error("Like error:", err);
-    }
-  };
-
-  // Handle skip action
-  const handleSkip = (userId) => {
-    // Simply remove from feed (client-side only for now)
-    setFeed((prev) => prev.filter((item) => item._id !== userId));
-  };
-
-  // Handle chat action
-  const handleChat = (userId) => {
-    router.push(`/chats?user=${userId}`);
-  };
+  }, [session]);
 
   // Handle join live
   const handleJoinLive = (liveId) => {
     router.push(`/live/${liveId}`);
   };
 
-  // Handle send gift
-  const handleSendGift = async (userId, liveId) => {
-    if (!session?.backendToken) return;
-    // Redirect to live stream with gift panel open, or open gift modal
-    if (liveId) {
-      router.push(`/live/${liveId}?openGifts=true`);
-    } else {
-      // TODO: Show gift selection modal for non-live users
-      alert("Los regalos solo están disponibles durante streams en vivo");
-    }
-  };
-
-  // Handle send greeting
-  const handleSendGreeting = async (userId) => {
-    if (!session?.backendToken) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/feed/send-greeting`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ userId, message: "👋" }),
-      });
-
-      if (response.ok) {
-        alert("¡Saludo enviado!");
-      } else {
-        alert("Error al enviar el saludo");
-      }
-    } catch (err) {
-      console.error("Send greeting error:", err);
-      alert("Error al enviar el saludo");
-    }
-  };
-
-  // Handle unlock chat
-  const handleUnlockChat = async (userId) => {
-    if (!session?.backendToken) return;
-    // For now, just redirect to chat
-    // TODO: Implement premium unlock flow with coins
-    router.push(`/chats?user=${userId}`);
-  };
-
-  if (status === "loading") {
+  if (status === "loading" || loading) {
     return (
       <div className="feed-page">
         <div className="feed-loading">
@@ -194,104 +67,94 @@ export default function FeedPage() {
     );
   }
 
+  if (!data) return null;
+
   return (
     <>
       <div className="feed-page">
         <div className="feed-container">
           {/* Header */}
           <div className="feed-header">
-            <h1 className="feed-title">Descubre</h1>
-            <p className="feed-subtitle">Encuentra personas increíbles y streams en vivo</p>
-          </div>
-
-          {/* Tabs */}
-          <div className="feed-tabs">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`feed-tab ${activeTab === tab.id ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span className="tab-icon">{tab.icon}</span>
-                <span className="tab-label">{tab.label}</span>
-              </button>
-            ))}
+            <h1 className="feed-title">Feed</h1>
+            <p className="feed-subtitle">Descubre personas increíbles y streams en vivo</p>
           </div>
 
           {/* Error message */}
           {error && (
             <div className="feed-error">
               <p>{error}</p>
-              <button onClick={() => fetchFeed(true)}>Reintentar</button>
             </div>
           )}
 
-          {/* Feed content */}
-          <div className="feed-content">
-            {feed.length === 0 && !loading && (
-              <div className="feed-empty">
-                <div className="empty-icon">
-                  {activeTab === "live" ? "🎥" : activeTab === "match" ? "💕" : "⭐"}
-                </div>
-                <h3>No hay contenido disponible</h3>
-                <p>
-                  {activeTab === "live"
-                    ? "No hay streams en vivo ahora. ¡Vuelve pronto!"
-                    : activeTab === "match"
-                    ? "No hay más perfiles para mostrar. ¡Vuelve más tarde!"
-                    : "No hay contenido disponible ahora."}
-                </p>
+          {/* Lives Section */}
+          {data.activeLives && data.activeLives.length > 0 && (
+            <div className="feed-section">
+              <h2 className="section-title">🔴 En Vivo Ahora</h2>
+              <div className="lives-grid">
+                {data.activeLives.map((live) => (
+                  <LiveCard key={live._id} live={live} />
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {feed.map((item, idx) => {
-              if (item.type === "live") {
-                return (
-                  <div key={`live-${item._id}-${idx}`} className="feed-item">
-                    <LiveCard live={item} />
+          {/* Recommended Profiles Section */}
+          {data.recommendedProfiles && data.recommendedProfiles.length > 0 && (
+            <div className="feed-section">
+              <h2 className="section-title">❤️ Usuarios Recomendados</h2>
+              <div className="profiles-grid">
+                {data.recommendedProfiles.map((user) => (
+                  <div key={user._id} className="profile-card">
+                    <div className="profile-avatar">
+                      <img 
+                        src={user.avatar || "/default-avatar.png"} 
+                        alt={user.name}
+                      />
+                    </div>
+                    <h3 className="profile-name">{user.name}</h3>
+                    {user.age && <p className="profile-age">{user.age} años</p>}
+                    {user.location && <p className="profile-location">📍 {user.location}</p>}
+                    <button 
+                      className="profile-btn"
+                      onClick={() => router.push(`/profile/${user._id}`)}
+                    >
+                      Ver Perfil
+                    </button>
                   </div>
-                );
-              } else if (item.type === "match") {
-                return (
-                  <div key={`match-${item._id}-${idx}`} className="feed-item">
-                    <MatchCard
-                      user={item}
-                      onLike={handleLike}
-                      onSkip={handleSkip}
-                      onChat={handleChat}
-                      isMatch={false}
-                      hooks={{
-                        visitCount: 0,
-                        hasGreeting: false,
-                        isLiveNow: false,
-                      }}
-                      onSendGift={handleSendGift}
-                      onSendGreeting={handleSendGreeting}
-                      onUnlockChat={handleUnlockChat}
-                      onJoinLive={handleJoinLive}
-                    />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Featured Creators Section */}
+          {data.featuredCreators && data.featuredCreators.length > 0 && (
+            <div className="feed-section">
+              <h2 className="section-title">⭐ Creadores Destacados</h2>
+              <div className="creators-grid">
+                {data.featuredCreators.map((creator) => (
+                  <div key={creator._id} className="creator-card">
+                    <div className="creator-avatar">
+                      <img 
+                        src={creator.avatar || "/default-avatar.png"} 
+                        alt={creator.name}
+                      />
+                      <div className="creator-badge">⭐</div>
+                    </div>
+                    <h3 className="creator-name">{creator.name}</h3>
+                    <p className="creator-earnings">
+                      💰 {creator.earningsCoins || 0} coins
+                    </p>
+                    <button 
+                      className="creator-btn"
+                      onClick={() => router.push(`/profile/${creator._id}`)}
+                    >
+                      Ver Perfil
+                    </button>
                   </div>
-                );
-              }
-              return null;
-            })}
-
-            {/* Loading indicator */}
-            {loading && (
-              <div className="feed-loading">
-                <div className="spinner"></div>
+                ))}
               </div>
-            )}
-
-            {/* Load more button */}
-            {!loading && hasMore && feed.length > 0 && (
-              <div className="feed-load-more">
-                <button onClick={() => fetchFeed(false)} className="load-more-btn">
-                  Cargar más
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -303,17 +166,17 @@ export default function FeedPage() {
         }
 
         .feed-container {
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
         }
 
         .feed-header {
           text-align: center;
-          margin-bottom: 2rem;
+          margin-bottom: 3rem;
         }
 
         .feed-title {
-          font-size: 2.5rem;
+          font-size: 3rem;
           font-weight: 900;
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
           -webkit-background-clip: text;
@@ -323,54 +186,9 @@ export default function FeedPage() {
         }
 
         .feed-subtitle {
-          font-size: 1rem;
+          font-size: 1.1rem;
           color: var(--text-muted);
           margin: 0;
-        }
-
-        .feed-tabs {
-          display: flex;
-          justify-content: center;
-          gap: 0.5rem;
-          margin-bottom: 2rem;
-          flex-wrap: wrap;
-        }
-
-        .feed-tab {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.5rem;
-          border-radius: 999px;
-          border: 2px solid rgba(139,92,246,0.3);
-          background: rgba(30,12,60,0.5);
-          color: var(--text-muted);
-          font-size: 0.95rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .feed-tab:hover {
-          border-color: rgba(139,92,246,0.6);
-          background: rgba(30,12,60,0.8);
-          color: var(--text);
-        }
-
-        .feed-tab.active {
-          border-color: #e040fb;
-          background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(139,92,246,0.2));
-          color: #e040fb;
-          box-shadow: 0 0 20px rgba(224,64,251,0.3);
-        }
-
-        .tab-icon {
-          font-size: 1.2rem;
-          line-height: 1;
-        }
-
-        .tab-label {
-          line-height: 1;
         }
 
         .feed-error {
@@ -380,70 +198,21 @@ export default function FeedPage() {
           border: 1px solid rgba(239,68,68,0.3);
           border-radius: var(--radius);
           margin-bottom: 2rem;
-        }
-
-        .feed-error p {
           color: #fca5a5;
-          margin-bottom: 1rem;
-        }
-
-        .feed-error button {
-          padding: 0.5rem 1rem;
-          background: rgba(239,68,68,0.2);
-          border: 1px solid rgba(239,68,68,0.5);
-          color: #fca5a5;
-          border-radius: var(--radius);
-          cursor: pointer;
-          font-weight: 600;
-        }
-
-        .feed-content {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 2rem;
-          margin-bottom: 2rem;
-        }
-
-        .feed-item {
-          display: flex;
-          justify-content: center;
-        }
-
-        .feed-empty {
-          grid-column: 1 / -1;
-          text-align: center;
-          padding: 4rem 2rem;
-        }
-
-        .empty-icon {
-          font-size: 5rem;
-          margin-bottom: 1rem;
-        }
-
-        .feed-empty h3 {
-          font-size: 1.5rem;
-          color: var(--text);
-          margin-bottom: 0.5rem;
-        }
-
-        .feed-empty p {
-          font-size: 1rem;
-          color: var(--text-muted);
         }
 
         .feed-loading {
-          grid-column: 1 / -1;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 3rem;
+          padding: 4rem;
           gap: 1rem;
         }
 
         .spinner {
-          width: 40px;
-          height: 40px;
+          width: 50px;
+          height: 50px;
           border: 4px solid rgba(139,92,246,0.2);
           border-top-color: #8b5cf6;
           border-radius: 50%;
@@ -456,18 +225,104 @@ export default function FeedPage() {
 
         .feed-loading p {
           color: var(--text-muted);
-          font-size: 0.9rem;
+          font-size: 1rem;
         }
 
-        .feed-load-more {
-          grid-column: 1 / -1;
+        .feed-section {
+          margin-bottom: 4rem;
+        }
+
+        .section-title {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: var(--text);
+          margin: 0 0 1.5rem 0;
           display: flex;
-          justify-content: center;
-          padding: 2rem;
+          align-items: center;
+          gap: 0.5rem;
         }
 
-        .load-more-btn {
-          padding: 0.75rem 2rem;
+        .lives-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .profiles-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .creators-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .profile-card, .creator-card {
+          background: rgba(30,12,60,0.6);
+          border: 1px solid rgba(139,92,246,0.3);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          text-align: center;
+          transition: all 0.3s;
+        }
+
+        .profile-card:hover, .creator-card:hover {
+          border-color: rgba(139,92,246,0.6);
+          background: rgba(30,12,60,0.8);
+          transform: translateY(-4px);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .profile-avatar, .creator-avatar {
+          width: 100px;
+          height: 100px;
+          margin: 0 auto 1rem;
+          border-radius: 50%;
+          overflow: hidden;
+          border: 3px solid rgba(139,92,246,0.5);
+          position: relative;
+        }
+
+        .profile-avatar img, .creator-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .creator-badge {
+          position: absolute;
+          bottom: -5px;
+          right: -5px;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          border: 2px solid var(--bg);
+        }
+
+        .profile-name, .creator-name {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 0.5rem 0;
+        }
+
+        .profile-age, .profile-location, .creator-earnings {
+          font-size: 0.9rem;
+          color: var(--text-muted);
+          margin: 0.25rem 0;
+        }
+
+        .profile-btn, .creator-btn {
+          margin-top: 1rem;
+          padding: 0.6rem 1.5rem;
           background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(139,92,246,0.2));
           border: 2px solid rgba(224,64,251,0.5);
           color: #e040fb;
@@ -475,9 +330,10 @@ export default function FeedPage() {
           font-weight: 700;
           cursor: pointer;
           transition: all 0.2s;
+          width: 100%;
         }
 
-        .load-more-btn:hover {
+        .profile-btn:hover, .creator-btn:hover {
           background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
           border-color: #e040fb;
           box-shadow: 0 0 20px rgba(224,64,251,0.3);
@@ -492,22 +348,12 @@ export default function FeedPage() {
             font-size: 2rem;
           }
 
-          .feed-content {
+          .section-title {
+            font-size: 1.4rem;
+          }
+
+          .lives-grid, .profiles-grid, .creators-grid {
             grid-template-columns: 1fr;
-            gap: 1.5rem;
-          }
-
-          .feed-tabs {
-            gap: 0.3rem;
-          }
-
-          .feed-tab {
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
-          }
-
-          .tab-icon {
-            font-size: 1rem;
           }
         }
       `}</style>

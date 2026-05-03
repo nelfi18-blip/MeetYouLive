@@ -7,29 +7,11 @@ import { usePathname } from "next/navigation";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
 export default function FloatingGoLiveButton() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const { t } = useLanguage();
-  const [user, setUser] = useState(null);
   const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) return;
-
-    fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d) setUser(d);
-      })
-      .catch(() => {});
-  }, [session]);
 
   // Hide button on certain pages
   useEffect(() => {
@@ -38,6 +20,9 @@ export default function FloatingGoLiveButton() {
     const isLivePage = pathname?.startsWith("/live/") && pathname !== "/live";
     setIsVisible(!hiddenPages.includes(pathname) && !isLivePage);
   }, [pathname]);
+
+  // Get user from session
+  const user = session?.backendUser || session?.user;
 
   // Only show for approved creators
   if (!user || !isApprovedCreator(user) || !isVisible) {

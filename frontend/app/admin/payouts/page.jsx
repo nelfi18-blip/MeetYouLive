@@ -10,8 +10,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const STATUS_LABELS = {
   pending: "Pendiente",
   approved: "Aprobado",
-  processing: "En proceso",
-  completed: "Pagado",
   paid: "Pagado",
   rejected: "Rechazado",
 };
@@ -19,8 +17,6 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   pending: "badge--yellow",
   approved: "badge--blue",
-  processing: "badge--blue",
-  completed: "badge--green",
   paid: "badge--green",
   rejected: "badge--red",
 };
@@ -74,14 +70,18 @@ function AdminPayoutsContent() {
 
   useEffect(() => { loadPayouts(); }, [loadPayouts]);
 
-  const updateStatus = useCallback(async (id, status, notes = "") => {
+  const updateStatus = useCallback(async (id, action, rejectionReason = "", notes = "") => {
     setActionLoading(id);
     setActionError("");
     try {
+      const body = { action };
+      if (rejectionReason) body.rejectionReason = rejectionReason;
+      if (notes) body.notes = notes;
+      
       const res = await fetch(`${API_URL}/api/admin/payouts/${id}`, {
         method: "PATCH",
         headers: { ...authHeader(), "Content-Type": "application/json" },
-        body: JSON.stringify({ status, notes }),
+        body: JSON.stringify(body),
       });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
       if (!res.ok) {
@@ -93,16 +93,22 @@ function AdminPayoutsContent() {
       setPayouts((prev) =>
         prev.map((p) => (p._id === id ? { ...p, ...data.payout } : p))
       );
+      // Refresh list after update
+      await loadPayouts();
     } catch {
       setActionError("Error de red al actualizar el retiro.");
     } finally {
       setActionLoading(null);
     }
-  }, [authHeader, router]);
+  }, [authHeader, router, loadPayouts]);
 
   const handleRejectConfirm = useCallback(async () => {
     if (!rejectModal) return;
-    await updateStatus(rejectModal.id, "rejected", rejectNotes.trim());
+    if (!rejectNotes.trim() || rejectNotes.trim().length < 5) {
+      setActionError("La razón de rechazo debe tener al menos 5 caracteres");
+      return;
+    }
+    await updateStatus(rejectModal.id, "reject", rejectNotes.trim());
     setRejectModal(null);
     setRejectNotes("");
   }, [rejectModal, rejectNotes, updateStatus]);
@@ -117,8 +123,7 @@ function AdminPayoutsContent() {
     { value: "", label: "Todos" },
     { value: "pending", label: `Pendientes${counts.pending ? ` (${counts.pending})` : ""}` },
     { value: "approved", label: `Aprobados${counts.approved ? ` (${counts.approved})` : ""}` },
-    { value: "processing", label: `En proceso${counts.processing ? ` (${counts.processing})` : ""}` },
-    { value: "completed", label: `Pagados${totalPaid ? ` (${totalPaid})` : ""}` },
+    { value: "paid", label: `Pagados${totalPaid ? ` (${totalPaid})` : ""}` },
     { value: "rejected", label: `Rechazados${counts.rejected ? ` (${counts.rejected})` : ""}` },
   ];
 
@@ -176,17 +181,17 @@ function AdminPayoutsContent() {
             <thead>
               <tr>
                 <th>Creador</th>
-                <th>Coins</th>
+                <th>Coins / USD</th>
+                <th>Método</th>
                 <th>Estado</th>
                 <th>Solicitado</th>
-                <th>Procesado</th>
-                <th>Notas</th>
+                <th>Detalles</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {payouts.map((p) => {
-                const isTerminal = p.status === "completed" || p.status === "paid" || p.status === "rejected";
+                const isTerminal = p.status === "paid" || p.status === "rejected";
                 const busy = actionLoading === p._id;
                 return (
                   <tr key={p._id}>
@@ -205,11 +210,31 @@ function AdminPayoutsContent() {
                         </div>
                       </div>
                     </td>
-                    <td className="coins-cell">{(p.amountCoins ?? 0).toLocaleString()} 🪙</td>
+                    <td className="coins-cell">
+                      <div>{(p.amountCoins ?? 0).toLocaleString()} 🪙</div>
+                      <div className="usd-text">${(p.amountUsd ?? 0).toFixed(2)} USD</div>
+                    </td>
+                    <td className="method-cell">{p.method || "—"}</td>
                     <td><StatusBadge status={p.status} /></td>
                     <td className="date-cell">{p.createdAt ? new Date(p.createdAt).toLocaleDateString("es-ES") : "—"}</td>
-                    <td className="date-cell">{p.processedAt ? new Date(p.processedAt).toLocaleDateString("es-ES") : "—"}</td>
-                    <td className="notes-cell">{p.notes || <span className="no-notes">—</span>}</td>
+                    <td className="details-cell">
+                      {p.paymentDetails && (
+                        <div className="payment-details" title={p.paymentDetails}>
+                          {p.paymentDetails.length > 30 ? `${p.paymentDetails.substring(0, 30)}...` : p.paymentDetails}
+                        </div>
+                      )}
+                      {p.rejectionReason && (
+                        <div className="rejection-reason">
+                          ❌ {p.rejectionReason}
+                        </div>
+                      )}
+                      {p.notes && (
+                        <div className="notes-text" title={p.notes}>
+                          {p.notes.length > 30 ? `${p.notes.substring(0, 30)}...` : p.notes}
+                        </div>
+                      )}
+                      {!p.paymentDetails && !p.rejectionReason && !p.notes && <span className="no-notes">—</span>}
+                    </td>
                     <td className="actions-cell">
                       {isTerminal ? (
                         <span className="action-done">—</span>
@@ -219,23 +244,23 @@ function AdminPayoutsContent() {
                             <button
                               className="btn-action btn-process"
                               disabled={busy}
-                              onClick={() => updateStatus(p._id, "approved")}
+                              onClick={() => updateStatus(p._id, "approve")}
                               title="Aprobar solicitud"
                             >
                               {busy ? "…" : "✓ Aprobar"}
                             </button>
                           )}
-                          {(p.status === "approved" || p.status === "processing") && (
+                          {p.status === "approved" && (
                             <button
                               className="btn-action btn-complete"
                               disabled={busy}
-                              onClick={() => updateStatus(p._id, "paid")}
+                              onClick={() => updateStatus(p._id, "mark_paid")}
                               title="Marcar como pagado"
                             >
                               {busy ? "…" : "💸 Pagado"}
                             </button>
                           )}
-                          {(p.status === "pending" || p.status === "approved" || p.status === "processing") && (
+                          {p.status === "pending" && (
                             <button
                               className="btn-action btn-reject"
                               disabled={busy}
@@ -265,17 +290,25 @@ function AdminPayoutsContent() {
               ¿Seguro que quieres rechazar esta solicitud de <strong>{rejectModal.amountCoins?.toLocaleString()} 🪙</strong>?<br />
               Los coins serán devueltos automáticamente al creador.
             </p>
-            <label className="modal-label">Notas (opcional)</label>
+            <label className="modal-label">Razón del rechazo (mínimo 5 caracteres) *</label>
             <textarea
               className="modal-textarea"
               value={rejectNotes}
               onChange={(e) => setRejectNotes(e.target.value)}
-              placeholder="Motivo del rechazo…"
+              placeholder="Explica por qué se rechaza esta solicitud…"
               rows={3}
+              minLength={5}
+              required
             />
             <div className="modal-actions">
               <button className="btn-modal-cancel" onClick={() => setRejectModal(null)}>Cancelar</button>
-              <button className="btn-modal-confirm" onClick={handleRejectConfirm}>Confirmar rechazo</button>
+              <button 
+                className="btn-modal-confirm" 
+                onClick={handleRejectConfirm}
+                disabled={!rejectNotes.trim() || rejectNotes.trim().length < 5}
+              >
+                Confirmar rechazo
+              </button>
             </div>
           </div>
         </div>
@@ -487,6 +520,18 @@ function AdminPayoutsContent() {
           color: #fbbf24;
           white-space: nowrap;
         }
+        .usd-text {
+          font-size: 0.75rem;
+          color: #94a3b8;
+          font-weight: 400;
+          margin-top: 2px;
+        }
+
+        .method-cell {
+          font-size: 0.85rem;
+          color: #cbd5e1;
+          text-transform: capitalize;
+        }
 
         .date-cell {
           white-space: nowrap;
@@ -494,11 +539,24 @@ function AdminPayoutsContent() {
           color: #94a3b8;
         }
 
-        .notes-cell {
-          max-width: 180px;
+        .details-cell {
+          max-width: 200px;
           font-size: 0.8rem;
           color: #94a3b8;
+        }
+        .payment-details {
+          margin-bottom: 4px;
+          color: #cbd5e1;
           word-break: break-word;
+        }
+        .rejection-reason {
+          margin-bottom: 4px;
+          color: #f87171;
+          font-weight: 600;
+        }
+        .notes-text {
+          color: #94a3b8;
+          font-style: italic;
         }
         .no-notes { color: #2d3748; }
 

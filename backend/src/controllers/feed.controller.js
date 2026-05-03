@@ -16,7 +16,7 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 /**
  * GET /api/feed
  * Returns real data for hybrid feed (live + match + creators)
- * - activeLives: Active live streams ONLY (status=live, isLive=true)
+ * - activeLives: Active live streams ONLY (isLive=true, no endedAt)
  * - recommendedProfiles: Regular users (NO admin, NO staff)
  * - featuredCreators: Top approved creators by earnings
  */
@@ -25,17 +25,26 @@ const getFeed = async (req, res) => {
     // 🔴 Active live streams ONLY
     const activeLives = await Live.find({
       isLive: true,
-      endedAt: { $exists: false }
+      $or: [
+        { endedAt: { $exists: false } },
+        { endedAt: null }
+      ]
     })
       .sort({ viewerCount: -1 })
       .limit(12)
-      .populate("user", "name avatar role")
+      .populate("user", "name avatar role creatorStatus")
       .lean();
 
-    // Filter out staff roles from live streams
+    // Filter out staff roles and ensure only approved creators
     const filteredLives = activeLives.filter((live) => {
-      const creatorRole = live.user?.role;
-      return !STAFF_ROLES.includes(creatorRole);
+      if (!live.user) return false;
+      const userRole = live.user.role;
+      // Exclude all staff roles
+      if (STAFF_ROLES.includes(userRole)) return false;
+      // Only include approved creators or subCreators
+      const isApprovedCreator = (userRole === "creator" || userRole === "subCreator") && 
+                                live.user.creatorStatus === "approved";
+      return isApprovedCreator;
     });
 
     // ❤️ Recommended users (NO admin, NO staff)
@@ -46,7 +55,7 @@ const getFeed = async (req, res) => {
       onboardingComplete: true
     })
       .limit(12)
-      .select("name age avatar location")
+      .select("name birthdate avatar location")
       .lean();
 
     // ⭐ Featured creators

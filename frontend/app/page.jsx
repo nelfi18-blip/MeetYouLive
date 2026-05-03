@@ -54,7 +54,13 @@ export default function HomePage() {
       fetch(`${API_URL}/api/user/me`, {
         headers: { Authorization: `Bearer ${session.backendToken}` },
       })
-        .then((r) => r.ok ? r.json() : null)
+        .then((r) => {
+          if (!r.ok) {
+            console.error("Failed to fetch user data:", r.status, r.statusText);
+            return null;
+          }
+          return r.json();
+        })
         .then((data) => {
           if (data) {
             setUserData(data);

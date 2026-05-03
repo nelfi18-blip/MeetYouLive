@@ -11,6 +11,7 @@ const { isApprovedCreator } = require("../lib/creatorUtils.js");
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
+const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 /**
  * GET /api/feed/hybrid
@@ -63,8 +64,6 @@ const getHybridFeed = async (req, res) => {
  */
 const getLiveStreams = async (count, currentUserId) => {
   try {
-    const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
-    
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator followersCount")
       .select("-streamKey -paidViewers")
@@ -312,8 +311,6 @@ const getTopFeed = async (req, res) => {
 
 const getTopLiveStreams = async (count) => {
   try {
-    const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
-    
     const lives = await Live.find({ isLive: true })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator")
       .select("-streamKey -paidViewers")

@@ -13,6 +13,8 @@ const Video = require("../models/Video.js");
 const Notification = require("../models/Notification.js");
 const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
+const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
+const { logStaffAction } = require("../services/audit.service.js");
 const mongoose = require("mongoose");
 
 const PLATFORM_EARNINGS_RATE = 0.4;
@@ -1045,7 +1047,28 @@ exports.hardDeleteUser = async (req, res) => {
       });
     }
 
-    // Rule 3: Check if deleting last admin
+    // Rule 3: Staff roles can only be deleted by admin
+    if (STAFF_ROLES.includes(targetUser.role)) {
+      const requestingUser = await User.findById(req.userId).select("role");
+      if (!requestingUser || requestingUser.role !== "admin") {
+        await logStaffAction({
+          staffId: req.userId,
+          staffRole: requestingUser?.role || "unknown",
+          action: "attempted_delete_staff",
+          targetType: "User",
+          targetId: targetUserId,
+          targetIdentifier: targetUser.username || targetUser.email,
+          details: { denied: true, targetRole: targetUser.role },
+          ipAddress: req.ip,
+        });
+        return res.status(403).json({ 
+          ok: false, 
+          message: "Solo los administradores pueden eliminar cuentas de staff" 
+        });
+      }
+    }
+
+    // Rule 4: Check if deleting last admin
     if (targetUser.role === "admin") {
       const adminCount = await User.countDocuments({ role: "admin" });
       if (adminCount <= 1) {
@@ -1056,8 +1079,8 @@ exports.hardDeleteUser = async (req, res) => {
       }
     }
 
-    // Rule 4: Warn if trying to delete admin/moderator (but allow if not the last)
-    if (targetUser.role === "admin" || targetUser.role === "moderator") {
+    // Rule 5: Warn if trying to delete staff (but allow if not the last admin)
+    if (STAFF_ROLES.includes(targetUser.role)) {
       console.warn(`Admin ${req.userId} is deleting ${targetUser.role} account ${targetUserId}`);
     }
 
@@ -1163,6 +1186,22 @@ exports.hardDeleteUser = async (req, res) => {
 
     // Finally, delete the user document
     await User.findByIdAndDelete(targetUserId);
+
+    // Log the deletion
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin", // Only admin can hard delete
+      action: "hard_delete_user",
+      targetType: "User",
+      targetId: targetUserId,
+      targetIdentifier: targetUser.username || targetUser.email,
+      details: { 
+        deletedRole: targetUser.role,
+        deletedEmail: targetUser.email,
+        deletedUsername: targetUser.username 
+      },
+      ipAddress: req.ip,
+    });
 
     return res.json({ 
       ok: true, 

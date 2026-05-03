@@ -71,7 +71,11 @@ const userSchema = new mongoose.Schema(
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
     location: { type: String, default: "" },
     onboardingComplete: { type: Boolean, default: false },
-    role: { type: String, enum: ["user", "creator", "subCreator", "admin", "moderator"], default: "user" },
+    role: { 
+      type: String, 
+      enum: ["user", "creator", "subCreator", "admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"], 
+      default: "user" 
+    },
     creatorStatus: {
       type: String,
       enum: ["none", "pending", "approved", "rejected", "suspended"],

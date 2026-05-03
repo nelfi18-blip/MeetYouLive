@@ -39,6 +39,7 @@ const notificationRoutes = require("./routes/notification.routes.js");
 const progressionRoutes = require("./routes/progression.routes.js");
 const creatorDiscoveryRoutes = require("./routes/creatorDiscovery.routes.js");
 const withdrawRoutes = require("./routes/withdraw.routes.js");
+const feedRoutes = require("./routes/feed.routes.js");
 
 const app = express();
 
@@ -145,6 +146,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/user", progressionRoutes);
 app.use("/api/creators", creatorDiscoveryRoutes);
 app.use("/api/withdraw", withdrawRoutes);
+app.use("/api/feed", feedRoutes);
 
 // Sentry error handler — must come before the 404/generic error handler
 // so Sentry captures unhandled errors from all routes above.

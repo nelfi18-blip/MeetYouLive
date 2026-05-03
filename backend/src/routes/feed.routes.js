@@ -1,7 +1,8 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const {
+  getFeed,
   getHybridFeed,
   getLiveOnlyFeed,
   getMatchOnlyFeed,
@@ -19,6 +20,9 @@ const feedLimiter = rateLimit({
   max: 100,
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
+
+// Simple feed endpoint - public access with optional token
+router.get("/",            feedLimiter, optionalVerifyToken, getFeed);
 
 // Feed endpoints
 router.get("/hybrid",      feedLimiter, verifyToken, getHybridFeed);

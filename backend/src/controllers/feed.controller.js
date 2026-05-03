@@ -14,6 +14,63 @@ const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 /**
+ * GET /api/feed
+ * Returns real data for hybrid feed (live + match + creators)
+ * - activeLives: Active live streams ONLY (status=live, isLive=true)
+ * - recommendedProfiles: Regular users (NO admin, NO staff)
+ * - featuredCreators: Top approved creators by earnings
+ */
+const getFeed = async (req, res) => {
+  try {
+    // 🔴 Active live streams ONLY
+    const activeLives = await Live.find({
+      isLive: true,
+      endedAt: { $exists: false }
+    })
+      .sort({ viewerCount: -1 })
+      .limit(12)
+      .populate("user", "name avatar role")
+      .lean();
+
+    // Filter out staff roles from live streams
+    const filteredLives = activeLives.filter((live) => {
+      const creatorRole = live.user?.role;
+      return !STAFF_ROLES.includes(creatorRole);
+    });
+
+    // ❤️ Recommended users (NO admin, NO staff)
+    const recommendedProfiles = await User.find({
+      role: "user",
+      isBlocked: false,
+      isSuspended: false,
+      onboardingComplete: true
+    })
+      .limit(12)
+      .select("name age avatar location")
+      .lean();
+
+    // ⭐ Featured creators
+    const featuredCreators = await User.find({
+      role: { $in: ["creator", "subCreator"] },
+      creatorStatus: "approved"
+    })
+      .sort({ earningsCoins: -1 })
+      .limit(12)
+      .select("name avatar earningsCoins")
+      .lean();
+
+    res.json({
+      activeLives: filteredLives,
+      recommendedProfiles,
+      featuredCreators
+    });
+  } catch (error) {
+    console.error("Feed error:", error);
+    res.status(500).json({ error: "Error loading feed" });
+  }
+};
+
+/**
  * GET /api/feed/hybrid
  * Returns an intelligent mix of live streams and match profiles
  * - 60% Live content (active streams from approved creators)
@@ -517,6 +574,7 @@ const getReceivedGreetings = async (req, res) => {
 };
 
 module.exports = {
+  getFeed,
   getHybridFeed,
   getLiveOnlyFeed,
   getMatchOnlyFeed,

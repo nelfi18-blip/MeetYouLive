@@ -572,8 +572,6 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
   }
 });
 
-copilot/add-limited-staff-roles
-
 // ── Payout admin routes ─────────────────────────────────────────────────────
 
 // GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|rejected|paid)

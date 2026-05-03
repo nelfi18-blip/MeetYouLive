@@ -14,6 +14,98 @@ const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 /**
+ * GET /api/feed
+ * Returns real data for hybrid feed (live + match + creators)
+ * - activeLives: Active live streams ONLY (isLive=true, no endedAt)
+ * - recommendedProfiles: Regular users (NO admin, NO staff)
+ * - featuredCreators: Top approved creators by earnings
+ */
+const getFeed = async (req, res) => {
+  try {
+    // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
+    const allLives = await Live.find({
+      isLive: true,
+      endedAt: null
+    })
+      .sort({ viewerCount: -1 })
+      .limit(30) // Fetch more to ensure we get 12 after filtering
+      .populate("user", "name avatar role creatorStatus")
+      .lean();
+
+    // Filter out staff roles and ensure only approved creators
+    const filteredLives = allLives
+      .filter((live) => {
+        if (!live.user) return false;
+        const userRole = live.user.role;
+        // Exclude all staff roles
+        if (STAFF_ROLES.includes(userRole)) return false;
+        // Only include approved creators or subCreators
+        const isApprovedCreator = (userRole === "creator" || userRole === "subCreator") && 
+                                  live.user.creatorStatus === "approved";
+        return isApprovedCreator;
+      })
+      .slice(0, 12); // Take only first 12 after filtering
+
+    // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
+    // Add randomization for variety
+    const recommendedProfiles = await User.aggregate([
+      {
+        $match: {
+          role: "user", // Excludes creators and all staff roles
+          isBlocked: false,
+          isSuspended: false,
+          onboardingComplete: true
+        }
+      },
+      { $sample: { size: 12 } }, // Randomize selection
+      {
+        $project: {
+          name: 1,
+          avatar: 1,
+          location: 1,
+          // Calculate age from birthdate without exposing raw birthdate
+          age: {
+            $cond: {
+              if: { $ne: ["$birthdate", null] },
+              then: {
+                $floor: {
+                  $divide: [
+                    { $subtract: [new Date(), "$birthdate"] },
+                    365.25 * 24 * 60 * 60 * 1000
+                  ]
+                }
+              },
+              else: null
+            }
+          }
+        }
+      }
+    ]);
+
+    // ⭐ Featured creators - use query to filter directly
+    const featuredCreators = await User.find({
+      role: { $in: ["creator", "subCreator"] },
+      creatorStatus: "approved",
+      isBlocked: false,
+      isSuspended: false
+    })
+      .sort({ earningsCoins: -1 })
+      .limit(12)
+      .select("name avatar earningsCoins")
+      .lean();
+
+    res.json({
+      activeLives: filteredLives,
+      recommendedProfiles,
+      featuredCreators
+    });
+  } catch (error) {
+    console.error("Feed error:", error);
+    res.status(500).json({ error: "Error loading feed" });
+  }
+};
+
+/**
  * GET /api/feed/hybrid
  * Returns an intelligent mix of live streams and match profiles
  * - 60% Live content (active streams from approved creators)
@@ -517,6 +609,7 @@ const getReceivedGreetings = async (req, res) => {
 };
 
 module.exports = {
+  getFeed,
   getHybridFeed,
   getLiveOnlyFeed,
   getMatchOnlyFeed,

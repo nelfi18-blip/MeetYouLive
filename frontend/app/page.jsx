@@ -1,649 +1,364 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useLanguage } from "@/contexts/LanguageContext";
-import LiveCard from "@/components/LiveCard";
-import MatchCard from "@/components/MatchCard";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-export default function HomePage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const { t } = useLanguage();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [status, router]);
-
-  // Fetch feed data
-  useEffect(() => {
-    if (!session?.backendToken) return;
-
-    const fetchHomeData = async () => {
-      setLoading(true);
-      setError("");
-
-      // Timeout protection (8 seconds)
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-
-      try {
-        const res = await fetch(`${API_URL}/api/feed`, {
-          headers: {
-            Authorization: `Bearer ${session.backendToken}`,
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        if (!res.ok) {
-          throw new Error(t("common.error"));
-        }
-
-        const feedData = await res.json();
-        
-        // Set data with fallback for empty arrays
-        setData({
-          activeLives: feedData.activeLives || [],
-          recommendedProfiles: feedData.recommendedProfiles || [],
-          featuredCreators: feedData.featuredCreators || [],
-        });
-      } catch (err) {
-        console.error("Home fetch error:", err);
-        clearTimeout(timeout);
-        
-        // Set error message
-        if (err.name === "AbortError") {
-          setError(t("common.timeout") || "Request timed out");
-        } else {
-          setError(err.message || t("common.error"));
-        }
-        
-        // Set empty data to prevent crashes
-        setData({
-          activeLives: [],
-          recommendedProfiles: [],
-          featuredCreators: [],
-        });
-      } finally {
-        // ALWAYS stop loading
-        setLoading(false);
-      }
-    };
-
-    fetchHomeData();
-  }, [session, t]);
-
-  // Handle advancing to next profile
-  const handleNextProfile = () => {
-    const profiles = data?.recommendedProfiles || [];
-    if (profiles.length > 0 && currentMatchIndex < profiles.length - 1) {
-      setCurrentMatchIndex(currentMatchIndex + 1);
-    }
-  };
-
-  // Handle match actions
-  const handleLike = () => {
-    // TODO: Send like to backend API
-    handleNextProfile();
-  };
-
-  const handleSkip = () => {
-    // TODO: Track skip event if needed
-    handleNextProfile();
-  };
-
-  const handleChat = (userId) => {
-    router.push(`/chats/${userId}`);
-  };
-
-  // Handle creator request
-  const handleCreatorRequest = () => {
-    router.push("/profile?tab=creator");
-  };
-
-  if (status === "loading" || loading) {
-    return (
-      <div className="home-page">
-        <div className="home-loading">
-          <div className="spinner"></div>
-          <p>{t("common.loading")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Fallback UI when no data (API failed or returned empty)
-  if (!data || (!data.activeLives?.length && !data.recommendedProfiles?.length && !data.featuredCreators?.length)) {
-    return (
-      <div className="home-page">
-        <div className="home-container">
-          {error && (
-            <div className="home-error">
-              <p>{error}</p>
-            </div>
-          )}
-          
-          <div className="home-empty-state">
-            <div className="empty-icon">😔</div>
-            <h2>{t("home.noContent") || "No content available"}</h2>
-            <p>{t("home.noContentDesc") || "We couldn't load any content right now. Please try again later."}</p>
-            <button 
-              className="retry-btn"
-              onClick={() => window.location.reload()}
-            >
-              {t("common.retry") || "Retry"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const currentMatch = (data.recommendedProfiles || [])[currentMatchIndex];
-
+export default function LandingPage() {
   return (
-    <>
-      <div className="home-page">
-        <div className="home-container">
-          {/* Error message */}
-          {error && (
-            <div className="home-error">
-              <p>{error}</p>
-            </div>
-          )}
-
-          {/* Section 1: MATCH - Encuentra tu match */}
-          <div className="home-section match-section">
-            <div className="section-header">
-              <h2 className="section-title">{t("home.findYourMatch")}</h2>
-              <p className="section-subtitle">{t("home.matchSubtitle")}</p>
-            </div>
-            
-            {currentMatch ? (
-              <div className="match-card-container">
-                <MatchCard
-                  user={currentMatch}
-                  onLike={handleLike}
-                  onSkip={handleSkip}
-                  onChat={handleChat}
-                  isMatch={false}
-                />
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>{t("home.noMoreProfiles")}</p>
-              </div>
-            )}
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, rgba(15,8,32,1) 0%, rgba(30,12,60,1) 100%)',
+      padding: '2rem 1rem',
+      color: '#ffffff'
+    }}>
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto'
+      }}>
+        {/* Hero Section */}
+        <header style={{
+          textAlign: 'center',
+          padding: '3rem 1rem',
+          marginBottom: '3rem'
+        }}>
+          <h1 style={{
+            fontSize: '3rem',
+            fontWeight: '800',
+            background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            marginBottom: '1rem'
+          }}>
+            MeetYouLive
+          </h1>
+          <p style={{
+            fontSize: '1.25rem',
+            color: '#94a3b8',
+            maxWidth: '700px',
+            margin: '0 auto 2rem',
+            lineHeight: '1.6'
+          }}>
+            The premier live-streaming platform combining real-time entertainment with meaningful connections. Stream, connect, and earn in a vibrant digital community.
+          </p>
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            justifyContent: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <Link href="/login" style={{
+              padding: '0.875rem 2rem',
+              background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
+              borderRadius: '999px',
+              fontWeight: '700',
+              fontSize: '1rem',
+              display: 'inline-block',
+              boxShadow: '0 4px 15px rgba(224,64,251,0.3)',
+              transition: 'all 0.3s'
+            }}>
+              Get Started
+            </Link>
+            <Link href="/register" style={{
+              padding: '0.875rem 2rem',
+              background: 'rgba(139,92,246,0.2)',
+              border: '2px solid rgba(139,92,246,0.5)',
+              borderRadius: '999px',
+              fontWeight: '700',
+              fontSize: '1rem',
+              display: 'inline-block',
+              transition: 'all 0.3s'
+            }}>
+              Sign Up Free
+            </Link>
           </div>
+        </header>
 
-          {/* Section 2: LIVE - En Vivo ahora */}
-          {(data.activeLives || []).length > 0 ? (
-            <div className="home-section lives-section">
-              <div className="section-header">
-                <h2 className="section-title">🔴 {t("home.liveNow")}</h2>
-              </div>
-              <div className="lives-scroll">
-                {(data.activeLives || []).map((live) => (
-                  <div key={live._id} className="live-card-wrapper">
-                    <LiveCard live={live} />
-                  </div>
-                ))}
-              </div>
+        {/* How It Works Section */}
+        <section style={{
+          marginBottom: '4rem',
+          padding: '2rem',
+          background: 'rgba(30,12,60,0.6)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.3)'
+        }}>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            How It Works
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            <div style={{ textAlign: 'center', padding: '1rem' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📱</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Sign Up</h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
+                Create your free account in seconds. Choose between viewer or creator modes.
+              </p>
             </div>
-          ) : (
-            <div className="home-section lives-section">
-              <div className="section-header">
-                <h2 className="section-title">🔴 {t("home.liveNow")}</h2>
-              </div>
-              <div className="empty-state-small">
-                <p>{t("home.noLiveStreams")}</p>
-              </div>
+            <div style={{ textAlign: 'center', padding: '1rem' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎥</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Go Live</h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
+                Start streaming instantly with HD quality. Share your passion with the world.
+              </p>
             </div>
-          )}
-
-          {/* Section 3: FEATURED CREATORS - Creadores destacados */}
-          {(data.featuredCreators || []).length > 0 && (
-            <div className="home-section creators-section">
-              <div className="section-header">
-                <h2 className="section-title">⭐ {t("home.topCreators")}</h2>
-              </div>
-              <div className="creators-grid">
-                {(data.featuredCreators || []).map((creator) => (
-                  <div key={creator._id} className="creator-card">
-                    <div className="creator-avatar">
-                      <img 
-                        src={creator.avatar || "/default-avatar.png"} 
-                        alt={creator.name}
-                      />
-                      <div className="creator-badge">⭐</div>
-                    </div>
-                    <h3 className="creator-name">{creator.name}</h3>
-                    <p className="creator-earnings">
-                      💰 {creator.earningsCoins || 0} coins
-                    </p>
-                    <button 
-                      className="creator-btn"
-                      onClick={() => router.push(`/profile/${creator._id}`)}
-                    >
-                      {t("home.seeAll")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Section 4: CREATOR CTA - Lower on page */}
-          <div className="home-section cta-section">
-            <div className="creator-cta-card">
-              <div className="cta-icon">🎥</div>
-              <h3 className="cta-title">{t("home.becomeCreator")}</h3>
-              <p className="cta-desc">{t("home.becomeCreatorDesc")}</p>
-              <button className="cta-btn" onClick={handleCreatorRequest}>
-                {t("common.apply")}
-              </button>
+            <div style={{ textAlign: 'center', padding: '1rem' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💰</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Earn Money</h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
+                Monetize your content through virtual gifts, subscriptions, and private calls.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* Digital Economy Section */}
+        <section style={{
+          marginBottom: '4rem',
+          padding: '2rem',
+          background: 'rgba(12,5,25,0.8)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.3)'
+        }}>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            Powered by a Thriving Digital Economy
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#e040fb' }}>
+                🎁 Virtual Gifts
+              </h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+                Viewers send gifts during live streams to support their favorite creators. From roses to luxury yachts, show your appreciation in style.
+              </p>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#8b5cf6' }}>
+                📞 Private Video Calls
+              </h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+                Connect one-on-one with creators through secure, paid video calls. Build deeper relationships and exclusive interactions.
+              </p>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#22d3ee' }}>
+                ⚡ Premium Features
+              </h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+                Unlock VIP subscriptions, exclusive content, and priority access to top streamers. Premium benefits for dedicated fans.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* For Creators Section */}
+        <section style={{
+          marginBottom: '4rem',
+          padding: '2rem',
+          background: 'rgba(30,12,60,0.6)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.3)'
+        }}>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            Built for Creators
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem',
+            textAlign: 'center'
+          }}>
+            <div style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💵</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>60% Revenue Share</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                Industry-leading creator payouts. Keep more of what you earn.
+              </p>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Analytics Dashboard</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                Track earnings, viewers, and engagement in real-time.
+              </p>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🌐</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Multi-Guest Streaming</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                Collaborate with up to 4 co-hosts simultaneously.
+              </p>
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏆</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>VS Battles</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                Compete live with other creators to boost engagement.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Safety & Moderation Section */}
+        <section style={{
+          marginBottom: '4rem',
+          padding: '2rem',
+          background: 'rgba(12,5,25,0.8)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.3)',
+          textAlign: 'center'
+        }}>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            marginBottom: '1rem'
+          }}>
+            Safety & Moderation
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            maxWidth: '800px',
+            margin: '0 auto 1.5rem',
+            fontSize: '1.05rem'
+          }}>
+            We maintain a safe, respectful community through 24/7 moderation, automated content filtering, and strict community guidelines. 
+            Our dedicated trust & safety team ensures every interaction meets our standards.
+          </p>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '2rem',
+            flexWrap: 'wrap',
+            marginTop: '1.5rem'
+          }}>
+            <div>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>🛡️</div>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Verified Profiles</p>
+            </div>
+            <div>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>🔒</div>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Secure Payments</p>
+            </div>
+            <div>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>👁️</div>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>24/7 Monitoring</p>
+            </div>
+            <div>
+              <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>⚖️</div>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Fair Enforcement</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Contact & Support Section */}
+        <section style={{
+          marginBottom: '4rem',
+          padding: '2rem',
+          background: 'rgba(30,12,60,0.6)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.3)',
+          textAlign: 'center'
+        }}>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            marginBottom: '1rem'
+          }}>
+            Contact & Support
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            maxWidth: '600px',
+            margin: '0 auto',
+            fontSize: '1.05rem'
+          }}>
+            Need help? Our support team is available to assist you. Reach out through in-app support, 
+            or visit our help center for guides, FAQs, and troubleshooting resources.
+          </p>
+        </section>
+
+        {/* Footer CTA */}
+        <section style={{
+          textAlign: 'center',
+          padding: '3rem 2rem',
+          background: 'linear-gradient(135deg, rgba(30,12,60,0.8) 0%, rgba(12,5,25,0.9) 100%)',
+          borderRadius: '16px',
+          border: '1px solid rgba(139,92,246,0.4)'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚀</div>
+          <h2 style={{
+            fontSize: '2rem',
+            fontWeight: '800',
+            marginBottom: '1rem'
+          }}>
+            Ready to Get Started?
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            maxWidth: '600px',
+            margin: '0 auto 2rem',
+            fontSize: '1.1rem'
+          }}>
+            Join thousands of creators and viewers already on MeetYouLive. Start streaming, connecting, and earning today.
+          </p>
+          <Link href="/register" style={{
+            padding: '1rem 2.5rem',
+            background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
+            borderRadius: '999px',
+            fontWeight: '800',
+            fontSize: '1.1rem',
+            display: 'inline-block',
+            boxShadow: '0 4px 20px rgba(224,64,251,0.4)',
+            transition: 'all 0.3s'
+          }}>
+            Create Your Account
+          </Link>
+        </section>
+
+        {/* Footer Links */}
+        <footer style={{
+          marginTop: '3rem',
+          padding: '2rem 1rem',
+          textAlign: 'center',
+          borderTop: '1px solid rgba(139,92,246,0.2)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '2rem',
+            flexWrap: 'wrap',
+            marginBottom: '1rem'
+          }}>
+            <Link href="/terms" style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Terms of Service</Link>
+            <Link href="/privacy" style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Privacy Policy</Link>
+            <Link href="/refunds" style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Refund Policy</Link>
+          </div>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0' }}>
+            © 2026 MeetYouLive. All rights reserved.
+          </p>
+        </footer>
       </div>
-
-      <style jsx>{`
-        .home-page {
-          min-height: 100vh;
-          background: linear-gradient(135deg, rgba(15,8,32,1) 0%, rgba(30,12,60,1) 100%);
-          padding: 1rem 0.5rem 5rem;
-        }
-
-        .home-container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .home-loading {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 4rem;
-          gap: 1rem;
-        }
-
-        .spinner {
-          width: 50px;
-          height: 50px;
-          border: 4px solid rgba(139,92,246,0.2);
-          border-top-color: #8b5cf6;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .home-loading p {
-          color: var(--text-muted);
-          font-size: 1rem;
-        }
-
-        .home-error {
-          text-align: center;
-          padding: 1rem;
-          background: rgba(239,68,68,0.1);
-          border: 1px solid rgba(239,68,68,0.3);
-          border-radius: var(--radius);
-          margin-bottom: 1.5rem;
-          color: #fca5a5;
-        }
-
-        .home-empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 4rem 2rem;
-          text-align: center;
-          background: rgba(30,12,60,0.6);
-          border: 1px solid rgba(139,92,246,0.3);
-          border-radius: var(--radius);
-          margin: 2rem auto;
-          max-width: 500px;
-        }
-
-        .empty-icon {
-          font-size: 4rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .home-empty-state h2 {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--text);
-          margin: 0 0 0.75rem 0;
-        }
-
-        .home-empty-state p {
-          font-size: 1rem;
-          color: var(--text-muted);
-          margin: 0 0 2rem 0;
-          line-height: 1.6;
-        }
-
-        .retry-btn {
-          padding: 0.75rem 2rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          border: none;
-          color: white;
-          border-radius: 999px;
-          font-weight: 700;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: all 0.3s;
-          box-shadow: 0 4px 15px rgba(224,64,251,0.3);
-        }
-
-        .retry-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 25px rgba(224,64,251,0.5);
-        }
-
-        .home-section {
-          margin-bottom: 2.5rem;
-        }
-
-        .section-header {
-          margin-bottom: 1.5rem;
-        }
-
-        .section-title {
-          font-size: 1.6rem;
-          font-weight: 800;
-          color: var(--text);
-          margin: 0 0 0.5rem 0;
-        }
-
-        .section-subtitle {
-          font-size: 1rem;
-          color: var(--text-muted);
-          margin: 0;
-        }
-
-        /* Match Section */
-        .match-section {
-          margin-bottom: 2rem;
-        }
-
-        .match-card-container {
-          max-width: 500px;
-          margin: 0 auto;
-        }
-
-        /* Lives Section */
-        .lives-section {
-          margin-bottom: 2rem;
-        }
-
-        .lives-scroll {
-          display: flex;
-          gap: 1rem;
-          overflow-x: auto;
-          padding-bottom: 1rem;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(139,92,246,0.5) rgba(30,12,60,0.3);
-        }
-
-        .lives-scroll::-webkit-scrollbar {
-          height: 6px;
-        }
-
-        .lives-scroll::-webkit-scrollbar-track {
-          background: rgba(30,12,60,0.3);
-          border-radius: 3px;
-        }
-
-        .lives-scroll::-webkit-scrollbar-thumb {
-          background: rgba(139,92,246,0.5);
-          border-radius: 3px;
-        }
-
-        .live-card-wrapper {
-          flex: 0 0 300px;
-          max-width: 300px;
-        }
-
-        /* Creators Section */
-        .creators-section {
-          margin-bottom: 2rem;
-        }
-
-        .creators-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-          gap: 1rem;
-        }
-
-        .creator-card {
-          background: rgba(30,12,60,0.6);
-          border: 1px solid rgba(139,92,246,0.3);
-          border-radius: var(--radius);
-          padding: 1rem;
-          text-align: center;
-          transition: all 0.3s;
-        }
-
-        .creator-card:hover {
-          border-color: rgba(139,92,246,0.6);
-          background: rgba(30,12,60,0.8);
-          transform: translateY(-4px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-
-        .creator-avatar {
-          width: 80px;
-          height: 80px;
-          margin: 0 auto 0.75rem;
-          border-radius: 50%;
-          overflow: hidden;
-          border: 3px solid rgba(139,92,246,0.5);
-          position: relative;
-        }
-
-        .creator-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .creator-badge {
-          position: absolute;
-          bottom: -3px;
-          right: -3px;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          width: 26px;
-          height: 26px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.85rem;
-          border: 2px solid var(--bg);
-        }
-
-        .creator-name {
-          font-size: 1rem;
-          font-weight: 700;
-          color: var(--text);
-          margin: 0 0 0.5rem 0;
-        }
-
-        .creator-earnings {
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          margin: 0.25rem 0 0.75rem;
-        }
-
-        .creator-btn {
-          padding: 0.5rem 1rem;
-          background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(139,92,246,0.2));
-          border: 2px solid rgba(224,64,251,0.5);
-          color: #e040fb;
-          border-radius: 999px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s;
-          width: 100%;
-          font-size: 0.85rem;
-        }
-
-        .creator-btn:hover {
-          background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
-          border-color: #e040fb;
-          box-shadow: 0 0 20px rgba(224,64,251,0.3);
-        }
-
-        /* Creator CTA Section */
-        .cta-section {
-          margin-top: 3rem;
-        }
-
-        .creator-cta-card {
-          background: linear-gradient(135deg, rgba(30,12,60,0.8) 0%, rgba(12,5,25,0.9) 100%);
-          border: 1px solid rgba(139,92,246,0.4);
-          border-radius: var(--radius);
-          padding: 2rem;
-          text-align: center;
-          max-width: 500px;
-          margin: 0 auto;
-        }
-
-        .cta-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-
-        .cta-title {
-          font-size: 1.4rem;
-          font-weight: 800;
-          color: var(--text);
-          margin: 0 0 0.75rem 0;
-        }
-
-        .cta-desc {
-          font-size: 1rem;
-          color: var(--text-muted);
-          margin: 0 0 1.5rem 0;
-          line-height: 1.5;
-        }
-
-        .cta-btn {
-          padding: 0.75rem 2rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          border: none;
-          color: white;
-          border-radius: 999px;
-          font-weight: 800;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: all 0.3s;
-          box-shadow: 0 4px 15px rgba(224,64,251,0.3);
-        }
-
-        .cta-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 25px rgba(224,64,251,0.5);
-        }
-
-        /* Empty States */
-        .empty-state {
-          text-align: center;
-          padding: 3rem 1rem;
-          background: rgba(30,12,60,0.5);
-          border: 1px solid rgba(139,92,246,0.2);
-          border-radius: var(--radius);
-          color: var(--text-muted);
-        }
-
-        .empty-state-small {
-          text-align: center;
-          padding: 1.5rem 1rem;
-          background: rgba(30,12,60,0.5);
-          border: 1px solid rgba(139,92,246,0.2);
-          border-radius: var(--radius);
-          color: var(--text-muted);
-          font-size: 0.9rem;
-        }
-
-        /* Mobile Optimizations */
-        @media (max-width: 768px) {
-          .home-page {
-            padding: 0.5rem 0.25rem 5rem;
-          }
-
-          .section-title {
-            font-size: 1.3rem;
-          }
-
-          .section-subtitle {
-            font-size: 0.9rem;
-          }
-
-          .home-section {
-            margin-bottom: 2rem;
-          }
-
-          .creators-grid {
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 0.75rem;
-          }
-
-          .creator-avatar {
-            width: 70px;
-            height: 70px;
-          }
-
-          .creator-name {
-            font-size: 0.9rem;
-          }
-
-          .creator-earnings {
-            font-size: 0.8rem;
-          }
-
-          .live-card-wrapper {
-            flex: 0 0 280px;
-            max-width: 280px;
-          }
-
-          .creator-cta-card {
-            padding: 1.5rem;
-          }
-
-          .cta-icon {
-            font-size: 2.5rem;
-          }
-
-          .cta-title {
-            font-size: 1.2rem;
-          }
-
-          .cta-desc {
-            font-size: 0.9rem;
-          }
-        }
-      `}</style>
-    </>
+    </div>
   );
 }

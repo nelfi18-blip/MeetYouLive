@@ -19,7 +19,7 @@ function AuthSuccessHandler() {
     const isValidJwt = token && /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]*$/.test(token);
     if (isValidJwt) {
       setToken(token);
-      router.replace("/dashboard");
+      router.replace("/feed");
     } else {
       // No valid token in the URL — something went wrong; redirect to login.
       router.replace("/login");

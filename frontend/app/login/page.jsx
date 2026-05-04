@@ -88,7 +88,7 @@ function LoginForm() {
     if (localToken) {
       // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
       setToken(localToken);
-      router.replace("/");
+      router.replace("/feed");
       return;
     }
 
@@ -103,9 +103,9 @@ function LoginForm() {
         // navigation has already started.
         timeoutIdsRef.current.forEach(clearTimeout);
         timeoutIdsRef.current = [];
-        console.log("[login] session.backendToken available – saving token and redirecting to home");
+        console.log("[login] session.backendToken available – saving token and redirecting to feed");
         setToken(session.backendToken);
-        router.replace("/");
+        router.replace("/feed");
         return;
       }
 
@@ -135,7 +135,7 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to home`);
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to feed`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];
@@ -144,7 +144,7 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/");
+                router.replace("/feed");
                 return;
               }
 

@@ -7,6 +7,11 @@ import LiveCard from "@/components/LiveCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// Constants for swipe behavior
+const SWIPE_THRESHOLD_PX = 100; // px to trigger swipe action
+const SWIPE_INDICATOR_THRESHOLD_PX = 50; // px to show swipe indicator (half of action threshold)
+const SWIPE_ANIMATION_DURATION_MS = 300; // animation duration for card transitions
+
 export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -18,6 +23,7 @@ export default function FeedPage() {
   const [swiping, setSwiping] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [livesLoading, setLivesLoading] = useState(true);
+  const [likeError, setLikeError] = useState("");
   
   const cardRef = useRef(null);
   const startXRef = useRef(0);
@@ -78,10 +84,9 @@ export default function FeedPage() {
     if (!swiping) return;
     setSwiping(false);
 
-    const threshold = 100; // px to trigger swipe
     const offset = currentXRef.current - startXRef.current;
 
-    if (Math.abs(offset) > threshold) {
+    if (Math.abs(offset) > SWIPE_THRESHOLD_PX) {
       if (offset > 0) {
         handleLike();
       } else {
@@ -99,10 +104,11 @@ export default function FeedPage() {
 
     // Animate out
     setSwipeOffset(1000);
+    setLikeError("");
     
     // Send like to backend
     try {
-      await fetch(`${API_URL}/api/match/like`, {
+      const res = await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -110,26 +116,33 @@ export default function FeedPage() {
         },
         body: JSON.stringify({ userId: currentProfile._id }),
       });
+
+      if (!res.ok) {
+        throw new Error("Error al enviar like");
+      }
     } catch (err) {
       console.error("Like error:", err);
+      setLikeError("No se pudo enviar el like. Inténtalo de nuevo.");
+      // Still move to next card even if like fails
     }
 
     // Move to next card after animation
     setTimeout(() => {
       setCurrentIndex((prev) => prev + 1);
       setSwipeOffset(0);
-    }, 300);
+    }, SWIPE_ANIMATION_DURATION_MS);
   };
 
   const handlePass = () => {
     // Animate out
     setSwipeOffset(-1000);
+    setLikeError(""); // Clear any previous error
 
     // Move to next card after animation
     setTimeout(() => {
       setCurrentIndex((prev) => prev + 1);
       setSwipeOffset(0);
-    }, 300);
+    }, SWIPE_ANIMATION_DURATION_MS);
   };
 
   const handleChat = (userId) => {
@@ -191,6 +204,13 @@ export default function FeedPage() {
             </div>
           )}
 
+          {likeError && (
+            <div className="like-error-toast">
+              <p>{likeError}</p>
+              <button onClick={() => setLikeError("")}>×</button>
+            </div>
+          )}
+
           {!hasMoreProfiles ? (
             <div className="no-more-cards">
               <div className="no-more-icon">😊</div>
@@ -209,8 +229,8 @@ export default function FeedPage() {
               className="swipe-card"
               style={{
                 transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 20}deg)`,
-                transition: swiping ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                opacity: Math.abs(swipeOffset) > 100 ? 0.5 : 1,
+                transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+                opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.5 : 1,
               }}
               onMouseDown={(e) => handleStart(e.clientX)}
               onMouseMove={(e) => handleMove(e.clientX)}
@@ -221,7 +241,7 @@ export default function FeedPage() {
               onTouchEnd={handleEnd}
             >
               {/* Swipe Indicators */}
-              {swipeOffset > 50 && (
+              {swipeOffset > SWIPE_INDICATOR_THRESHOLD_PX && (
                 <div className="swipe-indicator like">
                   <svg width="80" height="80" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
@@ -229,7 +249,7 @@ export default function FeedPage() {
                   <span>LIKE</span>
                 </div>
               )}
-              {swipeOffset < -50 && (
+              {swipeOffset < -SWIPE_INDICATOR_THRESHOLD_PX && (
                 <div className="swipe-indicator pass">
                   <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -464,6 +484,60 @@ export default function FeedPage() {
           border-radius: 12px;
           color: #fca5a5;
           margin-bottom: 1rem;
+        }
+
+        .like-error-toast {
+          position: fixed;
+          top: 6rem;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(239,68,68,0.95);
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          z-index: 1000;
+          animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+          from {
+            transform: translateX(-50%) translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .like-error-toast p {
+          margin: 0;
+          font-size: 0.9rem;
+          font-weight: 600;
+        }
+
+        .like-error-toast button {
+          background: none;
+          border: none;
+          color: white;
+          font-size: 1.5rem;
+          cursor: pointer;
+          padding: 0;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background 0.2s;
+        }
+
+        .like-error-toast button:hover {
+          background: rgba(255,255,255,0.2);
         }
 
         .swipe-card {

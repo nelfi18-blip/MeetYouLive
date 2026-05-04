@@ -78,7 +78,9 @@ export default function ChatsPage() {
         <div className="chats-list">
           {chats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
-            const displayName = other.username || other.name || "Usuario";
+            // Defensive: ensure we never get empty strings from username/name
+            const rawName = other.username?.trim() || other.name?.trim() || "Usuario";
+            const displayName = rawName.length > 0 ? rawName : "Usuario";
             const initial = displayName[0].toUpperCase();
             const lastMsg = chat.lastMessage;
             return (

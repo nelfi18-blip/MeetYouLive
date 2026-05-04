@@ -9,7 +9,7 @@ import MatchCard from "@/components/MatchCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export default function HomePage() {
+export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { t } = useLanguage();

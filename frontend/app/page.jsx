@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+// Force static generation (no dynamic server rendering)
+export const dynamic = 'force-static';
+
 export default function LandingPage() {
   return (
     <div style={{

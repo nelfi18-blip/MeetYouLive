@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 import LiveCard from "@/components/LiveCard";
 import MatchCard from "@/components/MatchCard";
 
@@ -11,9 +12,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -26,112 +29,198 @@ export default function FeedPage() {
   useEffect(() => {
     if (!session?.backendToken) return;
 
-    setLoading(true);
-    setError("");
+    const fetchHomeData = async () => {
+      setLoading(true);
+      setError("");
 
-    fetch(`${API_URL}/api/feed`, {
-      headers: {
-        Authorization: `Bearer ${session.backendToken}`,
-      },
-    })
-      .then((res) => {
+      // Timeout protection (8 seconds)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      try {
+        const res = await fetch(`${API_URL}/api/feed`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
         if (!res.ok) {
-          throw new Error("Error al cargar el feed");
+          throw new Error(t("common.error"));
         }
-        return res.json();
-      })
-      .then((feedData) => {
-        setData(feedData);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Feed error:", err);
-        setError(err.message || "Error al cargar el feed");
-        setLoading(false);
-      });
-  }, [session]);
 
-  // Handle join live
-  const handleJoinLive = (liveId) => {
-    router.push(`/live/${liveId}`);
+        const feedData = await res.json();
+        
+        // Set data with fallback for empty arrays
+        setData({
+          activeLives: feedData.activeLives || [],
+          recommendedProfiles: feedData.recommendedProfiles || [],
+          featuredCreators: feedData.featuredCreators || [],
+        });
+      } catch (err) {
+        console.error("Home fetch error:", err);
+        clearTimeout(timeout);
+        
+        // Set error message
+        if (err.name === "AbortError") {
+          setError(t("common.timeout") || "Request timed out");
+        } else {
+          setError(err.message || t("common.error"));
+        }
+        
+        // Set empty data to prevent crashes
+        setData({
+          activeLives: [],
+          recommendedProfiles: [],
+          featuredCreators: [],
+        });
+      } finally {
+        // ALWAYS stop loading
+        setLoading(false);
+      }
+    };
+
+    fetchHomeData();
+  }, [session, t]);
+
+  // Handle advancing to next profile
+  const handleNextProfile = () => {
+    const profiles = data?.recommendedProfiles || [];
+    if (profiles.length > 0 && currentMatchIndex < profiles.length - 1) {
+      setCurrentMatchIndex(currentMatchIndex + 1);
+    }
+  };
+
+  // Handle match actions
+  const handleLike = () => {
+    // TODO: Send like to backend API
+    handleNextProfile();
+  };
+
+  const handleSkip = () => {
+    // TODO: Track skip event if needed
+    handleNextProfile();
+  };
+
+  const handleChat = (userId) => {
+    router.push(`/chats/${userId}`);
+  };
+
+  // Handle creator request
+  const handleCreatorRequest = () => {
+    router.push("/profile?tab=creator");
   };
 
   if (status === "loading" || loading) {
     return (
-      <div className="feed-page">
-        <div className="feed-loading">
+      <div className="home-page">
+        <div className="home-loading">
           <div className="spinner"></div>
-          <p>Cargando...</p>
+          <p>{t("common.loading")}</p>
         </div>
       </div>
     );
   }
 
-  if (!data) return null;
+  // Fallback UI when no data (API failed or returned empty)
+  if (!data || (!data.activeLives?.length && !data.recommendedProfiles?.length && !data.featuredCreators?.length)) {
+    return (
+      <div className="home-page">
+        <div className="home-container">
+          {error && (
+            <div className="home-error">
+              <p>{error}</p>
+            </div>
+          )}
+          
+          <div className="home-empty-state">
+            <div className="empty-icon">😔</div>
+            <h2>{t("home.noContent") || "No content available"}</h2>
+            <p>{t("home.noContentDesc") || "We couldn't load any content right now. Please try again later."}</p>
+            <button 
+              className="retry-btn"
+              onClick={() => window.location.reload()}
+            >
+              {t("common.retry") || "Retry"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentMatch = (data.recommendedProfiles || [])[currentMatchIndex];
 
   return (
     <>
-      <div className="feed-page">
-        <div className="feed-container">
-          {/* Header */}
-          <div className="feed-header">
-            <h1 className="feed-title">Feed</h1>
-            <p className="feed-subtitle">Descubre personas increíbles y streams en vivo</p>
-          </div>
-
+      <div className="home-page">
+        <div className="home-container">
           {/* Error message */}
           {error && (
-            <div className="feed-error">
+            <div className="home-error">
               <p>{error}</p>
             </div>
           )}
 
-          {/* Lives Section */}
-          {data.activeLives && data.activeLives.length > 0 && (
-            <div className="feed-section">
-              <h2 className="section-title">🔴 En Vivo Ahora</h2>
-              <div className="lives-grid">
-                {data.activeLives.map((live) => (
-                  <LiveCard key={live._id} live={live} />
-                ))}
-              </div>
+          {/* Section 1: MATCH - Encuentra tu match */}
+          <div className="home-section match-section">
+            <div className="section-header">
+              <h2 className="section-title">{t("home.findYourMatch")}</h2>
+              <p className="section-subtitle">{t("home.matchSubtitle")}</p>
             </div>
-          )}
+            
+            {currentMatch ? (
+              <div className="match-card-container">
+                <MatchCard
+                  user={currentMatch}
+                  onLike={handleLike}
+                  onSkip={handleSkip}
+                  onChat={handleChat}
+                  isMatch={false}
+                />
+              </div>
+            ) : (
+              <div className="empty-state">
+                <p>{t("home.noMoreProfiles")}</p>
+              </div>
+            )}
+          </div>
 
-          {/* Recommended Profiles Section */}
-          {data.recommendedProfiles && data.recommendedProfiles.length > 0 && (
-            <div className="feed-section">
-              <h2 className="section-title">❤️ Usuarios Recomendados</h2>
-              <div className="profiles-grid">
-                {data.recommendedProfiles.map((user) => (
-                  <div key={user._id} className="profile-card">
-                    <div className="profile-avatar">
-                      <img 
-                        src={user.avatar || "/default-avatar.png"} 
-                        alt={user.name}
-                      />
-                    </div>
-                    <h3 className="profile-name">{user.name}</h3>
-                    {user.age && <p className="profile-age">{user.age} años</p>}
-                    {user.location && <p className="profile-location">📍 {user.location}</p>}
-                    <button 
-                      className="profile-btn"
-                      onClick={() => router.push(`/profile/${user._id}`)}
-                    >
-                      Ver Perfil
-                    </button>
+          {/* Section 2: LIVE - En Vivo ahora */}
+          {(data.activeLives || []).length > 0 ? (
+            <div className="home-section lives-section">
+              <div className="section-header">
+                <h2 className="section-title">🔴 {t("home.liveNow")}</h2>
+              </div>
+              <div className="lives-scroll">
+                {(data.activeLives || []).map((live) => (
+                  <div key={live._id} className="live-card-wrapper">
+                    <LiveCard live={live} />
                   </div>
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="home-section lives-section">
+              <div className="section-header">
+                <h2 className="section-title">🔴 {t("home.liveNow")}</h2>
+              </div>
+              <div className="empty-state-small">
+                <p>{t("home.noLiveStreams")}</p>
+              </div>
+            </div>
           )}
 
-          {/* Featured Creators Section */}
-          {data.featuredCreators && data.featuredCreators.length > 0 && (
-            <div className="feed-section">
-              <h2 className="section-title">⭐ Creadores Destacados</h2>
+          {/* Section 3: FEATURED CREATORS - Creadores destacados */}
+          {(data.featuredCreators || []).length > 0 && (
+            <div className="home-section creators-section">
+              <div className="section-header">
+                <h2 className="section-title">⭐ {t("home.topCreators")}</h2>
+              </div>
               <div className="creators-grid">
-                {data.featuredCreators.map((creator) => (
+                {(data.featuredCreators || []).map((creator) => (
                   <div key={creator._id} className="creator-card">
                     <div className="creator-avatar">
                       <img 
@@ -148,60 +237,41 @@ export default function FeedPage() {
                       className="creator-btn"
                       onClick={() => router.push(`/profile/${creator._id}`)}
                     >
-                      Ver Perfil
+                      {t("home.seeAll")}
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Section 4: CREATOR CTA - Lower on page */}
+          <div className="home-section cta-section">
+            <div className="creator-cta-card">
+              <div className="cta-icon">🎥</div>
+              <h3 className="cta-title">{t("home.becomeCreator")}</h3>
+              <p className="cta-desc">{t("home.becomeCreatorDesc")}</p>
+              <button className="cta-btn" onClick={handleCreatorRequest}>
+                {t("common.apply")}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <style jsx>{`
-        .feed-page {
+        .home-page {
           min-height: 100vh;
           background: linear-gradient(135deg, rgba(15,8,32,1) 0%, rgba(30,12,60,1) 100%);
-          padding: 2rem 1rem;
+          padding: 1rem 0.5rem 5rem;
         }
 
-        .feed-container {
-          max-width: 1400px;
+        .home-container {
+          max-width: 1200px;
           margin: 0 auto;
         }
 
-        .feed-header {
-          text-align: center;
-          margin-bottom: 3rem;
-        }
-
-        .feed-title {
-          font-size: 3rem;
-          font-weight: 900;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          margin: 0 0 0.5rem 0;
-        }
-
-        .feed-subtitle {
-          font-size: 1.1rem;
-          color: var(--text-muted);
-          margin: 0;
-        }
-
-        .feed-error {
-          text-align: center;
-          padding: 2rem;
-          background: rgba(239,68,68,0.1);
-          border: 1px solid rgba(239,68,68,0.3);
-          border-radius: var(--radius);
-          margin-bottom: 2rem;
-          color: #fca5a5;
-        }
-
-        .feed-loading {
+        .home-loading {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -223,70 +293,175 @@ export default function FeedPage() {
           to { transform: rotate(360deg); }
         }
 
-        .feed-loading p {
+        .home-loading p {
           color: var(--text-muted);
           font-size: 1rem;
         }
 
-        .feed-section {
-          margin-bottom: 4rem;
+        .home-error {
+          text-align: center;
+          padding: 1rem;
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.3);
+          border-radius: var(--radius);
+          margin-bottom: 1.5rem;
+          color: #fca5a5;
+        }
+
+        .home-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 4rem 2rem;
+          text-align: center;
+          background: rgba(30,12,60,0.6);
+          border: 1px solid rgba(139,92,246,0.3);
+          border-radius: var(--radius);
+          margin: 2rem auto;
+          max-width: 500px;
+        }
+
+        .empty-icon {
+          font-size: 4rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .home-empty-state h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 0.75rem 0;
+        }
+
+        .home-empty-state p {
+          font-size: 1rem;
+          color: var(--text-muted);
+          margin: 0 0 2rem 0;
+          line-height: 1.6;
+        }
+
+        .retry-btn {
+          padding: 0.75rem 2rem;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          border: none;
+          color: white;
+          border-radius: 999px;
+          font-weight: 700;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 4px 15px rgba(224,64,251,0.3);
+        }
+
+        .retry-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(224,64,251,0.5);
+        }
+
+        .home-section {
+          margin-bottom: 2.5rem;
+        }
+
+        .section-header {
+          margin-bottom: 1.5rem;
         }
 
         .section-title {
-          font-size: 1.8rem;
+          font-size: 1.6rem;
           font-weight: 800;
           color: var(--text);
-          margin: 0 0 1.5rem 0;
+          margin: 0 0 0.5rem 0;
+        }
+
+        .section-subtitle {
+          font-size: 1rem;
+          color: var(--text-muted);
+          margin: 0;
+        }
+
+        /* Match Section */
+        .match-section {
+          margin-bottom: 2rem;
+        }
+
+        .match-card-container {
+          max-width: 500px;
+          margin: 0 auto;
+        }
+
+        /* Lives Section */
+        .lives-section {
+          margin-bottom: 2rem;
+        }
+
+        .lives-scroll {
           display: flex;
-          align-items: center;
-          gap: 0.5rem;
+          gap: 1rem;
+          overflow-x: auto;
+          padding-bottom: 1rem;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(139,92,246,0.5) rgba(30,12,60,0.3);
         }
 
-        .lives-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 1.5rem;
+        .lives-scroll::-webkit-scrollbar {
+          height: 6px;
         }
 
-        .profiles-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 1.5rem;
+        .lives-scroll::-webkit-scrollbar-track {
+          background: rgba(30,12,60,0.3);
+          border-radius: 3px;
+        }
+
+        .lives-scroll::-webkit-scrollbar-thumb {
+          background: rgba(139,92,246,0.5);
+          border-radius: 3px;
+        }
+
+        .live-card-wrapper {
+          flex: 0 0 300px;
+          max-width: 300px;
+        }
+
+        /* Creators Section */
+        .creators-section {
+          margin-bottom: 2rem;
         }
 
         .creators-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 1.5rem;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 1rem;
         }
 
-        .profile-card, .creator-card {
+        .creator-card {
           background: rgba(30,12,60,0.6);
           border: 1px solid rgba(139,92,246,0.3);
           border-radius: var(--radius);
-          padding: 1.5rem;
+          padding: 1rem;
           text-align: center;
           transition: all 0.3s;
         }
 
-        .profile-card:hover, .creator-card:hover {
+        .creator-card:hover {
           border-color: rgba(139,92,246,0.6);
           background: rgba(30,12,60,0.8);
           transform: translateY(-4px);
           box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
 
-        .profile-avatar, .creator-avatar {
-          width: 100px;
-          height: 100px;
-          margin: 0 auto 1rem;
+        .creator-avatar {
+          width: 80px;
+          height: 80px;
+          margin: 0 auto 0.75rem;
           border-radius: 50%;
           overflow: hidden;
           border: 3px solid rgba(139,92,246,0.5);
           position: relative;
         }
 
-        .profile-avatar img, .creator-avatar img {
+        .creator-avatar img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -294,35 +469,34 @@ export default function FeedPage() {
 
         .creator-badge {
           position: absolute;
-          bottom: -5px;
-          right: -5px;
+          bottom: -3px;
+          right: -3px;
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          width: 32px;
-          height: 32px;
+          width: 26px;
+          height: 26px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1rem;
+          font-size: 0.85rem;
           border: 2px solid var(--bg);
         }
 
-        .profile-name, .creator-name {
-          font-size: 1.2rem;
+        .creator-name {
+          font-size: 1rem;
           font-weight: 700;
           color: var(--text);
           margin: 0 0 0.5rem 0;
         }
 
-        .profile-age, .profile-location, .creator-earnings {
-          font-size: 0.9rem;
+        .creator-earnings {
+          font-size: 0.85rem;
           color: var(--text-muted);
-          margin: 0.25rem 0;
+          margin: 0.25rem 0 0.75rem;
         }
 
-        .profile-btn, .creator-btn {
-          margin-top: 1rem;
-          padding: 0.6rem 1.5rem;
+        .creator-btn {
+          padding: 0.5rem 1rem;
           background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(139,92,246,0.2));
           border: 2px solid rgba(224,64,251,0.5);
           color: #e040fb;
@@ -331,29 +505,142 @@ export default function FeedPage() {
           cursor: pointer;
           transition: all 0.2s;
           width: 100%;
+          font-size: 0.85rem;
         }
 
-        .profile-btn:hover, .creator-btn:hover {
+        .creator-btn:hover {
           background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
           border-color: #e040fb;
           box-shadow: 0 0 20px rgba(224,64,251,0.3);
         }
 
-        @media (max-width: 768px) {
-          .feed-page {
-            padding: 1rem 0.5rem;
-          }
+        /* Creator CTA Section */
+        .cta-section {
+          margin-top: 3rem;
+        }
 
-          .feed-title {
-            font-size: 2rem;
+        .creator-cta-card {
+          background: linear-gradient(135deg, rgba(30,12,60,0.8) 0%, rgba(12,5,25,0.9) 100%);
+          border: 1px solid rgba(139,92,246,0.4);
+          border-radius: var(--radius);
+          padding: 2rem;
+          text-align: center;
+          max-width: 500px;
+          margin: 0 auto;
+        }
+
+        .cta-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+
+        .cta-title {
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: var(--text);
+          margin: 0 0 0.75rem 0;
+        }
+
+        .cta-desc {
+          font-size: 1rem;
+          color: var(--text-muted);
+          margin: 0 0 1.5rem 0;
+          line-height: 1.5;
+        }
+
+        .cta-btn {
+          padding: 0.75rem 2rem;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+          border: none;
+          color: white;
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 4px 15px rgba(224,64,251,0.3);
+        }
+
+        .cta-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(224,64,251,0.5);
+        }
+
+        /* Empty States */
+        .empty-state {
+          text-align: center;
+          padding: 3rem 1rem;
+          background: rgba(30,12,60,0.5);
+          border: 1px solid rgba(139,92,246,0.2);
+          border-radius: var(--radius);
+          color: var(--text-muted);
+        }
+
+        .empty-state-small {
+          text-align: center;
+          padding: 1.5rem 1rem;
+          background: rgba(30,12,60,0.5);
+          border: 1px solid rgba(139,92,246,0.2);
+          border-radius: var(--radius);
+          color: var(--text-muted);
+          font-size: 0.9rem;
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+          .home-page {
+            padding: 0.5rem 0.25rem 5rem;
           }
 
           .section-title {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
           }
 
-          .lives-grid, .profiles-grid, .creators-grid {
-            grid-template-columns: 1fr;
+          .section-subtitle {
+            font-size: 0.9rem;
+          }
+
+          .home-section {
+            margin-bottom: 2rem;
+          }
+
+          .creators-grid {
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.75rem;
+          }
+
+          .creator-avatar {
+            width: 70px;
+            height: 70px;
+          }
+
+          .creator-name {
+            font-size: 0.9rem;
+          }
+
+          .creator-earnings {
+            font-size: 0.8rem;
+          }
+
+          .live-card-wrapper {
+            flex: 0 0 280px;
+            max-width: 280px;
+          }
+
+          .creator-cta-card {
+            padding: 1.5rem;
+          }
+
+          .cta-icon {
+            font-size: 2.5rem;
+          }
+
+          .cta-title {
+            font-size: 1.2rem;
+          }
+
+          .cta-desc {
+            font-size: 0.9rem;
           }
         }
       `}</style>

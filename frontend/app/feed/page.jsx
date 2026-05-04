@@ -11,6 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SWIPE_THRESHOLD_PX = 100; // px to trigger swipe action
 const SWIPE_INDICATOR_THRESHOLD_PX = 50; // px to show swipe indicator (half of action threshold)
 const SWIPE_ANIMATION_DURATION_MS = 300; // animation duration for card transitions
+const SWIPE_OUT_DISTANCE_PX = 1000; // distance to animate card off-screen
 
 export default function FeedPage() {
   const { data: session, status } = useSession();
@@ -103,7 +104,7 @@ export default function FeedPage() {
     if (!currentProfile) return;
 
     // Animate out
-    setSwipeOffset(1000);
+    setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
     setLikeError("");
     
     // Send like to backend
@@ -135,8 +136,7 @@ export default function FeedPage() {
 
   const handlePass = () => {
     // Animate out
-    setSwipeOffset(-1000);
-    setLikeError(""); // Clear any previous error
+    setSwipeOffset(-SWIPE_OUT_DISTANCE_PX);
 
     // Move to next card after animation
     setTimeout(() => {
@@ -229,7 +229,7 @@ export default function FeedPage() {
               className="swipe-card"
               style={{
                 transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 20}deg)`,
-                transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+                transition: swiping ? "none" : `transform ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
                 opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.5 : 1,
               }}
               onMouseDown={(e) => handleStart(e.clientX)}
@@ -264,7 +264,7 @@ export default function FeedPage() {
                 {currentProfile.avatar ? (
                   <img 
                     src={currentProfile.avatar} 
-                    alt={currentProfile.name}
+                    alt={`Foto de perfil de ${currentProfile.name}`}
                     className="card-image"
                     loading="lazy"
                   />

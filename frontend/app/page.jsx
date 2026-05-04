@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+// Force static generation (no dynamic server rendering)
+export const dynamic = 'force-static';
+
 export default function LandingPage() {
   return (
     <div style={{
@@ -12,6 +15,23 @@ export default function LandingPage() {
         maxWidth: '1200px',
         margin: '0 auto'
       }}>
+        {/* Proof Text - Visible confirmation that static landing loaded */}
+        <div style={{
+          position: 'fixed',
+          bottom: '10px',
+          left: '10px',
+          background: 'rgba(139,92,246,0.9)',
+          color: '#fff',
+          padding: '0.5rem 1rem',
+          borderRadius: '8px',
+          fontSize: '0.75rem',
+          fontWeight: '600',
+          zIndex: '9999',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+        }}>
+          ✓ MeetYouLive Public Landing Ready
+        </div>
+
         {/* Hero Section */}
         <header style={{
           textAlign: 'center',

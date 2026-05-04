@@ -64,7 +64,7 @@ export default function LandingPage() {
             justifyContent: 'center',
             flexWrap: 'wrap'
           }}>
-            <Link href="/login" style={{
+            <Link href="/feed" style={{
               padding: '0.875rem 2rem',
               background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
               borderRadius: '999px',
@@ -74,7 +74,7 @@ export default function LandingPage() {
               boxShadow: '0 4px 15px rgba(224,64,251,0.3)',
               transition: 'all 0.3s'
             }}>
-              Get Started
+              Entrar ahora
             </Link>
             <Link href="/register" style={{
               padding: '0.875rem 2rem',
@@ -86,7 +86,7 @@ export default function LandingPage() {
               display: 'inline-block',
               transition: 'all 0.3s'
             }}>
-              Sign Up Free
+              Crear cuenta
             </Link>
           </div>
         </header>

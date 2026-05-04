@@ -79,7 +79,8 @@ export default function ChatsPage() {
           {chats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
             const displayName = other.username || other.name || "Usuario";
-            const initial = displayName[0].toUpperCase();
+            // Defensive check: ensure displayName is a non-empty string before accessing [0]
+            const initial = (displayName && displayName.length > 0) ? displayName[0].toUpperCase() : "U";
             const lastMsg = chat.lastMessage;
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">

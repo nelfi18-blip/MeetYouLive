@@ -5,6 +5,10 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 
 const requireAdmin = async (req, res, next) => {
   try {
+    // Defensive guard: req.userId must be set by verifyToken middleware
+    if (!req.userId) {
+      return res.status(401).json({ message: "No autenticado: token requerido" });
+    }
     const user = await User.findById(req.userId).select("role");
     if (!user || user.role !== "admin") {
       return res.status(403).json({ message: "Acceso denegado: se requiere rol admin" });
@@ -23,6 +27,10 @@ const requireAdmin = async (req, res, next) => {
  */
 const requireModeratorOrAdmin = async (req, res, next) => {
   try {
+    // Defensive guard: req.userId must be set by verifyToken middleware
+    if (!req.userId) {
+      return res.status(401).json({ message: "No autenticado: token requerido" });
+    }
     const user = await User.findById(req.userId).select("role");
     if (!user || (user.role !== "admin" && user.role !== "moderator")) {
       return res.status(403).json({ message: "Acceso denegado: se requiere rol moderador o admin" });
@@ -42,6 +50,10 @@ const requireModeratorOrAdmin = async (req, res, next) => {
 const requireRole = (requiredRole) => {
   return async (req, res, next) => {
     try {
+      // Defensive guard: req.userId must be set by verifyToken middleware
+      if (!req.userId) {
+        return res.status(401).json({ message: "No autenticado: token requerido" });
+      }
       const user = await User.findById(req.userId).select("role");
       if (!user || user.role !== requiredRole) {
         return res.status(403).json({ 
@@ -63,6 +75,10 @@ const requireRole = (requiredRole) => {
 const requireAnyRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
+      // Defensive guard: req.userId must be set by verifyToken middleware
+      if (!req.userId) {
+        return res.status(401).json({ message: "No autenticado: token requerido" });
+      }
       const user = await User.findById(req.userId).select("role");
       if (!user || !allowedRoles.includes(user.role)) {
         return res.status(403).json({ 
@@ -118,6 +134,10 @@ const PERMISSIONS = {
 const requirePermission = (permission) => {
   return async (req, res, next) => {
     try {
+      // Defensive guard: req.userId must be set by verifyToken middleware
+      if (!req.userId) {
+        return res.status(401).json({ message: "No autenticado: token requerido" });
+      }
       const allowedRoles = PERMISSIONS[permission];
       if (!allowedRoles) {
         console.error(`❌ Unknown permission: ${permission}`);

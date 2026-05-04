@@ -348,7 +348,7 @@ export default function LiveRoomPage() {
   // Initialise viewerCount from the loaded live data
   useEffect(() => {
     if (live) {
-      setViewerCount(live.viewerCount ?? live.viewers ?? 0);
+      setViewerCount(live.viewerCount ?? 0);
     }
   }, [live]);
 

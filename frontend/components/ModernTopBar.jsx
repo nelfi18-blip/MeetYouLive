@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ModernTopBar() {
   const { data: session } = useSession();
   const [coins, setCoins] = useState(0);
@@ -16,13 +18,14 @@ export default function ModernTopBar() {
     }
   }, [session]);
 
-  // Fetch unread notifications count
+  // Fetch initial unread notifications count and listen to socket events
   useEffect(() => {
     if (!session?.backendToken) return;
     
+    // Fetch initial count
     const fetchNotifications = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/unread-count`, {
+        const res = await fetch(`${API_URL}/api/notifications/unread-count`, {
           headers: {
             Authorization: `Bearer ${session.backendToken}`,
           },
@@ -37,9 +40,29 @@ export default function ModernTopBar() {
     };
 
     fetchNotifications();
-    // Poll every 60 seconds
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
+
+    // Listen to real-time socket events for new notifications
+    let socket;
+    try {
+      // Dynamically import socket helper
+      import("@/lib/socket").then(({ default: getSocket }) => {
+        socket = getSocket();
+        
+        socket.on("NEW_NOTIFICATION", () => {
+          // Increment unread count when new notification arrives
+          setUnreadNotifications(prev => prev + 1);
+        });
+      });
+    } catch (err) {
+      console.error("Socket error:", err);
+    }
+
+    // Cleanup
+    return () => {
+      if (socket) {
+        socket.off("NEW_NOTIFICATION");
+      }
+    };
   }, [session]);
 
   if (!session) return null;

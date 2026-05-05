@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ModernTopBar from "@/components/ModernTopBar";
 import { filterActiveLives } from "@/lib/liveFilters";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,6 +18,7 @@ const SWIPE_OUT_DISTANCE_PX = 1000;
 export default function ModernFeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
   
   // State
   const [activeLives, setActiveLives] = useState([]);
@@ -344,10 +346,10 @@ export default function ModernFeedPage() {
         ) : (
           <div className="no-content">
             <div className="no-content-icon">📡</div>
-            <h3>No hay transmisiones en vivo ahora</h3>
-            <p>Explora creadores y recibe notificaciones cuando estén en vivo</p>
+            <h3>{t("home.noLiveTitle")}</h3>
+            <p>{t("home.noLiveMessage")}</p>
             <Link href="/explore" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-              Explorar creadores
+              {t("home.exploreCreators")}
             </Link>
           </div>
         )}

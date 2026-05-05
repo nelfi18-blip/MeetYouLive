@@ -3,17 +3,76 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ModernTopBar() {
   const { data: session } = useSession();
   const [coins, setCoins] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const socketCleanupRef = useRef(null);
 
   useEffect(() => {
     if (session?.user) {
       setCoins(session.user.coinsBalance || 0);
     }
+  }, [session]);
+
+  // Fetch initial unread notifications count and listen to socket events
+  useEffect(() => {
+    if (!session?.backendToken) return;
+    
+    // Fetch initial count
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadNotifications(data.count || 0);
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      }
+    };
+
+    fetchNotifications();
+
+    // Listen to real-time socket events for new notifications
+    try {
+      // Dynamically import socket helper
+      import("@/lib/socket").then(({ default: getSocket }) => {
+        const socket = getSocket();
+        
+        const handleNewNotification = () => {
+          // Increment unread count when new notification arrives
+          setUnreadNotifications(prev => prev + 1);
+        };
+        
+        socket.on("NEW_NOTIFICATION", handleNewNotification);
+        
+        // Store cleanup function in ref
+        socketCleanupRef.current = () => {
+          socket.off("NEW_NOTIFICATION", handleNewNotification);
+        };
+      }).catch(err => {
+        console.error("Socket import error:", err);
+      });
+    } catch (err) {
+      console.error("Socket error:", err);
+    }
+
+    // Cleanup
+    return () => {
+      if (socketCleanupRef.current) {
+        socketCleanupRef.current();
+        socketCleanupRef.current = null;
+      }
+    };
   }, [session]);
 
   if (!session) return null;
@@ -36,7 +95,7 @@ export default function ModernTopBar() {
       </div>
 
       <div className="modern-top-bar-right">
-        <Link href="/coins" className="top-bar-coins">
+        <Link href="/coins" className="top-bar-coins top-bar-coins-animated">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="10"/>
             <text x="12" y="16" fontSize="12" textAnchor="middle" fill="#0f0821" fontWeight="bold">$</text>
@@ -54,15 +113,15 @@ export default function ModernTopBar() {
           )}
         </Link>
 
-        <Link href="/profile">
+        <Link href="/profile" className="top-bar-avatar-link">
           {userAvatar ? (
             <img 
               src={userAvatar} 
               alt="Profile" 
-              className="top-bar-avatar"
+              className="top-bar-avatar top-bar-avatar-glow"
             />
           ) : (
-            <div className="top-bar-avatar" style={{
+            <div className="top-bar-avatar top-bar-avatar-glow" style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

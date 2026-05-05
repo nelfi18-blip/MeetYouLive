@@ -21,7 +21,11 @@ export default function LiveCard({ live }) {
   const username = typeof rawUsername === "string" ? rawUsername : String(rawUsername);
   const initial = username.charAt(0).toUpperCase() || "?";
   const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
-  const safeViewerCount = Number.isFinite(live.viewerCount) ? Math.max(0, live.viewerCount) : 0;
+  
+  // Support multiple viewer count field names
+  const rawViewerCount = live.viewerCount ?? live.viewers ?? live.viewersCount ?? 0;
+  const safeViewerCount = Number.isFinite(rawViewerCount) ? Math.max(0, rawViewerCount) : 0;
+  
   const safeGiftsTotal = Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0;
   const safeTotalCoins = Number.isFinite(live.totalCoinsEarned) ? Math.max(0, live.totalCoinsEarned) : 0;
 
@@ -44,7 +48,22 @@ export default function LiveCard({ live }) {
       <Link href={`/live/${live._id}`} className="live-card">
         {/* Thumbnail */}
         <div className="live-thumb">
-          <div className="live-thumb-bg" />
+          {live.thumbnail ? (
+            <img src={live.thumbnail} alt={safeTitle} className="live-thumb-img" />
+          ) : (
+            <div className="live-thumb-fallback">
+              <div className="live-thumb-fallback-bg" />
+              <div className="live-thumb-avatar">
+                {live.user?.avatar ? (
+                  <img src={live.user.avatar} alt={username} />
+                ) : (
+                  initial
+                )}
+              </div>
+              <div className="live-thumb-play-icon">▶</div>
+              <div className="live-thumb-fallback-label">En vivo</div>
+            </div>
+          )}
 
           <div className="live-thumb-badges">
             <Badge variant="live" pulse>EN VIVO</Badge>
@@ -159,6 +178,84 @@ export default function LiveCard({ live }) {
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+
+        .live-thumb-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          position: absolute;
+          inset: 0;
+        }
+
+        .live-thumb-fallback {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.8rem;
+        }
+
+        .live-thumb-fallback-bg {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(22,12,45,0.92), rgba(35,16,70,0.96), rgba(15,8,32,1));
+        }
+
+        .live-thumb-fallback-bg::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15), transparent 65%);
+        }
+
+        .live-thumb-avatar {
+          position: relative;
+          z-index: 1;
+          width: 70px;
+          height: 70px;
+          border-radius: 50%;
+          overflow: hidden;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 900;
+          font-size: 1.8rem;
+          border: 3px solid rgba(224,64,251,0.5);
+          box-shadow: 0 4px 16px rgba(139,92,246,0.4);
+        }
+
+        .live-thumb-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .live-thumb-play-icon {
+          position: relative;
+          z-index: 1;
+          font-size: 2.5rem;
+          color: rgba(255,255,255,0.6);
+          animation: playPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes playPulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.1); opacity: 0.9; }
+        }
+
+        .live-thumb-fallback-label {
+          position: relative;
+          z-index: 1;
+          font-size: 0.9rem;
+          font-weight: 800;
+          color: rgba(255,255,255,0.7);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
         }
 
         .live-thumb-bg {
@@ -312,14 +409,6 @@ export default function LiveCard({ live }) {
         .live-stat-gifts {
           color: #f9a8d4;
           border-color: rgba(244,114,182,0.2);
-        }
-
-        .live-thumb-play {
-          font-size: 3rem;
-          opacity: 0.1;
-          position: relative;
-          z-index: 1;
-          color: var(--text);
         }
 
         /* Body */

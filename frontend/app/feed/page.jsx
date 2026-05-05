@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +19,7 @@ export default function FeedPage() {
   const router = useRouter();
   const [activeLives, setActiveLives] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  const [featuredCreators, setFeaturedCreators] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,6 +44,12 @@ export default function FeedPage() {
     if (!session?.backendToken) return;
 
     const fetchFeed = async () => {
+      // Show loading for max 2 seconds
+      const loadingTimeout = setTimeout(() => {
+        setLivesLoading(false);
+        setLoading(false);
+      }, 2000);
+
       try {
         const res = await fetch(`${API_URL}/api/feed`, {
           headers: {
@@ -52,13 +60,28 @@ export default function FeedPage() {
         if (!res.ok) throw new Error("Error al cargar el feed");
 
         const data = await res.json();
-        setActiveLives(data.activeLives || []);
-        setProfiles(data.recommendedProfiles || []);
+        
+        // Deduplicate by _id
+        const uniqueLives = Array.from(
+          new Map((data.activeLives || []).map(item => [item._id, item])).values()
+        );
+        const uniqueProfiles = Array.from(
+          new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
+        );
+        const uniqueCreators = Array.from(
+          new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
+        );
+
+        setActiveLives(uniqueLives);
+        setProfiles(uniqueProfiles);
+        setFeaturedCreators(uniqueCreators);
+        clearTimeout(loadingTimeout);
         setLivesLoading(false);
         setLoading(false);
       } catch (err) {
         console.error("Feed error:", err);
         setError(err.message || "Error al cargar el feed");
+        clearTimeout(loadingTimeout);
         setLivesLoading(false);
         setLoading(false);
       }
@@ -174,14 +197,169 @@ export default function FeedPage() {
   return (
     <>
       <div className="feed-page">
-        {/* Top Section: Live Streams */}
+        {/* First Section: Match Cards */}
+        <div className="match-section">
+          <h2 className="section-title">❤️ Encuentra tu match</h2>
+          
+          {error && (
+            <div className="error-message">
+              <p>{error}</p>
+            </div>
+          )}
+
+          {likeError && (
+            <div className="like-error-toast">
+              <p>{likeError}</p>
+              <button onClick={() => setLikeError("")}>×</button>
+            </div>
+          )}
+
+          <div className="cards-container">
+            {!hasMoreProfiles ? (
+              <div className="no-more-cards">
+                <div className="no-more-icon">😊</div>
+                <h3>¡Has visto todos los perfiles!</h3>
+                <p>Vuelve más tarde para ver nuevos usuarios</p>
+                <button 
+                  className="btn-explore"
+                  onClick={() => router.push("/explore")}
+                >
+                  Explorar Más
+                </button>
+              </div>
+            ) : currentProfile ? (
+              <div 
+                ref={cardRef}
+                className="swipe-card"
+                style={{
+                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 20}deg)`,
+                  transition: swiping ? "none" : `transform ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+                  opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.5 : 1,
+                }}
+                onMouseDown={(e) => handleStart(e.clientX)}
+                onMouseMove={(e) => handleMove(e.clientX)}
+                onMouseUp={handleEnd}
+                onMouseLeave={handleEnd}
+                onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+                onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+                onTouchEnd={handleEnd}
+              >
+                {/* Swipe Indicators */}
+                {swipeOffset > SWIPE_INDICATOR_THRESHOLD_PX && (
+                  <div className="swipe-indicator like">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                    </svg>
+                    <span>LIKE</span>
+                  </div>
+                )}
+                {swipeOffset < -SWIPE_INDICATOR_THRESHOLD_PX && (
+                  <div className="swipe-indicator pass">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    <span>PASS</span>
+                  </div>
+                )}
+
+                {/* Card Image */}
+                <div className="card-image-container">
+                  {currentProfile.avatar ? (
+                    <img 
+                      src={currentProfile.avatar} 
+                      alt={`Foto de perfil de ${currentProfile.name}`}
+                      className="card-image"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="card-placeholder">
+                      <div className="placeholder-initial">
+                        {currentProfile.name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gradient Overlay */}
+                  <div className="card-gradient"></div>
+
+                  {/* Card Info */}
+                  <div className="card-info">
+                    <h3 className="card-name">
+                      {currentProfile.name}
+                      {currentProfile.age && <span className="card-age">, {currentProfile.age}</span>}
+                    </h3>
+                    {currentProfile.location && (
+                      <p className="card-location">
+                        📍 {currentProfile.location}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Stack preview - next card slightly visible behind */}
+            {profiles[currentIndex + 1] && (
+              <div className="card-stack-preview">
+                <div className="preview-card"></div>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {hasMoreProfiles && currentProfile && (
+            <div className="actions-row">
+              <button 
+                className="action-btn btn-pass"
+                onClick={handlePass}
+                disabled={swiping}
+                aria-label="Pasar"
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span>Pasar</span>
+              </button>
+
+              <button 
+                className="action-btn btn-like"
+                onClick={handleLike}
+                disabled={swiping}
+                aria-label="Me gusta"
+              >
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                </svg>
+                <span>Me gusta</span>
+              </button>
+
+              <button 
+                className="action-btn btn-chat"
+                onClick={() => handleChat(currentProfile._id)}
+                disabled={swiping}
+                aria-label="Mensaje"
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+                <span>Mensaje</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Second Section: Live Streams */}
         <div className="live-section">
-          <h2 className="live-title">🔴 En vivo ahora</h2>
+          <h2 className="section-title">🔴 En vivo ahora</h2>
           <div className="live-scroll">
             {livesLoading ? (
-              <div className="live-placeholder">
-                <div className="spinner-small"></div>
-              </div>
+              <>
+                <div className="live-skeleton" />
+                <div className="live-skeleton" />
+                <div className="live-skeleton" />
+              </>
             ) : activeLives.length > 0 ? (
               activeLives.map((live) => (
                 <div key={live._id} className="live-item">
@@ -196,170 +374,34 @@ export default function FeedPage() {
           </div>
         </div>
 
-        {/* Middle Section: Swipeable Cards */}
-        <div className="cards-section">
-          {error && (
-            <div className="error-message">
-              <p>{error}</p>
-            </div>
-          )}
-
-          {likeError && (
-            <div className="like-error-toast">
-              <p>{likeError}</p>
-              <button onClick={() => setLikeError("")}>×</button>
-            </div>
-          )}
-
-          {!hasMoreProfiles ? (
-            <div className="no-more-cards">
-              <div className="no-more-icon">😊</div>
-              <h3>¡Has visto todos los perfiles!</h3>
-              <p>Vuelve más tarde para ver nuevos usuarios</p>
-              <button 
-                className="btn-explore"
-                onClick={() => router.push("/explore")}
-              >
-                Explorar Más
-              </button>
-            </div>
-          ) : currentProfile ? (
-            <div 
-              ref={cardRef}
-              className="swipe-card"
-              style={{
-                transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 20}deg)`,
-                transition: swiping ? "none" : `transform ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-                opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.5 : 1,
-              }}
-              onMouseDown={(e) => handleStart(e.clientX)}
-              onMouseMove={(e) => handleMove(e.clientX)}
-              onMouseUp={handleEnd}
-              onMouseLeave={handleEnd}
-              onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-              onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-              onTouchEnd={handleEnd}
-            >
-              {/* Swipe Indicators */}
-              {swipeOffset > SWIPE_INDICATOR_THRESHOLD_PX && (
-                <div className="swipe-indicator like">
-                  <svg width="80" height="80" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-                  </svg>
-                  <span>LIKE</span>
-                </div>
-              )}
-              {swipeOffset < -SWIPE_INDICATOR_THRESHOLD_PX && (
-                <div className="swipe-indicator pass">
-                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                  <span>PASS</span>
-                </div>
-              )}
-
-              {/* Card Image */}
-              <div className="card-image-container">
-                {currentProfile.avatar ? (
-                  <img 
-                    src={currentProfile.avatar} 
-                    alt={`Foto de perfil de ${currentProfile.name}`}
-                    className="card-image"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="card-placeholder">
-                    <div className="placeholder-initial">
-                      {currentProfile.name?.[0]?.toUpperCase() || "?"}
-                    </div>
+        {/* Third Section: Featured Creators */}
+        {featuredCreators.length > 0 && (
+          <div className="creators-section">
+            <h2 className="section-title">⭐ Creadores destacados</h2>
+            <div className="creators-grid">
+              {featuredCreators.map((creator) => (
+                <Link 
+                  key={creator._id} 
+                  href={`/profile/${creator._id}`}
+                  className="creator-card"
+                >
+                  <div className="creator-avatar">
+                    {creator.avatar ? (
+                      <img src={creator.avatar} alt={creator.name} />
+                    ) : (
+                      <div className="creator-initial">
+                        {creator.name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {/* Gradient Overlay */}
-                <div className="card-gradient"></div>
-
-                {/* Card Info */}
-                <div className="card-info">
-                  <h3 className="card-name">
-                    {currentProfile.name}
-                    {currentProfile.age && <span className="card-age">, {currentProfile.age}</span>}
-                  </h3>
-                  {currentProfile.location && (
-                    <p className="card-location">
-                      📍 {currentProfile.location}
-                    </p>
-                  )}
-                </div>
-              </div>
+                  <h3 className="creator-name">{creator.name}</h3>
+                  <div className="creator-stats">
+                    <span className="creator-coins">💎 {creator.earningsCoins || 0}</span>
+                  </div>
+                  <button className="creator-follow-btn">Seguir</button>
+                </Link>
+              ))}
             </div>
-          ) : null}
-
-          {/* Stack preview - next card slightly visible behind */}
-          {profiles[currentIndex + 1] && (
-            <div className="card-stack-preview">
-              <div className="preview-card"></div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Section: Quick Actions */}
-        {hasMoreProfiles && currentProfile && (
-          <div className="actions-section">
-            <button 
-              className="action-btn btn-pass"
-              onClick={handlePass}
-              disabled={swiping}
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            <button 
-              className="action-btn btn-chat"
-              onClick={() => handleChat(currentProfile._id)}
-              disabled={swiping}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
-            </button>
-
-            <button 
-              className="action-btn btn-like"
-              onClick={handleLike}
-              disabled={swiping}
-            >
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-              </svg>
-            </button>
-
-            <button 
-              className="action-btn btn-gift"
-              onClick={() => handleGift(currentProfile._id)}
-              disabled={swiping}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="8" width="18" height="4" rx="1" />
-                <path d="M12 8v13" />
-                <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
-                <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
-              </svg>
-            </button>
-
-            <button 
-              className="action-btn btn-profile"
-              onClick={() => handleViewProfile(currentProfile._id)}
-              disabled={swiping}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
           </div>
         )}
       </div>
@@ -370,7 +412,7 @@ export default function FeedPage() {
           background: linear-gradient(135deg, rgba(15,8,32,1) 0%, rgba(30,12,60,1) 100%);
           display: flex;
           flex-direction: column;
-          padding-bottom: 100px;
+          padding-bottom: 80px;
         }
 
         .feed-loading {
@@ -409,69 +451,26 @@ export default function FeedPage() {
           font-size: 1rem;
         }
 
-        /* Live Section */
-        .live-section {
-          padding: 1rem;
-          border-bottom: 1px solid rgba(139,92,246,0.2);
-        }
-
-        .live-title {
-          font-size: 1.3rem;
+        /* Section titles */
+        .section-title {
+          font-size: 1.5rem;
           font-weight: 800;
           color: var(--text);
-          margin: 0 0 1rem 0;
+          margin: 0 0 1.2rem 0;
+          padding: 0 1rem;
         }
 
-        .live-scroll {
-          display: flex;
-          gap: 1rem;
-          overflow-x: auto;
-          padding-bottom: 0.5rem;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(139,92,246,0.5) transparent;
+        /* Match Section */
+        .match-section {
+          padding: 1.5rem 0;
+          border-bottom: 1px solid rgba(139,92,246,0.15);
         }
 
-        .live-scroll::-webkit-scrollbar {
-          height: 6px;
-        }
-
-        .live-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .live-scroll::-webkit-scrollbar-thumb {
-          background: rgba(139,92,246,0.5);
-          border-radius: 3px;
-        }
-
-        .live-item {
-          flex-shrink: 0;
-          width: 280px;
-        }
-
-        .live-placeholder {
+        .cards-container {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 280px;
-          height: 200px;
-        }
-
-        .no-lives {
-          width: 100%;
-          text-align: center;
-          padding: 2rem;
-          color: var(--text-muted);
-        }
-
-        /* Cards Section */
-        .cards-section {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem 1rem;
+          padding: 1rem;
           position: relative;
           min-height: 500px;
         }
@@ -483,7 +482,7 @@ export default function FeedPage() {
           border: 1px solid rgba(239,68,68,0.3);
           border-radius: 12px;
           color: #fca5a5;
-          margin-bottom: 1rem;
+          margin: 0 1rem 1rem 1rem;
         }
 
         .like-error-toast {
@@ -724,34 +723,31 @@ export default function FeedPage() {
           box-shadow: 0 6px 24px rgba(224,64,251,0.4);
         }
 
-        /* Actions Section */
-        .actions-section {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
+        /* Actions Row */
+        .actions-row {
           display: flex;
           justify-content: center;
           align-items: center;
           gap: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(to top, rgba(15,8,32,0.98), rgba(15,8,32,0.95));
-          backdrop-filter: blur(10px);
-          border-top: 1px solid rgba(139,92,246,0.2);
-          z-index: 100;
+          padding: 1rem;
+          margin-top: 1rem;
         }
 
         .action-btn {
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          border: none;
-          cursor: pointer;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.8rem 1.2rem;
+          border-radius: 16px;
+          border: 2px solid;
+          cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
         .action-btn:disabled {
@@ -760,16 +756,22 @@ export default function FeedPage() {
         }
 
         .action-btn:not(:disabled):hover {
-          transform: scale(1.1);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
         }
 
         .action-btn:not(:disabled):active {
           transform: scale(0.95);
         }
 
+        .action-btn span {
+          display: block;
+        }
+
         .btn-pass {
           background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.25));
-          border: 2px solid rgba(239,68,68,0.6);
+          border-color: rgba(239,68,68,0.6);
+          color: #fca5a5;
         }
 
         .btn-pass svg {
@@ -778,14 +780,13 @@ export default function FeedPage() {
 
         .btn-pass:not(:disabled):hover {
           background: linear-gradient(135deg, rgba(239,68,68,0.4), rgba(220,38,38,0.4));
-          box-shadow: 0 6px 20px rgba(239,68,68,0.4);
         }
 
         .btn-like {
-          width: 68px;
-          height: 68px;
           background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
-          border: 3px solid rgba(224,64,251,0.7);
+          border-color: rgba(224,64,251,0.7);
+          color: #e040fb;
+          padding: 1rem 1.5rem;
         }
 
         .btn-like svg {
@@ -794,12 +795,12 @@ export default function FeedPage() {
 
         .btn-like:not(:disabled):hover {
           background: linear-gradient(135deg, rgba(224,64,251,0.5), rgba(139,92,246,0.5));
-          box-shadow: 0 8px 28px rgba(224,64,251,0.5);
         }
 
         .btn-chat {
           background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(37,99,235,0.25));
-          border: 2px solid rgba(59,130,246,0.6);
+          border-color: rgba(59,130,246,0.6);
+          color: #93c5fd;
         }
 
         .btn-chat svg {
@@ -808,54 +809,189 @@ export default function FeedPage() {
 
         .btn-chat:not(:disabled):hover {
           background: linear-gradient(135deg, rgba(59,130,246,0.4), rgba(37,99,235,0.4));
-          box-shadow: 0 6px 20px rgba(59,130,246,0.4);
         }
 
-        .btn-gift {
-          background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25));
-          border: 2px solid rgba(251,191,36,0.6);
+        /* Live Section */
+        .live-section {
+          padding: 1.5rem 0;
+          border-bottom: 1px solid rgba(139,92,246,0.15);
         }
 
-        .btn-gift svg {
-          stroke: #fde68a;
+        .live-scroll {
+          display: flex;
+          gap: 1rem;
+          overflow-x: auto;
+          padding: 0 1rem 0.5rem 1rem;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(139,92,246,0.5) transparent;
         }
 
-        .btn-gift:not(:disabled):hover {
-          background: linear-gradient(135deg, rgba(251,191,36,0.4), rgba(245,158,11,0.4));
-          box-shadow: 0 6px 20px rgba(251,191,36,0.4);
+        .live-scroll::-webkit-scrollbar {
+          height: 6px;
         }
 
-        .btn-profile {
-          background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(124,58,237,0.25));
-          border: 2px solid rgba(139,92,246,0.6);
+        .live-scroll::-webkit-scrollbar-track {
+          background: transparent;
         }
 
-        .btn-profile svg {
-          stroke: #c4b5fd;
+        .live-scroll::-webkit-scrollbar-thumb {
+          background: rgba(139,92,246,0.5);
+          border-radius: 3px;
         }
 
-        .btn-profile:not(:disabled):hover {
-          background: linear-gradient(135deg, rgba(139,92,246,0.4), rgba(124,58,237,0.4));
-          box-shadow: 0 6px 20px rgba(139,92,246,0.4);
+        .live-item {
+          flex-shrink: 0;
+          width: 280px;
+        }
+
+        .live-skeleton {
+          flex-shrink: 0;
+          width: 280px;
+          height: 320px;
+          background: linear-gradient(135deg, rgba(30,12,60,0.5), rgba(35,16,70,0.5));
+          border-radius: var(--radius);
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 0.8; }
+        }
+
+        .no-lives {
+          width: 100%;
+          text-align: center;
+          padding: 2rem;
+          color: var(--text-muted);
+        }
+
+        /* Creators Section */
+        .creators-section {
+          padding: 1.5rem 1rem;
+        }
+
+        .creators-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 1rem;
+        }
+
+        .creator-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 1.2rem;
+          background: linear-gradient(135deg, rgba(30,12,60,0.8), rgba(12,5,25,0.9));
+          border: 1px solid rgba(224, 64, 251, 0.16);
+          border-radius: var(--radius);
+          text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        .creator-card:hover {
+          border-color: rgba(139, 92, 246, 0.55);
+          box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25);
+          transform: translateY(-4px);
+        }
+
+        .creator-avatar {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          overflow: hidden;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 0.8rem;
+          border: 2px solid rgba(224,64,251,0.4);
+        }
+
+        .creator-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .creator-initial {
+          font-size: 2rem;
+          font-weight: 900;
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .creator-name {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 0.5rem 0;
+          text-align: center;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 100%;
+        }
+
+        .creator-stats {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-bottom: 0.8rem;
+        }
+
+        .creator-coins {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: #a78bfa;
+          background: rgba(139,92,246,0.12);
+          border: 1px solid rgba(139,92,246,0.28);
+          border-radius: 999px;
+          padding: 0.25rem 0.6rem;
+        }
+
+        .creator-follow-btn {
+          padding: 0.5rem 1.2rem;
+          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
+          border: 1px solid rgba(224,64,251,0.35);
+          color: #e040fb;
+          font-size: 0.75rem;
+          font-weight: 700;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .creator-follow-btn:hover {
+          background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
+          border-color: rgba(224,64,251,0.6);
         }
 
         @media (max-width: 768px) {
-          .live-section {
-            padding: 0.75rem;
+          .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
           }
 
-          .live-title {
-            font-size: 1.1rem;
-            margin-bottom: 0.75rem;
+          .match-section {
+            padding: 1rem 0;
+          }
+
+          .live-section {
+            padding: 1rem 0;
           }
 
           .live-item {
             width: 240px;
           }
 
-          .cards-section {
-            padding: 1rem 0.5rem;
-            min-height: 400px;
+          .live-skeleton {
+            width: 240px;
+            height: 280px;
+          }
+
+          .cards-container {
+            padding: 0.5rem;
+            min-height: 420px;
           }
 
           .swipe-card {
@@ -889,31 +1025,30 @@ export default function FeedPage() {
             height: 60px;
           }
 
-          .actions-section {
+          .actions-row {
             gap: 0.75rem;
-            padding: 1rem;
+            padding: 0.75rem;
           }
 
           .action-btn {
-            width: 52px;
-            height: 52px;
+            padding: 0.6rem 1rem;
+            font-size: 0.65rem;
           }
 
           .btn-like {
-            width: 64px;
-            height: 64px;
+            padding: 0.8rem 1.2rem;
+          }
+
+          .creators-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.75rem;
           }
         }
 
         @media (max-width: 480px) {
           .action-btn {
-            width: 48px;
-            height: 48px;
-          }
-
-          .btn-like {
-            width: 60px;
-            height: 60px;
+            padding: 0.5rem 0.8rem;
+            font-size: 0.6rem;
           }
 
           .action-btn svg {
@@ -921,9 +1056,13 @@ export default function FeedPage() {
             height: 24px;
           }
 
+          .btn-like {
+            padding: 0.7rem 1rem;
+          }
+
           .btn-like svg {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
           }
         }
       `}</style>

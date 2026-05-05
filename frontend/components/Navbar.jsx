@@ -626,8 +626,7 @@ export default function Navbar() {
           -webkit-backdrop-filter: blur(14px) saturate(1.2);
           border-top: 1px solid rgba(224,64,251,0.24);
           box-shadow: 0 -8px 24px rgba(4,2,12,0.4);
-          height: 64px;
-          padding: 0 0.25rem;
+          padding: 0.5rem 0 env(safe-area-inset-bottom, 0.5rem) 0;
         }
 
         .bottom-nav-item {
@@ -636,15 +635,31 @@ export default function Navbar() {
           align-items: center;
           justify-content: center;
           flex: 1;
-          font-size: 0.58rem;
+          font-size: 0.55rem;
           font-weight: 700;
           gap: 0.25rem;
           color: var(--text-muted) !important;
           transition: all var(--transition);
-          padding: 0.5rem 0.25rem;
+          padding: 0.4rem 0.2rem;
           border-radius: var(--radius-xs);
-          letter-spacing: 0.04em;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
+          line-height: 1.2;
+          min-height: 56px;
+        }
+
+        .bottom-nav-item span {
+          display: block;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+          text-align: center;
+        }
+
+        .bottom-nav-item :global(svg) {
+          flex-shrink: 0;
+          margin-bottom: 0.15rem;
         }
 
         .bottom-nav-item:hover { color: var(--text) !important; }

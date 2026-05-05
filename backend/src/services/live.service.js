@@ -108,9 +108,49 @@ async function cleanupStaleLives() {
   }
 }
 
+/**
+ * Filter array of lives to include ONLY truly active streams
+ * A live is ACTIVE only if:
+ * - isLive === true OR status === "live"
+ * - AND endedAt is null
+ * 
+ * Also removes duplicates by _id
+ * 
+ * @param {Array} lives - Array of live documents
+ * @returns {Array} - Filtered array with only active lives (no duplicates)
+ */
+function filterActiveLives(lives) {
+  if (!Array.isArray(lives)) return [];
+  
+  const activeLives = lives.filter((live) => {
+    if (!live) return false;
+    
+    // Active condition: (isLive === true OR status === "live") AND no endedAt
+    const isActiveStatus = live.isLive === true || live.status === "live";
+    const notEnded = !live.endedAt;
+    
+    return isActiveStatus && notEnded;
+  });
+  
+  // Remove duplicates by _id
+  const seen = new Set();
+  const uniqueLives = [];
+  
+  for (const live of activeLives) {
+    const id = String(live._id);
+    if (!seen.has(id)) {
+      seen.add(id);
+      uniqueLives.push(live);
+    }
+  }
+  
+  return uniqueLives;
+}
+
 module.exports = {
   MAX_LIVE_DURATION_MS,
   isLiveActuallyActive,
   markLiveAsEnded,
   cleanupStaleLives,
+  filterActiveLives,
 };

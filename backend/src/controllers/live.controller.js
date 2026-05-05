@@ -9,7 +9,7 @@ const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
-const { isLiveActuallyActive, cleanupStaleLives, markLiveAsEnded } = require("../services/live.service.js");
+const { isLiveActuallyActive, cleanupStaleLives, markLiveAsEnded, filterActiveLives } = require("../services/live.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
 const MAX_LIVE_PUSH_FOLLOWERS = 500;
@@ -132,14 +132,17 @@ const getLives = async (req, res) => {
       console.error("Background stale live cleanup failed:", err);
     });
 
-    const lives = await Live.find({ isLive: true })
+    const lives = await Live.find({ isLive: true, endedAt: null })
       .populate("user", "username name avatar role creatorStatus")
       .select("-streamKey -paidViewers")
       .sort({ createdAt: -1 })
       .lean();
 
+    // Apply active live filter FIRST to ensure only truly active streams
+    const activeLives = filterActiveLives(lives);
+
     // Filter out lives from admin/moderator users AND validate they're actually active
-    const sanitizedLives = (Array.isArray(lives) ? lives : [])
+    const sanitizedLives = activeLives
       .filter((live) => live && live._id && live.user)
       .filter((live) => {
         // Exclude admin and moderator streamers from public explore

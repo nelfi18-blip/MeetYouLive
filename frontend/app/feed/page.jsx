@@ -254,7 +254,7 @@ export default function ModernFeedPage() {
                       {currentProfile.name}
                       {currentProfile.age && `, ${currentProfile.age}`}
                     </h2>
-                    <div className="online-indicator"></div>
+                    {currentProfile.isOnline && <div className="online-indicator"></div>}
                   </div>
                   <div className="match-card-details">
                     {currentProfile.location && (
@@ -329,7 +329,7 @@ export default function ModernFeedPage() {
                     </div>
                   )}
                   <div className="live-badge-pulse">🔴 LIVE</div>
-                  {(live.viewerCount && live.viewerCount > 0) && (
+                  {live.viewerCount > 0 && (
                     <div className="live-viewers">
                       👁️ {live.viewerCount}
                     </div>
@@ -346,7 +346,7 @@ export default function ModernFeedPage() {
         ) : (
           <div className="no-content">
             <div className="no-content-icon">📡</div>
-            <h3>{t("home.noLiveTitle")}</h3>
+            <h3>{t("home.noLiveStreams")}</h3>
             <p>{t("home.noLiveMessage")}</p>
             <Link href="/explore" className="btn btn-primary" style={{ marginTop: '1rem' }}>
               {t("home.exploreCreators")}

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,6 +11,7 @@ export default function ModernTopBar() {
   const { data: session } = useSession();
   const [coins, setCoins] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const socketCleanupRef = useRef(null);
 
   useEffect(() => {
     if (session?.user) {
@@ -42,8 +43,6 @@ export default function ModernTopBar() {
     fetchNotifications();
 
     // Listen to real-time socket events for new notifications
-    let cleanup = () => {};
-    
     try {
       // Dynamically import socket helper
       import("@/lib/socket").then(({ default: getSocket }) => {
@@ -56,8 +55,8 @@ export default function ModernTopBar() {
         
         socket.on("NEW_NOTIFICATION", handleNewNotification);
         
-        // Set cleanup function
-        cleanup = () => {
+        // Store cleanup function in ref
+        socketCleanupRef.current = () => {
           socket.off("NEW_NOTIFICATION", handleNewNotification);
         };
       }).catch(err => {
@@ -69,7 +68,10 @@ export default function ModernTopBar() {
 
     // Cleanup
     return () => {
-      cleanup();
+      if (socketCleanupRef.current) {
+        socketCleanupRef.current();
+        socketCleanupRef.current = null;
+      }
     };
   }, [session]);
 

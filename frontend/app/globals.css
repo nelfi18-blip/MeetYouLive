@@ -717,16 +717,27 @@ main.main-content:has(.admin-shell) {
 
 @keyframes coin-float {
   0%, 100% {
-    transform: translateY(0);
+    --float-y: 0px;
+    transform: translateY(var(--float-y, 0));
   }
   50% {
-    transform: translateY(-2px);
+    --float-y: -2px;
+    transform: translateY(var(--float-y, 0));
   }
 }
 
 .top-bar-coins:hover {
   box-shadow: 0 0 16px rgba(224, 64, 251, 0.4);
-  transform: translateY(0) scale(1.05);
+  animation: coin-float-hover 3s ease-in-out infinite;
+}
+
+@keyframes coin-float-hover {
+  0%, 100% {
+    transform: translateY(0) scale(1.05);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.05);
+  }
 }
 
 .top-bar-avatar {

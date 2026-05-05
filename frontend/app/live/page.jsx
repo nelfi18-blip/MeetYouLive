@@ -7,6 +7,7 @@ import FeaturedCreators from "@/components/FeaturedCreators";
 import ActivityBar from "@/components/ActivityBar";
 import LiveActivityFeed from "@/components/LiveActivityFeed";
 import { notify } from "@/lib/notify";
+import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -27,7 +28,11 @@ export default function LivePage() {
       const res = await fetch(`${API_URL}/api/lives`);
       if (!res.ok) throw new Error("Error al cargar directos");
       const data = await res.json();
-      const fresh = (Array.isArray(data) ? data : [])
+      
+      // Apply frontend safety filter
+      const safeLives = filterActiveLives(data);
+      
+      const fresh = safeLives
         .filter((live) => live && live._id)
         .map((live) => ({
           ...live,
@@ -114,7 +119,7 @@ export default function LivePage() {
               ? "Cargando transmisiones…"
               : lives.length > 0
                 ? `${lives.length} stream${lives.length !== 1 ? "s" : ""} activo${lives.length !== 1 ? "s" : ""} ahora mismo`
-                : "No hay directos activos — vuelve pronto"}
+                : "No hay streams en vivo ahora"}
           </p>
         </div>
         <div className="live-hero-actions">
@@ -187,7 +192,7 @@ export default function LivePage() {
             <span className="empty-icon-emoji">🎥</span>
           </div>
 
-          <h3 className="empty-title">No hay directos ahora mismo</h3>
+          <h3 className="empty-title">No hay streams en vivo ahora</h3>
           <p className="empty-sub">💫 Descubre creadores destacados mientras tanto</p>
 
           {/* FOMO indicators */}

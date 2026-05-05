@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import ProfileCard from "@/components/ProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
+import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
@@ -71,7 +72,11 @@ export default function ExplorePage() {
   useEffect(() => {
     fetch(`${API_URL}/api/lives`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((d) => setLives(Array.isArray(d) ? d : []))
+      .then((d) => {
+        // Apply frontend safety filter
+        const safeLives = filterActiveLives(d);
+        setLives(safeLives);
+      })
       .catch(() => setLiveError("No se pudo cargar los directos"));
 
     // Fetch crush config for super crush price
@@ -313,7 +318,7 @@ export default function ExplorePage() {
               <p>
                 {search || category !== "Todos"
                   ? "No hay directos que coincidan con tu búsqueda."
-                  : "No hay directos ahora mismo. ¡Vuelve más tarde!"}
+                  : "No hay streams en vivo ahora"}
               </p>
             </div>
           ) : (

@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ModernTopBar from "@/components/ModernTopBar";
-import BottomNav from "@/components/BottomNav";
 import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -163,7 +162,6 @@ export default function ModernFeedPage() {
           <div className="spinner"></div>
           <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
         </div>
-        <BottomNav />
       </div>
     );
   }
@@ -380,8 +378,6 @@ export default function ModernFeedPage() {
           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }

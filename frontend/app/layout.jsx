@@ -1,6 +1,7 @@
 import "./globals.css";
 import Providers from "./providers";
 import NavbarWrapper from "../components/NavbarWrapper";
+import BottomNavWrapper from "../components/BottomNavWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
 
@@ -63,6 +64,7 @@ export default function RootLayout({ children }) {
           <main className="main-content">
             {children}
           </main>
+          <BottomNavWrapper />
           <IncomingCallNotification />
           <FloatingGoLiveButton />
         </Providers>

@@ -16,6 +16,32 @@ export default function ModernTopBar() {
     }
   }, [session]);
 
+  // Fetch unread notifications count
+  useEffect(() => {
+    if (!session?.backendToken) return;
+    
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/unread-count`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadNotifications(data.count || 0);
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      }
+    };
+
+    fetchNotifications();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [session]);
+
   if (!session) return null;
 
   const userAvatar = session.user?.avatar || "";
@@ -36,7 +62,7 @@ export default function ModernTopBar() {
       </div>
 
       <div className="modern-top-bar-right">
-        <Link href="/coins" className="top-bar-coins">
+        <Link href="/coins" className="top-bar-coins top-bar-coins-animated">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="10"/>
             <text x="12" y="16" fontSize="12" textAnchor="middle" fill="#0f0821" fontWeight="bold">$</text>
@@ -54,15 +80,15 @@ export default function ModernTopBar() {
           )}
         </Link>
 
-        <Link href="/profile">
+        <Link href="/profile" className="top-bar-avatar-link">
           {userAvatar ? (
             <img 
               src={userAvatar} 
               alt="Profile" 
-              className="top-bar-avatar"
+              className="top-bar-avatar top-bar-avatar-glow"
             />
           ) : (
-            <div className="top-bar-avatar" style={{
+            <div className="top-bar-avatar top-bar-avatar-glow" style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

@@ -200,7 +200,7 @@ export default function ModernFeedPage() {
               <div 
                 className="match-card-modern"
                 style={{
-                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 20}deg)`,
+                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 15}deg)`,
                   transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
                   opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.7 : 1,
                 }}
@@ -247,10 +247,13 @@ export default function ModernFeedPage() {
                 <div className="match-card-gradient"></div>
 
                 <div className="match-card-info">
-                  <h2 className="match-card-name">
-                    {currentProfile.name}
-                    {currentProfile.age && `, ${currentProfile.age}`}
-                  </h2>
+                  <div className="match-card-header">
+                    <h2 className="match-card-name">
+                      {currentProfile.name}
+                      {currentProfile.age && `, ${currentProfile.age}`}
+                    </h2>
+                    <div className="online-indicator"></div>
+                  </div>
                   <div className="match-card-details">
                     {currentProfile.location && (
                       <span>📍 {currentProfile.location}</span>
@@ -294,12 +297,12 @@ export default function ModernFeedPage() {
       </div>
 
       {/* Section 2: LIVE NOW */}
-      {activeLives.length > 0 && (
-        <div className="live-scroll-section">
-          <div className="live-scroll-header">
-            <div className="live-icon">🔴</div>
-            <span>LIVE NOW</span>
-          </div>
+      <div className="live-scroll-section">
+        <div className="live-scroll-header">
+          <div className="live-icon">🔴</div>
+          <span>LIVE NOW</span>
+        </div>
+        {activeLives.length > 0 ? (
           <div className="live-scroll-container">
             {activeLives.map((live) => (
               <Link 
@@ -323,10 +326,12 @@ export default function ModernFeedPage() {
                       📹
                     </div>
                   )}
-                  <div className="live-badge">🔴 LIVE</div>
-                  <div className="live-viewers">
-                    👁️ {live.viewerCount || 0}
-                  </div>
+                  <div className="live-badge-pulse">🔴 LIVE</div>
+                  {(live.viewerCount && live.viewerCount > 0) && (
+                    <div className="live-viewers">
+                      👁️ {live.viewerCount}
+                    </div>
+                  )}
                 </div>
                 <div className="live-info">
                   <div className="live-title">{live.title || "Live Stream"}</div>
@@ -336,8 +341,17 @@ export default function ModernFeedPage() {
               </Link>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="no-content">
+            <div className="no-content-icon">📡</div>
+            <h3>No hay transmisiones en vivo ahora</h3>
+            <p>Explora creadores y recibe notificaciones cuando estén en vivo</p>
+            <Link href="/explore" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+              Explorar creadores
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Section 3: TOP CREATORS */}
       {featuredCreators.length > 0 && (

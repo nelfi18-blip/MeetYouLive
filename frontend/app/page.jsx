@@ -56,7 +56,7 @@ export default function LandingPage() {
             margin: '0 auto 2rem',
             lineHeight: '1.6'
           }}>
-            The premier live-streaming platform combining real-time entertainment with meaningful connections. Stream, connect, and earn in a vibrant digital community.
+            Conoce personas, mira directos y conecta en tiempo real.
           </p>
           <div style={{
             display: 'flex',
@@ -105,7 +105,7 @@ export default function LandingPage() {
             textAlign: 'center',
             marginBottom: '2rem'
           }}>
-            How It Works
+            Cómo funciona
           </h2>
           <div style={{
             display: 'grid',
@@ -113,30 +113,30 @@ export default function LandingPage() {
             gap: '1.5rem'
           }}>
             <div style={{ textAlign: 'center', padding: '1rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📱</div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Sign Up</h3>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Descubre personas</h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
-                Create your free account in seconds. Choose between viewer or creator modes.
+                Explora perfiles, encuentra matches y conoce gente nueva.
               </p>
             </div>
             <div style={{ textAlign: 'center', padding: '1rem' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎥</div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Go Live</h3>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Mira directos</h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
-                Start streaming instantly with HD quality. Share your passion with the world.
+                Entra a transmisiones en vivo, participa en chats y sigue a tus favoritos.
               </p>
             </div>
             <div style={{ textAlign: 'center', padding: '1rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💰</div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Earn Money</h3>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.5rem' }}>Interactúa</h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.5' }}>
-                Monetize your content through virtual gifts, subscriptions, and private calls.
+                Envía regalos virtuales, mensajes y apoya a los creadores que te gustan.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Digital Economy Section */}
+        {/* Main Features Section */}
         <section style={{
           marginBottom: '4rem',
           padding: '2rem',
@@ -150,7 +150,7 @@ export default function LandingPage() {
             textAlign: 'center',
             marginBottom: '2rem'
           }}>
-            Powered by a Thriving Digital Economy
+            Funciones principales
           </h2>
           <div style={{
             display: 'grid',
@@ -159,26 +159,42 @@ export default function LandingPage() {
           }}>
             <div style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#e040fb' }}>
-                🎁 Virtual Gifts
+                💕 Matches
               </h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
-                Viewers send gifts during live streams to support their favorite creators. From roses to luxury yachts, show your appreciation in style.
+                Descubre perfiles compatibles, haz match y comienza a chatear con personas interesantes cerca de ti.
               </p>
             </div>
             <div style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#8b5cf6' }}>
-                📞 Private Video Calls
+                📹 Directos en vivo
               </h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
-                Connect one-on-one with creators through secure, paid video calls. Build deeper relationships and exclusive interactions.
+                Mira transmisiones en tiempo real, interactúa con creadores y disfruta de contenido exclusivo las 24 horas.
               </p>
             </div>
             <div style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#22d3ee' }}>
-                ⚡ Premium Features
+                💬 Chats
               </h3>
               <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
-                Unlock VIP subscriptions, exclusive content, and priority access to top streamers. Premium benefits for dedicated fans.
+                Conversaciones privadas, mensajes instantáneos y chats en vivo durante las transmisiones.
+              </p>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#fbbf24' }}>
+                🎁 Monedas y regalos virtuales
+              </h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+                Envía regalos virtuales a tus creadores favoritos para mostrar tu apoyo durante las transmisiones.
+              </p>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '0.75rem', color: '#a78bfa' }}>
+                ⚡ Funciones premium
+              </h3>
+              <p style={{ color: '#94a3b8', lineHeight: '1.6' }}>
+                Accede a contenido exclusivo, videollamadas privadas y beneficios VIP para una experiencia mejorada.
               </p>
             </div>
           </div>
@@ -196,10 +212,20 @@ export default function LandingPage() {
             fontSize: '2rem',
             fontWeight: '800',
             textAlign: 'center',
-            marginBottom: '2rem'
+            marginBottom: '1rem'
           }}>
-            Built for Creators
+            También para creadores
           </h2>
+          <p style={{
+            color: '#94a3b8',
+            lineHeight: '1.6',
+            textAlign: 'center',
+            maxWidth: '700px',
+            margin: '0 auto 2rem',
+            fontSize: '1.05rem'
+          }}>
+            Los creadores aprobados pueden hacer directos, recibir regalos y acceder a herramientas de monetización.
+          </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -208,30 +234,30 @@ export default function LandingPage() {
           }}>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💵</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>60% Revenue Share</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>60% de ingresos</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                Industry-leading creator payouts. Keep more of what you earn.
+                Reparto líder en la industria. Quédate con más de lo que ganas.
               </p>
             </div>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Analytics Dashboard</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Panel de analíticas</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                Track earnings, viewers, and engagement in real-time.
+                Seguimiento de ingresos, espectadores e interacción en tiempo real.
               </p>
             </div>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🌐</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Multi-Guest Streaming</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Streaming multi-invitado</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                Collaborate with up to 4 co-hosts simultaneously.
+                Colabora con hasta 4 co-anfitriones simultáneamente.
               </p>
             </div>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏆</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>VS Battles</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>Batallas VS</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                Compete live with other creators to boost engagement.
+                Compite en vivo con otros creadores para aumentar el engagement.
               </p>
             </div>
           </div>
@@ -331,7 +357,7 @@ export default function LandingPage() {
             fontWeight: '800',
             marginBottom: '1rem'
           }}>
-            Ready to Get Started?
+            Empieza a conocer personas hoy
           </h2>
           <p style={{
             color: '#94a3b8',
@@ -340,7 +366,7 @@ export default function LandingPage() {
             margin: '0 auto 2rem',
             fontSize: '1.1rem'
           }}>
-            Join thousands of creators and viewers already on MeetYouLive. Start streaming, connecting, and earning today.
+            Únete a miles de personas que ya están en MeetYouLive. Empieza a conectar, ver directos y conocer gente nueva.
           </p>
           <Link href="/register" style={{
             padding: '1rem 2.5rem',
@@ -352,7 +378,7 @@ export default function LandingPage() {
             boxShadow: '0 4px 20px rgba(224,64,251,0.4)',
             transition: 'all 0.3s'
           }}>
-            Create Your Account
+            Crear cuenta gratis
           </Link>
         </section>
 

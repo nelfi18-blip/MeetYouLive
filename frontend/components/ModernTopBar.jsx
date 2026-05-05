@@ -42,16 +42,26 @@ export default function ModernTopBar() {
     fetchNotifications();
 
     // Listen to real-time socket events for new notifications
-    let socket;
+    let cleanup = () => {};
+    
     try {
       // Dynamically import socket helper
       import("@/lib/socket").then(({ default: getSocket }) => {
-        socket = getSocket();
+        const socket = getSocket();
         
-        socket.on("NEW_NOTIFICATION", () => {
+        const handleNewNotification = () => {
           // Increment unread count when new notification arrives
           setUnreadNotifications(prev => prev + 1);
-        });
+        };
+        
+        socket.on("NEW_NOTIFICATION", handleNewNotification);
+        
+        // Set cleanup function
+        cleanup = () => {
+          socket.off("NEW_NOTIFICATION", handleNewNotification);
+        };
+      }).catch(err => {
+        console.error("Socket import error:", err);
       });
     } catch (err) {
       console.error("Socket error:", err);
@@ -59,9 +69,7 @@ export default function ModernTopBar() {
 
     // Cleanup
     return () => {
-      if (socket) {
-        socket.off("NEW_NOTIFICATION");
-      }
+      cleanup();
     };
   }, [session]);
 

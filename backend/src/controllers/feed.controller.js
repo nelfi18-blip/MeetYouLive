@@ -82,7 +82,7 @@ const getFeed = async (req, res) => {
       }
     ]);
 
-    // ⭐ Featured creators - use query to filter directly
+    // ⭐ Featured creators - use query to filter directly (NO admin/staff)
     const featuredCreators = await User.find({
       role: { $in: ["creator", "subCreator"] },
       creatorStatus: "approved",

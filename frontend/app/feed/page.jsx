@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;

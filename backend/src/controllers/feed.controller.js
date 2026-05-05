@@ -5,7 +5,7 @@ const Like = require("../models/Like.js");
 const UserVisit = require("../models/UserVisit.js");
 const Greeting = require("../models/Greeting.js");
 const Gift = require("../models/Gift.js");
-const { isLiveActuallyActive } = require("../services/live.service.js");
+const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { isApprovedCreator } = require("../lib/creatorUtils.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
@@ -32,8 +32,11 @@ const getFeed = async (req, res) => {
       .populate("user", "name avatar role creatorStatus")
       .lean();
 
+    // Apply active live filter FIRST to ensure only truly active streams
+    const activeLives = filterActiveLives(allLives);
+
     // Filter out staff roles and ensure only approved creators
-    const filteredLives = allLives
+    const filteredLives = activeLives
       .filter((live) => {
         if (!live.user) return false;
         const userRole = live.user.role;
@@ -156,13 +159,16 @@ const getHybridFeed = async (req, res) => {
  */
 const getLiveStreams = async (count, currentUserId) => {
   try {
-    const lives = await Live.find({ isLive: true })
+    const lives = await Live.find({ isLive: true, endedAt: null })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator followersCount")
       .select("-streamKey -paidViewers")
       .lean();
 
+    // Apply active live filter FIRST
+    const trulyActiveLives = filterActiveLives(lives);
+
     // Filter and validate active lives
-    const activeLives = lives
+    const activeLives = trulyActiveLives
       .filter((live) => live && live._id && live.user)
       .filter((live) => {
         const userRole = live.user?.role;
@@ -403,12 +409,15 @@ const getTopFeed = async (req, res) => {
 
 const getTopLiveStreams = async (count) => {
   try {
-    const lives = await Live.find({ isLive: true })
+    const lives = await Live.find({ isLive: true, endedAt: null })
       .populate("user", "username name avatar role creatorStatus isVerifiedCreator")
       .select("-streamKey -paidViewers")
       .lean();
 
-    const activeLives = lives
+    // Apply active live filter FIRST
+    const trulyActiveLives = filterActiveLives(lives);
+
+    const activeLives = trulyActiveLives
       .filter((live) => live && live._id && live.user)
       .filter((live) => {
         const userRole = live.user?.role;

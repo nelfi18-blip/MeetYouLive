@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
+import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -61,10 +62,10 @@ export default function FeedPage() {
 
         const data = await res.json();
         
-        // Deduplicate by _id
-        const uniqueLives = Array.from(
-          new Map((data.activeLives || []).map(item => [item._id, item])).values()
-        );
+        // Apply frontend safety filter to activeLives
+        const safeLives = filterActiveLives(data.activeLives || []);
+        
+        // Deduplicate profiles and creators by _id
         const uniqueProfiles = Array.from(
           new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
         );
@@ -72,7 +73,7 @@ export default function FeedPage() {
           new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
         );
 
-        setActiveLives(uniqueLives);
+        setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
         clearTimeout(loadingTimeout);
@@ -368,7 +369,7 @@ export default function FeedPage() {
               ))
             ) : (
               <div className="no-lives">
-                <p>No hay directos en este momento</p>
+                <p>No hay streams en vivo ahora</p>
               </div>
             )}
           </div>

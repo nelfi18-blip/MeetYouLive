@@ -5,6 +5,7 @@ import Badge from "./Badge";
 import StatusBadges from "./StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 
 /**
  * Reusable LiveCard component for live-stream listings.
@@ -17,10 +18,11 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 export default function LiveCard({ live }) {
   if (!live || typeof live !== "object" || !live._id) return null;
 
-  const rawUsername = live.user?.username || live.user?.name || "anónimo";
-  const username = typeof rawUsername === "string" ? rawUsername : String(rawUsername);
-  const initial = username.charAt(0).toUpperCase() || "?";
+  const username = getDisplayName(live.user);
+  const initial = getInitial(username);
   const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
+  const liveThumb = getLiveThumbnail(live);
+  const gradient = getGradientForUser(live.user?._id || live._id);
   
   // Support multiple viewer count field names
   const rawViewerCount = live.viewerCount ?? live.viewers ?? live.viewersCount ?? 0;
@@ -48,11 +50,14 @@ export default function LiveCard({ live }) {
       <Link href={`/live/${live._id}`} className="live-card">
         {/* Thumbnail */}
         <div className="live-thumb">
-          {live.thumbnail ? (
-            <img src={live.thumbnail} alt={safeTitle} className="live-thumb-img" />
+          {liveThumb ? (
+            <img src={liveThumb} alt={safeTitle} className="live-thumb-img" />
           ) : (
             <div className="live-thumb-fallback">
-              <div className="live-thumb-fallback-bg" />
+              <div className="live-thumb-fallback-bg" style={{ background: gradient }} />
+              <div className="live-thumb-fallback-glow" style={{
+                background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)'
+              }} />
               <div className="live-thumb-avatar">
                 {live.user?.avatar ? (
                   <img src={live.user.avatar} alt={username} />
@@ -201,14 +206,12 @@ export default function LiveCard({ live }) {
         .live-thumb-fallback-bg {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(22,12,45,0.92), rgba(35,16,70,0.96), rgba(15,8,32,1));
         }
 
-        .live-thumb-fallback-bg::after {
-          content: '';
+        .live-thumb-fallback-glow {
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15), transparent 65%);
+          pointer-events: none;
         }
 
         .live-thumb-avatar {
@@ -256,19 +259,6 @@ export default function LiveCard({ live }) {
           color: rgba(255,255,255,0.7);
           text-transform: uppercase;
           letter-spacing: 0.08em;
-        }
-
-        .live-thumb-bg {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(22,12,45,0.92), rgba(35,16,70,0.96), rgba(15,8,32,1));
-        }
-
-        .live-thumb-bg::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.15), transparent 65%);
         }
 
         .live-thumb-badges {
@@ -404,11 +394,6 @@ export default function LiveCard({ live }) {
           background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(124,58,237,0.3));
           color: #c4b5fd;
           border-color: rgba(139,92,246,0.3);
-        }
-
-        .live-stat-gifts {
-          color: #f9a8d4;
-          border-color: rgba(244,114,182,0.2);
         }
 
         /* Body */

@@ -792,10 +792,16 @@ main.main-content:has(.admin-shell) {
   cursor: grab;
   user-select: none;
   touch-action: pan-y;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.match-card-modern:hover {
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(224, 64, 251, 0.3);
 }
 
 .match-card-modern:active {
   cursor: grabbing;
+  transform: scale(0.98);
 }
 
 .match-card-image {
@@ -880,7 +886,7 @@ main.main-content:has(.admin-shell) {
   justify-content: center;
   align-items: center;
   gap: 1.5rem;
-  padding: 2rem 0;
+  padding: 1.25rem 0; /* Reduced from 2rem */
 }
 
 .match-btn {
@@ -895,6 +901,12 @@ main.main-content:has(.admin-shell) {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 2rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.match-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .match-btn.pass {
@@ -937,7 +949,7 @@ main.main-content:has(.admin-shell) {
 }
 
 .match-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.92); /* Better tap feedback */
 }
 
 /* Swipe Indicators */
@@ -977,14 +989,14 @@ main.main-content:has(.admin-shell) {
 
 /* Live Scroll Section */
 .live-scroll-section {
-  padding: 1.5rem 0;
+  padding: 1rem 0; /* Reduced from 1.5rem */
 }
 
 .live-scroll-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 1.25rem 1rem;
+  padding: 0 1rem 0.75rem; /* Reduced bottom padding */
   font-size: 1.25rem;
   font-weight: 800;
 }
@@ -1255,11 +1267,12 @@ main.main-content:has(.admin-shell) {
 /* Modern Page Container */
 .modern-page {
   min-height: 100vh;
-  padding-bottom: 80px;
+  padding-bottom: 90px; /* Space for bottom nav + safe area */
+  padding-top: 0; /* Remove top padding - header is sticky */
 }
 
 .modern-section {
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem; /* Reduced from 2rem */
 }
 
 /* No content state */
@@ -1268,26 +1281,27 @@ main.main-content:has(.admin-shell) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 2rem 1rem; /* Reduced from 3rem */
   text-align: center;
 }
 
 .no-content-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+  font-size: 3.5rem; /* Slightly smaller */
+  margin-bottom: 0.75rem; /* Reduced from 1rem */
+  opacity: 0.6; /* Slightly more visible */
 }
 
 .no-content h3 {
-  font-size: 1.25rem;
+  font-size: 1.15rem; /* Slightly smaller */
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem; /* Reduced */
   color: var(--text);
 }
 
 .no-content p {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
+  margin-bottom: 0; /* Remove bottom margin */
 }
 
 /* Responsive adjustments */

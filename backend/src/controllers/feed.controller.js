@@ -65,7 +65,12 @@ const getFeed = async (req, res) => {
         $project: {
           name: 1,
           avatar: 1,
+          profilePhotos: 1, // Include profilePhotos array
           location: 1,
+          bio: 1,
+          tags: 1,
+          interests: 1,
+          isOnline: 1,
           // Calculate age from birthdate without exposing raw birthdate
           age: {
             $cond: {

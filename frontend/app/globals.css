@@ -3696,3 +3696,311 @@ main.main-content:has(.admin-shell) {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* =========================================================
+   Mobile & PWA Responsive Enhancements
+   ========================================================= */
+
+/* Safe area support for notched devices (iPhone X+) */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.main-content {
+  min-height: calc(100vh - env(safe-area-inset-bottom));
+}
+
+/* Touch-friendly minimum sizes */
+button,
+.btn,
+a.btn,
+input[type="button"],
+input[type="submit"] {
+  min-height: 44px; /* iOS recommended minimum touch target */
+  min-width: 44px;
+}
+
+/* Prevent zoom on input focus (iOS) */
+input,
+textarea,
+select {
+  font-size: 16px; /* Prevents auto-zoom on iOS */
+}
+
+/* Improved mobile navigation */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem 1rem calc(80px + env(safe-area-inset-bottom)) 1rem;
+  }
+
+  /* Mobile-optimized headers */
+  .page-title {
+    font-size: 1.75rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.9rem;
+  }
+
+  /* Mobile-friendly cards */
+  .card,
+  .profile-card,
+  .live-card {
+    border-radius: var(--radius-sm);
+  }
+
+  /* Stack layouts on mobile */
+  .two-col-layout,
+  .three-col-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Better spacing for lists on mobile */
+  .chats-list,
+  .notifications-list,
+  .matches-list {
+    gap: 0.5rem;
+  }
+
+  /* Mobile-optimized modals */
+  .modal-content {
+    max-width: 95vw;
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  /* Mobile bottom sheet style for modals */
+  .modal-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 90vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-width: 900px) and (orientation: landscape) {
+  .main-content {
+    padding-top: 0.5rem;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 1rem);
+  }
+}
+
+/* Tablet breakpoint */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    padding: 1.5rem 2rem calc(90px + env(safe-area-inset-bottom)) 2rem;
+  }
+
+  .two-col-layout {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Hide elements in PWA/standalone mode */
+@media (display-mode: standalone) {
+  /* Hide browser-related UI elements when installed as PWA */
+  .browser-only {
+    display: none !important;
+  }
+
+  /* Adjust layout for PWA */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Sharper borders on retina displays */
+  .card,
+  .btn,
+  input,
+  textarea {
+    border-width: 0.5px;
+  }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dark mode support (system preference) */
+@media (prefers-color-scheme: dark) {
+  /* Already dark by default, but ensure consistency */
+  :root {
+    color-scheme: dark;
+  }
+}
+
+/* Touch action optimizations */
+button,
+.btn,
+a,
+.clickable,
+.touchable {
+  -webkit-tap-highlight-color: rgba(224, 64, 251, 0.3);
+  touch-action: manipulation; /* Prevents double-tap zoom */
+}
+
+/* Smooth scrolling for modern browsers */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Prevent pull-to-refresh on some mobile browsers */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Mobile-optimized text selection */
+::selection {
+  background-color: rgba(224, 64, 251, 0.3);
+  color: var(--text);
+}
+
+/* Mobile input improvements */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea {
+    font-size: 16px; /* Prevents iOS zoom */
+    padding: 0.75rem;
+  }
+
+  /* Mobile-friendly form groups */
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  /* Stack form buttons on mobile */
+  .form-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+/* PWA Install prompt positioning */
+.install-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+/* Offline indicator positioning */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+}
+
+/* Mobile video player optimizations */
+@media (max-width: 768px) {
+  video {
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+  }
+
+  .video-controls {
+    padding: 0.5rem;
+  }
+
+  .video-controls button {
+    padding: 0.5rem;
+  }
+}
+
+/* Swipe gesture indicators */
+.swipeable {
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Better mobile typography */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+
+  p {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+}
+
+/* Loading states for mobile */
+@media (max-width: 768px) {
+  .skeleton {
+    min-height: 60px;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Mobile-optimized empty states */
+@media (max-width: 768px) {
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+}

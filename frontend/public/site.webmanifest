@@ -1,16 +1,19 @@
 {
-  "name": "MeetYouLive",
+  "name": "MeetYouLive - Conecta en vivo",
   "short_name": "MeetYouLive",
+  "description": "Haz match, conecta en vivo y gana dinero como creador. App de citas en vivo y streaming.",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/maskable-icon.png",
@@ -22,5 +25,10 @@
   "theme_color": "#0f0821",
   "background_color": "#0f0821",
   "start_url": "/",
-  "display": "standalone"
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "categories": ["social", "entertainment", "lifestyle"],
+  "lang": "es",
+  "dir": "ltr"
 }

@@ -7,6 +7,7 @@ import Link from "next/link";
 import ModernTopBar from "@/components/ModernTopBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -189,10 +190,10 @@ export default function ModernFeedPage() {
       )}
 
       {/* Section 1: MATCH (First - Priority) */}
-      <div className="modern-section">
-        <div style={{ padding: '0 1.25rem 1rem' }}>
+      <div className="modern-section" style={{ marginTop: '0.5rem' }}>
+        <div style={{ padding: '0 1rem 0.75rem' }}>
           {!hasMoreProfiles ? (
-            <div className="no-content">
+            <div className="no-content" style={{ padding: '2rem 1rem' }}>
               <div className="no-content-icon">😊</div>
               <h3>That's everyone for now!</h3>
               <p>Check back later for new people</p>
@@ -226,32 +227,48 @@ export default function ModernFeedPage() {
                   </div>
                 )}
 
-                {currentProfile.avatar ? (
-                  <img 
-                    src={currentProfile.avatar} 
-                    alt={currentProfile.name}
-                    className="match-card-image"
-                  />
-                ) : (
-                  <div className="match-card-image" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-                    fontSize: '6rem',
-                    fontWeight: 800,
-                    color: 'white'
-                  }}>
-                    {currentProfile.name?.[0]?.toUpperCase() || "?"}
-                  </div>
-                )}
+                {(() => {
+                  const userImage = getUserImage(currentProfile);
+                  const displayName = getDisplayName(currentProfile);
+                  const initial = getInitial(displayName);
+                  const gradient = getGradientForUser(currentProfile._id);
+
+                  return userImage ? (
+                    <img 
+                      src={userImage} 
+                      alt={displayName}
+                      className="match-card-image"
+                    />
+                  ) : (
+                    <div className="match-card-image" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: gradient,
+                      fontSize: '8rem',
+                      fontWeight: 900,
+                      color: 'white',
+                      textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                      position: 'relative',
+                    }}>
+                      {/* Glow effect */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                        pointerEvents: 'none',
+                      }}></div>
+                      <span style={{ position: 'relative', zIndex: 1 }}>{initial}</span>
+                    </div>
+                  );
+                })()}
 
                 <div className="match-card-gradient"></div>
 
                 <div className="match-card-info">
                   <div className="match-card-header">
                     <h2 className="match-card-name">
-                      {currentProfile.name}
+                      {getDisplayName(currentProfile)}
                       {currentProfile.age && `, ${currentProfile.age}`}
                     </h2>
                     {currentProfile.isOnline && <div className="online-indicator"></div>}
@@ -264,11 +281,33 @@ export default function ModernFeedPage() {
                   {currentProfile.bio && (
                     <p className="match-card-bio">{currentProfile.bio}</p>
                   )}
+                  {currentProfile.tags && currentProfile.tags.length > 0 && (
+                    <div className="match-card-tags" style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap',
+                      marginTop: '0.75rem'
+                    }}>
+                      {currentProfile.tags.slice(0, 3).map((tag, idx) => (
+                        <span key={idx} style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.3rem 0.7rem',
+                          borderRadius: '999px',
+                          background: 'rgba(139,92,246,0.25)',
+                          border: '1px solid rgba(139,92,246,0.4)',
+                          color: '#c4b5fd'
+                        }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="match-actions">
+              <div className="match-actions" style={{ padding: '1.25rem 0' }}>
                 <button 
                   className="match-btn pass"
                   onClick={handlePass}
@@ -299,57 +338,101 @@ export default function ModernFeedPage() {
       </div>
 
       {/* Section 2: LIVE NOW */}
-      <div className="live-scroll-section">
-        <div className="live-scroll-header">
+      <div className="live-scroll-section" style={{ padding: '1rem 0' }}>
+        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem' }}>
           <div className="live-icon">🔴</div>
           <span>LIVE NOW</span>
         </div>
         {activeLives.length > 0 ? (
           <div className="live-scroll-container">
-            {activeLives.map((live) => (
-              <Link 
-                key={live._id} 
-                href={`/live/${live._id}`}
-                className="live-card-compact"
-              >
-                <div className="live-thumb">
-                  {live.thumbnail ? (
-                    <img src={live.thumbnail} alt={live.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '3rem'
-                    }}>
-                      📹
-                    </div>
-                  )}
-                  <div className="live-badge-pulse">🔴 LIVE</div>
-                  {live.viewerCount > 0 && (
-                    <div className="live-viewers">
-                      👁️ {live.viewerCount}
-                    </div>
-                  )}
-                </div>
-                <div className="live-info">
-                  <div className="live-title">{live.title || "Live Stream"}</div>
-                  <div className="live-creator">{live.user?.name || "Creator"}</div>
-                  <button className="live-enter-btn">Enter</button>
-                </div>
-              </Link>
-            ))}
+            {activeLives.map((live) => {
+              const liveThumb = getLiveThumbnail(live);
+              const creatorName = getDisplayName(live.user);
+              const creatorInitial = getInitial(creatorName);
+              const gradient = getGradientForUser(live.user?._id || live._id);
+              
+              return (
+                <Link 
+                  key={live._id} 
+                  href={`/live/${live._id}`}
+                  className="live-card-compact"
+                >
+                  <div className="live-thumb">
+                    {liveThumb ? (
+                      <img src={liveThumb} alt={live.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        background: gradient,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        position: 'relative'
+                      }}>
+                        {/* Glow effect */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                          pointerEvents: 'none',
+                        }}></div>
+                        <div style={{
+                          fontSize: '2.5rem',
+                          fontWeight: 900,
+                          color: 'white',
+                          textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
+                          zIndex: 1
+                        }}>
+                          {creatorInitial}
+                        </div>
+                        <div style={{
+                          fontSize: '2rem',
+                          opacity: 0.8,
+                          zIndex: 1
+                        }}>
+                          📹
+                        </div>
+                      </div>
+                    )}
+                    <div className="live-badge-pulse">🔴 LIVE</div>
+                    {live.viewerCount > 0 && (
+                      <div className="live-viewers">
+                        👁️ {live.viewerCount}
+                      </div>
+                    )}
+                  </div>
+                  <div className="live-info">
+                    <div className="live-title">{live.title || "Live Stream"}</div>
+                    <div className="live-creator">{creatorName}</div>
+                    <button className="live-enter-btn">Enter</button>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         ) : (
-          <div className="no-content">
-            <div className="no-content-icon">📡</div>
-            <h3>{t("home.noLiveStreams")}</h3>
-            <p>{t("home.noLiveMessage")}</p>
-            <Link href="/explore" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-              {t("home.exploreCreators")}
+          <div className="no-content" style={{ padding: '2rem 1rem' }}>
+            <div className="no-content-icon" style={{ fontSize: '3rem' }}>📡</div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No hay directos ahora</h3>
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Vuelve pronto para ver nuevos directos</p>
+            <Link href="/explore" className="btn btn-primary" style={{ 
+              marginTop: '0.5rem',
+              display: 'inline-block',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
+              color: 'white',
+              borderRadius: '999px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              textDecoration: 'none',
+              transition: 'all 0.3s',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(224, 64, 251, 0.3)'
+            }}>
+              Explorar creadores
             </Link>
           </div>
         )}
@@ -357,40 +440,56 @@ export default function ModernFeedPage() {
 
       {/* Section 3: TOP CREATORS */}
       {featuredCreators.length > 0 && (
-        <div className="creators-section">
-          <div className="creators-header">
+        <div className="creators-section" style={{ padding: '1rem 0' }}>
+          <div className="creators-header" style={{ padding: '0 1rem 0.75rem' }}>
             <span>⭐</span>
             <span>TOP CREATORS</span>
           </div>
           <div className="creators-scroll">
-            {featuredCreators.map((creator) => (
-              <Link
-                key={creator._id}
-                href={`/profile/${creator._id}`}
-                className="creator-story"
-              >
-                <div className="creator-story-avatar">
-                  {creator.avatar ? (
-                    <img src={creator.avatar} alt={creator.name} />
-                  ) : (
-                    <div style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-                      fontSize: '2rem',
-                      fontWeight: 700,
-                      color: 'white'
-                    }}>
-                      {creator.name?.[0]?.toUpperCase() || "?"}
-                    </div>
-                  )}
-                </div>
-                <div className="creator-story-name">{creator.name}</div>
-              </Link>
-            ))}
+            {featuredCreators.map((creator) => {
+              const creatorImage = getUserImage(creator);
+              const creatorName = getDisplayName(creator);
+              const creatorInitial = getInitial(creatorName);
+              const gradient = getGradientForUser(creator._id);
+              
+              return (
+                <Link
+                  key={creator._id}
+                  href={`/profile/${creator._id}`}
+                  className="creator-story"
+                >
+                  <div className="creator-story-avatar">
+                    {creatorImage ? (
+                      <img src={creatorImage} alt={creatorName} />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: gradient,
+                        fontSize: '2rem',
+                        fontWeight: 900,
+                        color: 'white',
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                        position: 'relative'
+                      }}>
+                        {/* Subtle glow */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
+                          pointerEvents: 'none',
+                        }}></div>
+                        <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="creator-story-name">{creatorName}</div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

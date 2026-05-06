@@ -8,56 +8,114 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-cards';
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
-const ONBOARDING_SLIDES = [
-  {
-    id: 1,
-    title: "Discover",
-    subtitle: "Share, Follow\nYour World",
-    description: "Conoce personas increíbles y conecta en tiempo real",
-    gradient: "linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #FF6347 100%)",
-    icon: "👋",
-  },
-  {
-    id: 2,
-    title: "Watch Live",
-    subtitle: "Connect &\nInteract",
-    description: "Transmite en vivo o mira a tus creadores favoritos",
-    gradient: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%)",
-    icon: "📹",
-  },
-  {
-    id: 3,
-    title: "Send Gifts",
-    subtitle: "Support Your\nFavorites",
-    description: "Envía regalos virtuales y apoya a los creadores",
-    gradient: "linear-gradient(135deg, #6b21a8 0%, #a855f7 50%, #d946ef 100%)",
-    icon: "🎁",
-  },
-  {
-    id: 4,
-    title: "Earn Money",
-    subtitle: "Become a\nCreator",
-    description: "Transmite en vivo y gana dinero con tu contenido",
-    gradient: "linear-gradient(135deg, #065f46 0%, #10b981 50%, #34d399 100%)",
-    icon: "💰",
-  },
-];
+const getOnboardingSlidesForUser = (isCreator) => {
+  if (isCreator) {
+    return [
+      {
+        id: 1,
+        title: "Bienvenido Creador",
+        subtitle: "Comparte tu\nTalento",
+        description: "Transmite en vivo y conecta con tu audiencia en tiempo real",
+        gradient: "linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #FF6347 100%)",
+        icon: "🎬",
+      },
+      {
+        id: 2,
+        title: "Transmite en Vivo",
+        subtitle: "Conecta &\nEntretiene",
+        description: "Inicia transmisiones HD con múltiples invitados y efectos especiales",
+        gradient: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%)",
+        icon: "📹",
+      },
+      {
+        id: 3,
+        title: "Recibe Regalos",
+        subtitle: "Monetiza tu\nContenido",
+        description: "Gana dinero real con los regalos virtuales de tus fans",
+        gradient: "linear-gradient(135deg, #6b21a8 0%, #a855f7 50%, #d946ef 100%)",
+        icon: "💎",
+      },
+      {
+        id: 4,
+        title: "Retira tus Ganancias",
+        subtitle: "Cobra cuando\nQuieras",
+        description: "Retira tus ganancias fácilmente a tu cuenta bancaria o PayPal",
+        gradient: "linear-gradient(135deg, #065f46 0%, #10b981 50%, #34d399 100%)",
+        icon: "💰",
+      },
+    ];
+  }
+
+  return [
+    {
+      id: 1,
+      title: "Descubre Personas",
+      subtitle: "Conoce &\nConecta",
+      description: "Conoce personas increíbles cerca de ti o de todo el mundo",
+      gradient: "linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #FF6347 100%)",
+      icon: "👋",
+    },
+    {
+      id: 2,
+      title: "Mira en Vivo",
+      subtitle: "Disfruta\nContenido Real",
+      description: "Ve transmisiones en vivo de tus creadores favoritos",
+      gradient: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%)",
+      icon: "📱",
+    },
+    {
+      id: 3,
+      title: "Envía Regalos",
+      subtitle: "Apoya a tus\nFavoritos",
+      description: "Envía regalos virtuales y destaca en los lives",
+      gradient: "linear-gradient(135deg, #6b21a8 0%, #a855f7 50%, #d946ef 100%)",
+      icon: "🎁",
+    },
+    {
+      id: 4,
+      title: "Haz Matches",
+      subtitle: "Encuentra tu\nMedia Naranja",
+      description: "Da like, chatea y conoce personas especiales",
+      gradient: "linear-gradient(135deg, #dc2626 0%, #f43f5e 50%, #fb7185 100%)",
+      icon: "💝",
+    },
+  ];
+};
 
 export default function OnboardingCarousel({ onComplete }) {
+  const { data: session } = useSession();
   const [activeIndex, setActiveIndex] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLater, setShowLater] = useState(false);
+  
+  const isCreator = session?.user && isApprovedCreator(session.user);
+  const SLIDES = getOnboardingSlidesForUser(isCreator);
 
   useEffect(() => {
     // Check if user has seen onboarding
     const hasSeenOnboarding = localStorage.getItem("hasSeenOnboarding");
+    const showLaterTime = localStorage.getItem("showOnboardingLater");
+    
     if (!hasSeenOnboarding) {
-      setShowOnboarding(true);
+      // If user chose "Show later", check if 24h has passed
+      if (showLaterTime) {
+        const hoursPassed = (Date.now() - parseInt(showLaterTime)) / (1000 * 60 * 60);
+        if (hoursPassed >= 24) {
+          setShowOnboarding(true);
+          localStorage.removeItem("showOnboardingLater");
+        }
+      } else {
+        setShowOnboarding(true);
+      }
     }
   }, []);
 
   const handleComplete = () => {
     localStorage.setItem("hasSeenOnboarding", "true");
+    localStorage.removeItem("showOnboardingLater");
     setShowOnboarding(false);
     onComplete?.();
   };
@@ -65,10 +123,16 @@ export default function OnboardingCarousel({ onComplete }) {
   const handleSkip = () => {
     handleComplete();
   };
+  
+  const handleShowLater = () => {
+    localStorage.setItem("showOnboardingLater", Date.now().toString());
+    setShowOnboarding(false);
+    onComplete?.();
+  };
 
   if (!showOnboarding) return null;
 
-  const isLastSlide = activeIndex === ONBOARDING_SLIDES.length - 1;
+  const isLastSlide = activeIndex === SLIDES.length - 1;
 
   return (
     <AnimatePresence>
@@ -93,7 +157,7 @@ export default function OnboardingCarousel({ onComplete }) {
           onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
           className="onboarding-swiper"
         >
-          {ONBOARDING_SLIDES.map((slide, index) => (
+          {SLIDES.map((slide, index) => (
             <SwiperSlide key={slide.id}>
               <motion.div
                 className="onboarding-slide"
@@ -159,15 +223,15 @@ export default function OnboardingCarousel({ onComplete }) {
         >
           {isLastSlide ? (
             <button className="onboarding-btn-primary" onClick={handleComplete}>
-              Get Started 🚀
+              ¡Comenzar Ahora! 🚀
             </button>
           ) : (
             <>
-              <button className="onboarding-btn-skip" onClick={handleSkip}>
-                Skip
+              <button className="onboarding-btn-later" onClick={handleShowLater}>
+                Mostrar Después
               </button>
-              <button className="onboarding-btn-next">
-                Next →
+              <button className="onboarding-btn-skip" onClick={handleSkip}>
+                Saltar
               </button>
             </>
           )}

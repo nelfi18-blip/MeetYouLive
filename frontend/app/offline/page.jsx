@@ -1,7 +1,4 @@
-export const metadata = {
-  title: "Sin conexión - MeetYouLive",
-  description: "Página sin conexión",
-};
+"use client";
 
 export default function OfflinePage() {
   return (

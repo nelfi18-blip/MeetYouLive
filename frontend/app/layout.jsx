@@ -4,6 +4,9 @@ import NavbarWrapper from "../components/NavbarWrapper";
 import BottomNavWrapper from "../components/BottomNavWrapper";
 import IncomingCallNotification from "../components/IncomingCallNotification";
 import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
+import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
+import OfflineIndicator from "../components/OfflineIndicator";
+import InstallPrompt from "../components/InstallPrompt";
 
 export const metadata = {
   metadataBase: new URL("https://meetyoulive.net"),
@@ -47,6 +50,14 @@ export const metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: "#0f0821",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
@@ -60,6 +71,9 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <Providers>
+          <ServiceWorkerRegistration />
+          <OfflineIndicator />
+          <InstallPrompt />
           <NavbarWrapper />
           <main className="main-content">
             {children}

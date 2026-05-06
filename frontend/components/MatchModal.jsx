@@ -48,15 +48,15 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
       const res = await fetch(`${API_URL}/api/chats`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ participantId: user._id }),
+        body: JSON.stringify({ recipientId: user._id }),
       });
       if (res.ok) {
         const chat = await res.json();
         router.push(`/chats/${chat._id}`);
         onClose();
       } else {
-        router.push("/chats");
-        onClose();
+        const data = await res.json();
+        setError(data.message || "Error al abrir el chat");
       }
     } catch {
       setError("Error al abrir el chat");

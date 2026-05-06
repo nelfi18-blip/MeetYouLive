@@ -7,6 +7,7 @@ const Greeting = require("../models/Greeting.js");
 const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { isApprovedCreator } = require("../lib/creatorUtils.js");
+const { hasLiveHost } = require("../lib/socket.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
@@ -35,7 +36,7 @@ const getFeed = async (req, res) => {
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);
 
-    // Filter out staff roles and ensure only approved creators
+    // Filter out staff roles and ensure only approved creators with active Socket.io connection
     const filteredLives = activeLives
       .filter((live) => {
         if (!live.user) return false;
@@ -47,6 +48,8 @@ const getFeed = async (req, res) => {
                                   live.user.creatorStatus === "approved";
         return isApprovedCreator;
       })
+      // CRITICAL: Only include streams with active host Socket.io connection
+      .filter((live) => hasLiveHost(String(live._id)))
       .slice(0, 12); // Take only first 12 after filtering
 
     // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
@@ -181,7 +184,9 @@ const getLiveStreams = async (count, currentUserId) => {
         if (STAFF_ROLES.includes(userRole)) return false;
         const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
         return approved && isLiveActuallyActive(live);
-      });
+      })
+      // CRITICAL: Only include streams with active host Socket.io connection
+      .filter((live) => hasLiveHost(String(live._id)));
 
     // Get total coins earned for each live (for sorting)
     const liveIds = activeLives.map((l) => l._id);
@@ -430,7 +435,9 @@ const getTopLiveStreams = async (count) => {
         if (STAFF_ROLES.includes(userRole)) return false;
         const approved = (userRole === "creator" || userRole === "subCreator") && live.user?.creatorStatus === "approved";
         return approved && isLiveActuallyActive(live);
-      });
+      })
+      // CRITICAL: Only include streams with active host Socket.io connection
+      .filter((live) => hasLiveHost(String(live._id)));
 
     const liveIds = activeLives.map((l) => l._id);
     const coinsData = await Gift.aggregate([

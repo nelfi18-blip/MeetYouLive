@@ -9,6 +9,9 @@ const onlineUsers = new Map();
 // Timeout for considering a user offline if no heartbeat received (5 minutes)
 const ONLINE_TIMEOUT_MS = 5 * 60 * 1000;
 
+// Cleanup interval ID to prevent multiple intervals and allow cleanup on shutdown
+let cleanupIntervalId = null;
+
 // In-memory map of live room viewers: liveId (string) → Set<socketId>
 const liveViewers = new Map();
 // In-memory map of active live hosts: liveId (string) → Set<socketId>
@@ -181,8 +184,13 @@ const initSocket = (httpServer) => {
     },
   });
 
+  // Clear any existing cleanup interval to prevent duplicates
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+  }
+
   // Periodic cleanup of stale online users every 2 minutes
-  setInterval(() => {
+  cleanupIntervalId = setInterval(() => {
     const staleUsers = cleanupStaleUsers();
     if (staleUsers.length > 0) {
       console.log(`[Socket] Cleaned up ${staleUsers.length} stale user(s) from online list`);
@@ -215,7 +223,8 @@ const initSocket = (httpServer) => {
       if (!userId) return;
       
       const entry = onlineUsers.get(userId);
-      if (entry) {
+      // Only update lastSeen if this socket ID is still registered for this user
+      if (entry && entry.socketIds.has(socket.id)) {
         entry.lastSeen = new Date();
       }
     });

@@ -302,17 +302,27 @@ export default function Navbar() {
           position: sticky;
           top: 0;
           z-index: 200;
-          background: rgba(20,12,46,0.72);
-          backdrop-filter: blur(14px) saturate(1.2);
-          -webkit-backdrop-filter: blur(14px) saturate(1.2);
-          border-bottom: 1px solid rgba(224,64,251,0.24);
-          box-shadow: 0 10px 30px rgba(4,2,12,0.42), 0 1px 0 rgba(224,64,251,0.18);
+          background: rgba(20,12,46,0.75);
+          backdrop-filter: blur(20px) saturate(140%);
+          -webkit-backdrop-filter: blur(20px) saturate(140%);
+          border-bottom: 1px solid rgba(224,64,251,0.28);
+          box-shadow: 0 10px 40px rgba(4,2,12,0.5), 0 1px 0 rgba(224,64,251,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 0 1.5rem;
           height: 64px;
           gap: 1rem;
+          transition: all var(--transition-smooth);
+        }
+
+        .navbar::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent 0%, rgba(224,64,251,0.03) 50%, transparent 100%);
+          pointer-events: none;
+          animation: shimmer 3s ease-in-out infinite;
         }
 
         /* ── Brand ─────────────── */
@@ -367,14 +377,31 @@ export default function Navbar() {
           color: var(--text-muted) !important;
           font-size: 0.82rem;
           font-weight: 600;
-          transition: all var(--transition);
+          transition: all var(--transition-smooth);
+          position: relative;
         }
 
-        .navbar-link:hover { color: var(--text) !important; background: rgba(255,255,255,0.06); }
+        .navbar-link::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: var(--radius-pill);
+          background: rgba(255,255,255,0.05);
+          opacity: 0;
+          transition: opacity var(--transition-smooth);
+        }
+
+        .navbar-link:hover { 
+          color: var(--text) !important; 
+          background: rgba(255,255,255,0.08);
+          transform: translateY(-1px);
+        }
+        .navbar-link:hover::before { opacity: 1; }
         .navbar-link.active {
           color: #fff !important;
           background: var(--grad-cool);
-          box-shadow: var(--glow-cyan);
+          box-shadow: var(--glow-cyan), 0 4px 12px rgba(124,58,237,0.3);
+          transform: translateY(-1px);
         }
 
         /* ── Right section ─────── */
@@ -390,14 +417,37 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 0.35rem;
-          background: rgba(251,146,60,0.1);
+          background: rgba(251,146,60,0.15);
           color: var(--accent-orange) !important;
-          border: 1px solid rgba(251,146,60,0.25);
+          border: 1px solid rgba(251,146,60,0.3);
           border-radius: var(--radius-pill);
           padding: 0.32rem 0.9rem;
           font-size: 0.82rem;
           font-weight: 700;
-          transition: all var(--transition);
+          transition: all var(--transition-smooth);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .coins-badge::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+          transform: translateX(-100%);
+          transition: transform 0.6s;
+        }
+
+        .coins-badge:hover {
+          background: rgba(251,146,60,0.2);
+          border-color: rgba(251,146,60,0.5);
+          box-shadow: 0 0 16px rgba(251,146,60,0.3);
+          transform: translateY(-2px) scale(1.05);
+        }
+
+        .coins-badge:hover::before {
+          transform: translateX(100%);
+        }
         }
         .coins-badge:hover {
           background: rgba(251,146,60,0.18);

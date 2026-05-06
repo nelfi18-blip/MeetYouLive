@@ -1,15 +1,29 @@
 const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
+const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
+
+// Define staff roles that should be excluded from regular user chats
+const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 const getChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.userId })
-      .populate("participants", "username name")
+      .populate("participants", "username name role")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
-    const result = chats.map((chat) => ({
+    // Filter out chats where any participant is a staff member
+    const filteredChats = chats.filter((chat) => {
+      // Check if any participant has a staff role
+      // Ensure participant is populated (not just an ObjectId) before checking role
+      const hasStaffMember = chat.participants.some((p) => 
+        p && typeof p === 'object' && p.role && STAFF_ROLES.includes(p.role)
+      );
+      return !hasStaffMember;
+    });
+
+    const result = filteredChats.map((chat) => ({
       _id: chat._id,
       participants: chat.participants,
       lastMessage: chat.lastMessage,
@@ -45,6 +59,15 @@ const createOrGetChat = async (req, res) => {
     return res.status(400).json({ message: "No puedes crear un chat contigo mismo" });
   }
   try {
+    // Check if recipient is a staff member
+    const recipient = await User.findById(recipientId).select("role");
+    if (!recipient) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    if (STAFF_ROLES.includes(recipient.role)) {
+      return res.status(403).json({ message: "No puedes iniciar un chat con personal administrativo" });
+    }
+
     let chat = await Chat.findOne({
       participants: { $all: [req.userId, recipientId], $size: 2 },
     })

@@ -13,7 +13,7 @@ MeetYouLive ahora está completamente adaptado para funcionar como aplicación w
 - **Cambios**: Agregado `export const viewport` con configuración óptima
   - `width: device-width` - Ancho adaptativo
   - `initialScale: 1` - Escala inicial correcta
-  - `maximumScale: 5` - Permite zoom hasta 5x
+  - `maximumScale: 2` - Permite zoom hasta 2x (WCAG 2.1 compliant)
   - `themeColor: #0f0821` - Color de tema de la app
 
 #### Service Worker
@@ -155,12 +155,13 @@ body {
 ```css
 @media (prefers-reduced-motion: reduce) {
   * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
   }
 }
 ```
 - Respeta preferencias de accesibilidad del usuario
+- Desactiva completamente animaciones para usuarios con sensibilidad al movimiento
 
 ##### Tipografía Móvil
 - h1: `1.75rem` en móvil (vs 2rem en desktop)

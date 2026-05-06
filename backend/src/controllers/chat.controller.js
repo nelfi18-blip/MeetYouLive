@@ -16,8 +16,9 @@ const getChats = async (req, res) => {
     // Filter out chats where any participant is a staff member
     const filteredChats = chats.filter((chat) => {
       // Check if any participant has a staff role
+      // Ensure participant is populated (not just an ObjectId) before checking role
       const hasStaffMember = chat.participants.some((p) => 
-        p && STAFF_ROLES.includes(p.role)
+        p && typeof p === 'object' && p.role && STAFF_ROLES.includes(p.role)
       );
       return !hasStaffMember;
     });

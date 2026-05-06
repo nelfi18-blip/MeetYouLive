@@ -1,5 +1,6 @@
 const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
+const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
 
 // Define staff roles that should be excluded from regular user chats
@@ -16,7 +17,7 @@ const getChats = async (req, res) => {
     const filteredChats = chats.filter((chat) => {
       // Check if any participant has a staff role
       const hasStaffMember = chat.participants.some((p) => 
-        p._id && STAFF_ROLES.includes(p.role)
+        p && STAFF_ROLES.includes(p.role)
       );
       return !hasStaffMember;
     });
@@ -58,7 +59,6 @@ const createOrGetChat = async (req, res) => {
   }
   try {
     // Check if recipient is a staff member
-    const User = require("../models/User.js");
     const recipient = await User.findById(recipientId).select("role");
     if (!recipient) {
       return res.status(404).json({ message: "Usuario no encontrado" });

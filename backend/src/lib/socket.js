@@ -113,30 +113,41 @@ const clearHostForLive = (socket, liveId) => {
 };
 
 /**
- * Return a snapshot of currently online users as an array of { userId, lastSeen } objects.
- * Filters out stale users who haven't sent a heartbeat in ONLINE_TIMEOUT_MS.
+ * Clean up stale users who haven't sent a heartbeat in ONLINE_TIMEOUT_MS.
+ * Emits USER_OFFLINE events for removed users.
+ * @returns {string[]} Array of removed user IDs
  */
-const getOnlineUsers = () => {
+const cleanupStaleUsers = () => {
   const now = new Date();
-  const result = [];
   const staleUsers = [];
   
   for (const [userId, info] of onlineUsers.entries()) {
     const timeSinceLastSeen = now - info.lastSeen;
     if (timeSinceLastSeen > ONLINE_TIMEOUT_MS) {
-      // User is stale — mark for removal
       staleUsers.push(userId);
-    } else {
-      result.push({ userId, lastSeen: info.lastSeen });
     }
   }
   
-  // Clean up stale users
   for (const userId of staleUsers) {
     onlineUsers.delete(userId);
     if (io) {
       io.emit("USER_OFFLINE", { userId });
     }
+  }
+  
+  return staleUsers;
+};
+
+/**
+ * Return a snapshot of currently online users as an array of { userId, lastSeen } objects.
+ * Filters out stale users who haven't sent a heartbeat in ONLINE_TIMEOUT_MS.
+ */
+const getOnlineUsers = () => {
+  cleanupStaleUsers();
+  
+  const result = [];
+  for (const [userId, info] of onlineUsers.entries()) {
+    result.push({ userId, lastSeen: info.lastSeen });
   }
   
   return result;
@@ -172,23 +183,7 @@ const initSocket = (httpServer) => {
 
   // Periodic cleanup of stale online users every 2 minutes
   setInterval(() => {
-    const now = new Date();
-    const staleUsers = [];
-    
-    for (const [userId, info] of onlineUsers.entries()) {
-      const timeSinceLastSeen = now - info.lastSeen;
-      if (timeSinceLastSeen > ONLINE_TIMEOUT_MS) {
-        staleUsers.push(userId);
-      }
-    }
-    
-    for (const userId of staleUsers) {
-      onlineUsers.delete(userId);
-      if (io) {
-        io.emit("USER_OFFLINE", { userId });
-      }
-    }
-    
+    const staleUsers = cleanupStaleUsers();
     if (staleUsers.length > 0) {
       console.log(`[Socket] Cleaned up ${staleUsers.length} stale user(s) from online list`);
     }

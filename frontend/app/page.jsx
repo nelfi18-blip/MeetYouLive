@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 // Force static generation
 export const dynamic = 'force-static';
@@ -25,15 +26,18 @@ export default function LandingPage() {
           width: '120px',
           height: '120px',
           margin: '0 auto 2rem',
-          background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-          borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '4rem',
-          boxShadow: '0 0 40px rgba(224, 64, 251, 0.5)'
+          filter: 'drop-shadow(0 0 40px rgba(224, 64, 251, 0.5))'
         }}>
-          💕
+          <Image
+            src="/logo.svg"
+            alt="MeetYouLive"
+            width={120}
+            height={120}
+            priority
+          />
         </div>
 
         <h1 style={{

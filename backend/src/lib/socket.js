@@ -6,6 +6,9 @@ let io = null;
 // In-memory map of currently online users: userId (string) → { lastSeen: Date, socketIds: Set<string> }
 const onlineUsers = new Map();
 
+// Timeout for considering a user offline if no heartbeat received (5 minutes)
+const ONLINE_TIMEOUT_MS = 5 * 60 * 1000;
+
 // In-memory map of live room viewers: liveId (string) → Set<socketId>
 const liveViewers = new Map();
 // In-memory map of active live hosts: liveId (string) → Set<socketId>
@@ -111,12 +114,31 @@ const clearHostForLive = (socket, liveId) => {
 
 /**
  * Return a snapshot of currently online users as an array of { userId, lastSeen } objects.
+ * Filters out stale users who haven't sent a heartbeat in ONLINE_TIMEOUT_MS.
  */
 const getOnlineUsers = () => {
+  const now = new Date();
   const result = [];
+  const staleUsers = [];
+  
   for (const [userId, info] of onlineUsers.entries()) {
-    result.push({ userId, lastSeen: info.lastSeen });
+    const timeSinceLastSeen = now - info.lastSeen;
+    if (timeSinceLastSeen > ONLINE_TIMEOUT_MS) {
+      // User is stale — mark for removal
+      staleUsers.push(userId);
+    } else {
+      result.push({ userId, lastSeen: info.lastSeen });
+    }
   }
+  
+  // Clean up stale users
+  for (const userId of staleUsers) {
+    onlineUsers.delete(userId);
+    if (io) {
+      io.emit("USER_OFFLINE", { userId });
+    }
+  }
+  
   return result;
 };
 
@@ -148,6 +170,30 @@ const initSocket = (httpServer) => {
     },
   });
 
+  // Periodic cleanup of stale online users every 2 minutes
+  setInterval(() => {
+    const now = new Date();
+    const staleUsers = [];
+    
+    for (const [userId, info] of onlineUsers.entries()) {
+      const timeSinceLastSeen = now - info.lastSeen;
+      if (timeSinceLastSeen > ONLINE_TIMEOUT_MS) {
+        staleUsers.push(userId);
+      }
+    }
+    
+    for (const userId of staleUsers) {
+      onlineUsers.delete(userId);
+      if (io) {
+        io.emit("USER_OFFLINE", { userId });
+      }
+    }
+    
+    if (staleUsers.length > 0) {
+      console.log(`[Socket] Cleaned up ${staleUsers.length} stale user(s) from online list`);
+    }
+  }, 2 * 60 * 1000); // Run every 2 minutes
+
   io.on("connection", (socket) => {
     // Allow authenticated clients to join their personal notification room
     socket.on("join_user_room", (userId) => {
@@ -165,6 +211,17 @@ const initSocket = (httpServer) => {
           onlineUsers.set(userId, { lastSeen: new Date(), socketIds: new Set([socket.id]) });
           io.emit("USER_ONLINE", { userId });
         }
+      }
+    });
+
+    // Heartbeat to update lastSeen timestamp for online users
+    socket.on("heartbeat", () => {
+      const userId = socket._userId;
+      if (!userId) return;
+      
+      const entry = onlineUsers.get(userId);
+      if (entry) {
+        entry.lastSeen = new Date();
       }
     });
 

@@ -82,6 +82,13 @@ function SocketManager() {
       joinRoom();
     }
 
+    // Send heartbeat every 2 minutes to keep the online status updated
+    const heartbeatInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit("heartbeat");
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+
     socket.on("connect", joinRoom);
     socket.on("LIVE_STARTED", handleLiveStarted);
     socket.on("GIFT_SENT", handleGiftSent);
@@ -92,6 +99,7 @@ function SocketManager() {
     socket.on("NEW_NOTIFICATION", handleNewNotification);
 
     return () => {
+      clearInterval(heartbeatInterval);
       joinedRef.current = false;
       socket.off("connect", joinRoom);
       socket.off("LIVE_STARTED", handleLiveStarted);

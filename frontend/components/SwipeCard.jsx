@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { motion, useMotionValue, useTransform } from "framer-motion";
+import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserImage, getDisplayName } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
   const [exitX, setExitX] = useState(0);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
@@ -18,6 +19,12 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
     if (Math.abs(info.offset.x) > 100) {
       setExitX(info.offset.x > 0 ? 300 : -300);
       const direction = info.offset.x > 0 ? "right" : "left";
+      
+      // Haptic feedback (vibration) on mobile
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
       onSwipe?.(profile._id, direction);
     }
   };
@@ -27,6 +34,32 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
+  
+  // Multiple photos support
+  const photos = profile.photos || (userImage ? [userImage] : []);
+  const currentPhoto = photos[currentPhotoIndex] || userImage;
+  
+  // Online status
+  const isOnline = profile.isOnline || profile.lastSeen;
+  const recentlyActive = profile.lastSeen && 
+    (Date.now() - new Date(profile.lastSeen).getTime()) < 5 * 60 * 1000; // 5 mins
+  
+  // Interests/hobbies
+  const interests = profile.interests || profile.tags || [];
+  
+  const handlePhotoClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const clickX = e.clientX || e.touches?.[0]?.clientX;
+    const cardWidth = e.currentTarget.offsetWidth;
+    const clickPosition = clickX - e.currentTarget.getBoundingClientRect().left;
+    
+    if (clickPosition < cardWidth / 2 && currentPhotoIndex > 0) {
+      setCurrentPhotoIndex(prev => prev - 1);
+    } else if (clickPosition >= cardWidth / 2 && currentPhotoIndex < photos.length - 1) {
+      setCurrentPhotoIndex(prev => prev + 1);
+    }
+  };
 
   return (
     <motion.div
@@ -45,12 +78,47 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
       className="swipe-card-modern"
     >
       {/* Main Image */}
-      <div className="swipe-card-image-wrapper">
-        {userImage ? (
-          <img src={userImage} alt={displayName} className="swipe-card-image" />
-        ) : (
-          <div className="swipe-card-placeholder">
-            <div className="swipe-card-initial">{displayName[0]?.toUpperCase()}</div>
+      <div 
+        className="swipe-card-image-wrapper"
+        onClick={handlePhotoClick}
+        onTouchStart={handlePhotoClick}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPhotoIndex}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="swipe-card-image-container"
+          >
+            {currentPhoto ? (
+              <img src={currentPhoto} alt={displayName} className="swipe-card-image" />
+            ) : (
+              <div className="swipe-card-placeholder">
+                <div className="swipe-card-initial">{displayName[0]?.toUpperCase()}</div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+        
+        {/* Photo Indicators */}
+        {photos.length > 1 && (
+          <div className="swipe-card-photo-indicators">
+            {photos.map((_, index) => (
+              <div
+                key={index}
+                className={`photo-indicator ${index === currentPhotoIndex ? 'active' : ''}`}
+              />
+            ))}
+          </div>
+        )}
+        
+        {/* Online Status Badge */}
+        {(isOnline || recentlyActive) && (
+          <div className="swipe-card-online-badge">
+            <span className="online-dot"></span>
+            {isOnline ? 'Online' : 'Active recently'}
           </div>
         )}
         
@@ -74,7 +142,16 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
       {/* Profile Info */}
       <div className="swipe-card-info">
         <div className="swipe-card-name-age">
-          <h3 className="swipe-card-name">{displayName}</h3>
+          <h3 className="swipe-card-name">
+            {displayName}
+            {profile.isVerified && (
+              <span className="swipe-card-verified" title="Verified">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </span>
+            )}
+          </h3>
           {age && <span className="swipe-card-age">{age}</span>}
         </div>
         {(location || distance) && (
@@ -84,10 +161,26 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
             {distance && <span>{distance}</span>}
           </div>
         )}
+        
+        {/* Interests/Hobbies */}
+        {interests.length > 0 && (
+          <div className="swipe-card-interests">
+            {interests.slice(0, 3).map((interest, idx) => (
+              <span key={idx} className="interest-tag">
+                {interest}
+              </span>
+            ))}
+            {interests.length > 3 && (
+              <span className="interest-tag interest-more">
+                +{interests.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Quick Info Button */}
-      <Link href={`/profile/${profile._id}`} className="swipe-card-info-btn">
+      <Link href={`/profile/${profile._id}`} className="swipe-card-info-btn" aria-label="View full profile">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10"/>
           <line x1="12" y1="16" x2="12" y2="12"/>

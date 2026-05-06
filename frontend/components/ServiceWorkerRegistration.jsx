@@ -17,6 +17,8 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
+    let updateInterval;
+
     // Register the main service worker
     const registerServiceWorker = async () => {
       try {
@@ -34,7 +36,7 @@ export default function ServiceWorkerRegistration() {
         console.log("Service worker registered successfully:", registration.scope);
 
         // Check for updates periodically (every hour)
-        setInterval(() => {
+        updateInterval = setInterval(() => {
           registration.update();
         }, 60 * 60 * 1000);
 
@@ -56,6 +58,13 @@ export default function ServiceWorkerRegistration() {
     };
 
     registerServiceWorker();
+
+    // Cleanup function to clear the interval
+    return () => {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
+    };
   }, []);
 
   return null; // This component doesn't render anything

@@ -209,23 +209,49 @@ main.main-content:has(.admin-shell) {
   transform: translateX(-100%);
   transition: transform 0.5s ease;
 }
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-position: -200% 0;
+  animation: shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
 .btn-primary:hover:not(:disabled)::before { transform: translateX(100%); }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-  box-shadow: var(--glow-pink), var(--shadow-accent);
-  transform: translateY(-2px);
+  filter: brightness(1.15);
+  box-shadow: var(--glow-pink-intense), var(--shadow-accent);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--text-muted);
   border: 1px solid rgba(224,64,251,0.35);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-smooth);
+}
+.btn-secondary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(224,64,251,0.08);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--transition-smooth);
 }
 .btn-secondary:hover:not(:disabled) {
   background: rgba(224,64,251,0.12);
   color: var(--text);
-  border-color: rgba(224,64,251,0.55);
+  border-color: rgba(224,64,251,0.6);
   box-shadow: var(--glow-pink);
+  transform: translateY(-2px);
+}
+.btn-secondary:hover:not(:disabled)::before {
+  transform: scaleX(1);
 }
 
 .btn-outline {

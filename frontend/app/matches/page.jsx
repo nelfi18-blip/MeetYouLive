@@ -11,6 +11,11 @@ import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function HeartIcon() {

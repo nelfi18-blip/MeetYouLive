@@ -6,6 +6,11 @@ import Link from "next/link";
 import { forgotPassword } from "@/lib/auth.service";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");

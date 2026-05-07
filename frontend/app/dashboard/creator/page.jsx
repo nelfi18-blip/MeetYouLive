@@ -5,6 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CreatorEarningsDashboard() {

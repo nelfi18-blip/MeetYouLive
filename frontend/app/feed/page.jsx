@@ -9,6 +9,11 @@ import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Swipe behavior constants

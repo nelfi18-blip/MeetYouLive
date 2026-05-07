@@ -27,6 +27,11 @@ import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket from "@/lib/socket";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;

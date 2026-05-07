@@ -10,6 +10,11 @@ import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import {
+
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
   ArrowRightIcon,
   CardIcon,
   CoinIcon,

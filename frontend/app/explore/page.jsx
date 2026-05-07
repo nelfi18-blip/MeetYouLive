@@ -8,6 +8,11 @@ import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import { filterActiveLives } from "@/lib/liveFilters";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const USERS_PER_PAGE = 20;
 

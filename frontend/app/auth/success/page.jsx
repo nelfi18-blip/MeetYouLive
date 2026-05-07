@@ -4,6 +4,11 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setToken } from "@/lib/token";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 /**
  * Inner component that reads search params and performs the redirect.
  * Must be wrapped in <Suspense> because useSearchParams() opts into

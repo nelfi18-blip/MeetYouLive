@@ -4,6 +4,11 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const ERROR_MESSAGES = {
   Configuration: "Hay un problema con la configuración del servidor.",
   AccessDenied: "No tienes permiso para iniciar sesión.",

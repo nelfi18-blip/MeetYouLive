@@ -7,6 +7,11 @@ import Image from "next/image";
 import { clearAllAuth } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 function BlockedContent() {
   const searchParams = useSearchParams();
   const { t } = useLanguage();

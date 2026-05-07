@@ -7,6 +7,11 @@ import GiftButton from "@/components/GiftButton";
 import ExclusiveContent from "@/components/ExclusiveContent";
 import ProfileGiftStats from "@/components/ProfileGiftStats";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CreatorProfilePage() {

@@ -5,6 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 

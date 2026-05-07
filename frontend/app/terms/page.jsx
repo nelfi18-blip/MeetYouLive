@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 export default function TermsPage() {
   const lastUpdated = "21 de abril de 2026";
 

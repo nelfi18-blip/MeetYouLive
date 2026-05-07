@@ -9,6 +9,11 @@ import LiveActivityFeed from "@/components/LiveActivityFeed";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TRENDING_COUNT = 3;

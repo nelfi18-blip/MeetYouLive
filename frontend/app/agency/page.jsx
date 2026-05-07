@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { calcSplit } from "@/lib/commission";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 function getToken() {

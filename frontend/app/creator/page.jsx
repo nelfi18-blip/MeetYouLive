@@ -13,6 +13,11 @@ import MonetizationHistoryCard from "@/components/creator/MonetizationHistoryCar
 import CreatorProgressCard from "@/components/creator/CreatorProgressCard";
 import CreatorQuickActions from "@/components/creator/CreatorQuickActions";
 import {
+
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
   ActivityIcon,
   AlertIcon,
   CardIcon,

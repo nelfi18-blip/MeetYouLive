@@ -7,6 +7,11 @@ import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
 import getSocket from "@/lib/socket";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ChatConversationPage() {

@@ -6,6 +6,11 @@ import Link from "next/link";
 import { resetPassword } from "@/lib/auth.service";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();

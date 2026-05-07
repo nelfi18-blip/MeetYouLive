@@ -11,6 +11,11 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 function MailIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

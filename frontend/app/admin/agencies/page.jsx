@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
 import { calcSplit } from "@/lib/commission";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const STATUS_COLORS = {

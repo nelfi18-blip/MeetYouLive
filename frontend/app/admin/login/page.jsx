@@ -6,6 +6,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { setAdminToken, clearAdminToken } from "@/lib/token";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");

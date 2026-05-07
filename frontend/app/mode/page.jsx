@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 export default function ModePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);

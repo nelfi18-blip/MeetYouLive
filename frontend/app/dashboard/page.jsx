@@ -17,6 +17,11 @@ import StatCard from "@/components/StatCard";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import SectionHeader from "@/components/ui/SectionHeader";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const CARDS = [

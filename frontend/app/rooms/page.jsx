@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ROOM_CATEGORY_META, ROOM_CATEGORY_ORDER } from "@/lib/roomCategories";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RoomsPage() {

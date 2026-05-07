@@ -8,6 +8,11 @@ import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
 import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function getToken() {

@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 export default function PaymentCancelPage() {
   return (
     <div className="status-page">

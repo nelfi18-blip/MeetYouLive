@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { notify } from "@/lib/notify";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const STREAK_MILESTONES = [

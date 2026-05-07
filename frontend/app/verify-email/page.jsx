@@ -7,6 +7,11 @@ import { verifyEmail, resendVerification } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -11,6 +11,11 @@ import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
+
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_PROFILE_PHOTOS = 6;

@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 
+// Activity display duration in milliseconds
+const ACTIVITY_DISPLAY_DURATION = 8000;
+
 /**
  * LiveActivityTicker - Scrolling activity feed for live streams
  * Shows recent activities like joins, gifts, follows in a ticker format
@@ -25,11 +28,11 @@ export default function LiveActivityTicker({ activities = [] }) {
         return updated.slice(-10);
       });
 
-      // Auto-remove old activities after 8 seconds
+      // Auto-remove old activities
       newActivities.forEach((activity) => {
         setTimeout(() => {
           setVisibleActivities((prev) => prev.filter((a) => a.id !== activity.id));
-        }, 8000);
+        }, ACTIVITY_DISPLAY_DURATION);
       });
     }
   }, [activities]);

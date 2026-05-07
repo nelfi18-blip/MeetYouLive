@@ -12,8 +12,8 @@ export default function SuperGiftExplosion({ gift, senderName, quantity = 1, onC
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    // Generate particles
-    const particleCount = Math.min(quantity * 2, 100);
+    // Generate particles - capped at 50 for performance (60fps target)
+    const particleCount = Math.min(quantity * 2, 50);
     const newParticles = Array.from({ length: particleCount }, (_, i) => ({
       id: i,
       angle: (Math.PI * 2 * i) / particleCount,

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 
+// Count animation interval in milliseconds
+const COUNT_ANIMATION_INTERVAL_MS = 50;
+
 /**
  * ViewerCountAnimation - Animated viewer counter for live streams
  * Shows real-time viewer count with smooth animations
@@ -26,7 +29,7 @@ export default function ViewerCountAnimation({ count = 0, trend = "up" }) {
           }
           return next;
         });
-      }, 50);
+      }, COUNT_ANIMATION_INTERVAL_MS);
 
       return () => clearInterval(interval);
     }

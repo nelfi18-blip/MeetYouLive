@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 
+// Typing timeout duration in milliseconds
+const TYPING_TIMEOUT_MS = 2000;
+
 /**
  * SmartChatInput - Advanced chat input with emoji picker, typing indicator, and suggestions
  * Enhanced input field for both private chat and live chat
@@ -41,10 +44,10 @@ export default function SmartChatInput({
         clearTimeout(typingTimeoutRef.current);
       }
 
-      // Stop typing after 2 seconds of inactivity
+      // Stop typing after inactivity
       typingTimeoutRef.current = setTimeout(() => {
         onTyping(false);
-      }, 2000);
+      }, TYPING_TIMEOUT_MS);
     }
   };
 

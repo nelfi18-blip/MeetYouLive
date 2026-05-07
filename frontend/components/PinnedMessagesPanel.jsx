@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatTime } from "@/lib/localeUtils";
 
 /**
  * PinnedMessagesPanel - Shows pinned messages in live chat
@@ -55,10 +56,7 @@ export default function PinnedMessagesPanel({ pinnedMessages = [], onUnpin = nul
               <div className="message-header">
                 <span className="message-author">{currentMessage.user}</span>
                 <span className="message-time">
-                  {new Date(currentMessage.createdAt).toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatTime(currentMessage.createdAt)}
                 </span>
               </div>
               <div className="message-text">{currentMessage.text}</div>

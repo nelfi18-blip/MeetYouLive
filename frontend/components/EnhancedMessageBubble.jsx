@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatTime } from "@/lib/localeUtils";
 
 /**
  * EnhancedMessageBubble - Advanced message bubble with animations and effects
@@ -48,10 +49,7 @@ export default function EnhancedMessageBubble({
           <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
             <p className="bubble-text">{message.text}</p>
             <span className="bubble-time">
-              {new Date(message.createdAt).toLocaleTimeString("es-ES", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatTime(message.createdAt)}
             </span>
 
             {/* Delivery status for sent messages */}

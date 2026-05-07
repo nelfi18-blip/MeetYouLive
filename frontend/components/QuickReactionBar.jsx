@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 
+// Reaction cooldown duration in milliseconds
+const REACTION_COOLDOWN_MS = 1000;
+
 /**
  * QuickReactionBar - Quick reaction buttons for live streams
  * Allows viewers to send emoji reactions with a single tap
@@ -33,7 +36,7 @@ export default function QuickReactionBar({ onReact, position = "bottom" }) {
     setTimeout(() => setSelectedEmoji(null), 300);
 
     // Cooldown
-    setTimeout(() => setCooldown(false), 1000);
+    setTimeout(() => setCooldown(false), REACTION_COOLDOWN_MS);
   };
 
   return (

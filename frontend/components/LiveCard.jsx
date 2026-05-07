@@ -14,8 +14,9 @@ import { getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from
  *  - live: { _id, title, description, viewerCount, giftsTotal, giftsCount,
  *            totalCoinsEarned, isTrending, isPrivate, entryCost, 
  *            user: { username, avatar, creatorStatus }, category, battle: { active } }
+ *  - index: optional index for staggered animations
  */
-export default function LiveCard({ live }) {
+export default function LiveCard({ live, index = 0 }) {
   if (!live || typeof live !== "object" || !live._id) return null;
 
   const username = getDisplayName(live.user);
@@ -45,9 +46,15 @@ export default function LiveCard({ live }) {
     { viewerCount: safeViewerCount, giftsTotal: safeGiftsTotal },
   );
 
+  // Stagger animation class
+  const staggerClass = index < 5 ? `stagger-${index + 1}` : '';
+
   return (
     <>
-      <Link href={`/live/${live._id}`} className="live-card">
+      <Link 
+        href={`/live/${live._id}`} 
+        className={`live-card hover-lift animate-slide-up ${staggerClass} ${live.isTrending ? 'trending-glow' : ''}`}
+      >
         {/* Thumbnail */}
         <div className="live-thumb">
           {liveThumb ? (
@@ -71,7 +78,7 @@ export default function LiveCard({ live }) {
           )}
 
           <div className="live-thumb-badges">
-            <Badge variant="live" pulse>EN VIVO</Badge>
+            <span className="live-badge-enhanced">EN VIVO</span>
             {live.category && (
               <span className="live-category-tag">{live.category}</span>
             )}
@@ -83,13 +90,13 @@ export default function LiveCard({ live }) {
           {/* Top tags - trending, top creator, new */}
           <div className="live-top-tags">
             {live.isTrending && (
-              <span className="live-tag-trending">🔥 TRENDING</span>
+              <span className="live-tag-trending animate-pulse-intense">🔥 TRENDING</span>
             )}
             {isCreatorApproved && safeViewerCount >= 50 && (
               <span className="live-tag-top">⭐ TOP</span>
             )}
             {isNew && (
-              <span className="live-tag-new">✨ NUEVO</span>
+              <span className="live-tag-new animate-bounce-in">✨ NUEVO</span>
             )}
           </div>
 
@@ -99,7 +106,7 @@ export default function LiveCard({ live }) {
 
           <div className="live-thumb-stats">
             {safeViewerCount >= 0 && (
-              <span className="live-stat-chip">
+              <span className="live-stat-chip glass-effect">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
@@ -108,7 +115,7 @@ export default function LiveCard({ live }) {
               </span>
             )}
             {safeTotalCoins > 0 && (
-              <span className="live-stat-chip live-stat-coins">
+              <span className="live-stat-chip live-stat-coins glass-effect">
                 💎 {safeTotalCoins}
               </span>
             )}
@@ -126,7 +133,7 @@ export default function LiveCard({ live }) {
               ) : (
                 initial
               )}
-              <span className="live-avatar-dot" />
+              <span className="live-avatar-dot animate-pulse-intense" />
             </div>
             <span className="live-username">@{username}</span>
             {isCreatorApproved && (
@@ -144,7 +151,7 @@ export default function LiveCard({ live }) {
             <div className="live-desc">{live.description}</div>
           )}
           <div className="live-join-row">
-            <span className="live-join-btn">🎥 Entrar</span>
+            <span className="live-join-btn btn-shimmer">🎥 Entrar</span>
           </div>
         </div>
       </Link>

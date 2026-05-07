@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import FuturisticCard from "@/components/ui/FuturisticCard";
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
 import FuturisticBalanceCard from "@/components/ui/FuturisticBalanceCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import TransactionListCard from "@/components/ui/TransactionListCard";

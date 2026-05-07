@@ -19,31 +19,48 @@ export default function LandingPage() {
         <div className={`${styles.orb} ${styles.orb3}`}></div>
       </div>
 
-      {/* Hero Section - Enhanced */}
-      <div className={styles.heroSection}>
+      {/* Main Card Container */}
+      <div className={styles.cardContainer}>
+        {/* Logo Section */}
         <div className={styles.logoContainer}>
           <div className={styles.logoGlow}></div>
           <Image
             src="/logo.svg"
             alt="MeetYouLive"
-            width={120}
-            height={120}
+            width={80}
+            height={80}
             priority
           />
         </div>
 
-        <h1 className={styles.landingTitle}>
-          <span className={styles.titleWord}>Meet</span>
-          <span className={styles.titleWord}>You</span>
-          <span className={styles.titleWord}>Live</span>
+        {/* Brand Title */}
+        <h1 className={styles.brandTitle}>
+          <span className={styles.brandTitleWhite}>MeetYou</span>
+          <span className={styles.brandTitlePink}>Live</span>
         </h1>
-        
-        <p className={styles.landingSubtitle}>
-          Connect. Stream. Meet.
+
+        {/* Tagline */}
+        <div className={styles.tagline}>
+          CONECTA <span className={styles.taglineDot}>•</span> EN VIVO <span className={styles.taglineDot}>•</span> VIVE
+        </div>
+
+        {/* Security Badge */}
+        <div className={styles.securityBadge}>
+          <svg className={styles.securityIcon} width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L3 3V7C3 10.5 5.5 13.5 8 15C10.5 13.5 13 10.5 13 7V3L8 1Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          ACCESO SEGURO
+        </div>
+
+        {/* Welcome Message */}
+        <h2 className={styles.welcomeTitle}>Bienvenido de vuelta</h2>
+        <p className={styles.welcomeDescription}>
+          Conéctate y entra al universo premium de MeetYouLive
         </p>
 
+        {/* CTA Buttons */}
         <div className={styles.ctaButtons}>
-          <Link href="/feed" className={styles.btnPrimaryLanding}>
+          <Link href="/login" className={styles.btnPrimaryLanding}>
             <span className={styles.btnText}>Entrar ahora</span>
             <span className={styles.btnGlow}></span>
           </Link>
@@ -53,63 +70,16 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* Stats showcase */}
-        <div className={styles.statsRow}>
-          <div className={styles.statItem}>
-            <div className={styles.statIcon} aria-label="Video en vivo">🎥</div>
-            <div className={styles.statValue}>1000+</div>
-            <div className={styles.statLabel}>Directos activos</div>
-          </div>
-          <div className={styles.statItem}>
-            <div className={styles.statIcon} aria-label="Usuarios">👥</div>
-            <div className={styles.statValue}>50K+</div>
-            <div className={styles.statLabel}>Usuarios conectados</div>
-          </div>
-          <div className={styles.statItem}>
-            <div className={styles.statIcon} aria-label="Experiencias premium">💎</div>
-            <div className={styles.statValue}>∞</div>
-            <div className={styles.statLabel}>Experiencias únicas</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Feature highlights */}
-      <div className={styles.featuresSection}>
-        <div className={styles.featureCard}>
-          <div className={styles.featureIconWrapper}>
-            <span className={styles.featureEmoji}>💬</span>
-          </div>
-          <h3>Conecta en tiempo real</h3>
-          <p>Conoce personas increíbles y crea conexiones auténticas</p>
+        {/* Social Proof */}
+        <div className={styles.socialProof}>
+          <span className={styles.onlineDot}></span>
+          Más de 1,000 usuarios conectados en este momento
         </div>
 
-        <div className={styles.featureCard}>
-          <div className={styles.featureIconWrapper}>
-            <span className={styles.featureEmoji}>🎬</span>
-          </div>
-          <h3>Directos en vivo</h3>
-          <p>Mira y crea transmisiones en directo espectaculares</p>
-        </div>
-
-        <div className={styles.featureCard}>
-          <div className={styles.featureIconWrapper}>
-            <span className={styles.featureEmoji}>🎁</span>
-          </div>
-          <h3>Regalos virtuales</h3>
-          <p>Expresa tu aprecio con regalos únicos y animaciones</p>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className={styles.ctaSection}>
-        <h2 className={styles.ctaTitle}>Comienza tu aventura hoy</h2>
-        <p className={styles.ctaDescription}>
-          Únete a miles de personas que ya están disfrutando de MeetYouLive
+        {/* Footer Text */}
+        <p className={styles.footerText}>
+          Streaming en vivo, conexiones reales y experiencias exclusivas
         </p>
-        <Link href="/register" className={styles.ctaButton}>
-          <span>Crear cuenta gratis</span>
-          <span className={styles.ctaArrow}>→</span>
-        </Link>
       </div>
 
       {/* Legal Links - Footer */}

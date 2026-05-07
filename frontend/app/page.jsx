@@ -14,8 +14,8 @@ export default function LandingPage() {
           <Image
             src="/logo.svg"
             alt="MeetYouLive"
-            width={140}
-            height={140}
+            width={120}
+            height={120}
             priority
           />
         </div>

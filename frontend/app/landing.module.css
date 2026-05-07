@@ -186,7 +186,7 @@
 
 .featureIcon {
   font-size: 3.5rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.4s ease;
@@ -215,7 +215,7 @@
 
 .landingFooter {
   display: flex;
-  gap: 0;
+  gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
@@ -228,7 +228,7 @@
 .landingFooter a {
   color: #94a3b8;
   transition: color 0.3s ease;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.5rem;
   position: relative;
 }
 
@@ -239,7 +239,7 @@
 .landingFooter a:not(:last-child)::after {
   content: '•';
   position: absolute;
-  right: 0;
+  right: -0.25rem;
   top: 50%;
   transform: translateY(-50%);
   color: #64748b;
@@ -292,12 +292,11 @@
   }
   
   .landingFooter {
-    gap: 0;
     padding: 1rem 0;
   }
   
   .landingFooter a {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.5rem;
     font-size: 0.85rem;
   }
 }

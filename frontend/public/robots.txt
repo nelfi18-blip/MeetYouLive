@@ -1,0 +1,42 @@
+# robots.txt para MeetYouLive
+# Permitir indexación de páginas públicas, bloquear páginas privadas
+
+User-agent: *
+
+# Permitir páginas públicas
+Allow: /
+Allow: /feed
+Allow: /register
+Allow: /login
+Allow: /terms
+Allow: /privacy
+
+# Bloquear páginas privadas y de administración
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /profile/*
+Disallow: /chats
+Disallow: /chats/*
+Disallow: /notifications
+Disallow: /settings
+Disallow: /creator
+Disallow: /creator/*
+Disallow: /agency
+Disallow: /agency/*
+Disallow: /coins
+Disallow: /subscription
+Disallow: /exclusive
+Disallow: /exclusive/*
+Disallow: /call
+Disallow: /call/*
+Disallow: /live/*
+Disallow: /api/*
+
+# Bloquear archivos y directorios técnicos
+Disallow: /_next/
+Disallow: /uploads/
+
+# Sitemap
+Sitemap: https://www.meetyoulive.net/sitemap.xml

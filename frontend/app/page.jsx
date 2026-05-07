@@ -6,6 +6,35 @@ import styles from './landing.module.css';
 // Force static generation
 export const dynamic = 'force-static';
 
+// Metadata mejorada para la landing page
+export const metadata = {
+  title: "MeetYouLive - App de Citas con Streaming en Vivo",
+  description: "Conoce personas, mira directos en vivo y conecta en tiempo real. Haz match con personas de tu zona, disfruta transmisiones en vivo y chatea. Los creadores pueden ganar dinero compartiendo contenido.",
+  keywords: "app de citas, citas en vivo, streaming en vivo, conocer personas, video chat, dating app, live streaming, creadores de contenido",
+  openGraph: {
+    title: "MeetYouLive - Conecta en vivo con personas reales",
+    description: "La app de citas con streaming en vivo. Haz match, mira directos y conecta en tiempo real.",
+    url: "https://www.meetyoulive.net",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 835,
+        alt: "MeetYouLive - Conecta en vivo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MeetYouLive - App de Citas con Streaming en Vivo",
+    description: "Conoce personas, mira directos en vivo y conecta en tiempo real.",
+  },
+  alternates: {
+    canonical: "https://www.meetyoulive.net",
+  },
+};
+
 export default function LandingPage() {
   return (
     <div className={styles.landingContainer}>

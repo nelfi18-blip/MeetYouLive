@@ -143,10 +143,6 @@
   position: relative;
 }
 
-.titleWord:nth-child(1) {
-  animation-delay: 0s;
-}
-
 .titleWord:nth-child(2) {
   animation-delay: 0.2s;
 }

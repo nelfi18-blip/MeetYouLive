@@ -56,17 +56,17 @@ export default function LandingPage() {
         {/* Stats showcase */}
         <div className={styles.statsRow}>
           <div className={styles.statItem}>
-            <div className={styles.statIcon}>🎥</div>
+            <div className={styles.statIcon} aria-label="Video en vivo">🎥</div>
             <div className={styles.statValue}>1000+</div>
             <div className={styles.statLabel}>Directos activos</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statIcon}>👥</div>
+            <div className={styles.statIcon} aria-label="Usuarios">👥</div>
             <div className={styles.statValue}>50K+</div>
             <div className={styles.statLabel}>Usuarios conectados</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statIcon}>💎</div>
+            <div className={styles.statIcon} aria-label="Experiencias premium">💎</div>
             <div className={styles.statValue}>∞</div>
             <div className={styles.statLabel}>Experiencias únicas</div>
           </div>

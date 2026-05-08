@@ -10,8 +10,12 @@ import InstallPrompt from "../components/InstallPrompt";
 
 export const metadata = {
   metadataBase: new URL("https://meetyoulive.net"),
-  title: "MeetYouLive",
-  description: "live dating and streaming app",
+  title: {
+    default: "MeetYouLive - Conecta, Transmite en Vivo y Conoce Personas",
+    template: "%s | MeetYouLive",
+  },
+  description:
+    "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica. Plataforma de citas y streaming en vivo para crear conexiones reales.",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -28,13 +32,32 @@ export const metadata = {
     "live streaming",
     "citas online",
     "app para conocer personas",
+    "conocer gente nueva",
+    "transmisión en vivo",
     "ganar dinero streaming",
     "video en vivo citas",
+    "plataforma de citas",
+    "streaming para creadores",
+    "chat en vivo",
   ],
+  authors: [{ name: "MeetYouLive" }],
+  creator: "MeetYouLive",
+  publisher: "MeetYouLive",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: "MeetYouLive",
+    title: "MeetYouLive - Conecta, Transmite en Vivo y Conoce Personas",
     description:
-      "Haz match, conecta en vivo y gana dinero como creador.",
+      "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica. Plataforma de citas y streaming en vivo.",
     url: "https://meetyoulive.net",
     siteName: "MeetYouLive",
     images: [
@@ -42,11 +65,23 @@ export const metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 835,
-        alt: "MeetYouLive - Conecta en vivo",
+        alt: "MeetYouLive - Conecta en vivo y conoce personas",
       },
     ],
-    locale: "es_US",
+    locale: "es_ES",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MeetYouLive - Conecta, Transmite en Vivo y Conoce Personas",
+    description:
+      "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica.",
+    images: ["/og-image.png"],
+    creator: "@meetyoulive",
+    site: "@meetyoulive",
+  },
+  alternates: {
+    canonical: "https://meetyoulive.net",
   },
 };
 
@@ -59,6 +94,35 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "MeetYouLive",
+    url: "https://meetyoulive.net",
+    logo: "https://meetyoulive.net/logo.svg",
+    description:
+      "Plataforma de citas y streaming en vivo para crear conexiones reales.",
+    sameAs: [
+      "https://twitter.com/meetyoulive",
+      "https://facebook.com/meetyoulive",
+      "https://instagram.com/meetyoulive",
+    ],
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "MeetYouLive",
+    url: "https://meetyoulive.net",
+    description:
+      "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://meetyoulive.net/search?q={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <html lang="es">
       <head>
@@ -67,6 +131,18 @@ export default function RootLayout({ children }) {
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema),
+          }}
         />
       </head>
       <body>

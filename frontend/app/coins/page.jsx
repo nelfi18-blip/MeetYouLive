@@ -10,11 +10,6 @@ import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import {
-
-
-// Force dynamic rendering - this page requires client-side logic
-export const dynamic = 'force-dynamic';
-
   ArrowRightIcon,
   CardIcon,
   CoinIcon,
@@ -27,6 +22,9 @@ export const dynamic = 'force-dynamic';
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

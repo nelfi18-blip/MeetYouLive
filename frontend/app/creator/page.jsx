@@ -13,11 +13,6 @@ import MonetizationHistoryCard from "@/components/creator/MonetizationHistoryCar
 import CreatorProgressCard from "@/components/creator/CreatorProgressCard";
 import CreatorQuickActions from "@/components/creator/CreatorQuickActions";
 import {
-
-
-// Force dynamic rendering - this page requires client-side logic
-export const dynamic = 'force-dynamic';
-
   ActivityIcon,
   AlertIcon,
   CardIcon,
@@ -27,6 +22,9 @@ export const dynamic = 'force-dynamic';
   VideoIcon,
   WalletIcon,
 } from "@/components/ui/MonetizationIcons";
+
+// Force dynamic rendering - this page requires client-side logic
+export const dynamic = 'force-dynamic';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const DEFAULT_MIN_PAYOUT_COINS = 100;

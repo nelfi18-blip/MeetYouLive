@@ -1,23 +1,11 @@
-# robots.txt for MeetYouLive
 User-agent: *
 Allow: /
+
 Disallow: /api/
 Disallow: /admin/
-Disallow: /creator/dashboard/
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /chats/
 Disallow: /settings/
-Disallow: /coins/
-Disallow: /gifts/
-Disallow: /inbox/
-Disallow: /notifications/
-Disallow: /auth/
 
-# Allow public pages
-Allow: /$
-Allow: /login$
-Allow: /register$
-
-# Sitemap
 Sitemap: https://meetyoulive.net/sitemap.xml
-
-# Crawl delay
-Crawl-delay: 1

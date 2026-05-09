@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { signOut } from "next-auth/react";
 import { clearAdminToken, clearAllAuth } from "@/lib/token";
 
 const NAV_ITEMS = [
@@ -73,10 +74,11 @@ export default function AdminLayout({ children }) {
     window.location.href = "/admin/login";
   };
 
-  const handleSwitchAccount = () => {
+  const handleSwitchAccount = async () => {
     // Admin panel uses hardcoded Spanish labels as it's internal-only and separate from main app i18n
     if (confirm("¿Cambiar a cuenta de usuario/creador? Esto cerrará tu sesión de administrador.")) {
       clearAllAuth();
+      await signOut({ redirect: false });
       window.location.href = "/login";
     }
   };

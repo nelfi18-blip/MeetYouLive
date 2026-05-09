@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { signOut } from "next-auth/react";
 import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 
 const NAV_ITEMS = [

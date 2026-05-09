@@ -2,9 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { signOut } from "next-auth/react";
 import { clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 

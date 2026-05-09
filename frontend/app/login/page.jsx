@@ -82,6 +82,21 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
+    // Check if user is explicitly switching accounts
+    const isSwitching = searchParams.get("switch") === "1" || sessionStorage.getItem("switching_account") === "1";
+    
+    // Clear the switching flag immediately if present
+    if (sessionStorage.getItem("switching_account") === "1") {
+      sessionStorage.removeItem("switching_account");
+    }
+    
+    // If switching accounts, skip all auto-redirect logic and show the login form
+    if (isSwitching) {
+      console.log("[login] Account switch detected - forcing user to login page");
+      setChecking(false);
+      return;
+    }
+    
     // Email/password users: redirect immediately from localStorage token.
     // Do this first so returning users are never shown the login form.
     const localToken = localStorage.getItem("token");
@@ -211,7 +226,7 @@ function LoginForm() {
       retryStartedRef.current = false;
       setChecking(false);
     }
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   if (checking) return (
     <div

@@ -80,6 +80,13 @@ export function clearAllAuth() {
     }
   });
   
+  // Clear sessionStorage as well (some pages use it as fallback)
+  try {
+    sessionStorage.clear();
+  } catch (e) {
+    console.warn("[clearAllAuth] Could not clear sessionStorage:", e);
+  }
+  
   // Clear all auth cookies
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
@@ -100,4 +107,8 @@ export function clearAllAuth() {
   authCookieNames.forEach(cookieName => {
     document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`;
   });
+  
+  // Set a flag to indicate we're switching accounts (not just logging out)
+  // This will be checked by the login page to prevent auto-redirect
+  sessionStorage.setItem("switching_account", "1");
 }

@@ -21,9 +21,15 @@ function BlockedContent() {
   }, [searchParams]);
 
   const handleSwitchAccount = async () => {
-    await signOut({ redirect: false });
-    clearAllAuth();
-    window.location.href = "/login";
+    try {
+      await signOut({ redirect: false });
+      clearAllAuth();
+      window.location.replace("/login?switch=1&_=" + Date.now());
+    } catch (error) {
+      console.error("[handleSwitchAccount] Error during account switch:", error);
+      clearAllAuth();
+      window.location.replace("/login?switch=1&_=" + Date.now());
+    }
   };
 
   const getPathLabel = (path) => {

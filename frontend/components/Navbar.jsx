@@ -120,9 +120,20 @@ export default function Navbar() {
 
   const handleSwitchAccount = async () => {
     if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
-      await signOut({ redirect: false });
-      clearAllAuth();
-      window.location.href = "/login";
+      try {
+        // Sign out from NextAuth first
+        await signOut({ redirect: false });
+        // Clear all local storage, cookies, and session storage
+        clearAllAuth();
+        // Use replace instead of href to prevent back button issues
+        // Add timestamp to force a fresh page load
+        window.location.replace("/login?switch=1&_=" + Date.now());
+      } catch (error) {
+        console.error("[handleSwitchAccount] Error during account switch:", error);
+        // Fallback: force reload to login anyway
+        clearAllAuth();
+        window.location.replace("/login?switch=1&_=" + Date.now());
+      }
     }
   };
 

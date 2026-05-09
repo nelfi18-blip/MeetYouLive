@@ -1055,39 +1055,41 @@ export default function ProfilePage() {
           {user.role !== "admin" && <ReferralCard />}
 
           {/* VIP upsell / status card */}
-          {user.role !== "admin" && (user.isVIP ? (
-            <div className="premium-upsell-card premium-upsell-card-vip">
-              <div className="premium-upsell-header">
-                <span className="premium-upsell-gem">💎</span>
-                <div>
-                  <h2 className="premium-upsell-title">Eres VIP 💎</h2>
-                  <p className="premium-upsell-sub">Disfrutas de badge exclusivo, mensajes destacados y acceso a directos VIP</p>
+          {user.role !== "admin" && (
+            user.isVIP ? (
+              <div className="premium-upsell-card premium-upsell-card-vip">
+                <div className="premium-upsell-header">
+                  <span className="premium-upsell-gem">💎</span>
+                  <div>
+                    <h2 className="premium-upsell-title">Eres VIP 💎</h2>
+                    <p className="premium-upsell-sub">Disfrutas de badge exclusivo, mensajes destacados y acceso a directos VIP</p>
+                  </div>
+                </div>
+                <div className="premium-upsell-actions">
+                  <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                    ⚙️ Gestionar suscripción
+                  </Link>
                 </div>
               </div>
-              <div className="premium-upsell-actions">
-                <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                  ⚙️ Gestionar suscripción
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="premium-upsell-card">
-              <div className="premium-upsell-header">
-                <span className="premium-upsell-gem">💎</span>
-                <div>
-                  <h2 className="premium-upsell-title">Hazte VIP y destaca</h2>
-                  <p className="premium-upsell-sub">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
+            ) : (
+              <div className="premium-upsell-card">
+                <div className="premium-upsell-header">
+                  <span className="premium-upsell-gem">💎</span>
+                  <div>
+                    <h2 className="premium-upsell-title">Hazte VIP y destaca</h2>
+                    <p className="premium-upsell-sub">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
+                  </div>
+                </div>
+                <div className="premium-upsell-actions">
+                  <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
+                    💎 Hazte VIP
+                  </Link>
+                  <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-ghost">
+                    🪙 Comprar monedas
+                  </Link>
                 </div>
               </div>
-              <div className="premium-upsell-actions">
-                <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                  💎 Hazte VIP
-                </Link>
-                <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-ghost">
-                  🪙 Comprar monedas
-                </Link>
-              </div>
-            </div>
+            )
           )}
 
           {/* Quick actions */}

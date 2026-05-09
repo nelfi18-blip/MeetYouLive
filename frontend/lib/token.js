@@ -14,6 +14,17 @@ const COOKIE_NAME = "auth-session";
 const ADMIN_COOKIE_NAME = "admin-session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
+// Account switching constants
+export const SWITCHING_ACCOUNT_FLAG = "switching_account";
+export const SWITCHING_ACCOUNT_VALUE = "1";
+
+/**
+ * Build the account switch URL with query parameters
+ */
+export function buildSwitchAccountUrl() {
+  return `/login?switch=${SWITCHING_ACCOUNT_VALUE}&_=${Date.now()}`;
+}
+
 /** Store token in localStorage and set the middleware-visible session cookie. */
 export function setToken(token) {
   if (typeof window === "undefined") return;
@@ -68,7 +79,7 @@ export function clearAllAuth() {
   
   // Set switching flag BEFORE clearing sessionStorage
   try {
-    sessionStorage.setItem("switching_account", "1");
+    sessionStorage.setItem(SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE);
   } catch (e) {
     console.warn("[clearAllAuth] Could not set switching_account flag:", e);
   }
@@ -87,17 +98,23 @@ export function clearAllAuth() {
     }
   });
   
-  // DON'T clear all sessionStorage - only NextAuth keys, preserve switching_account flag
+  // Clear specific auth keys from sessionStorage while preserving switching flag
+  // Using whitelist approach for better performance and clarity
+  const sessionKeysToRemove = [
+    "token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.csrf-token",
+    "__Host-next-auth.csrf-token",
+    "next-auth.callback-url",
+    "__Secure-next-auth.callback-url"
+  ];
+  
   try {
-    const keys = Object.keys(sessionStorage);
-    keys.forEach(key => {
-      if (key !== "switching_account" && (
-        key.startsWith("next-auth") || 
-        key.startsWith("__Secure-next-auth") ||
-        key === "token"
-      )) {
-        sessionStorage.removeItem(key);
-      }
+    sessionKeysToRemove.forEach(key => {
+      sessionStorage.removeItem(key);
     });
   } catch (e) {
     console.warn("[clearAllAuth] Could not clear sessionStorage:", e);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken, clearAllAuth } from "@/lib/token";
+import { clearToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -126,13 +126,13 @@ export default function Navbar() {
         // Clear all local storage, cookies, and session storage
         clearAllAuth();
         // Use replace instead of href to prevent back button issues
-        // Add timestamp to force a fresh page load
-        window.location.replace("/login?switch=1&_=" + Date.now());
+        // Use shared URL builder for consistency
+        window.location.replace(buildSwitchAccountUrl());
       } catch (error) {
         console.error("[handleSwitchAccount] Error during account switch:", error);
         // Fallback: force reload to login anyway
         clearAllAuth();
-        window.location.replace("/login?switch=1&_=" + Date.now());
+        window.location.replace(buildSwitchAccountUrl());
       }
     }
   };

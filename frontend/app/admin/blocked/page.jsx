@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "next-auth/react";
-import { clearAllAuth } from "@/lib/token";
+import { clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 function BlockedContent() {
@@ -24,11 +24,11 @@ function BlockedContent() {
     try {
       await signOut({ redirect: false });
       clearAllAuth();
-      window.location.replace("/login?switch=1&_=" + Date.now());
+      window.location.replace(buildSwitchAccountUrl());
     } catch (error) {
       console.error("[handleSwitchAccount] Error during account switch:", error);
       clearAllAuth();
-      window.location.replace("/login?switch=1&_=" + Date.now());
+      window.location.replace(buildSwitchAccountUrl());
     }
   };
 

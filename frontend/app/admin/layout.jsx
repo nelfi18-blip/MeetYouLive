@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "next-auth/react";
-import { clearAdminToken, clearAllAuth } from "@/lib/token";
+import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
@@ -80,11 +80,11 @@ export default function AdminLayout({ children }) {
       try {
         await signOut({ redirect: false });
         clearAllAuth();
-        window.location.replace("/login?switch=1&_=" + Date.now());
+        window.location.replace(buildSwitchAccountUrl());
       } catch (error) {
         console.error("[handleSwitchAccount] Error during account switch:", error);
         clearAllAuth();
-        window.location.replace("/login?switch=1&_=" + Date.now());
+        window.location.replace(buildSwitchAccountUrl());
       }
     }
   };

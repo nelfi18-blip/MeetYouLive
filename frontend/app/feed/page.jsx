@@ -8,6 +8,7 @@ import ModernTopBar from "@/components/ModernTopBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import { fetchUserRole } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -49,17 +50,9 @@ export default function ModernFeedPage() {
     
     const checkAdminRole = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/user/me`, {
-          headers: {
-            Authorization: `Bearer ${session.backendToken}`,
-          },
-        });
-        
-        if (res.ok) {
-          const userData = await res.json();
-          if (userData.role === "admin") {
-            router.replace("/admin");
-          }
+        const userData = await fetchUserRole(session.backendToken);
+        if (userData?.role === "admin") {
+          router.replace("/admin");
         }
       } catch (err) {
         console.error("Error checking user role:", err);

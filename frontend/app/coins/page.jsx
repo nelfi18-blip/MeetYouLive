@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { fetchUserRole } from "@/lib/token";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
@@ -122,17 +123,9 @@ export default function BuyCoinsPage() {
     
     const checkAdminRole = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/user/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
-        if (res.ok) {
-          const userData = await res.json();
-          if (userData.role === "admin") {
-            router.replace("/admin");
-          }
+        const userData = await fetchUserRole(token);
+        if (userData?.role === "admin") {
+          router.replace("/admin");
         }
       } catch (err) {
         console.error("Error checking user role:", err);

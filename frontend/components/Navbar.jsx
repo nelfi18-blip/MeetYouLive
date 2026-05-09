@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken, clearAllAuth } from "@/lib/token";
+import { clearToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -120,9 +120,20 @@ export default function Navbar() {
 
   const handleSwitchAccount = async () => {
     if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
-      clearAllAuth();
-      await signOut({ redirect: false });
-      window.location.href = "/login";
+      try {
+        // Sign out from NextAuth first
+        await signOut({ redirect: false });
+        // Clear all local storage, cookies, and session storage
+        clearAllAuth();
+        // Use replace instead of href to prevent back button issues
+        // Use shared URL builder for consistency
+        window.location.replace(buildSwitchAccountUrl());
+      } catch (error) {
+        console.error("[handleSwitchAccount] Error during account switch:", error);
+        // Fallback: force reload to login anyway
+        clearAllAuth();
+        window.location.replace(buildSwitchAccountUrl());
+      }
     }
   };
 

@@ -14,6 +14,17 @@ const COOKIE_NAME = "auth-session";
 const ADMIN_COOKIE_NAME = "admin-session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
+// Account switching constants
+export const SWITCHING_ACCOUNT_FLAG = "switching_account";
+export const SWITCHING_ACCOUNT_VALUE = "1";
+
+/**
+ * Build the account switch URL with query parameters
+ */
+export function buildSwitchAccountUrl() {
+  return `/login?switch=${SWITCHING_ACCOUNT_VALUE}&_=${Date.now()}`;
+}
+
 /** Store token in localStorage and set the middleware-visible session cookie. */
 export function setToken(token) {
   if (typeof window === "undefined") return;
@@ -66,6 +77,13 @@ export function getAdminToken() {
 export function clearAllAuth() {
   if (typeof window === "undefined") return;
   
+  // Set switching flag BEFORE clearing sessionStorage
+  try {
+    sessionStorage.setItem(SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE);
+  } catch (e) {
+    console.warn("[clearAllAuth] Could not set switching_account flag:", e);
+  }
+  
   // Clear admin tokens
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
@@ -73,12 +91,34 @@ export function clearAllAuth() {
   // Clear user tokens
   localStorage.removeItem("token");
   
-  // Clear NextAuth session storage (if any)
+  // Clear NextAuth session storage (if any) from localStorage only
   Object.keys(localStorage).forEach(key => {
     if (key.startsWith("next-auth") || key.startsWith("__Secure-next-auth")) {
       localStorage.removeItem(key);
     }
   });
+  
+  // Clear specific auth keys from sessionStorage while preserving switching flag
+  // Using whitelist approach for better performance and clarity
+  const sessionKeysToRemove = [
+    "token",
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+    "authjs.session-token",
+    "__Secure-authjs.session-token",
+    "next-auth.csrf-token",
+    "__Host-next-auth.csrf-token",
+    "next-auth.callback-url",
+    "__Secure-next-auth.callback-url"
+  ];
+  
+  try {
+    sessionKeysToRemove.forEach(key => {
+      sessionStorage.removeItem(key);
+    });
+  } catch (e) {
+    console.warn("[clearAllAuth] Could not clear sessionStorage:", e);
+  }
   
   // Clear all auth cookies
   const secure = window.location.protocol === "https:" ? "; Secure" : "";

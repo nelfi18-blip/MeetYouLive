@@ -6,10 +6,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken } from "@/lib/token";
+import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+
+// Account switching detection param
+const SWITCHING_ACCOUNT_PARAM = "switch";
 
 function MailIcon() {
   return (
@@ -82,6 +86,29 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
+    // Check if user is explicitly switching accounts
+    let isSwitching = false;
+    try {
+      isSwitching = searchParams.get(SWITCHING_ACCOUNT_PARAM) === SWITCHING_ACCOUNT_VALUE || 
+                    sessionStorage.getItem(SWITCHING_ACCOUNT_FLAG) === SWITCHING_ACCOUNT_VALUE;
+      
+      // Clear the switching flag immediately if present
+      if (sessionStorage.getItem(SWITCHING_ACCOUNT_FLAG) === SWITCHING_ACCOUNT_VALUE) {
+        sessionStorage.removeItem(SWITCHING_ACCOUNT_FLAG);
+      }
+    } catch (e) {
+      console.warn("[login] Could not check switching flag:", e);
+      // Fallback: check query param only
+      isSwitching = searchParams.get(SWITCHING_ACCOUNT_PARAM) === SWITCHING_ACCOUNT_VALUE;
+    }
+    
+    // If switching accounts, skip all auto-redirect logic and show the login form
+    if (isSwitching) {
+      console.log("[login] Account switch detected - forcing user to login page");
+      setChecking(false);
+      return;
+    }
+    
     // Email/password users: redirect immediately from localStorage token.
     // Do this first so returning users are never shown the login form.
     const localToken = localStorage.getItem("token");
@@ -211,7 +238,7 @@ function LoginForm() {
       retryStartedRef.current = false;
       setChecking(false);
     }
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   if (checking) return (
     <div

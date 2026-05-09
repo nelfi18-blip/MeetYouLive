@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { clearAdminToken, clearAllAuth } from "@/lib/token";
+import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
@@ -77,9 +77,15 @@ export default function AdminLayout({ children }) {
   const handleSwitchAccount = async () => {
     // Admin panel uses hardcoded Spanish labels as it's internal-only and separate from main app i18n
     if (confirm("¿Cambiar a cuenta de usuario/creador? Esto cerrará tu sesión de administrador.")) {
-      clearAllAuth();
-      await signOut({ redirect: false });
-      window.location.href = "/login";
+      try {
+        await signOut({ redirect: false });
+        clearAllAuth();
+        window.location.replace(buildSwitchAccountUrl());
+      } catch (error) {
+        console.error("[handleSwitchAccount] Error during account switch:", error);
+        clearAllAuth();
+        window.location.replace(buildSwitchAccountUrl());
+      }
     }
   };
 

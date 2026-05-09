@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { clearAllAuth } from "@/lib/token";
+import { clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 function BlockedContent() {
@@ -21,9 +21,15 @@ function BlockedContent() {
   }, [searchParams]);
 
   const handleSwitchAccount = async () => {
-    clearAllAuth();
-    await signOut({ redirect: false });
-    window.location.href = "/login";
+    try {
+      await signOut({ redirect: false });
+      clearAllAuth();
+      window.location.replace(buildSwitchAccountUrl());
+    } catch (error) {
+      console.error("[handleSwitchAccount] Error during account switch:", error);
+      clearAllAuth();
+      window.location.replace(buildSwitchAccountUrl());
+    }
   };
 
   const getPathLabel = (path) => {

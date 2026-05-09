@@ -118,9 +118,10 @@ export default function Navbar() {
     signOut({ callbackUrl: "/login" });
   };
 
-  const handleSwitchAccount = () => {
+  const handleSwitchAccount = async () => {
     if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
       clearAllAuth();
+      await signOut({ redirect: false });
       window.location.href = "/login";
     }
   };

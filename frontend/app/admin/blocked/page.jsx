@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { clearAllAuth } from "@/lib/token";
@@ -19,8 +20,9 @@ function BlockedContent() {
     }
   }, [searchParams]);
 
-  const handleSwitchAccount = () => {
+  const handleSwitchAccount = async () => {
     clearAllAuth();
+    await signOut({ redirect: false });
     window.location.href = "/login";
   };
 

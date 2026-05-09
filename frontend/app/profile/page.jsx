@@ -626,6 +626,9 @@ export default function ProfilePage() {
   const extraProfilePhotos = profilePhotoList.slice(1);
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos);
   const userExtraPhotos = userPhotoList.slice(1);
+  
+  // Check if user should see regular user features (not admin)
+  const isRegularUser = user?.role !== "admin";
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
@@ -903,7 +906,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Interests & Intent */}
-          {user.role !== "admin" && (user.interests?.length > 0 || user.intent) && (
+          {isRegularUser && (user.interests?.length > 0 || user.intent) && (
             <div className="form-card">
               <h2 className="form-card-title">✨ Intereses e intención</h2>
               {user.intent && (
@@ -957,7 +960,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Boost card */}
-          {user.role !== "admin" && (
+          {isRegularUser && (
             <BoostCard
               isBoosted={isBoosted}
               boostUntil={boostUntil}
@@ -1010,7 +1013,7 @@ export default function ProfilePage() {
           )}
 
           {/* Identity verification */}
-          {user.role !== "admin" && user.verificationStatus !== "approved" && (
+          {isRegularUser && user.verificationStatus !== "approved" && (
             <div className="form-card">
               <h2 className="form-card-title">
                 {user.verificationStatus === "pending" ? "⏳ Verificación en revisión" : "🪪 Verificar identidad"}
@@ -1052,10 +1055,10 @@ export default function ProfilePage() {
           )}
 
           {/* Referral promo */}
-          {user.role !== "admin" && <ReferralCard />}
+          {isRegularUser && <ReferralCard />}
 
           {/* VIP upsell / status card */}
-          {user.role !== "admin" && (
+          {isRegularUser && (
             user.isVIP ? (
               <div className="premium-upsell-card premium-upsell-card-vip">
                 <div className="premium-upsell-header">

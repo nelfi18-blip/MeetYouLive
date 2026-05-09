@@ -8,6 +8,7 @@ import ModernTopBar from "@/components/ModernTopBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import { fetchUserRole } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,6 +43,30 @@ export default function ModernFeedPage() {
       router.push("/login");
     }
   }, [status, router]);
+  
+  // Admin redirect - admins should not access the feed page
+  useEffect(() => {
+    if (!session?.backendToken) return;
+    
+    let isMounted = true;
+    
+    const checkAdminRole = async () => {
+      try {
+        const userData = await fetchUserRole(session.backendToken);
+        if (isMounted && userData?.role === "admin") {
+          router.replace("/admin");
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+    
+    checkAdminRole();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.backendToken, router]);
 
   // Fetch feed data
   useEffect(() => {

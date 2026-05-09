@@ -120,8 +120,8 @@ export default function Navbar() {
 
   const handleSwitchAccount = async () => {
     if (confirm(t("nav.switchAccountConfirm") || "¿Cambiar de cuenta? Esto cerrará tu sesión actual.")) {
-      clearAllAuth();
       await signOut({ redirect: false });
+      clearAllAuth();
       window.location.href = "/login";
     }
   };

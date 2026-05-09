@@ -21,8 +21,8 @@ function BlockedContent() {
   }, [searchParams]);
 
   const handleSwitchAccount = async () => {
-    clearAllAuth();
     await signOut({ redirect: false });
+    clearAllAuth();
     window.location.href = "/login";
   };
 

@@ -77,8 +77,8 @@ export default function AdminLayout({ children }) {
   const handleSwitchAccount = async () => {
     // Admin panel uses hardcoded Spanish labels as it's internal-only and separate from main app i18n
     if (confirm("¿Cambiar a cuenta de usuario/creador? Esto cerrará tu sesión de administrador.")) {
-      clearAllAuth();
       await signOut({ redirect: false });
+      clearAllAuth();
       window.location.href = "/login";
     }
   };

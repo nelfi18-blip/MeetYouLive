@@ -23,6 +23,7 @@ export function middleware(request) {
 
   const isProtectedRoute =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/feed") ||
     pathname.startsWith("/profile") ||
     pathname.startsWith("/creator") ||
     pathname.startsWith("/chats") ||

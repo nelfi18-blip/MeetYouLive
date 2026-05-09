@@ -903,7 +903,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Interests & Intent */}
-          {(user.interests?.length > 0 || user.intent) && (
+          {user.role !== "admin" && (user.interests?.length > 0 || user.intent) && (
             <div className="form-card">
               <h2 className="form-card-title">✨ Intereses e intención</h2>
               {user.intent && (
@@ -957,16 +957,18 @@ export default function ProfilePage() {
           </div>
 
           {/* Boost card */}
-          <BoostCard
-            isBoosted={isBoosted}
-            boostUntil={boostUntil}
-            boostPrice={boostPrice}
-            coins={user.coins ?? 0}
-            loading={boostLoading}
-            error={boostError}
-            success={boostSuccess}
-            onBoost={handleBoost}
-          />
+          {user.role !== "admin" && (
+            <BoostCard
+              isBoosted={isBoosted}
+              boostUntil={boostUntil}
+              boostPrice={boostPrice}
+              coins={user.coins ?? 0}
+              loading={boostLoading}
+              error={boostError}
+              success={boostSuccess}
+              onBoost={handleBoost}
+            />
+          )}
 
           {/* Become a Creator / Creator status */}
           {user.role === "user" && user.creatorStatus !== "pending" && (
@@ -1008,7 +1010,7 @@ export default function ProfilePage() {
           )}
 
           {/* Identity verification */}
-          {user.verificationStatus !== "approved" && (
+          {user.role !== "admin" && user.verificationStatus !== "approved" && (
             <div className="form-card">
               <h2 className="form-card-title">
                 {user.verificationStatus === "pending" ? "⏳ Verificación en revisión" : "🪪 Verificar identidad"}
@@ -1050,10 +1052,10 @@ export default function ProfilePage() {
           )}
 
           {/* Referral promo */}
-          <ReferralCard />
+          {user.role !== "admin" && <ReferralCard />}
 
           {/* VIP upsell / status card */}
-          {user.isVIP ? (
+          {user.role !== "admin" && (user.isVIP ? (
             <div className="premium-upsell-card premium-upsell-card-vip">
               <div className="premium-upsell-header">
                 <span className="premium-upsell-gem">💎</span>

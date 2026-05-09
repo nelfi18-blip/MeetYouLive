@@ -121,10 +121,12 @@ export default function BuyCoinsPage() {
     const token = localToken || session?.backendToken || null;
     if (!token) return;
     
+    let isMounted = true;
+    
     const checkAdminRole = async () => {
       try {
         const userData = await fetchUserRole(token);
-        if (userData?.role === "admin") {
+        if (isMounted && userData?.role === "admin") {
           router.replace("/admin");
         }
       } catch (err) {
@@ -133,7 +135,11 @@ export default function BuyCoinsPage() {
     };
     
     checkAdminRole();
-  }, [session, router]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.backendToken, router]);
 
   useEffect(() => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;

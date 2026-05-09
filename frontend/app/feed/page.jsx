@@ -48,10 +48,12 @@ export default function ModernFeedPage() {
   useEffect(() => {
     if (!session?.backendToken) return;
     
+    let isMounted = true;
+    
     const checkAdminRole = async () => {
       try {
         const userData = await fetchUserRole(session.backendToken);
-        if (userData?.role === "admin") {
+        if (isMounted && userData?.role === "admin") {
           router.replace("/admin");
         }
       } catch (err) {
@@ -60,7 +62,11 @@ export default function ModernFeedPage() {
     };
     
     checkAdminRole();
-  }, [session, router]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.backendToken, router]);
 
   // Fetch feed data
   useEffect(() => {

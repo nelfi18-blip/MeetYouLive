@@ -154,7 +154,7 @@ export async function fetchUserRole(token) {
     : "";
   
   if (!API_URL) {
-    console.error("[fetchUserRole] API_URL is not configured");
+    console.error("[fetchUserRole] NEXT_PUBLIC_API_URL is not configured");
     return null;
   }
   

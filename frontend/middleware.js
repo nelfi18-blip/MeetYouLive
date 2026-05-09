@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // ── Homepage Protection ────────────────────────────────────────────────────
+  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
+  // This is a public landing page that should never redirect to admin or auth pages.
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
   // Cookie set by email/password login AND by the dashboard once the backend
   // token is confirmed for Google OAuth users. Only this cookie means the full
   // auth handshake (including the backend JWT) is complete.

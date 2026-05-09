@@ -5,7 +5,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
-import { setToken, clearToken } from "@/lib/token";
+import { setToken, clearToken, fetchUserRole } from "@/lib/token";
 import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
@@ -115,7 +115,19 @@ function LoginForm() {
     if (localToken) {
       // Re-sync the session cookie in case it expired (e.g. user cleared cookies)
       setToken(localToken);
-      router.replace("/feed");
+      
+      // Check if user is admin and redirect accordingly
+      fetchUserRole(localToken).then((user) => {
+        if (user?.role === "admin") {
+          router.replace("/admin");
+        } else {
+          router.replace("/feed");
+        }
+      }).catch((error) => {
+        console.error("[login] Error checking user role:", error);
+        // Fallback to feed on error
+        router.replace("/feed");
+      });
       return;
     }
 
@@ -130,9 +142,23 @@ function LoginForm() {
         // navigation has already started.
         timeoutIdsRef.current.forEach(clearTimeout);
         timeoutIdsRef.current = [];
-        console.log("[login] session.backendToken available – saving token and redirecting to feed");
+        console.log("[login] session.backendToken available – saving token and checking user role");
         setToken(session.backendToken);
-        router.replace("/feed");
+        
+        // Check if user is admin and redirect accordingly
+        fetchUserRole(session.backendToken).then((user) => {
+          if (user?.role === "admin") {
+            console.log("[login] Admin detected – redirecting to /admin");
+            router.replace("/admin");
+          } else {
+            console.log("[login] Regular user – redirecting to /feed");
+            router.replace("/feed");
+          }
+        }).catch((error) => {
+          console.error("[login] Error checking user role:", error);
+          // Fallback to feed on error
+          router.replace("/feed");
+        });
         return;
       }
 
@@ -427,7 +453,14 @@ function LoginForm() {
 
       if (data.token) {
         setToken(data.token);
-        router.replace("/");
+        
+        // Check if user is admin and redirect accordingly
+        const user = await fetchUserRole(data.token);
+        if (user?.role === "admin") {
+          router.replace("/admin");
+        } else {
+          router.replace("/feed");
+        }
         return;
       }
 

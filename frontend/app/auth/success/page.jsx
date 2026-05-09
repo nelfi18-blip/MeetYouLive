@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setToken } from "@/lib/token";
+import { setToken, fetchUserRole } from "@/lib/token";
 
 /**
  * Inner component that reads search params and performs the redirect.
@@ -19,7 +19,19 @@ function AuthSuccessHandler() {
     const isValidJwt = token && /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]*$/.test(token);
     if (isValidJwt) {
       setToken(token);
-      router.replace("/feed");
+      
+      // Check if user is admin and redirect accordingly
+      fetchUserRole(token).then((user) => {
+        if (user?.role === "admin") {
+          router.replace("/admin");
+        } else {
+          router.replace("/feed");
+        }
+      }).catch((error) => {
+        console.error("[auth/success] Error checking user role:", error);
+        // Fallback to feed on error
+        router.replace("/feed");
+      });
     } else {
       // No valid token in the URL — something went wrong; redirect to login.
       router.replace("/login");

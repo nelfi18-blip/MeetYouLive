@@ -42,6 +42,32 @@ export default function ModernFeedPage() {
       router.push("/login");
     }
   }, [status, router]);
+  
+  // Admin redirect - admins should not access the feed page
+  useEffect(() => {
+    if (!session?.backendToken) return;
+    
+    const checkAdminRole = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/user/me`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        });
+        
+        if (res.ok) {
+          const userData = await res.json();
+          if (userData.role === "admin") {
+            router.replace("/admin");
+          }
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+    
+    checkAdminRole();
+  }, [session, router]);
 
   // Fetch feed data
   useEffect(() => {

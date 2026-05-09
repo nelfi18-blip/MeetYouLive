@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
@@ -105,12 +106,41 @@ const COIN_USES = [
 
 export default function BuyCoinsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [balance, setBalance] = useState(null);
   const [sparks, setSparks] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
+
+  // Admin redirect - admins should not access the coins page
+  useEffect(() => {
+    const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = localToken || session?.backendToken || null;
+    if (!token) return;
+    
+    const checkAdminRole = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/user/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (res.ok) {
+          const userData = await res.json();
+          if (userData.role === "admin") {
+            router.replace("/admin");
+          }
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+    
+    checkAdminRole();
+  }, [session, router]);
 
   useEffect(() => {
     const localToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;

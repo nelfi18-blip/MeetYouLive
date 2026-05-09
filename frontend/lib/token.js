@@ -141,3 +141,48 @@ export function clearAllAuth() {
     document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`;
   });
 }
+
+/**
+ * Fetch current user data from the backend API to check role and other info.
+ * Returns the user object or null if the request fails.
+ */
+export async function fetchUserRole(token) {
+  if (!token) return null;
+  
+  const API_URL = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL 
+    ? process.env.NEXT_PUBLIC_API_URL 
+    : "";
+  
+  if (!API_URL) {
+    console.error("[fetchUserRole] API_URL is not configured");
+    return null;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/api/user/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error("[fetchUserRole] Failed to fetch user data:", response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("[fetchUserRole] Error fetching user data:", error);
+    return null;
+  }
+}
+
+/**
+ * Check if the current user is an admin by fetching their role from the backend.
+ * Returns true if the user is an admin, false otherwise.
+ */
+export async function isAdmin(token) {
+  const user = await fetchUserRole(token);
+  return user?.role === "admin";
+}

@@ -66,6 +66,13 @@ export function getAdminToken() {
 export function clearAllAuth() {
   if (typeof window === "undefined") return;
   
+  // Set switching flag BEFORE clearing sessionStorage
+  try {
+    sessionStorage.setItem("switching_account", "1");
+  } catch (e) {
+    console.warn("[clearAllAuth] Could not set switching_account flag:", e);
+  }
+  
   // Clear admin tokens
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
@@ -73,16 +80,24 @@ export function clearAllAuth() {
   // Clear user tokens
   localStorage.removeItem("token");
   
-  // Clear NextAuth session storage (if any)
+  // Clear NextAuth session storage (if any) from localStorage only
   Object.keys(localStorage).forEach(key => {
     if (key.startsWith("next-auth") || key.startsWith("__Secure-next-auth")) {
       localStorage.removeItem(key);
     }
   });
   
-  // Clear sessionStorage as well (some pages use it as fallback)
+  // DON'T clear all sessionStorage - only NextAuth keys, preserve switching_account flag
   try {
-    sessionStorage.clear();
+    Object.keys(sessionStorage).forEach(key => {
+      if (key !== "switching_account" && (
+        key.startsWith("next-auth") || 
+        key.startsWith("__Secure-next-auth") ||
+        key === "token"
+      )) {
+        sessionStorage.removeItem(key);
+      }
+    });
   } catch (e) {
     console.warn("[clearAllAuth] Could not clear sessionStorage:", e);
   }
@@ -107,8 +122,4 @@ export function clearAllAuth() {
   authCookieNames.forEach(cookieName => {
     document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`;
   });
-  
-  // Set a flag to indicate we're switching accounts (not just logging out)
-  // This will be checked by the login page to prevent auto-redirect
-  sessionStorage.setItem("switching_account", "1");
 }

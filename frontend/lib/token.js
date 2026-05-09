@@ -89,7 +89,8 @@ export function clearAllAuth() {
   
   // DON'T clear all sessionStorage - only NextAuth keys, preserve switching_account flag
   try {
-    Object.keys(sessionStorage).forEach(key => {
+    const keys = Object.keys(sessionStorage);
+    keys.forEach(key => {
       if (key !== "switching_account" && (
         key.startsWith("next-auth") || 
         key.startsWith("__Secure-next-auth") ||

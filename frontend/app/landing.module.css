@@ -243,11 +243,8 @@
   position: relative;
   overflow: hidden;
   text-align: center;
-}
-
-.btnText {
-  position: relative;
-  z-index: 2;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .btnGlow {
@@ -258,6 +255,7 @@
   transform: translateX(-100%) rotate(45deg);
   transition: transform 0.6s;
   pointer-events: none;
+  z-index: -1;
 }
 
 .btnPrimaryLanding:hover {
@@ -288,6 +286,8 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .btnSecondaryLanding::before {

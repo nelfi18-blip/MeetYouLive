@@ -60,13 +60,13 @@ export default function LandingPage() {
 
         {/* CTA Buttons */}
         <div className={styles.ctaButtons}>
-          <Link href="/login" className={styles.btnPrimaryLanding}>
-            <span className={styles.btnText}>Entrar ahora</span>
+          <Link href="/feed" className={styles.btnPrimaryLanding}>
+            Entrar ahora
             <span className={styles.btnGlow}></span>
           </Link>
           
           <Link href="/register" className={styles.btnSecondaryLanding}>
-            <span className={styles.btnText}>Crear cuenta</span>
+            Crear cuenta
           </Link>
         </div>
 

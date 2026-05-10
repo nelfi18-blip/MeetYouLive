@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
+import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -15,29 +15,6 @@ function RoomsIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fi
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
 function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function FeedIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>; }
-
-/* ── Nav link definitions (keys resolved via t() at render time) ── */
-const NAV_LINK_DEFS = [
-  { href: "/",          key: "nav.home",    icon: HomeIcon    },
-  { href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon },
-  { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
-  { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
-  { href: "/live",      key: "nav.live",    icon: LiveIcon    },
-  { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
-  { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
-  { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
-  { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
-  { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
-];
-
-/* ── Bottom nav link definitions (Home, Match, Live, Chats, Profile) ── */
-const BOTTOM_NAV_DEFS = [
-  { href: "/",          key: "nav.home",    icon: HomeIcon    },
-  { href: "/matches",   key: "nav.match",   icon: MatchIcon   },
-  { href: "/live",      key: "nav.live",    icon: LiveIcon    },
-  { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
-  { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
-];
 
 /* ── SVG icon components ─────────────────────────── */
 function HomeIcon()    { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>; }
@@ -147,6 +124,32 @@ export default function Navbar() {
   const effectiveRole = role || session?.backendUser?.role || "";
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";
   
+  // Get role-aware home path
+  const homePath = useMemo(() => getHomePath(effectiveRole), [effectiveRole]);
+  
+  // Nav link definitions with dynamic home path
+  const NAV_LINK_DEFS = useMemo(() => [
+    { href: homePath,     key: "nav.home",    icon: HomeIcon    },
+    { href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon },
+    { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
+    { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
+    { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+    { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
+    { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
+    { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
+    { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
+    { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
+  ], [homePath]);
+  
+  // Bottom nav link definitions with dynamic home path
+  const BOTTOM_NAV_DEFS = useMemo(() => [
+    { href: homePath,     key: "nav.home",    icon: HomeIcon    },
+    { href: "/matches",   key: "nav.match",   icon: MatchIcon   },
+    { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+    { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
+    { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
+  ], [homePath]);
+  
   // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
     effectiveRole === "admin"
@@ -167,7 +170,7 @@ export default function Navbar() {
       <nav className="navbar">
         {/* Brand */}
         <div className="navbar-brand">
-          <Link href="/dashboard" className="navbar-logo">
+          <Link href={homePath} className="navbar-logo">
             <Image
               src="/logo.svg"
               alt="MeetYouLive"

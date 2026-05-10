@@ -1,19 +1,45 @@
 "use client";
 
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { getHomePath } from "@/lib/token";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const [role, setRole] = useState("");
+  
+  // Fetch user role
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setRole(d.role || ""); })
+      .catch(() => {});
+  }, [session]);
+  
+  // Get role-aware home path
+  const homePath = useMemo(() => getHomePath(role), [role]);
   
   const isActive = (path) => {
-    if (path === "/feed") return pathname === "/" || pathname === "/feed";
+    if (path === homePath) {
+      // Home is active if we're on the home path or the root path
+      return pathname === "/" || pathname === homePath;
+    }
     return pathname?.startsWith(path);
   };
 
   return (
     <nav className="bottom-nav-modern">
-      <Link href="/feed" className={`nav-item ${isActive("/feed") ? "active" : ""}`}>
+      <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>

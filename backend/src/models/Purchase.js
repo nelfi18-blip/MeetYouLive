@@ -10,4 +10,7 @@ const purchaseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Unique index on stripeSessionId to prevent duplicate purchase recording
+purchaseSchema.index({ stripeSessionId: 1 }, { unique: true, sparse: true });
+
 module.exports = mongoose.model("Purchase", purchaseSchema);

@@ -9,8 +9,8 @@ const requiredEnvVars = [
 ];
 
 // MONGO_URI or MONGODB_URI (at least one required)
-const hasMongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL;
-if (!hasMongoUri) {
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL;
+if (!mongoUri) {
   console.error("❌ FATAL: MONGO_URI, MONGODB_URI, or DATABASE_URL must be set");
   process.exit(1);
 }

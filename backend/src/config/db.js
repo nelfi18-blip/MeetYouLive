@@ -23,7 +23,8 @@ const connectDB = async () => {
       console.error("❌ Cannot start backend without database connection in production");
       process.exit(1);
     }
-    // In development, allow retry
+    // In development, throw error to allow caller to handle retry logic
+    console.error("⚠️ Development mode: Throwing error for caller to handle");
     throw error;
   }
 };

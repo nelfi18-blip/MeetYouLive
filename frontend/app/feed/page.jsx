@@ -85,17 +85,21 @@ export default function ModernFeedPage() {
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - fires after 3 seconds as last resort
+      // Safety timeout to prevent infinite loading - increased to 10 seconds for better reliability
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("Feed loading timeout reached - forcing loading state to false");
+          console.warn("[Feed] Timeout reached (10s) - aborting request");
+          controller.abort();
           setLivesLoading(false);
           setLoading(false);
           setError("No pudimos cargar tu feed ahora. Por favor, intenta de nuevo.");
         }
-      }, 3000);
+      }, 10000);
 
       try {
+        console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
+        console.log("[Feed] Auth token present:", !!session.backendToken);
+        
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
             headers: {
@@ -117,9 +121,30 @@ export default function ModernFeedPage() {
 
         clearTimeout(loadingTimeout);
 
-        if (!feedRes.ok) throw new Error("No pudimos cargar tu feed");
+        console.log("[Feed] Feed response status:", feedRes.status);
+        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
+
+        // Enhanced error handling with specific status codes
+        if (!feedRes.ok) {
+          const errorText = await feedRes.text().catch(() => "");
+          console.error("[Feed] API error:", feedRes.status, errorText);
+          
+          let errorMessage = "No pudimos cargar tu feed";
+          if (feedRes.status === 401 || feedRes.status === 403) {
+            errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+          } else if (feedRes.status === 404) {
+            errorMessage = "El servicio de feed no está disponible.";
+          } else if (feedRes.status >= 500) {
+            errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
+          }
+          
+          throw new Error(errorMessage);
+        }
 
         const data = await feedRes.json();
+        console.log("[Feed] Data received - Lives:", data.activeLives?.length || 0, 
+                    "Profiles:", data.recommendedProfiles?.length || 0, 
+                    "Creators:", data.featuredCreators?.length || 0);
         
         // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
@@ -131,6 +156,10 @@ export default function ModernFeedPage() {
         const uniqueCreators = Array.from(
           new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
         );
+
+        console.log("[Feed] Setting state - Lives:", safeLives.length, 
+                    "Profiles:", uniqueProfiles.length, 
+                    "Creators:", uniqueCreators.length);
 
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
@@ -145,17 +174,25 @@ export default function ModernFeedPage() {
         setError(null);
         setLivesLoading(false);
         setLoading(false);
+        console.log("[Feed] Load complete");
       } catch (err) {
         if (isCancelled) return;
         
         clearTimeout(loadingTimeout);
-        console.error("Feed error:", err);
         
-        // Set user-friendly error message - don't show error for cancelled requests
+        // Enhanced error logging with more context
         if (err.name === 'AbortError') {
-          // Request was cancelled on component unmount - don't set error
-          console.log("Feed request cancelled on unmount");
+          console.log("[Feed] Request aborted (timeout or unmount)");
+          // Only set error if it was a timeout, not an unmount
+          if (!isCancelled) {
+            setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
+          }
+        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          // Network error - server might be down or unreachable
+          console.error("[Feed] Network error - server might be down:", err);
+          setError("No se puede conectar al servidor. Verifica tu conexión.");
         } else {
+          console.error("[Feed] Error:", err.message || err);
           setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
         }
         

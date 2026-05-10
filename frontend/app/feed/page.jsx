@@ -339,7 +339,6 @@ export default function ModernFeedPage() {
   if (status === "loading" || (status === "authenticated" && loading && !error)) {
     return (
       <div className="modern-page">
-        <ModernTopBar />
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -359,7 +358,6 @@ export default function ModernFeedPage() {
   if (error) {
     return (
       <div className="modern-page">
-        <ModernTopBar />
         <div style={{
           display: 'flex',
           justifyContent: 'center',

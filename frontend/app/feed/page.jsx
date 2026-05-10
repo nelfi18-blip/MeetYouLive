@@ -90,9 +90,6 @@ export default function ModernFeedPage() {
         if (!isCancelled) {
           console.warn("[Feed] Timeout reached (10s) - aborting request");
           controller.abort();
-          setLivesLoading(false);
-          setLoading(false);
-          setError("No pudimos cargar tu feed ahora. Por favor, intenta de nuevo.");
         }
       }, 10000);
 
@@ -126,8 +123,7 @@ export default function ModernFeedPage() {
 
         // Enhanced error handling with specific status codes
         if (!feedRes.ok) {
-          const errorText = await feedRes.text().catch(() => "");
-          console.error("[Feed] API error:", feedRes.status, errorText);
+          console.error("[Feed] API error - Status:", feedRes.status);
           
           let errorMessage = "No pudimos cargar tu feed";
           if (feedRes.status === 401 || feedRes.status === 403) {
@@ -142,9 +138,11 @@ export default function ModernFeedPage() {
         }
 
         const data = await feedRes.json();
-        console.log("[Feed] Data received - Lives:", data.activeLives?.length || 0, 
-                    "Profiles:", data.recommendedProfiles?.length || 0, 
-                    "Creators:", data.featuredCreators?.length || 0);
+        console.log("[Feed] Data received:", {
+          lives: data.activeLives?.length || 0,
+          profiles: data.recommendedProfiles?.length || 0,
+          creators: data.featuredCreators?.length || 0
+        });
         
         // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
@@ -157,9 +155,11 @@ export default function ModernFeedPage() {
           new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
         );
 
-        console.log("[Feed] Setting state - Lives:", safeLives.length, 
-                    "Profiles:", uniqueProfiles.length, 
-                    "Creators:", uniqueCreators.length);
+        console.log("[Feed] Setting state:", {
+          lives: safeLives.length,
+          profiles: uniqueProfiles.length,
+          creators: uniqueCreators.length
+        });
 
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
@@ -183,10 +183,8 @@ export default function ModernFeedPage() {
         // Enhanced error logging with more context
         if (err.name === 'AbortError') {
           console.log("[Feed] Request aborted (timeout or unmount)");
-          // Only set error if it was a timeout, not an unmount
-          if (!isCancelled) {
-            setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
-          }
+          // Timeout was triggered - show user-friendly message
+          setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
         } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
           // Network error - server might be down or unreachable
           console.error("[Feed] Network error - server might be down:", err);

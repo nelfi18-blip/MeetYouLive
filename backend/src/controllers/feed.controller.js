@@ -35,8 +35,6 @@ const getFeed = async (req, res) => {
       .populate("user", "name avatar role creatorStatus")
       .lean();
 
-    console.log("[Feed API] Raw lives found:", allLives.length);
-
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);
 
@@ -55,8 +53,6 @@ const getFeed = async (req, res) => {
       // CRITICAL: Only include streams with active host Socket.io connection
       .filter((live) => hasLiveHost(String(live._id)))
       .slice(0, 12); // Take only first 12 after filtering
-
-    console.log("[Feed API] Filtered lives:", filteredLives.length);
 
     // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
     // Add randomization for variety
@@ -99,8 +95,6 @@ const getFeed = async (req, res) => {
       }
     ]);
 
-    console.log("[Feed API] Recommended profiles:", recommendedProfiles.length);
-
     // ⭐ Featured creators - use query to filter directly (NO admin/staff)
     const featuredCreators = await User.find({
       role: { $in: ["creator", "subCreator"] },
@@ -113,8 +107,7 @@ const getFeed = async (req, res) => {
       .select("name avatar earningsCoins")
       .lean();
 
-    console.log("[Feed API] Featured creators:", featuredCreators.length);
-    console.log("[Feed API] Sending response with", {
+    console.log("[Feed API] Response ready:", {
       activeLives: filteredLives.length,
       recommendedProfiles: recommendedProfiles.length,
       featuredCreators: featuredCreators.length

@@ -319,40 +319,141 @@ const handlePaymentCompleted = async (session) => {
   }
 
   if (type === "sparks") {
-    const sparkCount = parseInt(sparks, 10);
-    // Idempotency check
-    const existingTx = await SparkTransaction.findOne({ "metadata.stripeSessionId": session.id });
-    if (existingTx) {
-      console.warn(`[sparks webhook] Duplicate event for session ${session.id}, skipping`);
+    try {
+      const sparkCount = parseInt(sparks, 10);
+      if (isNaN(sparkCount) || sparkCount <= 0) {
+        console.error("[sparks webhook] Invalid spark count", {
+          sessionId: session.id,
+          sparks,
+        });
+        throw new Error(`Invalid spark count for session ${session.id}`);
+      }
+
+      let duplicateCompleted = false;
+      let processedTxId = null;
+      const dbSession = await mongoose.startSession();
+      try {
+        await dbSession.withTransaction(async () => {
+          // Check for existing completed transaction
+          let tx = await SparkTransaction.findOne({ "metadata.stripeSessionId": session.id }).session(dbSession);
+          if (tx && tx.status === "completed") {
+            duplicateCompleted = true;
+            processedTxId = String(tx._id);
+            return;
+          }
+
+          // Create or reuse transaction record
+          if (!tx) {
+            const [createdTx] = await SparkTransaction.create(
+              [
+                {
+                  userId,
+                  type: "purchase",
+                  amount: sparkCount,
+                  reason: `Compra de ${sparkCount} Sparks via Stripe`,
+                  status: "pending",
+                  metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
+                },
+              ],
+              { session: dbSession }
+            );
+            tx = createdTx;
+            console.log("[sparks webhook] transaction created", {
+              sessionId: session.id,
+              txId: String(tx._id),
+              amount: sparkCount,
+            });
+          } else {
+            console.log("[sparks webhook] existing transaction found, reprocessing", {
+              sessionId: session.id,
+              txId: String(tx._id),
+              status: tx.status,
+            });
+            tx.status = "pending";
+          }
+
+          // Atomically update user balance
+          const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $inc: { sparks: sparkCount } },
+            { new: true, session: dbSession }
+          );
+
+          if (!updatedUser) {
+            console.error("[sparks webhook] User not found during update", {
+              sessionId: session.id,
+              userId,
+              txId: String(tx._id),
+            });
+            tx.status = "failed";
+            await tx.save({ session: dbSession });
+            throw new Error(`User not found for sparks webhook session ${session.id}`);
+          }
+
+          // Mark transaction as completed
+          tx.status = "completed";
+          await tx.save({ session: dbSession });
+          processedTxId = String(tx._id);
+        });
+      } finally {
+        await dbSession.endSession();
+      }
+
+      if (duplicateCompleted) {
+        console.log("[sparks webhook] duplicate completed event ignored", {
+          sessionId: session.id,
+          txId: processedTxId,
+        });
+        return;
+      }
+
+      console.log("[sparks webhook] spark increment success", {
+        sessionId: session.id,
+        userId,
+        txId: processedTxId,
+        incrementBy: sparkCount,
+      });
       return;
+    } catch (err) {
+      console.error("[sparks webhook] caught error while processing", {
+        sessionId: session.id,
+        metadata: session.metadata,
+        message: err.message,
+      });
+      throw err;
     }
-    const tx = await SparkTransaction.create({
-      userId,
-      type: "purchase",
-      amount: sparkCount,
-      reason: `Compra de ${sparkCount} Sparks via Stripe`,
-      status: "pending",
-      metadata: { stripeSessionId: session.id, amountPaid: session.amount_total },
-    });
-    const result = await User.findByIdAndUpdate(userId, { $inc: { sparks: sparkCount } });
-    if (!result) {
-      console.error(`[sparks webhook] User not found: ${userId} for session ${session.id}`);
-      await SparkTransaction.findByIdAndUpdate(tx._id, { status: "failed" });
-      return;
-    }
-    await SparkTransaction.findByIdAndUpdate(tx._id, { status: "completed" });
-    return;
   }
 
   // Default: video purchase
-  const existing = await Purchase.findOne({ stripeSessionId: session.id });
-  if (!existing) {
+  try {
+    const existing = await Purchase.findOne({ stripeSessionId: session.id });
+    if (existing) {
+      console.log("[video webhook] duplicate purchase event ignored", {
+        sessionId: session.id,
+        purchaseId: String(existing._id),
+      });
+      return;
+    }
+    
     await Purchase.create({
       user: userId,
       video: videoId,
       amount: parseFloat(amount),
       stripeSessionId: session.id,
     });
+    console.log("[video webhook] purchase recorded", {
+      sessionId: session.id,
+      userId,
+      videoId,
+      amount,
+    });
+  } catch (err) {
+    console.error("[video webhook] caught error while processing purchase", {
+      sessionId: session.id,
+      metadata: session.metadata,
+      message: err.message,
+    });
+    throw err;
   }
 };
 

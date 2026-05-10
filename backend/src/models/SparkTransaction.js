@@ -28,6 +28,9 @@ const sparkTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Unique index on stripeSessionId to prevent duplicate payment processing
+sparkTransactionSchema.index({ "metadata.stripeSessionId": 1 }, { unique: true, sparse: true });
+
 const SparkTransaction = mongoose.model("SparkTransaction", sparkTransactionSchema);
 
 module.exports = SparkTransaction;

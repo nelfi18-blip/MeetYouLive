@@ -10,6 +10,7 @@ const {
   listWithdrawals,
   approveWithdrawal,
   rejectWithdrawal,
+  markWithdrawalPaid,
 } = require("../controllers/withdraw.controller");
 
 const withdrawLimiter = rateLimit({
@@ -26,5 +27,6 @@ router.post("/request", withdrawLimiter, verifyToken, requireApprovedCreator, re
 router.get("/", withdrawLimiter, verifyToken, requireAdmin, listWithdrawals);
 router.patch("/:id/approve", withdrawLimiter, verifyToken, requireAdmin, approveWithdrawal);
 router.patch("/:id/reject", withdrawLimiter, verifyToken, requireAdmin, rejectWithdrawal);
+router.patch("/:id/mark-paid", withdrawLimiter, verifyToken, requireAdmin, markWithdrawalPaid);
 
 module.exports = router;

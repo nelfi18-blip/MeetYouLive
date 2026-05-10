@@ -33,6 +33,19 @@ async function generateReferralCode() {
 
 const router = Router();
 
+// Stricter rate limiters for sensitive endpoints
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // max 5 registrations per IP per hour
+  message: { message: "Demasiados intentos de registro. Intenta de nuevo más tarde." },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // max 10 login attempts per IP per 15 minutes
+  message: { message: "Demasiados intentos de inicio de sesión. Intenta de nuevo en 15 minutos." },
+});
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -46,14 +59,14 @@ const verifyEmailLimiter = rateLimit({
 });
 
 const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { message: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // Only 3 password reset requests per hour
+  message: { message: "Demasiadas solicitudes de restablecimiento. Intenta de nuevo en una hora." },
 });
 
 const resetPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
   message: { message: "Demasiados intentos. Intenta de nuevo más tarde." },
 });
 
@@ -71,7 +84,7 @@ function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
-router.post("/register", authLimiter, validate(registerSchema), async (req, res) => {
+router.post("/register", registerLimiter, validate(registerSchema), async (req, res) => {
   const { username, password, ref, agencyCode, creatorInvite } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!username || !email || !password) {
@@ -169,7 +182,7 @@ router.post("/register", authLimiter, validate(registerSchema), async (req, res)
   }
 });
 
-router.post("/login", authLimiter, validate(loginSchema), async (req, res) => {
+router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
   const { password } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   if (!email || !password) {

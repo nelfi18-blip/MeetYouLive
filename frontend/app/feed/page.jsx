@@ -9,6 +9,7 @@ import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -488,7 +489,6 @@ export default function ModernFeedPage() {
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
                       position: 'relative',
                     }}>
-                      {/* Glow effect */}
                       <div style={{
                         position: 'absolute',
                         inset: 0,
@@ -511,8 +511,7 @@ export default function ModernFeedPage() {
                     {currentProfile.isOnline && <div className="online-indicator"></div>}
                   </div>
                   
-                  {/* Creator or Live badge */}
-                  {(currentProfile.role === "creator" || currentProfile.creatorStatus === "approved") && (
+                  {isApprovedCreator(currentProfile) && (
                     <div style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -610,7 +609,6 @@ export default function ModernFeedPage() {
                         alt={live.title} 
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => {
-                          // Hide broken image and show fallback
                           e.target.style.display = 'none';
                           const fallback = e.target.nextElementSibling;
                           if (fallback) fallback.style.display = 'flex';
@@ -630,7 +628,6 @@ export default function ModernFeedPage() {
                       top: 0,
                       left: 0,
                     }}>
-                      {/* Glow effect */}
                       <div style={{
                         position: 'absolute',
                         inset: 0,
@@ -722,7 +719,6 @@ export default function ModernFeedPage() {
                           src={creatorImage} 
                           alt={creatorName}
                           onError={(e) => {
-                            // Hide broken image and show fallback
                             e.target.style.display = 'none';
                             const fallback = e.target.nextElementSibling;
                             if (fallback) fallback.style.display = 'flex';
@@ -743,7 +739,6 @@ export default function ModernFeedPage() {
                           top: 0,
                           left: 0,
                         }}>
-                          {/* Subtle glow */}
                           <div style={{
                             position: 'absolute',
                             inset: 0,
@@ -767,7 +762,6 @@ export default function ModernFeedPage() {
                         textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                         position: 'relative'
                       }}>
-                        {/* Subtle glow */}
                         <div style={{
                           position: 'absolute',
                           inset: 0,

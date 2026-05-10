@@ -2,6 +2,26 @@ require("dotenv").config();
 const http = require("http");
 const path = require("path");
 
+// Validate required environment variables at startup
+const requiredEnvVars = [
+  'JWT_SECRET',
+  'FRONTEND_URL'
+];
+
+// MONGO_URI or MONGODB_URI (at least one required)
+const hasMongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL;
+if (!hasMongoUri) {
+  console.error("❌ FATAL: MONGO_URI, MONGODB_URI, or DATABASE_URL must be set");
+  process.exit(1);
+}
+
+// Check other required vars
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingVars.length > 0) {
+  console.error(`❌ FATAL: Missing required environment variables: ${missingVars.join(', ')}`);
+  process.exit(1);
+}
+
 const app = require(path.join(__dirname, "src", "app"));
 const connectDB = require(path.join(__dirname, "src", "config", "db"));
 const createAdminIfNotExists = require(path.join(__dirname, "src", "utils", "createAdminIfNotExists"));

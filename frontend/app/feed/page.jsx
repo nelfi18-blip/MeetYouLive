@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ModernTopBar from "@/components/ModernTopBar";
+import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
@@ -32,6 +33,9 @@ export default function ModernFeedPage() {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
+  const [userCoins, setUserCoins] = useState(0);
+  const [boostPrice] = useState(100);
+  const [magnetPrice] = useState(50);
   
   // Refs
   const startXRef = useRef(0);
@@ -74,15 +78,22 @@ export default function ModernFeedPage() {
 
     const fetchFeed = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/feed`, {
-          headers: {
-            Authorization: `Bearer ${session.backendToken}`,
-          },
-        });
+        const [feedRes, userRes] = await Promise.all([
+          fetch(`${API_URL}/api/feed`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+          }),
+          fetch(`${API_URL}/api/user/me`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+          }),
+        ]);
 
-        if (!res.ok) throw new Error("Error loading feed");
+        if (!feedRes.ok) throw new Error("Error loading feed");
 
-        const data = await res.json();
+        const data = await feedRes.json();
         
         const safeLives = filterActiveLives(data.activeLives || []);
         const uniqueProfiles = Array.from(
@@ -95,6 +106,13 @@ export default function ModernFeedPage() {
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
+
+        // Get user coins balance
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setUserCoins(userData.coinsBalance || 0);
+        }
+
         setLoading(false);
       } catch (err) {
         console.error("Feed error:", err);
@@ -173,6 +191,93 @@ export default function ModernFeedPage() {
       setCurrentIndex((prev) => prev + 1);
       setSwipeOffset(0);
     }, SWIPE_ANIMATION_DURATION_MS);
+  };
+
+  const handleBoost = async () => {
+    if (userCoins < boostPrice) {
+      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
+      router.push("/coins");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/matches/boost`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.backendToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUserCoins((prev) => prev - boostPrice);
+        alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
+      } else {
+        const error = await res.json();
+        alert(error.message || "Error al activar boost");
+      }
+    } catch (err) {
+      console.error("Boost error:", err);
+      alert("Error al activar boost");
+    }
+  };
+
+  const handleSuperCrush = async () => {
+    const currentProfile = profiles[currentIndex];
+    if (!currentProfile) return;
+
+    if (userCoins < magnetPrice) {
+      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
+      router.push("/coins");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/matches/super-crush/${currentProfile._id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUserCoins((prev) => prev - magnetPrice);
+        
+        // Show special animation
+        setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        setShowHeartAnimation(true);
+        setTimeout(() => setShowHeartAnimation(false), 2000);
+
+        // Move to next profile
+        setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
+        setTimeout(() => {
+          setCurrentIndex((prev) => prev + 1);
+          setSwipeOffset(0);
+        }, SWIPE_ANIMATION_DURATION_MS);
+
+        if (data.match) {
+          alert("¡Match instantáneo! 🔥");
+        } else {
+          alert("Super Crush enviado ⚡");
+        }
+      } else {
+        const error = await res.json();
+        alert(error.message || "Error al enviar Super Crush");
+      }
+    } catch (err) {
+      console.error("Super Crush error:", err);
+      alert("Error al enviar Super Crush");
+    }
+  };
+
+  const handleFlashLive = () => {
+    const currentProfile = profiles[currentIndex];
+    if (!currentProfile) return;
+    
+    // Navigate to video call or private call initiation
+    router.push(`/call/${currentProfile._id}`);
   };
 
   if (status === "loading" || loading) {
@@ -331,32 +436,18 @@ export default function ModernFeedPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="match-actions" style={{ padding: '1.25rem 0' }}>
-                <button 
-                  className="match-btn pass"
-                  onClick={handlePass}
-                  disabled={swiping}
-                >
-                  ❌
-                </button>
-
-                <button 
-                  className="match-btn like"
-                  onClick={handleLike}
-                  disabled={swiping}
-                >
-                  ❤️
-                </button>
-
-                <button 
-                  className="match-btn message"
-                  onClick={() => router.push(`/chats?userId=${currentProfile._id}`)}
-                  disabled={swiping}
-                >
-                  💬
-                </button>
-              </div>
+              {/* Premium Interaction Bar */}
+              <InteractionBar
+                profile={currentProfile}
+                onFade={handlePass}
+                onSpark={handleLike}
+                onPulse={handleBoost}
+                onMagnet={handleSuperCrush}
+                onFlashLive={handleFlashLive}
+                disabled={swiping}
+                boostPrice={boostPrice}
+                magnetPrice={magnetPrice}
+              />
             </>
           ) : null}
         </div>

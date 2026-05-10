@@ -14,10 +14,11 @@ const {
 } = require("../controllers/withdraw.controller");
 
 const withdrawLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 withdrawal requests per hour
   standardHeaders: true,
   legacyHeaders: false,
+  message: { message: "Demasiadas solicitudes de retiro, intenta de nuevo en una hora" },
 });
 
 // Creator endpoint

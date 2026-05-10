@@ -4,7 +4,7 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
-const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent } = require("../lib/socket.js");
+const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent, clearAllEventsForLive } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
@@ -112,6 +112,9 @@ const endLive = async (req, res) => {
       liveId: String(live._id),
       durationSeconds,
     });
+
+    // Clean up all live events and timers to prevent memory leaks
+    clearAllEventsForLive(req.params.id);
 
     // Notify all viewers in the live room that the stream has ended
     const io = getIO();

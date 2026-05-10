@@ -437,6 +437,30 @@ exports.approveCreator = async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, select: "-password" });
+    
+    // Log creator approval for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "approve_creator",
+      targetType: "Creator",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        previousStatus: targetUser.creatorStatus,
+        newStatus: "approved",
+        isSubCreator: isSubCreatorApproval,
+        reviewNote: reason || "No review note provided",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] Creator approval logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+      isSubCreator: isSubCreatorApproval,
+    });
+    
     return res.json({ ok: true, user });
   } catch (error) {
     console.error("Approve creator error:", error);
@@ -447,6 +471,9 @@ exports.approveCreator = async (req, res) => {
 exports.rejectCreator = async (req, res) => {
   try {
     const reason = (req.body?.reason || "").trim();
+    const targetUser = await User.findById(req.params.id).select("username email creatorStatus");
+    if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
     const updates = {
       role: "user",
       creatorStatus: "rejected",
@@ -460,7 +487,29 @@ exports.rejectCreator = async (req, res) => {
       updates,
       { new: true, select: "-password" }
     );
-    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    
+    // Log creator rejection for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "reject_creator",
+      targetType: "Creator",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        previousStatus: targetUser.creatorStatus,
+        newStatus: "rejected",
+        reviewNote: reason || "No reason provided",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] Creator rejection logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+      reason,
+    });
+    
     return res.json({ ok: true, user });
   } catch (error) {
     console.error("Reject creator error:", error);

@@ -19,8 +19,8 @@ const {
 const router = Router();
 
 const giftLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50,
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 gifts per minute is reasonable for active users
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 

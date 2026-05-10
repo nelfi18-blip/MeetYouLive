@@ -203,6 +203,13 @@ exports.rejectWithdrawal = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
+    // Validate reason is provided and meaningful
+    if (!reason || typeof reason !== "string" || reason.trim().length < 10) {
+      return res.status(400).json({
+        message: "Razón de rechazo es requerida (mínimo 10 caracteres)",
+      });
+    }
+
     const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
     if (!request) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
@@ -226,7 +233,7 @@ exports.rejectWithdrawal = async (req, res) => {
         userId: request.userId,
         type: "admin_adjustment",
         amount: request.amountCoins,
-        reason: reason ? `Retiro rechazado - ${reason}` : "Retiro rechazado - monedas restauradas",
+        reason: `Retiro rechazado - ${reason.trim()}`,
         status: "completed",
         metadata: { withdrawalId: request._id, withdrawalRejection: true },
       });
@@ -250,7 +257,7 @@ exports.rejectWithdrawal = async (req, res) => {
         withdrawalId: String(request._id),
         previousStatus: "pending",
         newStatus: "rejected",
-        reason: reason || "No reason provided",
+        reason: reason.trim(),
         coinsRestored: true,
       },
       ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
@@ -287,6 +294,19 @@ exports.markWithdrawalPaid = async (req, res) => {
     const { id } = req.params;
     const { paymentMethod, transactionId, notes } = req.body;
 
+    // Validate required fields for complete audit trail
+    if (!paymentMethod || typeof paymentMethod !== "string" || !paymentMethod.trim()) {
+      return res.status(400).json({
+        message: "Método de pago es requerido (ej: 'PayPal', 'Wire Transfer', 'Zelle')",
+      });
+    }
+
+    if (!transactionId || typeof transactionId !== "string" || !transactionId.trim()) {
+      return res.status(400).json({
+        message: "ID de transacción es requerido para verificación",
+      });
+    }
+
     const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
     if (!request) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
@@ -317,9 +337,9 @@ exports.markWithdrawalPaid = async (req, res) => {
         withdrawalId: String(request._id),
         previousStatus: "approved",
         newStatus: "paid",
-        paymentMethod: paymentMethod || "manual",
-        transactionId: transactionId || null,
-        notes: notes || "",
+        paymentMethod: paymentMethod.trim(),
+        transactionId: transactionId.trim(),
+        notes: notes ? notes.trim() : "",
       },
       ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
     });
@@ -329,7 +349,8 @@ exports.markWithdrawalPaid = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountUSD: request.amountUSD,
-      paymentMethod,
+      paymentMethod: paymentMethod.trim(),
+      transactionId: transactionId.trim(),
     });
 
     return res.json({

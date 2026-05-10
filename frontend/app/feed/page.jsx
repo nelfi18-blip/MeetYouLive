@@ -78,23 +78,42 @@ export default function ModernFeedPage() {
   useEffect(() => {
     if (!session?.backendToken) return;
 
+    let isCancelled = false;
+    const controller = new AbortController();
+
     const fetchFeed = async () => {
-      // Show loading for max 2 seconds - safety timeout to prevent infinite loading
+      // Safety timeout to prevent infinite loading - fires after 10 seconds as last resort
       const loadingTimeout = setTimeout(() => {
-        setLivesLoading(false);
-        setLoading(false);
-      }, 2000);
+        if (!isCancelled) {
+          console.warn("Feed loading timeout reached - forcing loading state to false");
+          setLivesLoading(false);
+          setLoading(false);
+        }
+      }, 10000);
 
       try {
-        const res = await fetch(`${API_URL}/api/feed`, {
-          headers: {
-            Authorization: `Bearer ${session.backendToken}`,
-          },
-        });
+        const [feedRes, userRes] = await Promise.all([
+          fetch(`${API_URL}/api/feed`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+            signal: controller.signal,
+          }),
+          fetch(`${API_URL}/api/user/me`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+            signal: controller.signal,
+          }),
+        ]);
 
-        if (!res.ok) throw new Error("Error loading feed");
+        if (isCancelled) return;
 
-        const data = await res.json();
+        clearTimeout(loadingTimeout);
+
+        if (!feedRes.ok) throw new Error("Unable to load feed");
+
+        const data = await feedRes.json();
         
         // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
@@ -110,19 +129,41 @@ export default function ModernFeedPage() {
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
-        clearTimeout(loadingTimeout);
+
+        // Get user coins balance
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setUserCoins(userData.coinsBalance || 0);
+        }
+
+        setError(null);
         setLivesLoading(false);
         setLoading(false);
       } catch (err) {
-        console.error("Feed error:", err);
-        setError(err.message || "Error loading feed");
+        if (isCancelled) return;
+        
         clearTimeout(loadingTimeout);
+        console.error("Feed error:", err);
+        
+        // Set user-friendly error message based on error type
+        if (err.name === 'AbortError') {
+          setError('Request timed out. Please check your connection and try again.');
+        } else {
+          setError(err.message || 'Unable to load feed. Please try again.');
+        }
+        
         setLivesLoading(false);
         setLoading(false);
       }
     };
 
     fetchFeed();
+
+    // Cleanup function to cancel request if component unmounts
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
   }, [session]);
 
   // Swipe handlers

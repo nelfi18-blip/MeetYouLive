@@ -372,8 +372,45 @@ const initSocket = (httpServer) => {
         const count = getLiveViewerCount(liveRoomId);
         io.to(`live:${liveRoomId}`).emit("VIEWER_COUNT_UPDATE", { liveId: liveRoomId, count });
       }
-      removeHostFromAllLives(socket.id);
-      socket._liveHostRoomId = null;
+      // Auto-cleanup: if this was a host socket and no hosts remain, end the live stream
+      const hostRoomId = socket._liveHostRoomId;
+      if (hostRoomId) {
+        removeHostFromLive(socket.id, hostRoomId);
+        socket._liveHostRoomId = null;
+        
+        // Check if stream has no more hosts
+        if (!hasLiveHost(hostRoomId)) {
+          console.log("[socket] No hosts remaining for live stream, auto-ending", {
+            liveId: hostRoomId,
+            userId: socket._userId,
+          });
+          
+          // End the stream in database (fire-and-forget to avoid blocking disconnect)
+          Live.findOneAndUpdate(
+            { _id: hostRoomId, isLive: true },
+            { isLive: false, endedAt: new Date() }
+          )
+            .then((updated) => {
+              if (updated) {
+                console.log("[socket] Live stream auto-ended in DB", { liveId: hostRoomId });
+                // Notify all viewers that stream has ended
+                io.to(`live:${hostRoomId}`).emit("LIVE_STREAM_ENDED", {
+                  liveId: hostRoomId,
+                  reason: "host_disconnected",
+                });
+              }
+            })
+            .catch((err) => {
+              console.error("[socket] Failed to auto-end live stream", {
+                liveId: hostRoomId,
+                error: err.message,
+              });
+            });
+        }
+      } else {
+        // If socket was in host map but didn't have _liveHostRoomId, clean up anyway
+        removeHostFromAllLives(socket.id);
+      }
     });
   });
 

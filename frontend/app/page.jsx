@@ -60,7 +60,7 @@ export default function LandingPage() {
 
         {/* CTA Buttons */}
         <div className={styles.ctaButtons}>
-          <Link href="/feed" className={styles.btnPrimaryLanding}>
+          <Link href="/login" className={styles.btnPrimaryLanding}>
             Entrar ahora
             <span className={styles.btnGlow}></span>
           </Link>

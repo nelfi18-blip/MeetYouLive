@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { getHomePath } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,9 +17,29 @@ export default function BottomNavEnhanced() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
   const [showNewMatchAnimation, setShowNewMatchAnimation] = useState(false);
+  const [role, setRole] = useState("");
+  
+  // Fetch user role
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    
+    fetch(`${API_URL}/api/user/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setRole(d.role || ""); })
+      .catch(() => {});
+  }, [session]);
+  
+  // Get role-aware home path
+  const homePath = useMemo(() => getHomePath(role), [role]);
   
   const isActive = (path) => {
-    if (path === "/feed") return pathname === "/" || pathname === "/feed";
+    if (path === homePath) {
+      // Home is active if we're on the home path or the root path
+      return pathname === "/" || pathname === homePath;
+    }
     return pathname?.startsWith(path);
   };
 
@@ -140,7 +161,7 @@ export default function BottomNavEnhanced() {
 
       {/* Bottom Navigation Bar */}
       <nav className="bottom-nav-enhanced">
-        <Link href="/feed" className={`nav-item ${isActive("/feed") ? "active" : ""}`}>
+        <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           {showNewMatchAnimation && (
             <motion.div
               className="nav-pulse-animation"

@@ -145,8 +145,9 @@ export function clearAllAuth() {
 /**
  * Fetch current user data from the backend API to check role and other info.
  * Returns the user object or null if the request fails.
+ * Includes timeout to prevent infinite waiting.
  */
-export async function fetchUserRole(token) {
+export async function fetchUserRole(token, timeoutMs = 10000) {
   if (!token) return null;
   
   const API_URL = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL 
@@ -159,11 +160,18 @@ export async function fetchUserRole(token) {
   }
   
   try {
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
     const response = await fetch(`${API_URL}/api/user/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.error("[fetchUserRole] Failed to fetch user data:", response.status);
@@ -173,7 +181,11 @@ export async function fetchUserRole(token) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("[fetchUserRole] Error fetching user data:", error);
+    if (error.name === 'AbortError') {
+      console.error("[fetchUserRole] Request timeout after", timeoutMs, "ms");
+    } else {
+      console.error("[fetchUserRole] Error fetching user data:", error);
+    }
     return null;
   }
 }
@@ -185,4 +197,15 @@ export async function fetchUserRole(token) {
 export async function isAdmin(token) {
   const user = await fetchUserRole(token);
   return user?.role === "admin";
+}
+
+/**
+ * Get the appropriate home path based on user role.
+ * Admin users go to /admin, regular users go to /feed.
+ * Returns "/" for public visitors (when no role provided).
+ */
+export function getHomePath(userRole) {
+  if (!userRole) return "/";
+  if (userRole === "admin") return "/admin";
+  return "/feed";
 }

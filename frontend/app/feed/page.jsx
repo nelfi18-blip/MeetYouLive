@@ -29,6 +29,7 @@ export default function ModernFeedPage() {
   const [featuredCreators, setFeaturedCreators] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [swiping, setSwiping] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
@@ -77,19 +78,26 @@ export default function ModernFeedPage() {
     if (!session?.backendToken) return;
 
     const fetchFeed = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       try {
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
             headers: {
               Authorization: `Bearer ${session.backendToken}`,
             },
+            signal: controller.signal,
           }),
           fetch(`${API_URL}/api/user/me`, {
             headers: {
               Authorization: `Bearer ${session.backendToken}`,
             },
+            signal: controller.signal,
           }),
         ]);
+
+        clearTimeout(timeoutId);
 
         if (!feedRes.ok) throw new Error("Error loading feed");
 
@@ -113,9 +121,18 @@ export default function ModernFeedPage() {
           setUserCoins(userData.coinsBalance || 0);
         }
 
+        setError(null);
         setLoading(false);
       } catch (err) {
+        clearTimeout(timeoutId);
         console.error("Feed error:", err);
+        // Set error state so we show a friendly message
+        if (err.name === 'AbortError') {
+          setError('timeout');
+        } else {
+          setError('failed');
+        }
+        // Always set loading to false even on error
         setLoading(false);
       }
     };
@@ -294,6 +311,49 @@ export default function ModernFeedPage() {
         }}>
           <div className="spinner"></div>
           <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show error state if API failed
+  if (error) {
+    return (
+      <div className="modern-page">
+        <ModernTopBar />
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '70vh',
+          flexDirection: 'column',
+          gap: '1rem',
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '4rem' }}>😔</div>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            {error === 'timeout' ? 'Tiempo de espera agotado' : 'Error de conexión'}
+          </h3>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
+            No hay contenido disponible por ahora. Intenta nuevamente.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem 2rem',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     );

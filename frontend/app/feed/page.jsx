@@ -79,11 +79,12 @@ export default function ModernFeedPage() {
     if (!session?.backendToken) return;
 
     let isCancelled = false;
+    let loadingTimeout = null;
     const controller = new AbortController();
 
     const fetchFeed = async () => {
       // Safety timeout to prevent infinite loading - fires after 10 seconds as last resort
-      const loadingTimeout = setTimeout(() => {
+      loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
           console.warn("Feed loading timeout reached - forcing loading state to false");
           setLivesLoading(false);
@@ -145,9 +146,10 @@ export default function ModernFeedPage() {
         clearTimeout(loadingTimeout);
         console.error("Feed error:", err);
         
-        // Set user-friendly error message based on error type
+        // Set user-friendly error message - don't show error for cancelled requests
         if (err.name === 'AbortError') {
-          setError('Request timed out. Please check your connection and try again.');
+          // Request was cancelled (component unmounted or timeout) - don't set error
+          console.log("Feed request cancelled");
         } else {
           setError(err.message || 'Unable to load feed. Please try again.');
         }
@@ -162,6 +164,7 @@ export default function ModernFeedPage() {
     // Cleanup function to cancel request if component unmounts
     return () => {
       isCancelled = true;
+      if (loadingTimeout) clearTimeout(loadingTimeout);
       controller.abort();
     };
   }, [session]);

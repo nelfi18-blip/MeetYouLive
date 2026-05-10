@@ -1,6 +1,7 @@
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
+const { logStaffAction } = require("../services/audit.service");
 
 // Minimum withdrawal amount in coins
 const MIN_WITHDRAWAL_COINS = 1000;
@@ -129,12 +130,18 @@ exports.listWithdrawals = async (req, res) => {
 /**
  * PATCH /api/admin/withdrawals/:id/approve
  * Approve a withdrawal request (admin only)
+ * 
+ * IMPORTANT: This is a MANUAL approval system.
+ * Approval does NOT trigger automatic Stripe Connect payout.
+ * Admin must manually process payment via external means.
+ * Status "approved" means admin has reviewed and will manually send funds.
+ * Future enhancement: integrate Stripe Connect for automatic payouts.
  */
 exports.approveWithdrawal = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const request = await WithdrawalRequest.findById(id);
+    const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
     if (!request) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
     }
@@ -150,10 +157,36 @@ exports.approveWithdrawal = async (req, res) => {
     request.status = "approved";
     await request.save();
 
+    // Log admin action for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "approve_withdrawal",
+      targetType: "Payout",
+      targetId: request._id,
+      targetIdentifier: request.userId?.username || request.userId?.email || String(request.userId),
+      details: {
+        amountCoins: request.amountCoins,
+        amountUSD: request.amountUSD,
+        withdrawalId: String(request._id),
+        previousStatus: "pending",
+        newStatus: "approved",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[withdraw] Approval logged", {
+      adminId: req.userId,
+      withdrawalId: String(request._id),
+      userId: String(request.userId),
+      amountUSD: request.amountUSD,
+    });
+
     return res.json({
       ok: true,
-      message: "Solicitud aprobada exitosamente",
+      message: "Solicitud aprobada exitosamente. Procesa el pago manualmente.",
       request,
+      note: "MANUAL PAYOUT REQUIRED: This approval does not trigger automatic Stripe payment. Admin must manually send funds.",
     });
   } catch (error) {
     console.error("Error approving withdrawal:", error);
@@ -168,8 +201,9 @@ exports.approveWithdrawal = async (req, res) => {
 exports.rejectWithdrawal = async (req, res) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body;
 
-    const request = await WithdrawalRequest.findById(id);
+    const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
     if (!request) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
     }
@@ -192,7 +226,7 @@ exports.rejectWithdrawal = async (req, res) => {
         userId: request.userId,
         type: "admin_adjustment",
         amount: request.amountCoins,
-        reason: "Retiro rechazado - monedas restauradas",
+        reason: reason ? `Retiro rechazado - ${reason}` : "Retiro rechazado - monedas restauradas",
         status: "completed",
         metadata: { withdrawalId: request._id, withdrawalRejection: true },
       });
@@ -202,6 +236,34 @@ exports.rejectWithdrawal = async (req, res) => {
     request.status = "rejected";
     await request.save();
 
+    // Log admin action for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "reject_withdrawal",
+      targetType: "Payout",
+      targetId: request._id,
+      targetIdentifier: request.userId?.username || request.userId?.email || String(request.userId),
+      details: {
+        amountCoins: request.amountCoins,
+        amountUSD: request.amountUSD,
+        withdrawalId: String(request._id),
+        previousStatus: "pending",
+        newStatus: "rejected",
+        reason: reason || "No reason provided",
+        coinsRestored: true,
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[withdraw] Rejection logged", {
+      adminId: req.userId,
+      withdrawalId: String(request._id),
+      userId: String(request.userId),
+      amountCoins: request.amountCoins,
+      reason,
+    });
+
     return res.json({
       ok: true,
       message: "Solicitud rechazada y monedas restauradas",
@@ -210,5 +272,73 @@ exports.rejectWithdrawal = async (req, res) => {
   } catch (error) {
     console.error("Error rejecting withdrawal:", error);
     return res.status(500).json({ message: "Error al rechazar solicitud de retiro" });
+  }
+};
+
+/**
+ * PATCH /api/admin/withdrawals/:id/mark-paid
+ * Mark a withdrawal as paid after manual payment (admin only)
+ * 
+ * IMPORTANT: This endpoint should be called ONLY after admin has
+ * manually sent funds to the creator via external payment method.
+ */
+exports.markWithdrawalPaid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentMethod, transactionId, notes } = req.body;
+
+    const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
+    if (!request) {
+      return res.status(404).json({ message: "Solicitud no encontrada" });
+    }
+
+    if (request.status !== "approved") {
+      return res.status(400).json({
+        message: "Solo se pueden marcar como pagadas las solicitudes aprobadas",
+        currentStatus: request.status,
+      });
+    }
+
+    // Update status to paid
+    request.status = "paid";
+    await request.save();
+
+    // Log admin action for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "mark_withdrawal_paid",
+      targetType: "Payout",
+      targetId: request._id,
+      targetIdentifier: request.userId?.username || request.userId?.email || String(request.userId),
+      details: {
+        amountCoins: request.amountCoins,
+        amountUSD: request.amountUSD,
+        withdrawalId: String(request._id),
+        previousStatus: "approved",
+        newStatus: "paid",
+        paymentMethod: paymentMethod || "manual",
+        transactionId: transactionId || null,
+        notes: notes || "",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[withdraw] Payment marked as completed", {
+      adminId: req.userId,
+      withdrawalId: String(request._id),
+      userId: String(request.userId),
+      amountUSD: request.amountUSD,
+      paymentMethod,
+    });
+
+    return res.json({
+      ok: true,
+      message: "Solicitud marcada como pagada",
+      request,
+    });
+  } catch (error) {
+    console.error("Error marking withdrawal as paid:", error);
+    return res.status(500).json({ message: "Error al marcar solicitud como pagada" });
   }
 };

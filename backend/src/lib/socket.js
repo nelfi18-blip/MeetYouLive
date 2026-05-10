@@ -82,6 +82,14 @@ const clearLiveEvent = (liveId) => {
   }
 };
 
+/**
+ * Clear all live events for a specific live stream.
+ * Used when a live stream ends to prevent memory leaks.
+ */
+const clearAllEventsForLive = (liveId) => {
+  clearLiveEvent(liveId);
+};
+
 /** Return current viewer count for a live stream. */
 const getLiveViewerCount = (liveId) => {
   const viewers = liveViewers.get(liveId);
@@ -393,6 +401,13 @@ const initSocket = (httpServer) => {
             .then((updated) => {
               if (updated) {
                 console.log("[socket] Live stream auto-ended in DB", { liveId: hostRoomId });
+                
+                // Clean up all live events and timers to prevent memory leaks
+                clearAllEventsForLive(hostRoomId);
+                
+                // Clean up viewer tracking
+                liveViewers.delete(hostRoomId);
+                
                 // Notify all viewers that stream has ended
                 io.to(`live:${hostRoomId}`).emit("LIVE_STREAM_ENDED", {
                   liveId: hostRoomId,
@@ -423,4 +438,13 @@ const initSocket = (httpServer) => {
  */
 const getIO = () => io;
 
-module.exports = { initSocket, getIO, getOnlineUsers, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent };
+module.exports = { 
+  initSocket, 
+  getIO, 
+  getOnlineUsers, 
+  hasLiveHost, 
+  getLiveEvent, 
+  setLiveEvent, 
+  clearLiveEvent,
+  clearAllEventsForLive,
+};

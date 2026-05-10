@@ -8,9 +8,9 @@ const { canWatchVideo } = require("../controllers/video.controller.js");
 const router = Router();
 
 const paymentLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 payment attempts per minute
+  message: { message: "Demasiadas solicitudes de pago, intenta de nuevo más tarde" },
 });
 
 router.post("/checkout/:videoId", paymentLimiter, verifyToken, createCheckoutSession);

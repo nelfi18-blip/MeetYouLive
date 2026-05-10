@@ -1350,8 +1350,9 @@ main.main-content:has(.admin-shell) {
 /* Modern Page Container */
 .modern-page {
   min-height: 100vh;
-  padding-bottom: 90px; /* Space for bottom nav + safe area */
+  padding-bottom: calc(180px + env(safe-area-inset-bottom)); /* Space for InteractionBar + bottom nav + safe area */
   padding-top: 0; /* Remove top padding - header is sticky */
+  overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .modern-section {

@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ModernTopBar from "@/components/ModernTopBar";
 import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,6 +37,7 @@ export default function ModernFeedPage() {
   const [userCoins, setUserCoins] = useState(0);
   const [boostPrice] = useState(100);
   const [magnetPrice] = useState(50);
+  const [matchCardImgError, setMatchCardImgError] = useState(false);
   
   // Refs
   const startXRef = useRef(0);
@@ -172,6 +172,11 @@ export default function ModernFeedPage() {
       controller.abort();
     };
   }, [status, session?.backendToken, session?.user?.id]);
+
+  // Reset image error when card changes
+  useEffect(() => {
+    setMatchCardImgError(false);
+  }, [currentIndex]);
 
   // Swipe handlers
   const handleStart = (clientX) => {
@@ -398,8 +403,6 @@ export default function ModernFeedPage() {
 
   return (
     <div className="modern-page">
-      <ModernTopBar />
-
       {/* Heart Animation */}
       {showHeartAnimation && (
         <div 
@@ -414,7 +417,7 @@ export default function ModernFeedPage() {
       )}
 
       {/* Section 1: MATCH (First - Priority) */}
-      <div className="modern-section" style={{ marginTop: '0.5rem' }}>
+      <div className="modern-section" style={{ marginTop: '1rem' }}>
         <div style={{ padding: '0 1rem 0.75rem' }}>
           {!hasMoreProfiles ? (
             <div className="no-content" style={{ padding: '2rem 1rem' }}>
@@ -468,11 +471,12 @@ export default function ModernFeedPage() {
                   const initial = getInitial(displayName);
                   const gradient = getGradientForUser(currentProfile._id);
 
-                  return userImage ? (
+                  return userImage && !matchCardImgError ? (
                     <img 
                       src={userImage} 
                       alt={displayName}
                       className="match-card-image"
+                      onError={() => setMatchCardImgError(true)}
                     />
                   ) : (
                     <div className="match-card-image" style={{
@@ -580,44 +584,55 @@ export default function ModernFeedPage() {
                 >
                   <div className="live-thumb">
                     {liveThumb ? (
-                      <img src={liveThumb} alt={live.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        background: gradient,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        position: 'relative'
+                      <img 
+                        src={liveThumb} 
+                        alt={live.title} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          // Hide broken image and show fallback
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      background: gradient,
+                      display: liveThumb ? 'none' : 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      position: liveThumb ? 'absolute' : 'relative',
+                      top: 0,
+                      left: 0,
+                    }}>
+                      {/* Glow effect */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                        pointerEvents: 'none',
+                      }}></div>
+                      <div style={{
+                        fontSize: '2.5rem',
+                        fontWeight: 900,
+                        color: 'white',
+                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
+                        zIndex: 1
                       }}>
-                        {/* Glow effect */}
-                        <div style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                          pointerEvents: 'none',
-                        }}></div>
-                        <div style={{
-                          fontSize: '2.5rem',
-                          fontWeight: 900,
-                          color: 'white',
-                          textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
-                          zIndex: 1
-                        }}>
-                          {creatorInitial}
-                        </div>
-                        <div style={{
-                          fontSize: '2rem',
-                          opacity: 0.8,
-                          zIndex: 1
-                        }}>
-                          📹
-                        </div>
+                        {creatorInitial}
                       </div>
-                    )}
+                      <div style={{
+                        fontSize: '2rem',
+                        opacity: 0.8,
+                        zIndex: 1
+                      }}>
+                        📹
+                      </div>
+                    </div>
                     <div className="live-badge-pulse">🔴 LIVE</div>
                     {live.viewerCount > 0 && (
                       <div className="live-viewers">
@@ -681,7 +696,42 @@ export default function ModernFeedPage() {
                 >
                   <div className="creator-story-avatar">
                     {creatorImage ? (
-                      <img src={creatorImage} alt={creatorName} />
+                      <>
+                        <img 
+                          src={creatorImage} 
+                          alt={creatorName}
+                          onError={(e) => {
+                            // Hide broken image and show fallback
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: gradient,
+                          fontSize: '2rem',
+                          fontWeight: 900,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                        }}>
+                          {/* Subtle glow */}
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
+                            pointerEvents: 'none',
+                          }}></div>
+                          <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
+                        </div>
+                      </>
                     ) : (
                       <div style={{
                         width: '100%',

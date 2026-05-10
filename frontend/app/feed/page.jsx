@@ -148,8 +148,8 @@ export default function ModernFeedPage() {
         
         // Set user-friendly error message - don't show error for cancelled requests
         if (err.name === 'AbortError') {
-          // Request was cancelled (component unmounted or timeout) - don't set error
-          console.log("Feed request cancelled");
+          // Request was cancelled on component unmount - don't set error
+          console.log("Feed request cancelled on unmount");
         } else {
           setError(err.message || 'Unable to load feed. Please try again.');
         }

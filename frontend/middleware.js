@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // ── Homepage Protection ────────────────────────────────────────────────────
+  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
+  // This is a public landing page that should never redirect to admin or auth pages.
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
   // Cookie set by email/password login AND by the dashboard once the backend
   // token is confirmed for Google OAuth users. Only this cookie means the full
   // auth handshake (including the backend JWT) is complete.
@@ -23,6 +30,7 @@ export function middleware(request) {
 
   const isProtectedRoute =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/feed") ||
     pathname.startsWith("/profile") ||
     pathname.startsWith("/creator") ||
     pathname.startsWith("/chats") ||
@@ -49,11 +57,18 @@ export function middleware(request) {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
 
-  // Admin users must not access regular user pages — redirect with message.
-  if (adminSession && (isProtectedRoute || isAuthPage)) {
+  // Admin users must not access regular user pages.
+  // Redirect to /admin/blocked only for protected routes so they see an explanation.
+  // For auth pages, redirect directly to /admin (they shouldn't be logging in again).
+  if (adminSession && isProtectedRoute) {
     const url = new URL("/admin/blocked", request.url);
     url.searchParams.set("from", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Admins on auth pages (trying to login again) → send to admin dashboard
+  if (adminSession && isAuthPage) {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   // ── Regular user routing ───────────────────────────────────────────────────
@@ -63,8 +78,9 @@ export function middleware(request) {
   // sets the NextAuth cookie before the backend token is fetched, so the
   // home page would have no token and redirect back to /login, which the
   // middleware would immediately bounce back to home — infinitely.
+  // Regular authenticated users on auth pages should go to /feed, not homepage.
   if (backendSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/feed", request.url));
   }
 
   // Block unauthenticated access to protected routes (either session type is

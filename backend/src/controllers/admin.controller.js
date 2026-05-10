@@ -263,6 +263,27 @@ exports.makeAdmin = async (req, res) => {
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     }
 
+    // Log role change for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "make_admin",
+      targetType: "User",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        previousRole: "user",
+        newRole: "admin",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] Role change logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+      newRole: "admin",
+    });
+
     return res.json({ ok: true, user });
   } catch (error) {
     console.error("Make admin error:", error);
@@ -450,6 +471,12 @@ exports.rejectCreator = async (req, res) => {
 exports.suspendCreator = async (req, res) => {
   try {
     const reason = (req.body?.reason || "").trim();
+    const targetUser = await User.findById(req.params.id).select("username email role creatorStatus");
+    if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    const previousRole = targetUser.role;
+    const previousStatus = targetUser.creatorStatus;
+
     const updates = {
       role: "user",
       creatorStatus: "suspended",
@@ -458,12 +485,37 @@ exports.suspendCreator = async (req, res) => {
       "creatorApplication.reviewedAt": new Date(),
     };
     if (reason) updates["creatorApplication.reviewNote"] = reason.slice(0, MAX_REVIEW_NOTE_LENGTH);
+    
     const user = await User.findByIdAndUpdate(
       req.params.id,
       updates,
       { new: true, select: "-password" }
     );
-    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    // Log suspension for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "suspend_creator",
+      targetType: "Creator",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        previousRole,
+        previousStatus,
+        newRole: "user",
+        newStatus: "suspended",
+        reason: reason || "No reason provided",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] Creator suspension logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+      reason,
+    });
+
     return res.json({ ok: true, user });
   } catch (error) {
     console.error("Suspend creator error:", error);
@@ -632,12 +684,35 @@ exports.getCreatorDetail = async (req, res) => {
 
 exports.suspendUser = async (req, res) => {
   try {
+    const targetUser = await User.findById(req.params.id).select("username email isSuspended");
+    if (!targetUser) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isSuspended: true },
       { new: true, select: "-password" }
     );
-    if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    // Log suspension for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "suspend_user",
+      targetType: "User",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        previouslySuspended: targetUser.isSuspended || false,
+        newSuspendedStatus: true,
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] User suspension logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+    });
+
     return res.json({ ok: true, message: "Usuario suspendido", user });
   } catch (error) {
     console.error("Suspend user error:", error);
@@ -653,6 +728,26 @@ exports.unsuspendUser = async (req, res) => {
       { new: true, select: "-password" }
     );
     if (!user) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+
+    // Log unsuspension for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "unsuspend_user",
+      targetType: "User",
+      targetId: user._id,
+      targetIdentifier: user.username || user.email,
+      details: {
+        newSuspendedStatus: false,
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] User unsuspension logged", {
+      adminId: req.userId,
+      targetUserId: String(user._id),
+    });
+
     return res.json({ ok: true, message: "Usuario reactivado", user });
   } catch (error) {
     console.error("Unsuspend user error:", error);
@@ -672,12 +767,38 @@ exports.updateReport = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ ok: false, message: "ID de reporte inválido" });
     }
+
+    const existingReport = await Report.findById(req.params.id).select("status");
+    if (!existingReport) return res.status(404).json({ ok: false, message: "Reporte no encontrado" });
+
     const report = await Report.findByIdAndUpdate(
       req.params.id,
       { status },
       { new: true }
     ).populate("reporter", "username name avatar");
-    if (!report) return res.status(404).json({ ok: false, message: "Reporte no encontrado" });
+
+    // Log report action for audit trail
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: "admin",
+      action: "update_report",
+      targetType: "Report",
+      targetId: report._id,
+      targetIdentifier: `Report-${String(report._id).slice(-8)}`,
+      details: {
+        previousStatus: existingReport.status,
+        newStatus: status,
+        reportType: report.type || "unknown",
+      },
+      ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    });
+
+    console.log("[admin] Report update logged", {
+      adminId: req.userId,
+      reportId: String(report._id),
+      newStatus: status,
+    });
+
     return res.json({ ok: true, report });
   } catch (error) {
     console.error("Update report error:", error);

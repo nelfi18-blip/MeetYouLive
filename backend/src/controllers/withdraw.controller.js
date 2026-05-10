@@ -7,6 +7,8 @@ const { logStaffAction } = require("../services/audit.service");
 const MIN_WITHDRAWAL_COINS = 1000;
 // Conversion rate: 1 coin = $0.10 USD
 const COINS_PER_USD = 10;
+// Minimum rejection reason length for audit trail
+const MIN_REJECTION_REASON_LENGTH = 10;
 
 /**
  * POST /api/withdraw/request
@@ -204,9 +206,9 @@ exports.rejectWithdrawal = async (req, res) => {
     const { reason } = req.body;
 
     // Validate reason is provided and meaningful
-    if (!reason || typeof reason !== "string" || reason.trim().length < 10) {
+    if (!reason || typeof reason !== "string" || reason.trim().length < MIN_REJECTION_REASON_LENGTH) {
       return res.status(400).json({
-        message: "Razón de rechazo es requerida (mínimo 10 caracteres)",
+        message: `Razón de rechazo es requerida (mínimo ${MIN_REJECTION_REASON_LENGTH} caracteres)`,
       });
     }
 

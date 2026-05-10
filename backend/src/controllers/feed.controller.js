@@ -119,17 +119,18 @@ const getFeed = async (req, res) => {
       featuredCreators
     });
   } catch (error) {
-    console.error("[Feed API] Error loading feed:", error);
-    console.error("[Feed API] Error stack:", error.stack);
+    console.error("[Feed API] Error loading feed:", error.message);
     
-    // Only expose error message in development, use generic message in production
-    const errorMessage = process.env.NODE_ENV === 'production' 
-      ? "Error loading feed" 
-      : error.message;
+    // Only log stack trace in development to prevent information disclosure
+    if (process.env.NODE_ENV !== 'production') {
+      console.error("[Feed API] Error stack:", error.stack);
+    }
     
+    // Use consistent error response format as per project guidelines
     res.status(500).json({ 
-      error: "Error loading feed",
-      message: errorMessage
+      message: process.env.NODE_ENV === 'production' 
+        ? "Error al cargar el feed" 
+        : `Error al cargar el feed: ${error.message}`
     });
   }
 };

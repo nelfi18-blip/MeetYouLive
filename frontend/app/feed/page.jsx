@@ -182,10 +182,10 @@ export default function ModernFeedPage() {
           setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
         } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
           // Network error - server might be down or unreachable
-          console.error("[Feed] Network error - server might be down:", err);
+          console.error("[Feed] Network error - server might be down:", err.message);
           setError("No se puede conectar al servidor. Verifica tu conexión.");
         } else {
-          console.error("[Feed] Error:", err.message || err);
+          console.error("[Feed] Error:", err.message);
           setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
         }
         

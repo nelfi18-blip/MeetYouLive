@@ -32,6 +32,7 @@ export default function ModernFeedPage() {
   const [error, setError] = useState(null);
   const [swiping, setSwiping] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
+  const [livesLoading, setLivesLoading] = useState(true);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
   const [userCoins, setUserCoins] = useState(0);
@@ -78,32 +79,27 @@ export default function ModernFeedPage() {
     if (!session?.backendToken) return;
 
     const fetchFeed = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
+      // Show loading for max 2 seconds - safety timeout to prevent infinite loading
+      const loadingTimeout = setTimeout(() => {
+        setLivesLoading(false);
+        setLoading(false);
+      }, 2000);
+
       try {
-        const [feedRes, userRes] = await Promise.all([
-          fetch(`${API_URL}/api/feed`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
-            signal: controller.signal,
-          }),
-          fetch(`${API_URL}/api/user/me`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
-            signal: controller.signal,
-          }),
-        ]);
+        const res = await fetch(`${API_URL}/api/feed`, {
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        });
 
-        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error("Error loading feed");
 
-        if (!feedRes.ok) throw new Error("Error loading feed");
-
-        const data = await feedRes.json();
+        const data = await res.json();
         
+        // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
+        
+        // Deduplicate profiles and creators by _id
         const uniqueProfiles = Array.from(
           new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
         );
@@ -114,25 +110,14 @@ export default function ModernFeedPage() {
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
-
-        // Get user coins balance
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUserCoins(userData.coinsBalance || 0);
-        }
-
-        setError(null);
+        clearTimeout(loadingTimeout);
+        setLivesLoading(false);
         setLoading(false);
       } catch (err) {
-        clearTimeout(timeoutId);
         console.error("Feed error:", err);
-        // Set error state so we show a friendly message
-        if (err.name === 'AbortError') {
-          setError('timeout');
-        } else {
-          setError('failed');
-        }
-        // Always set loading to false even on error
+        setError(err.message || "Error loading feed");
+        clearTimeout(loadingTimeout);
+        setLivesLoading(false);
         setLoading(false);
       }
     };

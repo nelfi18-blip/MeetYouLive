@@ -512,6 +512,27 @@ export default function ModernFeedPage() {
                     </h2>
                     {currentProfile.isOnline && <div className="online-indicator"></div>}
                   </div>
+                  
+                  {/* Creator or Live badge */}
+                  {(currentProfile.role === "creator" || currentProfile.creatorStatus === "approved") && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3))',
+                      border: '1px solid rgba(224,64,251,0.5)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#e040fb',
+                      marginBottom: '0.5rem',
+                      boxShadow: '0 0 12px rgba(224,64,251,0.3)',
+                    }}>
+                      ⭐ Creator
+                    </div>
+                  )}
+                  
                   <div className="match-card-details">
                     {currentProfile.location && (
                       <span>📍 {currentProfile.location}</span>
@@ -520,14 +541,14 @@ export default function ModernFeedPage() {
                   {currentProfile.bio && (
                     <p className="match-card-bio">{currentProfile.bio}</p>
                   )}
-                  {currentProfile.tags && currentProfile.tags.length > 0 && (
+                  {currentProfile.tags && Array.isArray(currentProfile.tags) && currentProfile.tags.length > 0 && (
                     <div className="match-card-tags" style={{
                       display: 'flex',
                       gap: '0.5rem',
                       flexWrap: 'wrap',
                       marginTop: '0.75rem'
                     }}>
-                      {currentProfile.tags.slice(0, 3).map((tag, idx) => (
+                      {currentProfile.tags.filter(tag => tag && typeof tag === 'string' && tag.trim()).slice(0, 3).map((tag, idx) => (
                         <span key={idx} style={{
                           fontSize: '0.7rem',
                           fontWeight: 700,
@@ -535,7 +556,9 @@ export default function ModernFeedPage() {
                           borderRadius: '999px',
                           background: 'rgba(139,92,246,0.25)',
                           border: '1px solid rgba(139,92,246,0.4)',
-                          color: '#c4b5fd'
+                          color: '#c4b5fd',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
                         }}>
                           {tag}
                         </span>

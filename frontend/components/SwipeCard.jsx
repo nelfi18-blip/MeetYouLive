@@ -122,20 +122,33 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
           </div>
         )}
         
-        {/* Like Overlay */}
+        {/* SPARK Overlay (Like) */}
         <motion.div 
-          className="swipe-overlay swipe-overlay-like"
+          className="swipe-overlay swipe-overlay-spark"
           style={{ opacity: likeOpacity }}
         >
-          <span className="swipe-overlay-text">LIKE</span>
+          <div className="swipe-overlay-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" className="swipe-overlay-icon">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+            </svg>
+            <span className="swipe-overlay-text">SPARK</span>
+          </div>
+          <div className="swipe-glow-ring" />
         </motion.div>
         
-        {/* Nope Overlay */}
+        {/* FADE Overlay (Pass) */}
         <motion.div 
-          className="swipe-overlay swipe-overlay-nope"
+          className="swipe-overlay swipe-overlay-fade"
           style={{ opacity: nopeOpacity }}
         >
-          <span className="swipe-overlay-text">NOPE</span>
+          <div className="swipe-overlay-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="swipe-overlay-icon">
+              <circle cx="12" cy="12" r="10" opacity="0.3" />
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+            <span className="swipe-overlay-text">FADE</span>
+          </div>
+          <div className="swipe-glow-ring" />
         </motion.div>
       </div>
 

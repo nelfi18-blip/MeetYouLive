@@ -38,10 +38,10 @@ export default function SwipeActions({
 
   const tooltips = {
     rewind: 'Deshacer último swipe',
-    pass: 'Pasar perfil',
-    star: `Super Like (${superLikesLeft} restantes)`,
-    like: 'Me gusta',
-    boost: `Impulsar perfil (${boostsLeft} restantes)`
+    pass: 'FADE - Pasar perfil',
+    star: `MAGNET - Super atracción (${superLikesLeft} restantes)`,
+    like: 'SPARK - Me gusta',
+    boost: `PULSE - Impulsar perfil (${boostsLeft} restantes)`
   };
 
   return (
@@ -93,9 +93,10 @@ export default function SwipeActions({
           onMouseLeave={() => setShowTooltip(null)}
           aria-label={tooltips.pass}
         >
+          {/* FADE - Eclipse style icon */}
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
+            <circle cx="12" cy="12" r="10" opacity="0.3" />
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
           </svg>
         </motion.button>
         {showTooltip === 'pass' && (
@@ -190,8 +191,11 @@ export default function SwipeActions({
           onMouseLeave={() => setShowTooltip(null)}
           aria-label={tooltips.boost}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          {/* PULSE - Energy Reactor Ring icon */}
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+            <circle cx="12" cy="12" r="8" opacity="0.5" />
+            <circle cx="12" cy="12" r="11" opacity="0.2" />
           </svg>
           {boostsLeft > 0 && boostsLeft < 10 && (
             <span className="action-counter">{boostsLeft}</span>

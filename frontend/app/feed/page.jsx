@@ -32,6 +32,7 @@ export default function ModernFeedPage() {
   const [error, setError] = useState(null);
   const [swiping, setSwiping] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
+  const [livesLoading, setLivesLoading] = useState(true);
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
   const [userCoins, setUserCoins] = useState(0);
@@ -45,7 +46,7 @@ export default function ModernFeedPage() {
   // Auth redirect
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
   
@@ -75,12 +76,24 @@ export default function ModernFeedPage() {
 
   // Fetch feed data
   useEffect(() => {
-    if (!session?.backendToken) return;
+    // Wait for authentication to complete
+    if (status !== "authenticated" || !session?.backendToken) return;
+
+    let isCancelled = false;
+    let loadingTimeout = null;
+    const controller = new AbortController();
 
     const fetchFeed = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
+      // Safety timeout to prevent infinite loading - fires after 3 seconds as last resort
+      loadingTimeout = setTimeout(() => {
+        if (!isCancelled) {
+          console.warn("Feed loading timeout reached - forcing loading state to false");
+          setLivesLoading(false);
+          setLoading(false);
+          setError("No pudimos cargar tu feed ahora. Por favor, intenta de nuevo.");
+        }
+      }, 3000);
+
       try {
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
@@ -88,22 +101,29 @@ export default function ModernFeedPage() {
               Authorization: `Bearer ${session.backendToken}`,
             },
             signal: controller.signal,
+            cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
             headers: {
               Authorization: `Bearer ${session.backendToken}`,
             },
             signal: controller.signal,
+            cache: "no-store",
           }),
         ]);
 
-        clearTimeout(timeoutId);
+        if (isCancelled) return;
 
-        if (!feedRes.ok) throw new Error("Error loading feed");
+        clearTimeout(loadingTimeout);
+
+        if (!feedRes.ok) throw new Error("No pudimos cargar tu feed");
 
         const data = await feedRes.json();
         
+        // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
+        
+        // Deduplicate profiles and creators by _id
         const uniqueProfiles = Array.from(
           new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
         );
@@ -122,23 +142,36 @@ export default function ModernFeedPage() {
         }
 
         setError(null);
+        setLivesLoading(false);
         setLoading(false);
       } catch (err) {
-        clearTimeout(timeoutId);
+        if (isCancelled) return;
+        
+        clearTimeout(loadingTimeout);
         console.error("Feed error:", err);
-        // Set error state so we show a friendly message
+        
+        // Set user-friendly error message - don't show error for cancelled requests
         if (err.name === 'AbortError') {
-          setError('timeout');
+          // Request was cancelled on component unmount - don't set error
+          console.log("Feed request cancelled on unmount");
         } else {
-          setError('failed');
+          setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
         }
-        // Always set loading to false even on error
+        
+        setLivesLoading(false);
         setLoading(false);
       }
     };
 
     fetchFeed();
-  }, [session]);
+
+    // Cleanup function to cancel request if component unmounts
+    return () => {
+      isCancelled = true;
+      if (loadingTimeout) clearTimeout(loadingTimeout);
+      controller.abort();
+    };
+  }, [status, session?.backendToken, session?.user?.id]);
 
   // Swipe handlers
   const handleStart = (clientX) => {
@@ -297,7 +330,8 @@ export default function ModernFeedPage() {
     router.push(`/call/${currentProfile._id}`);
   };
 
-  if (status === "loading" || loading) {
+  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
+  if (status === "loading" || (status === "authenticated" && loading && !error)) {
     return (
       <div className="modern-page">
         <ModernTopBar />
@@ -310,7 +344,7 @@ export default function ModernFeedPage() {
           gap: '1rem'
         }}>
           <div className="spinner"></div>
-          <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+          <p style={{ color: 'var(--text-muted)' }}>Cargando tu feed...</p>
         </div>
       </div>
     );
@@ -333,10 +367,10 @@ export default function ModernFeedPage() {
         }}>
           <div style={{ fontSize: '4rem' }}>😔</div>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-            {error === 'timeout' ? 'Tiempo de espera agotado' : 'Error de conexión'}
+            No pudimos cargar tu feed
           </h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
-            No hay contenido disponible por ahora. Intenta nuevamente.
+            {error}
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -352,7 +386,7 @@ export default function ModernFeedPage() {
               fontSize: '1rem'
             }}
           >
-            Reintentar
+            Intentar de nuevo
           </button>
         </div>
       </div>

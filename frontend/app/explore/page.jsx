@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import ProfileCard from "@/components/ProfileCard";
+import PremiumProfileCard from "@/components/PremiumProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import { filterActiveLives } from "@/lib/liveFilters";
@@ -67,6 +67,8 @@ export default function ExplorePage() {
   const [discoverError, setDiscoverError] = useState("");
   const [callError, setCallError] = useState("");
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
+  const [boostPrice] = useState(100);
+  const [passedIds, setPassedIds] = useState(new Set());
 
   // ── Load lives ─────────────────────────────────────────────
   useEffect(() => {
@@ -241,6 +243,31 @@ export default function ExplorePage() {
     }
   };
 
+  const handlePass = (userId) => {
+    setPassedIds((prev) => new Set([...prev, userId]));
+  };
+
+  const handleBoost = async (userId) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { router.push("/login"); return; }
+    setCallError("");
+    try {
+      const res = await fetch(`${API_URL}/api/matches/boost`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCallError("");
+        alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
+      } else {
+        setCallError(data.message || "No se pudo activar el boost");
+      }
+    } catch {
+      setCallError("Error de conexión");
+    }
+  };
+
   return (
     <div className="explore">
       {/* ── Urgency banner ── */}
@@ -357,21 +384,24 @@ export default function ExplorePage() {
           {users.length > 0 && (
             <>
               <div className="discover-grid">
-                {users.map((user) => (
-                  <ProfileCard
-                    key={user._id}
-                    user={user}
-                    liked={likedIds.has(user._id)}
-                    matched={matchIds.has(user._id)}
-                    onLike={handleLike}
-                    onSuperCrush={handleSuperCrush}
-                    superCrushPrice={superCrushPrice}
-                    onMessage={handleMessage}
-                    onVideoCall={handleVideoCall}
-                    onPrivateCall={handlePrivateCall}
-                    loading={discoverLoading}
-                  />
-                ))}
+                {users
+                  .filter(user => !passedIds.has(user._id))
+                  .map((user) => (
+                    <PremiumProfileCard
+                      key={user._id}
+                      user={user}
+                      liked={likedIds.has(user._id)}
+                      matched={matchIds.has(user._id)}
+                      onLike={handleLike}
+                      onPass={handlePass}
+                      onSuperCrush={handleSuperCrush}
+                      onBoost={handleBoost}
+                      onFlashLive={handlePrivateCall}
+                      superCrushPrice={superCrushPrice}
+                      boostPrice={boostPrice}
+                      loading={discoverLoading}
+                    />
+                  ))}
               </div>
 
               {hasMore && (

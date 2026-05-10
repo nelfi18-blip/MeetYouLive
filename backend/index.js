@@ -9,6 +9,8 @@ const requiredEnvVars = [
 ];
 
 // MONGO_URI or MONGODB_URI (at least one required)
+// This validation ensures at least one MongoDB connection string is present
+// The actual connection in db.js will use MONGODB_URI || DATABASE_URL
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL;
 if (!mongoUri) {
   console.error("❌ FATAL: MONGO_URI, MONGODB_URI, or DATABASE_URL must be set");

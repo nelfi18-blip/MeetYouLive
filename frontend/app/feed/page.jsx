@@ -46,7 +46,7 @@ export default function ModernFeedPage() {
   // Auth redirect
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
   
@@ -76,21 +76,23 @@ export default function ModernFeedPage() {
 
   // Fetch feed data
   useEffect(() => {
-    if (!session?.backendToken) return;
+    // Wait for authentication to complete
+    if (status !== "authenticated" || !session?.backendToken) return;
 
     let isCancelled = false;
     let loadingTimeout = null;
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - fires after 10 seconds as last resort
+      // Safety timeout to prevent infinite loading - fires after 3 seconds as last resort
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
           console.warn("Feed loading timeout reached - forcing loading state to false");
           setLivesLoading(false);
           setLoading(false);
+          setError("No pudimos cargar tu feed ahora. Por favor, intenta de nuevo.");
         }
-      }, 10000);
+      }, 3000);
 
       try {
         const [feedRes, userRes] = await Promise.all([
@@ -99,12 +101,14 @@ export default function ModernFeedPage() {
               Authorization: `Bearer ${session.backendToken}`,
             },
             signal: controller.signal,
+            cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
             headers: {
               Authorization: `Bearer ${session.backendToken}`,
             },
             signal: controller.signal,
+            cache: "no-store",
           }),
         ]);
 
@@ -112,7 +116,7 @@ export default function ModernFeedPage() {
 
         clearTimeout(loadingTimeout);
 
-        if (!feedRes.ok) throw new Error("Unable to load feed");
+        if (!feedRes.ok) throw new Error("No pudimos cargar tu feed");
 
         const data = await feedRes.json();
         
@@ -151,7 +155,7 @@ export default function ModernFeedPage() {
           // Request was cancelled on component unmount - don't set error
           console.log("Feed request cancelled on unmount");
         } else {
-          setError(err.message || 'Unable to load feed. Please try again.');
+          setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
         }
         
         setLivesLoading(false);
@@ -167,7 +171,7 @@ export default function ModernFeedPage() {
       if (loadingTimeout) clearTimeout(loadingTimeout);
       controller.abort();
     };
-  }, [session]);
+  }, [status, session?.backendToken, session?.user?.id]);
 
   // Swipe handlers
   const handleStart = (clientX) => {
@@ -326,7 +330,8 @@ export default function ModernFeedPage() {
     router.push(`/call/${currentProfile._id}`);
   };
 
-  if (status === "loading" || loading) {
+  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
+  if (status === "loading" || (status === "authenticated" && loading && !error)) {
     return (
       <div className="modern-page">
         <ModernTopBar />
@@ -339,7 +344,7 @@ export default function ModernFeedPage() {
           gap: '1rem'
         }}>
           <div className="spinner"></div>
-          <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+          <p style={{ color: 'var(--text-muted)' }}>Cargando tu feed...</p>
         </div>
       </div>
     );
@@ -362,10 +367,10 @@ export default function ModernFeedPage() {
         }}>
           <div style={{ fontSize: '4rem' }}>😔</div>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-            {error === 'timeout' ? 'Tiempo de espera agotado' : 'Error de conexión'}
+            No pudimos cargar tu feed
           </h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
-            No hay contenido disponible por ahora. Intenta nuevamente.
+            {error}
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -381,7 +386,7 @@ export default function ModernFeedPage() {
               fontSize: '1rem'
             }}
           >
-            Reintentar
+            Intentar de nuevo
           </button>
         </div>
       </div>

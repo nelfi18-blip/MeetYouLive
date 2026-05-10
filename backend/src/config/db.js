@@ -17,7 +17,15 @@ const connectDB = async () => {
     console.log("✅ MongoDB conectado exitosamente");
   } catch (error) {
     console.error("❌ Error MongoDB:", error.message);
-    // No cerramos el proceso para permitir que Render intente reconectar automáticamente
+    // In production, fail fast if DB connection fails
+    // The backend cannot operate without a database connection
+    if (process.env.NODE_ENV === 'production') {
+      console.error("❌ Cannot start backend without database connection in production");
+      process.exit(1);
+    }
+    // In development, throw error to allow caller to handle retry logic
+    console.error("⚠️ Development mode: Throwing error for caller to handle");
+    throw error;
   }
 };
 

@@ -4,12 +4,12 @@ import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ModernTopBar from "@/components/ModernTopBar";
 import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -38,6 +38,7 @@ export default function ModernFeedPage() {
   const [userCoins, setUserCoins] = useState(0);
   const [boostPrice] = useState(100);
   const [magnetPrice] = useState(50);
+  const [matchCardImgError, setMatchCardImgError] = useState(false);
   
   // Refs
   const startXRef = useRef(0);
@@ -172,6 +173,11 @@ export default function ModernFeedPage() {
       controller.abort();
     };
   }, [status, session?.backendToken, session?.user?.id]);
+
+  // Reset image error when card changes
+  useEffect(() => {
+    setMatchCardImgError(false);
+  }, [currentIndex]);
 
   // Swipe handlers
   const handleStart = (clientX) => {
@@ -334,7 +340,6 @@ export default function ModernFeedPage() {
   if (status === "loading" || (status === "authenticated" && loading && !error)) {
     return (
       <div className="modern-page">
-        <ModernTopBar />
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -354,7 +359,6 @@ export default function ModernFeedPage() {
   if (error) {
     return (
       <div className="modern-page">
-        <ModernTopBar />
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -398,8 +402,6 @@ export default function ModernFeedPage() {
 
   return (
     <div className="modern-page">
-      <ModernTopBar />
-
       {/* Heart Animation */}
       {showHeartAnimation && (
         <div 
@@ -414,7 +416,7 @@ export default function ModernFeedPage() {
       )}
 
       {/* Section 1: MATCH (First - Priority) */}
-      <div className="modern-section" style={{ marginTop: '0.5rem' }}>
+      <div className="modern-section" style={{ marginTop: '1rem' }}>
         <div style={{ padding: '0 1rem 0.75rem' }}>
           {!hasMoreProfiles ? (
             <div className="no-content" style={{ padding: '2rem 1rem' }}>
@@ -468,11 +470,12 @@ export default function ModernFeedPage() {
                   const initial = getInitial(displayName);
                   const gradient = getGradientForUser(currentProfile._id);
 
-                  return userImage ? (
+                  return userImage && !matchCardImgError ? (
                     <img 
                       src={userImage} 
                       alt={displayName}
                       className="match-card-image"
+                      onError={() => setMatchCardImgError(true)}
                     />
                   ) : (
                     <div className="match-card-image" style={{
@@ -486,7 +489,6 @@ export default function ModernFeedPage() {
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
                       position: 'relative',
                     }}>
-                      {/* Glow effect */}
                       <div style={{
                         position: 'absolute',
                         inset: 0,
@@ -508,6 +510,26 @@ export default function ModernFeedPage() {
                     </h2>
                     {currentProfile.isOnline && <div className="online-indicator"></div>}
                   </div>
+                  
+                  {isApprovedCreator(currentProfile) && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3))',
+                      border: '1px solid rgba(224,64,251,0.5)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#e040fb',
+                      marginBottom: '0.5rem',
+                      boxShadow: '0 0 12px rgba(224,64,251,0.3)',
+                    }}>
+                      ⭐ Creator
+                    </div>
+                  )}
+                  
                   <div className="match-card-details">
                     {currentProfile.location && (
                       <span>📍 {currentProfile.location}</span>
@@ -516,14 +538,14 @@ export default function ModernFeedPage() {
                   {currentProfile.bio && (
                     <p className="match-card-bio">{currentProfile.bio}</p>
                   )}
-                  {currentProfile.tags && currentProfile.tags.length > 0 && (
+                  {currentProfile.tags && Array.isArray(currentProfile.tags) && currentProfile.tags.length > 0 && (
                     <div className="match-card-tags" style={{
                       display: 'flex',
                       gap: '0.5rem',
                       flexWrap: 'wrap',
                       marginTop: '0.75rem'
                     }}>
-                      {currentProfile.tags.slice(0, 3).map((tag, idx) => (
+                      {currentProfile.tags.filter(tag => tag && typeof tag === 'string' && tag.trim()).slice(0, 3).map((tag, idx) => (
                         <span key={idx} style={{
                           fontSize: '0.7rem',
                           fontWeight: 700,
@@ -531,7 +553,9 @@ export default function ModernFeedPage() {
                           borderRadius: '999px',
                           background: 'rgba(139,92,246,0.25)',
                           border: '1px solid rgba(139,92,246,0.4)',
-                          color: '#c4b5fd'
+                          color: '#c4b5fd',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
                         }}>
                           {tag}
                         </span>
@@ -580,44 +604,53 @@ export default function ModernFeedPage() {
                 >
                   <div className="live-thumb">
                     {liveThumb ? (
-                      <img src={liveThumb} alt={live.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        background: gradient,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                        position: 'relative'
+                      <img 
+                        src={liveThumb} 
+                        alt={live.title} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      background: gradient,
+                      display: liveThumb ? 'none' : 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      position: liveThumb ? 'absolute' : 'relative',
+                      top: 0,
+                      left: 0,
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                        pointerEvents: 'none',
+                      }}></div>
+                      <div style={{
+                        fontSize: '2.5rem',
+                        fontWeight: 900,
+                        color: 'white',
+                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
+                        zIndex: 1
                       }}>
-                        {/* Glow effect */}
-                        <div style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                          pointerEvents: 'none',
-                        }}></div>
-                        <div style={{
-                          fontSize: '2.5rem',
-                          fontWeight: 900,
-                          color: 'white',
-                          textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
-                          zIndex: 1
-                        }}>
-                          {creatorInitial}
-                        </div>
-                        <div style={{
-                          fontSize: '2rem',
-                          opacity: 0.8,
-                          zIndex: 1
-                        }}>
-                          📹
-                        </div>
+                        {creatorInitial}
                       </div>
-                    )}
+                      <div style={{
+                        fontSize: '2rem',
+                        opacity: 0.8,
+                        zIndex: 1
+                      }}>
+                        📹
+                      </div>
+                    </div>
                     <div className="live-badge-pulse">🔴 LIVE</div>
                     {live.viewerCount > 0 && (
                       <div className="live-viewers">
@@ -681,7 +714,40 @@ export default function ModernFeedPage() {
                 >
                   <div className="creator-story-avatar">
                     {creatorImage ? (
-                      <img src={creatorImage} alt={creatorName} />
+                      <>
+                        <img 
+                          src={creatorImage} 
+                          alt={creatorName}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: gradient,
+                          fontSize: '2rem',
+                          fontWeight: 900,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
+                            pointerEvents: 'none',
+                          }}></div>
+                          <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
+                        </div>
+                      </>
                     ) : (
                       <div style={{
                         width: '100%',
@@ -696,7 +762,6 @@ export default function ModernFeedPage() {
                         textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                         position: 'relative'
                       }}>
-                        {/* Subtle glow */}
                         <div style={{
                           position: 'absolute',
                           inset: 0,

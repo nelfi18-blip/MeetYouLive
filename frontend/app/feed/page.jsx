@@ -95,6 +95,7 @@ export default function ModernFeedPage() {
 
       try {
         console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
+        // NOTE: Only log presence of token, never log the actual token value for security
         console.log("[Feed] Auth token present:", !!session.backendToken);
         
         const [feedRes, userRes] = await Promise.all([
@@ -154,12 +155,6 @@ export default function ModernFeedPage() {
         const uniqueCreators = Array.from(
           new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
         );
-
-        console.log("[Feed] Setting state:", {
-          lives: safeLives.length,
-          profiles: uniqueProfiles.length,
-          creators: uniqueCreators.length
-        });
 
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);

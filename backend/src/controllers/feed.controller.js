@@ -121,9 +121,15 @@ const getFeed = async (req, res) => {
   } catch (error) {
     console.error("[Feed API] Error loading feed:", error);
     console.error("[Feed API] Error stack:", error.stack);
+    
+    // Only expose error message in development, use generic message in production
+    const errorMessage = process.env.NODE_ENV === 'production' 
+      ? "Error loading feed" 
+      : error.message;
+    
     res.status(500).json({ 
       error: "Error loading feed",
-      message: error.message 
+      message: errorMessage
     });
   }
 };

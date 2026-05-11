@@ -115,13 +115,14 @@ const getFeed = async (req, res) => {
             interests: 1,
             isOnline: 1,
             // Calculate age from birthdate without exposing raw birthdate
+            // Use $$NOW system variable for better performance (evaluated once per query)
             age: {
               $cond: {
                 if: { $ne: ["$birthdate", null] },
                 then: {
                   $floor: {
                     $divide: [
-                      { $subtract: [new Date(), "$birthdate"] },
+                      { $subtract: ["$$NOW", "$birthdate"] },
                       365.25 * 24 * 60 * 60 * 1000
                     ]
                   }

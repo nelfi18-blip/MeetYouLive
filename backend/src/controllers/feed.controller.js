@@ -23,6 +23,8 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
  */
 const getFeed = async (req, res) => {
   try {
+    console.log("[Feed API] Fetching feed data...");
+    
     // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
     const allLives = await Live.find({
       isLive: true,
@@ -105,14 +107,31 @@ const getFeed = async (req, res) => {
       .select("name avatar earningsCoins")
       .lean();
 
+    console.log("[Feed API] Response ready:", {
+      activeLives: filteredLives.length,
+      recommendedProfiles: recommendedProfiles.length,
+      featuredCreators: featuredCreators.length
+    });
+
     res.json({
       activeLives: filteredLives,
       recommendedProfiles,
       featuredCreators
     });
   } catch (error) {
-    console.error("Feed error:", error);
-    res.status(500).json({ error: "Error loading feed" });
+    console.error("[Feed API] Error loading feed:", error.message);
+    
+    // Only log stack trace in development to prevent information disclosure
+    if (process.env.NODE_ENV !== 'production') {
+      console.error("[Feed API] Error stack:", error.stack);
+    }
+    
+    // Use consistent error response format as per project guidelines
+    res.status(500).json({ 
+      message: process.env.NODE_ENV === 'production' 
+        ? "Error al cargar el feed" 
+        : `Error al cargar el feed: ${error.message}`
+    });
   }
 };
 

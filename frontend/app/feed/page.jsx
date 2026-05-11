@@ -75,17 +75,20 @@ export default function FeedPage() {
     const controller = new AbortController();
 
     const fetchFeed = async () => {
+ copilot/rollback-feed-visual-breakage
       // Safety timeout to prevent infinite loading - fires after 10 seconds as last resort
+
+      // Safety timeout to prevent infinite loading - increased to 10 seconds for better reliability
+ main
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("Feed loading timeout reached - forcing loading state to false");
-          setLivesLoading(false);
-          setLoading(false);
-          setError("No pudimos cargar tu feed ahora. Por favor, intenta de nuevo.");
+          console.warn("[Feed] Timeout reached (10s) - aborting request");
+          controller.abort();
         }
       }, 10000);
 
       try {
+ copilot/rollback-feed-visual-breakage
         const res = await fetch(`${API_URL}/api/feed`, {
           headers: {
             Authorization: `Bearer ${session.backendToken}`,
@@ -94,13 +97,63 @@ export default function FeedPage() {
           cache: "no-store",
         });
 
+        console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
+        // NOTE: Only log presence of token, never log the actual token value for security
+        console.log("[Feed] Auth token present:", !!session.backendToken);
+        
+        const [feedRes, userRes] = await Promise.all([
+          fetch(`${API_URL}/api/feed`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+            signal: controller.signal,
+            cache: "no-store",
+          }),
+          fetch(`${API_URL}/api/user/me`, {
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
+            signal: controller.signal,
+            cache: "no-store",
+          }),
+        ]);
+ main
+
         if (isCancelled) return;
 
         clearTimeout(loadingTimeout);
 
+ copilot/rollback-feed-visual-breakage
         if (!res.ok) throw new Error("Error al cargar el feed");
 
         const data = await res.json();
+
+        console.log("[Feed] Feed response status:", feedRes.status);
+        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
+
+        // Enhanced error handling with specific status codes
+        if (!feedRes.ok) {
+          console.error("[Feed] API error - Status:", feedRes.status);
+          
+          let errorMessage = "No pudimos cargar tu feed";
+          if (feedRes.status === 401 || feedRes.status === 403) {
+            errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+          } else if (feedRes.status === 404) {
+            errorMessage = "El servicio de feed no está disponible.";
+          } else if (feedRes.status >= 500) {
+            errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
+          }
+          
+          throw new Error(errorMessage);
+        }
+
+        const data = await feedRes.json();
+        console.log("[Feed] Data received:", {
+          lives: data.activeLives?.length || 0,
+          profiles: data.recommendedProfiles?.length || 0,
+          creators: data.featuredCreators?.length || 0
+        });
+ main
         
         // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
@@ -119,17 +172,30 @@ export default function FeedPage() {
         setError("");
         setLivesLoading(false);
         setLoading(false);
+        console.log("[Feed] Load complete");
       } catch (err) {
         if (isCancelled) return;
         
         clearTimeout(loadingTimeout);
-        console.error("Feed error:", err);
         
-        // Set user-friendly error message - don't show error for cancelled requests
+        // Enhanced error logging with more context
         if (err.name === 'AbortError') {
+ copilot/rollback-feed-visual-breakage
           console.log("Feed request cancelled on unmount");
         } else {
           setError(err.message || 'Error al cargar el feed');
+
+          console.log("[Feed] Request aborted (timeout or unmount)");
+          // Timeout was triggered - show user-friendly message
+          setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
+        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          // Network error - server might be down or unreachable
+          console.error("[Feed] Network error - server might be down:", err.message);
+          setError("No se puede conectar al servidor. Verifica tu conexión.");
+        } else {
+          console.error("[Feed] Error:", err.message);
+          setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
+ main
         }
         
         setLivesLoading(false);

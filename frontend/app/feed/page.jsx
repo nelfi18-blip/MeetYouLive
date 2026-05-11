@@ -181,14 +181,14 @@ export default function ModernFeedPage() {
           console.log("[Feed] Request aborted (timeout or unmount)");
           // Timeout was triggered - show user-friendly message
           // Note: First load after inactivity may take longer (server wake-up time)
-          setError("El servidor está iniciando. Esto puede tomar unos segundos en el primer intento.");
+          setError(t("feed.serverStarting"));
         } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
           // Network error - server might be down or unreachable
           console.error("[Feed] Network error - server might be down:", err.message);
-          setError("No se puede conectar al servidor. Verifica tu conexión.");
+          setError(t("feed.networkError"));
         } else {
           console.error("[Feed] Error:", err.message);
-          setError(err.message || 'No pudimos cargar tu feed. Por favor, intenta de nuevo.');
+          setError(err.message || t("feed.genericError"));
         }
         
         setLivesLoading(false);

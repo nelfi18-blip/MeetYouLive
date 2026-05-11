@@ -14,6 +14,44 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+// Simple in-memory cache for featured creators (they change infrequently)
+let featuredCreatorsCache = null;
+let featuredCreatorsCacheTime = 0;
+const FEATURED_CREATORS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get featured creators with caching
+ * @returns {Promise<Array>} Featured creators list
+ */
+async function getFeaturedCreatorsWithCache() {
+  const now = Date.now();
+  
+  // Return cached data if still valid
+  if (featuredCreatorsCache && (now - featuredCreatorsCacheTime) < FEATURED_CREATORS_CACHE_TTL) {
+    console.log("[Feed API] Using cached featured creators");
+    return featuredCreatorsCache;
+  }
+  
+  // Fetch fresh data
+  console.log("[Feed API] Fetching fresh featured creators");
+  const creators = await User.find({
+    role: { $in: ["creator", "subCreator"] },
+    creatorStatus: "approved",
+    isBlocked: false,
+    isSuspended: false
+  })
+    .sort({ earningsCoins: -1 })
+    .limit(12)
+    .select("name avatar earningsCoins")
+    .lean();
+  
+  // Update cache
+  featuredCreatorsCache = creators;
+  featuredCreatorsCacheTime = now;
+  
+  return creators;
+}
+
 /**
  * GET /api/feed
  * Returns real data for hybrid feed (live + match + creators)
@@ -79,17 +117,8 @@ const getFeed = async (req, res) => {
         }
       ]),
       
-      // ⭐ Featured creators - use query to filter directly (NO admin/staff)
-      User.find({
-        role: { $in: ["creator", "subCreator"] },
-        creatorStatus: "approved",
-        isBlocked: false,
-        isSuspended: false
-      })
-        .sort({ earningsCoins: -1 })
-        .limit(12)
-        .select("name avatar earningsCoins")
-        .lean()
+      // ⭐ Featured creators - use cached function (data changes infrequently)
+      getFeaturedCreatorsWithCache()
     ]);
 
     // Apply active live filter FIRST to ensure only truly active streams

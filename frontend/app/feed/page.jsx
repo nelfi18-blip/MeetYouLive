@@ -653,7 +653,7 @@ export default function FeedPage() {
         }
 
         .placeholder-initial {
-          font-size: 8rem;
+          font-size: 3rem;
           font-weight: 900;
           color: rgba(255, 255, 255, 0.6);
         }

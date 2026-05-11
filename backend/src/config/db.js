@@ -12,7 +12,9 @@ const connectDB = async () => {
     if (mongoose.connection.readyState >= 1) return;
 
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000, // Increased to 30s for cold starts on Render
+      socketTimeoutMS: 45000, // Socket timeout to prevent mid-query disconnects
+      connectTimeoutMS: 30000, // Initial connection timeout
     });
     console.log("✅ MongoDB conectado exitosamente");
   } catch (error) {

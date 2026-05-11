@@ -14,6 +14,60 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+// Simple in-memory cache for featured creators (they change infrequently)
+let featuredCreatorsCache = null;
+let featuredCreatorsCacheTime = 0;
+let featuredCreatorsFetchPromise = null; // Shared promise to prevent concurrent fetches
+const FEATURED_CREATORS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get featured creators with caching
+ * @returns {Promise<Array>} Featured creators list
+ */
+async function getFeaturedCreatorsWithCache() {
+  const now = Date.now();
+  
+  // Return cached data if still valid
+  if (featuredCreatorsCache && (now - featuredCreatorsCacheTime) < FEATURED_CREATORS_CACHE_TTL) {
+    console.log("[Feed API] Using cached featured creators");
+    return featuredCreatorsCache;
+  }
+  
+  // If another request is already fetching, wait for that promise
+  if (featuredCreatorsFetchPromise) {
+    console.log("[Feed API] Waiting for ongoing featured creators fetch");
+    return featuredCreatorsFetchPromise;
+  }
+  
+  // Create a new fetch promise
+  featuredCreatorsFetchPromise = (async () => {
+    try {
+      console.log("[Feed API] Fetching fresh featured creators");
+      const creators = await User.find({
+        role: { $in: ["creator", "subCreator"] },
+        creatorStatus: "approved",
+        isBlocked: false,
+        isSuspended: false
+      })
+        .sort({ earningsCoins: -1 })
+        .limit(12)
+        .select("name avatar earningsCoins")
+        .lean();
+      
+      // Update cache
+      featuredCreatorsCache = creators;
+      featuredCreatorsCacheTime = Date.now();
+      
+      return creators;
+    } finally {
+      // Clear the promise so next request can create a new one
+      featuredCreatorsFetchPromise = null;
+    }
+  })();
+  
+  return featuredCreatorsFetchPromise;
+}
+
 /**
  * GET /api/feed
  * Returns real data for hybrid feed (live + match + creators)
@@ -22,18 +76,67 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
  * - featuredCreators: Top approved creators by earnings
  */
 const getFeed = async (req, res) => {
+  const startTime = Date.now();
   try {
     console.log("[Feed API] Fetching feed data...");
     
-    // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
-    const allLives = await Live.find({
-      isLive: true,
-      endedAt: null
-    })
-      .sort({ viewerCount: -1 })
-      .limit(30) // Fetch more to ensure we get 12 after filtering
-      .populate("user", "name avatar role creatorStatus")
-      .lean();
+    // Run all queries in parallel for better performance
+    const [allLives, recommendedProfiles, featuredCreators] = await Promise.all([
+      // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
+      Live.find({
+        isLive: true,
+        endedAt: null
+      })
+        .sort({ viewerCount: -1 })
+        .limit(30) // Fetch more to ensure we get 12 after filtering
+        .populate("user", "name avatar role creatorStatus")
+        .lean(),
+      
+      // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
+      // Add randomization for variety
+      User.aggregate([
+        {
+          $match: {
+            role: "user", // Excludes creators and all staff roles
+            isBlocked: false,
+            isSuspended: false,
+            onboardingComplete: true
+          }
+        },
+        { $sample: { size: 12 } }, // Randomize selection
+        {
+          $project: {
+            name: 1,
+            avatar: 1,
+            profilePhotos: 1,
+            location: 1,
+            bio: 1,
+            tags: 1,
+            interests: 1,
+            isOnline: 1,
+            // Calculate age from birthdate without exposing raw birthdate
+            // Use $$NOW system variable for better performance (evaluated once per query)
+            age: {
+              $cond: {
+                if: { $ne: ["$birthdate", null] },
+                then: {
+                  $floor: {
+                    $divide: [
+                      { $subtract: ["$$NOW", "$birthdate"] },
+                      365.25 * 24 * 60 * 60 * 1000
+                    ]
+                  }
+                },
+                else: null
+              }
+            }
+          }
+        }
+      ]),
+      
+      // ⭐ Featured creators - use cached function (data changes infrequently)
+      getFeaturedCreatorsWithCache()
+    ]);
 
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);
@@ -54,60 +157,8 @@ const getFeed = async (req, res) => {
       .filter((live) => hasLiveHost(String(live._id)))
       .slice(0, 12); // Take only first 12 after filtering
 
-    // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
-    // Add randomization for variety
-    const recommendedProfiles = await User.aggregate([
-      {
-        $match: {
-          role: "user", // Excludes creators and all staff roles
-          isBlocked: false,
-          isSuspended: false,
-          onboardingComplete: true
-        }
-      },
-      { $sample: { size: 12 } }, // Randomize selection
-      {
-        $project: {
-          name: 1,
-          avatar: 1,
-          profilePhotos: 1, // Include profilePhotos array
-          location: 1,
-          bio: 1,
-          tags: 1,
-          interests: 1,
-          isOnline: 1,
-          // Calculate age from birthdate without exposing raw birthdate
-          age: {
-            $cond: {
-              if: { $ne: ["$birthdate", null] },
-              then: {
-                $floor: {
-                  $divide: [
-                    { $subtract: [new Date(), "$birthdate"] },
-                    365.25 * 24 * 60 * 60 * 1000
-                  ]
-                }
-              },
-              else: null
-            }
-          }
-        }
-      }
-    ]);
-
-    // ⭐ Featured creators - use query to filter directly (NO admin/staff)
-    const featuredCreators = await User.find({
-      role: { $in: ["creator", "subCreator"] },
-      creatorStatus: "approved",
-      isBlocked: false,
-      isSuspended: false
-    })
-      .sort({ earningsCoins: -1 })
-      .limit(12)
-      .select("name avatar earningsCoins")
-      .lean();
-
-    console.log("[Feed API] Response ready:", {
+    const responseTime = Date.now() - startTime;
+    console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
       activeLives: filteredLives.length,
       recommendedProfiles: recommendedProfiles.length,
       featuredCreators: featuredCreators.length
@@ -119,7 +170,8 @@ const getFeed = async (req, res) => {
       featuredCreators
     });
   } catch (error) {
-    console.error("[Feed API] Error loading feed:", error.message);
+    const errorTime = Date.now() - startTime;
+    console.error(`[Feed API] Error loading feed after ${errorTime}ms:`, error.message);
     
     // Only log stack trace in development to prevent information disclosure
     if (process.env.NODE_ENV !== 'production') {

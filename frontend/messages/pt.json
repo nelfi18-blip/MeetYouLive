@@ -116,7 +116,10 @@
   "feed": {
     "giftsOnlyDuringLive": "Os presentes só estão disponíveis durante transmissões ao vivo",
     "greetingSent": "Saudação enviada!",
-    "greetingError": "Erro ao enviar saudação"
+    "greetingError": "Erro ao enviar saudação",
+    "serverStarting": "O servidor está iniciando. Isso pode levar alguns segundos na primeira tentativa.",
+    "networkError": "Não é possível conectar ao servidor. Verifique sua conexão.",
+    "genericError": "Não conseguimos carregar seu feed. Por favor, tente novamente."
   },
   "common": {
     "loading": "Carregando...",

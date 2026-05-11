@@ -85,13 +85,14 @@ export default function ModernFeedPage() {
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - increased to 10 seconds for better reliability
+      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
+      // After backend optimizations, normal requests should complete in 2-5 seconds
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (10s) - aborting request");
+          console.warn("[Feed] Timeout reached (15s) - aborting request");
           controller.abort();
         }
-      }, 10000);
+      }, 15000);
 
       try {
         console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
@@ -179,7 +180,8 @@ export default function ModernFeedPage() {
         if (err.name === 'AbortError') {
           console.log("[Feed] Request aborted (timeout or unmount)");
           // Timeout was triggered - show user-friendly message
-          setError("La carga tardó demasiado. Por favor, intenta de nuevo.");
+          // Note: First load after inactivity may take longer (server wake-up time)
+          setError("El servidor está iniciando. Esto puede tomar unos segundos en el primer intento.");
         } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
           // Network error - server might be down or unreachable
           console.error("[Feed] Network error - server might be down:", err.message);

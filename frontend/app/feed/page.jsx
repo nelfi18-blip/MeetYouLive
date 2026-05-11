@@ -25,9 +25,9 @@ export default function CleanFeedPage() {
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
   const [userAvatar, setUserAvatar] = useState(null);
-  const [notifications, setNotifications] = useState([]);
   const [livesLoaded, setLivesLoaded] = useState(false);
   const [creatorsLoaded, setCreatorsLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // Auth redirect
   useEffect(() => {
@@ -148,17 +148,30 @@ export default function CleanFeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id]);
 
-  // Lazy load lives after initial render
+  // Reset image error when profile changes
+  useEffect(() => {
+    setImageError(false);
+  }, [currentIndex]);
+
+  // Lazy load lives after initial render using requestIdleCallback for better performance
   useEffect(() => {
     if (!loading && activeLives.length > 0 && !livesLoaded) {
-      setTimeout(() => setLivesLoaded(true), 100);
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        requestIdleCallback(() => setLivesLoaded(true));
+      } else {
+        setTimeout(() => setLivesLoaded(true), 100);
+      }
     }
   }, [loading, activeLives, livesLoaded]);
 
-  // Lazy load creators after lives
+  // Lazy load creators after lives using requestIdleCallback for better performance
   useEffect(() => {
     if (livesLoaded && featuredCreators.length > 0 && !creatorsLoaded) {
-      setTimeout(() => setCreatorsLoaded(true), 200);
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        requestIdleCallback(() => setCreatorsLoaded(true));
+      } else {
+        setTimeout(() => setCreatorsLoaded(true), 200);
+      }
     }
   }, [livesLoaded, featuredCreators, creatorsLoaded]);
 
@@ -207,6 +220,7 @@ export default function CleanFeedPage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setUserCoins((prev) => prev - boostPrice);
         alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
       } else {
@@ -333,7 +347,6 @@ export default function CleanFeedPage() {
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            {notifications.length > 0 && <span className="feed-header-badge">{notifications.length}</span>}
           </Link>
 
           <Link href="/profile" className="feed-header-avatar">
@@ -356,27 +369,22 @@ export default function CleanFeedPage() {
             <div className="match-hero-card">
               {/* Photo */}
               <div className="match-hero-photo">
-                {getUserImage(currentProfile) ? (
+                {getUserImage(currentProfile) && !imageError ? (
                   <img 
                     src={getUserImage(currentProfile)} 
                     alt={getDisplayName(currentProfile)} 
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
+                    onError={() => setImageError(true)}
                   />
-                ) : null}
-                <div 
-                  className="match-hero-photo-fallback"
-                  style={{ 
-                    background: getGradientForUser(currentProfile._id),
-                    display: getUserImage(currentProfile) ? 'none' : 'flex'
-                  }}
-                >
-                  <div className="match-hero-fallback-initial">
-                    {getInitial(getDisplayName(currentProfile))}
+                ) : (
+                  <div 
+                    className="match-hero-photo-fallback"
+                    style={{ background: getGradientForUser(currentProfile._id) }}
+                  >
+                    <div className="match-hero-fallback-initial">
+                      {getInitial(getDisplayName(currentProfile))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Online badge */}
                 {currentProfile.isOnline && (

@@ -75,6 +75,7 @@
   --floating-button-offset: 100px;
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
+  --feed-bottom-spacing: 200px; /* Space for action dock + bottom nav */
 }
 
 /* =========================================================
@@ -4585,7 +4586,7 @@ body {
   padding: 1rem;
   max-width: 600px;
   margin: 0 auto;
-  padding-bottom: 200px; /* Space for action dock + bottom nav */
+  padding-bottom: var(--feed-bottom-spacing); /* Space for action dock + bottom nav */
 }
 
 /* MATCH HERO - Big immersive card */

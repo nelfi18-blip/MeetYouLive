@@ -17,7 +17,7 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 // Simple in-memory cache for featured creators (they change infrequently)
 let featuredCreatorsCache = null;
 let featuredCreatorsCacheTime = 0;
-let featuredCreatorsFetching = false; // Lock to prevent concurrent fetches
+let featuredCreatorsFetchPromise = null; // Shared promise to prevent concurrent fetches
 const FEATURED_CREATORS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -33,44 +33,39 @@ async function getFeaturedCreatorsWithCache() {
     return featuredCreatorsCache;
   }
   
-  // If another request is already fetching, wait and return their result
-  if (featuredCreatorsFetching) {
+  // If another request is already fetching, wait for that promise
+  if (featuredCreatorsFetchPromise) {
     console.log("[Feed API] Waiting for ongoing featured creators fetch");
-    // Simple wait loop - not ideal but sufficient for this use case
-    let retries = 0;
-    while (featuredCreatorsFetching && retries < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries++;
-    }
-    // Return cache if available, otherwise fall through to fetch
-    if (featuredCreatorsCache) {
-      return featuredCreatorsCache;
-    }
+    return featuredCreatorsFetchPromise;
   }
   
-  // Fetch fresh data
-  featuredCreatorsFetching = true;
-  try {
-    console.log("[Feed API] Fetching fresh featured creators");
-    const creators = await User.find({
-      role: { $in: ["creator", "subCreator"] },
-      creatorStatus: "approved",
-      isBlocked: false,
-      isSuspended: false
-    })
-      .sort({ earningsCoins: -1 })
-      .limit(12)
-      .select("name avatar earningsCoins")
-      .lean();
-    
-    // Update cache
-    featuredCreatorsCache = creators;
-    featuredCreatorsCacheTime = now;
-    
-    return creators;
-  } finally {
-    featuredCreatorsFetching = false;
-  }
+  // Create a new fetch promise
+  featuredCreatorsFetchPromise = (async () => {
+    try {
+      console.log("[Feed API] Fetching fresh featured creators");
+      const creators = await User.find({
+        role: { $in: ["creator", "subCreator"] },
+        creatorStatus: "approved",
+        isBlocked: false,
+        isSuspended: false
+      })
+        .sort({ earningsCoins: -1 })
+        .limit(12)
+        .select("name avatar earningsCoins")
+        .lean();
+      
+      // Update cache
+      featuredCreatorsCache = creators;
+      featuredCreatorsCacheTime = Date.now();
+      
+      return creators;
+    } finally {
+      // Clear the promise so next request can create a new one
+      featuredCreatorsFetchPromise = null;
+    }
+  })();
+  
+  return featuredCreatorsFetchPromise;
 }
 
 /**

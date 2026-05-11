@@ -4,24 +4,17 @@ import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
+import InteractionButton from "@/components/InteractionButton";
+import LiveCard from "@/components/LiveCard";
 import { filterActiveLives } from "@/lib/liveFilters";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import { getUserImage, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// Swipe behavior constants
-const SWIPE_THRESHOLD_PX = 100;
-const SWIPE_ANIMATION_DURATION_MS = 300;
-const SWIPE_OUT_DISTANCE_PX = 1000;
-
-export default function ModernFeedPage() {
+export default function CleanFeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { t } = useLanguage();
   
   // State
   const [activeLives, setActiveLives] = useState([]);
@@ -30,19 +23,11 @@ export default function ModernFeedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [swiping, setSwiping] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [livesLoading, setLivesLoading] = useState(true);
-  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
-  const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
   const [userCoins, setUserCoins] = useState(0);
-  const [boostPrice] = useState(100);
-  const [magnetPrice] = useState(50);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
-  
-  // Refs
-  const startXRef = useRef(0);
-  const currentXRef = useRef(0);
+  const [userAvatar, setUserAvatar] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [livesLoaded, setLivesLoaded] = useState(false);
+  const [creatorsLoaded, setCreatorsLoaded] = useState(false);
 
   // Auth redirect
   useEffect(() => {
@@ -51,7 +36,7 @@ export default function ModernFeedPage() {
     }
   }, [status, router]);
   
-  // Admin redirect - admins should not access the feed page
+  // Admin redirect
   useEffect(() => {
     if (!session?.backendToken) return;
     
@@ -75,81 +60,50 @@ export default function ModernFeedPage() {
     };
   }, [session?.backendToken, router]);
 
-  // Fetch feed data
+  // Fetch feed data with 10 second timeout
   useEffect(() => {
-    // Wait for authentication to complete
     if (status !== "authenticated" || !session?.backendToken) return;
 
     let isCancelled = false;
-    let loadingTimeout = null;
     const controller = new AbortController();
+    let timeoutId = null;
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
-      // After backend optimizations, normal requests should complete in 2-5 seconds
-      loadingTimeout = setTimeout(() => {
+      // 10 second timeout - no infinite spinner
+      timeoutId = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (15s) - aborting request");
+          console.warn("[Feed] 10s timeout reached - aborting");
           controller.abort();
         }
-      }, 15000);
+      }, 10000);
 
       try {
-        console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
-        // NOTE: Only log presence of token, never log the actual token value for security
-        console.log("[Feed] Auth token present:", !!session.backendToken);
-        
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
+            headers: { Authorization: `Bearer ${session.backendToken}` },
             signal: controller.signal,
             cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
+            headers: { Authorization: `Bearer ${session.backendToken}` },
             signal: controller.signal,
             cache: "no-store",
           }),
         ]);
 
         if (isCancelled) return;
+        clearTimeout(timeoutId);
 
-        clearTimeout(loadingTimeout);
-
-        console.log("[Feed] Feed response status:", feedRes.status);
-        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
-
-        // Enhanced error handling with specific status codes
         if (!feedRes.ok) {
-          console.error("[Feed] API error - Status:", feedRes.status);
-          
-          let errorMessage = "No pudimos cargar tu feed";
-          if (feedRes.status === 401 || feedRes.status === 403) {
-            errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
-          } else if (feedRes.status === 404) {
-            errorMessage = "El servicio de feed no está disponible.";
-          } else if (feedRes.status >= 500) {
-            errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
-          }
-          
-          throw new Error(errorMessage);
+          throw new Error("No pudimos cargar tu feed. Por favor, intenta de nuevo.");
         }
 
         const data = await feedRes.json();
-        console.log("[Feed] Data received:", {
-          lives: data.activeLives?.length || 0,
-          profiles: data.recommendedProfiles?.length || 0,
-          creators: data.featuredCreators?.length || 0
-        });
         
-        // Apply frontend safety filter to activeLives
+        // Apply safety filter
         const safeLives = filterActiveLives(data.activeLives || []);
         
-        // Deduplicate profiles and creators by _id
+        // Deduplicate by _id
         const uniqueProfiles = Array.from(
           new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
         );
@@ -161,98 +115,63 @@ export default function ModernFeedPage() {
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
 
-        // Get user coins balance
+        // Get user data
         if (userRes.ok) {
           const userData = await userRes.json();
           setUserCoins(userData.coinsBalance || 0);
+          setUserAvatar(userData.avatar);
         }
 
         setError(null);
-        setLivesLoading(false);
         setLoading(false);
-        console.log("[Feed] Load complete");
       } catch (err) {
         if (isCancelled) return;
         
-        clearTimeout(loadingTimeout);
+        clearTimeout(timeoutId);
         
-        // Enhanced error logging with more context
         if (err.name === 'AbortError') {
-          console.log("[Feed] Request aborted (timeout or unmount)");
-          // Timeout was triggered - show user-friendly message
-          // Note: First load after inactivity may take longer (server wake-up time)
-          setError(t("feed.serverStarting"));
-        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
-          // Network error - server might be down or unreachable
-          console.error("[Feed] Network error - server might be down:", err.message);
-          setError(t("feed.networkError"));
+          setError("El servidor está tardando demasiado. Por favor, intenta de nuevo.");
         } else {
-          console.error("[Feed] Error:", err.message);
-          setError(err.message || t("feed.genericError"));
+          setError(err.message || "Error al cargar el feed");
         }
         
-        setLivesLoading(false);
         setLoading(false);
       }
     };
 
     fetchFeed();
 
-    // Cleanup function to cancel request if component unmounts
     return () => {
       isCancelled = true;
-      if (loadingTimeout) clearTimeout(loadingTimeout);
+      if (timeoutId) clearTimeout(timeoutId);
       controller.abort();
     };
   }, [status, session?.backendToken, session?.user?.id]);
 
-  // Reset image error when card changes
+  // Lazy load lives after initial render
   useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
-
-  // Swipe handlers
-  const handleStart = (clientX) => {
-    setSwiping(true);
-    startXRef.current = clientX;
-    currentXRef.current = clientX;
-  };
-
-  const handleMove = (clientX) => {
-    if (!swiping) return;
-    currentXRef.current = clientX;
-    const offset = clientX - startXRef.current;
-    setSwipeOffset(offset);
-  };
-
-  const handleEnd = () => {
-    if (!swiping) return;
-    setSwiping(false);
-
-    const offset = currentXRef.current - startXRef.current;
-
-    if (Math.abs(offset) > SWIPE_THRESHOLD_PX) {
-      if (offset > 0) {
-        handleLike();
-      } else {
-        handlePass();
-      }
-    } else {
-      setSwipeOffset(0);
+    if (!loading && activeLives.length > 0 && !livesLoaded) {
+      setTimeout(() => setLivesLoaded(true), 100);
     }
+  }, [loading, activeLives, livesLoaded]);
+
+  // Lazy load creators after lives
+  useEffect(() => {
+    if (livesLoaded && featuredCreators.length > 0 && !creatorsLoaded) {
+      setTimeout(() => setCreatorsLoaded(true), 200);
+    }
+  }, [livesLoaded, featuredCreators, creatorsLoaded]);
+
+  // Action handlers
+  const handleFade = () => {
+    // Skip/pass action
+    setCurrentIndex((prev) => prev + 1);
   };
 
-  const handleLike = async () => {
+  const handleSpark = async () => {
     const currentProfile = profiles[currentIndex];
     if (!currentProfile) return;
 
-    // Show heart animation
-    setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-    setShowHeartAnimation(true);
-    setTimeout(() => setShowHeartAnimation(false), 1500);
-
-    setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
-    
     try {
       await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
@@ -262,28 +181,18 @@ export default function ModernFeedPage() {
         },
         body: JSON.stringify({ userId: currentProfile._id }),
       });
+      
+      setCurrentIndex((prev) => prev + 1);
     } catch (err) {
       console.error("Like error:", err);
     }
-
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setSwipeOffset(0);
-    }, SWIPE_ANIMATION_DURATION_MS);
   };
 
-  const handlePass = () => {
-    setSwipeOffset(-SWIPE_OUT_DISTANCE_PX);
-
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setSwipeOffset(0);
-    }, SWIPE_ANIMATION_DURATION_MS);
-  };
-
-  const handleBoost = async () => {
+  const handlePulse = async () => {
+    // Boost profile
+    const boostPrice = 100;
     if (userCoins < boostPrice) {
-      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
+      alert("No tienes suficientes monedas. Recarga tu saldo.");
       router.push("/coins");
       return;
     }
@@ -298,7 +207,6 @@ export default function ModernFeedPage() {
       });
 
       if (res.ok) {
-        const data = await res.json();
         setUserCoins((prev) => prev - boostPrice);
         alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
       } else {
@@ -311,12 +219,14 @@ export default function ModernFeedPage() {
     }
   };
 
-  const handleSuperCrush = async () => {
+  const handleMagnet = async () => {
+    // Super Crush
     const currentProfile = profiles[currentIndex];
     if (!currentProfile) return;
 
+    const magnetPrice = 50;
     if (userCoins < magnetPrice) {
-      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
+      alert("No tienes suficientes monedas. Recarga tu saldo.");
       router.push("/coins");
       return;
     }
@@ -332,18 +242,7 @@ export default function ModernFeedPage() {
       if (res.ok) {
         const data = await res.json();
         setUserCoins((prev) => prev - magnetPrice);
-        
-        // Show special animation
-        setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        setShowHeartAnimation(true);
-        setTimeout(() => setShowHeartAnimation(false), 2000);
-
-        // Move to next profile
-        setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
-        setTimeout(() => {
-          setCurrentIndex((prev) => prev + 1);
-          setSwipeOffset(0);
-        }, SWIPE_ANIMATION_DURATION_MS);
+        setCurrentIndex((prev) => prev + 1);
 
         if (data.match) {
           alert("¡Match instantáneo! 🔥");
@@ -364,64 +263,30 @@ export default function ModernFeedPage() {
     const currentProfile = profiles[currentIndex];
     if (!currentProfile) return;
     
-    // Navigate to video call or private call initiation
     router.push(`/call/${currentProfile._id}`);
   };
 
-  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
+  // Loading state
   if (status === "loading" || (status === "authenticated" && loading && !error)) {
     return (
-      <div className="modern-page">
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '70vh',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
+      <div className="feed-clean-page">
+        <div className="feed-clean-loading">
           <div className="spinner"></div>
-          <p style={{ color: 'var(--text-muted)' }}>Cargando tu feed...</p>
+          <p>Cargando tu feed...</p>
         </div>
       </div>
     );
   }
   
-  // Show error state if API failed
+  // Error state - always render fallback UI
   if (error) {
     return (
-      <div className="modern-page">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '70vh',
-          flexDirection: 'column',
-          gap: '1rem',
-          padding: '2rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '4rem' }}>😔</div>
-          <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-            No pudimos cargar tu feed
-          </h3>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
-            {error}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem 2rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: '12px',
-              color: 'white',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
+      <div className="feed-clean-page">
+        <div className="feed-clean-error">
+          <div className="error-icon">😔</div>
+          <h3>No pudimos cargar tu feed</h3>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} className="retry-button">
             Intentar de nuevo
           </button>
         </div>
@@ -433,384 +298,228 @@ export default function ModernFeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length;
 
   return (
-    <div className="modern-page">
-      {/* Heart Animation */}
-      {showHeartAnimation && (
-        <div 
-          className="heart-animation"
-          style={{
-            left: `${heartPosition.x}px`,
-            top: `${heartPosition.y}px`,
-          }}
-        >
-          ❤️
+    <div className="feed-clean-page">
+      {/* 1. HEADER - Premium top bar */}
+      <header className="feed-clean-header">
+        <Link href="/feed" className="feed-header-logo">
+          <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+            <path d="M20 4L22 18L36 20L22 22L20 36L18 22L4 20L18 18L20 4Z" fill="url(#logo-gradient)" />
+            <defs>
+              <linearGradient id="logo-gradient" x1="4" y1="4" x2="36" y2="36">
+                <stop offset="0%" stopColor="#ff4fa3" />
+                <stop offset="100%" stopColor="#e040fb" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </Link>
+
+        <div className="feed-header-actions">
+          <Link href="/coins" className="feed-header-coins">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10" fill="url(#coin-gradient)" />
+              <text x="12" y="16" fontSize="12" fill="white" textAnchor="middle" fontWeight="bold">$</text>
+              <defs>
+                <linearGradient id="coin-gradient" x1="2" y1="2" x2="22" y2="22">
+                  <stop offset="0%" stopColor="#fbbf24" />
+                  <stop offset="100%" stopColor="#f59e0b" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <span>{userCoins}</span>
+          </Link>
+
+          <Link href="/notifications" className="feed-header-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {notifications.length > 0 && <span className="feed-header-badge">{notifications.length}</span>}
+          </Link>
+
+          <Link href="/profile" className="feed-header-avatar">
+            {userAvatar ? (
+              <img src={userAvatar} alt="Profile" />
+            ) : (
+              <div className="feed-header-avatar-fallback">
+                {session?.user?.name?.[0] || "U"}
+              </div>
+            )}
+          </Link>
         </div>
-      )}
+      </header>
 
-      {/* Section 1: MATCH (First - Priority) */}
-      <div className="modern-section" style={{ marginTop: '1rem' }}>
-        <div style={{ padding: '0 1rem 0.75rem' }}>
-          {!hasMoreProfiles ? (
-            <div className="no-content" style={{ padding: '2rem 1rem' }}>
-              <div className="no-content-icon">😊</div>
-              <h3>That's everyone for now!</h3>
-              <p>Check back later for new people</p>
-            </div>
-          ) : currentProfile ? (
-            <>
-              <div 
-                className="match-card-modern"
-                style={{
-                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 15}deg)`,
-                  transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-                  opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.7 : 1,
-                }}
-                onMouseDown={(e) => handleStart(e.clientX)}
-                onMouseMove={(e) => handleMove(e.clientX)}
-                onMouseUp={handleEnd}
-                onMouseLeave={handleEnd}
-                onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-                onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-                onTouchEnd={handleEnd}
-              >
-                {/* Premium Swipe indicators - SPARK & FADE */}
-                {swipeOffset > 50 && (
-                  <div className="swipe-indicator spark" style={{ opacity: Math.min(swipeOffset / 100, 1) }}>
-                    <div className="swipe-indicator-content">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-                      </svg>
-                      <span className="swipe-indicator-text">SPARK</span>
-                    </div>
+      {/* Main Content */}
+      <main className="feed-clean-main">
+        {/* 2. MATCH HERO - Big immersive card (first screen) */}
+        <section className="feed-match-hero">
+          {hasMoreProfiles && currentProfile ? (
+            <div className="match-hero-card">
+              {/* Photo */}
+              <div className="match-hero-photo">
+                {getUserImage(currentProfile) ? (
+                  <img 
+                    src={getUserImage(currentProfile)} 
+                    alt={getDisplayName(currentProfile)} 
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className="match-hero-photo-fallback"
+                  style={{ 
+                    background: getGradientForUser(currentProfile._id),
+                    display: getUserImage(currentProfile) ? 'none' : 'flex'
+                  }}
+                >
+                  <div className="match-hero-fallback-initial">
+                    {getInitial(getDisplayName(currentProfile))}
                   </div>
-                )}
-                {swipeOffset < -50 && (
-                  <div className="swipe-indicator fade" style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 1) }}>
-                    <div className="swipe-indicator-content">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" opacity="0.3" />
-                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                      </svg>
-                      <span className="swipe-indicator-text">FADE</span>
-                    </div>
-                  </div>
-                )}
-
-                {(() => {
-                  const userImage = getUserImage(currentProfile);
-                  const displayName = getDisplayName(currentProfile);
-                  const initial = getInitial(displayName);
-                  const gradient = getGradientForUser(currentProfile._id);
-
-                  return userImage && !matchCardImgError ? (
-                    <img 
-                      src={userImage} 
-                      alt={displayName}
-                      className="match-card-image"
-                      onError={() => setMatchCardImgError(true)}
-                    />
-                  ) : (
-                    <div className="match-card-image" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: gradient,
-                      fontSize: '8rem',
-                      fontWeight: 900,
-                      color: 'white',
-                      textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
-                      position: 'relative',
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                        pointerEvents: 'none',
-                      }}></div>
-                      <span style={{ position: 'relative', zIndex: 1 }}>{initial}</span>
-                    </div>
-                  );
-                })()}
-
-                <div className="match-card-gradient"></div>
-
-                <div className="match-card-info">
-                  <div className="match-card-header">
-                    <h2 className="match-card-name">
-                      {getDisplayName(currentProfile)}
-                      {currentProfile.age && `, ${currentProfile.age}`}
-                    </h2>
-                    {currentProfile.isOnline && <div className="online-indicator"></div>}
-                  </div>
-                  
-                  {isApprovedCreator(currentProfile) && (
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.3rem 0.75rem',
-                      borderRadius: '999px',
-                      background: 'linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3))',
-                      border: '1px solid rgba(224,64,251,0.5)',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      color: '#e040fb',
-                      marginBottom: '0.5rem',
-                      boxShadow: '0 0 12px rgba(224,64,251,0.3)',
-                    }}>
-                      ⭐ Creator
-                    </div>
-                  )}
-                  
-                  <div className="match-card-details">
-                    {currentProfile.location && (
-                      <span>📍 {currentProfile.location}</span>
-                    )}
-                  </div>
-                  {currentProfile.bio && (
-                    <p className="match-card-bio">{currentProfile.bio}</p>
-                  )}
-                  {currentProfile.tags && Array.isArray(currentProfile.tags) && currentProfile.tags.length > 0 && (
-                    <div className="match-card-tags" style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap',
-                      marginTop: '0.75rem'
-                    }}>
-                      {currentProfile.tags.filter(tag => tag && typeof tag === 'string' && tag.trim()).slice(0, 3).map((tag, idx) => (
-                        <span key={idx} style={{
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          padding: '0.3rem 0.7rem',
-                          borderRadius: '999px',
-                          background: 'rgba(139,92,246,0.25)',
-                          border: '1px solid rgba(139,92,246,0.4)',
-                          color: '#c4b5fd',
-                          backdropFilter: 'blur(8px)',
-                          WebkitBackdropFilter: 'blur(8px)',
-                        }}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
+
+                {/* Online badge */}
+                {currentProfile.isOnline && (
+                  <div className="match-hero-online-badge">
+                    <span className="online-dot"></span>
+                    En línea
+                  </div>
+                )}
               </div>
 
-              {/* Premium Interaction Bar */}
-              <InteractionBar
-                profile={currentProfile}
-                onFade={handlePass}
-                onSpark={handleLike}
-                onPulse={handleBoost}
-                onMagnet={handleSuperCrush}
-                onFlashLive={handleFlashLive}
-                disabled={swiping}
-                boostPrice={boostPrice}
-                magnetPrice={magnetPrice}
-              />
-            </>
-          ) : null}
-        </div>
-      </div>
+              {/* Info */}
+              <div className="match-hero-info">
+                <div className="match-hero-name-section">
+                  <h2 className="match-hero-name">{getDisplayName(currentProfile)}</h2>
+                  {currentProfile.birthdate && (
+                    <span className="match-hero-age">{calculateAge(currentProfile.birthdate)}</span>
+                  )}
+                </div>
 
-      {/* Section 2: LIVE NOW */}
-      <div className="live-scroll-section" style={{ padding: '1rem 0' }}>
-        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem' }}>
-          <div className="live-icon">🔴</div>
-          <span>LIVE NOW</span>
-        </div>
-        {activeLives.length > 0 ? (
-          <div className="live-scroll-container">
-            {activeLives.map((live) => {
-              const liveThumb = getLiveThumbnail(live);
-              const creatorName = getDisplayName(live.user);
-              const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(live.user?._id || live._id);
-              
-              return (
-                <Link 
-                  key={live._id} 
-                  href={`/live/${live._id}`}
-                  className="live-card-compact"
-                >
-                  <div className="live-thumb">
-                    {liveThumb ? (
-                      <img 
-                        src={liveThumb} 
-                        alt={live.title} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          const fallback = e.target.nextElementSibling;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      background: gradient,
-                      display: liveThumb ? 'none' : 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: '0.5rem',
-                      position: liveThumb ? 'absolute' : 'relative',
-                      top: 0,
-                      left: 0,
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                        pointerEvents: 'none',
-                      }}></div>
-                      <div style={{
-                        fontSize: '2.5rem',
-                        fontWeight: 900,
-                        color: 'white',
-                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
-                        zIndex: 1
-                      }}>
-                        {creatorInitial}
-                      </div>
-                      <div style={{
-                        fontSize: '2rem',
-                        opacity: 0.8,
-                        zIndex: 1
-                      }}>
-                        📹
-                      </div>
-                    </div>
-                    <div className="live-badge-pulse">🔴 LIVE</div>
-                    {live.viewerCount > 0 && (
-                      <div className="live-viewers">
-                        👁️ {live.viewerCount}
-                      </div>
-                    )}
+                {currentProfile.location && (
+                  <div className="match-hero-location">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    {currentProfile.location}
                   </div>
-                  <div className="live-info">
-                    <div className="live-title">{live.title || "Live Stream"}</div>
-                    <div className="live-creator">{creatorName}</div>
-                    <button className="live-enter-btn">Enter</button>
+                )}
+
+                {/* Tags */}
+                {currentProfile.tags && currentProfile.tags.length > 0 && (
+                  <div className="match-hero-tags">
+                    {currentProfile.tags.slice(0, 4).map((tag, idx) => (
+                      <span key={idx} className="match-hero-tag">{tag}</span>
+                    ))}
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="no-content" style={{ padding: '2rem 1rem' }}>
-            <div className="no-content-icon" style={{ fontSize: '3rem' }}>📡</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No hay directos ahora</h3>
-            <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Vuelve pronto para ver nuevos directos</p>
-            <Link href="/explore" className="btn btn-primary" style={{ 
-              marginTop: '0.5rem',
-              display: 'inline-block',
-              padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-              color: 'white',
-              borderRadius: '999px',
-              fontWeight: 700,
-              fontSize: '0.9rem',
-              textDecoration: 'none',
-              transition: 'all 0.3s',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(224, 64, 251, 0.3)'
-            }}>
-              Explorar creadores
-            </Link>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="match-hero-empty">
+              <div className="match-hero-empty-icon">✨</div>
+              <h3>No hay más perfiles por ahora</h3>
+              <p>Vuelve pronto para descubrir nuevas conexiones</p>
+            </div>
+          )}
+        </section>
+
+        {/* 3. ACTION DOCK - Floating premium buttons */}
+        {hasMoreProfiles && currentProfile && (
+          <div className="feed-action-dock">
+            <InteractionButton 
+              variant="fade" 
+              label="FADE" 
+              onClick={handleFade}
+            />
+            <InteractionButton 
+              variant="spark" 
+              label="SPARK" 
+              onClick={handleSpark}
+            />
+            <InteractionButton 
+              variant="pulse" 
+              label="PULSE" 
+              onClick={handlePulse}
+              coinCost={100}
+            />
+            <InteractionButton 
+              variant="magnet" 
+              label="MAGNET" 
+              onClick={handleMagnet}
+              coinCost={50}
+            />
+            <InteractionButton 
+              variant="flash-live" 
+              label="FLASH LIVE" 
+              onClick={handleFlashLive}
+            />
           </div>
         )}
-      </div>
 
-      {/* Section 3: TOP CREATORS */}
-      {featuredCreators.length > 0 && (
-        <div className="creators-section" style={{ padding: '1rem 0' }}>
-          <div className="creators-header" style={{ padding: '0 1rem 0.75rem' }}>
-            <span>⭐</span>
-            <span>TOP CREATORS</span>
-          </div>
-          <div className="creators-scroll">
-            {featuredCreators.map((creator) => {
-              const creatorImage = getUserImage(creator);
-              const creatorName = getDisplayName(creator);
-              const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(creator._id);
-              
-              return (
-                <Link
-                  key={creator._id}
+        {/* 4. LIVE NOW - Lazy load, horizontal cards */}
+        {livesLoaded && activeLives.length > 0 && (
+          <section className="feed-live-section">
+            <h3 className="feed-section-title">En Vivo Ahora 🔴</h3>
+            <div className="feed-live-horizontal">
+              {activeLives.slice(0, 10).map((live, idx) => (
+                <LiveCard key={live._id} live={live} index={idx} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {livesLoaded && activeLives.length === 0 && (
+          <section className="feed-live-section">
+            <h3 className="feed-section-title">En Vivo Ahora 🔴</h3>
+            <div className="feed-live-empty">
+              <p>No hay transmisiones en vivo en este momento</p>
+            </div>
+          </section>
+        )}
+
+        {/* 5. TOP CREATORS - Lazy load, horizontal cards */}
+        {creatorsLoaded && featuredCreators.length > 0 && (
+          <section className="feed-creators-section">
+            <h3 className="feed-section-title">Creadores Destacados ⭐</h3>
+            <div className="feed-creators-horizontal">
+              {featuredCreators.map((creator) => (
+                <Link 
+                  key={creator._id} 
                   href={`/profile/${creator._id}`}
-                  className="creator-story"
+                  className="feed-creator-card"
                 >
-                  <div className="creator-story-avatar">
-                    {creatorImage ? (
-                      <>
-                        <img 
-                          src={creatorImage} 
-                          alt={creatorName}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.nextElementSibling;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'none',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: gradient,
-                          fontSize: '2rem',
-                          fontWeight: 900,
-                          color: 'white',
-                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                        }}>
-                          <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
-                            pointerEvents: 'none',
-                          }}></div>
-                          <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: gradient,
-                        fontSize: '2rem',
-                        fontWeight: 900,
-                        color: 'white',
-                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                        position: 'relative'
-                      }}>
-                        <div style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
-                          pointerEvents: 'none',
-                        }}></div>
-                        <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="creator-story-name">{creatorName}</div>
+                  {getUserImage(creator) ? (
+                    <img src={getUserImage(creator)} alt={getDisplayName(creator)} />
+                  ) : (
+                    <div 
+                      className="feed-creator-fallback"
+                      style={{ background: getGradientForUser(creator._id) }}
+                    >
+                      {getInitial(getDisplayName(creator))}
+                    </div>
+                  )}
+                  <div className="feed-creator-name">{getDisplayName(creator)}</div>
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   );
+}
+
+// Helper function
+function calculateAge(birthdate) {
+  if (!birthdate) return null;
+  const today = new Date();
+  const birth = new Date(birthdate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
 }

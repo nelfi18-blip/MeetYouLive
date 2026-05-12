@@ -85,14 +85,14 @@ export default function ModernFeedPage() {
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
-      // After backend optimizations, normal requests should complete in 2-5 seconds
+      // Safety timeout to prevent infinite loading - 10 seconds
+      // Always stops loading to prevent infinite spinner
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (15s) - aborting request");
+          console.warn("[Feed] Timeout reached (10s) - aborting request");
           controller.abort();
         }
-      }, 15000);
+      }, 10000);
 
       try {
         console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
@@ -515,7 +515,7 @@ export default function ModernFeedPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       background: gradient,
-                      fontSize: '8rem',
+                      fontSize: '3rem',
                       fontWeight: 900,
                       color: 'white',
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',

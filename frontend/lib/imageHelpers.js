@@ -113,16 +113,16 @@ export function getGradientForUser(seed) {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Define gradient pairs (premium neon theme)
+  // Define gradient pairs (premium purple theme only - no orange/yellow)
   const gradients = [
     'linear-gradient(135deg, #e040fb, #8b5cf6)', // Pink to purple
     'linear-gradient(135deg, #ff4fa3, #e040fb)', // Pink to magenta
     'linear-gradient(135deg, #8b5cf6, #22d3ee)', // Purple to cyan
-    'linear-gradient(135deg, #7c3aed, #fb923c)', // Purple to orange
+    'linear-gradient(135deg, #7c3aed, #a855f7)', // Purple to lighter purple
     'linear-gradient(135deg, #22d3ee, #34d399)', // Cyan to green
-    'linear-gradient(135deg, #fb923c, #fbbf24)', // Orange to yellow
     'linear-gradient(135deg, #e040fb, #7c3aed)', // Magenta to deep purple
     'linear-gradient(135deg, #34d399, #22d3ee)', // Green to cyan
+    'linear-gradient(135deg, #a855f7, #ec4899)', // Purple to pink
   ];
   
   // Pick a gradient based on hash

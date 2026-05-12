@@ -86,7 +86,7 @@ export default function ModernFeedPage() {
 
     const fetchFeed = async () => {
       // Safety timeout to prevent infinite loading - 10 seconds
-      // Always stops loading to prevent infinite spinner
+      // Triggers during network issues or backend unavailability
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
           console.warn("[Feed] Timeout reached (10s) - aborting request");

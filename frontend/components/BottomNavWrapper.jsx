@@ -2,20 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import BottomNav from "./BottomNav";
+import { isChromeHiddenPath } from "@/lib/navRoutes";
 
-// Routes where the bottom nav should NOT appear.
-// Mirrors NavbarWrapper's HIDDEN_ROUTES so the BottomNav is shown on every
-// route the main Navbar is shown on. This makes the dedicated BottomNav the
-// single source of truth for mobile navigation across the app.
-const HIDDEN_ROUTES = ["/login", "/register", "/", "/onboarding"];
-
+// BottomNav is shown wherever the main Navbar is shown (see NavbarWrapper).
+// Both wrappers share isChromeHiddenPath so the two visibility rules can't
+// drift, and BottomNav remains the single bottom navigation across the app.
 export default function BottomNavWrapper() {
   const pathname = usePathname();
-
-  if (!pathname) return null;
-  if (HIDDEN_ROUTES.includes(pathname)) return null;
-  if (pathname.startsWith("/admin")) return null;
-
+  if (isChromeHiddenPath(pathname)) return null;
   return <BottomNav />;
 }
 

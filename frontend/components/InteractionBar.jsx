@@ -103,11 +103,12 @@ export default function InteractionBar({
       <style jsx>{`
         .interaction-bar {
           position: fixed;
-          bottom: 0;
+          /* Sit above the bottom navigation (which is ~70px tall + safe area) */
+          bottom: calc(70px + env(safe-area-inset-bottom));
           left: 0;
           right: 0;
-          z-index: 100;
-          padding: 1rem;
+          z-index: 90; /* Below bottom-nav (z 1000) but above page content */
+          padding: 0.5rem 1rem 1rem;
           display: flex;
           justify-content: center;
           pointer-events: none;
@@ -149,7 +150,7 @@ export default function InteractionBar({
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .interaction-bar {
-            padding: 0.75rem;
+            padding: 0.5rem 0.75rem 0.75rem;
           }
 
           .interaction-bar-inner {
@@ -171,12 +172,7 @@ export default function InteractionBar({
           }
         }
 
-        /* Add safe area for mobile devices with bottom notches */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          .interaction-bar {
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-          }
-        }
+        /* Safe area is already included in the bottom offset above; no extra padding needed */
       `}</style>
     </>
   );

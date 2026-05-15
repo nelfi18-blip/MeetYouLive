@@ -1,816 +1,1147 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+/**
+ * /feed — Brand-new premium discovery feed for MeetYouLive.
+ *
+ * Architecture (intentionally simple and resilient):
+ *   1. Sticky brand header (logo, coins pill, notifications, avatar)
+ *   2. Horizontal "Stories" rail of currently active live streams
+ *   3. Segmented tabs: Para ti · En vivo · Creadores
+ *   4. Responsive 2-column card grid driven by the active tab
+ *   5. Floating CTA (Go Live for creators, Explore for everyone else)
+ *
+ * Safety / UX invariants preserved from prior iterations:
+ *   - Waits for `status === "authenticated"` before fetching.
+ *   - AbortController with a 15 s timeout (Render cold starts can be slow).
+ *   - `cache: "no-store"` to avoid stale data after login.
+ *   - Admins are redirected to /admin (they don't belong on the feed).
+ *   - Errors always render a friendly fallback with a retry button — never an
+ *     infinite spinner.
+ *   - Reuses the shared `LiveCard` component and `imageHelpers` so visual
+ *     conventions stay consistent across the app.
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
+import LiveCard from "@/components/LiveCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import {
+  getUserImage,
+  getDisplayName,
+  getInitial,
+  getGradientForUser,
+} from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const FETCH_TIMEOUT_MS = 15000;
+// In the "Para ti" feed, inject one featured creator card after every Nth
+// recommended profile so the discovery surface always mixes both worlds.
+const CREATOR_INJECTION_INTERVAL = 4;
 
-// Swipe behavior constants
-const SWIPE_THRESHOLD_PX = 100;
-const SWIPE_ANIMATION_DURATION_MS = 300;
-const SWIPE_OUT_DISTANCE_PX = 1000;
+const TABS = [
+  { id: "foryou", label: "Para ti" },
+  { id: "live", label: "En vivo" },
+  { id: "creators", label: "Creadores" },
+];
 
-export default function ModernFeedPage() {
+export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { t } = useLanguage();
-  
-  // State
+
   const [activeLives, setActiveLives] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [featuredCreators, setFeaturedCreators] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [swiping, setSwiping] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [livesLoading, setLivesLoading] = useState(true);
-  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
-  const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
-  const [userCoins, setUserCoins] = useState(0);
-  const [boostPrice] = useState(100);
-  const [magnetPrice] = useState(50);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
-  
-  // Refs
-  const startXRef = useRef(0);
-  const currentXRef = useRef(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useState("foryou");
+  const [likedIds, setLikedIds] = useState(() => new Set());
 
-  // Auth redirect
+  /* ------------------------------------------------------------------ */
+  /* Auth gating                                                         */
+  /* ------------------------------------------------------------------ */
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
-  
-  // Admin redirect - admins should not access the feed page
+
+  // Admins should not see the consumer feed.
   useEffect(() => {
     if (!session?.backendToken) return;
-    
-    let isMounted = true;
-    
-    const checkAdminRole = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const userData = await fetchUserRole(session.backendToken);
-        if (isMounted && userData?.role === "admin") {
-          router.replace("/admin");
-        }
-      } catch (err) {
-        console.error("Error checking user role:", err);
+        const user = await fetchUserRole(session.backendToken);
+        if (!cancelled && user?.role === "admin") router.replace("/admin");
+      } catch {
+        /* non-fatal */
       }
-    };
-    
-    checkAdminRole();
-    
+    })();
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
   }, [session?.backendToken, router]);
 
-  // Fetch feed data
+  /* ------------------------------------------------------------------ */
+  /* Data fetch                                                          */
+  /* ------------------------------------------------------------------ */
+
   useEffect(() => {
-    // Wait for authentication to complete
     if (status !== "authenticated" || !session?.backendToken) return;
 
-    let isCancelled = false;
-    let loadingTimeout = null;
+    let cancelled = false;
     const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
-      // After backend optimizations, normal requests should complete in 2-5 seconds
-      loadingTimeout = setTimeout(() => {
-        if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (15s) - aborting request");
-          controller.abort();
-        }
-      }, 15000);
+    setLoading(true);
+    setError(null);
 
+    (async () => {
       try {
-        console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
-        // NOTE: Only log presence of token, never log the actual token value for security
-        console.log("[Feed] Auth token present:", !!session.backendToken);
-        
-        const [feedRes, userRes] = await Promise.all([
+        const headers = {
+          Authorization: `Bearer ${session.backendToken}`,
+        };
+        const [feedRes, meRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
+            headers,
             signal: controller.signal,
             cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
+            headers,
             signal: controller.signal,
             cache: "no-store",
           }),
         ]);
 
-        if (isCancelled) return;
+        if (cancelled) return;
 
-        clearTimeout(loadingTimeout);
-
-        console.log("[Feed] Feed response status:", feedRes.status);
-        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
-
-        // Enhanced error handling with specific status codes
         if (!feedRes.ok) {
-          console.error("[Feed] API error - Status:", feedRes.status);
-          
-          let errorMessage = "No pudimos cargar tu feed";
           if (feedRes.status === 401 || feedRes.status === 403) {
-            errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
-          } else if (feedRes.status === 404) {
-            errorMessage = "El servicio de feed no está disponible.";
-          } else if (feedRes.status >= 500) {
-            errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
+            throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
           }
-          
-          throw new Error(errorMessage);
+          throw new Error(t("feed.genericError"));
         }
 
         const data = await feedRes.json();
-        console.log("[Feed] Data received:", {
-          lives: data.activeLives?.length || 0,
-          profiles: data.recommendedProfiles?.length || 0,
-          creators: data.featuredCreators?.length || 0
-        });
-        
-        // Apply frontend safety filter to activeLives
-        const safeLives = filterActiveLives(data.activeLives || []);
-        
-        // Deduplicate profiles and creators by _id
-        const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
-        );
-        const uniqueCreators = Array.from(
-          new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
-        );
+        const lives = filterActiveLives(data.activeLives || []);
+        const uniqBy = (arr) =>
+          Array.from(new Map((arr || []).map((i) => [i._id, i])).values());
 
-        setActiveLives(safeLives);
-        setProfiles(uniqueProfiles);
-        setFeaturedCreators(uniqueCreators);
+        setActiveLives(lives);
+        setProfiles(uniqBy(data.recommendedProfiles));
+        setFeaturedCreators(uniqBy(data.featuredCreators));
 
-        // Get user coins balance
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUserCoins(userData.coinsBalance || 0);
+        if (meRes.ok) {
+          const meJson = await meRes.json();
+          setMe(meJson);
         }
-
-        setError(null);
-        setLivesLoading(false);
-        setLoading(false);
-        console.log("[Feed] Load complete");
       } catch (err) {
-        if (isCancelled) return;
-        
-        clearTimeout(loadingTimeout);
-        
-        // Enhanced error logging with more context
-        if (err.name === 'AbortError') {
-          console.log("[Feed] Request aborted (timeout or unmount)");
-          // Timeout was triggered - show user-friendly message
-          // Note: First load after inactivity may take longer (server wake-up time)
+        if (cancelled) return;
+        if (err.name === "AbortError") {
           setError(t("feed.serverStarting"));
-        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
-          // Network error - server might be down or unreachable
-          console.error("[Feed] Network error - server might be down:", err.message);
+        } else if (err.name === "TypeError") {
           setError(t("feed.networkError"));
         } else {
-          console.error("[Feed] Error:", err.message);
           setError(err.message || t("feed.genericError"));
         }
-        
-        setLivesLoading(false);
-        setLoading(false);
+      } finally {
+        if (!cancelled) {
+          clearTimeout(timeout);
+          setLoading(false);
+        }
       }
-    };
+    })();
 
-    fetchFeed();
-
-    // Cleanup function to cancel request if component unmounts
     return () => {
-      isCancelled = true;
-      if (loadingTimeout) clearTimeout(loadingTimeout);
+      cancelled = true;
+      clearTimeout(timeout);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id]);
+  }, [status, session?.backendToken, session?.user?.id, refreshKey, t]);
 
-  // Reset image error when card changes
-  useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
+  /* ------------------------------------------------------------------ */
+  /* Derived UI state                                                    */
+  /* ------------------------------------------------------------------ */
 
-  // Swipe handlers
-  const handleStart = (clientX) => {
-    setSwiping(true);
-    startXRef.current = clientX;
-    currentXRef.current = clientX;
-  };
-
-  const handleMove = (clientX) => {
-    if (!swiping) return;
-    currentXRef.current = clientX;
-    const offset = clientX - startXRef.current;
-    setSwipeOffset(offset);
-  };
-
-  const handleEnd = () => {
-    if (!swiping) return;
-    setSwiping(false);
-
-    const offset = currentXRef.current - startXRef.current;
-
-    if (Math.abs(offset) > SWIPE_THRESHOLD_PX) {
-      if (offset > 0) {
-        handleLike();
-      } else {
-        handlePass();
-      }
-    } else {
-      setSwipeOffset(0);
-    }
-  };
-
-  const handleLike = async () => {
-    const currentProfile = profiles[currentIndex];
-    if (!currentProfile) return;
-
-    // Show heart animation
-    setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-    setShowHeartAnimation(true);
-    setTimeout(() => setShowHeartAnimation(false), 1500);
-
-    setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
-    
-    try {
-      await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ userId: currentProfile._id }),
-      });
-    } catch (err) {
-      console.error("Like error:", err);
-    }
-
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setSwipeOffset(0);
-    }, SWIPE_ANIMATION_DURATION_MS);
-  };
-
-  const handlePass = () => {
-    setSwipeOffset(-SWIPE_OUT_DISTANCE_PX);
-
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setSwipeOffset(0);
-    }, SWIPE_ANIMATION_DURATION_MS);
-  };
-
-  const handleBoost = async () => {
-    if (userCoins < boostPrice) {
-      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
-      router.push("/coins");
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/api/matches/boost`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setUserCoins((prev) => prev - boostPrice);
-        alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
-      } else {
-        const error = await res.json();
-        alert(error.message || "Error al activar boost");
-      }
-    } catch (err) {
-      console.error("Boost error:", err);
-      alert("Error al activar boost");
-    }
-  };
-
-  const handleSuperCrush = async () => {
-    const currentProfile = profiles[currentIndex];
-    if (!currentProfile) return;
-
-    if (userCoins < magnetPrice) {
-      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
-      router.push("/coins");
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/api/matches/super-crush/${currentProfile._id}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setUserCoins((prev) => prev - magnetPrice);
-        
-        // Show special animation
-        setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        setShowHeartAnimation(true);
-        setTimeout(() => setShowHeartAnimation(false), 2000);
-
-        // Move to next profile
-        setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
-        setTimeout(() => {
-          setCurrentIndex((prev) => prev + 1);
-          setSwipeOffset(0);
-        }, SWIPE_ANIMATION_DURATION_MS);
-
-        if (data.match) {
-          alert("¡Match instantáneo! 🔥");
-        } else {
-          alert("Super Crush enviado ⚡");
+  // "Para ti" interleaves recommended users with featured creators so the
+  // first screen always feels alive even when one of the lists is sparse.
+  const forYouItems = useMemo(() => {
+    const result = [];
+    const maxLen = Math.max(profiles.length, featuredCreators.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (profiles[i]) result.push({ kind: "profile", data: profiles[i] });
+      // Every Nth profile, slot in a featured creator to keep the grid varied.
+      if (i % CREATOR_INJECTION_INTERVAL === CREATOR_INJECTION_INTERVAL - 1) {
+        const creatorIdx = Math.floor(i / CREATOR_INJECTION_INTERVAL);
+        if (featuredCreators[creatorIdx]) {
+          result.push({ kind: "creator", data: featuredCreators[creatorIdx] });
         }
-      } else {
-        const error = await res.json();
-        alert(error.message || "Error al enviar Super Crush");
       }
-    } catch (err) {
-      console.error("Super Crush error:", err);
-      alert("Error al enviar Super Crush");
     }
-  };
+    return result;
+  }, [profiles, featuredCreators]);
 
-  const handleFlashLive = () => {
-    const currentProfile = profiles[currentIndex];
-    if (!currentProfile) return;
-    
-    // Navigate to video call or private call initiation
-    router.push(`/call/${currentProfile._id}`);
-  };
+  const isCreator = isApprovedCreator(me);
+  const coinsBalance = Number.isFinite(me?.coinsBalance) ? me.coinsBalance : 0;
 
-  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
-  if (status === "loading" || (status === "authenticated" && loading && !error)) {
-    return (
-      <div className="modern-page">
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '70vh',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
-          <div className="spinner"></div>
-          <p style={{ color: 'var(--text-muted)' }}>Cargando tu feed...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Show error state if API failed
-  if (error) {
-    return (
-      <div className="modern-page">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '70vh',
-          flexDirection: 'column',
-          gap: '1rem',
-          padding: '2rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '4rem' }}>😔</div>
-          <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-            No pudimos cargar tu feed
-          </h3>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
-            {error}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem 2rem',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: '12px',
-              color: 'white',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            Intentar de nuevo
-          </button>
-        </div>
-      </div>
-    );
-  }
+  /* ------------------------------------------------------------------ */
+  /* Actions                                                             */
+  /* ------------------------------------------------------------------ */
 
-  const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length;
+  const handleLike = useCallback(
+    async (userId) => {
+      if (!userId || !session?.backendToken) return;
+      // Optimistic UI: mark immediately, revert on failure.
+      setLikedIds((prev) => {
+        const next = new Set(prev);
+        next.add(userId);
+        return next;
+      });
+      try {
+        const res = await fetch(`${API_URL}/api/match/like/${userId}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.backendToken}`,
+          },
+        });
+        if (!res.ok) throw new Error("like failed");
+      } catch (err) {
+        console.warn("[Feed] Like failed, reverting optimistic UI", err);
+        setLikedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+      }
+    },
+    [session?.backendToken],
+  );
+
+  const refresh = () => setRefreshKey((k) => k + 1);
+
+  /* ------------------------------------------------------------------ */
+  /* Render                                                              */
+  /* ------------------------------------------------------------------ */
+
+  // Auth still resolving — render the skeleton frame, not a blank page.
+  const isInitialLoading = status === "loading" || (loading && !error);
 
   return (
-    <div className="modern-page">
-      {/* Heart Animation */}
-      {showHeartAnimation && (
-        <div 
-          className="heart-animation"
-          style={{
-            left: `${heartPosition.x}px`,
-            top: `${heartPosition.y}px`,
-          }}
-        >
-          ❤️
+    <div className="feed-shell">
+      {/* ============ Header ============ */}
+      <header className="feed-header">
+        <Link href="/" className="feed-brand" aria-label="MeetYouLive">
+          <span className="feed-brand-dot" />
+          MeetYouLive
+        </Link>
+        <div className="feed-header-actions">
+          <Link href="/coins" className="feed-coins-pill" aria-label="Monedas">
+            <span className="feed-coins-icon">🪙</span>
+            <span className="feed-coins-amount">
+              {coinsBalance.toLocaleString()}
+            </span>
+          </Link>
+          <Link
+            href="/notifications"
+            className="feed-icon-btn"
+            aria-label="Notificaciones"
+          >
+            🔔
+          </Link>
+          <Link href="/profile" className="feed-avatar-btn" aria-label="Perfil">
+            {getUserImage(me) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={getUserImage(me)}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : (
+              <span
+                className="feed-avatar-fallback"
+                style={{ background: getGradientForUser(me?._id || "me") }}
+              >
+                {getInitial(getDisplayName(me))}
+              </span>
+            )}
+          </Link>
         </div>
+      </header>
+
+      {/* ============ Lives "stories" rail ============ */}
+      <LivesRail
+        lives={activeLives}
+        loading={isInitialLoading && !activeLives.length}
+      />
+
+      {/* ============ Tabs ============ */}
+      <nav className="feed-tabs" role="tablist" aria-label="Secciones del feed">
+        {TABS.map((tabDef) => (
+          <button
+            key={tabDef.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === tabDef.id}
+            className={`feed-tab ${tab === tabDef.id ? "is-active" : ""}`}
+            onClick={() => setTab(tabDef.id)}
+          >
+            {tabDef.label}
+            {tabDef.id === "live" && activeLives.length > 0 && (
+              <span className="feed-tab-count">{activeLives.length}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* ============ Main content ============ */}
+      <main className="feed-main">
+        {error ? (
+          <ErrorState message={error} onRetry={refresh} />
+        ) : isInitialLoading ? (
+          <SkeletonGrid />
+        ) : tab === "foryou" ? (
+          forYouItems.length === 0 ? (
+            <EmptyState
+              icon="✨"
+              title="Aún no hay sugerencias para ti"
+              hint="Vuelve en unos minutos — nuevos perfiles llegan todo el tiempo."
+              actionLabel="Actualizar"
+              onAction={refresh}
+            />
+          ) : (
+            <div className="feed-grid">
+              {forYouItems.map((item) =>
+                item.kind === "profile" ? (
+                  <ProfileCard
+                    key={`p-${item.data._id}`}
+                    profile={item.data}
+                    liked={likedIds.has(item.data._id)}
+                    onLike={() => handleLike(item.data._id)}
+                  />
+                ) : (
+                  <CreatorCard
+                    key={`c-${item.data._id}`}
+                    creator={item.data}
+                  />
+                ),
+              )}
+            </div>
+          )
+        ) : tab === "live" ? (
+          activeLives.length === 0 ? (
+            <EmptyState
+              icon="📡"
+              title="Nadie está en vivo ahora mismo"
+              hint="Sé el primero — abre tu transmisión y reúne a tu comunidad."
+              actionLabel={isCreator ? "Empezar a transmitir" : "Explorar"}
+              onAction={() =>
+                router.push(isCreator ? "/live/start" : "/explore")
+              }
+            />
+          ) : (
+            <div className="feed-grid">
+              {activeLives.map((live, idx) => (
+                <LiveCard key={live._id} live={live} index={idx} />
+              ))}
+            </div>
+          )
+        ) : (
+          // creators tab
+          featuredCreators.length === 0 ? (
+            <EmptyState
+              icon="⭐"
+              title="No hay creadores destacados todavía"
+              hint="Pronto verás aquí a los talentos más populares de la plataforma."
+              actionLabel="Actualizar"
+              onAction={refresh}
+            />
+          ) : (
+            <div className="feed-grid">
+              {featuredCreators.map((c) => (
+                <CreatorCard key={c._id} creator={c} large />
+              ))}
+            </div>
+          )
+        )}
+      </main>
+
+      {/* ============ Floating CTA ============ */}
+      {!error && !isInitialLoading && (
+        <Link
+          href={isCreator ? "/live/start" : "/explore"}
+          className="feed-fab"
+          aria-label={isCreator ? "Empezar a transmitir" : "Explorar"}
+        >
+          <span className="feed-fab-icon">{isCreator ? "🎥" : "🔭"}</span>
+          <span className="feed-fab-label">
+            {isCreator ? "Go Live" : "Explorar"}
+          </span>
+        </Link>
       )}
 
-      {/* Section 1: MATCH (First - Priority) */}
-      <div className="modern-section" style={{ marginTop: '1rem' }}>
-        <div style={{ padding: '0 1rem 0.75rem' }}>
-          {!hasMoreProfiles ? (
-            <div className="no-content" style={{ padding: '2rem 1rem' }}>
-              <div className="no-content-icon">😊</div>
-              <h3>That's everyone for now!</h3>
-              <p>Check back later for new people</p>
-            </div>
-          ) : currentProfile ? (
-            <>
-              <div 
-                className="match-card-modern"
-                style={{
-                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 15}deg)`,
-                  transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-                  opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.7 : 1,
-                }}
-                onMouseDown={(e) => handleStart(e.clientX)}
-                onMouseMove={(e) => handleMove(e.clientX)}
-                onMouseUp={handleEnd}
-                onMouseLeave={handleEnd}
-                onTouchStart={(e) => handleStart(e.touches[0].clientX)}
-                onTouchMove={(e) => handleMove(e.touches[0].clientX)}
-                onTouchEnd={handleEnd}
-              >
-                {/* Premium Swipe indicators - SPARK & FADE */}
-                {swipeOffset > 50 && (
-                  <div className="swipe-indicator spark" style={{ opacity: Math.min(swipeOffset / 100, 1) }}>
-                    <div className="swipe-indicator-content">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-                      </svg>
-                      <span className="swipe-indicator-text">SPARK</span>
-                    </div>
-                  </div>
-                )}
-                {swipeOffset < -50 && (
-                  <div className="swipe-indicator fade" style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 1) }}>
-                    <div className="swipe-indicator-content">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" opacity="0.3" />
-                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                      </svg>
-                      <span className="swipe-indicator-text">FADE</span>
-                    </div>
-                  </div>
-                )}
+      <FeedStyles />
+    </div>
+  );
+}
 
-                {(() => {
-                  const userImage = getUserImage(currentProfile);
-                  const displayName = getDisplayName(currentProfile);
-                  const initial = getInitial(displayName);
-                  const gradient = getGradientForUser(currentProfile._id);
+/* ====================================================================== */
+/* Sub-components                                                          */
+/* ====================================================================== */
 
-                  return userImage && !matchCardImgError ? (
-                    <img 
-                      src={userImage} 
-                      alt={displayName}
-                      className="match-card-image"
-                      onError={() => setMatchCardImgError(true)}
-                    />
-                  ) : (
-                    <div className="match-card-image" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: gradient,
-                      fontSize: '8rem',
-                      fontWeight: 900,
-                      color: 'white',
-                      textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
-                      position: 'relative',
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                        pointerEvents: 'none',
-                      }}></div>
-                      <span style={{ position: 'relative', zIndex: 1 }}>{initial}</span>
-                    </div>
-                  );
-                })()}
-
-                <div className="match-card-gradient"></div>
-
-                <div className="match-card-info">
-                  <div className="match-card-header">
-                    <h2 className="match-card-name">
-                      {getDisplayName(currentProfile)}
-                      {currentProfile.age && `, ${currentProfile.age}`}
-                    </h2>
-                    {currentProfile.isOnline && <div className="online-indicator"></div>}
-                  </div>
-                  
-                  {isApprovedCreator(currentProfile) && (
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.3rem 0.75rem',
-                      borderRadius: '999px',
-                      background: 'linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3))',
-                      border: '1px solid rgba(224,64,251,0.5)',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      color: '#e040fb',
-                      marginBottom: '0.5rem',
-                      boxShadow: '0 0 12px rgba(224,64,251,0.3)',
-                    }}>
-                      ⭐ Creator
-                    </div>
-                  )}
-                  
-                  <div className="match-card-details">
-                    {currentProfile.location && (
-                      <span>📍 {currentProfile.location}</span>
-                    )}
-                  </div>
-                  {currentProfile.bio && (
-                    <p className="match-card-bio">{currentProfile.bio}</p>
-                  )}
-                  {currentProfile.tags && Array.isArray(currentProfile.tags) && currentProfile.tags.length > 0 && (
-                    <div className="match-card-tags" style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap',
-                      marginTop: '0.75rem'
-                    }}>
-                      {currentProfile.tags.filter(tag => tag && typeof tag === 'string' && tag.trim()).slice(0, 3).map((tag, idx) => (
-                        <span key={idx} style={{
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          padding: '0.3rem 0.7rem',
-                          borderRadius: '999px',
-                          background: 'rgba(139,92,246,0.25)',
-                          border: '1px solid rgba(139,92,246,0.4)',
-                          color: '#c4b5fd',
-                          backdropFilter: 'blur(8px)',
-                          WebkitBackdropFilter: 'blur(8px)',
-                        }}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Premium Interaction Bar */}
-              <InteractionBar
-                profile={currentProfile}
-                onFade={handlePass}
-                onSpark={handleLike}
-                onPulse={handleBoost}
-                onMagnet={handleSuperCrush}
-                onFlashLive={handleFlashLive}
-                disabled={swiping}
-                boostPrice={boostPrice}
-                magnetPrice={magnetPrice}
-              />
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Section 2: LIVE NOW */}
-      <div className="live-scroll-section" style={{ padding: '1rem 0' }}>
-        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem' }}>
-          <div className="live-icon">🔴</div>
-          <span>LIVE NOW</span>
-        </div>
-        {activeLives.length > 0 ? (
-          <div className="live-scroll-container">
-            {activeLives.map((live) => {
-              const liveThumb = getLiveThumbnail(live);
-              const creatorName = getDisplayName(live.user);
-              const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(live.user?._id || live._id);
-              
-              return (
-                <Link 
-                  key={live._id} 
-                  href={`/live/${live._id}`}
-                  className="live-card-compact"
-                >
-                  <div className="live-thumb">
-                    {liveThumb ? (
-                      <img 
-                        src={liveThumb} 
-                        alt={live.title} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          const fallback = e.target.nextElementSibling;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      background: gradient,
-                      display: liveThumb ? 'none' : 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: '0.5rem',
-                      position: liveThumb ? 'absolute' : 'relative',
-                      top: 0,
-                      left: 0,
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
-                        pointerEvents: 'none',
-                      }}></div>
-                      <div style={{
-                        fontSize: '2.5rem',
-                        fontWeight: 900,
-                        color: 'white',
-                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
-                        zIndex: 1
-                      }}>
-                        {creatorInitial}
-                      </div>
-                      <div style={{
-                        fontSize: '2rem',
-                        opacity: 0.8,
-                        zIndex: 1
-                      }}>
-                        📹
-                      </div>
-                    </div>
-                    <div className="live-badge-pulse">🔴 LIVE</div>
-                    {live.viewerCount > 0 && (
-                      <div className="live-viewers">
-                        👁️ {live.viewerCount}
-                      </div>
-                    )}
-                  </div>
-                  <div className="live-info">
-                    <div className="live-title">{live.title || "Live Stream"}</div>
-                    <div className="live-creator">{creatorName}</div>
-                    <button className="live-enter-btn">Enter</button>
-                  </div>
-                </Link>
-              );
-            })}
+function LivesRail({ lives, loading }) {
+  if (loading) {
+    return (
+      <div className="lives-rail" aria-busy="true">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="lives-rail-item">
+            <div className="lives-rail-skeleton" />
+            <div className="lives-rail-skeleton-label" />
           </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!lives || lives.length === 0) return null;
+
+  return (
+    <div className="lives-rail" aria-label="Transmisiones en vivo">
+      {lives.map((live) => {
+        const name = getDisplayName(live.user);
+        const img =
+          (live.user && getUserImage(live.user)) || live.thumbnail || null;
+        return (
+          <Link
+            key={live._id}
+            href={`/live/${live._id}`}
+            className="lives-rail-item"
+          >
+            <div className="lives-rail-ring">
+              <div className="lives-rail-avatar">
+                {img ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={img} alt="" />
+                ) : (
+                  <span
+                    className="lives-rail-fallback"
+                    style={{
+                      background: getGradientForUser(live.user?._id || live._id),
+                    }}
+                  >
+                    {getInitial(name)}
+                  </span>
+                )}
+              </div>
+              <span className="lives-rail-badge">LIVE</span>
+            </div>
+            <span className="lives-rail-label">{name}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProfileCard({ profile, liked, onLike }) {
+  const name = getDisplayName(profile);
+  const img = getUserImage(profile);
+  const age = Number.isFinite(profile?.age) ? profile.age : null;
+  const trimmedLocation =
+    typeof profile?.location === "string" ? profile.location.trim() : "";
+  const location = trimmedLocation || null;
+
+  return (
+    <article className="feed-card">
+      <Link
+        href={`/profile/${profile._id}`}
+        className="feed-card-media"
+        aria-label={`Ver perfil de ${name}`}
+      >
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={img}
+            alt={name}
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
         ) : (
-          <div className="no-content" style={{ padding: '2rem 1rem' }}>
-            <div className="no-content-icon" style={{ fontSize: '3rem' }}>📡</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No hay directos ahora</h3>
-            <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Vuelve pronto para ver nuevos directos</p>
-            <Link href="/explore" className="btn btn-primary" style={{ 
-              marginTop: '0.5rem',
-              display: 'inline-block',
-              padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
-              color: 'white',
-              borderRadius: '999px',
-              fontWeight: 700,
-              fontSize: '0.9rem',
-              textDecoration: 'none',
-              transition: 'all 0.3s',
-              border: 'none',
-              boxShadow: '0 4px 12px rgba(224, 64, 251, 0.3)'
-            }}>
-              Explorar creadores
-            </Link>
+          <div
+            className="feed-card-fallback"
+            style={{ background: getGradientForUser(profile._id || name) }}
+          >
+            <span>{getInitial(name)}</span>
           </div>
         )}
-      </div>
-
-      {/* Section 3: TOP CREATORS */}
-      {featuredCreators.length > 0 && (
-        <div className="creators-section" style={{ padding: '1rem 0' }}>
-          <div className="creators-header" style={{ padding: '0 1rem 0.75rem' }}>
-            <span>⭐</span>
-            <span>TOP CREATORS</span>
-          </div>
-          <div className="creators-scroll">
-            {featuredCreators.map((creator) => {
-              const creatorImage = getUserImage(creator);
-              const creatorName = getDisplayName(creator);
-              const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(creator._id);
-              
-              return (
-                <Link
-                  key={creator._id}
-                  href={`/profile/${creator._id}`}
-                  className="creator-story"
-                >
-                  <div className="creator-story-avatar">
-                    {creatorImage ? (
-                      <>
-                        <img 
-                          src={creatorImage} 
-                          alt={creatorName}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.nextElementSibling;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'none',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: gradient,
-                          fontSize: '2rem',
-                          fontWeight: 900,
-                          color: 'white',
-                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                        }}>
-                          <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
-                            pointerEvents: 'none',
-                          }}></div>
-                          <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: gradient,
-                        fontSize: '2rem',
-                        fontWeight: 900,
-                        color: 'white',
-                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-                        position: 'relative'
-                      }}>
-                        <div style={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
-                          pointerEvents: 'none',
-                        }}></div>
-                        <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="creator-story-name">{creatorName}</div>
-                </Link>
-              );
-            })}
-          </div>
+        {profile?.isOnline && <span className="feed-card-online" />}
+        <div className="feed-card-gradient" aria-hidden="true" />
+        <div className="feed-card-meta">
+          <span className="feed-card-name">
+            {name}
+            {age != null && <span className="feed-card-age">, {age}</span>}
+          </span>
+          {location && <span className="feed-card-location">{location}</span>}
         </div>
+      </Link>
+      <button
+        type="button"
+        className={`feed-card-like ${liked ? "is-liked" : ""}`}
+        aria-pressed={liked}
+        aria-label={liked ? "Te gusta" : "Me gusta"}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!liked) onLike();
+        }}
+      >
+        {liked ? "💖" : "🤍"}
+      </button>
+    </article>
+  );
+}
+
+function CreatorCard({ creator, large = false }) {
+  const name = getDisplayName(creator);
+  const img = getUserImage(creator);
+  const earnings = Number.isFinite(creator?.earningsCoins)
+    ? creator.earningsCoins
+    : 0;
+
+  return (
+    <Link
+      href={`/profile/${creator._id}`}
+      className={`feed-card feed-card--creator ${large ? "is-large" : ""}`}
+    >
+      <div className="feed-card-media">
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt={name} loading="lazy" />
+        ) : (
+          <div
+            className="feed-card-fallback"
+            style={{ background: getGradientForUser(creator._id || name) }}
+          >
+            <span>{getInitial(name)}</span>
+          </div>
+        )}
+        <div className="feed-card-gradient" aria-hidden="true" />
+        <span className="feed-card-tag">⭐ Creador</span>
+        <div className="feed-card-meta">
+          <span className="feed-card-name">{name}</span>
+          {earnings > 0 && (
+            <span className="feed-card-location">
+              🪙 {earnings.toLocaleString()} ganados
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="feed-grid" aria-busy="true" aria-live="polite">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="feed-card feed-card-skeleton">
+          <div className="feed-card-media" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, hint, actionLabel, onAction }) {
+  return (
+    <div className="feed-state">
+      <div className="feed-state-icon" aria-hidden="true">
+        {icon}
+      </div>
+      <h2 className="feed-state-title">{title}</h2>
+      {hint && <p className="feed-state-hint">{hint}</p>}
+      {actionLabel && (
+        <button
+          type="button"
+          className="feed-state-btn"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
       )}
     </div>
+  );
+}
+
+function ErrorState({ message, onRetry }) {
+  return (
+    <div className="feed-state">
+      <div className="feed-state-icon" aria-hidden="true">
+        ⚠️
+      </div>
+      <h2 className="feed-state-title">Algo salió mal</h2>
+      <p className="feed-state-hint">{message}</p>
+      <button type="button" className="feed-state-btn" onClick={onRetry}>
+        Intentar de nuevo
+      </button>
+    </div>
+  );
+}
+
+/* ====================================================================== */
+/* Scoped styles                                                           */
+/* ====================================================================== */
+
+function FeedStyles() {
+  return (
+    <style jsx global>{`
+      .feed-shell {
+        /* Layout tokens — adjust these if header/bottom-nav heights change. */
+        --feed-header-height: 64px;
+        --feed-bottom-nav-height: 96px;
+
+        min-height: 100vh;
+        background:
+          radial-gradient(
+            1200px 600px at 20% -10%,
+            rgba(224, 64, 251, 0.18),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 500px at 90% 10%,
+            rgba(34, 211, 238, 0.14),
+            transparent 60%
+          ),
+          #0a0a14;
+        color: #f3f4f6;
+        padding-bottom: calc(
+          var(--feed-bottom-nav-height) + 24px + env(safe-area-inset-bottom)
+        );
+      }
+
+      /* ---------------- Header ---------------- */
+      .feed-header {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        background: rgba(10, 10, 20, 0.72);
+        backdrop-filter: saturate(140%) blur(14px);
+        -webkit-backdrop-filter: saturate(140%) blur(14px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .feed-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        color: #fff;
+        text-decoration: none;
+        font-size: 16px;
+      }
+      .feed-brand-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e040fb, #22d3ee);
+        box-shadow: 0 0 12px rgba(224, 64, 251, 0.7);
+      }
+      .feed-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .feed-coins-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(251, 146, 60, 0.18));
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        color: #fde68a;
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .feed-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 16px;
+        text-decoration: none;
+        color: #fff;
+      }
+      .feed-avatar-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2px solid rgba(224, 64, 251, 0.5);
+        background: #1a1a2e;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+      }
+      .feed-avatar-btn img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .feed-avatar-fallback {
+        width: 100%;
+        height: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+        font-size: 14px;
+      }
+
+      /* ---------------- Lives rail ---------------- */
+      .lives-rail {
+        display: flex;
+        gap: 14px;
+        padding: 14px 18px 4px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+      }
+      .lives-rail::-webkit-scrollbar {
+        display: none;
+      }
+      .lives-rail-item {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        color: inherit;
+        scroll-snap-align: start;
+        max-width: 72px;
+      }
+      .lives-rail-ring {
+        position: relative;
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        padding: 3px;
+        background: conic-gradient(
+          from 0deg,
+          #ff4fa3,
+          #e040fb,
+          #8b5cf6,
+          #22d3ee,
+          #ff4fa3
+        );
+        animation: feed-rail-spin 6s linear infinite;
+      }
+      @keyframes feed-rail-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .lives-rail-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #1a1a2e;
+        border: 2px solid #0a0a14;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .lives-rail-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .lives-rail-fallback {
+        width: 100%;
+        height: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 18px;
+      }
+      .lives-rail-badge {
+        position: absolute;
+        bottom: -4px;
+        left: 50%;
+        transform: translateX(-50%) rotate(0deg);
+        background: linear-gradient(135deg, #ef4444, #ff4fa3);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.45);
+      }
+      .lives-rail-label {
+        font-size: 11px;
+        color: #cbd5e1;
+        max-width: 72px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        animation: none;
+      }
+      .lives-rail-skeleton {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.04),
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.04)
+        );
+        background-size: 200% 100%;
+        animation: feed-shimmer 1.4s ease-in-out infinite;
+      }
+      .lives-rail-skeleton-label {
+        width: 50px;
+        height: 8px;
+        margin-top: 2px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.07);
+      }
+      @keyframes feed-shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      /* ---------------- Tabs ---------------- */
+      .feed-tabs {
+        position: sticky;
+        top: var(--feed-header-height);
+        z-index: 20;
+        display: flex;
+        gap: 6px;
+        padding: 10px 14px;
+        margin: 6px 0 0;
+        background: rgba(10, 10, 20, 0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .feed-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .feed-tab {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #cbd5e1;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+      }
+      .feed-tab:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+      }
+      .feed-tab.is-active {
+        background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+      }
+      .feed-tab-count {
+        background: rgba(0, 0, 0, 0.25);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      /* ---------------- Grid ---------------- */
+      .feed-main {
+        padding: 14px 14px 20px;
+      }
+      .feed-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      @media (min-width: 640px) {
+        .feed-grid {
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+        }
+      }
+      @media (min-width: 960px) {
+        .feed-grid {
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+      }
+
+      /* ---------------- Card ---------------- */
+      .feed-card {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #14142a;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        aspect-ratio: 3 / 4;
+        isolation: isolate;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      .feed-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(139, 92, 246, 0.25);
+      }
+      .feed-card-media {
+        position: absolute;
+        inset: 0;
+        display: block;
+        text-decoration: none;
+        color: inherit;
+      }
+      .feed-card-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .feed-card-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .feed-card-fallback span {
+        font-size: 3rem;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.92);
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+      }
+      .feed-card-gradient {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          transparent 45%,
+          rgba(0, 0, 0, 0.78) 100%
+        );
+        pointer-events: none;
+      }
+      .feed-card-meta {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 1;
+        color: #fff;
+        pointer-events: none;
+      }
+      .feed-card-name {
+        font-weight: 700;
+        font-size: 15px;
+        line-height: 1.2;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+      }
+      .feed-card-age {
+        font-weight: 500;
+        opacity: 0.9;
+      }
+      .feed-card-location {
+        font-size: 12px;
+        opacity: 0.85;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+      }
+      .feed-card-online {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #22c55e;
+        border: 2px solid #0a0a14;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+        z-index: 2;
+      }
+      .feed-card-tag {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: linear-gradient(135deg, #fbbf24, #fb923c);
+        color: #1a1a2e;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 4px 8px;
+        border-radius: 999px;
+        z-index: 2;
+        box-shadow: 0 4px 10px rgba(251, 146, 60, 0.35);
+      }
+      .feed-card-like {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        color: #fff;
+        font-size: 18px;
+        cursor: pointer;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.18s ease,
+          background 0.18s ease;
+      }
+      .feed-card-like:hover {
+        transform: scale(1.08);
+      }
+      .feed-card-like.is-liked {
+        background: linear-gradient(135deg, #ff4fa3, #e040fb);
+        border-color: transparent;
+        box-shadow: 0 6px 16px rgba(224, 64, 251, 0.5);
+      }
+      .feed-card--creator.is-large {
+        aspect-ratio: 4 / 5;
+      }
+      .feed-card-skeleton .feed-card-media {
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.04),
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.04)
+        );
+        background-size: 200% 100%;
+        animation: feed-shimmer 1.4s ease-in-out infinite;
+      }
+
+      /* ---------------- Empty / Error ---------------- */
+      .feed-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 10px;
+        padding: 60px 20px;
+        color: #e5e7eb;
+      }
+      .feed-state-icon {
+        font-size: 48px;
+        filter: drop-shadow(0 4px 16px rgba(224, 64, 251, 0.4));
+      }
+      .feed-state-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .feed-state-hint {
+        margin: 0;
+        max-width: 320px;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .feed-state-btn {
+        margin-top: 8px;
+        padding: 10px 22px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        color: #fff;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 8px 22px rgba(139, 92, 246, 0.45);
+        transition: transform 0.18s ease;
+      }
+      .feed-state-btn:hover {
+        transform: translateY(-1px);
+      }
+
+      /* ---------------- Floating CTA ---------------- */
+      .feed-fab {
+        position: fixed;
+        right: 16px;
+        bottom: calc(var(--feed-bottom-nav-height) + env(safe-area-inset-bottom));
+        z-index: 25;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #e040fb, #ff4fa3);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 12px 30px rgba(255, 79, 163, 0.5);
+        transition: transform 0.18s ease;
+      }
+      .feed-fab:hover {
+        transform: translateY(-2px);
+      }
+      .feed-fab-icon {
+        font-size: 18px;
+      }
+
+      /* Hide the floating CTA on desktop where users have full nav */
+      @media (min-width: 1024px) {
+        .feed-fab {
+          right: 28px;
+          bottom: 28px;
+        }
+      }
+    `}</style>
   );
 }

@@ -2115,6 +2115,18 @@ main.main-content:has(.admin-shell) {
   }
 }
 
+/* On desktop (>=769px) the top navbar shows the full horizontal navigation
+   (Inicio, Panel, Explorar, ...), so the modern bottom nav would just
+   duplicate the Home button. Hide it to keep a single source of navigation.
+   On mobile (<=768px) `.navbar-links` is hidden and `.bottom-nav-modern`
+   becomes the primary nav. See frontend/components/Navbar.jsx (the 768px
+   media query that hides .navbar-links / shows the legacy .bottom-nav). */
+@media (min-width: 769px) {
+  .bottom-nav-modern {
+    display: none !important;
+  }
+}
+
 /* =========================================================
    Modern Feed Layout
    ========================================================= */

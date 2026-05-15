@@ -515,7 +515,7 @@ export default function ModernFeedPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       background: gradient,
-                      fontSize: '8rem',
+                      fontSize: '3rem',
                       fontWeight: 900,
                       color: 'white',
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',

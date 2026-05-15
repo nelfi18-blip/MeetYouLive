@@ -32,7 +32,6 @@ import {
   getUserImage,
   getDisplayName,
   getInitial,
-  getGradientForUser,
 } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
@@ -42,6 +41,118 @@ const FETCH_TIMEOUT_MS = 15000;
 // In the "Para ti" feed, inject one featured creator card after every Nth
 // recommended profile so the discovery surface always mixes both worlds.
 const CREATOR_INJECTION_INTERVAL = 4;
+
+// Brand-only gradient palette for avatar fallbacks. We deliberately avoid
+// orange/yellow gradients (which previously produced jarring giant blocks —
+// see PR #573 rollback memory) and stick to the purple/pink/cyan brand range.
+const BRAND_GRADIENTS = [
+  "linear-gradient(135deg, #e040fb 0%, #8b5cf6 100%)",
+  "linear-gradient(135deg, #ff4fa3 0%, #e040fb 100%)",
+  "linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%)",
+  "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)",
+  "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)",
+  "linear-gradient(135deg, #e040fb 0%, #7c3aed 100%)",
+  "linear-gradient(135deg, #ff4fa3 0%, #8b5cf6 100%)",
+  "linear-gradient(135deg, #6366f1 0%, #ec4899 100%)",
+];
+
+function brandGradient(seed) {
+  const s = typeof seed === "string" && seed ? seed : "_";
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash << 5) - hash + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
+}
+
+/* ---------------------------------------------------------------- */
+/* Inline SVG icons (matching the BottomNav SVG style)                */
+/* ---------------------------------------------------------------- */
+
+const ICON_PROPS = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+  focusable: false,
+};
+
+function IconCoin(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4.5" />
+    </svg>
+  );
+}
+function IconBell(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z" />
+      <path d="M10 21a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+function IconHeart(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+function IconStar(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+function IconVideo(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+function IconCompass(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  );
+}
+function IconSparkles(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2" />
+    </svg>
+  );
+}
+function IconBroadcast(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <circle cx="12" cy="12" r="2" />
+      <path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" />
+    </svg>
+  );
+}
+function IconAlert(props) {
+  return (
+    <svg {...ICON_PROPS} {...props}>
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
 
 const TABS = [
   { id: "foryou", label: "Para ti" },
@@ -246,7 +357,7 @@ export default function FeedPage() {
         </Link>
         <div className="feed-header-actions">
           <Link href="/coins" className="feed-coins-pill" aria-label="Monedas">
-            <span className="feed-coins-icon">🪙</span>
+            <IconCoin className="feed-coins-icon" />
             <span className="feed-coins-amount">
               {coinsBalance.toLocaleString()}
             </span>
@@ -256,7 +367,7 @@ export default function FeedPage() {
             className="feed-icon-btn"
             aria-label="Notificaciones"
           >
-            🔔
+            <IconBell />
           </Link>
           <Link href="/profile" className="feed-avatar-btn" aria-label="Perfil">
             {getUserImage(me) ? (
@@ -271,7 +382,7 @@ export default function FeedPage() {
             ) : (
               <span
                 className="feed-avatar-fallback"
-                style={{ background: getGradientForUser(me?._id || "me") }}
+                style={{ background: brandGradient(me?._id || "me") }}
               >
                 {getInitial(getDisplayName(me))}
               </span>
@@ -314,7 +425,7 @@ export default function FeedPage() {
         ) : tab === "foryou" ? (
           forYouItems.length === 0 ? (
             <EmptyState
-              icon="✨"
+              Icon={IconSparkles}
               title="Aún no hay sugerencias para ti"
               hint="Vuelve en unos minutos — nuevos perfiles llegan todo el tiempo."
               actionLabel="Actualizar"
@@ -342,7 +453,7 @@ export default function FeedPage() {
         ) : tab === "live" ? (
           activeLives.length === 0 ? (
             <EmptyState
-              icon="📡"
+              Icon={IconBroadcast}
               title="Nadie está en vivo ahora mismo"
               hint="Sé el primero — abre tu transmisión y reúne a tu comunidad."
               actionLabel={isCreator ? "Empezar a transmitir" : "Explorar"}
@@ -361,7 +472,7 @@ export default function FeedPage() {
           // creators tab
           featuredCreators.length === 0 ? (
             <EmptyState
-              icon="⭐"
+              Icon={IconStar}
               title="No hay creadores destacados todavía"
               hint="Pronto verás aquí a los talentos más populares de la plataforma."
               actionLabel="Actualizar"
@@ -384,9 +495,11 @@ export default function FeedPage() {
           className="feed-fab"
           aria-label={isCreator ? "Empezar a transmitir" : "Explorar"}
         >
-          <span className="feed-fab-icon">{isCreator ? "🎥" : "🔭"}</span>
+          <span className="feed-fab-icon">
+            {isCreator ? <IconVideo /> : <IconCompass />}
+          </span>
           <span className="feed-fab-label">
-            {isCreator ? "Go Live" : "Explorar"}
+            {isCreator ? "Transmitir" : "Explorar"}
           </span>
         </Link>
       )}
@@ -437,7 +550,7 @@ function LivesRail({ lives, loading }) {
                   <span
                     className="lives-rail-fallback"
                     style={{
-                      background: getGradientForUser(live.user?._id || live._id),
+                      background: brandGradient(live.user?._id || live._id),
                     }}
                   >
                     {getInitial(name)}
@@ -482,7 +595,7 @@ function ProfileCard({ profile, liked, onLike }) {
         ) : (
           <div
             className="feed-card-fallback"
-            style={{ background: getGradientForUser(profile._id || name) }}
+            style={{ background: brandGradient(profile._id || name) }}
           >
             <span>{getInitial(name)}</span>
           </div>
@@ -508,7 +621,11 @@ function ProfileCard({ profile, liked, onLike }) {
           if (!liked) onLike();
         }}
       >
-        {liked ? "💖" : "🤍"}
+        <IconHeart
+          width={18}
+          height={18}
+          fill={liked ? "currentColor" : "none"}
+        />
       </button>
     </article>
   );
@@ -533,18 +650,22 @@ function CreatorCard({ creator, large = false }) {
         ) : (
           <div
             className="feed-card-fallback"
-            style={{ background: getGradientForUser(creator._id || name) }}
+            style={{ background: brandGradient(creator._id || name) }}
           >
             <span>{getInitial(name)}</span>
           </div>
         )}
         <div className="feed-card-gradient" aria-hidden="true" />
-        <span className="feed-card-tag">⭐ Creador</span>
+        <span className="feed-card-tag">
+          <IconStar width={12} height={12} />
+          Creador
+        </span>
         <div className="feed-card-meta">
           <span className="feed-card-name">{name}</span>
           {earnings > 0 && (
-            <span className="feed-card-location">
-              🪙 {earnings.toLocaleString()} ganados
+            <span className="feed-card-location feed-card-earnings">
+              <IconCoin width={12} height={12} />
+              {earnings.toLocaleString()} ganados
             </span>
           )}
         </div>
@@ -565,11 +686,11 @@ function SkeletonGrid() {
   );
 }
 
-function EmptyState({ icon, title, hint, actionLabel, onAction }) {
+function EmptyState({ Icon, title, hint, actionLabel, onAction }) {
   return (
     <div className="feed-state">
       <div className="feed-state-icon" aria-hidden="true">
-        {icon}
+        {Icon ? <Icon width={32} height={32} /> : null}
       </div>
       <h2 className="feed-state-title">{title}</h2>
       {hint && <p className="feed-state-hint">{hint}</p>}
@@ -590,7 +711,7 @@ function ErrorState({ message, onRetry }) {
   return (
     <div className="feed-state">
       <div className="feed-state-icon" aria-hidden="true">
-        ⚠️
+        <IconAlert width={32} height={32} />
       </div>
       <h2 className="feed-state-title">Algo salió mal</h2>
       <p className="feed-state-hint">{message}</p>
@@ -683,6 +804,10 @@ function FeedStyles() {
         text-decoration: none;
         white-space: nowrap;
       }
+      .feed-coins-pill .feed-coins-icon {
+        width: 16px;
+        height: 16px;
+      }
       .feed-icon-btn {
         display: inline-flex;
         align-items: center;
@@ -692,9 +817,12 @@ function FeedStyles() {
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.06);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        font-size: 16px;
-        text-decoration: none;
         color: #fff;
+        text-decoration: none;
+        transition: background 0.18s ease;
+      }
+      .feed-icon-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
       }
       .feed-avatar-btn {
         width: 36px;
@@ -1014,14 +1142,23 @@ function FeedStyles() {
         position: absolute;
         top: 10px;
         right: 10px;
-        background: linear-gradient(135deg, #fbbf24, #fb923c);
-        color: #1a1a2e;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        color: #fff;
         font-size: 10px;
         font-weight: 800;
-        padding: 4px 8px;
+        letter-spacing: 0.3px;
+        padding: 4px 10px 4px 8px;
         border-radius: 999px;
         z-index: 2;
-        box-shadow: 0 4px 10px rgba(251, 146, 60, 0.35);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.45);
+      }
+      .feed-card-earnings {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
       }
       .feed-card-like {
         position: absolute;
@@ -1035,7 +1172,6 @@ function FeedStyles() {
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
         color: #fff;
-        font-size: 18px;
         cursor: pointer;
         z-index: 3;
         display: inline-flex;
@@ -1043,7 +1179,8 @@ function FeedStyles() {
         justify-content: center;
         transition:
           transform 0.18s ease,
-          background 0.18s ease;
+          background 0.18s ease,
+          color 0.18s ease;
       }
       .feed-card-like:hover {
         transform: scale(1.08);
@@ -1051,6 +1188,7 @@ function FeedStyles() {
       .feed-card-like.is-liked {
         background: linear-gradient(135deg, #ff4fa3, #e040fb);
         border-color: transparent;
+        color: #fff;
         box-shadow: 0 6px 16px rgba(224, 64, 251, 0.5);
       }
       .feed-card--creator.is-large {
@@ -1079,8 +1217,16 @@ function FeedStyles() {
         color: #e5e7eb;
       }
       .feed-state-icon {
-        font-size: 48px;
-        filter: drop-shadow(0 4px 16px rgba(224, 64, 251, 0.4));
+        width: 64px;
+        height: 64px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        color: #fff;
+        background: linear-gradient(135deg, rgba(224, 64, 251, 0.18), rgba(34, 211, 238, 0.18));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 24px rgba(224, 64, 251, 0.18);
       }
       .feed-state-title {
         font-size: 18px;
@@ -1132,7 +1278,9 @@ function FeedStyles() {
         transform: translateY(-2px);
       }
       .feed-fab-icon {
-        font-size: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       /* Hide the floating CTA on desktop where users have full nav */

@@ -3,11 +3,19 @@ import { NextResponse } from "next/server";
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // ── Homepage Protection ────────────────────────────────────────────────────
-  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
-  // This is a public landing page that should never redirect to admin or auth pages.
-  if (pathname === "/") {
-    return NextResponse.next();
+  // ── Canonical domain enforcement ───────────────────────────────────────────
+  // The canonical domain is https://meetyoulive.net. Any request reaching the
+  // app on www.meetyoulive.net must be permanently redirected to the apex
+  // host. This is also configured in vercel.json (`redirects`), but we keep
+  // this middleware-level safety net so the rule applies regardless of the
+  // hosting platform.
+  const host = request.headers.get("host") || "";
+  if (host.toLowerCase() === "www.meetyoulive.net") {
+    const url = new URL(request.url);
+    url.host = "meetyoulive.net";
+    url.protocol = "https:";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
   }
 
   // Cookie set by email/password login AND by the dashboard once the backend
@@ -25,6 +33,22 @@ export function middleware(request) {
 
   // Cookie set on successful admin login — separate from regular user sessions.
   const adminSession = request.cookies.get("admin-session")?.value;
+
+  // ── Homepage entry flow ────────────────────────────────────────────────────
+  // The canonical entry path "/" has a single behaviour per visitor type:
+  //   • admin               → /admin
+  //   • authenticated user  → /feed
+  //   • unauthenticated     → render the public landing/login screen
+  // This guarantees one entry flow and avoids duplicate login/landing screens.
+  if (pathname === "/") {
+    if (adminSession) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    if (backendSession || nextAuthSession) {
+      return NextResponse.redirect(new URL("/feed", request.url));
+    }
+    return NextResponse.next();
+  }
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
 

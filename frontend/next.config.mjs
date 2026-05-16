@@ -30,6 +30,21 @@ const nextConfig = {
       },
     ],
   },
+  // Canonical-domain redirect: send www.meetyoulive.net → meetyoulive.net.
+  // Only enabled for server builds; static export (Capacitor mobile build)
+  // cannot serve runtime redirects.
+  ...(!isMobileBuild && {
+    async redirects() {
+      return [
+        {
+          source: "/:path*",
+          has: [{ type: "host", value: "www.meetyoulive.net" }],
+          destination: "https://meetyoulive.net/:path*",
+          permanent: true,
+        },
+      ];
+    },
+  }),
 };
 
 export default nextConfig;

@@ -114,7 +114,7 @@ If the SSL fix takes more than a few minutes and you need the app running now:
    https://<service-name>.onrender.com
    ```
 3. Click **Save**, then go to **Deployments → Redeploy** (or trigger a **Manual Deploy**).
-4. Verify the frontend loads by opening `https://www.meetyoulive.net`.
+4. Verify the frontend loads by opening `https://meetyoulive.net`.
 
 > **Remember to revert** `NEXT_PUBLIC_API_URL` back to `https://api.meetyoulive.net` once the custom-domain certificate is active again.
 
@@ -128,7 +128,7 @@ Run all of these checks after fixing SSL:
 |-------|-----------------|-----------------|
 | Certificate valid | `curl -v https://api.meetyoulive.net/api/health` | HTTP 200, JSON body |
 | No SSL error in browser | Open `https://api.meetyoulive.net/api/health` in Chrome | No `ERR_SSL_*` warning |
-| Frontend loads | Open `https://www.meetyoulive.net` | Home page renders without "Application error" |
+| Frontend loads | Open `https://meetyoulive.net` | Home page renders without "Application error" |
 | WebSocket works | Log in → open a live stream → DevTools → Network → WS | `wss://api.meetyoulive.net` connection established |
 | OAuth flow works | Open incognito → click **Iniciar sesión con Google** | Redirects back and session is active |
 
@@ -159,7 +159,7 @@ Do these things to avoid future SSL breakage:
 | `GOOGLE_CLIENT_ID`             | **Yes**  | Google OAuth client ID                                              |
 | `GOOGLE_CLIENT_SECRET`         | **Yes**  | Google OAuth client secret                                          |
 | `GOOGLE_CALLBACK_URL`          | **Yes**  | `https://api.meetyoulive.net/api/auth/google/callback`              |
-| `FRONTEND_URL`                 | **Yes**  | `https://www.meetyoulive.net` (used for CORS)                       |
+| `FRONTEND_URL`                 | **Yes**  | `https://meetyoulive.net` (used for CORS)                       |
 | `AGORA_APP_ID`                 | **Yes**  | Agora App ID for live streaming                                     |
 | `AGORA_APP_CERTIFICATE`        | **Yes**  | Agora App Certificate for token generation                          |
 | `STRIPE_SECRET_KEY`            | **Yes**  | Stripe secret key (`sk_live_...` in production)                     |
@@ -189,7 +189,7 @@ Do these things to avoid future SSL breakage:
 | `GOOGLE_CLIENT_ID`              | **Yes**  | Google OAuth client ID (same as backend)              |
 | `GOOGLE_CLIENT_SECRET`          | **Yes**  | Google OAuth client secret (same as backend)          |
 | `NEXTAUTH_SECRET`               | **Yes**  | NextAuth signing secret (same value as backend)       |
-| `NEXTAUTH_URL`                  | **Yes**  | `https://www.meetyoulive.net`                         |
+| `NEXTAUTH_URL`                  | **Yes**  | `https://meetyoulive.net`                         |
 | `INTERNAL_API_SECRET`           | **Yes**  | Same value as backend `INTERNAL_API_SECRET`           |
 
 ---
@@ -220,7 +220,7 @@ curl https://api.meetyoulive.net/api/health
 ```
 
 ### 6.2 OAuth Flow
-1. Open `https://www.meetyoulive.net` in an incognito window
+1. Open `https://meetyoulive.net` in an incognito window
 2. Click **Iniciar sesión con Google**
 3. Complete OAuth flow
 4. Verify user is redirected back and session is active

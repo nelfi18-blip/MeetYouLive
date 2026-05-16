@@ -159,7 +159,7 @@ Do these things to avoid future SSL breakage:
 | `GOOGLE_CLIENT_ID`             | **Yes**  | Google OAuth client ID                                              |
 | `GOOGLE_CLIENT_SECRET`         | **Yes**  | Google OAuth client secret                                          |
 | `GOOGLE_CALLBACK_URL`          | **Yes**  | `https://api.meetyoulive.net/api/auth/google/callback`              |
-| `FRONTEND_URL`                 | **Yes**  | `https://www.meetyoulive.net` (used for CORS)                       |
+| `FRONTEND_URL`                 | **Yes**  | `https://meetyoulive.net` (canonical apex; used for CORS)           |
 | `AGORA_APP_ID`                 | **Yes**  | Agora App ID for live streaming                                     |
 | `AGORA_APP_CERTIFICATE`        | **Yes**  | Agora App Certificate for token generation                          |
 | `STRIPE_SECRET_KEY`            | **Yes**  | Stripe secret key (`sk_live_...` in production)                     |
@@ -189,7 +189,7 @@ Do these things to avoid future SSL breakage:
 | `GOOGLE_CLIENT_ID`              | **Yes**  | Google OAuth client ID (same as backend)              |
 | `GOOGLE_CLIENT_SECRET`          | **Yes**  | Google OAuth client secret (same as backend)          |
 | `NEXTAUTH_SECRET`               | **Yes**  | NextAuth signing secret (same value as backend)       |
-| `NEXTAUTH_URL`                  | **Yes**  | `https://www.meetyoulive.net`                         |
+| `NEXTAUTH_URL`                  | **Yes**  | `https://meetyoulive.net` (canonical apex)            |
 | `INTERNAL_API_SECRET`           | **Yes**  | Same value as backend `INTERNAL_API_SECRET`           |
 
 ---

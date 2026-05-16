@@ -75,6 +75,20 @@ export default function ModernFeedPage() {
     };
   }, [session?.backendToken, router]);
 
+  // Absolute safety timeout: guarantees the loading spinner can NEVER be
+  // shown for more than 8 seconds, regardless of whether the fetch effect
+  // below ever runs (e.g. if session.backendToken never arrives).
+  useEffect(() => {
+    const hardTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) console.warn("[Feed] Hard 8s safety timeout — forcing loading=false");
+        return false;
+      });
+      setLivesLoading(false);
+    }, 8000);
+    return () => clearTimeout(hardTimeout);
+  }, []);
+
   // Fetch feed data
   useEffect(() => {
     // Wait for authentication to complete
@@ -85,14 +99,13 @@ export default function ModernFeedPage() {
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
-      // After backend optimizations, normal requests should complete in 2-5 seconds
+      // Safety timeout to prevent infinite loading - 8 seconds max.
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (15s) - aborting request");
+          console.warn("[Feed] Timeout reached (8s) - aborting request");
           controller.abort();
         }
-      }, 15000);
+      }, 8000);
 
       try {
         console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
@@ -169,13 +182,10 @@ export default function ModernFeedPage() {
 
         setError(null);
         setLivesLoading(false);
-        setLoading(false);
         console.log("[Feed] Load complete");
       } catch (err) {
         if (isCancelled) return;
-        
-        clearTimeout(loadingTimeout);
-        
+
         // Enhanced error logging with more context
         if (err.name === 'AbortError') {
           console.log("[Feed] Request aborted (timeout or unmount)");
@@ -190,9 +200,12 @@ export default function ModernFeedPage() {
           console.error("[Feed] Error:", err.message);
           setError(err.message || t("feed.genericError"));
         }
-        
+
         setLivesLoading(false);
-        setLoading(false);
+      } finally {
+        // Guaranteed loading=false in finally so the spinner can never stick.
+        if (loadingTimeout) clearTimeout(loadingTimeout);
+        if (!isCancelled) setLoading(false);
       }
     };
 

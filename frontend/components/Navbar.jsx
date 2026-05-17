@@ -127,19 +127,27 @@ export default function Navbar() {
   // Get role-aware home path
   const homePath = useMemo(() => getHomePath(effectiveRole), [effectiveRole]);
   
-  // Nav link definitions with dynamic home path
-  const NAV_LINK_DEFS = useMemo(() => [
-    { href: homePath,     key: "nav.home",    icon: HomeIcon    },
-    { href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon },
-    { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
-    { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
-    { href: "/live",      key: "nav.live",    icon: LiveIcon    },
-    { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
-    { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
-    { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
-    { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
-    { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
-  ], [homePath]);
+  // Nav link definitions with dynamic home path.
+  // The /dashboard ("Panel") link is admin-only — normal users must never
+  // see admin/dashboard entry points in the navbar (emergency hotfix).
+  const isAdmin = effectiveRole === "admin";
+  const NAV_LINK_DEFS = useMemo(() => {
+    const links = [
+      { href: homePath,     key: "nav.home",    icon: HomeIcon    },
+      ...(isAdmin
+        ? [{ href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon }]
+        : []),
+      { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
+      { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
+      { href: "/live",      key: "nav.live",    icon: LiveIcon    },
+      { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
+      { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
+      { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
+      { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
+      { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
+    ];
+    return links;
+  }, [homePath, isAdmin]);
   
   // Bottom nav link definitions with dynamic home path
   const BOTTOM_NAV_DEFS = useMemo(() => [

@@ -83,6 +83,17 @@ export function middleware(request) {
     return NextResponse.redirect(new URL("/feed", request.url));
   }
 
+  // Emergency hotfix: refresh routing.
+  // Normal users must never land on the admin-style /dashboard page after a
+  // refresh — only admins (handled via adminSession + /admin) should see the
+  // dashboard layout. Any non-admin session hitting the root /dashboard page
+  // is sent to /feed. Sub-routes like /dashboard/creator remain accessible
+  // for approved creators. (Admin sessions already bounce to /admin/blocked
+  // above because /dashboard is a protected route.)
+  if (!adminSession && pathname === "/dashboard") {
+    return NextResponse.redirect(new URL("/feed", request.url));
+  }
+
   // Block unauthenticated access to protected routes (either session type is
   // sufficient here; the page itself validates the backend token).
   if (!backendSession && !nextAuthSession && isProtectedRoute) {

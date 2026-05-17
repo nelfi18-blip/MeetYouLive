@@ -18,11 +18,42 @@ const SWIPE_THRESHOLD_PX = 100;
 const SWIPE_ANIMATION_DURATION_MS = 300;
 const SWIPE_OUT_DISTANCE_PX = 1000;
 
-// Hard ceiling on how long we sit on the loading spinner waiting for the
-// NextAuth session to hydrate or the backend token to arrive. After this we
-// surface the error fallback (with a retry button) so the page never stays
-// loading forever.
-const TOKEN_WAIT_TIMEOUT_MS = 8000;
+// Hard ceiling on how long we sit on the loading spinner. After this we
+// drop out of the loading state and render the page (with fallback content if
+// the API never returned). The feed must never sit on a spinner forever.
+const LOADING_TIMEOUT_MS = 8000;
+
+// Static fallback profile cards rendered when the API fails or times out, so
+// /feed always shows usable content instead of an empty/error screen.
+const FALLBACK_PROFILES = [
+  {
+    _id: "fallback-1",
+    username: "Sofía",
+    name: "Sofía",
+    age: 24,
+    bio: "Bienvenido a MeetYouLive ✨ Conecta, descubre y vive en vivo.",
+    avatar: "",
+    isFallback: true,
+  },
+  {
+    _id: "fallback-2",
+    username: "Valentina",
+    name: "Valentina",
+    age: 27,
+    bio: "Música, viajes y buenas charlas. ¿Hacemos match?",
+    avatar: "",
+    isFallback: true,
+  },
+  {
+    _id: "fallback-3",
+    username: "Camila",
+    name: "Camila",
+    age: 22,
+    bio: "Creadora en vivo. Pásate a saludar 💖",
+    avatar: "",
+    isFallback: true,
+  },
+];
 
 export default function ModernFeedPage() {
   const { data: session, status } = useSession();
@@ -58,28 +89,21 @@ export default function ModernFeedPage() {
   }, [status, router]);
 
   // Safety net: never sit on the loading spinner forever.
-  // If NextAuth never resolves the session or the backend token never
-  // arrives, surface the fallback UI (with a retry button) instead of an
-  // infinite spinner. The fetch useEffect below still runs the moment the
-  // token arrives.
+  // Regardless of session/backend-token state, after LOADING_TIMEOUT_MS we
+  // drop out of loading. If the fetch effect hasn't populated data by then,
+  // the render path below falls back to FALLBACK_PROFILES so the user always
+  // sees feed cards instead of an infinite spinner.
   useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
-    if (status === "unauthenticated") return; // redirect effect handles this
-
-    const tokenWaitTimeout = setTimeout(() => {
+    const hardTimeout = setTimeout(() => {
       console.warn(
-        `[Feed] Session/token not ready after ${TOKEN_WAIT_TIMEOUT_MS}ms — showing fallback`
+        `[Feed] Hard loading timeout (${LOADING_TIMEOUT_MS}ms) — exiting spinner`
       );
       setLivesLoading(false);
       setLoading(false);
-      setError(
-        (t && t("feed.serverStarting")) ||
-          "El servidor está tardando en responder. Por favor, intenta de nuevo."
-      );
-    }, TOKEN_WAIT_TIMEOUT_MS);
+    }, LOADING_TIMEOUT_MS);
 
-    return () => clearTimeout(tokenWaitTimeout);
-  }, [status, session?.backendToken, t]);
+    return () => clearTimeout(hardTimeout);
+  }, []);
   
   // Admin redirect - admins should not access the feed page
   useEffect(() => {
@@ -107,56 +131,65 @@ export default function ModernFeedPage() {
 
   // Fetch feed data
   useEffect(() => {
-    // Wait for authentication to complete
-    if (status !== "authenticated" || !session?.backendToken) return;
+    // Do NOT block fetching on session?.backendToken — historically that
+    // dependency caused /feed to wait forever when the backend token never
+    // arrived (Render cold start, slow session hydration, etc.). We always
+    // attempt the fetch; if there's no token yet we just skip the Authorization
+    // header and the backend's optionalVerifyToken middleware will serve a
+    // public response. On any failure we fall back to FALLBACK_PROFILES so
+    // the page never shows an infinite spinner.
+    if (status === "unauthenticated") return; // redirect effect handles this
 
     let isCancelled = false;
     let loadingTimeout = null;
     const controller = new AbortController();
 
     const fetchFeed = async () => {
-      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
-      // After backend optimizations, normal requests should complete in 2-5 seconds
+      // Per emergency hotfix: 8s hard ceiling on the request itself.
       loadingTimeout = setTimeout(() => {
         if (!isCancelled) {
-          console.warn("[Feed] Timeout reached (15s) - aborting request");
+          console.warn("[Feed] Timeout reached (8s) - aborting request");
           controller.abort();
         }
-      }, 15000);
+      }, LOADING_TIMEOUT_MS);
 
       try {
         console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
+        const token = session?.backendToken;
         // NOTE: Only log presence of token, never log the actual token value for security
-        console.log("[Feed] Auth token present:", !!session.backendToken);
-        
-        const [feedRes, userRes] = await Promise.all([
-          fetch(`${API_URL}/api/feed`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/api/user/me`, {
-            headers: {
-              Authorization: `Bearer ${session.backendToken}`,
-            },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-        ]);
+        console.log("[Feed] Auth token present:", !!token);
+
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const feedReq = fetch(`${API_URL}/api/feed`, {
+          headers: { ...authHeaders },
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const userReq = token
+          ? fetch(`${API_URL}/api/user/me`, {
+              headers: { ...authHeaders },
+              signal: controller.signal,
+              cache: "no-store",
+            })
+          : Promise.resolve(null);
+
+        const [feedRes, userRes] = await Promise.all([feedReq, userReq]);
 
         if (isCancelled) return;
 
         clearTimeout(loadingTimeout);
 
         console.log("[Feed] Feed response status:", feedRes.status);
-        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
+        console.log(
+          "[Feed] User response status:",
+          userRes && userRes.ok ? "OK" : "Skipped/Error"
+        );
 
         // Enhanced error handling with specific status codes
         if (!feedRes.ok) {
           console.error("[Feed] API error - Status:", feedRes.status);
-          
+
           let errorMessage = "No pudimos cargar tu feed";
           if (feedRes.status === 401 || feedRes.status === 403) {
             errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
@@ -165,7 +198,7 @@ export default function ModernFeedPage() {
           } else if (feedRes.status >= 500) {
             errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
           }
-          
+
           throw new Error(errorMessage);
         }
 
@@ -173,12 +206,12 @@ export default function ModernFeedPage() {
         console.log("[Feed] Data received:", {
           lives: data.activeLives?.length || 0,
           profiles: data.recommendedProfiles?.length || 0,
-          creators: data.featuredCreators?.length || 0
+          creators: data.featuredCreators?.length || 0,
         });
-        
+
         // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
-        
+
         // Deduplicate profiles and creators by _id
         const uniqueProfiles = Array.from(
           new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
@@ -188,11 +221,13 @@ export default function ModernFeedPage() {
         );
 
         setActiveLives(safeLives);
-        setProfiles(uniqueProfiles);
+        // If the API returned no profiles, still show fallback cards so the
+        // user is never stuck on an empty feed.
+        setProfiles(uniqueProfiles.length > 0 ? uniqueProfiles : FALLBACK_PROFILES);
         setFeaturedCreators(uniqueCreators);
 
-        // Get user coins balance
-        if (userRes.ok) {
+        // Get user coins balance (only when we had a token)
+        if (userRes && userRes.ok) {
           const userData = await userRes.json();
           setUserCoins(userData.coinsBalance || 0);
         }
@@ -203,24 +238,24 @@ export default function ModernFeedPage() {
         console.log("[Feed] Load complete");
       } catch (err) {
         if (isCancelled) return;
-        
+
         clearTimeout(loadingTimeout);
-        
+
         // Enhanced error logging with more context
         if (err.name === 'AbortError') {
           console.log("[Feed] Request aborted (timeout or unmount)");
-          // Timeout was triggered - show user-friendly message
-          // Note: First load after inactivity may take longer (server wake-up time)
-          setError(t("feed.serverStarting"));
         } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
-          // Network error - server might be down or unreachable
           console.error("[Feed] Network error - server might be down:", err.message);
-          setError(t("feed.networkError"));
         } else {
           console.error("[Feed] Error:", err.message);
-          setError(err.message || t("feed.genericError"));
         }
-        
+
+        // Fallback content so the feed always renders something usable.
+        // We deliberately do NOT set `error` here — the page should keep
+        // working and show fallback feed cards (per emergency hotfix spec).
+        setActiveLives([]);
+        setProfiles((prev) => (prev && prev.length > 0 ? prev : FALLBACK_PROFILES));
+        setFeaturedCreators([]);
         setLivesLoading(false);
         setLoading(false);
       }
@@ -398,10 +433,11 @@ export default function ModernFeedPage() {
     router.push(`/call/${currentProfile._id}`);
   };
 
-  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
-  // If `error` is set, the error fallback below takes precedence — the 8s
-  // safety timeout above guarantees the spinner cannot stay forever.
-  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
+  // Show loading spinner only while our local `loading` flag is true. The
+  // hard timeout above guarantees we flip this to false after
+  // LOADING_TIMEOUT_MS no matter what NextAuth's status is, so the spinner
+  // can NEVER stick forever (emergency hotfix requirement).
+  if (loading) {
     return (
       <div className="modern-page">
         <div style={{ 
@@ -419,7 +455,9 @@ export default function ModernFeedPage() {
     );
   }
   
-  // Show error state if API failed
+  // Defensive: if `error` is ever set by some future code path, still render
+  // an error screen with a retry button. The main fetch path no longer sets
+  // `error` — failures fall through to FALLBACK_PROFILES rendered below.
   if (error) {
     return (
       <div className="modern-page">

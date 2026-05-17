@@ -7,11 +7,34 @@ import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import { getUserImage, getLiveThumbnail, getDisplayName, getInitial } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Brand-safe avatar gradients for fallbacks on /feed.
+// Limited to purples/pinks/cyans — the shared `getGradientForUser` from
+// lib/imageHelpers includes orange/yellow which produces jarring giant
+// blocks on the match-card placeholder. Keep this palette local so /feed
+// stays on-brand.
+const BRAND_GRADIENTS = [
+  "linear-gradient(135deg, #e040fb, #8b5cf6)", // pink → purple
+  "linear-gradient(135deg, #ff4fa3, #e040fb)", // pink → magenta
+  "linear-gradient(135deg, #8b5cf6, #22d3ee)", // purple → cyan
+  "linear-gradient(135deg, #e040fb, #7c3aed)", // magenta → deep purple
+  "linear-gradient(135deg, #7c3aed, #22d3ee)", // deep purple → cyan
+  "linear-gradient(135deg, #c026d3, #6366f1)", // fuchsia → indigo
+];
+
+function brandGradient(seed) {
+  const s = String(seed || "default");
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = s.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
+}
 
 // Swipe behavior constants
 const SWIPE_THRESHOLD_PX = 100;
@@ -532,7 +555,7 @@ export default function ModernFeedPage() {
                   const userImage = getUserImage(currentProfile);
                   const displayName = getDisplayName(currentProfile);
                   const initial = getInitial(displayName);
-                  const gradient = getGradientForUser(currentProfile._id);
+                  const gradient = brandGradient(currentProfile._id);
 
                   return userImage && !matchCardImgError ? (
                     <img 
@@ -542,12 +565,12 @@ export default function ModernFeedPage() {
                       onError={() => setMatchCardImgError(true)}
                     />
                   ) : (
-                    <div className="match-card-image" style={{
+                    <div className="match-card-image match-card-fallback" style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       background: gradient,
-                      fontSize: '8rem',
+                      fontSize: '5rem',
                       fontWeight: 900,
                       color: 'white',
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
@@ -658,7 +681,7 @@ export default function ModernFeedPage() {
               const liveThumb = getLiveThumbnail(live);
               const creatorName = getDisplayName(live.user);
               const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(live.user?._id || live._id);
+              const gradient = brandGradient(live.user?._id || live._id);
               
               return (
                 <Link 
@@ -768,7 +791,7 @@ export default function ModernFeedPage() {
               const creatorImage = getUserImage(creator);
               const creatorName = getDisplayName(creator);
               const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(creator._id);
+              const gradient = brandGradient(creator._id);
               
               return (
                 <Link

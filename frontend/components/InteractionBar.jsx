@@ -103,11 +103,15 @@ export default function InteractionBar({
       <style jsx>{`
         .interaction-bar {
           position: fixed;
-          bottom: 0;
+          /* Float above the modern bottom nav plus the iOS safe-area inset,
+             so the action dock is never covered. Heights are defined as
+             CSS custom properties in globals.css (--bottom-nav-modern-height
+             / --bottom-nav-modern-height-mobile). */
+          bottom: calc(var(--bottom-nav-modern-height, 72px) + env(safe-area-inset-bottom, 0px));
           left: 0;
           right: 0;
-          z-index: 100;
-          padding: 1rem;
+          z-index: 110;
+          padding: 0.5rem 1rem 0.75rem;
           display: flex;
           justify-content: center;
           pointer-events: none;
@@ -149,32 +153,27 @@ export default function InteractionBar({
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .interaction-bar {
-            padding: 0.75rem;
+            /* On mobile the bottom nav uses the mobile height variable */
+            bottom: calc(var(--bottom-nav-modern-height-mobile, 68px) + env(safe-area-inset-bottom, 0px));
+            padding: 0.4rem 0.75rem 0.6rem;
           }
 
           .interaction-bar-inner {
             gap: 0.5rem;
-            padding: 0.85rem 1rem;
-            border-radius: 25px;
+            padding: 0.7rem 0.85rem;
+            border-radius: 22px;
           }
         }
 
         @media (max-width: 480px) {
           .interaction-bar {
-            padding: 0.5rem;
+            padding: 0.35rem 0.5rem 0.5rem;
           }
 
           .interaction-bar-inner {
-            gap: 0.4rem;
-            padding: 0.75rem 0.85rem;
-            border-radius: 20px;
-          }
-        }
-
-        /* Add safe area for mobile devices with bottom notches */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          .interaction-bar {
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            gap: 0.35rem;
+            padding: 0.6rem 0.7rem;
+            border-radius: 18px;
           }
         }
       `}</style>

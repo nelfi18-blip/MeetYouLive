@@ -72,6 +72,11 @@
 
   /* Layout spacing (for bottom navigation and floating elements) */
   --bottom-nav-height: 80px;
+  /* Modern bottom nav (BottomNav.jsx / .bottom-nav-modern) heights.
+     The floating /feed action dock (InteractionBar) is positioned above
+     these values so the action buttons are never covered. */
+  --bottom-nav-modern-height: 72px;
+  --bottom-nav-modern-height-mobile: 68px;
   --floating-button-offset: 100px;
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
@@ -1399,6 +1404,16 @@ main.main-content:has(.admin-shell) {
   .match-card-modern {
     max-width: 100%;
     border-radius: 20px;
+    /* Constrain height on mobile so the card fits above the action dock
+       and bottom nav and doesn't push the LIVE/CREATORS sections off-screen. */
+    aspect-ratio: auto;
+    height: 58vh;
+    max-height: 460px;
+    min-height: 360px;
+  }
+
+  .match-card-fallback {
+    font-size: 4rem !important;
   }
   
   .match-actions {
@@ -2049,7 +2064,7 @@ main.main-content:has(.admin-shell) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 72px;
+  height: var(--bottom-nav-modern-height);
   background: rgba(15, 8, 33, 0.95);
   backdrop-filter: blur(16px);
   border-top: 1px solid rgba(224, 64, 251, 0.15);
@@ -2102,7 +2117,7 @@ main.main-content:has(.admin-shell) {
 
 @media (max-width: 640px) {
   .bottom-nav-modern {
-    height: 68px;
+    height: var(--bottom-nav-modern-height-mobile);
   }
   
   .bottom-nav-modern .nav-item {

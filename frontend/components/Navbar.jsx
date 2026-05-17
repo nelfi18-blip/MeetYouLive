@@ -8,6 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -294,23 +295,26 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom nav for mobile */}
-      <nav className="bottom-nav">
-        {BOTTOM_NAV_DEFS.map((link) => {
-          const active = pathname === link.href;
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`bottom-nav-item${active ? " active" : ""}`}
-            >
-              <Icon />
-              <span>{t(link.key)}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Bottom nav for mobile — hidden on routes where the modern
+          BottomNav (BottomNavWrapper) is rendered, to avoid two bottom navs */}
+      {!isBottomNavRoute(pathname) && (
+        <nav className="bottom-nav">
+          {BOTTOM_NAV_DEFS.map((link) => {
+            const active = pathname === link.href;
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-item${active ? " active" : ""}`}
+              >
+                <Icon />
+                <span>{t(link.key)}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       <style jsx>{`
         .navbar {

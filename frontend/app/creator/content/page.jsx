@@ -75,7 +75,7 @@ export default function CreatorContentPage() {
       .then((d) => {
         if (!d) return;
         if (d.role !== "creator" || d.creatorStatus !== "approved") {
-          router.replace("/dashboard");
+          router.replace("/feed");
           return;
         }
         setAuthLoading(false);

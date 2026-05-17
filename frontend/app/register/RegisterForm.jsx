@@ -39,7 +39,7 @@ export default function RegisterForm() {
     if (status === "loading") return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (token || status === "authenticated") {
-      router.replace("/dashboard");
+      router.replace("/feed");
     } else {
       setChecking(false);
     }

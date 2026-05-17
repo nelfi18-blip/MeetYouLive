@@ -18,6 +18,12 @@ const SWIPE_THRESHOLD_PX = 100;
 const SWIPE_ANIMATION_DURATION_MS = 300;
 const SWIPE_OUT_DISTANCE_PX = 1000;
 
+// Hard ceiling on how long we sit on the loading spinner waiting for the
+// NextAuth session to hydrate or the backend token to arrive. After this we
+// surface the error fallback (with a retry button) so the page never stays
+// loading forever.
+const TOKEN_WAIT_TIMEOUT_MS = 8000;
+
 export default function ModernFeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -50,6 +56,30 @@ export default function ModernFeedPage() {
       router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
+
+  // Safety net: never sit on the loading spinner forever.
+  // If NextAuth never resolves the session or the backend token never
+  // arrives, surface the fallback UI (with a retry button) instead of an
+  // infinite spinner. The fetch useEffect below still runs the moment the
+  // token arrives.
+  useEffect(() => {
+    if (status === "authenticated" && session?.backendToken) return;
+    if (status === "unauthenticated") return; // redirect effect handles this
+
+    const tokenWaitTimeout = setTimeout(() => {
+      console.warn(
+        `[Feed] Session/token not ready after ${TOKEN_WAIT_TIMEOUT_MS}ms — showing fallback`
+      );
+      setLivesLoading(false);
+      setLoading(false);
+      setError(
+        (t && t("feed.serverStarting")) ||
+          "El servidor está tardando en responder. Por favor, intenta de nuevo."
+      );
+    }, TOKEN_WAIT_TIMEOUT_MS);
+
+    return () => clearTimeout(tokenWaitTimeout);
+  }, [status, session?.backendToken, t]);
   
   // Admin redirect - admins should not access the feed page
   useEffect(() => {
@@ -369,7 +399,9 @@ export default function ModernFeedPage() {
   };
 
   // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
-  if (status === "loading" || (status === "authenticated" && loading && !error)) {
+  // If `error` is set, the error fallback below takes precedence — the 8s
+  // safety timeout above guarantees the spinner cannot stay forever.
+  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
     return (
       <div className="modern-page">
         <div style={{ 

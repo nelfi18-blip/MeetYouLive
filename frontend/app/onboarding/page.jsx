@@ -418,7 +418,7 @@ export default function OnboardingPage() {
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      const destination = PATHS.find((p) => p.id === selectedPath)?.route || "/dashboard";
+      const destination = PATHS.find((p) => p.id === selectedPath)?.route || "/feed";
       router.replace(destination);
     } catch {
       setError("No se pudo conectar con el servidor");

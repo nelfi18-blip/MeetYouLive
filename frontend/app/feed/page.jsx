@@ -50,6 +50,28 @@ export default function ModernFeedPage() {
       router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
+
+  // Safety net: never sit on the loading spinner forever.
+  // If NextAuth never resolves the session or the backend token never
+  // arrives, surface the fallback UI (with a retry button) instead of an
+  // infinite spinner. The fetch useEffect below still runs the moment the
+  // token arrives.
+  useEffect(() => {
+    if (status === "authenticated" && session?.backendToken) return;
+    if (status === "unauthenticated") return; // redirect effect handles this
+
+    const tokenWaitTimeout = setTimeout(() => {
+      console.warn("[Feed] Session/token not ready after 8s — showing fallback");
+      setLivesLoading(false);
+      setLoading(false);
+      setError(
+        (t && t("feed.serverStarting")) ||
+          "El servidor está tardando en responder. Por favor, intenta de nuevo."
+      );
+    }, 8000);
+
+    return () => clearTimeout(tokenWaitTimeout);
+  }, [status, session?.backendToken, t]);
   
   // Admin redirect - admins should not access the feed page
   useEffect(() => {
@@ -369,7 +391,9 @@ export default function ModernFeedPage() {
   };
 
   // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
-  if (status === "loading" || (status === "authenticated" && loading && !error)) {
+  // If `error` is set, the error fallback below takes precedence — the 8s
+  // safety timeout above guarantees the spinner cannot stay forever.
+  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
     return (
       <div className="modern-page">
         <div style={{ 

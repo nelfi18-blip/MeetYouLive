@@ -13,7 +13,7 @@ MeetYouLive is a live streaming and social platform with:
 ### Frontend
 - Platform: Vercel
 - Directory: `frontend`
-- URL: `https://www.meetyoulive.net`
+- URL: `https://meetyoulive.net`
 
 ### Backend
 - Platform: Render
@@ -95,7 +95,7 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
 1. Import the repo in [Vercel](https://vercel.com) and set the **Root Directory** to `frontend`.
 2. Set environment variables:
    ```
-   NEXTAUTH_URL=https://www.meetyoulive.net
+   NEXTAUTH_URL=https://meetyoulive.net
    NEXTAUTH_SECRET=your_nextauth_secret
    INTERNAL_API_SECRET=your_internal_api_secret
    NEXT_PUBLIC_API_URL=https://api.meetyoulive.net
@@ -103,7 +103,7 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
-3. In **Project → Settings → Domains** add `meetyoulive.net` and `www.meetyoulive.net`.
+3. In **Project → Settings → Domains** add `meetyoulive.net`.
 4. In GoDaddy DNS set:
    - `A` record: `@` → `76.76.21.21`
    - `CNAME` record: `www` → `cname.vercel-dns.com`
@@ -120,7 +120,7 @@ A `render.yaml` is included so Render can auto-configure the service.
    MONGODB_URI=your_mongodb_uri
    JWT_SECRET=your_jwt_secret
    INTERNAL_API_SECRET=your_internal_api_secret
-   FRONTEND_URL=https://www.meetyoulive.net
+   FRONTEND_URL=https://meetyoulive.net
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    GOOGLE_CALLBACK_URL=https://api.meetyoulive.net/api/auth/google/callback
@@ -142,8 +142,8 @@ A `render.yaml` is included so Render can auto-configure the service.
 
 In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**:
 
-- **Authorized Redirect URIs**: `https://www.meetyoulive.net/api/auth/callback/google`
-- **Authorized JavaScript origins**: `https://www.meetyoulive.net`
+- **Authorized Redirect URIs**: `https://meetyoulive.net/api/auth/callback/google`
+- **Authorized JavaScript origins**: `https://meetyoulive.net`
 
 ## Environment variables
 
@@ -170,7 +170,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID                                  |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret                              |
 | `GOOGLE_CALLBACK_URL`         | `https://api.meetyoulive.net/api/auth/google/callback`  |
-| `FRONTEND_URL`                | `https://www.meetyoulive.net`                           |
+| `FRONTEND_URL`                | `https://meetyoulive.net`                           |
 | `AGORA_APP_ID`                | Agora App ID for RTC token generation                   |
 | `AGORA_APP_CERTIFICATE`       | Agora App Certificate for RTC token signing             |
 | `STRIPE_SECRET_KEY`           | Stripe secret key (`sk_test_…` or `sk_live_…`)          |
@@ -251,5 +251,5 @@ The backend exposes a lightweight health endpoint at `GET /api/health` that retu
 - `INTERNAL_API_SECRET` must be the same value in both Vercel and Render.
 - `api.meetyoulive.net` must point to the Render backend hostname.
 - The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`
-- Google OAuth redirect URI must be `https://www.meetyoulive.net/api/auth/callback/google` (NextAuth callback, not the legacy backend route).
+- Google OAuth redirect URI must be `https://meetyoulive.net/api/auth/callback/google` (NextAuth callback, not the legacy backend route).
 - The "Connecting…" delay after Google login is a Render cold-start artifact on the free tier. Set up UptimeRobot (see above) to eliminate it.

@@ -44,8 +44,8 @@ export default function StartLivePage() {
         const approved = data.role === "creator" && data.creatorStatus === "approved";
         setIsApprovedCreator(approved);
         if (!approved) {
-          // Non-approved creators cannot start streams; redirect to dashboard
-          router.replace("/dashboard");
+          // Non-approved creators cannot start streams; redirect to feed
+          router.replace("/feed");
         }
       })
       .catch(() => {})

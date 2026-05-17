@@ -39,7 +39,7 @@ function SuccessContent() {
         }
       }
 
-      if (!cancelled) router.replace("/dashboard");
+      if (!cancelled) router.replace("/feed");
     }, WEBHOOK_DELAY_MS);
 
     return () => {

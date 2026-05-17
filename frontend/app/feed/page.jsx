@@ -7,7 +7,7 @@ import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import { getUserImage, getLiveThumbnail, getDisplayName, getInitial } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
@@ -17,6 +17,110 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SWIPE_THRESHOLD_PX = 100;
 const SWIPE_ANIMATION_DURATION_MS = 300;
 const SWIPE_OUT_DISTANCE_PX = 1000;
+
+// Local brand gradient palette (purples / pinks / cyans only).
+// IMPORTANT: Do NOT switch back to shared getGradientForUser — it contains
+// orange/yellow stops that produce jarring giant blocks on the feed
+// (caused the PR #573 rollback). Keep this palette in-file and on-brand.
+const BRAND_GRADIENTS = [
+  "linear-gradient(135deg, #e040fb, #8b5cf6)", // pink → purple
+  "linear-gradient(135deg, #ff4fa3, #e040fb)", // pink → magenta
+  "linear-gradient(135deg, #8b5cf6, #22d3ee)", // purple → cyan
+  "linear-gradient(135deg, #e040fb, #7c3aed)", // magenta → deep purple
+  "linear-gradient(135deg, #7c3aed, #22d3ee)", // deep purple → cyan
+  "linear-gradient(135deg, #c026d3, #6366f1)", // fuchsia → indigo
+];
+
+function brandGradient(seed) {
+  if (!seed || typeof seed !== "string") {
+    return BRAND_GRADIENTS[0];
+  }
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
+}
+
+// Inline SVG icon components (match BottomNav.jsx style).
+// Avoid emoji: they render inconsistently across iOS/Android/in-app browsers
+// (Facebook, WhatsApp) and were a repeated visual complaint on the feed.
+function IconBroadcast({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14" />
+    </svg>
+  );
+}
+function IconVideo({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+function IconEye({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IconStar({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+function IconMapPin({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+function IconHeart({ size = 48 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+    </svg>
+  );
+}
+function IconSmile({ size = 56 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <line x1="9" y1="9" x2="9.01" y2="9" />
+      <line x1="15" y1="9" x2="15.01" y2="9" />
+    </svg>
+  );
+}
+function IconSad({ size = 56 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+      <line x1="9" y1="9" x2="9.01" y2="9" />
+      <line x1="15" y1="9" x2="15.01" y2="9" />
+    </svg>
+  );
+}
+function IconAntenna({ size = 48 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+      <line x1="12" y1="20" x2="12.01" y2="20" />
+    </svg>
+  );
+}
 
 export default function ModernFeedPage() {
   const { data: session, status } = useSession();
@@ -401,7 +505,7 @@ export default function ModernFeedPage() {
           padding: '2rem',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '4rem' }}>😔</div>
+          <div style={{ color: '#ff4fa3' }}><IconSad size={64} /></div>
           <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
             No pudimos cargar tu feed
           </h3>
@@ -441,9 +545,10 @@ export default function ModernFeedPage() {
           style={{
             left: `${heartPosition.x}px`,
             top: `${heartPosition.y}px`,
+            color: '#ff4fa3',
           }}
         >
-          ❤️
+          <IconHeart size={96} />
         </div>
       )}
 
@@ -452,7 +557,7 @@ export default function ModernFeedPage() {
         <div style={{ padding: '0 1rem 0.75rem' }}>
           {!hasMoreProfiles ? (
             <div className="no-content" style={{ padding: '2rem 1rem' }}>
-              <div className="no-content-icon">😊</div>
+              <div className="no-content-icon" style={{ color: '#c4b5fd' }}><IconSmile size={64} /></div>
               <h3>That's everyone for now!</h3>
               <p>Check back later for new people</p>
             </div>
@@ -500,7 +605,7 @@ export default function ModernFeedPage() {
                   const userImage = getUserImage(currentProfile);
                   const displayName = getDisplayName(currentProfile);
                   const initial = getInitial(displayName);
-                  const gradient = getGradientForUser(currentProfile._id);
+                  const gradient = brandGradient(currentProfile._id);
 
                   return userImage && !matchCardImgError ? (
                     <img 
@@ -515,7 +620,7 @@ export default function ModernFeedPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       background: gradient,
-                      fontSize: '8rem',
+                      fontSize: '3rem',
                       fontWeight: 900,
                       color: 'white',
                       textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
@@ -558,13 +663,15 @@ export default function ModernFeedPage() {
                       marginBottom: '0.5rem',
                       boxShadow: '0 0 12px rgba(224,64,251,0.3)',
                     }}>
-                      ⭐ Creator
+                      <IconStar size={14} /> Creator
                     </div>
                   )}
                   
                   <div className="match-card-details">
                     {currentProfile.location && (
-                      <span>📍 {currentProfile.location}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <IconMapPin size={14} /> {currentProfile.location}
+                      </span>
                     )}
                   </div>
                   {currentProfile.bio && (
@@ -616,8 +723,8 @@ export default function ModernFeedPage() {
 
       {/* Section 2: LIVE NOW */}
       <div className="live-scroll-section" style={{ padding: '1rem 0' }}>
-        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem' }}>
-          <div className="live-icon">🔴</div>
+        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className="live-icon" style={{ color: '#ff4d4f', display: 'inline-flex' }}><IconBroadcast size={18} /></span>
           <span>LIVE NOW</span>
         </div>
         {activeLives.length > 0 ? (
@@ -626,7 +733,7 @@ export default function ModernFeedPage() {
               const liveThumb = getLiveThumbnail(live);
               const creatorName = getDisplayName(live.user);
               const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(live.user?._id || live._id);
+              const gradient = brandGradient(live.user?._id || live._id);
               
               return (
                 <Link 
@@ -678,15 +785,27 @@ export default function ModernFeedPage() {
                       <div style={{
                         fontSize: '2rem',
                         opacity: 0.8,
-                        zIndex: 1
+                        zIndex: 1,
+                        color: 'rgba(255,255,255,0.85)',
+                        display: 'inline-flex',
                       }}>
-                        📹
+                        <IconVideo size={28} />
                       </div>
                     </div>
-                    <div className="live-badge-pulse">🔴 LIVE</div>
+                    <div className="live-badge-pulse" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: '#ff4d4f',
+                        boxShadow: '0 0 8px #ff4d4f',
+                      }}></span>
+                      LIVE
+                    </div>
                     {live.viewerCount > 0 && (
-                      <div className="live-viewers">
-                        👁️ {live.viewerCount}
+                      <div className="live-viewers" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <IconEye size={14} /> {live.viewerCount}
                       </div>
                     )}
                   </div>
@@ -701,7 +820,9 @@ export default function ModernFeedPage() {
           </div>
         ) : (
           <div className="no-content" style={{ padding: '2rem 1rem' }}>
-            <div className="no-content-icon" style={{ fontSize: '3rem' }}>📡</div>
+            <div className="no-content-icon" style={{ color: '#c4b5fd', display: 'inline-flex', justifyContent: 'center' }}>
+              <IconAntenna size={48} />
+            </div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No hay directos ahora</h3>
             <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Vuelve pronto para ver nuevos directos</p>
             <Link href="/explore" className="btn btn-primary" style={{ 
@@ -727,8 +848,8 @@ export default function ModernFeedPage() {
       {/* Section 3: TOP CREATORS */}
       {featuredCreators.length > 0 && (
         <div className="creators-section" style={{ padding: '1rem 0' }}>
-          <div className="creators-header" style={{ padding: '0 1rem 0.75rem' }}>
-            <span>⭐</span>
+          <div className="creators-header" style={{ padding: '0 1rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ color: '#e040fb', display: 'inline-flex' }}><IconStar size={18} /></span>
             <span>TOP CREATORS</span>
           </div>
           <div className="creators-scroll">
@@ -736,7 +857,7 @@ export default function ModernFeedPage() {
               const creatorImage = getUserImage(creator);
               const creatorName = getDisplayName(creator);
               const creatorInitial = getInitial(creatorName);
-              const gradient = getGradientForUser(creator._id);
+              const gradient = brandGradient(creator._id);
               
               return (
                 <Link

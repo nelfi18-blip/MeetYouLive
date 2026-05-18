@@ -1,1053 +1,526 @@
 "use client";
 
+/**
+ * /feed — clean mobile-first feed.
+ *
+ * Header (logo / coins / notifications / avatar) is provided globally by
+ * <NavbarWrapper /> in app/layout.jsx. Bottom nav is provided globally by
+ * <BottomNavWrapper />. This page renders ONLY the main content sections:
+ *   1. Match card (dark purple gradient)
+ *   2. Action buttons row (Like / Pass / Boost / Message)
+ *   3. "Directos ahora" (live now) horizontal rail
+ *   4. "Top creators" horizontal rail
+ *
+ * No InteractionBar, no swipe deck, no floating initials, no orange/yellow,
+ * no legacy widgets.
+ */
+
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
-import { filterActiveLives } from "@/lib/liveFilters";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
-import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const FETCH_TIMEOUT_MS = 10000;
 
-// Hard ceiling on how long we wait for the NextAuth session / backend token
-// to hydrate before surfacing a friendly fallback. Prevents the page from
-// sitting on a spinner indefinitely on slow connections or Render cold starts.
-const TOKEN_WAIT_TIMEOUT_MS = 8000;
-
-// Hard ceiling for the feed API request itself.
-const FETCH_TIMEOUT_MS = 15000;
-
-// Brand-only gradient palette (purples / pinks / cyans). Intentionally
-// excludes orange/yellow tones to avoid the jarring fullscreen blocks that
-// previously broke /feed (the "orange/yellow overlay" symptom).
+// Brand-safe gradients for avatar fallbacks (purples / pinks / cyans only —
+// never orange/yellow). Keep this list local so we never pick up the shared
+// helper that includes warm colors.
 const BRAND_GRADIENTS = [
-  "linear-gradient(135deg, #e040fb, #8b5cf6)",
-  "linear-gradient(135deg, #ff4fa3, #e040fb)",
-  "linear-gradient(135deg, #8b5cf6, #22d3ee)",
-  "linear-gradient(135deg, #e040fb, #7c3aed)",
-  "linear-gradient(135deg, #7c3aed, #22d3ee)",
-  "linear-gradient(135deg, #ec4899, #8b5cf6)",
+  "linear-gradient(135deg, #6d28d9 0%, #ec4899 100%)",
+  "linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)",
+  "linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)",
+  "linear-gradient(135deg, #be185d 0%, #6d28d9 100%)",
+  "linear-gradient(135deg, #1e1b4b 0%, #7c3aed 100%)",
 ];
 
-function brandGradient(seed) {
-  if (!seed || typeof seed !== "string") return BRAND_GRADIENTS[0];
+function gradientFor(seed = "") {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-  return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
+  return BRAND_GRADIENTS[hash % BRAND_GRADIENTS.length];
 }
 
-/* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
-const IconCoin = (props) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <circle cx="12" cy="12" r="10" opacity="0.2" />
-    <path d="M12 6a6 6 0 100 12 6 6 0 000-12zm.9 9.4v1.1h-1.8v-1.1c-1.2-.2-2.1-.9-2.3-2h1.6c.1.5.6.9 1.6.9.9 0 1.4-.4 1.4-.9 0-.4-.3-.8-1.5-1.1-1.6-.4-2.6-.9-2.6-2.2 0-1 .8-1.7 1.9-1.9V7.1h1.8v1.1c1.2.2 2 .9 2.1 2h-1.6c-.1-.5-.5-.9-1.4-.9-.9 0-1.3.4-1.3.8 0 .4.3.7 1.5 1 1.7.4 2.6 1 2.6 2.3 0 1.1-.8 1.7-1.8 2z" />
-  </svg>
-);
-const IconBell = (props) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2v1h16v-1l-2-2z" />
-    <path d="M10 21a2 2 0 004 0" />
-  </svg>
-);
-const IconUser = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" />
-  </svg>
-);
-const IconBroadcast = (props) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <circle cx="12" cy="12" r="4" />
-  </svg>
-);
-const IconStar = (props) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-  </svg>
-);
-const IconEye = (props) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" />
-  </svg>
-);
-const IconAlert = (props) => (
-  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" />
-    <line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-);
+function initialOf(name = "") {
+  const trimmed = String(name).trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : "?";
+}
 
-/* --------------------------- Feed page --------------------------- */
+function resolveImage(src) {
+  if (!src) return "";
+  if (/^https?:\/\//i.test(src)) return src;
+  if (src.startsWith("/")) return `${API_URL}${src}`;
+  return `${API_URL}/${src}`;
+}
+
+// ---------- Inline SVG icons (no emoji) -----------------------------------
+
+function IconHeart({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+
+function IconPass({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
+function IconBoost({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
+function IconMessage({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function IconLive({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="6" />
+    </svg>
+  );
+}
+
+// ---------- Page ----------------------------------------------------------
+
 export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { t } = useLanguage();
 
-  const [activeLives, setActiveLives] = useState([]);
-  const [profiles, setProfiles] = useState([]);
-  const [featuredCreators, setFeaturedCreators] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [lives, setLives] = useState([]);
+  const [creators, setCreators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userCoins, setUserCoins] = useState(0);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
 
-  const boostPrice = 100;
-  const magnetPrice = 50;
-
-  // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
-  // they come back here after sign-in; authenticated refresh always stays on
-  // /feed and never bounces to an alternate layout).
+  // Auth gate
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/login?callbackUrl=/feed");
+      router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
 
-  // Admins shouldn't see the consumer feed.
+  // Fetch feed data (lives + featured creators)
   useEffect(() => {
-    if (!session?.backendToken) return;
-    let mounted = true;
-    fetchUserRole(session.backendToken)
-      .then((u) => {
-        if (mounted && u?.role === "admin") router.replace("/admin");
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [session?.backendToken, router]);
-
-  // Safety net: never sit on the loading spinner forever waiting for the
-  // session/token to hydrate.
-  useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
-    if (status === "unauthenticated") return;
-    const timer = setTimeout(() => {
+    if (status !== "authenticated") return;
+    if (!API_URL) {
+      setError("Configuración faltante.");
       setLoading(false);
-      setError(
-        (t && t("feed.serverStarting")) ||
-          "El servidor está tardando en responder. Por favor, intenta de nuevo."
-      );
-    }, TOKEN_WAIT_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
+      return;
+    }
 
-  // Fetch feed data once we're authenticated and the backend token is ready.
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.backendToken) return;
-
-    let cancelled = false;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let cancelled = false;
 
     (async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const [feedRes, userRes] = await Promise.all([
-          fetch(`${API_URL}/api/feed`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/api/user/me`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-        ]);
-
+        const headers = { "Content-Type": "application/json" };
+        if (session?.backendToken) {
+          headers.Authorization = `Bearer ${session.backendToken}`;
+        }
+        const res = await fetch(`${API_URL}/api/feed`, {
+          headers,
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
         if (cancelled) return;
-        clearTimeout(timeoutId);
-
-        if (!feedRes.ok) {
-          let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
-          if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = "Sesión expirada. Por favor, inicia sesión de nuevo.";
-          } else if (feedRes.status >= 500) {
-            msg = "Error del servidor. Por favor, intenta de nuevo.";
-          }
-          throw new Error(msg);
-        }
-
-        const data = await feedRes.json();
-        const safeLives = filterActiveLives(data.activeLives || []);
-        const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
-        );
-        const uniqueCreators = Array.from(
-          new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
-        );
-
-        setActiveLives(safeLives);
-        setProfiles(uniqueProfiles);
-        setFeaturedCreators(uniqueCreators);
-
-        if (userRes.ok) {
-          const u = await userRes.json();
-          setUserCoins(u.coinsBalance || 0);
-        }
-
-        setError(null);
-        setLoading(false);
+        const rawLives = Array.isArray(data?.activeLives) ? data.activeLives : [];
+        const rawCreators = Array.isArray(data?.featuredCreators) ? data.featuredCreators : [];
+        // Only keep entries with a usable id so navigation always targets a
+        // real resource (no silent fallbacks to /explore or /ranking).
+        setLives(rawLives.filter((l) => l && (l._id || l.id)));
+        setCreators(rawCreators.filter((c) => c && (c._id || c.id)));
       } catch (err) {
         if (cancelled) return;
-        clearTimeout(timeoutId);
-        if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+        if (err?.name === "AbortError") {
+          setError("La conexión está tardando demasiado. Intenta de nuevo.");
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          setError("No pudimos cargar tu feed. Intenta de nuevo.");
         }
-        setLoading(false);
+      } finally {
+        clearTimeout(timeout);
+        if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
       controller.abort();
+      clearTimeout(timeout);
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
-
-  // Reset card image error when we advance to a new profile.
-  useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
-
-  /* --------------------------- Actions --------------------------- */
-  const advance = () => setCurrentIndex((i) => i + 1);
-
-  const handleFade = () => advance();
-
-  const handleSpark = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    try {
-      await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ userId: p._id }),
-      });
-    } catch (err) {
-      console.error("Spark error:", err);
-    }
-    advance();
-  };
-
-  const handlePulse = async () => {
-    if (userCoins < boostPrice) {
-      router.push("/coins");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/boost`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (res.ok) setUserCoins((c) => c - boostPrice);
-    } catch (err) {
-      console.error("Pulse error:", err);
-    }
-  };
-
-  const handleMagnet = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    if (userCoins < magnetPrice) {
-      router.push("/coins");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      });
-      if (res.ok) setUserCoins((c) => c - magnetPrice);
-    } catch (err) {
-      console.error("Magnet error:", err);
-    }
-    advance();
-  };
-
-  const handleFlashLive = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    router.push(`/call/${p._id}`);
-  };
-
-  /* --------------------------- Render --------------------------- */
-  // Loading spinner only while auth/data are pending and no error yet.
-  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
-    return (
-      <div className="feed-page">
-        <FeedHeader coins={userCoins} session={session} />
-        <div className="feed-loading">
-          <div className="spinner" />
-          <p>Cargando tu feed...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error fallback (no floating initials, no orange overlay — just a clean card).
-  if (error) {
-    return (
-      <div className="feed-page">
-        <FeedHeader coins={userCoins} session={session} />
-        <div className="feed-error">
-          <IconAlert />
-          <h3>No pudimos cargar tu feed</h3>
-          <p>{error}</p>
-          <button
-            type="button"
-            className="feed-retry-btn"
-            onClick={() => window.location.reload()}
-          >
-            Intentar de nuevo
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
+  }, [status, session?.backendToken]);
 
   return (
-    <div className="feed-page">
-      {/* 1. HEADER */}
-      <FeedHeader coins={userCoins} session={session} />
+    <div className="clean-feed">
+      {/* 1. Match card */}
+      <section className="match-card" aria-label="Encuentra tu match">
+        <div className="match-avatar" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </div>
+        <h1 className="match-title">Encuentra tu match</h1>
+        <p className="match-sub">Perfiles compatibles aparecerán aquí</p>
+      </section>
 
-      {/* 2. MATCH SECTION */}
-      <section className="feed-section feed-match-section">
-        {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+      {/* 2. Action buttons row */}
+      <nav className="action-row" aria-label="Acciones rápidas">
+        <Link href="/matches" className="action-btn action-like">
+          <span className="action-ic"><IconHeart /></span>
+          <span className="action-lbl">Like</span>
+        </Link>
+        <Link href="/explore" className="action-btn action-pass">
+          <span className="action-ic"><IconPass /></span>
+          <span className="action-lbl">Pass</span>
+        </Link>
+        <Link href="/coins" className="action-btn action-boost">
+          <span className="action-ic"><IconBoost /></span>
+          <span className="action-lbl">Boost</span>
+        </Link>
+        <Link href="/chats" className="action-btn action-msg">
+          <span className="action-ic"><IconMessage /></span>
+          <span className="action-lbl">Message</span>
+        </Link>
+      </nav>
+
+      {/* 3. Directos ahora */}
+      <section className="rail-section" aria-label="Directos ahora">
+        <div className="rail-header">
+          <h2 className="rail-title">Directos ahora</h2>
+          <Link href="/explore" className="rail-link">Ver todo</Link>
+        </div>
+        {loading ? (
+          <div className="rail-skeleton">
+            <div className="skel-card" />
+            <div className="skel-card" />
+            <div className="skel-card" />
+          </div>
+        ) : error ? (
+          <p className="rail-empty">{error}</p>
+        ) : lives.length === 0 ? (
+          <p className="rail-empty">No hay directos en este momento.</p>
         ) : (
-          <div className="feed-empty">
-            <h3>That's everyone for now</h3>
-            <p>Check back later for new people.</p>
-            <Link href="/explore" className="feed-empty-btn">
-              Explorar creadores
-            </Link>
+          <div className="rail">
+            {lives.map((live, idx) => {
+              const liveId = String(live._id || live.id);
+              const u = live.user || {};
+              const name = u.name || live.title || "Creador";
+              const img = resolveImage(live.thumbnail || u.avatar || "");
+              return (
+                <Link
+                  key={`${liveId}-${idx}`}
+                  href={`/live/${liveId}`}
+                  className="rail-card"
+                >
+                  <div className="rail-thumb" style={{ background: gradientFor(name) }}>
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={name}
+                        loading="lazy"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : (
+                      <span className="rail-initial">{initialOf(name)}</span>
+                    )}
+                    <span className="rail-live-pill">
+                      <IconLive /> LIVE
+                    </span>
+                  </div>
+                  <div className="rail-meta">
+                    <span className="rail-name">{name}</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* 3. ACTION BUTTONS (only when there's a current profile) */}
-      {hasMoreProfiles && (
-        <InteractionBar
-          profile={currentProfile}
-          onFade={handleFade}
-          onSpark={handleSpark}
-          onPulse={handlePulse}
-          onMagnet={handleMagnet}
-          onFlashLive={handleFlashLive}
-          boostPrice={boostPrice}
-          magnetPrice={magnetPrice}
-        />
-      )}
-
-      {/* 4. LIVE SECTION */}
-      <section className="feed-section feed-live-section">
-        <header className="feed-section-header">
-          <span className="feed-section-icon feed-section-icon--live">
-            <IconBroadcast />
-          </span>
-          <h2>LIVE NOW</h2>
-          <Link href="/explore" className="feed-section-link">
-            Ver todos
-          </Link>
-        </header>
-
-        {activeLives.length > 0 ? (
-          <div className="feed-live-scroll">
-            {activeLives.map((live) => (
-              <LiveCard key={live._id} live={live} />
-            ))}
+      {/* 4. Top creators */}
+      <section className="rail-section" aria-label="Top creators">
+        <div className="rail-header">
+          <h2 className="rail-title">Top creators</h2>
+          <Link href="/ranking" className="rail-link">Ver todo</Link>
+        </div>
+        {loading ? (
+          <div className="rail-skeleton">
+            <div className="skel-card" />
+            <div className="skel-card" />
+            <div className="skel-card" />
           </div>
+        ) : creators.length === 0 ? (
+          <p className="rail-empty">Aún no hay creadores destacados.</p>
         ) : (
-          <div className="feed-live-empty">
-            <p>No hay directos ahora. Vuelve pronto.</p>
+          <div className="rail">
+            {creators.map((c, idx) => {
+              const id = String(c._id || c.id);
+              const name = c.name || c.username || "Creador";
+              const img = resolveImage(c.avatar || "");
+              return (
+                <Link
+                  key={`${id}-${idx}`}
+                  href={`/profile/${id}`}
+                  className="rail-card"
+                >
+                  <div className="rail-thumb" style={{ background: gradientFor(name) }}>
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={name}
+                        loading="lazy"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : (
+                      <span className="rail-initial">{initialOf(name)}</span>
+                    )}
+                  </div>
+                  <div className="rail-meta">
+                    <span className="rail-name">{name}</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
-
-      {/* 5. TOP CREATORS */}
-      {featuredCreators.length > 0 && (
-        <section className="feed-section feed-creators-section">
-          <header className="feed-section-header">
-            <span className="feed-section-icon feed-section-icon--star">
-              <IconStar />
-            </span>
-            <h2>TOP CREATORS</h2>
-            <Link href="/explore?tab=creators" className="feed-section-link">
-              Ver todos
-            </Link>
-          </header>
-
-          <div className="feed-creators-scroll">
-            {featuredCreators.map((c) => (
-              <CreatorPill key={c._id} creator={c} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 6. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
 
       <style jsx>{`
-        .feed-page {
-          min-height: 100vh;
-          padding-bottom: calc(160px + env(safe-area-inset-bottom));
-          background: var(--bg, #0f0821);
-          color: var(--text, #fff);
+        .clean-feed {
+          width: 100%;
+          max-width: 720px;
+          margin: 0 auto;
+          padding: 16px 16px 120px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          color: #f5f3ff;
         }
 
-        .feed-loading,
-        .feed-error {
+        /* 1. Match card */
+        .match-card {
+          background: linear-gradient(160deg, #1e1b4b 0%, #4c1d95 55%, #6d28d9 100%);
+          border-radius: 24px;
+          padding: 28px 22px;
+          text-align: center;
+          box-shadow: 0 12px 40px rgba(76, 29, 149, 0.35);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+        .match-avatar {
+          width: 88px;
+          height: 88px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          box-shadow: 0 8px 24px rgba(124, 58, 237, 0.5);
+        }
+        .match-title {
+          margin: 4px 0 0;
+          font-size: 22px;
+          font-weight: 700;
+          color: #fff;
+          letter-spacing: -0.2px;
+        }
+        .match-sub {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(245, 243, 255, 0.78);
+        }
+
+        /* 2. Action row */
+        .action-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+        }
+        .action-btn {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.75rem;
-          padding: 4rem 1.5rem;
-          text-align: center;
-          color: var(--text-muted, #a39ec0);
+          gap: 6px;
+          padding: 14px 6px;
+          border-radius: 18px;
+          background: rgba(30, 27, 75, 0.55);
+          border: 1px solid rgba(124, 58, 237, 0.25);
+          color: #f5f3ff;
+          text-decoration: none;
+          transition: transform 0.15s ease, background 0.15s ease;
+          -webkit-tap-highlight-color: transparent;
         }
-        .feed-error :global(svg) {
-          color: #e040fb;
-          margin-bottom: 0.5rem;
-        }
-        .feed-error h3 {
-          margin: 0;
-          color: var(--text, #fff);
-          font-size: 1.1rem;
-        }
-        .feed-error p {
-          margin: 0;
-          max-width: 420px;
-        }
-        .feed-retry-btn {
-          margin-top: 0.5rem;
-          padding: 0.75rem 1.75rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          font-size: 0.95rem;
-          box-shadow: 0 4px 16px rgba(224, 64, 251, 0.35);
-        }
-
-        .feed-section {
-          padding: 1rem;
-        }
-        .feed-match-section {
-          padding-top: 0.5rem;
-        }
-
-        .feed-section-header {
+        .action-btn:active { transform: scale(0.96); }
+        .action-ic {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
+          justify-content: center;
+          color: #fff;
         }
-        .feed-section-header h2 {
+        .action-like .action-ic { background: linear-gradient(135deg, #ec4899, #be185d); }
+        .action-pass .action-ic { background: linear-gradient(135deg, #475569, #1e293b); }
+        .action-boost .action-ic { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+        .action-msg .action-ic { background: linear-gradient(135deg, #06b6d4, #7c3aed); }
+        .action-lbl {
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(245, 243, 255, 0.9);
+        }
+
+        /* 3 + 4. Rails */
+        .rail-section {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .rail-header {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          padding: 0 2px;
+        }
+        .rail-title {
           margin: 0;
-          font-size: 0.85rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          color: var(--text, #fff);
+          font-size: 17px;
+          font-weight: 700;
+          color: #fff;
         }
-        .feed-section-link {
-          margin-left: auto;
-          font-size: 0.8rem;
+        .rail-link {
+          font-size: 13px;
           font-weight: 600;
           color: #c4b5fd;
           text-decoration: none;
         }
-        .feed-section-icon {
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .feed-section-icon--live {
-          background: rgba(244, 63, 94, 0.18);
-          color: #f43f5e;
-          animation: pulseLive 1.6s ease-in-out infinite;
-        }
-        .feed-section-icon--star {
-          background: rgba(224, 64, 251, 0.18);
-          color: #e040fb;
-        }
-        @keyframes pulseLive {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.45); }
-          50%      { box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
-        }
-
-        .feed-live-scroll,
-        .feed-creators-scroll {
+        .rail {
           display: flex;
-          gap: 0.75rem;
+          gap: 12px;
           overflow-x: auto;
-          padding-bottom: 0.5rem;
-          scrollbar-width: none;
+          padding: 2px 2px 8px;
+          scroll-snap-type: x mandatory;
           -webkit-overflow-scrolling: touch;
         }
-        .feed-live-scroll::-webkit-scrollbar,
-        .feed-creators-scroll::-webkit-scrollbar {
-          display: none;
-        }
-
-        .feed-live-empty {
-          padding: 1rem;
-          text-align: center;
-          color: var(--text-muted, #a39ec0);
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px;
-          font-size: 0.9rem;
-        }
-
-        .feed-empty {
-          padding: 3rem 1rem;
-          text-align: center;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 20px;
-        }
-        .feed-empty h3 {
-          margin: 0 0 0.5rem;
-          font-size: 1.05rem;
-        }
-        .feed-empty p {
-          margin: 0 0 1.25rem;
-          color: var(--text-muted, #a39ec0);
-          font-size: 0.9rem;
-        }
-        .feed-empty-btn {
-          display: inline-block;
-          padding: 0.7rem 1.4rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border-radius: 999px;
-          font-size: 0.85rem;
-          text-decoration: none;
-          box-shadow: 0 4px 12px rgba(224, 64, 251, 0.3);
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/* --------------------------- Sub-components --------------------------- */
-
-function FeedHeader({ coins, session }) {
-  const userImage = session?.user?.image;
-  return (
-    <header className="feed-header">
-      <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
-        <span>
-          MeetYou<span className="feed-header-brand-accent">Live</span>
-        </span>
-      </Link>
-
-      <div className="feed-header-actions">
-        <Link href="/coins" className="feed-header-chip" aria-label="Monedas">
-          <IconCoin />
-          <span>{coins}</span>
-        </Link>
-        <Link
-          href="/notifications"
-          className="feed-header-icon-btn"
-          aria-label="Notificaciones"
-        >
-          <IconBell />
-        </Link>
-        <Link
-          href="/profile"
-          className="feed-header-avatar"
-          aria-label="Mi perfil"
-        >
-          {userImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={userImage} alt="" />
-          ) : (
-            <IconUser width="20" height="20" />
-          )}
-        </Link>
-      </div>
-
-      <style jsx>{`
-        .feed-header {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          padding-top: calc(0.75rem + env(safe-area-inset-top));
-          background: rgba(15, 8, 33, 0.85);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .feed-header-brand {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: #fff;
-          font-weight: 800;
-          font-size: 1.05rem;
-          text-decoration: none;
-          letter-spacing: -0.01em;
-        }
-        .feed-header-brand-accent {
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-        .feed-header-actions {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .feed-header-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.7rem;
-          background: rgba(251, 191, 36, 0.12);
-          border: 1px solid rgba(251, 191, 36, 0.25);
-          border-radius: 999px;
-          color: #fbbf24;
-          font-weight: 700;
-          font-size: 0.85rem;
-          text-decoration: none;
-        }
-        .feed-header-icon-btn,
-        .feed-header-avatar {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 38px;
-          height: 38px;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: var(--text, #fff);
-          text-decoration: none;
-          overflow: hidden;
-        }
-        .feed-header-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      `}</style>
-    </header>
-  );
-}
-
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
-          </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
-        </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
-  );
-}
-
-function LiveCard({ live }) {
-  const thumb = getLiveThumbnail(live);
-  const creatorName = getDisplayName(live.user);
-  const gradient = brandGradient(live.user?._id || live._id);
-
-  return (
-    <Link href={`/live/${live._id}`} className="live-card">
-      <div className="live-card-thumb">
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt={creatorName} />
-        ) : (
-          <div className="live-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="live-card-placeholder-icon" width="32" height="32" />
-          </div>
-        )}
-        <span className="live-card-badge">
-          <IconBroadcast />
-          LIVE
-        </span>
-        {live.viewerCount > 0 && (
-          <span className="live-card-viewers">
-            <IconEye />
-            {live.viewerCount}
-          </span>
-        )}
-      </div>
-      <div className="live-card-meta">
-        <p className="live-card-title">{live.title || "Live Stream"}</p>
-        <p className="live-card-name">{creatorName}</p>
-      </div>
-
-      <style jsx>{`
-        .live-card {
-          flex: 0 0 160px;
-          display: flex;
-          flex-direction: column;
+        .rail::-webkit-scrollbar { display: none; }
+        .rail-card {
+          flex: 0 0 140px;
+          scroll-snap-align: start;
           text-decoration: none;
           color: inherit;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
-        .live-card-thumb {
+        .rail-thumb {
           position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
+          width: 140px;
+          height: 180px;
           border-radius: 16px;
           overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
         }
-        .live-card-thumb img {
+        .rail-thumb img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
         }
-        .live-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .rail-initial {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.92);
         }
-        .live-card-placeholder :global(.live-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-        }
-        .live-card-badge {
+        .rail-live-pill {
           position: absolute;
           top: 8px;
           left: 8px;
           display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
-          padding: 0.2rem 0.5rem;
-          background: rgba(244, 63, 94, 0.9);
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          border-radius: 999px;
-        }
-        .live-card-viewers {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.2rem 0.5rem;
-          background: rgba(0, 0, 0, 0.55);
-          color: #fff;
-          font-size: 0.7rem;
+          gap: 4px;
+          padding: 4px 8px;
+          font-size: 10px;
           font-weight: 700;
+          letter-spacing: 0.5px;
+          color: #fff;
+          background: #dc2626;
           border-radius: 999px;
+          box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
         }
-        .live-card-meta {
-          padding: 0.5rem 0.1rem 0;
+        .rail-meta {
+          padding: 0 4px;
         }
-        .live-card-title {
-          margin: 0;
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--text, #fff);
+        .rail-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #f5f3ff;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-        }
-        .live-card-name {
-          margin: 0.1rem 0 0;
-          font-size: 0.75rem;
-          color: var(--text-muted, #a39ec0);
-        }
-      `}</style>
-    </Link>
-  );
-}
-
-function CreatorPill({ creator }) {
-  const avatar = getUserImage(creator);
-  const name = getDisplayName(creator);
-  const gradient = brandGradient(creator._id);
-
-  return (
-    <Link href={`/profile/${creator._id}`} className="creator-pill">
-      <div className="creator-pill-avatar">
-        {avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} alt={name} />
-        ) : (
-          <div className="creator-pill-placeholder" style={{ background: gradient }}>
-            <IconUser className="creator-pill-placeholder-icon" width="24" height="24" />
-          </div>
-        )}
-      </div>
-      <p className="creator-pill-name">{name}</p>
-
-      <style jsx>{`
-        .creator-pill {
-          flex: 0 0 72px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.4rem;
-          text-decoration: none;
-          color: inherit;
-        }
-        .creator-pill-avatar {
-          width: 64px;
-          height: 64px;
-          border-radius: 999px;
-          overflow: hidden;
-          border: 2px solid rgba(224, 64, 251, 0.5);
-          background: rgba(255, 255, 255, 0.04);
-        }
-        .creator-pill-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
           display: block;
         }
-        .creator-pill-placeholder {
-          width: 100%;
-          height: 100%;
+        .rail-empty {
+          margin: 4px 2px 0;
+          font-size: 13px;
+          color: rgba(245, 243, 255, 0.6);
+        }
+        .rail-skeleton {
           display: flex;
-          align-items: center;
-          justify-content: center;
+          gap: 12px;
+          padding: 2px;
         }
-        .creator-pill-placeholder :global(.creator-pill-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.6);
+        .skel-card {
+          flex: 0 0 140px;
+          height: 180px;
+          border-radius: 16px;
+          background: linear-gradient(
+            90deg,
+            rgba(76, 29, 149, 0.25) 0%,
+            rgba(124, 58, 237, 0.35) 50%,
+            rgba(76, 29, 149, 0.25) 100%
+          );
+          background-size: 200% 100%;
+          animation: shimmer 1.4s linear infinite;
         }
-        .creator-pill-name {
-          margin: 0;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text, #fff);
-          text-align: center;
-          max-width: 72px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        @media (min-width: 768px) {
+          .clean-feed { padding: 24px 24px 80px; gap: 24px; }
+          .match-card { padding: 36px 28px; }
+          .match-title { font-size: 26px; }
         }
       `}</style>
-    </Link>
+    </div>
   );
 }

@@ -86,7 +86,12 @@ export function middleware(request) {
   // Block unauthenticated access to protected routes (either session type is
   // sufficient here; the page itself validates the backend token).
   if (!backendSession && !nextAuthSession && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const url = new URL("/login", request.url);
+    url.searchParams.set(
+      "callbackUrl",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    );
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -14,6 +14,48 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
+
+function getSafeCallbackPath(value) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/feed";
+
+  let decodedValue = value;
+  try {
+    decodedValue = decodeURIComponent(value);
+  } catch {
+    return "/feed";
+  }
+
+  if (
+    !decodedValue.startsWith("/") ||
+    decodedValue.startsWith("//") ||
+    decodedValue.includes("\\") ||
+    /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/.test(decodedValue)
+  ) {
+    return "/feed";
+  }
+
+  try {
+    const url = new URL(decodedValue, "http://localhost");
+    if (url.origin !== "http://localhost") return "/feed";
+
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    if (
+      path === "/login" ||
+      path === "/register" ||
+      path.startsWith("/admin")
+    ) {
+      return "/feed";
+    }
+
+    return path.startsWith("/") ? path : "/feed";
+  } catch {
+    return "/feed";
+  }
+}
+
+function buildLoginCallbackUrl(callbackPath) {
+  return `/login?callbackUrl=${encodeURIComponent(getSafeCallbackPath(callbackPath))}`;
+}
 
 function MailIcon() {
   return (
@@ -65,6 +107,14 @@ function LoginForm() {
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const callbackPath = useMemo(
+    () => getSafeCallbackPath(searchParams.get("callbackUrl")),
+    [searchParams]
+  );
+  const googleCallbackUrl = useMemo(
+    () => buildLoginCallbackUrl(callbackPath),
+    [callbackPath]
+  );
 
   const retryStartedRef = useRef(false);
   const timeoutIdsRef = useRef([]);
@@ -121,12 +171,12 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(callbackPath);
         }
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
         // Fallback to feed on error
-        router.replace("/feed");
+        router.replace(callbackPath);
       });
       return;
     }
@@ -151,13 +201,13 @@ function LoginForm() {
             console.log("[login] Admin detected – redirecting to /admin");
             router.replace("/admin");
           } else {
-            console.log("[login] Regular user – redirecting to /feed");
-            router.replace("/feed");
+            console.log(`[login] Regular user – redirecting to ${callbackPath}`);
+            router.replace(callbackPath);
           }
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
           // Fallback to feed on error
-          router.replace("/feed");
+          router.replace(callbackPath);
         });
         return;
       }
@@ -188,7 +238,7 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to feed`);
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to ${callbackPath}`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];
@@ -197,7 +247,13 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/feed");
+                try {
+                  const user = await fetchUserRole(data.token);
+                  router.replace(user?.role === "admin" ? "/admin" : callbackPath);
+                } catch (error) {
+                  console.error("[login] Error checking user role:", error);
+                  router.replace(callbackPath);
+                }
                 return;
               }
 
@@ -264,7 +320,7 @@ function LoginForm() {
       retryStartedRef.current = false;
       setChecking(false);
     }
-  }, [status, session, router, searchParams]);
+  }, [status, session, router, searchParams, callbackPath]);
 
   if (checking) return (
     <div
@@ -459,7 +515,7 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(callbackPath);
         }
         return;
       }
@@ -509,7 +565,11 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/login" })}
+          onClick={() =>
+            signIn("google", {
+              callbackUrl: googleCallbackUrl,
+            })
+          }
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

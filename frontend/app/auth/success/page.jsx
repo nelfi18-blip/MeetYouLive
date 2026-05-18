@@ -44,7 +44,7 @@ function AuthSuccessHandler() {
 /**
  * Handles the redirect from the backend Passport-based Google OAuth callback.
  * The backend redirects to /auth/success?token=<jwt> after a successful OAuth flow.
- * This page saves the token to localStorage and navigates to the dashboard.
+ * This page saves the token to localStorage and navigates to the app.
  */
 export default function AuthSuccessPage() {
   return (

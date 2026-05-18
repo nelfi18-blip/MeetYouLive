@@ -35,7 +35,7 @@ function SuccessContent() {
           }
         } catch (error) {
           console.warn("[payment/success] coin balance refetch failed", error);
-          // Continue to dashboard even if refetch fails.
+          // Continue to the feed even if refetch fails.
         }
       }
 
@@ -53,7 +53,7 @@ function SuccessContent() {
       <div className="status-icon">✅</div>
       <h1>Pago exitoso</h1>
       <p>Tus monedas han sido añadidas</p>
-      <p>Redirigiendo al dashboard…</p>
+      <p>Redirigiendo al feed…</p>
 
       {balance !== null && (
         <p className="balance-text">

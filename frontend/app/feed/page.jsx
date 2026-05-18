@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
+import Logo from "@/components/Logo";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
@@ -43,20 +44,6 @@ function brandGradient(seed) {
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -582,10 +569,7 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
-        <span>
-          MeetYou<span className="feed-header-brand-accent">Live</span>
-        </span>
+        <Logo size="sm" />
       </Link>
 
       <div className="feed-header-actions">

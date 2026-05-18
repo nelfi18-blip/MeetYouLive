@@ -1,5 +1,21 @@
 import { NextResponse } from "next/server";
 
+const INVALID_CALLBACK_PATH_CHARS =
+  /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/;
+
+function getSafeCallbackPath(nextUrl) {
+  const candidate = `${nextUrl.pathname}${nextUrl.search}`;
+  if (
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    INVALID_CALLBACK_PATH_CHARS.test(candidate)
+  ) {
+    return "/feed";
+  }
+  return candidate;
+}
+
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
@@ -87,10 +103,7 @@ export function middleware(request) {
   // sufficient here; the page itself validates the backend token).
   if (!backendSession && !nextAuthSession && isProtectedRoute) {
     const url = new URL("/login", request.url);
-    url.searchParams.set(
-      "callbackUrl",
-      `${request.nextUrl.pathname}${request.nextUrl.search}`
-    );
+    url.searchParams.set("callbackUrl", getSafeCallbackPath(request.nextUrl));
     return NextResponse.redirect(url);
   }
 

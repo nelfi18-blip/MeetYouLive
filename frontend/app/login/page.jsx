@@ -14,6 +14,8 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
+const INVISIBLE_OR_CONTROL_CHARS =
+  /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/;
 
 function getSafeCallbackPath(value) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/feed";
@@ -31,7 +33,7 @@ function getSafeCallbackPath(value) {
     decodedValue.includes("\\") ||
     // Reject invisible/control and bidirectional formatting characters so the
     // callback path cannot disguise a different destination in the UI/logs.
-    /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/.test(decodedValue)
+    INVISIBLE_OR_CONTROL_CHARS.test(decodedValue)
   ) {
     return "/feed";
   }
@@ -251,6 +253,8 @@ function LoginForm() {
                 setToken(data.token);
                 try {
                   const user = await fetchUserRole(data.token);
+                  // Admin sessions always land in the admin shell, regardless
+                  // of user-page callbackUrl values.
                   router.replace(user?.role === "admin" ? "/admin" : callbackPath);
                 } catch (error) {
                   console.error("[login] Error checking user role:", error);

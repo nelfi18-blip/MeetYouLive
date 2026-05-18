@@ -1508,11 +1508,9 @@ main.main-content:has(.admin-shell) {
   justify-content: center;
 }
 
-.swipe-card-initial {
-  font-size: 120px;
-  font-weight: 700;
-  color: white;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+.swipe-card-placeholder-icon {
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0.9;
 }
 
 .swipe-overlay {

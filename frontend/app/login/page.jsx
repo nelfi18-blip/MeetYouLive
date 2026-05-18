@@ -532,7 +532,11 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/login" })}
+          onClick={() =>
+            signIn("google", {
+              callbackUrl: `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
+            })
+          }
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

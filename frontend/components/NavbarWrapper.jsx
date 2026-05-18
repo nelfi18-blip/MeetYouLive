@@ -13,7 +13,7 @@ export default function NavbarWrapper() {
   const pathname = usePathname();
   if (!pathname) return null;
   if (HIDDEN_ROUTES.includes(pathname) || pathname.startsWith("/admin")) return null;
-  // Cover nested /feed/* paths as well.
-  if (pathname === "/feed" || pathname.startsWith("/feed/")) return null;
+  // Also cover nested /feed/* paths.
+  if (pathname.startsWith("/feed/")) return null;
   return <Navbar />;
 }

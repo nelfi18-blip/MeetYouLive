@@ -11,6 +11,24 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// Routes where BottomNavWrapper renders the modern <BottomNav />.
+// Keep in sync with components/BottomNavWrapper.jsx — these routes must NOT
+// render the legacy .bottom-nav inside Navbar, or mobile users see two
+// stacked bottom navigation bars (duplicate Home/Match/Live/Chat/Profile).
+const MODERN_BOTTOM_NAV_ROUTES = [
+  "/feed",
+  "/explore",
+  "/matches",
+  "/chats",
+  "/profile",
+  "/coins",
+  "/notifications",
+  "/gifts",
+  "/ranking",
+  "/sparks",
+  "/passes",
+];
+
 function RoomsIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
 function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
@@ -294,23 +312,29 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom nav for mobile */}
-      <nav className="bottom-nav">
-        {BOTTOM_NAV_DEFS.map((link) => {
-          const active = pathname === link.href;
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`bottom-nav-item${active ? " active" : ""}`}
-            >
-              <Icon />
-              <span>{t(link.key)}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Bottom nav for mobile — suppressed on routes that already render
+          the modern <BottomNav /> (see components/BottomNavWrapper.jsx) so
+          mobile users never see two stacked bottom navs. */}
+      {!MODERN_BOTTOM_NAV_ROUTES.some(
+        (r) => pathname === r || pathname?.startsWith(r + "/")
+      ) && (
+        <nav className="bottom-nav">
+          {BOTTOM_NAV_DEFS.map((link) => {
+            const active = pathname === link.href;
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-item${active ? " active" : ""}`}
+              >
+                <Icon />
+                <span>{t(link.key)}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       <style jsx>{`
         .navbar {

@@ -29,6 +29,8 @@ function getSafeCallbackPath(value) {
     !decodedValue.startsWith("/") ||
     decodedValue.startsWith("//") ||
     decodedValue.includes("\\") ||
+    // Reject invisible/control and bidirectional formatting characters so the
+    // callback path cannot disguise a different destination in the UI/logs.
     /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/.test(decodedValue)
   ) {
     return "/feed";
@@ -54,7 +56,7 @@ function getSafeCallbackPath(value) {
 }
 
 function buildLoginCallbackUrl(callbackPath) {
-  return `/login?callbackUrl=${encodeURIComponent(getSafeCallbackPath(callbackPath))}`;
+  return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
 }
 
 function MailIcon() {

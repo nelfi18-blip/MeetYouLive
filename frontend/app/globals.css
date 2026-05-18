@@ -1997,6 +1997,7 @@ main.main-content:has(.feed-page) {
   background: rgba(15, 8, 33, 0.95);
   backdrop-filter: blur(16px);
   border-top: 1px solid rgba(224, 64, 251, 0.15);
+  /* Desktop-hidden by default; BottomNavWrapper only shows this nav on mobile app routes. */
   display: none;
   align-items: center;
   justify-content: space-around;

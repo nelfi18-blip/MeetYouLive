@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -27,7 +27,7 @@ function getSafeCallbackPath(value) {
     !decodedValue.startsWith("/") ||
     decodedValue.startsWith("//") ||
     decodedValue.includes("\\") ||
-    /[\u0000-\u001F\u007F]/.test(decodedValue)
+    /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/.test(decodedValue)
   ) {
     return "/feed";
   }
@@ -102,8 +102,14 @@ function LoginForm() {
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const callbackPath = getSafeCallbackPath(searchParams.get("callbackUrl"));
-  const googleCallbackUrl = buildLoginCallbackUrl(callbackPath);
+  const callbackPath = useMemo(
+    () => getSafeCallbackPath(searchParams.get("callbackUrl")),
+    [searchParams]
+  );
+  const googleCallbackUrl = useMemo(
+    () => buildLoginCallbackUrl(callbackPath),
+    [callbackPath]
+  );
 
   const retryStartedRef = useRef(false);
   const timeoutIdsRef = useRef([]);

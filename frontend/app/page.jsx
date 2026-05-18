@@ -4,10 +4,10 @@
 //
 // Behavior (per product requirement):
 //   • Logged-out visitor  → redirect to /login (the real login page)
-//   • Normal user         → redirect to /feed
+//   • Normal user         → redirect to /explore
 //   • Admin user          → redirect to /admin
 //
-// Normal users must NEVER be defaulted to /dashboard from here.
+// Normal users must NEVER be defaulted to /dashboard or /feed from here.
 // A short timeout guarantees the user is never stuck on a blank screen if
 // the NextAuth session takes too long to hydrate or the backend role check
 // hangs.
@@ -17,7 +17,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { fetchUserRole, getToken, getAdminToken } from "@/lib/token";
 
-// Hard ceiling for the role lookup; after this we send the user to /feed
+// Hard ceiling for the role lookup; after this we send the user to /explore
 // as a safe default so the homepage never stays blank.
 const ROLE_LOOKUP_TIMEOUT_MS = 4000;
 
@@ -40,27 +40,27 @@ export default function RootRedirectPage() {
 
     // Fast path: email/password session present in localStorage. NextAuth
     // doesn't know about these users so status will be "unauthenticated";
-    // do the role check ourselves and go to /feed (or /admin if applicable).
+    // do the role check ourselves and go to /explore (or /admin if applicable).
     const localToken = typeof window !== "undefined" ? getToken() : null;
     if (localToken && status !== "authenticated") {
       let cancelled = false;
       const t = setTimeout(() => {
         if (cancelled || navigatedRef.current) return;
         navigatedRef.current = true;
-        router.replace("/feed");
+        router.replace("/explore");
       }, ROLE_LOOKUP_TIMEOUT_MS);
       fetchUserRole(localToken)
         .then((user) => {
           if (cancelled || navigatedRef.current) return;
           clearTimeout(t);
           navigatedRef.current = true;
-          router.replace(user?.role === "admin" ? "/admin" : "/feed");
+          router.replace(user?.role === "admin" ? "/admin" : "/explore");
         })
         .catch(() => {
           if (cancelled || navigatedRef.current) return;
           clearTimeout(t);
           navigatedRef.current = true;
-          router.replace("/feed");
+          router.replace("/explore");
         });
       return () => {
         cancelled = true;
@@ -102,9 +102,9 @@ export default function RootRedirectPage() {
     const roleTimeout = setTimeout(() => {
       if (cancelled || navigatedRef.current) return;
       // Don't leave the user staring at a blank page if the role lookup
-      // hangs — default authenticated users to /feed (never /dashboard).
+      // hangs — default authenticated users to /explore (never /feed or /dashboard).
       navigatedRef.current = true;
-      router.replace("/feed");
+      router.replace("/explore");
     }, ROLE_LOOKUP_TIMEOUT_MS);
 
     fetchUserRole(token)
@@ -115,15 +115,15 @@ export default function RootRedirectPage() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace("/explore");
         }
       })
       .catch((err) => {
         if (cancelled || navigatedRef.current) return;
         clearTimeout(roleTimeout);
-        console.warn("[/] role lookup failed, defaulting to /feed:", err?.message);
+        console.warn("[/] role lookup failed, defaulting to /explore:", err?.message);
         navigatedRef.current = true;
-        router.replace("/feed");
+        router.replace("/explore");
       });
 
     return () => {

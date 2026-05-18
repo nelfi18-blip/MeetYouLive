@@ -39,7 +39,7 @@ function SuccessContent() {
         }
       }
 
-      if (!cancelled) router.replace("/feed");
+      if (!cancelled) router.replace("/explore");
     }, WEBHOOK_DELAY_MS);
 
     return () => {

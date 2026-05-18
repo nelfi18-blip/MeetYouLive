@@ -78,9 +78,9 @@ export function middleware(request) {
   // sets the NextAuth cookie before the backend token is fetched, so the
   // home page would have no token and redirect back to /login, which the
   // middleware would immediately bounce back to home — infinitely.
-  // Regular authenticated users on auth pages should go to /feed, not homepage.
+  // Regular authenticated users on auth pages should go to /explore.
   if (backendSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/feed", request.url));
+    return NextResponse.redirect(new URL("/explore", request.url));
   }
 
   // Block unauthenticated access to protected routes (either session type is

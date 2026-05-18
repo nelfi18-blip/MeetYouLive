@@ -25,12 +25,12 @@ function AuthSuccessHandler() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace("/explore");
         }
       }).catch((error) => {
         console.error("[auth/success] Error checking user role:", error);
-        // Fallback to feed on error
-        router.replace("/feed");
+        // Fallback to explore on error
+        router.replace("/explore");
       });
     } else {
       // No valid token in the URL — something went wrong; redirect to login.

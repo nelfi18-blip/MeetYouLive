@@ -121,12 +121,12 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace("/explore");
         }
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
-        // Fallback to feed on error
-        router.replace("/feed");
+        // Fallback to explore on error
+        router.replace("/explore");
       });
       return;
     }
@@ -151,13 +151,13 @@ function LoginForm() {
             console.log("[login] Admin detected – redirecting to /admin");
             router.replace("/admin");
           } else {
-            console.log("[login] Regular user – redirecting to /feed");
-            router.replace("/feed");
+            console.log("[login] Regular user – redirecting to /explore");
+            router.replace("/explore");
           }
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
-          // Fallback to feed on error
-          router.replace("/feed");
+          // Fallback to explore on error
+          router.replace("/explore");
         });
         return;
       }
@@ -188,7 +188,7 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to feed`);
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to explore`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];
@@ -197,7 +197,7 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/feed");
+                router.replace("/explore");
                 return;
               }
 
@@ -459,7 +459,7 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace("/explore");
         }
         return;
       }

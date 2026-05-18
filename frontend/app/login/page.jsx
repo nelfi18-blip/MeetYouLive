@@ -16,7 +16,7 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 const SWITCHING_ACCOUNT_PARAM = "switch";
 
 function getSafeCallbackPath(value) {
-  if (!value || value.startsWith("//")) return "/feed";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/feed";
   let decodedValue = value;
   try {
     decodedValue = decodeURIComponent(value);
@@ -24,6 +24,7 @@ function getSafeCallbackPath(value) {
     return "/feed";
   }
   if (
+    !decodedValue.startsWith("/") ||
     decodedValue.startsWith("//") ||
     decodedValue.includes("\\") ||
     /[\u0000-\u001F\u007F]/.test(decodedValue)
@@ -31,10 +32,8 @@ function getSafeCallbackPath(value) {
     return "/feed";
   }
   try {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://meetyoulive.net";
-    const url = new URL(value, origin);
-    if (url.origin !== origin) return "/feed";
+    const url = new URL(decodedValue, "http://localhost");
+    if (url.origin !== "http://localhost") return "/feed";
     const path = `${url.pathname}${url.search}${url.hash}`;
     if (
       path === "/login" ||
@@ -47,6 +46,10 @@ function getSafeCallbackPath(value) {
   } catch {
     return "/feed";
   }
+}
+
+function buildLoginCallbackUrl(callbackPath) {
+  return `/login?callbackUrl=${encodeURIComponent(getSafeCallbackPath(callbackPath))}`;
 }
 
 function MailIcon() {
@@ -100,6 +103,7 @@ function LoginForm() {
   const [checking, setChecking] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const callbackPath = getSafeCallbackPath(searchParams.get("callbackUrl"));
+  const googleCallbackUrl = buildLoginCallbackUrl(callbackPath);
 
   const retryStartedRef = useRef(false);
   const timeoutIdsRef = useRef([]);
@@ -552,7 +556,7 @@ function LoginForm() {
           className="btn-google"
           onClick={() =>
             signIn("google", {
-              callbackUrl: `/login?callbackUrl=${encodeURIComponent(callbackPath)}`,
+              callbackUrl: googleCallbackUrl,
             })
           }
         >

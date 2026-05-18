@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
+import Logo from "@/components/Logo";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
-import { fetchUserRole } from "@/lib/token";
+import { clearToken, fetchUserRole, getToken, setToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -16,7 +17,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
 // sitting on a spinner indefinitely on slow connections or Render cold starts.
-const TOKEN_WAIT_TIMEOUT_MS = 8000;
+const TOKEN_WAIT_TIMEOUT_MS = 25000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -43,20 +44,6 @@ function brandGradient(seed) {
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -112,6 +99,9 @@ export default function FeedPage() {
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
   const [matchCardImgError, setMatchCardImgError] = useState(false);
+  const [authToken, setAuthToken] = useState(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [forceTokenRecovery, setForceTokenRecovery] = useState(false);
 
   const boostPrice = 100;
   const magnetPrice = 50;
@@ -125,11 +115,71 @@ export default function FeedPage() {
     }
   }, [status, router]);
 
+  // Resolve the backend JWT. Google sessions can hydrate without
+  // session.backendToken in production, so recover it through the existing
+  // server-side backend-token proxy before trying /api/feed.
+  useEffect(() => {
+    if (status === "unauthenticated") return;
+    if (status !== "authenticated") return;
+
+    let cancelled = false;
+    const finishWithToken = (token) => {
+      if (!token || cancelled) return false;
+      setToken(token);
+      setAuthToken(token);
+      setForceTokenRecovery(false);
+      setError(null);
+      return true;
+    };
+
+    if (!forceTokenRecovery && finishWithToken(session?.backendToken)) return;
+
+    const storedToken = forceTokenRecovery ? null : getToken();
+    if (finishWithToken(storedToken)) return;
+
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/backend-token", {
+          method: "POST",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          let msg = "No pudimos recuperar tu sesión de Google.";
+          try {
+            const body = await res.json();
+            if (body?.error) msg = `${msg} (${res.status}: ${body.error})`;
+          } catch {
+            msg = `${msg} (${res.status})`;
+          }
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        if (!data?.token) throw new Error("El servidor no devolvió un token válido.");
+        finishWithToken(data.token);
+      } catch (err) {
+        if (cancelled) return;
+        setAuthToken(null);
+        setError(
+          err.message ||
+            "No pudimos preparar tu sesión para cargar el feed. Intenta de nuevo."
+        );
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session?.backendToken, retryNonce, forceTokenRecovery]);
+
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
-    if (!session?.backendToken) return;
+    if (!authToken) return;
     let mounted = true;
-    fetchUserRole(session.backendToken)
+    fetchUserRole(authToken)
       .then((u) => {
         if (mounted && u?.role === "admin") router.replace("/admin");
       })
@@ -137,12 +187,12 @@ export default function FeedPage() {
     return () => {
       mounted = false;
     };
-  }, [session?.backendToken, router]);
+  }, [authToken, router]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
   useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
+    if (status === "authenticated" && authToken) return;
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
@@ -152,71 +202,102 @@ export default function FeedPage() {
       );
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
+  }, [status, authToken, t]);
+
+  const loadFeed = useCallback(async (token, signal) => {
+    if (!API_URL) {
+      throw new Error("NEXT_PUBLIC_API_URL no está configurado para cargar el feed.");
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    const [feedRes, userRes] = await Promise.all([
+      fetch(`${API_URL}/api/feed`, {
+        headers,
+        signal,
+        cache: "no-store",
+      }),
+      fetch(`${API_URL}/api/user/me`, {
+        headers,
+        signal,
+        cache: "no-store",
+      }),
+    ]);
+
+    if (!feedRes.ok) {
+      let backendMessage = "";
+      try {
+        const body = await feedRes.json();
+        backendMessage = body?.message || body?.error || "";
+      } catch {
+        // Keep the status-specific fallback below.
+      }
+
+      let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed.";
+      if (feedRes.status === 401 || feedRes.status === 403) {
+        msg = "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.";
+      } else if (feedRes.status >= 500) {
+        msg = "El servidor del feed respondió con error. Intenta de nuevo.";
+      }
+      const error = new Error(
+        backendMessage ? `${msg} (${feedRes.status}: ${backendMessage})` : `${msg} (${feedRes.status})`
+      );
+      error.status = feedRes.status;
+      throw error;
+    }
+
+    const data = await feedRes.json();
+    const safeLives = filterActiveLives(data.activeLives || []);
+    const uniqueProfiles = Array.from(
+      new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+    );
+    const uniqueCreators = Array.from(
+      new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
+    );
+
+    return {
+      safeLives,
+      uniqueProfiles,
+      uniqueCreators,
+      userCoins: userRes.ok ? (await userRes.json()).coinsBalance || 0 : null,
+    };
+  }, [t]);
 
   // Fetch feed data once we're authenticated and the backend token is ready.
   useEffect(() => {
-    if (status !== "authenticated" || !session?.backendToken) return;
+    if (status !== "authenticated" || !authToken) return;
 
     let cancelled = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+    setLoading(true);
+
     (async () => {
       try {
-        const [feedRes, userRes] = await Promise.all([
-          fetch(`${API_URL}/api/feed`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/api/user/me`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-        ]);
-
+        const data = await loadFeed(authToken, controller.signal);
         if (cancelled) return;
         clearTimeout(timeoutId);
-
-        if (!feedRes.ok) {
-          let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
-          if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = "Sesión expirada. Por favor, inicia sesión de nuevo.";
-          } else if (feedRes.status >= 500) {
-            msg = "Error del servidor. Por favor, intenta de nuevo.";
-          }
-          throw new Error(msg);
-        }
-
-        const data = await feedRes.json();
-        const safeLives = filterActiveLives(data.activeLives || []);
-        const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
-        );
-        const uniqueCreators = Array.from(
-          new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
-        );
-
-        setActiveLives(safeLives);
-        setProfiles(uniqueProfiles);
-        setFeaturedCreators(uniqueCreators);
-
-        if (userRes.ok) {
-          const u = await userRes.json();
-          setUserCoins(u.coinsBalance || 0);
-        }
-
+        setActiveLives(data.safeLives);
+        setProfiles(data.uniqueProfiles);
+        setFeaturedCreators(data.uniqueCreators);
+        if (data.userCoins !== null) setUserCoins(data.userCoins);
         setError(null);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
         clearTimeout(timeoutId);
         if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+          setError(
+            (t && t("feed.serverStarting")) ||
+              "El servidor está tardando en responder. Intenta de nuevo."
+          );
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          if (err.status === 401 || err.status === 403) {
+            clearToken();
+            setAuthToken(null);
+            setForceTokenRecovery(true);
+          }
+          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed.");
         }
         setLoading(false);
       }
@@ -227,7 +308,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
+  }, [status, authToken, session?.user?.id, retryNonce, loadFeed, t]);
 
   // Reset card image error when we advance to a new profile.
   useEffect(() => {
@@ -247,7 +328,7 @@ export default function FeedPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ userId: p._id }),
       });
@@ -266,7 +347,7 @@ export default function FeedPage() {
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.backendToken}`,
+          Authorization: `Bearer ${authToken}`,
           "Content-Type": "application/json",
         },
       });
@@ -286,7 +367,7 @@ export default function FeedPage() {
     try {
       const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) setUserCoins((c) => c - magnetPrice);
     } catch (err) {
@@ -299,6 +380,12 @@ export default function FeedPage() {
     const p = profiles[currentIndex];
     if (!p) return;
     router.push(`/call/${p._id}`);
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryNonce((n) => n + 1);
   };
 
   /* --------------------------- Render --------------------------- */
@@ -327,7 +414,7 @@ export default function FeedPage() {
           <button
             type="button"
             className="feed-retry-btn"
-            onClick={() => window.location.reload()}
+            onClick={handleRetry}
           >
             Intentar de nuevo
           </button>
@@ -582,10 +669,7 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
-        <span>
-          MeetYou<span className="feed-header-brand-accent">Live</span>
-        </span>
+        <Logo size="sm" />
       </Link>
 
       <div className="feed-header-actions">
@@ -632,18 +716,7 @@ function FeedHeader({ coins, session }) {
         .feed-header-brand {
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          color: #fff;
-          font-weight: 800;
-          font-size: 1.05rem;
           text-decoration: none;
-          letter-spacing: -0.01em;
-        }
-        .feed-header-brand-accent {
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
         }
         .feed-header-actions {
           margin-left: auto;

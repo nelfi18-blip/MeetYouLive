@@ -15,6 +15,27 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
 
+function getSafeCallbackPath(value) {
+  if (!value || value.startsWith("//")) return "/feed";
+  try {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "https://meetyoulive.net";
+    const url = new URL(value, origin);
+    if (url.origin !== origin) return "/feed";
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    if (
+      path === "/login" ||
+      path === "/register" ||
+      path.startsWith("/admin")
+    ) {
+      return "/feed";
+    }
+    return path.startsWith("/") ? path : "/feed";
+  } catch {
+    return "/feed";
+  }
+}
+
 function MailIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -65,6 +86,7 @@ function LoginForm() {
   // Prevents flashing the login form while we verify existing auth state.
   const [checking, setChecking] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const callbackPath = getSafeCallbackPath(searchParams.get("callbackUrl"));
 
   const retryStartedRef = useRef(false);
   const timeoutIdsRef = useRef([]);
@@ -121,12 +143,12 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(callbackPath);
         }
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
         // Fallback to feed on error
-        router.replace("/feed");
+        router.replace(callbackPath);
       });
       return;
     }
@@ -151,13 +173,13 @@ function LoginForm() {
             console.log("[login] Admin detected – redirecting to /admin");
             router.replace("/admin");
           } else {
-            console.log("[login] Regular user – redirecting to /feed");
-            router.replace("/feed");
+            console.log(`[login] Regular user – redirecting to ${callbackPath}`);
+            router.replace(callbackPath);
           }
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
           // Fallback to feed on error
-          router.replace("/feed");
+          router.replace(callbackPath);
         });
         return;
       }
@@ -188,7 +210,7 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to feed`);
+                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to ${callbackPath}`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];
@@ -197,7 +219,8 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/feed");
+                const user = await fetchUserRole(data.token);
+                router.replace(user?.role === "admin" ? "/admin" : callbackPath);
                 return;
               }
 
@@ -264,7 +287,7 @@ function LoginForm() {
       retryStartedRef.current = false;
       setChecking(false);
     }
-  }, [status, session, router, searchParams]);
+  }, [status, session, router, searchParams, callbackPath]);
 
   if (checking) return (
     <div
@@ -459,7 +482,7 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(callbackPath);
         }
         return;
       }

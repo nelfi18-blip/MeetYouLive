@@ -7,6 +7,7 @@ import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
 import { setToken, clearToken, fetchUserRole } from "@/lib/token";
 import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
+import { getSafeCallbackPath } from "@/lib/callbackUrl";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
@@ -14,48 +15,6 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
-const INVISIBLE_OR_CONTROL_CHARS =
-  /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/;
-
-function getSafeCallbackPath(value) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/feed";
-
-  let decodedValue = value;
-  try {
-    decodedValue = decodeURIComponent(value);
-  } catch {
-    return "/feed";
-  }
-
-  if (
-    !decodedValue.startsWith("/") ||
-    decodedValue.startsWith("//") ||
-    decodedValue.includes("\\") ||
-    // Reject invisible/control and bidirectional formatting characters so the
-    // callback path cannot disguise a different destination in the UI/logs.
-    INVISIBLE_OR_CONTROL_CHARS.test(decodedValue)
-  ) {
-    return "/feed";
-  }
-
-  try {
-    const url = new URL(decodedValue, "http://localhost");
-    if (url.origin !== "http://localhost") return "/feed";
-
-    const path = `${url.pathname}${url.search}${url.hash}`;
-    if (
-      path === "/login" ||
-      path === "/register" ||
-      path.startsWith("/admin")
-    ) {
-      return "/feed";
-    }
-
-    return path.startsWith("/") ? path : "/feed";
-  } catch {
-    return "/feed";
-  }
-}
 
 function buildLoginCallbackUrl(callbackPath) {
   return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
@@ -255,7 +214,8 @@ function LoginForm() {
                   const user = await fetchUserRole(data.token);
                   // Admin sessions always land in the admin shell, regardless
                   // of user-page callbackUrl values.
-                  router.replace(user?.role === "admin" ? "/admin" : callbackPath);
+                  const isAdminUser = user && user.role === "admin";
+                  router.replace(isAdminUser ? "/admin" : callbackPath);
                 } catch (error) {
                   console.error("[login] Error checking user role:", error);
                   router.replace(callbackPath);

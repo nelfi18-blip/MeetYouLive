@@ -17,6 +17,19 @@ const SWITCHING_ACCOUNT_PARAM = "switch";
 
 function getSafeCallbackPath(value) {
   if (!value || value.startsWith("//")) return "/feed";
+  let decodedValue = value;
+  try {
+    decodedValue = decodeURIComponent(value);
+  } catch {
+    return "/feed";
+  }
+  if (
+    decodedValue.startsWith("//") ||
+    decodedValue.includes("\\") ||
+    /[\u0000-\u001F\u007F]/.test(decodedValue)
+  ) {
+    return "/feed";
+  }
   try {
     const origin =
       typeof window !== "undefined" ? window.location.origin : "https://meetyoulive.net";
@@ -219,8 +232,13 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                const user = await fetchUserRole(data.token);
-                router.replace(user?.role === "admin" ? "/admin" : callbackPath);
+                try {
+                  const user = await fetchUserRole(data.token);
+                  router.replace(user?.role === "admin" ? "/admin" : callbackPath);
+                } catch (error) {
+                  console.error("[login] Error checking user role:", error);
+                  router.replace(callbackPath);
+                }
                 return;
               }
 

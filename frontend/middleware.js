@@ -87,7 +87,10 @@ export function middleware(request) {
   // sufficient here; the page itself validates the backend token).
   if (!backendSession && !nextAuthSession && isProtectedRoute) {
     const url = new URL("/login", request.url);
-    url.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
+    url.searchParams.set(
+      "callbackUrl",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    );
     return NextResponse.redirect(url);
   }
 

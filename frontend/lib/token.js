@@ -201,11 +201,11 @@ export async function isAdmin(token) {
 
 /**
  * Get the appropriate home path based on user role.
- * Admin users go to /admin, regular users go to /feed.
+ * Admin users go to /admin, regular users go to /explore.
  * Returns "/" for public visitors (when no role provided).
  */
 export function getHomePath(userRole) {
   if (!userRole) return "/";
   if (userRole === "admin") return "/admin";
-  return "/feed";
+  return "/explore";
 }

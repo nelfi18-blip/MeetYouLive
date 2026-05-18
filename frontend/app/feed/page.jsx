@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
+import SwipeCard from "@/components/SwipeCard";
+import SwipeActions from "@/components/SwipeActions";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -108,10 +108,10 @@ export default function FeedPage() {
   const [profiles, setProfiles] = useState([]);
   const [featuredCreators, setFeaturedCreators] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [history, setHistory] = useState([]); // stack of previous indices for rewind
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
 
   const boostPrice = 100;
   const magnetPrice = 50;
@@ -229,13 +229,18 @@ export default function FeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id, t]);
 
-  // Reset card image error when we advance to a new profile.
+  // Reset rewind history whenever the profile list changes (new fetch).
   useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
+    setHistory([]);
+    setCurrentIndex(0);
+  }, [profiles]);
 
   /* --------------------------- Actions --------------------------- */
-  const advance = () => setCurrentIndex((i) => i + 1);
+  const advance = () =>
+    setCurrentIndex((i) => {
+      setHistory((h) => [...h, i]);
+      return i + 1;
+    });
 
   const handleFade = () => advance();
 
@@ -295,10 +300,23 @@ export default function FeedPage() {
     advance();
   };
 
-  const handleFlashLive = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    router.push(`/call/${p._id}`);
+  const handleRewind = () => {
+    if (history.length === 0) return;
+    setHistory((h) => {
+      const next = h.slice(0, -1);
+      setCurrentIndex(h[h.length - 1]);
+      return next;
+    });
+  };
+
+  // Called by SwipeCard when the user finishes a drag past threshold.
+  // direction: "left" (FADE/pass) or "right" (SPARK/like).
+  const handleSwipe = (_profileId, direction) => {
+    if (direction === "right") {
+      handleSpark();
+    } else {
+      handleFade();
+    }
   };
 
   /* --------------------------- Render --------------------------- */
@@ -336,22 +354,56 @@ export default function FeedPage() {
     );
   }
 
-  const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
+  const hasMoreProfiles = currentIndex < profiles.length && !!profiles[currentIndex];
 
   return (
     <div className="feed-page">
       {/* 1. HEADER */}
       <FeedHeader coins={userCoins} session={session} />
 
-      {/* 2. MATCH SECTION */}
+      {/* 2. SWIPE DECK — real Tinder-style drag deck (no static fallback card) */}
       <section className="feed-section feed-match-section">
         {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+          <>
+            <div className="swipe-deck-stack" aria-label="Profile swipe deck">
+              {/* Render the next 3 cards as a stack. The top card is interactive,
+                  the cards behind provide visual depth. Drag left = FADE,
+                  drag right = SPARK. Touch gestures are handled by SwipeCard. */}
+              {profiles
+                .slice(currentIndex, currentIndex + 3)
+                .map((p, offset) => {
+                  const isTop = offset === 0;
+                  const scale = 1 - offset * 0.04;
+                  const translateY = offset * 10;
+                  return (
+                    <SwipeCard
+                      key={p._id}
+                      profile={p}
+                      onSwipe={isTop ? handleSwipe : undefined}
+                      zIndex={10 - offset}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        margin: "auto",
+                        transform: `translateY(${translateY}px) scale(${scale})`,
+                        pointerEvents: isTop ? "auto" : "none",
+                      }}
+                    />
+                  );
+                })
+                // Reverse so the top card is painted last (and receives drag events).
+                .reverse()}
+            </div>
+
+            <SwipeActions
+              onRewind={handleRewind}
+              onPass={handleFade}
+              onStar={handleMagnet}
+              onLike={handleSpark}
+              onBoost={handlePulse}
+              canRewind={history.length > 0}
+            />
+          </>
         ) : (
           <div className="feed-empty">
             <h3>That's everyone for now</h3>
@@ -362,20 +414,6 @@ export default function FeedPage() {
           </div>
         )}
       </section>
-
-      {/* 3. ACTION BUTTONS (only when there's a current profile) */}
-      {hasMoreProfiles && (
-        <InteractionBar
-          profile={currentProfile}
-          onFade={handleFade}
-          onSpark={handleSpark}
-          onPulse={handlePulse}
-          onMagnet={handleMagnet}
-          onFlashLive={handleFlashLive}
-          boostPrice={boostPrice}
-          magnetPrice={magnetPrice}
-        />
-      )}
 
       {/* 4. LIVE SECTION */}
       <section className="feed-section feed-live-section">
@@ -475,6 +513,23 @@ export default function FeedPage() {
         }
         .feed-match-section {
           padding-top: 0.5rem;
+        }
+
+        /* Container for the swipe deck stack. Provides a fixed-aspect
+           positioning context so each absolutely-stacked SwipeCard
+           inherits its size. */
+        .swipe-deck-stack {
+          position: relative;
+          width: 100%;
+          max-width: 400px;
+          height: 580px;
+          margin: 0 auto;
+        }
+        @media (max-width: 480px) {
+          .swipe-deck-stack {
+            height: min(70vh, 560px);
+            max-width: 100%;
+          }
         }
 
         .feed-section-header {
@@ -688,185 +743,6 @@ function FeedHeader({ coins, session }) {
   );
 }
 
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
-          </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
-        </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
-  );
-}
 
 function LiveCard({ live }) {
   const thumb = getLiveThumbnail(live);

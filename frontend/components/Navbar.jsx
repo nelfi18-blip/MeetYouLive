@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -294,23 +295,29 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom nav for mobile */}
-      <nav className="bottom-nav">
-        {BOTTOM_NAV_DEFS.map((link) => {
-          const active = pathname === link.href;
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`bottom-nav-item${active ? " active" : ""}`}
-            >
-              <Icon />
-              <span>{t(link.key)}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Bottom nav for mobile.
+          Suppressed on routes that already render the dedicated
+          <BottomNav /> via BottomNavWrapper (e.g. /feed, /explore,
+          /matches, /chats, /profile, …) — otherwise we'd stack two
+          bottom nav bars on top of each other on mobile. */}
+      {!isBottomNavRoute(pathname) && (
+        <nav className="bottom-nav">
+          {BOTTOM_NAV_DEFS.map((link) => {
+            const active = pathname === link.href;
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-item${active ? " active" : ""}`}
+              >
+                <Icon />
+                <span>{t(link.key)}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       <style jsx>{`
         .navbar {
@@ -462,11 +469,6 @@ export default function Navbar() {
 
         .coins-badge:hover::before {
           transform: translateX(100%);
-        }
-        }
-        .coins-badge:hover {
-          background: rgba(251,146,60,0.18);
-          box-shadow: 0 0 14px rgba(251,146,60,0.3);
         }
 
         /* ── Notification Bell ─── */

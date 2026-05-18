@@ -43,20 +43,6 @@ function brandGradient(seed) {
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -582,7 +568,15 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
+        {/* Approved MeetYouLive neon double-heart branding. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.svg"
+          alt="MeetYouLive"
+          width="32"
+          height="32"
+          className="feed-header-logo"
+        />
         <span>
           MeetYou<span className="feed-header-brand-accent">Live</span>
         </span>
@@ -639,6 +633,12 @@ function FeedHeader({ coins, session }) {
           text-decoration: none;
           letter-spacing: -0.01em;
         }
+        .feed-header-logo {
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+          filter: drop-shadow(0 0 10px rgba(224, 64, 251, 0.45));
+        }
         .feed-header-brand-accent {
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
           -webkit-background-clip: text;
@@ -656,10 +656,10 @@ function FeedHeader({ coins, session }) {
           align-items: center;
           gap: 0.35rem;
           padding: 0.35rem 0.7rem;
-          background: rgba(251, 191, 36, 0.12);
-          border: 1px solid rgba(251, 191, 36, 0.25);
+          background: rgba(224, 64, 251, 0.12);
+          border: 1px solid rgba(224, 64, 251, 0.28);
           border-radius: 999px;
-          color: #fbbf24;
+          color: #e040fb;
           font-weight: 700;
           font-size: 0.85rem;
           text-decoration: none;

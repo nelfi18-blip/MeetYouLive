@@ -113,16 +113,19 @@ export function getGradientForUser(seed) {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Define gradient pairs (premium neon theme)
+  // Brand-only gradient palette (pinks / purples / cyans). Orange & yellow
+  // tones are intentionally excluded — they previously surfaced as jarring
+  // fullscreen blocks on fallback avatars (the "orange/yellow overlay"
+  // contamination on /feed and /live cards).
   const gradients = [
     'linear-gradient(135deg, #e040fb, #8b5cf6)', // Pink to purple
     'linear-gradient(135deg, #ff4fa3, #e040fb)', // Pink to magenta
     'linear-gradient(135deg, #8b5cf6, #22d3ee)', // Purple to cyan
-    'linear-gradient(135deg, #7c3aed, #fb923c)', // Purple to orange
-    'linear-gradient(135deg, #22d3ee, #34d399)', // Cyan to green
-    'linear-gradient(135deg, #fb923c, #fbbf24)', // Orange to yellow
     'linear-gradient(135deg, #e040fb, #7c3aed)', // Magenta to deep purple
-    'linear-gradient(135deg, #34d399, #22d3ee)', // Green to cyan
+    'linear-gradient(135deg, #7c3aed, #22d3ee)', // Deep purple to cyan
+    'linear-gradient(135deg, #ec4899, #8b5cf6)', // Pink to purple (warm)
+    'linear-gradient(135deg, #22d3ee, #8b5cf6)', // Cyan to purple
+    'linear-gradient(135deg, #ff2d78, #e040fb)', // Hot pink to magenta
   ];
   
   // Pick a gradient based on hash

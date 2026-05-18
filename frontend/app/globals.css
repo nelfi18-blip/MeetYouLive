@@ -2115,6 +2115,14 @@ main.main-content:has(.admin-shell) {
   }
 }
 
+/* Desktop: hide the mobile-only bottom nav so it doesn't stack with the
+   top .navbar (which exposes its own .navbar-links above 768px). */
+@media (min-width: 769px) {
+  .bottom-nav-modern {
+    display: none !important;
+  }
+}
+
 /* =========================================================
    Modern Feed Layout
    ========================================================= */

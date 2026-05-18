@@ -1,247 +1,288 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
+import { getUserImage, getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// Hard ceiling on how long we wait for the NextAuth session / backend token
-// to hydrate before surfacing a friendly fallback. Prevents the page from
-// sitting on a spinner indefinitely on slow connections or Render cold starts.
+// Swipe behavior constants
+const SWIPE_THRESHOLD_PX = 100;
+const SWIPE_ANIMATION_DURATION_MS = 300;
+const SWIPE_OUT_DISTANCE_PX = 1000;
+
+// Hard ceiling on how long we sit on the loading spinner waiting for the
+// NextAuth session to hydrate or the backend token to arrive. After this we
+// surface the error fallback (with a retry button) so the page never stays
+// loading forever.
 const TOKEN_WAIT_TIMEOUT_MS = 8000;
 
-// Hard ceiling for the feed API request itself.
-const FETCH_TIMEOUT_MS = 15000;
-
-// Brand-only gradient palette (purples / pinks / cyans). Intentionally
-// excludes orange/yellow tones to avoid the jarring fullscreen blocks that
-// previously broke /feed (the "orange/yellow overlay" symptom).
-const BRAND_GRADIENTS = [
-  "linear-gradient(135deg, #e040fb, #8b5cf6)",
-  "linear-gradient(135deg, #ff4fa3, #e040fb)",
-  "linear-gradient(135deg, #8b5cf6, #22d3ee)",
-  "linear-gradient(135deg, #e040fb, #7c3aed)",
-  "linear-gradient(135deg, #7c3aed, #22d3ee)",
-  "linear-gradient(135deg, #ec4899, #8b5cf6)",
-];
-
-function brandGradient(seed) {
-  if (!seed || typeof seed !== "string") return BRAND_GRADIENTS[0];
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
-}
-
-/* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
-const IconCoin = (props) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <circle cx="12" cy="12" r="10" opacity="0.2" />
-    <path d="M12 6a6 6 0 100 12 6 6 0 000-12zm.9 9.4v1.1h-1.8v-1.1c-1.2-.2-2.1-.9-2.3-2h1.6c.1.5.6.9 1.6.9.9 0 1.4-.4 1.4-.9 0-.4-.3-.8-1.5-1.1-1.6-.4-2.6-.9-2.6-2.2 0-1 .8-1.7 1.9-1.9V7.1h1.8v1.1c1.2.2 2 .9 2.1 2h-1.6c-.1-.5-.5-.9-1.4-.9-.9 0-1.3.4-1.3.8 0 .4.3.7 1.5 1 1.7.4 2.6 1 2.6 2.3 0 1.1-.8 1.7-1.8 2z" />
-  </svg>
-);
-const IconBell = (props) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2v1h16v-1l-2-2z" />
-    <path d="M10 21a2 2 0 004 0" />
-  </svg>
-);
-const IconUser = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" />
-  </svg>
-);
-const IconBroadcast = (props) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <circle cx="12" cy="12" r="4" />
-  </svg>
-);
-const IconStar = (props) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-  </svg>
-);
-const IconEye = (props) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" />
-  </svg>
-);
-const IconAlert = (props) => (
-  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" />
-    <line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-);
-
-/* --------------------------- Feed page --------------------------- */
-export default function FeedPage() {
+export default function ModernFeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { t } = useLanguage();
-
+  
+  // State
   const [activeLives, setActiveLives] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [featuredCreators, setFeaturedCreators] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [swiping, setSwiping] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [livesLoading, setLivesLoading] = useState(true);
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
   const [userCoins, setUserCoins] = useState(0);
+  const [boostPrice] = useState(100);
+  const [magnetPrice] = useState(50);
   const [matchCardImgError, setMatchCardImgError] = useState(false);
+  
+  // Refs
+  const startXRef = useRef(0);
+  const currentXRef = useRef(0);
 
-  const boostPrice = 100;
-  const magnetPrice = 50;
-
-  // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
-  // they come back here after sign-in; authenticated refresh always stays on
-  // /feed and never bounces to an alternate layout).
+  // Auth redirect
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/login?callbackUrl=/feed");
+      router.push("/login?callbackUrl=/feed");
     }
   }, [status, router]);
 
-  // Admins shouldn't see the consumer feed.
-  useEffect(() => {
-    if (!session?.backendToken) return;
-    let mounted = true;
-    fetchUserRole(session.backendToken)
-      .then((u) => {
-        if (mounted && u?.role === "admin") router.replace("/admin");
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [session?.backendToken, router]);
-
-  // Safety net: never sit on the loading spinner forever waiting for the
-  // session/token to hydrate.
+  // Safety net: never sit on the loading spinner forever.
+  // If NextAuth never resolves the session or the backend token never
+  // arrives, surface the fallback UI (with a retry button) instead of an
+  // infinite spinner. The fetch useEffect below still runs the moment the
+  // token arrives.
   useEffect(() => {
     if (status === "authenticated" && session?.backendToken) return;
-    if (status === "unauthenticated") return;
-    const timer = setTimeout(() => {
+    if (status === "unauthenticated") return; // redirect effect handles this
+
+    const tokenWaitTimeout = setTimeout(() => {
+      console.warn(
+        `[Feed] Session/token not ready after ${TOKEN_WAIT_TIMEOUT_MS}ms — showing fallback`
+      );
+      setLivesLoading(false);
       setLoading(false);
       setError(
         (t && t("feed.serverStarting")) ||
           "El servidor está tardando en responder. Por favor, intenta de nuevo."
       );
     }, TOKEN_WAIT_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
 
-  // Fetch feed data once we're authenticated and the backend token is ready.
+    return () => clearTimeout(tokenWaitTimeout);
+  }, [status, session?.backendToken, t]);
+  
+  // Admin redirect - admins should not access the feed page
   useEffect(() => {
+    if (!session?.backendToken) return;
+    
+    let isMounted = true;
+    
+    const checkAdminRole = async () => {
+      try {
+        const userData = await fetchUserRole(session.backendToken);
+        if (isMounted && userData?.role === "admin") {
+          router.replace("/admin");
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+    
+    checkAdminRole();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.backendToken, router]);
+
+  // Fetch feed data
+  useEffect(() => {
+    // Wait for authentication to complete
     if (status !== "authenticated" || !session?.backendToken) return;
 
-    let cancelled = false;
+    let isCancelled = false;
+    let loadingTimeout = null;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    (async () => {
+    const fetchFeed = async () => {
+      // Safety timeout to prevent infinite loading - 15 seconds to accommodate Render cold starts
+      // After backend optimizations, normal requests should complete in 2-5 seconds
+      loadingTimeout = setTimeout(() => {
+        if (!isCancelled) {
+          console.warn("[Feed] Timeout reached (15s) - aborting request");
+          controller.abort();
+        }
+      }, 15000);
+
       try {
+        console.log("[Feed] Fetching feed from:", `${API_URL}/api/feed`);
+        // NOTE: Only log presence of token, never log the actual token value for security
+        console.log("[Feed] Auth token present:", !!session.backendToken);
+        
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
             signal: controller.signal,
             cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
+            headers: {
+              Authorization: `Bearer ${session.backendToken}`,
+            },
             signal: controller.signal,
             cache: "no-store",
           }),
         ]);
 
-        if (cancelled) return;
-        clearTimeout(timeoutId);
+        if (isCancelled) return;
 
+        clearTimeout(loadingTimeout);
+
+        console.log("[Feed] Feed response status:", feedRes.status);
+        console.log("[Feed] User response status:", userRes.ok ? "OK" : "Error");
+
+        // Enhanced error handling with specific status codes
         if (!feedRes.ok) {
-          let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
+          console.error("[Feed] API error - Status:", feedRes.status);
+          
+          let errorMessage = "No pudimos cargar tu feed";
           if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+            errorMessage = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+          } else if (feedRes.status === 404) {
+            errorMessage = "El servicio de feed no está disponible.";
           } else if (feedRes.status >= 500) {
-            msg = "Error del servidor. Por favor, intenta de nuevo.";
+            errorMessage = "Error del servidor. Por favor, intenta de nuevo.";
           }
-          throw new Error(msg);
+          
+          throw new Error(errorMessage);
         }
 
         const data = await feedRes.json();
+        console.log("[Feed] Data received:", {
+          lives: data.activeLives?.length || 0,
+          profiles: data.recommendedProfiles?.length || 0,
+          creators: data.featuredCreators?.length || 0
+        });
+        
+        // Apply frontend safety filter to activeLives
         const safeLives = filterActiveLives(data.activeLives || []);
+        
+        // Deduplicate profiles and creators by _id
         const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+          new Map((data.recommendedProfiles || []).map(item => [item._id, item])).values()
         );
         const uniqueCreators = Array.from(
-          new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
+          new Map((data.featuredCreators || []).map(item => [item._id, item])).values()
         );
 
         setActiveLives(safeLives);
         setProfiles(uniqueProfiles);
         setFeaturedCreators(uniqueCreators);
 
+        // Get user coins balance
         if (userRes.ok) {
-          const u = await userRes.json();
-          setUserCoins(u.coinsBalance || 0);
+          const userData = await userRes.json();
+          setUserCoins(userData.coinsBalance || 0);
         }
 
         setError(null);
+        setLivesLoading(false);
         setLoading(false);
+        console.log("[Feed] Load complete");
       } catch (err) {
-        if (cancelled) return;
-        clearTimeout(timeoutId);
-        if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+        if (isCancelled) return;
+        
+        clearTimeout(loadingTimeout);
+        
+        // Enhanced error logging with more context
+        if (err.name === 'AbortError') {
+          console.log("[Feed] Request aborted (timeout or unmount)");
+          // Timeout was triggered - show user-friendly message
+          // Note: First load after inactivity may take longer (server wake-up time)
+          setError(t("feed.serverStarting"));
+        } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          // Network error - server might be down or unreachable
+          console.error("[Feed] Network error - server might be down:", err.message);
+          setError(t("feed.networkError"));
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          console.error("[Feed] Error:", err.message);
+          setError(err.message || t("feed.genericError"));
         }
+        
+        setLivesLoading(false);
         setLoading(false);
       }
-    })();
+    };
 
+    fetchFeed();
+
+    // Cleanup function to cancel request if component unmounts
     return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
+      isCancelled = true;
+      if (loadingTimeout) clearTimeout(loadingTimeout);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
+  }, [status, session?.backendToken, session?.user?.id]);
 
-  // Reset card image error when we advance to a new profile.
+  // Reset image error when card changes
   useEffect(() => {
     setMatchCardImgError(false);
   }, [currentIndex]);
 
-  /* --------------------------- Actions --------------------------- */
-  const advance = () => setCurrentIndex((i) => i + 1);
+  // Swipe handlers
+  const handleStart = (clientX) => {
+    setSwiping(true);
+    startXRef.current = clientX;
+    currentXRef.current = clientX;
+  };
 
-  const handleFade = () => advance();
+  const handleMove = (clientX) => {
+    if (!swiping) return;
+    currentXRef.current = clientX;
+    const offset = clientX - startXRef.current;
+    setSwipeOffset(offset);
+  };
 
-  const handleSpark = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
+  const handleEnd = () => {
+    if (!swiping) return;
+    setSwiping(false);
+
+    const offset = currentXRef.current - startXRef.current;
+
+    if (Math.abs(offset) > SWIPE_THRESHOLD_PX) {
+      if (offset > 0) {
+        handleLike();
+      } else {
+        handlePass();
+      }
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
+  const handleLike = async () => {
+    const currentProfile = profiles[currentIndex];
+    if (!currentProfile) return;
+
+    // Show heart animation
+    setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    setShowHeartAnimation(true);
+    setTimeout(() => setShowHeartAnimation(false), 1500);
+
+    setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
+    
     try {
       await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
@@ -249,19 +290,34 @@ export default function FeedPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.backendToken}`,
         },
-        body: JSON.stringify({ userId: p._id }),
+        body: JSON.stringify({ userId: currentProfile._id }),
       });
     } catch (err) {
-      console.error("Spark error:", err);
+      console.error("Like error:", err);
     }
-    advance();
+
+    setTimeout(() => {
+      setCurrentIndex((prev) => prev + 1);
+      setSwipeOffset(0);
+    }, SWIPE_ANIMATION_DURATION_MS);
   };
 
-  const handlePulse = async () => {
+  const handlePass = () => {
+    setSwipeOffset(-SWIPE_OUT_DISTANCE_PX);
+
+    setTimeout(() => {
+      setCurrentIndex((prev) => prev + 1);
+      setSwipeOffset(0);
+    }, SWIPE_ANIMATION_DURATION_MS);
+  };
+
+  const handleBoost = async () => {
     if (userCoins < boostPrice) {
+      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
       router.push("/coins");
       return;
     }
+
     try {
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
@@ -270,64 +326,133 @@ export default function FeedPage() {
           "Content-Type": "application/json",
         },
       });
-      if (res.ok) setUserCoins((c) => c - boostPrice);
+
+      if (res.ok) {
+        const data = await res.json();
+        setUserCoins((prev) => prev - boostPrice);
+        alert("¡Tu perfil está siendo impulsado durante 30 minutos!");
+      } else {
+        const error = await res.json();
+        alert(error.message || "Error al activar boost");
+      }
     } catch (err) {
-      console.error("Pulse error:", err);
+      console.error("Boost error:", err);
+      alert("Error al activar boost");
     }
   };
 
-  const handleMagnet = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
+  const handleSuperCrush = async () => {
+    const currentProfile = profiles[currentIndex];
+    if (!currentProfile) return;
+
     if (userCoins < magnetPrice) {
+      alert(t("noCoins") || "No tienes suficientes monedas. Recarga tu saldo.");
       router.push("/coins");
       return;
     }
+
     try {
-      const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
+      const res = await fetch(`${API_URL}/api/matches/super-crush/${currentProfile._id}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
+        headers: {
+          Authorization: `Bearer ${session.backendToken}`,
+        },
       });
-      if (res.ok) setUserCoins((c) => c - magnetPrice);
+
+      if (res.ok) {
+        const data = await res.json();
+        setUserCoins((prev) => prev - magnetPrice);
+        
+        // Show special animation
+        setHeartPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        setShowHeartAnimation(true);
+        setTimeout(() => setShowHeartAnimation(false), 2000);
+
+        // Move to next profile
+        setSwipeOffset(SWIPE_OUT_DISTANCE_PX);
+        setTimeout(() => {
+          setCurrentIndex((prev) => prev + 1);
+          setSwipeOffset(0);
+        }, SWIPE_ANIMATION_DURATION_MS);
+
+        if (data.match) {
+          alert("¡Match instantáneo! 🔥");
+        } else {
+          alert("Super Crush enviado ⚡");
+        }
+      } else {
+        const error = await res.json();
+        alert(error.message || "Error al enviar Super Crush");
+      }
     } catch (err) {
-      console.error("Magnet error:", err);
+      console.error("Super Crush error:", err);
+      alert("Error al enviar Super Crush");
     }
-    advance();
   };
 
   const handleFlashLive = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    router.push(`/call/${p._id}`);
+    const currentProfile = profiles[currentIndex];
+    if (!currentProfile) return;
+    
+    // Navigate to video call or private call initiation
+    router.push(`/call/${currentProfile._id}`);
   };
 
-  /* --------------------------- Render --------------------------- */
-  // Loading spinner only while auth/data are pending and no error yet.
+  // Show loading spinner only if we're waiting for auth OR waiting for data (but not both indefinitely)
+  // If `error` is set, the error fallback below takes precedence — the 8s
+  // safety timeout above guarantees the spinner cannot stay forever.
   if (!error && (status === "loading" || (status === "authenticated" && loading))) {
     return (
-      <div className="feed-page">
-        <FeedHeader coins={userCoins} session={session} />
-        <div className="feed-loading">
-          <div className="spinner" />
-          <p>Cargando tu feed...</p>
+      <div className="modern-page">
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '70vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <div className="spinner"></div>
+          <p style={{ color: 'var(--text-muted)' }}>Cargando tu feed...</p>
         </div>
       </div>
     );
   }
-
-  // Error fallback (no floating initials, no orange overlay — just a clean card).
+  
+  // Show error state if API failed
   if (error) {
     return (
-      <div className="feed-page">
-        <FeedHeader coins={userCoins} session={session} />
-        <div className="feed-error">
-          <IconAlert />
-          <h3>No pudimos cargar tu feed</h3>
-          <p>{error}</p>
+      <div className="modern-page">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '70vh',
+          flexDirection: 'column',
+          gap: '1rem',
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '4rem' }}>😔</div>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+            No pudimos cargar tu feed
+          </h3>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '400px' }}>
+            {error}
+          </p>
           <button
-            type="button"
-            className="feed-retry-btn"
             onClick={() => window.location.reload()}
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem 2rem',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
           >
             Intentar de nuevo
           </button>
@@ -337,717 +462,387 @@ export default function FeedPage() {
   }
 
   const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
+  const hasMoreProfiles = currentIndex < profiles.length;
 
   return (
-    <div className="feed-page">
-      {/* 1. HEADER */}
-      <FeedHeader coins={userCoins} session={session} />
+    <div className="modern-page">
+      {/* Heart Animation */}
+      {showHeartAnimation && (
+        <div 
+          className="heart-animation"
+          style={{
+            left: `${heartPosition.x}px`,
+            top: `${heartPosition.y}px`,
+          }}
+        >
+          ❤️
+        </div>
+      )}
 
-      {/* 2. MATCH SECTION */}
-      <section className="feed-section feed-match-section">
-        {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+      {/* Section 1: MATCH (First - Priority) */}
+      <div className="modern-section" style={{ marginTop: '1rem' }}>
+        <div style={{ padding: '0 1rem 0.75rem' }}>
+          {!hasMoreProfiles ? (
+            <div className="no-content" style={{ padding: '2rem 1rem' }}>
+              <div className="no-content-icon">😊</div>
+              <h3>That's everyone for now!</h3>
+              <p>Check back later for new people</p>
+            </div>
+          ) : currentProfile ? (
+            <>
+              <div 
+                className="match-card-modern"
+                style={{
+                  transform: `translateX(${swipeOffset}px) rotate(${swipeOffset / 15}deg)`,
+                  transition: swiping ? "none" : `all ${SWIPE_ANIMATION_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+                  opacity: Math.abs(swipeOffset) > SWIPE_THRESHOLD_PX ? 0.7 : 1,
+                }}
+                onMouseDown={(e) => handleStart(e.clientX)}
+                onMouseMove={(e) => handleMove(e.clientX)}
+                onMouseUp={handleEnd}
+                onMouseLeave={handleEnd}
+                onTouchStart={(e) => handleStart(e.touches[0].clientX)}
+                onTouchMove={(e) => handleMove(e.touches[0].clientX)}
+                onTouchEnd={handleEnd}
+              >
+                {/* Premium Swipe indicators - SPARK & FADE */}
+                {swipeOffset > 50 && (
+                  <div className="swipe-indicator spark" style={{ opacity: Math.min(swipeOffset / 100, 1) }}>
+                    <div className="swipe-indicator-content">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                      </svg>
+                      <span className="swipe-indicator-text">SPARK</span>
+                    </div>
+                  </div>
+                )}
+                {swipeOffset < -50 && (
+                  <div className="swipe-indicator fade" style={{ opacity: Math.min(Math.abs(swipeOffset) / 100, 1) }}>
+                    <div className="swipe-indicator-content">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" opacity="0.3" />
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                      </svg>
+                      <span className="swipe-indicator-text">FADE</span>
+                    </div>
+                  </div>
+                )}
+
+                {(() => {
+                  const userImage = getUserImage(currentProfile);
+                  const displayName = getDisplayName(currentProfile);
+                  const initial = getInitial(displayName);
+                  const gradient = getGradientForUser(currentProfile._id);
+
+                  return userImage && !matchCardImgError ? (
+                    <img 
+                      src={userImage} 
+                      alt={displayName}
+                      className="match-card-image"
+                      onError={() => setMatchCardImgError(true)}
+                    />
+                  ) : (
+                    <div className="match-card-image" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: gradient,
+                      fontSize: '8rem',
+                      fontWeight: 900,
+                      color: 'white',
+                      textShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                      position: 'relative',
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                        pointerEvents: 'none',
+                      }}></div>
+                      <span style={{ position: 'relative', zIndex: 1 }}>{initial}</span>
+                    </div>
+                  );
+                })()}
+
+                <div className="match-card-gradient"></div>
+
+                <div className="match-card-info">
+                  <div className="match-card-header">
+                    <h2 className="match-card-name">
+                      {getDisplayName(currentProfile)}
+                      {currentProfile.age && `, ${currentProfile.age}`}
+                    </h2>
+                    {currentProfile.isOnline && <div className="online-indicator"></div>}
+                  </div>
+                  
+                  {isApprovedCreator(currentProfile) && (
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '999px',
+                      background: 'linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3))',
+                      border: '1px solid rgba(224,64,251,0.5)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#e040fb',
+                      marginBottom: '0.5rem',
+                      boxShadow: '0 0 12px rgba(224,64,251,0.3)',
+                    }}>
+                      ⭐ Creator
+                    </div>
+                  )}
+                  
+                  <div className="match-card-details">
+                    {currentProfile.location && (
+                      <span>📍 {currentProfile.location}</span>
+                    )}
+                  </div>
+                  {currentProfile.bio && (
+                    <p className="match-card-bio">{currentProfile.bio}</p>
+                  )}
+                  {currentProfile.tags && Array.isArray(currentProfile.tags) && currentProfile.tags.length > 0 && (
+                    <div className="match-card-tags" style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap',
+                      marginTop: '0.75rem'
+                    }}>
+                      {currentProfile.tags.filter(tag => tag && typeof tag === 'string' && tag.trim()).slice(0, 3).map((tag, idx) => (
+                        <span key={idx} style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          padding: '0.3rem 0.7rem',
+                          borderRadius: '999px',
+                          background: 'rgba(139,92,246,0.25)',
+                          border: '1px solid rgba(139,92,246,0.4)',
+                          color: '#c4b5fd',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                        }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Premium Interaction Bar */}
+              <InteractionBar
+                profile={currentProfile}
+                onFade={handlePass}
+                onSpark={handleLike}
+                onPulse={handleBoost}
+                onMagnet={handleSuperCrush}
+                onFlashLive={handleFlashLive}
+                disabled={swiping}
+                boostPrice={boostPrice}
+                magnetPrice={magnetPrice}
+              />
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Section 2: LIVE NOW */}
+      <div className="live-scroll-section" style={{ padding: '1rem 0' }}>
+        <div className="live-scroll-header" style={{ padding: '0 1rem 0.75rem' }}>
+          <div className="live-icon">🔴</div>
+          <span>LIVE NOW</span>
+        </div>
+        {activeLives.length > 0 ? (
+          <div className="live-scroll-container">
+            {activeLives.map((live) => {
+              const liveThumb = getLiveThumbnail(live);
+              const creatorName = getDisplayName(live.user);
+              const creatorInitial = getInitial(creatorName);
+              const gradient = getGradientForUser(live.user?._id || live._id);
+              
+              return (
+                <Link 
+                  key={live._id} 
+                  href={`/live/${live._id}`}
+                  className="live-card-compact"
+                >
+                  <div className="live-thumb">
+                    {liveThumb ? (
+                      <img 
+                        src={liveThumb} 
+                        alt={live.title} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      background: gradient,
+                      display: liveThumb ? 'none' : 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      position: liveThumb ? 'absolute' : 'relative',
+                      top: 0,
+                      left: 0,
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)',
+                        pointerEvents: 'none',
+                      }}></div>
+                      <div style={{
+                        fontSize: '2.5rem',
+                        fontWeight: 900,
+                        color: 'white',
+                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.4)',
+                        zIndex: 1
+                      }}>
+                        {creatorInitial}
+                      </div>
+                      <div style={{
+                        fontSize: '2rem',
+                        opacity: 0.8,
+                        zIndex: 1
+                      }}>
+                        📹
+                      </div>
+                    </div>
+                    <div className="live-badge-pulse">🔴 LIVE</div>
+                    {live.viewerCount > 0 && (
+                      <div className="live-viewers">
+                        👁️ {live.viewerCount}
+                      </div>
+                    )}
+                  </div>
+                  <div className="live-info">
+                    <div className="live-title">{live.title || "Live Stream"}</div>
+                    <div className="live-creator">{creatorName}</div>
+                    <button className="live-enter-btn">Enter</button>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         ) : (
-          <div className="feed-empty">
-            <h3>That's everyone for now</h3>
-            <p>Check back later for new people.</p>
-            <Link href="/explore" className="feed-empty-btn">
+          <div className="no-content" style={{ padding: '2rem 1rem' }}>
+            <div className="no-content-icon" style={{ fontSize: '3rem' }}>📡</div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No hay directos ahora</h3>
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Vuelve pronto para ver nuevos directos</p>
+            <Link href="/explore" className="btn btn-primary" style={{ 
+              marginTop: '0.5rem',
+              display: 'inline-block',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #e040fb, #8b5cf6)',
+              color: 'white',
+              borderRadius: '999px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              textDecoration: 'none',
+              transition: 'all 0.3s',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(224, 64, 251, 0.3)'
+            }}>
               Explorar creadores
             </Link>
           </div>
         )}
-      </section>
+      </div>
 
-      {/* 3. ACTION BUTTONS (only when there's a current profile) */}
-      {hasMoreProfiles && (
-        <InteractionBar
-          profile={currentProfile}
-          onFade={handleFade}
-          onSpark={handleSpark}
-          onPulse={handlePulse}
-          onMagnet={handleMagnet}
-          onFlashLive={handleFlashLive}
-          boostPrice={boostPrice}
-          magnetPrice={magnetPrice}
-        />
-      )}
-
-      {/* 4. LIVE SECTION */}
-      <section className="feed-section feed-live-section">
-        <header className="feed-section-header">
-          <span className="feed-section-icon feed-section-icon--live">
-            <IconBroadcast />
-          </span>
-          <h2>LIVE NOW</h2>
-          <Link href="/explore" className="feed-section-link">
-            Ver todos
-          </Link>
-        </header>
-
-        {activeLives.length > 0 ? (
-          <div className="feed-live-scroll">
-            {activeLives.map((live) => (
-              <LiveCard key={live._id} live={live} />
-            ))}
-          </div>
-        ) : (
-          <div className="feed-live-empty">
-            <p>No hay directos ahora. Vuelve pronto.</p>
-          </div>
-        )}
-      </section>
-
-      {/* 5. TOP CREATORS */}
+      {/* Section 3: TOP CREATORS */}
       {featuredCreators.length > 0 && (
-        <section className="feed-section feed-creators-section">
-          <header className="feed-section-header">
-            <span className="feed-section-icon feed-section-icon--star">
-              <IconStar />
-            </span>
-            <h2>TOP CREATORS</h2>
-            <Link href="/explore?tab=creators" className="feed-section-link">
-              Ver todos
-            </Link>
-          </header>
-
-          <div className="feed-creators-scroll">
-            {featuredCreators.map((c) => (
-              <CreatorPill key={c._id} creator={c} />
-            ))}
+        <div className="creators-section" style={{ padding: '1rem 0' }}>
+          <div className="creators-header" style={{ padding: '0 1rem 0.75rem' }}>
+            <span>⭐</span>
+            <span>TOP CREATORS</span>
           </div>
-        </section>
-      )}
-
-      {/* 6. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
-
-      <style jsx>{`
-        .feed-page {
-          min-height: 100vh;
-          padding-bottom: calc(160px + env(safe-area-inset-bottom));
-          background: var(--bg, #0f0821);
-          color: var(--text, #fff);
-        }
-
-        .feed-loading,
-        .feed-error {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 4rem 1.5rem;
-          text-align: center;
-          color: var(--text-muted, #a39ec0);
-        }
-        .feed-error :global(svg) {
-          color: #e040fb;
-          margin-bottom: 0.5rem;
-        }
-        .feed-error h3 {
-          margin: 0;
-          color: var(--text, #fff);
-          font-size: 1.1rem;
-        }
-        .feed-error p {
-          margin: 0;
-          max-width: 420px;
-        }
-        .feed-retry-btn {
-          margin-top: 0.5rem;
-          padding: 0.75rem 1.75rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          font-size: 0.95rem;
-          box-shadow: 0 4px 16px rgba(224, 64, 251, 0.35);
-        }
-
-        .feed-section {
-          padding: 1rem;
-        }
-        .feed-match-section {
-          padding-top: 0.5rem;
-        }
-
-        .feed-section-header {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-        }
-        .feed-section-header h2 {
-          margin: 0;
-          font-size: 0.85rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          color: var(--text, #fff);
-        }
-        .feed-section-link {
-          margin-left: auto;
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #c4b5fd;
-          text-decoration: none;
-        }
-        .feed-section-icon {
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .feed-section-icon--live {
-          background: rgba(244, 63, 94, 0.18);
-          color: #f43f5e;
-          animation: pulseLive 1.6s ease-in-out infinite;
-        }
-        .feed-section-icon--star {
-          background: rgba(224, 64, 251, 0.18);
-          color: #e040fb;
-        }
-        @keyframes pulseLive {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.45); }
-          50%      { box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
-        }
-
-        .feed-live-scroll,
-        .feed-creators-scroll {
-          display: flex;
-          gap: 0.75rem;
-          overflow-x: auto;
-          padding-bottom: 0.5rem;
-          scrollbar-width: none;
-          -webkit-overflow-scrolling: touch;
-        }
-        .feed-live-scroll::-webkit-scrollbar,
-        .feed-creators-scroll::-webkit-scrollbar {
-          display: none;
-        }
-
-        .feed-live-empty {
-          padding: 1rem;
-          text-align: center;
-          color: var(--text-muted, #a39ec0);
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px;
-          font-size: 0.9rem;
-        }
-
-        .feed-empty {
-          padding: 3rem 1rem;
-          text-align: center;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 20px;
-        }
-        .feed-empty h3 {
-          margin: 0 0 0.5rem;
-          font-size: 1.05rem;
-        }
-        .feed-empty p {
-          margin: 0 0 1.25rem;
-          color: var(--text-muted, #a39ec0);
-          font-size: 0.9rem;
-        }
-        .feed-empty-btn {
-          display: inline-block;
-          padding: 0.7rem 1.4rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border-radius: 999px;
-          font-size: 0.85rem;
-          text-decoration: none;
-          box-shadow: 0 4px 12px rgba(224, 64, 251, 0.3);
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/* --------------------------- Sub-components --------------------------- */
-
-function FeedHeader({ coins, session }) {
-  const userImage = session?.user?.image;
-  return (
-    <header className="feed-header">
-      <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
-        <span>
-          MeetYou<span className="feed-header-brand-accent">Live</span>
-        </span>
-      </Link>
-
-      <div className="feed-header-actions">
-        <Link href="/coins" className="feed-header-chip" aria-label="Monedas">
-          <IconCoin />
-          <span>{coins}</span>
-        </Link>
-        <Link
-          href="/notifications"
-          className="feed-header-icon-btn"
-          aria-label="Notificaciones"
-        >
-          <IconBell />
-        </Link>
-        <Link
-          href="/profile"
-          className="feed-header-avatar"
-          aria-label="Mi perfil"
-        >
-          {userImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={userImage} alt="" />
-          ) : (
-            <IconUser width="20" height="20" />
-          )}
-        </Link>
-      </div>
-
-      <style jsx>{`
-        .feed-header {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          padding-top: calc(0.75rem + env(safe-area-inset-top));
-          background: rgba(15, 8, 33, 0.85);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .feed-header-brand {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: #fff;
-          font-weight: 800;
-          font-size: 1.05rem;
-          text-decoration: none;
-          letter-spacing: -0.01em;
-        }
-        .feed-header-brand-accent {
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-        .feed-header-actions {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .feed-header-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.7rem;
-          background: rgba(251, 191, 36, 0.12);
-          border: 1px solid rgba(251, 191, 36, 0.25);
-          border-radius: 999px;
-          color: #fbbf24;
-          font-weight: 700;
-          font-size: 0.85rem;
-          text-decoration: none;
-        }
-        .feed-header-icon-btn,
-        .feed-header-avatar {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 38px;
-          height: 38px;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: var(--text, #fff);
-          text-decoration: none;
-          overflow: hidden;
-        }
-        .feed-header-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      `}</style>
-    </header>
-  );
-}
-
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
+          <div className="creators-scroll">
+            {featuredCreators.map((creator) => {
+              const creatorImage = getUserImage(creator);
+              const creatorName = getDisplayName(creator);
+              const creatorInitial = getInitial(creatorName);
+              const gradient = getGradientForUser(creator._id);
+              
+              return (
+                <Link
+                  key={creator._id}
+                  href={`/profile/${creator._id}`}
+                  className="creator-story"
+                >
+                  <div className="creator-story-avatar">
+                    {creatorImage ? (
+                      <>
+                        <img 
+                          src={creatorImage} 
+                          alt={creatorName}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextElementSibling;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: gradient,
+                          fontSize: '2rem',
+                          fontWeight: 900,
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
+                            pointerEvents: 'none',
+                          }}></div>
+                          <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: gradient,
+                        fontSize: '2rem',
+                        fontWeight: 900,
+                        color: 'white',
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%)',
+                          pointerEvents: 'none',
+                        }}></div>
+                        <span style={{ position: 'relative', zIndex: 1 }}>{creatorInitial}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="creator-story-name">{creatorName}</div>
+                </Link>
+              );
+            })}
           </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
         </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
-  );
-}
-
-function LiveCard({ live }) {
-  const thumb = getLiveThumbnail(live);
-  const creatorName = getDisplayName(live.user);
-  const gradient = brandGradient(live.user?._id || live._id);
-
-  return (
-    <Link href={`/live/${live._id}`} className="live-card">
-      <div className="live-card-thumb">
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt={creatorName} />
-        ) : (
-          <div className="live-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="live-card-placeholder-icon" width="32" height="32" />
-          </div>
-        )}
-        <span className="live-card-badge">
-          <IconBroadcast />
-          LIVE
-        </span>
-        {live.viewerCount > 0 && (
-          <span className="live-card-viewers">
-            <IconEye />
-            {live.viewerCount}
-          </span>
-        )}
-      </div>
-      <div className="live-card-meta">
-        <p className="live-card-title">{live.title || "Live Stream"}</p>
-        <p className="live-card-name">{creatorName}</p>
-      </div>
-
-      <style jsx>{`
-        .live-card {
-          flex: 0 0 160px;
-          display: flex;
-          flex-direction: column;
-          text-decoration: none;
-          color: inherit;
-        }
-        .live-card-thumb {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          border-radius: 16px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-        }
-        .live-card-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .live-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .live-card-placeholder :global(.live-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-        }
-        .live-card-badge {
-          position: absolute;
-          top: 8px;
-          left: 8px;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          padding: 0.2rem 0.5rem;
-          background: rgba(244, 63, 94, 0.9);
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          border-radius: 999px;
-        }
-        .live-card-viewers {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.2rem 0.5rem;
-          background: rgba(0, 0, 0, 0.55);
-          color: #fff;
-          font-size: 0.7rem;
-          font-weight: 700;
-          border-radius: 999px;
-        }
-        .live-card-meta {
-          padding: 0.5rem 0.1rem 0;
-        }
-        .live-card-title {
-          margin: 0;
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--text, #fff);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .live-card-name {
-          margin: 0.1rem 0 0;
-          font-size: 0.75rem;
-          color: var(--text-muted, #a39ec0);
-        }
-      `}</style>
-    </Link>
-  );
-}
-
-function CreatorPill({ creator }) {
-  const avatar = getUserImage(creator);
-  const name = getDisplayName(creator);
-  const gradient = brandGradient(creator._id);
-
-  return (
-    <Link href={`/profile/${creator._id}`} className="creator-pill">
-      <div className="creator-pill-avatar">
-        {avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} alt={name} />
-        ) : (
-          <div className="creator-pill-placeholder" style={{ background: gradient }}>
-            <IconUser className="creator-pill-placeholder-icon" width="24" height="24" />
-          </div>
-        )}
-      </div>
-      <p className="creator-pill-name">{name}</p>
-
-      <style jsx>{`
-        .creator-pill {
-          flex: 0 0 72px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.4rem;
-          text-decoration: none;
-          color: inherit;
-        }
-        .creator-pill-avatar {
-          width: 64px;
-          height: 64px;
-          border-radius: 999px;
-          overflow: hidden;
-          border: 2px solid rgba(224, 64, 251, 0.5);
-          background: rgba(255, 255, 255, 0.04);
-        }
-        .creator-pill-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .creator-pill-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .creator-pill-placeholder :global(.creator-pill-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .creator-pill-name {
-          margin: 0;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text, #fff);
-          text-align: center;
-          max-width: 72px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      `}</style>
-    </Link>
+      )}
+    </div>
   );
 }

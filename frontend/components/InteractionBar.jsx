@@ -103,7 +103,7 @@ export default function InteractionBar({
       <style jsx>{`
         .interaction-bar {
           position: fixed;
-          bottom: calc(72px + env(safe-area-inset-bottom));
+          bottom: 0;
           left: 0;
           right: 0;
           z-index: 100;
@@ -149,7 +149,6 @@ export default function InteractionBar({
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .interaction-bar {
-            bottom: calc(68px + env(safe-area-inset-bottom));
             padding: 0.75rem;
           }
 
@@ -172,9 +171,12 @@ export default function InteractionBar({
           }
         }
 
-        /* Safe-area handling is folded into the bottom calc() above so the
-           dock always sits above .bottom-nav-modern (72/68px tall) + the
-           device safe-area inset, never overlapping the bottom nav. */
+        /* Add safe area for mobile devices with bottom notches */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+          .interaction-bar {
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+          }
+        }
       `}</style>
     </>
   );

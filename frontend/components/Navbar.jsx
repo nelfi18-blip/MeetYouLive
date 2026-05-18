@@ -8,26 +8,9 @@ import { signOut, useSession } from "next-auth/react";
 import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-// Routes where BottomNavWrapper renders the modern <BottomNav />.
-// Keep in sync with components/BottomNavWrapper.jsx — these routes must NOT
-// render the legacy .bottom-nav inside Navbar, or mobile users see two
-// stacked bottom navigation bars (duplicate Home/Match/Live/Chat/Profile).
-const MODERN_BOTTOM_NAV_ROUTES = [
-  "/feed",
-  "/explore",
-  "/matches",
-  "/chats",
-  "/profile",
-  "/coins",
-  "/notifications",
-  "/gifts",
-  "/ranking",
-  "/sparks",
-  "/passes",
-];
 
 function RoomsIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
@@ -315,9 +298,7 @@ export default function Navbar() {
       {/* Bottom nav for mobile — suppressed on routes that already render
           the modern <BottomNav /> (see components/BottomNavWrapper.jsx) so
           mobile users never see two stacked bottom navs. */}
-      {!MODERN_BOTTOM_NAV_ROUTES.some(
-        (r) => pathname === r || pathname?.startsWith(r + "/")
-      ) && (
+      {!isBottomNavRoute(pathname) && (
         <nav className="bottom-nav">
           {BOTTOM_NAV_DEFS.map((link) => {
             const active = pathname === link.href;

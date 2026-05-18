@@ -147,7 +147,9 @@ export default function FeedPage() {
           cache: "no-store",
         });
         if (!res.ok) {
-          let msg = "No pudimos recuperar tu sesión de Google.";
+          let msg =
+            (t && t("feed.tokenRecoveryError")) ||
+            "No pudimos recuperar tu sesión de Google.";
           try {
             const body = await res.json();
             if (body?.error) msg = `${msg} (${res.status}: ${body.error})`;
@@ -157,13 +159,19 @@ export default function FeedPage() {
           throw new Error(msg);
         }
         const data = await res.json();
-        if (!data?.token) throw new Error("El servidor no devolvió un token válido.");
+        if (!data?.token) {
+          throw new Error(
+            (t && t("feed.invalidTokenResponse")) ||
+              "El servidor no devolvió un token válido."
+          );
+        }
         finishWithToken(data.token);
       } catch (err) {
         if (cancelled) return;
         setAuthToken(null);
         setError(
           err.message ||
+            (t && t("feed.tokenPreparationError")) ||
             "No pudimos preparar tu sesión para cargar el feed. Intenta de nuevo."
         );
         setLoading(false);
@@ -173,7 +181,7 @@ export default function FeedPage() {
     return () => {
       cancelled = true;
     };
-  }, [status, session?.backendToken, retryNonce, forceTokenRecovery]);
+  }, [status, session?.backendToken, retryNonce, forceTokenRecovery, t]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -206,7 +214,10 @@ export default function FeedPage() {
 
   const loadFeed = useCallback(async (token, signal) => {
     if (!API_URL) {
-      throw new Error("NEXT_PUBLIC_API_URL no está configurado para cargar el feed.");
+      throw new Error(
+        (t && t("feed.missingApiUrl")) ||
+          "NEXT_PUBLIC_API_URL no está configurado para cargar el feed."
+      );
     }
 
     const headers = { Authorization: `Bearer ${token}` };
@@ -234,9 +245,13 @@ export default function FeedPage() {
 
       let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed.";
       if (feedRes.status === 401 || feedRes.status === 403) {
-        msg = "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.";
+        msg =
+          (t && t("feed.unauthorized")) ||
+          "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.";
       } else if (feedRes.status >= 500) {
-        msg = "El servidor del feed respondió con error. Intenta de nuevo.";
+        msg =
+          (t && t("feed.serverError")) ||
+          "El servidor del feed respondió con error. Intenta de nuevo.";
       }
       const error = new Error(
         backendMessage ? `${msg} (${feedRes.status}: ${backendMessage})` : `${msg} (${feedRes.status})`

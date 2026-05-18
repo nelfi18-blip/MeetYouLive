@@ -119,7 +119,13 @@
     "greetingError": "Error al enviar el saludo",
     "serverStarting": "El servidor está iniciando. Esto puede tomar unos segundos en el primer intento.",
     "networkError": "No se puede conectar al servidor. Verifica tu conexión.",
-    "genericError": "No pudimos cargar tu feed. Por favor, intenta de nuevo."
+    "genericError": "No pudimos cargar tu feed. Por favor, intenta de nuevo.",
+    "tokenRecoveryError": "No pudimos recuperar tu sesión de Google.",
+    "invalidTokenResponse": "El servidor no devolvió un token válido.",
+    "tokenPreparationError": "No pudimos preparar tu sesión para cargar el feed. Intenta de nuevo.",
+    "missingApiUrl": "NEXT_PUBLIC_API_URL no está configurado para cargar el feed.",
+    "unauthorized": "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.",
+    "serverError": "El servidor del feed respondió con error. Intenta de nuevo."
   },
   "common": {
     "loading": "Cargando...",

@@ -5,6 +5,26 @@ import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-mo
 import { getUserImage, getDisplayName } from "@/lib/imageHelpers";
 import Link from "next/link";
 
+// Brand-only gradient palette (purples / pinks / cyans). Excludes orange/yellow
+// to avoid the jarring fullscreen blocks that previously broke /feed.
+const SWIPE_CARD_GRADIENTS = [
+  "linear-gradient(135deg, #e040fb 0%, #8b5cf6 100%)",
+  "linear-gradient(135deg, #ff4fa3 0%, #e040fb 100%)",
+  "linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%)",
+  "linear-gradient(135deg, #e040fb 0%, #7c3aed 100%)",
+  "linear-gradient(135deg, #7c3aed 0%, #22d3ee 100%)",
+  "linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)",
+];
+
+function getCardGradient(seed) {
+  const s = typeof seed === "string" && seed.length ? seed : "x";
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = s.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SWIPE_CARD_GRADIENTS[Math.abs(hash) % SWIPE_CARD_GRADIENTS.length];
+}
+
 export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
   const [exitX, setExitX] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -95,8 +115,25 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
             {currentPhoto ? (
               <img src={currentPhoto} alt={displayName} className="swipe-card-image" />
             ) : (
-              <div className="swipe-card-placeholder">
-                <div className="swipe-card-initial">{displayName[0]?.toUpperCase()}</div>
+              <div
+                className="swipe-card-placeholder"
+                style={{ background: getCardGradient(profile?._id || displayName) }}
+              >
+                <svg
+                  className="swipe-card-placeholder-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  width="72"
+                  height="72"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" />
+                </svg>
               </div>
             )}
           </motion.div>

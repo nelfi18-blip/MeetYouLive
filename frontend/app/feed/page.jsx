@@ -5,11 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import InteractionBar from "@/components/InteractionBar";
+import SwipeCard from "@/components/SwipeCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -111,7 +111,6 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
 
   const boostPrice = 100;
   const magnetPrice = 50;
@@ -229,11 +228,6 @@ export default function FeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id, t]);
 
-  // Reset card image error when we advance to a new profile.
-  useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
-
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
 
@@ -255,6 +249,17 @@ export default function FeedPage() {
       console.error("Spark error:", err);
     }
     advance();
+  };
+
+  // Bridge between SwipeCard's drag-end callback and the FADE/SPARK actions.
+  // Right swipe = SPARK (like), left swipe = FADE (pass). Buttons remain a
+  // backup and call the exact same handlers.
+  const handleSwipe = (_profileId, direction) => {
+    if (direction === "right") {
+      handleSpark();
+    } else {
+      handleFade();
+    }
   };
 
   const handlePulse = async () => {
@@ -344,14 +349,36 @@ export default function FeedPage() {
       {/* 1. HEADER */}
       <FeedHeader coins={userCoins} session={session} />
 
-      {/* 2. MATCH SECTION */}
+      {/* 2. SWIPE DECK — real touch swipe (left = FADE, right = SPARK) */}
       <section className="feed-section feed-match-section">
         {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+          <div className="swipe-deck-stack">
+            {/* Render up to 3 cards in a stack (top + 2 behind) so the user
+                sees the next profile preview underneath the active one. The
+                top card is interactive; behind cards are visual only. */}
+            {profiles
+              .slice(currentIndex, currentIndex + 3)
+              .map((profile, idx) => {
+                const isTop = idx === 0;
+                // Behind cards are slightly scaled down + offset to suggest a deck.
+                const behindStyle = isTop
+                  ? undefined
+                  : {
+                      transform: `scale(${1 - idx * 0.04}) translateY(${idx * 8}px)`,
+                      pointerEvents: "none",
+                      filter: "brightness(0.85)",
+                    };
+                return (
+                  <SwipeCard
+                    key={profile._id}
+                    profile={profile}
+                    onSwipe={isTop ? handleSwipe : undefined}
+                    zIndex={10 - idx}
+                    style={behindStyle}
+                  />
+                );
+              })}
+          </div>
         ) : (
           <div className="feed-empty">
             <h3>That's everyone for now</h3>
@@ -428,9 +455,25 @@ export default function FeedPage() {
       <style jsx>{`
         .feed-page {
           min-height: 100vh;
-          padding-bottom: calc(160px + env(safe-area-inset-bottom));
+          /* Bottom padding must clear: bottom-nav (~72px) + action dock
+             (~80-100px) + safe-area. We use 200px so the LIVE / TOP CREATORS
+             sections never sit hidden behind the floating action dock when
+             the user scrolls to the end of the feed. */
+          padding-bottom: calc(200px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
+        }
+
+        /* Swipe deck wrapper — the SwipeCard children are position:absolute
+           (height: 580px in globals.css) so this wrapper provides the layout
+           box (matching height + max-width) and centers the stack. */
+        .swipe-deck-stack {
+          position: relative;
+          width: 100%;
+          max-width: 400px;
+          height: 580px;
+          margin: 0 auto;
+          touch-action: pan-y;
         }
 
         .feed-loading,
@@ -685,186 +728,6 @@ function FeedHeader({ coins, session }) {
         }
       `}</style>
     </header>
-  );
-}
-
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
-          </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
-        </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
   );
 }
 

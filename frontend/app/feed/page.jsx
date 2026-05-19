@@ -43,6 +43,10 @@ function brandGradient(seed) {
   return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
 }
 
+function getSwipeHandler(offset, handler) {
+  return offset === 0 ? handler : undefined;
+}
+
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -327,7 +331,7 @@ export default function FeedPage() {
   const handleSwipe = async (profileId, direction) => {
     if (direction === "right" && API_URL && authToken) {
       try {
-        await fetch(`${API_URL}/api/match/like`, {
+        const res = await fetch(`${API_URL}/api/match/like`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -335,8 +339,15 @@ export default function FeedPage() {
           },
           body: JSON.stringify({ userId: profileId }),
         });
+        if (!res.ok) {
+          throw new Error(`Swipe like failed (${res.status})`);
+        }
       } catch (err) {
         console.error("Swipe like error:", err);
+        setError(
+          (t && t("feed.swipeActionError")) ||
+            "We couldn't save that swipe. Please try again."
+        );
       }
     }
     advance();
@@ -402,7 +413,7 @@ export default function FeedPage() {
                   <SwipeCard
                     key={profile._id}
                     profile={profile}
-                    onSwipe={offset === 0 ? handleSwipe : undefined}
+                    onSwipe={getSwipeHandler(offset, handleSwipe)}
                     zIndex={Math.max(1, SWIPE_DECK_VISIBLE_CARDS - offset)}
                     style={{
                       scale: 1 - offset * 0.04,

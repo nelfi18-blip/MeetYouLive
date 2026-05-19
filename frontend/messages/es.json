@@ -126,7 +126,8 @@
     "missingApiUrl": "NEXT_PUBLIC_API_URL no está configurado para cargar el feed.",
     "unauthorized": "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.",
     "serverError": "El servidor del feed respondió con error. Intenta de nuevo.",
-    "swipeHint": "Desliza a la derecha para conectar o a la izquierda para seguir explorando."
+    "swipeHint": "Desliza a la derecha para conectar o a la izquierda para seguir explorando.",
+    "swipeActionError": "No pudimos guardar ese swipe. Intenta de nuevo."
   },
   "common": {
     "loading": "Cargando...",

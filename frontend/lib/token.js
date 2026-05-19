@@ -190,6 +190,7 @@ export async function fetchUserRole(token, timeoutMs = 10000) {
   }
 }
 
+/** Default authenticated user home path used before role hydration completes. */
 export const DEFAULT_USER_HOME_PATH = "/feed";
 
 /**

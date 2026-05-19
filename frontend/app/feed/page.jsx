@@ -23,6 +23,10 @@ const FETCH_TIMEOUT_MS = 15000;
 const SWIPE_DECK_VISIBLE_CARDS = 3;
 const FEED_HEADER_LOGO_WIDTH = 54;
 const FEED_HEADER_LOGO_HEIGHT = 38;
+const FEED_HEADER_LOGO_STYLE = {
+  height: "auto",
+  filter: "drop-shadow(0 0 14px rgba(224, 64, 251, 0.45))",
+};
 
 // Brand-only gradient palette (purples / pinks / cyans). Intentionally
 // excludes orange/yellow tones to avoid the jarring fullscreen blocks that
@@ -685,7 +689,7 @@ function FeedHeader({ coins, session }) {
           alt="MeetYouLive"
           width={FEED_HEADER_LOGO_WIDTH}
           height={FEED_HEADER_LOGO_HEIGHT}
-          className="feed-header-logo"
+          style={FEED_HEADER_LOGO_STYLE}
           priority
         />
       </Link>
@@ -735,11 +739,6 @@ function FeedHeader({ coins, session }) {
           display: inline-flex;
           align-items: center;
           text-decoration: none;
-        }
-        .feed-header-brand :global(.feed-header-logo) {
-          display: block;
-          height: auto;
-          filter: drop-shadow(0 0 14px rgba(224, 64, 251, 0.45));
         }
         .feed-header-actions {
           margin-left: auto;

@@ -403,7 +403,7 @@ export default function FeedPage() {
                     key={profile._id}
                     profile={profile}
                     onSwipe={offset === 0 ? handleSwipe : undefined}
-                    zIndex={SWIPE_DECK_VISIBLE_CARDS - offset}
+                    zIndex={Math.max(1, SWIPE_DECK_VISIBLE_CARDS - offset)}
                     style={{
                       scale: 1 - offset * 0.04,
                       y: offset * 14,
@@ -414,7 +414,7 @@ export default function FeedPage() {
             </div>
             <p className="feed-swipe-hint">
               {(t && t("feed.swipeHint")) ||
-                "Desliza a la derecha para conectar o a la izquierda para seguir explorando."}
+                "Swipe right to connect or left to keep exploring."}
             </p>
           </div>
         ) : (

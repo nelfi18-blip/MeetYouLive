@@ -125,7 +125,8 @@
     "tokenPreparationError": "We couldn't prepare your session to load the feed. Please try again.",
     "missingApiUrl": "NEXT_PUBLIC_API_URL is not configured to load the feed.",
     "unauthorized": "Your session expired or is not authorized. Try again or sign in again.",
-    "serverError": "The feed server returned an error. Please try again."
+    "serverError": "The feed server returned an error. Please try again.",
+    "swipeHint": "Swipe right to connect or left to keep exploring."
   },
   "common": {
     "loading": "Loading...",

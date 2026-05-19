@@ -1,25 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
+import SwipeCard from "@/components/SwipeCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
-import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
+import { clearToken, fetchUserRole, getToken, setToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
 // sitting on a spinner indefinitely on slow connections or Render cold starts.
-const TOKEN_WAIT_TIMEOUT_MS = 8000;
+const TOKEN_WAIT_TIMEOUT_MS = 25000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
+const SWIPE_DECK_VISIBLE_CARDS = 3;
+const FEED_HEADER_LOGO_WIDTH = 54;
+const FEED_HEADER_LOGO_HEIGHT = 38;
+const FEED_HEADER_LOGO_STYLE = {
+  height: "auto",
+  filter: "drop-shadow(0 0 14px rgba(224, 64, 251, 0.45))",
+};
 
 // Brand-only gradient palette (purples / pinks / cyans). Intentionally
 // excludes orange/yellow tones to avoid the jarring fullscreen blocks that
@@ -42,21 +49,11 @@ function brandGradient(seed) {
   return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
 }
 
+function getSwipeHandler(offset, handler) {
+  return offset === 0 ? handler : undefined;
+}
+
 /* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -111,10 +108,9 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
-
-  const boostPrice = 100;
-  const magnetPrice = 50;
+  const [authToken, setAuthToken] = useState(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [forceTokenRecovery, setForceTokenRecovery] = useState(false);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -125,11 +121,79 @@ export default function FeedPage() {
     }
   }, [status, router]);
 
+  // Resolve the backend JWT. Google sessions can hydrate without
+  // session.backendToken in production, so recover it through the existing
+  // server-side backend-token proxy before trying /api/feed.
+  useEffect(() => {
+    if (status === "unauthenticated") return;
+    if (status !== "authenticated") return;
+
+    let cancelled = false;
+    const finishWithToken = (token) => {
+      if (!token || cancelled) return false;
+      setToken(token);
+      setAuthToken(token);
+      setForceTokenRecovery(false);
+      setError(null);
+      return true;
+    };
+
+    if (!forceTokenRecovery && finishWithToken(session?.backendToken)) return;
+
+    const storedToken = forceTokenRecovery ? null : getToken();
+    if (finishWithToken(storedToken)) return;
+
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/backend-token", {
+          method: "POST",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          let msg =
+            (t && t("feed.tokenRecoveryError")) ||
+            "No pudimos recuperar tu sesión de Google.";
+          try {
+            const body = await res.json();
+            if (body?.error) msg = `${msg} (${res.status}: ${body.error})`;
+          } catch {
+            msg = `${msg} (${res.status})`;
+          }
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        if (!data?.token) {
+          throw new Error(
+            (t && t("feed.invalidTokenResponse")) ||
+              "El servidor no devolvió un token válido."
+          );
+        }
+        finishWithToken(data.token);
+      } catch (err) {
+        if (cancelled) return;
+        setAuthToken(null);
+        setError(
+          err.message ||
+            (t && t("feed.tokenPreparationError")) ||
+            "No pudimos preparar tu sesión para cargar el feed. Intenta de nuevo."
+        );
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session?.backendToken, retryNonce, forceTokenRecovery, t]);
+
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
-    if (!session?.backendToken) return;
+    if (!authToken) return;
     let mounted = true;
-    fetchUserRole(session.backendToken)
+    fetchUserRole(authToken)
       .then((u) => {
         if (mounted && u?.role === "admin") router.replace("/admin");
       })
@@ -137,12 +201,12 @@ export default function FeedPage() {
     return () => {
       mounted = false;
     };
-  }, [session?.backendToken, router]);
+  }, [authToken, router]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
   useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
+    if (status === "authenticated" && authToken) return;
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
@@ -152,71 +216,109 @@ export default function FeedPage() {
       );
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
+  }, [status, authToken, t]);
+
+  const loadFeed = useCallback(async (token, signal) => {
+    if (!API_URL) {
+      throw new Error(
+        (t && t("feed.missingApiUrl")) ||
+          "NEXT_PUBLIC_API_URL no está configurado para cargar el feed."
+      );
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    const [feedRes, userRes] = await Promise.all([
+      fetch(`${API_URL}/api/feed`, {
+        headers,
+        signal,
+        cache: "no-store",
+      }),
+      fetch(`${API_URL}/api/user/me`, {
+        headers,
+        signal,
+        cache: "no-store",
+      }),
+    ]);
+
+    if (!feedRes.ok) {
+      let backendMessage = "";
+      try {
+        const body = await feedRes.json();
+        backendMessage = body?.message || body?.error || "";
+      } catch {
+        // Keep the status-specific fallback below.
+      }
+
+      let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed.";
+      if (feedRes.status === 401 || feedRes.status === 403) {
+        msg =
+          (t && t("feed.unauthorized")) ||
+          "Sesión expirada o no autorizada. Intenta de nuevo o inicia sesión otra vez.";
+      } else if (feedRes.status >= 500) {
+        msg =
+          (t && t("feed.serverError")) ||
+          "El servidor del feed respondió con error. Intenta de nuevo.";
+      }
+      const error = new Error(
+        backendMessage ? `${msg} (${feedRes.status}: ${backendMessage})` : `${msg} (${feedRes.status})`
+      );
+      error.status = feedRes.status;
+      throw error;
+    }
+
+    const data = await feedRes.json();
+    const safeLives = filterActiveLives(data.activeLives || []);
+    const uniqueProfiles = Array.from(
+      new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+    );
+    const uniqueCreators = Array.from(
+      new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
+    );
+
+    return {
+      safeLives,
+      uniqueProfiles,
+      uniqueCreators,
+      userCoins: userRes.ok ? (await userRes.json()).coinsBalance || 0 : null,
+    };
+  }, [t]);
 
   // Fetch feed data once we're authenticated and the backend token is ready.
   useEffect(() => {
-    if (status !== "authenticated" || !session?.backendToken) return;
+    if (status !== "authenticated" || !authToken) return;
 
     let cancelled = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+    setLoading(true);
+
     (async () => {
       try {
-        const [feedRes, userRes] = await Promise.all([
-          fetch(`${API_URL}/api/feed`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/api/user/me`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-        ]);
-
+        const data = await loadFeed(authToken, controller.signal);
         if (cancelled) return;
         clearTimeout(timeoutId);
-
-        if (!feedRes.ok) {
-          let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
-          if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = "Sesión expirada. Por favor, inicia sesión de nuevo.";
-          } else if (feedRes.status >= 500) {
-            msg = "Error del servidor. Por favor, intenta de nuevo.";
-          }
-          throw new Error(msg);
-        }
-
-        const data = await feedRes.json();
-        const safeLives = filterActiveLives(data.activeLives || []);
-        const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
-        );
-        const uniqueCreators = Array.from(
-          new Map((data.featuredCreators || []).map((c) => [c._id, c])).values()
-        );
-
-        setActiveLives(safeLives);
-        setProfiles(uniqueProfiles);
-        setFeaturedCreators(uniqueCreators);
-
-        if (userRes.ok) {
-          const u = await userRes.json();
-          setUserCoins(u.coinsBalance || 0);
-        }
-
+        setActiveLives(data.safeLives);
+        setProfiles(data.uniqueProfiles);
+        setFeaturedCreators(data.uniqueCreators);
+        if (data.userCoins !== null) setUserCoins(data.userCoins);
         setError(null);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
         clearTimeout(timeoutId);
         if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+          setError(
+            (t && t("feed.serverStarting")) ||
+              "El servidor está tardando en responder. Intenta de nuevo."
+          );
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          if (err.status === 401 || err.status === 403) {
+            clearToken();
+            setAuthToken(null);
+            setForceTokenRecovery(true);
+          }
+          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed.");
         }
         setLoading(false);
       }
@@ -227,78 +329,42 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
-
-  // Reset card image error when we advance to a new profile.
-  useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
+  }, [status, authToken, session?.user?.id, retryNonce, loadFeed, t]);
 
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
 
-  const handleFade = () => advance();
-
-  const handleSpark = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    try {
-      await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ userId: p._id }),
-      });
-    } catch (err) {
-      console.error("Spark error:", err);
+  const handleSwipe = async (profileId, direction) => {
+    if (direction === "right" && API_URL && authToken) {
+      try {
+        const res = await fetch(`${API_URL}/api/match/like`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ userId: profileId }),
+        });
+        if (!res.ok) {
+          throw new Error(`Swipe like failed (${res.status})`);
+        }
+        advance();
+      } catch (err) {
+        console.error("Swipe like error:", err);
+        setError(
+          (t && t("feed.swipeActionError")) ||
+            "We couldn't save that swipe. Please try again."
+        );
+      }
+      return;
     }
     advance();
   };
 
-  const handlePulse = async () => {
-    if (userCoins < boostPrice) {
-      router.push("/coins");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/boost`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (res.ok) setUserCoins((c) => c - boostPrice);
-    } catch (err) {
-      console.error("Pulse error:", err);
-    }
-  };
-
-  const handleMagnet = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    if (userCoins < magnetPrice) {
-      router.push("/coins");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      });
-      if (res.ok) setUserCoins((c) => c - magnetPrice);
-    } catch (err) {
-      console.error("Magnet error:", err);
-    }
-    advance();
-  };
-
-  const handleFlashLive = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    router.push(`/call/${p._id}`);
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryNonce((n) => n + 1);
   };
 
   /* --------------------------- Render --------------------------- */
@@ -327,7 +393,7 @@ export default function FeedPage() {
           <button
             type="button"
             className="feed-retry-btn"
-            onClick={() => window.location.reload()}
+            onClick={handleRetry}
           >
             Intentar de nuevo
           </button>
@@ -344,14 +410,32 @@ export default function FeedPage() {
       {/* 1. HEADER */}
       <FeedHeader coins={userCoins} session={session} />
 
-      {/* 2. MATCH SECTION */}
-      <section className="feed-section feed-match-section">
+      {/* 2. SWIPE DISCOVERY */}
+      <section className="feed-section feed-swipe-section">
         {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+          <div className="feed-swipe-shell">
+            <div className="feed-swipe-deck" aria-label="Swipe discovery cards">
+              {profiles
+                .slice(currentIndex, currentIndex + SWIPE_DECK_VISIBLE_CARDS)
+                .map((profile, offset) => (
+                  <SwipeCard
+                    key={profile._id}
+                    profile={profile}
+                    onSwipe={getSwipeHandler(offset, handleSwipe)}
+                    zIndex={Math.max(1, SWIPE_DECK_VISIBLE_CARDS - offset)}
+                    style={{
+                      scale: 1 - offset * 0.04,
+                      y: offset * 14,
+                      pointerEvents: offset === 0 ? "auto" : "none",
+                    }}
+                  />
+                ))}
+            </div>
+            <p className="feed-swipe-hint">
+              {(t && t("feed.swipeHint")) ||
+                "Swipe right to connect or left to keep exploring."}
+            </p>
+          </div>
         ) : (
           <div className="feed-empty">
             <h3>That's everyone for now</h3>
@@ -363,21 +447,7 @@ export default function FeedPage() {
         )}
       </section>
 
-      {/* 3. ACTION BUTTONS (only when there's a current profile) */}
-      {hasMoreProfiles && (
-        <InteractionBar
-          profile={currentProfile}
-          onFade={handleFade}
-          onSpark={handleSpark}
-          onPulse={handlePulse}
-          onMagnet={handleMagnet}
-          onFlashLive={handleFlashLive}
-          boostPrice={boostPrice}
-          magnetPrice={magnetPrice}
-        />
-      )}
-
-      {/* 4. LIVE SECTION */}
+      {/* 3. LIVE SECTION */}
       <section className="feed-section feed-live-section">
         <header className="feed-section-header">
           <span className="feed-section-icon feed-section-icon--live">
@@ -402,7 +472,7 @@ export default function FeedPage() {
         )}
       </section>
 
-      {/* 5. TOP CREATORS */}
+      {/* 4. TOP CREATORS */}
       {featuredCreators.length > 0 && (
         <section className="feed-section feed-creators-section">
           <header className="feed-section-header">
@@ -423,7 +493,7 @@ export default function FeedPage() {
         </section>
       )}
 
-      {/* 6. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
+      {/* 5. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
 
       <style jsx>{`
         .feed-page {
@@ -473,8 +543,40 @@ export default function FeedPage() {
         .feed-section {
           padding: 1rem;
         }
-        .feed-match-section {
+        .feed-swipe-section {
           padding-top: 0.5rem;
+        }
+        .feed-swipe-shell {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+        .feed-swipe-deck {
+          position: relative;
+          width: min(100%, 400px);
+          height: min(580px, calc(100vh - 220px));
+          min-height: 440px;
+          margin: 0 auto;
+        }
+        .feed-swipe-deck :global(.swipe-card-modern) {
+          inset: 0;
+          height: 100%;
+          max-width: none;
+        }
+        .feed-swipe-deck :global(.swipe-card-placeholder) {
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        }
+        .feed-swipe-deck :global(.swipe-card-initial) {
+          font-size: 3rem;
+        }
+        .feed-swipe-hint {
+          margin: 0;
+          max-width: 360px;
+          color: var(--text-muted, #a39ec0);
+          font-size: 0.82rem;
+          line-height: 1.35;
+          text-align: center;
         }
 
         .feed-section-header {
@@ -582,10 +684,14 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
-        <span>
-          MeetYou<span className="feed-header-brand-accent">Live</span>
-        </span>
+        <Image
+          src="/logo.svg"
+          alt="MeetYouLive"
+          width={FEED_HEADER_LOGO_WIDTH}
+          height={FEED_HEADER_LOGO_HEIGHT}
+          style={FEED_HEADER_LOGO_STYLE}
+          priority
+        />
       </Link>
 
       <div className="feed-header-actions">
@@ -632,18 +738,7 @@ function FeedHeader({ coins, session }) {
         .feed-header-brand {
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          color: #fff;
-          font-weight: 800;
-          font-size: 1.05rem;
           text-decoration: none;
-          letter-spacing: -0.01em;
-        }
-        .feed-header-brand-accent {
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
         }
         .feed-header-actions {
           margin-left: auto;
@@ -685,186 +780,6 @@ function FeedHeader({ coins, session }) {
         }
       `}</style>
     </header>
-  );
-}
-
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
-          </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
-        </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
   );
 }
 

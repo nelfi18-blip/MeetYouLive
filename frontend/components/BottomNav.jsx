@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getHomePath } from "@/lib/token";
+import { DEFAULT_USER_HOME_PATH, getHomePath } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -27,7 +27,10 @@ export default function BottomNav() {
   }, [session]);
   
   // Get role-aware home path
-  const homePath = useMemo(() => getHomePath(role), [role]);
+  const homePath = useMemo(
+    () => (role ? getHomePath(role) : DEFAULT_USER_HOME_PATH),
+    [role]
+  );
   
   const isActive = (path) => {
     if (path === homePath) {

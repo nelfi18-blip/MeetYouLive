@@ -342,6 +342,7 @@ export default function FeedPage() {
         if (!res.ok) {
           throw new Error(`Swipe like failed (${res.status})`);
         }
+        advance();
       } catch (err) {
         console.error("Swipe like error:", err);
         setError(
@@ -349,6 +350,7 @@ export default function FeedPage() {
             "We couldn't save that swipe. Please try again."
         );
       }
+      return;
     }
     advance();
   };

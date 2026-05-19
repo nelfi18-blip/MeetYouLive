@@ -21,6 +21,8 @@ const TOKEN_WAIT_TIMEOUT_MS = 25000;
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
 const SWIPE_DECK_VISIBLE_CARDS = 3;
+const FEED_HEADER_LOGO_WIDTH = 54;
+const FEED_HEADER_LOGO_HEIGHT = 38;
 
 // Brand-only gradient palette (purples / pinks / cyans). Intentionally
 // excludes orange/yellow tones to avoid the jarring fullscreen blocks that
@@ -681,8 +683,8 @@ function FeedHeader({ coins, session }) {
         <Image
           src="/logo.svg"
           alt="MeetYouLive"
-          width={54}
-          height={38}
+          width={FEED_HEADER_LOGO_WIDTH}
+          height={FEED_HEADER_LOGO_HEIGHT}
           className="feed-header-logo"
           priority
         />

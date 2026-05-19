@@ -190,6 +190,8 @@ export async function fetchUserRole(token, timeoutMs = 10000) {
   }
 }
 
+export const DEFAULT_USER_HOME_PATH = "/feed";
+
 /**
  * Check if the current user is an admin by fetching their role from the backend.
  * Returns true if the user is an admin, false otherwise.
@@ -207,5 +209,5 @@ export async function isAdmin(token) {
 export function getHomePath(userRole) {
   if (!userRole) return "/";
   if (userRole === "admin") return "/admin";
-  return "/feed";
+  return DEFAULT_USER_HOME_PATH;
 }

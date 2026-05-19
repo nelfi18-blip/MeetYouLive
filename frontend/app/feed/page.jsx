@@ -736,7 +736,6 @@ function FeedHeader({ coins, session }) {
         }
         .feed-header-brand :global(.feed-header-logo) {
           display: block;
-          width: 54px;
           height: auto;
           filter: drop-shadow(0 0 14px rgba(224, 64, 251, 0.45));
         }

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
-import Logo from "@/components/Logo";
 import SwipeCard from "@/components/SwipeCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -678,7 +678,14 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <Logo size="sm" />
+        <Image
+          src="/logo.svg"
+          alt="MeetYouLive"
+          width={54}
+          height={38}
+          className="feed-header-logo"
+          priority
+        />
       </Link>
 
       <div className="feed-header-actions">
@@ -726,6 +733,12 @@ function FeedHeader({ coins, session }) {
           display: inline-flex;
           align-items: center;
           text-decoration: none;
+        }
+        .feed-header-brand :global(.feed-header-logo) {
+          display: block;
+          width: 54px;
+          height: auto;
+          filter: drop-shadow(0 0 14px rgba(224, 64, 251, 0.45));
         }
         .feed-header-actions {
           margin-left: auto;

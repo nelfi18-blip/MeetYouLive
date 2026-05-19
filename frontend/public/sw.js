@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v3";
+const CACHE_NAME = "meetyoulive-v4";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -47,6 +47,13 @@ self.addEventListener("fetch", (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== self.location.origin) return;
+
+  // /feed must always resolve from the network so direct loads, refreshes,
+  // and bottom-nav visits cannot show a stale cached legacy shell.
+  if (url.pathname === "/feed" || url.pathname.startsWith("/feed/")) {
+    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
+    return;
+  }
 
   // Strategy 1: Network-first for API calls (with offline fallback)
   if (url.pathname.startsWith("/api/")) {

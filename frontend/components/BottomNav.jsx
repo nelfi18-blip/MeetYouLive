@@ -27,7 +27,7 @@ export default function BottomNav() {
   }, [session]);
   
   // Get role-aware home path
-  const homePath = useMemo(() => getHomePath(role), [role]);
+  const homePath = useMemo(() => getHomePath(role || "user"), [role]);
   
   const isActive = (path) => {
     if (path === homePath) {

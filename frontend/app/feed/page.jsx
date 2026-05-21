@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,9 +11,9 @@ import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpe
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
-// Keep missing NEXT_PUBLIC_API_URL as "" so fetch validation can show a clear
-// localized configuration error instead of throwing during module evaluation.
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const HAS_API_URL = Boolean(RAW_API_URL);
+const API_URL = (RAW_API_URL || "https://invalid.local").replace(/\/$/, "");
 
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
@@ -42,6 +42,29 @@ function brandGradient(seed) {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   }
   return BRAND_GRADIENTS[Math.abs(hash) % BRAND_GRADIENTS.length];
+}
+
+function getUnexpiredStoredToken() {
+  const token = getToken();
+  if (!token) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    const payloadSegment = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = payloadSegment.padEnd(
+      Math.ceil(payloadSegment.length / 4) * 4,
+      "="
+    );
+    const payload = JSON.parse(
+      atob(paddedPayload)
+    );
+    if (payload?.exp && payload.exp * 1000 <= Date.now() + 5000) return null;
+    return token;
+  } catch {
+    return null;
+  }
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
@@ -105,6 +128,7 @@ export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { t } = useLanguage();
+  const tRef = useRef(t);
 
   const [activeLives, setActiveLives] = useState([]);
   const [profiles, setProfiles] = useState([]);
@@ -124,11 +148,20 @@ export default function FeedPage() {
     setRetryKey((key) => key + 1);
   }, []);
 
+  const feedMessage = useCallback((key, fallback) => {
+    const translate = tRef.current;
+    return (translate && translate(`feed.${key}`)) || fallback;
+  }, []);
+
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
   useEffect(() => {
-    if (status === "unauthenticated" && !getToken()) {
+    if (status === "unauthenticated" && !getUnexpiredStoredToken()) {
       router.replace("/login?callbackUrl=/feed");
     }
   }, [status, router]);
@@ -137,7 +170,7 @@ export default function FeedPage() {
   // when NextAuth did not persist session.backendToken, so recover it via the
   // existing server-side proxy and store it for refreshes.
   useEffect(() => {
-    const storedToken = getToken();
+    const storedToken = getUnexpiredStoredToken();
     const nextToken = session?.backendToken || storedToken;
     if (nextToken) {
       setAuthToken(nextToken);
@@ -166,7 +199,7 @@ export default function FeedPage() {
         if (!res.ok) {
           throw new Error(
             (t && t("feed.sessionConfirmError")) ||
-              "We couldn't confirm your session. Please sign in again."
+              feedMessage("sessionConfirmError", "We couldn't confirm your session. Please sign in again.")
           );
         }
 
@@ -174,7 +207,7 @@ export default function FeedPage() {
         if (!data?.token) {
           throw new Error(
             (t && t("feed.sessionConfirmError")) ||
-              "We couldn't confirm your session. Please sign in again."
+              feedMessage("sessionConfirmError", "We couldn't confirm your session. Please sign in again.")
           );
         }
 
@@ -186,10 +219,9 @@ export default function FeedPage() {
         const message =
           err?.name === "AbortError"
             ? (t && t("feed.sessionConfirmTimeout")) ||
-              "Session confirmation took too long. Please try again."
+              feedMessage("sessionConfirmTimeout", "Session confirmation took too long. Please try again.")
             : err.message ||
-              (t && t("feed.sessionConfirmError")) ||
-              "We couldn't confirm your session. Please sign in again.";
+              feedMessage("sessionConfirmError", "We couldn't confirm your session. Please sign in again.");
         setError(message);
         setLoading(false);
       } finally {
@@ -202,7 +234,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, retryKey, t]);
+  }, [status, session?.backendToken, retryKey, feedMessage]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -221,17 +253,14 @@ export default function FeedPage() {
   // Safety net: never sit on the loading spinner forever waiting for NextAuth.
   useEffect(() => {
     if (status === "authenticated") return;
-    if (getToken()) return;
+    if (getUnexpiredStoredToken()) return;
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
-      setError(
-        (t && t("feed.sessionVerifyError")) ||
-          "We couldn't verify your session. Please try again."
-      );
+      setError(feedMessage("sessionVerifyError", "We couldn't verify your session. Please try again."));
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status, t]);
+  }, [status, feedMessage]);
 
   // Fetch feed data once the backend token is ready.
   useEffect(() => {
@@ -245,10 +274,9 @@ export default function FeedPage() {
       try {
         setLoading(true);
         setError(null);
-        if (!API_URL) {
+        if (!HAS_API_URL) {
           throw new Error(
-            (t && t("feed.apiUrlMissing")) ||
-              "The API URL is not configured to load the feed."
+            feedMessage("apiUrlMissing", "The API URL is not configured to load the feed.")
           );
         }
 
@@ -303,11 +331,10 @@ export default function FeedPage() {
         clearTimeout(timeoutId);
         if (err?.name === "AbortError") {
           setError(
-            (t && t("feed.timeoutError")) ||
-              "The feed took too long to respond. Please try again."
+            feedMessage("timeoutError", "The feed took too long to respond. Please try again.")
           );
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          setError(err.message || feedMessage("genericError", "We couldn't load your feed. Please try again."));
         }
         setLoading(false);
       }
@@ -318,7 +345,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [authToken, retryKey, t]);
+  }, [authToken, retryKey, feedMessage]);
 
   // Reset card image error when we advance to a new profile.
   useEffect(() => {
@@ -520,7 +547,7 @@ export default function FeedPage() {
       <style jsx>{`
         .feed-page {
           min-height: 100vh;
-          /* Progressive enhancement: 100dvh tracks mobile browser chrome, 100vh remains the fallback. */
+          /* Progressive enhancement: 100dvh tracks mobile browser UI, 100vh remains the fallback. */
           min-height: 100dvh;
           width: 100%;
           max-width: 100%;

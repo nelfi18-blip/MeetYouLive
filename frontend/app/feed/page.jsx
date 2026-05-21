@@ -11,6 +11,8 @@ import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpe
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
+// Keep missing NEXT_PUBLIC_API_URL as "" so fetch validation can show a clear
+// localized configuration error instead of throwing during module evaluation.
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 // Hard ceiling on how long we wait for the NextAuth session / backend token
@@ -164,7 +166,7 @@ export default function FeedPage() {
         if (!res.ok) {
           throw new Error(
             (t && t("feed.sessionConfirmError")) ||
-              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión."
+              "We couldn't confirm your session. Please sign in again."
           );
         }
 
@@ -172,7 +174,7 @@ export default function FeedPage() {
         if (!data?.token) {
           throw new Error(
             (t && t("feed.sessionConfirmError")) ||
-              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión."
+              "We couldn't confirm your session. Please sign in again."
           );
         }
 
@@ -184,10 +186,10 @@ export default function FeedPage() {
         const message =
           err?.name === "AbortError"
             ? (t && t("feed.sessionConfirmTimeout")) ||
-              "La confirmación de sesión tardó demasiado. Intenta de nuevo."
+              "Session confirmation took too long. Please try again."
             : err.message ||
               (t && t("feed.sessionConfirmError")) ||
-              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión.";
+              "We couldn't confirm your session. Please sign in again.";
         setError(message);
         setLoading(false);
       } finally {
@@ -225,7 +227,7 @@ export default function FeedPage() {
       setLoading(false);
       setError(
         (t && t("feed.sessionVerifyError")) ||
-          "No pudimos verificar tu sesión. Por favor, intenta de nuevo."
+          "We couldn't verify your session. Please try again."
       );
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
@@ -246,7 +248,7 @@ export default function FeedPage() {
         if (!API_URL) {
           throw new Error(
             (t && t("feed.apiUrlMissing")) ||
-              "La URL del API no está configurada para cargar el feed."
+              "The API URL is not configured to load the feed."
           );
         }
 
@@ -302,7 +304,7 @@ export default function FeedPage() {
         if (err?.name === "AbortError") {
           setError(
             (t && t("feed.timeoutError")) ||
-              "El feed tardó demasiado en responder. Por favor, intenta de nuevo."
+              "The feed took too long to respond. Please try again."
           );
         } else {
           setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
@@ -518,6 +520,7 @@ export default function FeedPage() {
       <style jsx>{`
         .feed-page {
           min-height: 100vh;
+          /* Progressive enhancement: 100dvh tracks mobile browser chrome, 100vh remains the fallback. */
           min-height: 100dvh;
           width: 100%;
           max-width: 100%;

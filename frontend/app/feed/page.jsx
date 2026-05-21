@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -210,33 +210,32 @@ export default function FeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id, t]);
 
+  const visibleProfileStack = useMemo(
+    () =>
+      profiles
+        .slice(currentIndex, currentIndex + 3)
+        .map((profile, stackIndex) => ({ profile, stackIndex }))
+        .reverse(),
+    [profiles, currentIndex]
+  );
+
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
 
-  const handleFade = () => advance();
-
-  const handleSpark = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
+  const handleSwipe = (profileId, direction) => {
     advance();
+    if (direction !== "right" || !profileId) return;
+
     fetch(`${API_URL}/api/match/like`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.backendToken}`,
       },
-      body: JSON.stringify({ userId: p._id }),
+      body: JSON.stringify({ userId: profileId }),
     }).catch((err) => {
       console.error("Spark error:", err);
     });
-  };
-
-  const handleSwipe = (_profileId, direction) => {
-    if (direction === "right") {
-      handleSpark();
-      return;
-    }
-    handleFade();
   };
 
   /* --------------------------- Render --------------------------- */
@@ -286,7 +285,7 @@ export default function FeedPage() {
       <section className="feed-section feed-match-section" aria-label="Perfiles recomendados">
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite">
-            {profiles.slice(currentIndex, currentIndex + 3).map((profile, stackIndex) => {
+            {visibleProfileStack.map(({ profile, stackIndex }) => {
               const isTopCard = stackIndex === 0;
               return (
                 <SwipeCard
@@ -302,7 +301,7 @@ export default function FeedPage() {
                   }}
                 />
               );
-            }).reverse()}
+            })}
           </div>
         ) : (
           <div className="feed-empty">

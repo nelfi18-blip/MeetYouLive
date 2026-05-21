@@ -126,7 +126,7 @@ export default function FeedPage() {
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" && !getToken()) {
       router.replace("/login?callbackUrl=/feed");
     }
   }, [status, router]);
@@ -135,8 +135,6 @@ export default function FeedPage() {
   // when NextAuth did not persist session.backendToken, so recover it via the
   // existing server-side proxy and store it for refreshes.
   useEffect(() => {
-    if (status !== "authenticated") return;
-
     const storedToken = getToken();
     const nextToken = session?.backendToken || storedToken;
     if (nextToken) {
@@ -146,6 +144,8 @@ export default function FeedPage() {
       }
       return;
     }
+
+    if (status !== "authenticated") return;
 
     let cancelled = false;
     const controller = new AbortController();
@@ -210,6 +210,7 @@ export default function FeedPage() {
   // Safety net: never sit on the loading spinner forever waiting for NextAuth.
   useEffect(() => {
     if (status === "authenticated") return;
+    if (getToken()) return;
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
@@ -374,7 +375,7 @@ export default function FeedPage() {
 
   /* --------------------------- Render --------------------------- */
   // Loading spinner only while auth/data are pending and no error yet.
-  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
+  if (!error && (status === "loading" || loading)) {
     return (
       <div className="feed-page">
         <FeedHeader coins={userCoins} session={session} />

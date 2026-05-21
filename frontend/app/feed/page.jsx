@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,10 +8,10 @@ import InteractionBar from "@/components/InteractionBar";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
-import { fetchUserRole } from "@/lib/token";
+import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
@@ -112,9 +112,15 @@ export default function FeedPage() {
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
   const [matchCardImgError, setMatchCardImgError] = useState(false);
+  const [authToken, setAuthToken] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const boostPrice = 100;
   const magnetPrice = 50;
+
+  const retryFeed = useCallback(() => {
+    setRetryKey((key) => key + 1);
+  }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -125,38 +131,21 @@ export default function FeedPage() {
     }
   }, [status, router]);
 
-  // Admins shouldn't see the consumer feed.
+  // Resolve the backend JWT used by /api/feed. Google sign-in can succeed even
+  // when NextAuth did not persist session.backendToken, so recover it via the
+  // existing server-side proxy and store it for refreshes.
   useEffect(() => {
-    if (!session?.backendToken) return;
-    let mounted = true;
-    fetchUserRole(session.backendToken)
-      .then((u) => {
-        if (mounted && u?.role === "admin") router.replace("/admin");
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [session?.backendToken, router]);
+    if (status !== "authenticated") return;
 
-  // Safety net: never sit on the loading spinner forever waiting for the
-  // session/token to hydrate.
-  useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
-    if (status === "unauthenticated") return;
-    const timer = setTimeout(() => {
-      setLoading(false);
-      setError(
-        (t && t("feed.serverStarting")) ||
-          "El servidor está tardando en responder. Por favor, intenta de nuevo."
-      );
-    }, TOKEN_WAIT_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
-
-  // Fetch feed data once we're authenticated and the backend token is ready.
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.backendToken) return;
+    const storedToken = getToken();
+    const nextToken = session?.backendToken || storedToken;
+    if (nextToken) {
+      setAuthToken(nextToken);
+      if (session?.backendToken && session.backendToken !== storedToken) {
+        setToken(session.backendToken);
+      }
+      return;
+    }
 
     let cancelled = false;
     const controller = new AbortController();
@@ -164,14 +153,95 @@ export default function FeedPage() {
 
     (async () => {
       try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/auth/backend-token", {
+          method: "POST",
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error("No pudimos confirmar tu sesión. Vuelve a iniciar sesión.");
+        }
+
+        const data = await res.json();
+        if (!data?.token) {
+          throw new Error("No pudimos confirmar tu sesión. Vuelve a iniciar sesión.");
+        }
+
+        if (cancelled) return;
+        setToken(data.token);
+        setAuthToken(data.token);
+      } catch (err) {
+        if (cancelled) return;
+        const message =
+          err?.name === "AbortError"
+            ? "La confirmación de sesión tardó demasiado. Intenta de nuevo."
+            : err.message || "No pudimos confirmar tu sesión. Vuelve a iniciar sesión.";
+        setError(message);
+        setLoading(false);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [status, session?.backendToken, retryKey]);
+
+  // Admins shouldn't see the consumer feed.
+  useEffect(() => {
+    if (!authToken) return;
+    let mounted = true;
+    fetchUserRole(authToken)
+      .then((u) => {
+        if (mounted && u?.role === "admin") router.replace("/admin");
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [authToken, router]);
+
+  // Safety net: never sit on the loading spinner forever waiting for NextAuth.
+  useEffect(() => {
+    if (status === "authenticated") return;
+    if (status === "unauthenticated") return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setError("No pudimos verificar tu sesión. Por favor, intenta de nuevo.");
+    }, TOKEN_WAIT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  // Fetch feed data once the backend token is ready.
+  useEffect(() => {
+    if (!authToken) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        if (!API_URL) {
+          throw new Error("La URL del API no está configurada para cargar el feed.");
+        }
+
         const [feedRes, userRes] = await Promise.all([
           fetch(`${API_URL}/api/feed`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
+            headers: { Authorization: `Bearer ${authToken}` },
             signal: controller.signal,
             cache: "no-store",
           }),
           fetch(`${API_URL}/api/user/me`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` },
+            headers: { Authorization: `Bearer ${authToken}` },
             signal: controller.signal,
             cache: "no-store",
           }),
@@ -213,8 +283,8 @@ export default function FeedPage() {
       } catch (err) {
         if (cancelled) return;
         clearTimeout(timeoutId);
-        if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+        if (err?.name === "AbortError") {
+          setError("El feed tardó demasiado en responder. Por favor, intenta de nuevo.");
         } else {
           setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
         }
@@ -227,7 +297,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
+  }, [authToken, retryKey, t]);
 
   // Reset card image error when we advance to a new profile.
   useEffect(() => {
@@ -241,13 +311,13 @@ export default function FeedPage() {
 
   const handleSpark = async () => {
     const p = profiles[currentIndex];
-    if (!p) return;
+    if (!p || !authToken || !API_URL) return;
     try {
       await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ userId: p._id }),
       });
@@ -258,6 +328,7 @@ export default function FeedPage() {
   };
 
   const handlePulse = async () => {
+    if (!authToken || !API_URL) return;
     if (userCoins < boostPrice) {
       router.push("/coins");
       return;
@@ -266,7 +337,7 @@ export default function FeedPage() {
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.backendToken}`,
+          Authorization: `Bearer ${authToken}`,
           "Content-Type": "application/json",
         },
       });
@@ -278,7 +349,7 @@ export default function FeedPage() {
 
   const handleMagnet = async () => {
     const p = profiles[currentIndex];
-    if (!p) return;
+    if (!p || !authToken || !API_URL) return;
     if (userCoins < magnetPrice) {
       router.push("/coins");
       return;
@@ -286,7 +357,7 @@ export default function FeedPage() {
     try {
       const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) setUserCoins((c) => c - magnetPrice);
     } catch (err) {
@@ -327,7 +398,7 @@ export default function FeedPage() {
           <button
             type="button"
             className="feed-retry-btn"
-            onClick={() => window.location.reload()}
+            onClick={retryFeed}
           >
             Intentar de nuevo
           </button>
@@ -428,6 +499,10 @@ export default function FeedPage() {
       <style jsx>{`
         .feed-page {
           min-height: 100vh;
+          min-height: 100dvh;
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
           padding-bottom: calc(160px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
           color: var(--text, #fff);

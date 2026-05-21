@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v3";
+const CACHE_NAME = "meetyoulive-v4";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -12,6 +12,10 @@ const CACHED_API_PATTERNS = [
   /\/api\/user\/me$/,
   /\/api\/notifications/,
   /\/api\/chats$/,
+];
+
+const NETWORK_ONLY_PAGE_PATTERNS = [
+  /^\/feed(?:\/)?$/,
 ];
 
 self.addEventListener("install", (event) => {
@@ -47,6 +51,13 @@ self.addEventListener("fetch", (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== self.location.origin) return;
+
+  // /feed must always use the current network shell. Serving an older cached
+  // shell here can change viewport/layout after refresh.
+  if (NETWORK_ONLY_PAGE_PATTERNS.some((pattern) => pattern.test(url.pathname))) {
+    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
+    return;
+  }
 
   // Strategy 1: Network-first for API calls (with offline fallback)
   if (url.pathname.startsWith("/api/")) {

@@ -162,12 +162,18 @@ export default function FeedPage() {
         });
 
         if (!res.ok) {
-          throw new Error("No pudimos confirmar tu sesión. Vuelve a iniciar sesión.");
+          throw new Error(
+            (t && t("feed.sessionConfirmError")) ||
+              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión."
+          );
         }
 
         const data = await res.json();
         if (!data?.token) {
-          throw new Error("No pudimos confirmar tu sesión. Vuelve a iniciar sesión.");
+          throw new Error(
+            (t && t("feed.sessionConfirmError")) ||
+              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión."
+          );
         }
 
         if (cancelled) return;
@@ -177,8 +183,11 @@ export default function FeedPage() {
         if (cancelled) return;
         const message =
           err?.name === "AbortError"
-            ? "La confirmación de sesión tardó demasiado. Intenta de nuevo."
-            : err.message || "No pudimos confirmar tu sesión. Vuelve a iniciar sesión.";
+            ? (t && t("feed.sessionConfirmTimeout")) ||
+              "La confirmación de sesión tardó demasiado. Intenta de nuevo."
+            : err.message ||
+              (t && t("feed.sessionConfirmError")) ||
+              "No pudimos confirmar tu sesión. Vuelve a iniciar sesión.";
         setError(message);
         setLoading(false);
       } finally {
@@ -191,7 +200,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, retryKey]);
+  }, [status, session?.backendToken, retryKey, t]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -214,10 +223,13 @@ export default function FeedPage() {
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
-      setError("No pudimos verificar tu sesión. Por favor, intenta de nuevo.");
+      setError(
+        (t && t("feed.sessionVerifyError")) ||
+          "No pudimos verificar tu sesión. Por favor, intenta de nuevo."
+      );
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status]);
+  }, [status, t]);
 
   // Fetch feed data once the backend token is ready.
   useEffect(() => {
@@ -232,7 +244,10 @@ export default function FeedPage() {
         setLoading(true);
         setError(null);
         if (!API_URL) {
-          throw new Error("La URL del API no está configurada para cargar el feed.");
+          throw new Error(
+            (t && t("feed.apiUrlMissing")) ||
+              "La URL del API no está configurada para cargar el feed."
+          );
         }
 
         const [feedRes, userRes] = await Promise.all([
@@ -285,7 +300,10 @@ export default function FeedPage() {
         if (cancelled) return;
         clearTimeout(timeoutId);
         if (err?.name === "AbortError") {
-          setError("El feed tardó demasiado en responder. Por favor, intenta de nuevo.");
+          setError(
+            (t && t("feed.timeoutError")) ||
+              "El feed tardó demasiado en responder. Por favor, intenta de nuevo."
+          );
         } else {
           setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
         }

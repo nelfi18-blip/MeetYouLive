@@ -119,6 +119,11 @@
     "greetingError": "Erro ao enviar saudação",
     "serverStarting": "O servidor está iniciando. Isso pode levar alguns segundos na primeira tentativa.",
     "networkError": "Não é possível conectar ao servidor. Verifique sua conexão.",
+    "sessionConfirmError": "Não conseguimos confirmar sua sessão. Entre novamente.",
+    "sessionConfirmTimeout": "A confirmação da sessão demorou demais. Tente novamente.",
+    "sessionVerifyError": "Não conseguimos verificar sua sessão. Por favor, tente novamente.",
+    "apiUrlMissing": "A URL da API não está configurada para carregar o feed.",
+    "timeoutError": "O feed demorou demais para responder. Por favor, tente novamente.",
     "genericError": "Não conseguimos carregar seu feed. Por favor, tente novamente."
   },
   "common": {

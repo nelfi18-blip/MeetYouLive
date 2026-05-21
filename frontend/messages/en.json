@@ -119,6 +119,11 @@
     "greetingError": "Error sending greeting",
     "serverStarting": "The server is starting up. This may take a few seconds on the first attempt.",
     "networkError": "Cannot connect to server. Please check your connection.",
+    "sessionConfirmError": "We couldn't confirm your session. Please sign in again.",
+    "sessionConfirmTimeout": "Session confirmation took too long. Please try again.",
+    "sessionVerifyError": "We couldn't verify your session. Please try again.",
+    "apiUrlMissing": "The API URL is not configured to load the feed.",
+    "timeoutError": "The feed took too long to respond. Please try again.",
     "genericError": "We couldn't load your feed. Please try again."
   },
   "common": {

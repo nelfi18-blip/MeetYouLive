@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import InteractionBar from "@/components/InteractionBar";
+import SwipeCard from "@/components/SwipeCard";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getUserImage, getLiveThumbnail, getDisplayName } from "@/lib/imageHelpers";
 import { fetchUserRole } from "@/lib/token";
-import { isApprovedCreator } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -43,20 +42,6 @@ function brandGradient(seed) {
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
-const IconLogo = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" {...props}>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#e040fb" />
-        <stop offset="100%" stopColor="#8b5cf6" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#lg)"
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-    />
-  </svg>
-);
 const IconCoin = (props) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...props}>
     <circle cx="12" cy="12" r="10" opacity="0.2" />
@@ -111,10 +96,6 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
-  const [matchCardImgError, setMatchCardImgError] = useState(false);
-
-  const boostPrice = 100;
-  const magnetPrice = 50;
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -229,76 +210,33 @@ export default function FeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id, t]);
 
-  // Reset card image error when we advance to a new profile.
-  useEffect(() => {
-    setMatchCardImgError(false);
-  }, [currentIndex]);
-
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
 
   const handleFade = () => advance();
 
-  const handleSpark = async () => {
+  const handleSpark = () => {
     const p = profiles[currentIndex];
     if (!p) return;
-    try {
-      await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
-        },
-        body: JSON.stringify({ userId: p._id }),
-      });
-    } catch (err) {
+    advance();
+    fetch(`${API_URL}/api/match/like`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.backendToken}`,
+      },
+      body: JSON.stringify({ userId: p._id }),
+    }).catch((err) => {
       console.error("Spark error:", err);
-    }
-    advance();
+    });
   };
 
-  const handlePulse = async () => {
-    if (userCoins < boostPrice) {
-      router.push("/coins");
+  const handleSwipe = (_profileId, direction) => {
+    if (direction === "right") {
+      handleSpark();
       return;
     }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/boost`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.backendToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (res.ok) setUserCoins((c) => c - boostPrice);
-    } catch (err) {
-      console.error("Pulse error:", err);
-    }
-  };
-
-  const handleMagnet = async () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    if (userCoins < magnetPrice) {
-      router.push("/coins");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/matches/super-crush/${p._id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.backendToken}` },
-      });
-      if (res.ok) setUserCoins((c) => c - magnetPrice);
-    } catch (err) {
-      console.error("Magnet error:", err);
-    }
-    advance();
-  };
-
-  const handleFlashLive = () => {
-    const p = profiles[currentIndex];
-    if (!p) return;
-    router.push(`/call/${p._id}`);
+    handleFade();
   };
 
   /* --------------------------- Render --------------------------- */
@@ -344,14 +282,28 @@ export default function FeedPage() {
       {/* 1. HEADER */}
       <FeedHeader coins={userCoins} session={session} />
 
-      {/* 2. MATCH SECTION */}
-      <section className="feed-section feed-match-section">
+      {/* 2. MODERN SWIPE DECK */}
+      <section className="feed-section feed-match-section" aria-label="Perfiles recomendados">
         {hasMoreProfiles ? (
-          <MatchCard
-            profile={currentProfile}
-            imgError={matchCardImgError}
-            onImgError={() => setMatchCardImgError(true)}
-          />
+          <div className="feed-swipe-deck" aria-live="polite">
+            {profiles.slice(currentIndex, currentIndex + 3).map((profile, stackIndex) => {
+              const isTopCard = stackIndex === 0;
+              return (
+                <SwipeCard
+                  key={profile._id}
+                  profile={profile}
+                  onSwipe={isTopCard ? handleSwipe : undefined}
+                  zIndex={30 - stackIndex}
+                  style={{
+                    y: stackIndex * 10,
+                    scale: 1 - stackIndex * 0.045,
+                    opacity: 1 - stackIndex * 0.12,
+                    pointerEvents: isTopCard ? "auto" : "none",
+                  }}
+                />
+              );
+            }).reverse()}
+          </div>
         ) : (
           <div className="feed-empty">
             <h3>That's everyone for now</h3>
@@ -363,21 +315,7 @@ export default function FeedPage() {
         )}
       </section>
 
-      {/* 3. ACTION BUTTONS (only when there's a current profile) */}
-      {hasMoreProfiles && (
-        <InteractionBar
-          profile={currentProfile}
-          onFade={handleFade}
-          onSpark={handleSpark}
-          onPulse={handlePulse}
-          onMagnet={handleMagnet}
-          onFlashLive={handleFlashLive}
-          boostPrice={boostPrice}
-          magnetPrice={magnetPrice}
-        />
-      )}
-
-      {/* 4. LIVE SECTION */}
+      {/* 3. LIVE SECTION */}
       <section className="feed-section feed-live-section">
         <header className="feed-section-header">
           <span className="feed-section-icon feed-section-icon--live">
@@ -402,7 +340,7 @@ export default function FeedPage() {
         )}
       </section>
 
-      {/* 5. TOP CREATORS */}
+      {/* 4. TOP CREATORS */}
       {featuredCreators.length > 0 && (
         <section className="feed-section feed-creators-section">
           <header className="feed-section-header">
@@ -423,14 +361,16 @@ export default function FeedPage() {
         </section>
       )}
 
-      {/* 6. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
+      {/* 5. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
 
       <style jsx>{`
         .feed-page {
           min-height: 100vh;
-          padding-bottom: calc(160px + env(safe-area-inset-bottom));
+          min-height: 100dvh;
+          padding-bottom: calc(96px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
+          overflow-x: hidden;
         }
 
         .feed-loading,
@@ -474,7 +414,45 @@ export default function FeedPage() {
           padding: 1rem;
         }
         .feed-match-section {
-          padding-top: 0.5rem;
+          display: flex;
+          justify-content: center;
+          padding: 0.75rem 1rem 1rem;
+        }
+
+        .feed-swipe-deck {
+          position: relative;
+          width: min(100%, 420px);
+          height: min(68vh, 620px);
+          min-height: 480px;
+          display: flex;
+          justify-content: center;
+          touch-action: pan-y;
+        }
+
+        .feed-swipe-deck :global(.swipe-card-modern) {
+          width: 100%;
+          max-width: 420px;
+          height: 100%;
+          left: 0;
+          right: 0;
+          margin: 0 auto;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(224, 64, 251, 0.18);
+        }
+
+        .feed-swipe-deck :global(.swipe-card-initial) {
+          font-size: 3rem;
+        }
+
+        @media (max-width: 480px) {
+          .feed-match-section {
+            padding-inline: 0.75rem;
+          }
+          .feed-swipe-deck {
+            height: calc(100dvh - 168px);
+            min-height: 430px;
+            max-height: 610px;
+          }
         }
 
         .feed-section-header {
@@ -582,7 +560,8 @@ function FeedHeader({ coins, session }) {
   return (
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        <IconLogo />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.svg" alt="" className="feed-header-logo" />
         <span>
           MeetYou<span className="feed-header-brand-accent">Live</span>
         </span>
@@ -639,6 +618,12 @@ function FeedHeader({ coins, session }) {
           text-decoration: none;
           letter-spacing: -0.01em;
         }
+        .feed-header-logo {
+          width: 32px;
+          height: 32px;
+          display: block;
+          object-fit: contain;
+        }
         .feed-header-brand-accent {
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
           -webkit-background-clip: text;
@@ -685,186 +670,6 @@ function FeedHeader({ coins, session }) {
         }
       `}</style>
     </header>
-  );
-}
-
-function MatchCard({ profile, imgError, onImgError }) {
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const gradient = brandGradient(profile._id);
-  const showImage = userImage && !imgError;
-
-  return (
-    <article className="match-card">
-      <div className="match-card-media">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userImage}
-            alt={displayName}
-            className="match-card-img"
-            onError={onImgError}
-          />
-        ) : (
-          <div className="match-card-placeholder" style={{ background: gradient }}>
-            <IconUser className="match-card-placeholder-icon" width="64" height="64" />
-          </div>
-        )}
-        <div className="match-card-shade" />
-      </div>
-
-      <div className="match-card-info">
-        <div className="match-card-name-row">
-          <h2 className="match-card-name">
-            {displayName}
-            {profile.age ? `, ${profile.age}` : ""}
-          </h2>
-          {profile.isOnline && <span className="match-card-online" aria-hidden="true" />}
-        </div>
-
-        {isApprovedCreator(profile) && (
-          <span className="match-card-creator-badge">
-            <IconStar />
-            Creator
-          </span>
-        )}
-
-        {profile.location && (
-          <p className="match-card-location">{profile.location}</p>
-        )}
-
-        {profile.bio && <p className="match-card-bio">{profile.bio}</p>}
-
-        {Array.isArray(profile.tags) && profile.tags.length > 0 && (
-          <ul className="match-card-tags">
-            {profile.tags
-              .filter((tag) => tag && typeof tag === "string" && tag.trim())
-              .slice(0, 3)
-              .map((tag) => (
-                <li key={tag}>{tag}</li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <style jsx>{`
-        .match-card {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 3 / 4;
-          max-height: 60vh;
-          border-radius: 24px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-        }
-        .match-card-media {
-          position: absolute;
-          inset: 0;
-        }
-        .match-card-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .match-card-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .match-card-placeholder :global(.match-card-placeholder-icon) {
-          color: rgba(255, 255, 255, 0.55);
-          opacity: 0.85;
-        }
-        .match-card-shade {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 35%,
-            rgba(15, 8, 33, 0.55) 75%,
-            rgba(15, 8, 33, 0.92) 100%
-          );
-          pointer-events: none;
-        }
-        .match-card-info {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 1rem 1.25rem 1.25rem;
-          color: #fff;
-        }
-        .match-card-name-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .match-card-name {
-          margin: 0;
-          font-size: 1.4rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-        }
-        .match-card-online {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
-        }
-        .match-card-creator-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.4rem;
-          padding: 0.25rem 0.65rem;
-          font-size: 0.7rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          color: #e040fb;
-          background: rgba(224, 64, 251, 0.18);
-          border: 1px solid rgba(224, 64, 251, 0.4);
-          border-radius: 999px;
-        }
-        .match-card-location {
-          margin: 0.4rem 0 0;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .match-card-bio {
-          margin: 0.5rem 0 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-          color: rgba(255, 255, 255, 0.85);
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .match-card-tags {
-          list-style: none;
-          padding: 0;
-          margin: 0.7rem 0 0;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .match-card-tags li {
-          font-size: 0.7rem;
-          font-weight: 700;
-          padding: 0.25rem 0.6rem;
-          border-radius: 999px;
-          background: rgba(139, 92, 246, 0.22);
-          border: 1px solid rgba(139, 92, 246, 0.35);
-          color: #c4b5fd;
-        }
-      `}</style>
-    </article>
   );
 }
 

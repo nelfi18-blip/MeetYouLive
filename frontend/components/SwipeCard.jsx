@@ -122,7 +122,6 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
           </div>
         )}
         
-        {/* SPARK Overlay (Like) */}
         <motion.div 
           className="swipe-overlay swipe-overlay-spark"
           style={{ opacity: likeOpacity }}
@@ -131,12 +130,10 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
             <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" className="swipe-overlay-icon">
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
             </svg>
-            <span className="swipe-overlay-text">SPARK</span>
           </div>
           <div className="swipe-glow-ring" />
         </motion.div>
         
-        {/* FADE Overlay (Pass) */}
         <motion.div 
           className="swipe-overlay swipe-overlay-fade"
           style={{ opacity: nopeOpacity }}
@@ -146,7 +143,6 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
               <circle cx="12" cy="12" r="10" opacity="0.3" />
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
             </svg>
-            <span className="swipe-overlay-text">FADE</span>
           </div>
           <div className="swipe-glow-ring" />
         </motion.div>

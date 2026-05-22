@@ -145,23 +145,29 @@ export default function FeedPage() {
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
 
-  const handleSwipe = (profileId, direction) => {
-    if (direction !== "right" || !profileId) {
+  const handleSwipe = async (profileId, direction) => {
+    if (direction !== "right") {
       advance();
       return;
     }
 
-    fetch(`${API_URL}/api/match/like`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.backendToken}`,
-      },
-      body: JSON.stringify({ userId: profileId }),
-    }).catch((err) => {
+    if (!profileId) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/match/like`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.backendToken}`,
+        },
+        body: JSON.stringify({ userId: profileId }),
+      });
+      if (!res.ok) throw new Error("Failed to record like");
+      advance();
+    } catch (err) {
       console.error("Like error:", err);
-    });
-    advance();
+      setError("No pudimos registrar tu me gusta. Intenta de nuevo.");
+    }
   };
 
   /* --------------------------- Render --------------------------- */

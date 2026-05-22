@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -133,14 +133,10 @@ export default function FeedPage() {
     };
   }, [status, session?.backendToken, session?.user?.id, t]);
 
-  const visibleProfileStack = useMemo(
-    () =>
-      profiles
-        .slice(currentIndex, currentIndex + 3)
-        .map((profile, stackIndex) => ({ profile, stackIndex }))
-        .reverse(),
-    [profiles, currentIndex]
-  );
+  const visibleProfileStack = [];
+  for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
+    visibleProfileStack.push({ profile: profiles[i], stackIndex: i - currentIndex });
+  }
 
   /* --------------------------- Actions --------------------------- */
   const advance = () => setCurrentIndex((i) => i + 1);
@@ -166,7 +162,7 @@ export default function FeedPage() {
       advance();
     } catch (err) {
       console.error("Like error:", err);
-      setError("No pudimos registrar tu me gusta. Intenta de nuevo.");
+      setError(t("feed.likeError"));
     }
   };
 
@@ -214,7 +210,7 @@ export default function FeedPage() {
       <FeedHeader />
 
       {/* 2. MODERN SWIPE DECK */}
-      <section className="feed-section feed-match-section" aria-label="Perfiles recomendados">
+      <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite">
             {visibleProfileStack.map(({ profile, stackIndex }) => {

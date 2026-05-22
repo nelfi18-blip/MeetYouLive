@@ -119,7 +119,9 @@
     "greetingError": "Error sending greeting",
     "serverStarting": "The server is starting up. This may take a few seconds on the first attempt.",
     "networkError": "Cannot connect to server. Please check your connection.",
-    "genericError": "We couldn't load your feed. Please try again."
+    "genericError": "We couldn't load your feed. Please try again.",
+    "likeError": "We couldn't save your like. Please try again.",
+    "recommendedProfilesAria": "Recommended profiles"
   },
   "common": {
     "loading": "Loading...",

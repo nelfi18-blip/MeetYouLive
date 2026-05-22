@@ -119,7 +119,9 @@
     "greetingError": "Erro ao enviar saudação",
     "serverStarting": "O servidor está iniciando. Isso pode levar alguns segundos na primeira tentativa.",
     "networkError": "Não é possível conectar ao servidor. Verifique sua conexão.",
-    "genericError": "Não conseguimos carregar seu feed. Por favor, tente novamente."
+    "genericError": "Não conseguimos carregar seu feed. Por favor, tente novamente.",
+    "likeError": "Não conseguimos registrar sua curtida. Tente novamente.",
+    "recommendedProfilesAria": "Perfis recomendados"
   },
   "common": {
     "loading": "Carregando...",

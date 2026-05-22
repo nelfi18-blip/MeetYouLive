@@ -146,8 +146,10 @@ export default function FeedPage() {
   const advance = () => setCurrentIndex((i) => i + 1);
 
   const handleSwipe = (profileId, direction) => {
-    advance();
-    if (direction !== "right" || !profileId) return;
+    if (direction !== "right" || !profileId) {
+      advance();
+      return;
+    }
 
     fetch(`${API_URL}/api/match/like`, {
       method: "POST",
@@ -159,6 +161,7 @@ export default function FeedPage() {
     }).catch((err) => {
       console.error("Like error:", err);
     });
+    advance();
   };
 
   /* --------------------------- Render --------------------------- */
@@ -241,7 +244,6 @@ export default function FeedPage() {
 
       <style jsx>{`
         .feed-page {
-          min-height: 100vh;
           min-height: 100dvh;
           padding-bottom: calc(96px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);

@@ -295,13 +295,14 @@ export default function FeedPage() {
         }
         .feed-match-section {
           display: flex;
-          justify-content: center;
-          padding: 0.75rem 1rem 1rem;
+          justify-content: stretch;
+          padding: 0.75rem 0.75rem 1rem;
         }
 
         .feed-swipe-deck {
           position: relative;
-          width: min(100%, 420px);
+          width: 100%;
+          max-width: none;
           height: min(68vh, 620px);
           min-height: 480px;
           display: flex;
@@ -311,7 +312,7 @@ export default function FeedPage() {
 
         .feed-swipe-deck :global(.swipe-card-modern) {
           width: 100%;
-          max-width: 420px;
+          max-width: none;
           height: 100%;
           left: 0;
           right: 0;
@@ -325,13 +326,23 @@ export default function FeedPage() {
         }
 
         @media (max-width: 480px) {
-          .feed-match-section {
-            padding-inline: 0.75rem;
-          }
           .feed-swipe-deck {
             height: calc(100dvh - 168px);
             min-height: 430px;
             max-height: 610px;
+          }
+        }
+
+        @media (min-width: 769px) {
+          .feed-match-section {
+            justify-content: center;
+            padding-inline: 1rem;
+          }
+          .feed-swipe-deck {
+            max-width: 420px;
+          }
+          .feed-swipe-deck :global(.swipe-card-modern) {
+            max-width: 420px;
           }
         }
 

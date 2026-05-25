@@ -226,16 +226,16 @@ export default function FeedPage() {
   };
 
   /* --------------------------- Render --------------------------- */
+  const feedPageClassName = viewport.isMobile
+    ? "feed-page feed-page--mobile"
+    : "feed-page";
+  const feedPageStyle = {
+    ...(viewport.width ? { "--feed-vw": `${viewport.width}px` } : {}),
+    ...(viewport.height ? { "--feed-vh": `${viewport.height}px` } : {}),
+  };
+
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && (status === "loading" || (status === "authenticated" && loading))) {
-    const feedPageClassName = viewport.isMobile
-      ? "feed-page feed-page--mobile"
-      : "feed-page";
-    const feedPageStyle = {
-      ...(viewport.width ? { "--feed-vw": `${viewport.width}px` } : {}),
-      ...(viewport.height ? { "--feed-vh": `${viewport.height}px` } : {}),
-    };
-
     return (
       <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
@@ -250,7 +250,7 @@ export default function FeedPage() {
   // Error fallback (no floating initials, no orange overlay — just a clean card).
   if (error) {
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-error">
           <IconAlert />
@@ -272,7 +272,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
 
   return (
-    <div className="feed-page">
+    <div className={feedPageClassName} style={feedPageStyle}>
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 

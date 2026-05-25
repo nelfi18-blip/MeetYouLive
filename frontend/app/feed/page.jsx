@@ -14,6 +14,7 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
 // sitting on a spinner indefinitely on slow connections or Render cold starts.
+// This is longer than the backend-token request timeout so recovery can settle.
 const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 
@@ -158,7 +159,7 @@ export default function FeedPage() {
     if (status !== "authenticated") return undefined;
 
     if (!session?.googleEmail) {
-      setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
+      setError(t("feed.genericError"));
       setLoading(false);
       return undefined;
     }
@@ -190,25 +191,20 @@ export default function FeedPage() {
           }
         }
 
-        let message = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
+        let message = t("feed.genericError");
         if (response.status === 401 || response.status === 403) {
-          message = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+          message = t("feed.sessionExpired");
         } else if (response.status >= 500) {
-          message =
-            (t && t("feed.serverStarting")) ||
-            "El servidor está tardando en responder. Por favor, intenta de nuevo.";
+          message = t("feed.serverStarting");
         }
         setError(message);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
         if (err.name === "AbortError") {
-          setError(
-            (t && t("feed.serverStarting")) ||
-              "El servidor está tardando en responder. Por favor, intenta de nuevo."
-          );
+          setError(t("feed.serverStarting"));
         } else {
-          setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          setError(t("feed.genericError"));
         }
         setLoading(false);
       } finally {
@@ -246,7 +242,7 @@ export default function FeedPage() {
     setError(null);
 
     if (!API_URL) {
-      setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
+      setError(t("feed.genericError"));
       setLoading(false);
       return undefined;
     }
@@ -266,11 +262,11 @@ export default function FeedPage() {
         if (cancelled) return;
 
         if (!feedRes.ok) {
-          let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
+          let msg = t("feed.genericError");
           if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+            msg = t("feed.sessionExpired");
           } else if (feedRes.status >= 500) {
-            msg = "Error del servidor. Por favor, intenta de nuevo.";
+            msg = t("feed.serverError");
           }
           throw new Error(msg);
         }
@@ -287,12 +283,13 @@ export default function FeedPage() {
       } catch (err) {
         if (cancelled) return;
         if (err.name === "AbortError") {
-          setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
+          setError(t("feed.serverStarting"));
         } else {
-          setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
+          setError(err.message || t("feed.genericError"));
         }
       } finally {
         clearTimeout(timeoutId);
+        // A replacement request owns the loading state after cancellation.
         if (!cancelled) setLoading(false);
       }
     })();

@@ -120,6 +120,8 @@
     "serverStarting": "The server is starting up. This may take a few seconds on the first attempt.",
     "networkError": "Cannot connect to server. Please check your connection.",
     "genericError": "We couldn't load your feed. Please try again.",
+    "serverError": "Server error. Please try again.",
+    "sessionExpired": "Session expired. Please sign in again.",
     "likeError": "We couldn't save your like. Please try again.",
     "recommendedProfilesAria": "Recommended profiles"
   },

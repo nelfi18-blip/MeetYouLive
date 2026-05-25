@@ -124,6 +124,7 @@ a { color: inherit; text-decoration: none; }
   animation: page-fade-in 0.28s ease-out;
 }
 
+main.main-content.main-content-feed,
 main.main-content:has(.feed-page) {
   max-width: none;
   width: 100%;

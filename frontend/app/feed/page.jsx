@@ -247,6 +247,11 @@ export default function FeedPage() {
       <style jsx>{`
         .feed-page {
           min-height: 100dvh;
+          width: 100vw;
+          max-width: 100vw;
+          position: relative;
+          left: 50%;
+          margin-left: -50vw;
           padding-bottom: calc(96px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
           color: var(--text, #fff);

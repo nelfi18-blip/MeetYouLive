@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { fetchUserRole } from "@/lib/token";
+import { fetchUserRole, getToken, setToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -14,7 +14,8 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
 // sitting on a spinner indefinitely on slow connections or Render cold starts.
-const TOKEN_WAIT_TIMEOUT_MS = 8000;
+const TOKEN_WAIT_TIMEOUT_MS = 30000;
+const TOKEN_RECOVERY_TIMEOUT_MS = 22000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -48,6 +49,8 @@ export default function FeedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authToken, setAuthToken] = useState(null);
+  const tokenRecoveryAttemptedRef = useRef(false);
   const [viewport, setViewport] = useState({
     ready: false,
     width: null,
@@ -103,16 +106,16 @@ export default function FeedPage() {
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" && !getToken()) {
       router.replace("/login?callbackUrl=/feed");
     }
   }, [status, router]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
-    if (!session?.backendToken) return;
+    if (!authToken) return;
     let mounted = true;
-    fetchUserRole(session.backendToken)
+    fetchUserRole(authToken)
       .then((u) => {
         if (mounted && u?.role === "admin") router.replace("/admin");
       })
@@ -120,12 +123,105 @@ export default function FeedPage() {
     return () => {
       mounted = false;
     };
-  }, [session?.backendToken, router]);
+  }, [authToken, router]);
+
+  // Resolve a usable backend JWT for refresh and SPA navigation paths. On hard
+  // refresh, NextAuth can be authenticated before session.backendToken is
+  // available, so recover it through the server-side proxy or fall back to the
+  // locally persisted backend token.
+  useEffect(() => {
+    let cancelled = false;
+    let timeoutId;
+    let controller;
+
+    const localToken = getToken();
+
+    if (session?.backendToken) {
+      setToken(session.backendToken);
+      setAuthToken(session.backendToken);
+      setError(null);
+      return undefined;
+    }
+
+    if (localToken) {
+      setAuthToken(localToken);
+      return undefined;
+    }
+
+    if (status === "loading") return undefined;
+
+    if (status === "unauthenticated") {
+      setLoading(false);
+      return undefined;
+    }
+
+    if (status !== "authenticated") return undefined;
+
+    if (!session?.googleEmail) {
+      setError("No se pudo conectar con el servidor. Por favor, inicia sesión de nuevo.");
+      setLoading(false);
+      return undefined;
+    }
+
+    if (tokenRecoveryAttemptedRef.current) return undefined;
+    tokenRecoveryAttemptedRef.current = true;
+    setLoading(true);
+    setError(null);
+
+    controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), TOKEN_RECOVERY_TIMEOUT_MS);
+
+    (async () => {
+      try {
+        const response = await fetch("/api/auth/backend-token", {
+          method: "POST",
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.token) {
+            setToken(data.token);
+            setAuthToken(data.token);
+            setError(null);
+            return;
+          }
+        }
+
+        let message = "No pudimos recuperar tu sesión. Por favor, intenta de nuevo.";
+        if (response.status === 401 || response.status === 403) {
+          message = "Sesión expirada. Por favor, inicia sesión de nuevo.";
+        } else if (response.status >= 500) {
+          message = "El servidor está tardando en responder. Por favor, intenta de nuevo.";
+        }
+        setError(message);
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        if (err.name === "AbortError") {
+          setError("El servidor está tardando en responder. Por favor, intenta de nuevo.");
+        } else {
+          setError("No pudimos recuperar tu sesión. Por favor, intenta de nuevo.");
+        }
+        setLoading(false);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller?.abort();
+    };
+  }, [status, session?.backendToken, session?.googleEmail]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
   useEffect(() => {
-    if (status === "authenticated" && session?.backendToken) return;
+    if (authToken) return;
     if (status === "unauthenticated") return;
     const timer = setTimeout(() => {
       setLoading(false);
@@ -135,26 +231,35 @@ export default function FeedPage() {
       );
     }, TOKEN_WAIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [status, session?.backendToken, t]);
+  }, [status, authToken, t]);
 
-  // Fetch feed data once we're authenticated and the backend token is ready.
+  // Fetch feed data once a backend token is ready.
   useEffect(() => {
-    if (status !== "authenticated" || !session?.backendToken) return;
+    if (!authToken) return;
 
     let cancelled = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    setLoading(true);
+    setError(null);
+
+    if (!API_URL) {
+      clearTimeout(timeoutId);
+      controller.abort();
+      setError("No pudimos cargar tu feed. La API no está configurada.");
+      setLoading(false);
+      return undefined;
+    }
 
     (async () => {
       try {
         const feedRes = await fetch(`${API_URL}/api/feed`, {
-          headers: { Authorization: `Bearer ${session.backendToken}` },
+          headers: { Authorization: `Bearer ${authToken}` },
           signal: controller.signal,
           cache: "no-store",
         });
 
         if (cancelled) return;
-        clearTimeout(timeoutId);
 
         if (!feedRes.ok) {
           let msg = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
@@ -175,16 +280,16 @@ export default function FeedPage() {
         setProfiles(uniqueProfiles);
 
         setError(null);
-        setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        clearTimeout(timeoutId);
         if (err.name === "AbortError") {
           setError((t && t("feed.serverStarting")) || "El servidor está tardando en responder.");
         } else {
           setError(err.message || (t && t("feed.genericError")) || "No pudimos cargar tu feed");
         }
-        setLoading(false);
+      } finally {
+        clearTimeout(timeoutId);
+        if (!cancelled) setLoading(false);
       }
     })();
 
@@ -193,7 +298,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [status, session?.backendToken, session?.user?.id, t]);
+  }, [authToken, session?.user?.id, t]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -216,7 +321,7 @@ export default function FeedPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.backendToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ userId: profileId }),
       });
@@ -238,7 +343,7 @@ export default function FeedPage() {
   };
 
   // Loading spinner only while auth/data are pending and no error yet.
-  if (!error && (status === "loading" || (status === "authenticated" && loading))) {
+  if (!error && loading) {
     return (
       <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />

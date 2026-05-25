@@ -14,8 +14,8 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
 // sitting on a spinner indefinitely on slow connections or Render cold starts.
-const TOKEN_WAIT_TIMEOUT_MS = 30000;
-const TOKEN_RECOVERY_TIMEOUT_MS = 22000;
+const INIT_TIMEOUT_MS = 30000;
+const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -169,7 +169,7 @@ export default function FeedPage() {
     setError(null);
 
     controller = new AbortController();
-    timeoutId = setTimeout(() => controller.abort(), TOKEN_RECOVERY_TIMEOUT_MS);
+    timeoutId = setTimeout(() => controller.abort(), BACKEND_TOKEN_FETCH_TIMEOUT_MS);
 
     (async () => {
       try {
@@ -234,7 +234,7 @@ export default function FeedPage() {
         (t && t("feed.serverStarting")) ||
           "El servidor está tardando en responder. Por favor, intenta de nuevo."
       );
-    }, TOKEN_WAIT_TIMEOUT_MS);
+    }, INIT_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [status, authToken, t]);
 
@@ -242,19 +242,18 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authToken) return;
 
-    let cancelled = false;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     setLoading(true);
     setError(null);
 
     if (!API_URL) {
-      clearTimeout(timeoutId);
-      controller.abort();
       setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
       setLoading(false);
       return undefined;
     }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     (async () => {
       try {

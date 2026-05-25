@@ -22,7 +22,12 @@ const MOBILE_BREAKPOINT_PX = 768;
 
 // Mobile browsers can settle their visual viewport after first paint; recheck
 // shortly after mount so a hard refresh gets the same dimensions as SPA nav.
-const VIEWPORT_STABILIZATION_DELAY_MS = [120, 400, 900];
+const VIEWPORT_STABILIZATION_DELAYS_MS = [120, 400, 900];
+
+const getSmallestViewportValue = (...values) => {
+  const validValues = values.filter((value) => Number.isFinite(value) && value > 0);
+  return validValues.length ? Math.round(Math.min(...validValues)) : null;
+};
 
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
@@ -43,7 +48,6 @@ export default function FeedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deckReady, setDeckReady] = useState(false);
   const [viewport, setViewport] = useState({
     ready: false,
     width: null,
@@ -52,11 +56,6 @@ export default function FeedPage() {
   });
 
   useEffect(() => {
-    const getSmallestViewportValue = (...values) => {
-      const validValues = values.filter((value) => Number.isFinite(value) && value > 0);
-      return validValues.length ? Math.round(Math.min(...validValues)) : null;
-    };
-
     let frameId;
     const measureViewport = () => {
       if (frameId) cancelAnimationFrame(frameId);
@@ -80,12 +79,11 @@ export default function FeedPage() {
           height,
           isMobile: (width || 0) <= MOBILE_BREAKPOINT_PX,
         });
-        setDeckReady(true);
       });
     };
 
     measureViewport();
-    const timeoutIds = VIEWPORT_STABILIZATION_DELAY_MS.map((delay) =>
+    const timeoutIds = VIEWPORT_STABILIZATION_DELAYS_MS.map((delay) =>
       setTimeout(measureViewport, delay)
     );
     window.addEventListener("resize", measureViewport);
@@ -285,7 +283,7 @@ export default function FeedPage() {
       <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
-            {deckReady && viewport.ready
+            {viewport.ready
               ? visibleProfileStack.map(({ profile, stackIndex }) => {
                   const isTopCard = stackIndex === 0;
                   return (

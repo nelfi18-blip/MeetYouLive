@@ -5,7 +5,7 @@ import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-mo
 import { getUserImage, getDisplayName } from "@/lib/imageHelpers";
 import Link from "next/link";
 
-export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
+export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive = true }) {
   const [exitX, setExitX] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const x = useMotionValue(0);
@@ -16,6 +16,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
 
   const handleDragEnd = (event, info) => {
+    if (!isActive) return;
+
     if (Math.abs(info.offset.x) > 100) {
       setExitX(info.offset.x > 0 ? 300 : -300);
       const direction = info.offset.x > 0 ? "right" : "left";
@@ -61,6 +63,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
     }
   };
 
+  const cardClassName = `swipe-card-modern${isActive ? "" : " swipe-card-modern--background"}`;
+
   return (
     <motion.div
       style={{
@@ -70,12 +74,13 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
         zIndex,
         ...style,
       }}
-      drag="x"
+      drag={isActive ? "x" : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      onDragEnd={handleDragEnd}
+      onDragEnd={isActive ? handleDragEnd : undefined}
       animate={exitX !== 0 ? { x: exitX } : {}}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="swipe-card-modern"
+      className={cardClassName}
+      aria-hidden={!isActive}
     >
       {/* Main Image */}
       <div 
@@ -102,100 +107,108 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex }) {
           </motion.div>
         </AnimatePresence>
         
-        {/* Photo Indicators */}
-        {photos.length > 1 && (
-          <div className="swipe-card-photo-indicators">
-            {photos.map((_, index) => (
-              <div
-                key={index}
-                className={`photo-indicator ${index === currentPhotoIndex ? 'active' : ''}`}
-              />
-            ))}
-          </div>
+        {isActive && (
+          <>
+            {/* Photo Indicators */}
+            {photos.length > 1 && (
+              <div className="swipe-card-photo-indicators">
+                {photos.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`photo-indicator ${index === currentPhotoIndex ? 'active' : ''}`}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Online Status Badge */}
+            {(isOnline || recentlyActive) && (
+              <div className="swipe-card-online-badge">
+                <span className="online-dot"></span>
+                {isOnline ? 'Online' : 'Active recently'}
+              </div>
+            )}
+            
+            <motion.div 
+              className="swipe-overlay swipe-overlay-spark"
+              style={{ opacity: likeOpacity }}
+            >
+              <div className="swipe-overlay-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" className="swipe-overlay-icon">
+                  <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                </svg>
+              </div>
+              <div className="swipe-glow-ring" />
+            </motion.div>
+            
+            <motion.div 
+              className="swipe-overlay swipe-overlay-fade"
+              style={{ opacity: nopeOpacity }}
+            >
+              <div className="swipe-overlay-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="swipe-overlay-icon">
+                  <circle cx="12" cy="12" r="10" opacity="0.3" />
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              </div>
+              <div className="swipe-glow-ring" />
+            </motion.div>
+          </>
         )}
-        
-        {/* Online Status Badge */}
-        {(isOnline || recentlyActive) && (
-          <div className="swipe-card-online-badge">
-            <span className="online-dot"></span>
-            {isOnline ? 'Online' : 'Active recently'}
-          </div>
-        )}
-        
-        <motion.div 
-          className="swipe-overlay swipe-overlay-spark"
-          style={{ opacity: likeOpacity }}
-        >
-          <div className="swipe-overlay-content">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" className="swipe-overlay-icon">
-              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-            </svg>
-          </div>
-          <div className="swipe-glow-ring" />
-        </motion.div>
-        
-        <motion.div 
-          className="swipe-overlay swipe-overlay-fade"
-          style={{ opacity: nopeOpacity }}
-        >
-          <div className="swipe-overlay-content">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="swipe-overlay-icon">
-              <circle cx="12" cy="12" r="10" opacity="0.3" />
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
-          </div>
-          <div className="swipe-glow-ring" />
-        </motion.div>
       </div>
 
       {/* Profile Info */}
-      <div className="swipe-card-info">
-        <div className="swipe-card-name-age">
-          <h3 className="swipe-card-name">
-            {displayName}
-            {profile.isVerified && (
-              <span className="swipe-card-verified" title="Verified">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </span>
-            )}
-          </h3>
-          {age && <span className="swipe-card-age">{age}</span>}
+      {isActive && (
+        <div className="swipe-card-info">
+          <div className="swipe-card-name-age">
+            <h3 className="swipe-card-name">
+              {displayName}
+              {profile.isVerified && (
+                <span className="swipe-card-verified" title="Verified">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </span>
+              )}
+            </h3>
+            {age && <span className="swipe-card-age">{age}</span>}
+          </div>
+          {(location || distance) && (
+            <div className="swipe-card-location">
+              {location && <span>{location}</span>}
+              {location && distance && <span> • </span>}
+              {distance && <span>{distance}</span>}
+            </div>
+          )}
+          
+          {/* Interests/Hobbies */}
+          {interests.length > 0 && (
+            <div className="swipe-card-interests">
+              {interests.slice(0, 3).map((interest, idx) => (
+                <span key={idx} className="interest-tag">
+                  {interest}
+                </span>
+              ))}
+              {interests.length > 3 && (
+                <span className="interest-tag interest-more">
+                  +{interests.length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        {(location || distance) && (
-          <div className="swipe-card-location">
-            {location && <span>{location}</span>}
-            {location && distance && <span> • </span>}
-            {distance && <span>{distance}</span>}
-          </div>
-        )}
-        
-        {/* Interests/Hobbies */}
-        {interests.length > 0 && (
-          <div className="swipe-card-interests">
-            {interests.slice(0, 3).map((interest, idx) => (
-              <span key={idx} className="interest-tag">
-                {interest}
-              </span>
-            ))}
-            {interests.length > 3 && (
-              <span className="interest-tag interest-more">
-                +{interests.length - 3}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Quick Info Button */}
-      <Link href={`/profile/${profile._id}`} className="swipe-card-info-btn" aria-label="View full profile">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-      </Link>
+      {isActive && (
+        <Link href={`/profile/${profile._id}`} className="swipe-card-info-btn" aria-label="View full profile">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </Link>
+      )}
     </motion.div>
   );
 }

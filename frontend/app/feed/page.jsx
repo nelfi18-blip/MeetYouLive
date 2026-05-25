@@ -18,6 +18,16 @@ const TOKEN_WAIT_TIMEOUT_MS = 8000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
+const MOBILE_BREAKPOINT_PX = 768;
+
+// Mobile browsers can settle their visual viewport after first paint; recheck
+// shortly after mount so a hard refresh gets the same dimensions as SPA nav.
+const VIEWPORT_STABILIZATION_DELAYS_MS = [120, 400, 900];
+
+const getSmallestViewportValue = (...values) => {
+  const validValues = values.filter((value) => Number.isFinite(value) && value > 0);
+  return validValues.length ? Math.round(Math.min(...validValues)) : null;
+};
 
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
@@ -38,10 +48,55 @@ export default function FeedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deckReady, setDeckReady] = useState(false);
+  const [viewport, setViewport] = useState({
+    ready: false,
+    width: null,
+    height: null,
+    isMobile: false,
+  });
 
   useEffect(() => {
-    setDeckReady(true);
+    let frameId;
+    const measureViewport = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const width = getSmallestViewportValue(
+          window.visualViewport?.width,
+          window.innerWidth,
+          document.documentElement?.clientWidth,
+          window.screen?.width
+        );
+        const height = getSmallestViewportValue(
+          window.visualViewport?.height,
+          window.innerHeight,
+          document.documentElement?.clientHeight,
+          window.screen?.height
+        );
+
+        setViewport({
+          ready: true,
+          width,
+          height,
+          isMobile: (width || 0) <= MOBILE_BREAKPOINT_PX,
+        });
+      });
+    };
+
+    measureViewport();
+    const timeoutIds = VIEWPORT_STABILIZATION_DELAYS_MS.map((delay) =>
+      setTimeout(measureViewport, delay)
+    );
+    window.addEventListener("resize", measureViewport);
+    window.addEventListener("orientationchange", measureViewport);
+    window.visualViewport?.addEventListener("resize", measureViewport);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      timeoutIds.forEach(clearTimeout);
+      window.removeEventListener("resize", measureViewport);
+      window.removeEventListener("orientationchange", measureViewport);
+      window.visualViewport?.removeEventListener("resize", measureViewport);
+    };
   }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -174,10 +229,18 @@ export default function FeedPage() {
   };
 
   /* --------------------------- Render --------------------------- */
+  const feedPageClassName = viewport.isMobile
+    ? "feed-page feed-page--mobile"
+    : "feed-page";
+  const feedPageStyle = {
+    ...(viewport.width ? { "--feed-vw": `${viewport.width}px` } : {}),
+    ...(viewport.height ? { "--feed-vh": `${viewport.height}px` } : {}),
+  };
+
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && (status === "loading" || (status === "authenticated" && loading))) {
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-loading">
           <div className="spinner" />
@@ -190,7 +253,7 @@ export default function FeedPage() {
   // Error fallback (no floating initials, no orange overlay — just a clean card).
   if (error) {
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-error">
           <IconAlert />
@@ -212,7 +275,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
 
   return (
-    <div className="feed-page">
+    <div className={feedPageClassName} style={feedPageStyle}>
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 
@@ -220,7 +283,7 @@ export default function FeedPage() {
       <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
-            {deckReady
+            {viewport.ready
               ? visibleProfileStack.map(({ profile, stackIndex }) => {
                   const isTopCard = stackIndex === 0;
                   return (
@@ -256,6 +319,9 @@ export default function FeedPage() {
 
       <style jsx>{`
         .feed-page {
+          --feed-mobile-reserved-space: 168px;
+          --feed-mobile-min-card-height: 430px;
+          --feed-mobile-max-card-height: 610px;
           min-height: 100dvh;
           padding-bottom: calc(96px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
@@ -354,6 +420,26 @@ export default function FeedPage() {
           .feed-swipe-deck :global(.swipe-card-modern) {
             max-width: 420px;
           }
+        }
+
+        .feed-page--mobile .feed-match-section {
+          padding: 0.75rem 0.75rem 1rem;
+        }
+        .feed-page--mobile .feed-swipe-deck {
+          width: 100%;
+          max-width: none;
+          height: clamp(
+            var(--feed-mobile-min-card-height),
+            calc(var(--feed-vh, 100dvh) - var(--feed-mobile-reserved-space)),
+            var(--feed-mobile-max-card-height)
+          );
+          min-height: var(--feed-mobile-min-card-height);
+          max-height: var(--feed-mobile-max-card-height);
+        }
+        .feed-page--mobile .feed-swipe-deck :global(.swipe-card-modern) {
+          width: 100%;
+          max-width: none;
+          height: 100%;
         }
 
         .feed-empty {

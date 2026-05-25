@@ -120,6 +120,8 @@
     "serverStarting": "El servidor está iniciando. Esto puede tomar unos segundos en el primer intento.",
     "networkError": "No se puede conectar al servidor. Verifica tu conexión.",
     "genericError": "No pudimos cargar tu feed. Por favor, intenta de nuevo.",
+    "serverError": "Error del servidor. Por favor, intenta de nuevo.",
+    "sessionExpired": "Sesión expirada. Por favor, inicia sesión de nuevo.",
     "likeError": "No pudimos registrar tu me gusta. Intenta de nuevo.",
     "recommendedProfilesAria": "Perfiles recomendados"
   },

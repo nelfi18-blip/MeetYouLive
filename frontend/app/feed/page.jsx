@@ -158,7 +158,7 @@ export default function FeedPage() {
     if (status !== "authenticated") return undefined;
 
     if (!session?.googleEmail) {
-      setError("No se pudo conectar con el servidor. Por favor, inicia sesión de nuevo.");
+      setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
       setLoading(false);
       return undefined;
     }
@@ -190,20 +190,25 @@ export default function FeedPage() {
           }
         }
 
-        let message = "No pudimos recuperar tu sesión. Por favor, intenta de nuevo.";
+        let message = (t && t("feed.genericError")) || "No pudimos cargar tu feed";
         if (response.status === 401 || response.status === 403) {
           message = "Sesión expirada. Por favor, inicia sesión de nuevo.";
         } else if (response.status >= 500) {
-          message = "El servidor está tardando en responder. Por favor, intenta de nuevo.";
+          message =
+            (t && t("feed.serverStarting")) ||
+            "El servidor está tardando en responder. Por favor, intenta de nuevo.";
         }
         setError(message);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
         if (err.name === "AbortError") {
-          setError("El servidor está tardando en responder. Por favor, intenta de nuevo.");
+          setError(
+            (t && t("feed.serverStarting")) ||
+              "El servidor está tardando en responder. Por favor, intenta de nuevo."
+          );
         } else {
-          setError("No pudimos recuperar tu sesión. Por favor, intenta de nuevo.");
+          setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
         }
         setLoading(false);
       } finally {
@@ -216,7 +221,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller?.abort();
     };
-  }, [status, session?.backendToken, session?.googleEmail]);
+  }, [status, session?.backendToken, session?.googleEmail, t]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
@@ -246,7 +251,7 @@ export default function FeedPage() {
     if (!API_URL) {
       clearTimeout(timeoutId);
       controller.abort();
-      setError("No pudimos cargar tu feed. La API no está configurada.");
+      setError((t && t("feed.genericError")) || "No pudimos cargar tu feed");
       setLoading(false);
       return undefined;
     }

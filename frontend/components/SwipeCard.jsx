@@ -63,10 +63,9 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive = 
     }
   };
 
-  const cardClassName = [
-    "swipe-card-modern",
-    !isActive && "swipe-card-modern--background",
-  ].filter(Boolean).join(" ");
+  const cardClassName = isActive
+    ? "swipe-card-modern"
+    : "swipe-card-modern swipe-card-modern--background";
 
   return (
     <motion.div

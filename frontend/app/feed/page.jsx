@@ -39,9 +39,61 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deckReady, setDeckReady] = useState(false);
+  const [viewport, setViewport] = useState({
+    ready: false,
+    width: null,
+    height: null,
+    isMobile: false,
+  });
 
   useEffect(() => {
-    setDeckReady(true);
+    const getSmallestViewportValue = (...values) => {
+      const validValues = values.filter((value) => Number.isFinite(value) && value > 0);
+      return validValues.length ? Math.round(Math.min(...validValues)) : null;
+    };
+
+    let frameId;
+    const measureViewport = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const width = getSmallestViewportValue(
+          window.visualViewport?.width,
+          window.innerWidth,
+          document.documentElement?.clientWidth,
+          window.screen?.width
+        );
+        const height = getSmallestViewportValue(
+          window.visualViewport?.height,
+          window.innerHeight,
+          document.documentElement?.clientHeight,
+          window.screen?.height
+        );
+
+        setViewport({
+          ready: true,
+          width,
+          height,
+          isMobile: (width || 0) <= 768,
+        });
+        setDeckReady(true);
+      });
+    };
+
+    measureViewport();
+    const timeoutIds = [120, 400, 900].map((delay) => setTimeout(measureViewport, delay));
+    window.addEventListener("resize", measureViewport);
+    window.addEventListener("orientationchange", measureViewport);
+    window.visualViewport?.addEventListener("resize", measureViewport);
+    window.visualViewport?.addEventListener("scroll", measureViewport);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      timeoutIds.forEach(clearTimeout);
+      window.removeEventListener("resize", measureViewport);
+      window.removeEventListener("orientationchange", measureViewport);
+      window.visualViewport?.removeEventListener("resize", measureViewport);
+      window.visualViewport?.removeEventListener("scroll", measureViewport);
+    };
   }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -176,8 +228,16 @@ export default function FeedPage() {
   /* --------------------------- Render --------------------------- */
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && (status === "loading" || (status === "authenticated" && loading))) {
+    const feedPageClassName = viewport.isMobile
+      ? "feed-page feed-page--mobile"
+      : "feed-page";
+    const feedPageStyle = {
+      ...(viewport.width ? { "--feed-vw": `${viewport.width}px` } : {}),
+      ...(viewport.height ? { "--feed-vh": `${viewport.height}px` } : {}),
+    };
+
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-loading">
           <div className="spinner" />
@@ -220,7 +280,7 @@ export default function FeedPage() {
       <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
-            {deckReady
+            {deckReady && viewport.ready
               ? visibleProfileStack.map(({ profile, stackIndex }) => {
                   const isTopCard = stackIndex === 0;
                   return (
@@ -354,6 +414,22 @@ export default function FeedPage() {
           .feed-swipe-deck :global(.swipe-card-modern) {
             max-width: 420px;
           }
+        }
+
+        .feed-page--mobile .feed-match-section {
+          padding: 0.75rem 0.75rem 1rem;
+        }
+        .feed-page--mobile .feed-swipe-deck {
+          width: 100%;
+          max-width: none;
+          height: clamp(430px, calc(var(--feed-vh, 100dvh) - 168px), 610px);
+          min-height: 430px;
+          max-height: 610px;
+        }
+        .feed-page--mobile .feed-swipe-deck :global(.swipe-card-modern) {
+          width: 100%;
+          max-width: none;
+          height: 100%;
         }
 
         .feed-empty {

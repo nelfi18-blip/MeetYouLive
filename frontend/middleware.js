@@ -4,9 +4,25 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // ── Homepage Protection ────────────────────────────────────────────────────
-  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
-  // This is a public landing page that should never redirect to admin or auth pages.
+  // The homepage (/) is the single canonical entry screen. Public,
+  // unauthenticated visitors always see the premium landing/login screen
+  // rendered by app/page.jsx. Authenticated users are routed to their
+  // correct surface so we don't end up with duplicate entry flows:
+  //   - admin session  → /admin
+  //   - regular user   → /feed (only once the backend handshake completed)
+  // We gate the regular-user redirect on `auth-session` (set after the
+  // backend JWT is confirmed) — not on the NextAuth cookie alone — to avoid
+  // the redirect loop that previously occurred while Google OAuth was still
+  // exchanging the backend token.
   if (pathname === "/") {
+    const adminSessionAtRoot = request.cookies.get("admin-session")?.value;
+    if (adminSessionAtRoot) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    const backendSessionAtRoot = request.cookies.get("auth-session")?.value;
+    if (backendSessionAtRoot) {
+      return NextResponse.redirect(new URL("/feed", request.url));
+    }
     return NextResponse.next();
   }
 

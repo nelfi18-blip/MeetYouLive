@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import SwipeCard from "@/components/SwipeCard";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
 
 // Hard ceiling on how long we wait for the NextAuth session / backend token
 // to hydrate before surfacing a friendly fallback. Prevents the page from
@@ -37,6 +38,11 @@ export default function FeedPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deckReady, setDeckReady] = useState(false);
+
+  useEffect(() => {
+    setDeckReady(true);
+  }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -110,6 +116,7 @@ export default function FeedPage() {
           new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
         );
 
+        setCurrentIndex(0);
         setProfiles(uniqueProfiles);
 
         setError(null);
@@ -212,25 +219,27 @@ export default function FeedPage() {
       {/* 2. MODERN SWIPE DECK */}
       <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         {hasMoreProfiles ? (
-          <div className="feed-swipe-deck" aria-live="polite">
-            {visibleProfileStack.map(({ profile, stackIndex }) => {
-              const isTopCard = stackIndex === 0;
-              return (
-                <SwipeCard
-                  key={profile._id}
-                  profile={profile}
-                  isActive={isTopCard}
-                  onSwipe={isTopCard ? handleSwipe : undefined}
-                  zIndex={30 - stackIndex}
-                  style={{
-                    y: stackIndex * 10,
-                    scale: 1 - stackIndex * 0.045,
-                    opacity: 1 - stackIndex * 0.12,
-                    pointerEvents: isTopCard ? "auto" : "none",
-                  }}
-                />
-              );
-            })}
+          <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
+            {deckReady
+              ? visibleProfileStack.map(({ profile, stackIndex }) => {
+                  const isTopCard = stackIndex === 0;
+                  return (
+                    <SwipeCard
+                      key={profile._id}
+                      profile={profile}
+                      isActive={isTopCard}
+                      onSwipe={isTopCard ? handleSwipe : undefined}
+                      zIndex={30 - stackIndex}
+                      style={{
+                        y: stackIndex * 10,
+                        scale: 1 - stackIndex * 0.045,
+                        opacity: 1 - stackIndex * 0.12,
+                        pointerEvents: isTopCard ? "auto" : "none",
+                      }}
+                    />
+                  );
+                })
+              : null}
           </div>
         ) : (
           <div className="feed-empty">

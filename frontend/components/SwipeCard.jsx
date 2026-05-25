@@ -63,7 +63,10 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive = 
     }
   };
 
-  const cardClassName = `swipe-card-modern${isActive ? "" : " swipe-card-modern--background"}`;
+  const cardClassName = [
+    "swipe-card-modern",
+    !isActive && "swipe-card-modern--background",
+  ].filter(Boolean).join(" ");
 
   return (
     <motion.div
@@ -85,8 +88,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive = 
       {/* Main Image */}
       <div 
         className="swipe-card-image-wrapper"
-        onClick={handlePhotoClick}
-        onTouchStart={handlePhotoClick}
+        onClick={isActive ? handlePhotoClick : undefined}
+        onTouchStart={isActive ? handlePhotoClick : undefined}
       >
         <AnimatePresence mode="wait">
           <motion.div

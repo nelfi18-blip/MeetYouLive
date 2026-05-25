@@ -219,6 +219,7 @@ export default function FeedPage() {
                 <SwipeCard
                   key={profile._id}
                   profile={profile}
+                  isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}
                   zIndex={30 - stackIndex}
                   style={{

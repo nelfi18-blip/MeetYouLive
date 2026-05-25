@@ -19,6 +19,10 @@ const TOKEN_WAIT_TIMEOUT_MS = 8000;
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
 
+// Mobile browsers can settle their visual viewport after first paint; recheck
+// shortly after mount so a hard refresh gets the same dimensions as SPA nav.
+const VIEWPORT_STABILIZATION_DELAYS_MS = [120, 400, 900];
+
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -80,11 +84,12 @@ export default function FeedPage() {
     };
 
     measureViewport();
-    const timeoutIds = [120, 400, 900].map((delay) => setTimeout(measureViewport, delay));
+    const timeoutIds = VIEWPORT_STABILIZATION_DELAYS_MS.map((delay) =>
+      setTimeout(measureViewport, delay)
+    );
     window.addEventListener("resize", measureViewport);
     window.addEventListener("orientationchange", measureViewport);
     window.visualViewport?.addEventListener("resize", measureViewport);
-    window.visualViewport?.addEventListener("scroll", measureViewport);
 
     return () => {
       if (frameId) cancelAnimationFrame(frameId);
@@ -92,7 +97,6 @@ export default function FeedPage() {
       window.removeEventListener("resize", measureViewport);
       window.removeEventListener("orientationchange", measureViewport);
       window.visualViewport?.removeEventListener("resize", measureViewport);
-      window.visualViewport?.removeEventListener("scroll", measureViewport);
     };
   }, []);
 

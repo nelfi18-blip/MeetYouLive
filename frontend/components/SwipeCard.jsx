@@ -5,7 +5,7 @@ import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-mo
 import { getUserImage, getDisplayName } from "@/lib/imageHelpers";
 import Link from "next/link";
 
-export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive = true }) {
+export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive }) {
   const [exitX, setExitX] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const x = useMotionValue(0);

@@ -18,10 +18,11 @@ const TOKEN_WAIT_TIMEOUT_MS = 8000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
+const MOBILE_BREAKPOINT_PX = 768;
 
 // Mobile browsers can settle their visual viewport after first paint; recheck
 // shortly after mount so a hard refresh gets the same dimensions as SPA nav.
-const VIEWPORT_STABILIZATION_DELAYS_MS = [120, 400, 900];
+const VIEWPORT_STABILIZATION_DELAY_MS = [120, 400, 900];
 
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
@@ -77,14 +78,14 @@ export default function FeedPage() {
           ready: true,
           width,
           height,
-          isMobile: (width || 0) <= 768,
+          isMobile: (width || 0) <= MOBILE_BREAKPOINT_PX,
         });
         setDeckReady(true);
       });
     };
 
     measureViewport();
-    const timeoutIds = VIEWPORT_STABILIZATION_DELAYS_MS.map((delay) =>
+    const timeoutIds = VIEWPORT_STABILIZATION_DELAY_MS.map((delay) =>
       setTimeout(measureViewport, delay)
     );
     window.addEventListener("resize", measureViewport);
@@ -320,6 +321,9 @@ export default function FeedPage() {
 
       <style jsx>{`
         .feed-page {
+          --feed-mobile-reserved-space: 168px;
+          --feed-mobile-min-card-height: 430px;
+          --feed-mobile-max-card-height: 610px;
           min-height: 100dvh;
           padding-bottom: calc(96px + env(safe-area-inset-bottom));
           background: var(--bg, #0f0821);
@@ -426,9 +430,13 @@ export default function FeedPage() {
         .feed-page--mobile .feed-swipe-deck {
           width: 100%;
           max-width: none;
-          height: clamp(430px, calc(var(--feed-vh, 100dvh) - 168px), 610px);
-          min-height: 430px;
-          max-height: 610px;
+          height: clamp(
+            var(--feed-mobile-min-card-height),
+            calc(var(--feed-vh, 100dvh) - var(--feed-mobile-reserved-space)),
+            var(--feed-mobile-max-card-height)
+          );
+          min-height: var(--feed-mobile-min-card-height);
+          max-height: var(--feed-mobile-max-card-height);
         }
         .feed-page--mobile .feed-swipe-deck :global(.swipe-card-modern) {
           width: 100%;

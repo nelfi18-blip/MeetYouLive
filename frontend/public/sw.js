@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v11";
+const CACHE_NAME = "meetyoulive-v12";
 const STATIC_ASSETS = [
   "/",
   "/offline",

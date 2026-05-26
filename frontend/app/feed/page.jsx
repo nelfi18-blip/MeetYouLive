@@ -386,7 +386,10 @@ export default function FeedPage() {
       <FeedHeader />
 
       {/* 2. MODERN SWIPE DECK */}
-      <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
+      <section
+        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
+        aria-label={t("feed.recommendedProfilesAria")}
+      >
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {viewport.ready
@@ -425,6 +428,8 @@ export default function FeedPage() {
 
       <style jsx>{`
         .feed-page {
+          --feed-header-height: calc(68px + env(safe-area-inset-top));
+          --feed-bottom-nav-height: calc(72px + env(safe-area-inset-bottom));
           --feed-mobile-reserved-space: 168px;
           --feed-mobile-min-card-height: 430px;
           --feed-mobile-max-card-height: 610px;
@@ -480,6 +485,14 @@ export default function FeedPage() {
           justify-content: stretch;
           padding: 0.75rem 0.75rem 1rem;
         }
+        .feed-match-section--empty {
+          box-sizing: border-box;
+          min-height: calc(
+            var(--feed-vh, 100dvh) - var(--feed-header-height) - var(--feed-bottom-nav-height)
+          );
+          align-items: center;
+          justify-content: center;
+        }
 
         .feed-swipe-deck {
           position: relative;
@@ -516,6 +529,9 @@ export default function FeedPage() {
         }
 
         @media (min-width: 769px) {
+          .feed-page {
+            --feed-bottom-nav-height: 0px;
+          }
           .feed-match-section {
             justify-content: center;
             padding-inline: 1rem;
@@ -530,6 +546,9 @@ export default function FeedPage() {
 
         .feed-page--mobile .feed-match-section {
           padding: 0.75rem 0.75rem 1rem;
+        }
+        .feed-page--mobile {
+          --feed-bottom-nav-height: calc(68px + env(safe-area-inset-bottom));
         }
         .feed-page--mobile .feed-swipe-deck {
           width: 100%;

@@ -528,6 +528,12 @@ export default function FeedPage() {
           }
         }
 
+        @media (max-width: 640px) {
+          .feed-page {
+            --feed-bottom-nav-height: calc(68px + env(safe-area-inset-bottom));
+          }
+        }
+
         @media (min-width: 769px) {
           .feed-page {
             --feed-bottom-nav-height: 0px;
@@ -546,9 +552,6 @@ export default function FeedPage() {
 
         .feed-page--mobile .feed-match-section {
           padding: 0.75rem 0.75rem 1rem;
-        }
-        .feed-page--mobile {
-          --feed-bottom-nav-height: calc(68px + env(safe-area-inset-bottom));
         }
         .feed-page--mobile .feed-swipe-deck {
           width: 100%;

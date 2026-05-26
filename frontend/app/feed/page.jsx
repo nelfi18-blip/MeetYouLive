@@ -318,7 +318,10 @@ export default function FeedPage() {
       <FeedHeader />
 
       {/* 2. MODERN SWIPE DECK */}
-      <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
+      <section
+        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
+        aria-label={t("feed.recommendedProfilesAria")}
+      >
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
@@ -357,10 +360,12 @@ export default function FeedPage() {
         .feed-page {
           --feed-header-height: calc(68px + env(safe-area-inset-top));
           --feed-bottom-nav-height: calc(68px + env(safe-area-inset-bottom));
-          min-height: 100vh;
+          --feed-content-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-deck-reserved-space: calc(168px + env(safe-area-inset-top) + env(safe-area-inset-bottom));
+          --feed-deck-mobile-reserved-space: calc(156px + env(safe-area-inset-top) + env(safe-area-inset-bottom));
           min-height: 100dvh;
           padding-bottom: calc(88px + env(safe-area-inset-bottom));
-          background: #0f0821;
+          background: var(--bg, #0f0821);
           color: var(--text, #fff);
           overflow-x: hidden;
         }
@@ -372,7 +377,7 @@ export default function FeedPage() {
           align-items: center;
           justify-content: center;
           gap: 0.75rem;
-          min-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          min-height: var(--feed-content-height);
           padding: 4rem 1.5rem;
           text-align: center;
           color: var(--text-muted, #a39ec0);
@@ -410,14 +415,17 @@ export default function FeedPage() {
           display: flex;
           justify-content: center;
           align-items: center;
-          min-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          min-height: var(--feed-content-height);
           padding: 0.75rem 1rem 1rem;
+        }
+        .feed-match-section--empty {
+          box-sizing: border-box;
         }
 
         .feed-swipe-deck {
           position: relative;
           width: min(100%, 420px);
-          height: clamp(430px, calc(100dvh - 168px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 610px);
+          height: clamp(430px, calc(100dvh - var(--feed-deck-reserved-space)), 610px);
           min-height: 430px;
           max-height: 610px;
           display: flex;
@@ -449,7 +457,7 @@ export default function FeedPage() {
           }
           .feed-swipe-deck {
             width: min(100%, 420px);
-            height: clamp(430px, calc(100dvh - 156px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 610px);
+            height: clamp(430px, calc(100dvh - var(--feed-deck-mobile-reserved-space)), 610px);
           }
         }
 

@@ -78,9 +78,11 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
       }}
       drag={isActive ? "x" : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.18}
+      dragMomentum={false}
       onDragEnd={isActive ? handleDragEnd : undefined}
-      animate={exitX !== 0 ? { x: exitX } : {}}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      animate={exitX !== 0 ? { x: exitX, opacity: 0.96 } : {}}
+      transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
       className={cardClassName}
       aria-hidden={!isActive}
     >
@@ -96,7 +98,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             className="swipe-card-image-container"
           >
             {currentPhoto ? (

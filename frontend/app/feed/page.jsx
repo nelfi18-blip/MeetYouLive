@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,7 +41,68 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [viewport, setViewport] = useState({ mounted: false, width: 0, height: 0 });
   const tokenRecoveryAttemptedRef = useRef(false);
+
+  const recalculateViewport = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const visualViewport = window.visualViewport;
+    const width = Math.round(
+      visualViewport?.width ||
+        window.innerWidth ||
+        document.documentElement.clientWidth ||
+        0
+    );
+    const height = Math.round(
+      visualViewport?.height ||
+        window.innerHeight ||
+        document.documentElement.clientHeight ||
+        0
+    );
+
+    setViewport((current) => {
+      if (current.mounted && current.width === width && current.height === height) {
+        return current;
+      }
+      return { mounted: true, width, height };
+    });
+  }, []);
+
+  useEffect(() => {
+    let frameId;
+    const scheduleRecalculate = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(recalculateViewport);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") scheduleRecalculate();
+    };
+
+    scheduleRecalculate();
+    const hydrationFrame = requestAnimationFrame(scheduleRecalculate);
+    const visualViewport = window.visualViewport;
+
+    window.addEventListener("resize", scheduleRecalculate);
+    window.addEventListener("orientationchange", scheduleRecalculate);
+    window.addEventListener("pageshow", scheduleRecalculate);
+    window.addEventListener("focus", scheduleRecalculate);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    visualViewport?.addEventListener("resize", scheduleRecalculate);
+    visualViewport?.addEventListener("scroll", scheduleRecalculate);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(hydrationFrame);
+      window.removeEventListener("resize", scheduleRecalculate);
+      window.removeEventListener("orientationchange", scheduleRecalculate);
+      window.removeEventListener("pageshow", scheduleRecalculate);
+      window.removeEventListener("focus", scheduleRecalculate);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      visualViewport?.removeEventListener("resize", scheduleRecalculate);
+      visualViewport?.removeEventListener("scroll", scheduleRecalculate);
+    };
+  }, [recalculateViewport]);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -274,11 +335,21 @@ export default function FeedPage() {
     }
   };
 
+  const feedPageClassName = `feed-page ${
+    viewport.mounted ? "feed-page--ready" : "feed-page--measuring"
+  }`;
+  const feedPageStyle = viewport.mounted
+    ? {
+        "--feed-viewport-width": `${viewport.width}px`,
+        "--feed-viewport-height": `${viewport.height}px`,
+      }
+    : undefined;
+
   /* --------------------------- Render --------------------------- */
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && loading) {
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-loading">
           <div className="spinner" />
@@ -291,7 +362,7 @@ export default function FeedPage() {
   // Error fallback (no floating initials, no orange overlay — just a clean card).
   if (error) {
     return (
-      <div className="feed-page">
+      <div className={feedPageClassName} style={feedPageStyle}>
         <FeedHeader />
         <div className="feed-error">
           <IconAlert />
@@ -313,7 +384,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
 
   return (
-    <div className="feed-page">
+    <div className={feedPageClassName} style={feedPageStyle}>
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 
@@ -355,14 +426,26 @@ export default function FeedPage() {
 
       <style jsx>{`
         .feed-page {
-          --feed-header-height: calc(68px + env(safe-area-inset-top));
-          --feed-bottom-nav-height: calc(68px + env(safe-area-inset-bottom));
+          --feed-safe-top: env(safe-area-inset-top);
+          --feed-safe-bottom: env(safe-area-inset-bottom);
+          --feed-screen-width: var(--feed-viewport-width, 100vw);
+          --feed-screen-height: var(--feed-viewport-height, 100dvh);
+          --feed-header-content-height: 68px;
+          --feed-bottom-nav-content-height: 68px;
+          --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
+          --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
+          --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           min-height: 100vh;
-          min-height: 100dvh;
-          padding-bottom: calc(88px + env(safe-area-inset-bottom));
+          min-height: var(--feed-screen-height);
+          padding-bottom: var(--feed-bottom-nav-height);
           background: #0f0821;
           color: var(--text, #fff);
           overflow-x: hidden;
+        }
+
+        .feed-page--measuring .feed-swipe-deck {
+          opacity: 0;
+          pointer-events: none;
         }
 
         .feed-loading,
@@ -372,7 +455,7 @@ export default function FeedPage() {
           align-items: center;
           justify-content: center;
           gap: 0.75rem;
-          min-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          min-height: max(280px, var(--feed-available-height));
           padding: 4rem 1.5rem;
           text-align: center;
           color: var(--text-muted, #a39ec0);
@@ -404,52 +487,59 @@ export default function FeedPage() {
         }
 
         .feed-section {
-          padding: 1rem;
+          padding: 0;
         }
         .feed-match-section {
           display: flex;
           justify-content: center;
-          align-items: center;
-          min-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          padding: 0.75rem 1rem 1rem;
+          align-items: flex-start;
+          min-height: var(--feed-available-height);
+          height: var(--feed-available-height);
+          padding: 8px 0 0;
+          box-sizing: border-box;
         }
 
         .feed-swipe-deck {
           position: relative;
-          width: min(100%, 420px);
-          height: clamp(430px, calc(100dvh - 168px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 610px);
-          min-height: 430px;
-          max-height: 610px;
+          width: calc(var(--feed-screen-width) - 16px);
+          max-width: 100%;
+          height: calc(100% - 8px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
           contain: layout paint;
+          border-radius: 22px;
+          transition: opacity 0.16s ease;
         }
 
         .feed-swipe-deck :global(.swipe-card-modern) {
           width: 100%;
-          max-width: 420px;
+          max-width: 100%;
           height: 100%;
           left: 0;
           right: 0;
           margin: 0 auto;
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(224, 64, 251, 0.18);
+          border-radius: inherit;
           transform-origin: center center;
           will-change: transform, opacity;
         }
 
         .feed-swipe-deck :global(.swipe-card-initial) {
-          font-size: 3rem;
+          font-size: clamp(2.5rem, 14vw, 4.5rem);
         }
 
-        @media (max-width: 480px) {
-          .feed-match-section {
-            padding-inline: 0.75rem;
+        @media (min-width: 641px) {
+          .feed-page {
+            --feed-bottom-nav-content-height: 72px;
           }
+        }
+
+        @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(100%, 420px);
-            height: clamp(430px, calc(100dvh - 156px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 610px);
+            width: min(calc(var(--feed-screen-width) - 32px), 420px);
+            max-height: 610px;
           }
         }
 

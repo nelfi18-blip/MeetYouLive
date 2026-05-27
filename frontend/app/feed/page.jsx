@@ -389,7 +389,10 @@ export default function FeedPage() {
       <FeedHeader />
 
       {/* 2. MODERN SWIPE DECK */}
-      <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
+      <section
+        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
+        aria-label={t("feed.recommendedProfilesAria")}
+      >
         {hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
@@ -436,9 +439,10 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           min-height: 100vh;
+          min-height: 100dvh;
           min-height: var(--feed-screen-height);
           padding-bottom: var(--feed-bottom-nav-height);
-          background: #0f0821;
+          background: var(--bg, #0f0821);
           color: var(--text, #fff);
           overflow-x: hidden;
         }
@@ -497,6 +501,11 @@ export default function FeedPage() {
           height: var(--feed-available-height);
           padding: 8px 0 0;
           box-sizing: border-box;
+        }
+        .feed-match-section--empty {
+          align-items: center;
+          box-sizing: border-box;
+          padding: 0.75rem 1rem 1rem;
         }
 
         .feed-swipe-deck {

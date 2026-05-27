@@ -613,8 +613,8 @@ function FeedHeader() {
           text-decoration: none;
         }
         .feed-header-logo {
-          width: 44px;
-          height: 44px;
+          width: clamp(76px, 20vw, 140px);
+          height: clamp(76px, 20vw, 140px);
           display: block;
           object-fit: contain;
         }

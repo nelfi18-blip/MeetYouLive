@@ -438,7 +438,6 @@ export default function FeedPage() {
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          min-height: 100vh;
           min-height: 100dvh;
           min-height: var(--feed-screen-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -504,7 +503,6 @@ export default function FeedPage() {
         }
         .feed-match-section--empty {
           align-items: center;
-          box-sizing: border-box;
           padding: 0.75rem 1rem 1rem;
         }
 

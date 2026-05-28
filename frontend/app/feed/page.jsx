@@ -46,7 +46,7 @@ export default function FeedPage() {
   // Keep the feed sized to the real visual viewport after refresh, resize, and
   // orientation changes without reading viewport values during render.
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof window === "undefined") return;
 
     let frameId = null;
 

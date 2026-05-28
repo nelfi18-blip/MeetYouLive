@@ -121,7 +121,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
                     next.add(currentPhoto);
                     return next;
                   });
-                  setCurrentPhotoIndex(0);
+                  const nextMaxIndex = Math.max(0, photos.length - 2);
+                  setCurrentPhotoIndex((index) => Math.min(index, nextMaxIndex));
                 }}
               />
             ) : (

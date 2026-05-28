@@ -2071,7 +2071,7 @@ main.main-content:has(.admin-shell) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 72px;
+  min-height: 72px;
   background: rgba(15, 8, 33, 0.95);
   backdrop-filter: blur(16px);
   border-top: 1px solid rgba(224, 64, 251, 0.15);
@@ -2079,6 +2079,7 @@ main.main-content:has(.admin-shell) {
   align-items: center;
   justify-content: space-around;
   padding: 0 16px;
+  padding-bottom: env(safe-area-inset-bottom);
   z-index: 1000;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
 }
@@ -2124,7 +2125,7 @@ main.main-content:has(.admin-shell) {
 
 @media (max-width: 640px) {
   .bottom-nav-modern {
-    height: 68px;
+    min-height: 68px;
   }
   
   .bottom-nav-modern .nav-item {
@@ -2134,6 +2135,17 @@ main.main-content:has(.admin-shell) {
   
   .bottom-nav-modern .nav-item span {
     font-size: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .bottom-nav-modern .nav-item {
+    min-width: 44px;
+    padding: 6px;
+  }
+
+  .bottom-nav-modern .nav-item span {
+    display: none;
   }
 }
 
@@ -2672,7 +2684,7 @@ main.main-content:has(.admin-shell) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
+  min-height: 80px;
   background: rgba(15, 8, 33, 0.98);
   backdrop-filter: blur(20px);
   border-top: 1px solid rgba(224, 64, 251, 0.2);
@@ -2680,6 +2692,7 @@ main.main-content:has(.admin-shell) {
   align-items: center;
   justify-content: space-around;
   padding: 0 16px;
+  padding-bottom: env(safe-area-inset-bottom);
   z-index: 1000;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
 }
@@ -2780,7 +2793,7 @@ main.main-content:has(.admin-shell) {
 
 .create-menu {
   position: fixed;
-  bottom: 100px;
+  bottom: calc(var(--bottom-nav-height, 80px) + 32px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   background: rgba(20, 12, 46, 0.98);
@@ -2879,8 +2892,9 @@ main.main-content:has(.admin-shell) {
 
 @media (max-width: 640px) {
   .bottom-nav-enhanced {
-    height: 72px;
+    min-height: 72px;
     padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   
   .bottom-nav-enhanced .nav-item {
@@ -2899,7 +2913,8 @@ main.main-content:has(.admin-shell) {
   }
   
   .create-menu {
-    bottom: 88px;
+    bottom: calc(72px + 24px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 32px);
   }
 }
 

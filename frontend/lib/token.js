@@ -13,6 +13,7 @@
 const COOKIE_NAME = "auth-session";
 const ADMIN_COOKIE_NAME = "admin-session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
+const FETCH_USER_ROLE_RETRY_DELAY_MS = 750;
 
 // Account switching constants
 export const SWITCHING_ACCOUNT_FLAG = "switching_account";
@@ -145,9 +146,10 @@ export function clearAllAuth() {
 /**
  * Fetch current user data from the backend API to check role and other info.
  * Returns the user object or null if the request fails.
- * Includes timeout to prevent infinite waiting.
+ * Includes timeout to prevent infinite waiting. `retries` is the number of
+ * additional attempts after the first request.
  */
-export async function fetchUserRole(token, timeoutMs = 10000) {
+export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
   if (!token) return null;
   
   const API_URL = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL 
@@ -159,35 +161,42 @@ export async function fetchUserRole(token, timeoutMs = 10000) {
     return null;
   }
   
-  try {
-    // Create abort controller for timeout
+  const totalAttempts = retries + 1;
+  for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(`${API_URL}/api/user/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.error("[fetchUserRole] Failed to fetch user data:", response.status);
-      return null;
+
+    try {
+      const response = await fetch(`${API_URL}/api/user/me`, {
+        headers: {
+          Authorization: "Bearer " + token,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.error("[fetchUserRole] Failed to fetch user data:", response.status);
+        if (response.status === 401 || response.status === 403 || attempt === totalAttempts - 1) {
+          return null;
+        }
+      } else {
+        return await response.json();
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error("[fetchUserRole] Request timeout after", timeoutMs, "ms");
+      } else {
+        console.error("[fetchUserRole] Error fetching user data:", error);
+      }
+      if (attempt === totalAttempts - 1) return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error("[fetchUserRole] Request timeout after", timeoutMs, "ms");
-    } else {
-      console.error("[fetchUserRole] Error fetching user data:", error);
-    }
-    return null;
+
+    await new Promise((resolve) => setTimeout(resolve, FETCH_USER_ROLE_RETRY_DELAY_MS));
   }
+
+  return null;
 }
 
 /**

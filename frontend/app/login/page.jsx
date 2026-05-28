@@ -197,7 +197,8 @@ function LoginForm() {
                 // screen visible prevents a flash of the login form before the
                 // router navigation completes.
                 setToken(data.token);
-                router.replace("/feed");
+                const user = await fetchUserRole(data.token, 15000, 1);
+                router.replace(user?.role === "admin" ? "/admin" : "/feed");
                 return;
               }
 

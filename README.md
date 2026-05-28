@@ -103,7 +103,7 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
-3. In **Project → Settings → Domains** add `meetyoulive.net`.
+3. In **Project → Settings → Domains** add `meetyoulive.net` as the primary domain and `www.meetyoulive.net` as a redirecting alias.
 4. In GoDaddy DNS set:
    - `A` record: `@` → `76.76.21.21`
    - `CNAME` record: `www` → `cname.vercel-dns.com`

@@ -26,6 +26,7 @@ App runs at [http://localhost:3000](http://localhost:3000).
 | Variable                      | Description                                             |
 |-------------------------------|---------------------------------------------------------|
 | `NEXTAUTH_URL`                | Canonical URL of the frontend (e.g. `http://localhost:3000`) |
+| `FRONTEND_URL`                | Canonical frontend URL for shared deployment configuration |
 | `NEXTAUTH_SECRET`             | Secret used by NextAuth to sign session cookies         |
 | `INTERNAL_API_SECRET`         | Shared secret for backend `/api/auth/google-session` call |
 | `NEXT_PUBLIC_API_URL`         | Backend API base URL (e.g. `https://api.meetyoulive.net`) |
@@ -61,3 +62,4 @@ App runs at [http://localhost:3000](http://localhost:3000).
 1. Import the repo in [Vercel](https://vercel.com) and set the **Root Directory** to `frontend`.
 2. Set the environment variables listed above.
 3. Add `meetyoulive.net` and `www.meetyoulive.net` in **Project → Settings → Domains**.
+4. Set `meetyoulive.net` as the primary domain; `www.meetyoulive.net` must redirect to it.

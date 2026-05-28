@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken } from "@/lib/token";
+import { clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
@@ -166,7 +166,7 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
 }
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
   const [user, setUser] = useState(null);
@@ -205,27 +205,67 @@ export default function ProfilePage() {
   const [boostSuccess, setBoostSuccess] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      clearToken();
-      router.replace("/login");
-      return;
-    }
+    let cancelled = false;
 
-    fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (r.status === 401) {
-          clearToken();
-          router.replace("/login");
+    const resolveToken = async () => {
+      let token = getToken();
+      if (token) return token;
+
+      if (session?.backendToken) {
+        setToken(session.backendToken);
+        return session.backendToken;
+      }
+
+      if (status === "authenticated" && session?.googleEmail) {
+        try {
+          const response = await fetch("/api/auth/backend-token", { method: "POST" });
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.token) {
+              setToken(data.token);
+              return data.token;
+            }
+          }
+        } catch {
           return null;
         }
-        if (!r.ok) throw new Error("Error al cargar perfil");
-        return r.json();
-      })
-      .then((d) => {
-        if (!d) return;
+      }
+
+      return null;
+    };
+
+    const loadProfile = async () => {
+      if (status === "loading") return;
+
+      const token = await resolveToken();
+      if (cancelled) return;
+
+      if (!token) {
+        clearToken();
+        router.replace("/login?callbackUrl=/profile");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const headers = { Authorization: "Bearer " + token };
+        const [profileRes, boostRes] = await Promise.all([
+          fetch(`${API_URL}/api/user/me`, { headers }),
+          fetch(`${API_URL}/api/matches/boost-status`, { headers }).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        if (profileRes.status === 401) {
+          clearToken();
+          router.replace("/login?callbackUrl=/profile");
+          return;
+        }
+        if (!profileRes.ok) throw new Error("Error al cargar perfil");
+
+        const d = await profileRes.json();
         const normalizedPhotos = normalizePhotoList(d.avatar, d.profilePhotos);
         const normalizedAvatar = normalizedPhotos[0] || "";
         const normalizedUser = { ...d, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
@@ -237,25 +277,27 @@ export default function ProfilePage() {
           avatar: normalizedUser.avatar || "",
           profilePhotos: normalizedUser.profilePhotos || [],
         });
-        // Sync the user's saved language preference (highest priority)
         if (d.preferredLanguage) syncFromUser(d.preferredLanguage);
-      })
-      .catch(() => setError("No se pudo cargar el perfil"))
-      .finally(() => setLoading(false));
 
-    // Load boost status in parallel
-    fetch(`${API_URL}/api/matches/boost-status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        if (!d) return;
-        setIsBoosted(d.isBoosted ?? false);
-        setBoostUntil(d.boostUntil ?? null);
-        setBoostPrice(d.boostPrice ?? 100);
-      })
-      .catch(() => {});
-  }, [router, syncFromUser]);
+        if (boostRes?.ok) {
+          const boostData = await boostRes.json();
+          setIsBoosted(boostData.isBoosted ?? false);
+          setBoostUntil(boostData.boostUntil ?? null);
+          setBoostPrice(boostData.boostPrice ?? 100);
+        }
+      } catch {
+        if (!cancelled) setError("No se pudo cargar el perfil");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, session?.backendToken, session?.googleEmail, status, syncFromUser]);
 
   const handleBoost = async () => {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);

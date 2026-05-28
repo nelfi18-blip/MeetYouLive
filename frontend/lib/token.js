@@ -147,7 +147,7 @@ export function clearAllAuth() {
  * Returns the user object or null if the request fails.
  * Includes timeout to prevent infinite waiting.
  */
-export async function fetchUserRole(token, timeoutMs = 10000) {
+export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
   if (!token) return null;
   
   const API_URL = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL 
@@ -159,35 +159,41 @@ export async function fetchUserRole(token, timeoutMs = 10000) {
     return null;
   }
   
-  try {
-    // Create abort controller for timeout
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(`${API_URL}/api/user/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.error("[fetchUserRole] Failed to fetch user data:", response.status);
-      return null;
+
+    try {
+      const response = await fetch(`${API_URL}/api/user/me`, {
+        headers: {
+          Authorization: "Bearer " + token,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.error("[fetchUserRole] Failed to fetch user data:", response.status);
+        if (response.status === 401 || response.status === 403 || attempt >= retries) {
+          return null;
+        }
+      } else {
+        return await response.json();
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error("[fetchUserRole] Request timeout after", timeoutMs, "ms");
+      } else {
+        console.error("[fetchUserRole] Error fetching user data:", error);
+      }
+      if (attempt >= retries) return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error("[fetchUserRole] Request timeout after", timeoutMs, "ms");
-    } else {
-      console.error("[fetchUserRole] Error fetching user data:", error);
-    }
-    return null;
+
+    await new Promise((resolve) => setTimeout(resolve, 750));
   }
+
+  return null;
 }
 
 /**

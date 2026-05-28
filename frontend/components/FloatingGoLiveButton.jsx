@@ -49,9 +49,9 @@ export default function FloatingGoLiveButton() {
       <style jsx>{`
         .floating-go-live-btn {
           position: fixed;
-          bottom: 100px;
+          bottom: calc(var(--bottom-nav-height, 80px) + 20px + env(safe-area-inset-bottom));
           right: 24px;
-          z-index: 150;
+          z-index: 950;
           display: flex;
           align-items: center;
           gap: 0.75rem;
@@ -115,7 +115,7 @@ export default function FloatingGoLiveButton() {
         /* Mobile responsive */
         @media (max-width: 768px) {
           .floating-go-live-btn {
-            bottom: 80px;
+            bottom: calc(68px + 16px + env(safe-area-inset-bottom));
             right: 16px;
             padding: 0.75rem 1.25rem;
             font-size: 0.875rem;

@@ -13,6 +13,7 @@
 const COOKIE_NAME = "auth-session";
 const ADMIN_COOKIE_NAME = "admin-session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
+const FETCH_USER_ROLE_RETRY_DELAY_MS = 750;
 
 // Account switching constants
 export const SWITCHING_ACCOUNT_FLAG = "switching_account";
@@ -145,7 +146,8 @@ export function clearAllAuth() {
 /**
  * Fetch current user data from the backend API to check role and other info.
  * Returns the user object or null if the request fails.
- * Includes timeout to prevent infinite waiting.
+ * Includes timeout to prevent infinite waiting. `retries` is the number of
+ * additional attempts after the first request.
  */
 export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
   if (!token) return null;
@@ -190,7 +192,7 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
       clearTimeout(timeoutId);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    await new Promise((resolve) => setTimeout(resolve, FETCH_USER_ROLE_RETRY_DELAY_MS));
   }
 
   return null;

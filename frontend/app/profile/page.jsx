@@ -52,7 +52,8 @@ const parseUploadResponseBody = async (res) => {
     } catch {
       return { raw: text };
     }
-  } catch {
+  } catch (err) {
+    console.error("[profile] backend-token recovery failed:", err);
     return null;
   }
 };
@@ -285,7 +286,8 @@ export default function ProfilePage() {
           setBoostUntil(boostData.boostUntil ?? null);
           setBoostPrice(boostData.boostPrice ?? 100);
         }
-      } catch {
+      } catch (err) {
+        console.error("[profile] failed to load profile:", err);
         if (!cancelled) setError("No se pudo cargar el perfil");
       } finally {
         if (!cancelled) setLoading(false);

@@ -17,12 +17,7 @@ function resolveRedirectOrigin(baseUrl) {
 }
 
 function isSafeCallbackPath(pathname) {
-  return (
-    pathname !== "/" &&
-    pathname !== "/login" &&
-    pathname !== "/register" &&
-    !pathname.startsWith("/api/auth")
-  );
+  return pathname !== "/" && !pathname.startsWith("/api/auth");
 }
 
 function normalizeRedirectUrl(url, baseUrl) {

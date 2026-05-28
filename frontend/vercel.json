@@ -1,16 +1,3 @@
 {
-  "framework": "nextjs",
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.meetyoulive.net"
-        }
-      ],
-      "destination": "https://meetyoulive.net/:path*",
-      "permanent": true
-    }
-  ]
+  "framework": "nextjs"
 }

@@ -1,4 +1,50 @@
 import GoogleProvider from "next-auth/providers/google";
+import { CANONICAL_HOST, CANONICAL_SITE_URL } from "@/lib/site";
+import {
+  DEFAULT_AUTH_REDIRECT,
+  normalizeNextAuthRedirectPath,
+} from "@/lib/redirects";
+
+const CANONICAL_ORIGIN = new URL(CANONICAL_SITE_URL).origin;
+const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
+
+function resolveRedirectOrigin(baseUrl) {
+  try {
+    const base = new URL(baseUrl);
+    if (base.hostname === CANONICAL_HOST || base.hostname === WWW_CANONICAL_HOST) {
+      return CANONICAL_ORIGIN;
+    }
+    return base.origin;
+  } catch {
+    return CANONICAL_ORIGIN;
+  }
+}
+
+function normalizeRedirectUrl(url, baseUrl) {
+  const redirectOrigin = resolveRedirectOrigin(baseUrl);
+
+  if (url.startsWith("/") && !url.startsWith("//")) {
+    return `${redirectOrigin}${normalizeNextAuthRedirectPath(url)}`;
+  }
+
+  try {
+    const target = new URL(url);
+    const allowedHosts = new Set([
+      CANONICAL_HOST,
+      WWW_CANONICAL_HOST,
+    ]);
+
+    if (!allowedHosts.has(target.hostname)) {
+      return `${redirectOrigin}${DEFAULT_AUTH_REDIRECT}`;
+    }
+
+    return `${redirectOrigin}${normalizeNextAuthRedirectPath(
+      `${target.pathname}${target.search}${target.hash}`
+    )}`;
+  } catch {
+    return `${redirectOrigin}${DEFAULT_AUTH_REDIRECT}`;
+  }
+}
 
 /**
  * Shared NextAuth configuration.
@@ -28,6 +74,10 @@ export const authOptions = {
   callbacks: {
     async signIn() {
       return true;
+    },
+
+    async redirect({ url, baseUrl }) {
+      return normalizeRedirectUrl(url, baseUrl);
     },
 
     async jwt({ token, profile }) {

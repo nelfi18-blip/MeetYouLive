@@ -1,14 +1,49 @@
 import { NextResponse } from "next/server";
 import { CANONICAL_HOST } from "@/lib/site";
+import { normalizeCallbackPath } from "@/lib/redirects";
 
-export function middleware(request) {
+const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
+
+function redirectToCanonicalHost(request) {
   const hostname = request.headers.get("host")?.split(":")[0].toLowerCase();
 
-  if (hostname === `www.${CANONICAL_HOST}`) {
-    const url = request.nextUrl.clone();
-    url.protocol = "https";
-    url.hostname = CANONICAL_HOST;
-    return NextResponse.redirect(url, 308);
+  if (hostname !== WWW_CANONICAL_HOST) {
+    return null;
+  }
+
+  const url = request.nextUrl.clone();
+  url.protocol = "https";
+  url.hostname = CANONICAL_HOST;
+  url.port = "";
+
+  return NextResponse.redirect(url, 308);
+}
+
+function redirectToPath(request, pathname) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  // Drop stale route-specific query params when forcing a known safe route.
+  url.search = "";
+  return NextResponse.redirect(url);
+}
+
+function redirectToLogin(request) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  // Keep only callbackUrl so protected-route params are preserved inside it
+  // instead of leaking onto /login as unrelated top-level query params.
+  url.search = "";
+  url.searchParams.set(
+    "callbackUrl",
+    normalizeCallbackPath(`${request.nextUrl.pathname}${request.nextUrl.search}`)
+  );
+  return NextResponse.redirect(url);
+}
+
+export function middleware(request) {
+  const canonicalRedirect = redirectToCanonicalHost(request);
+  if (canonicalRedirect) {
+    return canonicalRedirect;
   }
 
   const { pathname } = request.nextUrl;
@@ -70,26 +105,28 @@ export function middleware(request) {
   const isAdminLoginPage = pathname === "/admin/login";
 
   if (isAdminRoute && !isAdminLoginPage && !adminSession) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return redirectToPath(request, "/admin/login");
   }
 
   // Already-authenticated admin on admin login page → send to dashboard.
   if (isAdminLoginPage && adminSession) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return redirectToPath(request, "/admin");
   }
 
   // Admin users must not access regular user pages.
   // Redirect to /admin/blocked only for protected routes so they see an explanation.
   // For auth pages, redirect directly to /admin (they shouldn't be logging in again).
   if (adminSession && isProtectedRoute) {
-    const url = new URL("/admin/blocked", request.url);
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/blocked";
+    url.search = "";
     url.searchParams.set("from", pathname);
     return NextResponse.redirect(url);
   }
 
   // Admins on auth pages (trying to login again) → send to admin dashboard
   if (adminSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return redirectToPath(request, "/admin");
   }
 
   // ── Regular user routing ───────────────────────────────────────────────────
@@ -101,13 +138,13 @@ export function middleware(request) {
   // middleware would immediately bounce back to home — infinitely.
   // Regular authenticated users on auth pages should go to /feed, not homepage.
   if (backendSession && isAuthPage) {
-    return NextResponse.redirect(new URL("/feed", request.url));
+    return redirectToPath(request, "/feed");
   }
 
   // Block unauthenticated access to protected routes (either session type is
   // sufficient here; the page itself validates the backend token).
   if (!backendSession && !nextAuthSession && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectToLogin(request);
   }
 
   return NextResponse.next();

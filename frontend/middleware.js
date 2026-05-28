@@ -1,7 +1,28 @@
 import { NextResponse } from "next/server";
+import { CANONICAL_HOST } from "@/lib/site";
 
 export function middleware(request) {
+  const hostname = request.headers.get("host")?.split(":")[0].toLowerCase();
+
+  if (hostname === `www.${CANONICAL_HOST}`) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https";
+    url.hostname = CANONICAL_HOST;
+    return NextResponse.redirect(url, 308);
+  }
+
   const { pathname } = request.nextUrl;
+
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/static") ||
+    pathname.startsWith("/_next/image") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/favicon.svg" ||
+    /\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$/.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
 
   // ── Homepage Protection ────────────────────────────────────────────────────
   // The homepage (/) must ALWAYS be accessible to everyone without redirects.
@@ -93,13 +114,5 @@ export function middleware(request) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Excluir:
-     * - auth API
-     * - archivos internos de Next.js
-     * - archivos estáticos comunes
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|favicon.svg|logo.png|.*\\.(?:png|jpg|jpeg|svg|webp|gif|css|js)$).*)",
-  ],
+  matcher: ["/:path*"],
 };

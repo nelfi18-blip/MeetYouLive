@@ -11,7 +11,7 @@ function redirectToCanonicalHost(request) {
   }
 
   const url = request.nextUrl.clone();
-  url.protocol = "https:";
+  url.protocol = "https";
   url.hostname = CANONICAL_HOST;
   url.port = "";
 

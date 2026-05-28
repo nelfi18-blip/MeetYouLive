@@ -3,6 +3,7 @@ import { CANONICAL_HOST, CANONICAL_SITE_URL } from "@/lib/site";
 
 const CANONICAL_ORIGIN = new URL(CANONICAL_SITE_URL).origin;
 const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
+const DEFAULT_CALLBACK_PATH = "/feed";
 
 function resolveRedirectOrigin(baseUrl) {
   try {
@@ -29,7 +30,7 @@ function normalizeRedirectUrl(url, baseUrl) {
     const pathUrl = new URL(url, redirectOrigin);
     return isSafeCallbackPath(pathUrl.pathname)
       ? `${redirectOrigin}${pathUrl.pathname}${pathUrl.search}${pathUrl.hash}`
-      : `${redirectOrigin}/feed`;
+      : `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
   }
 
   try {
@@ -40,14 +41,14 @@ function normalizeRedirectUrl(url, baseUrl) {
     ]);
 
     if (!allowedHosts.has(target.hostname)) {
-      return `${redirectOrigin}/feed`;
+      return `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
     }
 
     return isSafeCallbackPath(target.pathname)
       ? `${redirectOrigin}${target.pathname}${target.search}${target.hash}`
-      : `${redirectOrigin}/feed`;
+      : `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
   } catch {
-    return `${redirectOrigin}/feed`;
+    return `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
   }
 }
 

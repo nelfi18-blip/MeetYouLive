@@ -1,9 +1,12 @@
 import GoogleProvider from "next-auth/providers/google";
 import { CANONICAL_HOST, CANONICAL_SITE_URL } from "@/lib/site";
+import {
+  DEFAULT_AUTH_REDIRECT,
+  normalizeNextAuthRedirectPath,
+} from "@/lib/redirects";
 
 const CANONICAL_ORIGIN = new URL(CANONICAL_SITE_URL).origin;
 const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
-const DEFAULT_CALLBACK_PATH = "/feed";
 
 function resolveRedirectOrigin(baseUrl) {
   try {
@@ -17,20 +20,11 @@ function resolveRedirectOrigin(baseUrl) {
   }
 }
 
-function isSafeCallbackPath(pathname) {
-  // Root immediately routes based on auth state, and /api/auth is handled by
-  // NextAuth itself; sending users there as callback targets can recurse.
-  return pathname !== "/" && !pathname.startsWith("/api/auth");
-}
-
 function normalizeRedirectUrl(url, baseUrl) {
   const redirectOrigin = resolveRedirectOrigin(baseUrl);
 
   if (url.startsWith("/") && !url.startsWith("//")) {
-    const pathUrl = new URL(url, redirectOrigin);
-    return isSafeCallbackPath(pathUrl.pathname)
-      ? `${redirectOrigin}${pathUrl.pathname}${pathUrl.search}${pathUrl.hash}`
-      : `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
+    return `${redirectOrigin}${normalizeNextAuthRedirectPath(url)}`;
   }
 
   try {
@@ -41,14 +35,14 @@ function normalizeRedirectUrl(url, baseUrl) {
     ]);
 
     if (!allowedHosts.has(target.hostname)) {
-      return `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
+      return `${redirectOrigin}${DEFAULT_AUTH_REDIRECT}`;
     }
 
-    return isSafeCallbackPath(target.pathname)
-      ? `${redirectOrigin}${target.pathname}${target.search}${target.hash}`
-      : `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
+    return `${redirectOrigin}${normalizeNextAuthRedirectPath(
+      `${target.pathname}${target.search}${target.hash}`
+    )}`;
   } catch {
-    return `${redirectOrigin}${DEFAULT_CALLBACK_PATH}`;
+    return `${redirectOrigin}${DEFAULT_AUTH_REDIRECT}`;
   }
 }
 

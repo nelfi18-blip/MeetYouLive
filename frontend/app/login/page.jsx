@@ -5,6 +5,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
+import { normalizeCallbackPath } from "@/lib/redirects";
 import { setToken, clearToken, fetchUserRole } from "@/lib/token";
 import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -14,36 +15,9 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
-const DEFAULT_AUTH_REDIRECT = "/feed";
 
 function getSafeCallbackPath(searchParams) {
-  const callbackUrl = searchParams.get("callbackUrl");
-
-  if (!callbackUrl) {
-    return DEFAULT_AUTH_REDIRECT;
-  }
-
-  if (typeof window === "undefined") {
-    return DEFAULT_AUTH_REDIRECT;
-  }
-
-  try {
-    const parsed = new URL(callbackUrl, window.location.origin);
-    const isSameOrigin = parsed.origin === window.location.origin;
-    const isLoopTarget =
-      parsed.pathname === "/" ||
-      parsed.pathname === "/login" ||
-      parsed.pathname === "/register" ||
-      parsed.pathname.startsWith("/api/auth");
-
-    if (isSameOrigin && !isLoopTarget) {
-      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    }
-  } catch {
-    // Fall through to the safe default.
-  }
-
-  return DEFAULT_AUTH_REDIRECT;
+  return normalizeCallbackPath(searchParams.get("callbackUrl"));
 }
 
 function MailIcon() {

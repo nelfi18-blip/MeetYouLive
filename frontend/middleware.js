@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CANONICAL_HOST } from "@/lib/site";
+import { normalizeCallbackPath } from "@/lib/redirects";
 
 const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
 
@@ -34,7 +35,7 @@ function redirectToLogin(request) {
   url.search = "";
   url.searchParams.set(
     "callbackUrl",
-    `${request.nextUrl.pathname}${request.nextUrl.search}`
+    normalizeCallbackPath(`${request.nextUrl.pathname}${request.nextUrl.search}`)
   );
   return NextResponse.redirect(url);
 }

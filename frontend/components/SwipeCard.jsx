@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserImage, getDisplayName } from "@/lib/imageHelpers";
+import { getUserImage, getDisplayName, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive }) {
   const [exitX, setExitX] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
@@ -37,9 +38,15 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
   
-  // Multiple photos support
-  const photos = profile.photos || (userImage ? [userImage] : []);
-  const currentPhoto = photos[currentPhotoIndex] || userImage;
+  // Multiple photos support with URL normalization to avoid broken/empty cards.
+  const rawPhotos = [
+    ...(Array.isArray(profile.photos) ? profile.photos : []),
+    ...(Array.isArray(profile.profilePhotos) ? profile.profilePhotos : []),
+    userImage,
+  ];
+  const photos = Array.from(new Set(rawPhotos.map(normalizeImageUrl).filter(Boolean)))
+    .filter((photo) => !brokenPhotoUrls.has(photo));
+  const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
   
   // Online status
   const isOnline = profile.isOnline || profile.lastSeen;
@@ -102,10 +109,27 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
             className="swipe-card-image-container"
           >
             {currentPhoto ? (
-              <img src={currentPhoto} alt={displayName} className="swipe-card-image" />
+              <img
+                src={currentPhoto}
+                alt={displayName}
+                className="swipe-card-image"
+                loading="lazy"
+                decoding="async"
+                onError={() => {
+                  setBrokenPhotoUrls((prev) => {
+                    const next = new Set(prev);
+                    next.add(currentPhoto);
+                    return next;
+                  });
+                  setCurrentPhotoIndex(0);
+                }}
+              />
             ) : (
               <div className="swipe-card-placeholder">
-                <div className="swipe-card-initial">{displayName[0]?.toUpperCase()}</div>
+                <svg className="swipe-card-placeholder-icon" width="72" height="72" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
               </div>
             )}
           </motion.div>

@@ -43,6 +43,44 @@ export default function FeedPage() {
   const [authToken, setAuthToken] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
 
+  // Keep the feed sized to the real visual viewport after refresh, resize, and
+  // orientation changes without reading viewport values during render.
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    let frameId = null;
+
+    const updateViewportMetrics = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        const height = Math.round(viewport?.height || window.innerHeight || 0);
+        const width = Math.round(viewport?.width || window.innerWidth || 0);
+
+        if (height > 0) {
+          document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
+        }
+        if (width > 0) {
+          document.documentElement.style.setProperty("--feed-viewport-width", `${width}px`);
+        }
+      });
+    };
+
+    updateViewportMetrics();
+    window.addEventListener("resize", updateViewportMetrics);
+    window.addEventListener("orientationchange", updateViewportMetrics);
+    window.visualViewport?.addEventListener("resize", updateViewportMetrics);
+    window.visualViewport?.addEventListener("scroll", updateViewportMetrics);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateViewportMetrics);
+      window.removeEventListener("orientationchange", updateViewportMetrics);
+      window.visualViewport?.removeEventListener("resize", updateViewportMetrics);
+      window.visualViewport?.removeEventListener("scroll", updateViewportMetrics);
+    };
+  }, []);
+
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
@@ -360,9 +398,10 @@ export default function FeedPage() {
         .feed-page {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
-          --feed-screen-width: 100vw;
-          --feed-screen-height: 100dvh;
-          --feed-header-content-height: calc(clamp(76px, 20vw, 140px) + 1.5rem);
+          --feed-screen-width: var(--feed-viewport-width, 100vw);
+          --feed-screen-height: var(--feed-viewport-height, 100dvh);
+          --feed-header-logo-size: clamp(52px, 15vw, 76px);
+          --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
@@ -422,7 +461,7 @@ export default function FeedPage() {
           align-items: flex-start;
           min-height: var(--feed-available-height);
           height: var(--feed-available-height);
-          padding: 8px 0 0;
+          padding: 6px 0 0;
           box-sizing: border-box;
         }
         .feed-match-section--empty {
@@ -432,9 +471,10 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(calc(var(--feed-screen-width) - 16px), 420px);
-          max-width: calc(100vw - 16px);
-          height: calc(100% - 8px);
+          width: min(calc(var(--feed-screen-width) - 14px), 430px);
+          max-width: calc(100vw - 14px);
+          height: max(420px, calc(100% - 6px));
+          max-height: 680px;
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -469,7 +509,7 @@ export default function FeedPage() {
 
         @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(calc(var(--feed-screen-width) - 32px), 420px);
+            width: min(calc(var(--feed-screen-width) - 32px), 430px);
             max-height: 610px;
           }
         }
@@ -524,8 +564,8 @@ function FeedHeader() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.75rem 1rem;
-          padding-top: calc(0.75rem + env(safe-area-inset-top));
+          padding: 0.5rem 1rem;
+          padding-top: calc(0.5rem + env(safe-area-inset-top));
           background: rgba(15, 8, 33, 0.85);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
@@ -537,8 +577,8 @@ function FeedHeader() {
           text-decoration: none;
         }
         .feed-header-logo {
-          width: clamp(76px, 20vw, 140px);
-          height: clamp(76px, 20vw, 140px);
+          width: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
+          height: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
           display: block;
           object-fit: contain;
         }

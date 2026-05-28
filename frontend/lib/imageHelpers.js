@@ -4,29 +4,67 @@
  */
 
 /**
+ * Normalize user-provided image values into renderable client URLs.
+ *
+ * @param {unknown} value - Raw image field value
+ * @returns {string|null} - Safe image URL or null
+ */
+export function normalizeImageUrl(value) {
+  if (!value) return null;
+
+  const raw = typeof value === 'string'
+    ? value
+    : value?.url || value?.src || value?.secure_url || value?.path || "";
+  const trimmed = typeof raw === 'string' ? raw.trim() : "";
+
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+  if (trimmed.startsWith("/")) {
+    return apiOrigin ? `${apiOrigin}${trimmed}` : trimmed;
+  }
+
+  if (/^(uploads|images|media|avatars|profile-photos)\//i.test(trimmed)) {
+    return apiOrigin ? `${apiOrigin}/${trimmed}` : `/${trimmed}`;
+  }
+
+  return null;
+}
+
+/**
  * Get the best available user image
- * Priority: profilePhotos[0] > avatar > null (for gradient fallback)
+ * Priority: profilePhotos[0] > avatar > common OAuth/image fields > null
  * 
- * @param {Object} user - User object with profilePhotos, avatar fields
+ * @param {Object} user - User object with image fields
  * @returns {string|null} - Image URL or null for fallback
  */
 export function getUserImage(user) {
   if (!user) return null;
-  
-  // Priority 1: profilePhotos array (first photo)
+
   if (user.profilePhotos && Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0) {
-    const firstPhoto = user.profilePhotos[0];
-    if (typeof firstPhoto === 'string' && firstPhoto.trim()) {
-      return firstPhoto.trim();
-    }
+    const firstPhoto = user.profilePhotos.map(normalizeImageUrl).find(Boolean);
+    if (firstPhoto) return firstPhoto;
   }
-  
-  // Priority 2: avatar field
-  if (user.avatar && typeof user.avatar === 'string' && user.avatar.trim()) {
-    return user.avatar.trim();
+
+  const fields = [
+    user.avatar,
+    user.photoURL,
+    user.photoUrl,
+    user.image,
+    user.imageUrl,
+    user.profileImage,
+    user.picture,
+  ];
+
+  for (const field of fields) {
+    const normalized = normalizeImageUrl(field);
+    if (normalized) return normalized;
   }
-  
-  // No image available - return null for gradient fallback
+
   return null;
 }
 
@@ -41,14 +79,12 @@ export function getLiveThumbnail(live) {
   if (!live) return null;
   
   // Priority 1: live stream thumbnail
-  if (live.thumbnail && typeof live.thumbnail === 'string' && live.thumbnail.trim()) {
-    return live.thumbnail.trim();
-  }
+  const thumbnail = normalizeImageUrl(live.thumbnail);
+  if (thumbnail) return thumbnail;
   
   // Priority 2: creator's avatar as fallback
-  if (live.user?.avatar && typeof live.user.avatar === 'string' && live.user.avatar.trim()) {
-    return live.user.avatar.trim();
-  }
+  const avatar = normalizeImageUrl(live.user?.avatar);
+  if (avatar) return avatar;
   
   // No image available - return null for gradient fallback
   return null;

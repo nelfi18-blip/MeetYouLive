@@ -433,8 +433,8 @@ export default function FeedPage() {
           --feed-safe-bottom: env(safe-area-inset-bottom);
           --feed-screen-width: var(--feed-viewport-width, 100vw);
           --feed-screen-height: var(--feed-viewport-height, 100dvh);
-          --feed-header-content-height: 68px;
-          --feed-bottom-nav-content-height: 68px;
+          --feed-header-content-height: 76px;
+          --feed-bottom-nav-content-height: 72px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
@@ -498,7 +498,7 @@ export default function FeedPage() {
           align-items: flex-start;
           min-height: var(--feed-available-height);
           height: var(--feed-available-height);
-          padding: 8px 0 0;
+          padding: 2px 0 0;
           box-sizing: border-box;
         }
         .feed-match-section--empty {
@@ -510,7 +510,7 @@ export default function FeedPage() {
           position: relative;
           width: calc(var(--feed-screen-width) - 16px);
           max-width: 100%;
-          height: calc(100% - 8px);
+          height: calc(100% - 2px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -539,7 +539,7 @@ export default function FeedPage() {
 
         @media (min-width: 641px) {
           .feed-page {
-            --feed-bottom-nav-content-height: 72px;
+            --feed-bottom-nav-content-height: 76px;
           }
         }
 
@@ -600,12 +600,13 @@ function FeedHeader() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.75rem 1rem;
-          padding-top: calc(0.75rem + env(safe-area-inset-top));
-          background: rgba(15, 8, 33, 0.85);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          min-height: 76px;
+          padding: 0.35rem 1rem 0.25rem;
+          padding-top: calc(0.35rem + env(safe-area-inset-top));
+          background: linear-gradient(180deg, rgba(15, 8, 33, 0.92), rgba(15, 8, 33, 0.72));
+          backdrop-filter: blur(22px);
+          -webkit-backdrop-filter: blur(22px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         .feed-header-brand {
           display: inline-flex;
@@ -613,8 +614,8 @@ function FeedHeader() {
           text-decoration: none;
         }
         .feed-header-logo {
-          width: clamp(76px, 20vw, 140px);
-          height: clamp(76px, 20vw, 140px);
+          width: clamp(66px, 18vw, 116px);
+          height: clamp(66px, 18vw, 116px);
           display: block;
           object-fit: contain;
         }

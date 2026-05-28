@@ -1804,6 +1804,40 @@ main.main-content:has(.admin-shell) {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+@media (max-width: 640px) {
+  .swipe-card-info {
+    padding: 26px 22px 24px;
+  }
+
+  .swipe-card-name-age {
+    gap: 9px;
+  }
+
+  .swipe-card-name {
+    font-size: clamp(29px, 8.2vw, 32px);
+    line-height: 1.05;
+  }
+
+  .swipe-card-age {
+    font-size: clamp(25px, 7vw, 28px);
+  }
+
+  .swipe-card-location {
+    font-size: 15px;
+  }
+
+  .swipe-card-interests {
+    gap: 7px;
+    margin-top: 13px;
+  }
+
+  .interest-tag {
+    padding: 7px 13px;
+    border-radius: 18px;
+    font-size: 13px;
+  }
+}
+
 /* =========================================================
    Swipe Actions Styles
    ========================================================= */
@@ -2071,17 +2105,22 @@ main.main-content:has(.admin-shell) {
   bottom: 0;
   left: 0;
   right: 0;
-  min-height: 72px;
-  background: rgba(15, 8, 33, 0.95);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(224, 64, 251, 0.15);
+  min-height: 76px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(15, 8, 33, 0.78);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  padding: 0 16px;
-  padding-bottom: env(safe-area-inset-bottom);
+  justify-content: space-between;
+  padding: 6px max(14px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right));
   z-index: 1000;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 -18px 42px rgba(139, 92, 246, 0.16),
+    0 -8px 28px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .bottom-nav-modern .nav-item {
@@ -2089,16 +2128,19 @@ main.main-content:has(.admin-shell) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   color: var(--text-muted);
   text-decoration: none;
-  transition: all 0.2s ease;
-  padding: 8px 12px;
-  border-radius: 12px;
-  min-width: 60px;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 8px 10px;
+  border-radius: 18px;
+  min-width: 58px;
+  position: relative;
 }
 
 .bottom-nav-modern .nav-item svg {
+  width: 26px;
+  height: 26px;
   transition: all 0.2s ease;
 }
 
@@ -2110,27 +2152,37 @@ main.main-content:has(.admin-shell) {
 
 .bottom-nav-modern .nav-item:hover {
   color: var(--text);
-  background: rgba(224, 64, 251, 0.08);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .bottom-nav-modern .nav-item.active {
   color: var(--accent);
-  background: rgba(224, 64, 251, 0.12);
+  background: linear-gradient(135deg, rgba(224, 64, 251, 0.22), rgba(34, 211, 238, 0.12));
+  box-shadow:
+    0 0 24px rgba(224, 64, 251, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .bottom-nav-modern .nav-item.active svg {
-  filter: drop-shadow(0 0 8px rgba(224, 64, 251, 0.6));
+  filter:
+    drop-shadow(0 0 8px rgba(224, 64, 251, 0.75))
+    drop-shadow(0 0 16px rgba(34, 211, 238, 0.22));
   transform: scale(1.1);
 }
 
 @media (max-width: 640px) {
   .bottom-nav-modern {
-    min-height: 68px;
+    min-height: 72px;
   }
   
   .bottom-nav-modern .nav-item {
-    min-width: 50px;
-    padding: 6px 8px;
+    min-width: 52px;
+    padding: 7px 8px;
+  }
+
+  .bottom-nav-modern .nav-item svg {
+    width: 25px;
+    height: 25px;
   }
   
   .bottom-nav-modern .nav-item span {
@@ -2140,8 +2192,8 @@ main.main-content:has(.admin-shell) {
 
 @media (max-width: 380px) {
   .bottom-nav-modern .nav-item {
-    min-width: 44px;
-    padding: 6px;
+    min-width: 46px;
+    padding: 6px 5px;
   }
 
   .bottom-nav-modern .nav-item span {

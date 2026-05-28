@@ -178,6 +178,7 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
         if (response.status === 401 || response.status === 403 || attempt >= retries) {
           return null;
         }
+        continue;
       } else {
         return await response.json();
       }

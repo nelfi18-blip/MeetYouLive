@@ -161,7 +161,8 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
     return null;
   }
   
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
+  const totalAttempts = retries + 1;
+  for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -175,10 +176,9 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
 
       if (!response.ok) {
         console.error("[fetchUserRole] Failed to fetch user data:", response.status);
-        if (response.status === 401 || response.status === 403 || attempt >= retries) {
+        if (response.status === 401 || response.status === 403 || attempt === totalAttempts - 1) {
           return null;
         }
-        continue;
       } else {
         return await response.json();
       }
@@ -188,7 +188,7 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
       } else {
         console.error("[fetchUserRole] Error fetching user data:", error);
       }
-      if (attempt >= retries) return null;
+      if (attempt === totalAttempts - 1) return null;
     } finally {
       clearTimeout(timeoutId);
     }

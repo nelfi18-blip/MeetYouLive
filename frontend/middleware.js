@@ -15,14 +15,13 @@ function redirectToCanonicalHost(request) {
   url.hostname = CANONICAL_HOST;
   url.port = "";
 
-  return url.toString() === request.nextUrl.toString()
-    ? null
-    : NextResponse.redirect(url, 308);
+  return NextResponse.redirect(url, 308);
 }
 
 function redirectToPath(request, pathname) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
+  // Drop stale route-specific query params when forcing a known safe route.
   url.search = "";
   return NextResponse.redirect(url);
 }
@@ -30,6 +29,8 @@ function redirectToPath(request, pathname) {
 function redirectToLogin(request) {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
+  // Keep only callbackUrl so protected-route params are preserved inside it
+  // instead of leaking onto /login as unrelated top-level query params.
   url.search = "";
   url.searchParams.set(
     "callbackUrl",

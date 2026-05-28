@@ -23,6 +23,10 @@ function getSafeCallbackPath(searchParams) {
     return DEFAULT_AUTH_REDIRECT;
   }
 
+  if (typeof window === "undefined") {
+    return DEFAULT_AUTH_REDIRECT;
+  }
+
   try {
     const parsed = new URL(callbackUrl, window.location.origin);
     const isSameOrigin = parsed.origin === window.location.origin;
@@ -542,6 +546,8 @@ function LoginForm() {
           className="btn-google"
           onClick={() => {
             const userRedirectPath = getSafeCallbackPath(searchParams);
+            // Return to /login after Google OAuth so this page can finish the
+            // backend-token handshake before sending the user to callbackUrl.
             signIn("google", {
               callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
             });

@@ -17,6 +17,8 @@ function resolveRedirectOrigin(baseUrl) {
 }
 
 function isSafeCallbackPath(pathname) {
+  // Root immediately routes based on auth state, and /api/auth is handled by
+  // NextAuth itself; sending users there as callback targets can recurse.
   return pathname !== "/" && !pathname.startsWith("/api/auth");
 }
 
@@ -32,11 +34,9 @@ function normalizeRedirectUrl(url, baseUrl) {
 
   try {
     const target = new URL(url);
-    const base = new URL(baseUrl);
     const allowedHosts = new Set([
       CANONICAL_HOST,
       WWW_CANONICAL_HOST,
-      base.hostname,
     ]);
 
     if (!allowedHosts.has(target.hostname)) {

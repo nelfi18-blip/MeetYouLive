@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,68 +41,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
-  const [viewport, setViewport] = useState({ mounted: false, width: 0, height: 0 });
   const tokenRecoveryAttemptedRef = useRef(false);
-
-  const recalculateViewport = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    const visualViewport = window.visualViewport;
-    const width = Math.round(
-      visualViewport?.width ||
-        window.innerWidth ||
-        document.documentElement.clientWidth ||
-        0
-    );
-    const height = Math.round(
-      visualViewport?.height ||
-        window.innerHeight ||
-        document.documentElement.clientHeight ||
-        0
-    );
-
-    setViewport((current) => {
-      if (current.mounted && current.width === width && current.height === height) {
-        return current;
-      }
-      return { mounted: true, width, height };
-    });
-  }, []);
-
-  useEffect(() => {
-    let frameId;
-    const scheduleRecalculate = () => {
-      cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(recalculateViewport);
-    };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") scheduleRecalculate();
-    };
-
-    scheduleRecalculate();
-    const hydrationFrame = requestAnimationFrame(scheduleRecalculate);
-    const visualViewport = window.visualViewport;
-
-    window.addEventListener("resize", scheduleRecalculate);
-    window.addEventListener("orientationchange", scheduleRecalculate);
-    window.addEventListener("pageshow", scheduleRecalculate);
-    window.addEventListener("focus", scheduleRecalculate);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    visualViewport?.addEventListener("resize", scheduleRecalculate);
-    visualViewport?.addEventListener("scroll", scheduleRecalculate);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      cancelAnimationFrame(hydrationFrame);
-      window.removeEventListener("resize", scheduleRecalculate);
-      window.removeEventListener("orientationchange", scheduleRecalculate);
-      window.removeEventListener("pageshow", scheduleRecalculate);
-      window.removeEventListener("focus", scheduleRecalculate);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      visualViewport?.removeEventListener("resize", scheduleRecalculate);
-      visualViewport?.removeEventListener("scroll", scheduleRecalculate);
-    };
-  }, [recalculateViewport]);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -335,21 +274,11 @@ export default function FeedPage() {
     }
   };
 
-  const feedPageClassName = `feed-page ${
-    viewport.mounted ? "feed-page--ready" : "feed-page--measuring"
-  }`;
-  const feedPageStyle = viewport.mounted
-    ? {
-        "--feed-viewport-width": `${viewport.width}px`,
-        "--feed-viewport-height": `${viewport.height}px`,
-      }
-    : undefined;
-
   /* --------------------------- Render --------------------------- */
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && loading) {
     return (
-      <div className={feedPageClassName} style={feedPageStyle}>
+      <div className="feed-page">
         <FeedHeader />
         <div className="feed-loading">
           <div className="spinner" />
@@ -362,7 +291,7 @@ export default function FeedPage() {
   // Error fallback (no floating initials, no orange overlay — just a clean card).
   if (error) {
     return (
-      <div className={feedPageClassName} style={feedPageStyle}>
+      <div className="feed-page">
         <FeedHeader />
         <div className="feed-error">
           <IconAlert />
@@ -384,7 +313,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
 
   return (
-    <div className={feedPageClassName} style={feedPageStyle}>
+    <div className="feed-page">
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 
@@ -431,9 +360,9 @@ export default function FeedPage() {
         .feed-page {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
-          --feed-screen-width: var(--feed-viewport-width, 100vw);
-          --feed-screen-height: var(--feed-viewport-height, 100dvh);
-          --feed-header-content-height: 68px;
+          --feed-screen-width: 100vw;
+          --feed-screen-height: 100dvh;
+          --feed-header-content-height: calc(clamp(76px, 20vw, 140px) + 1.5rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
@@ -444,11 +373,6 @@ export default function FeedPage() {
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
           overflow-x: hidden;
-        }
-
-        .feed-page--measuring .feed-swipe-deck {
-          opacity: 0;
-          pointer-events: none;
         }
 
         .feed-loading,
@@ -508,8 +432,8 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: calc(var(--feed-screen-width) - 16px);
-          max-width: 100%;
+          width: min(calc(var(--feed-screen-width) - 16px), 420px);
+          max-width: calc(100vw - 16px);
           height: calc(100% - 8px);
           display: flex;
           justify-content: center;
@@ -519,9 +443,9 @@ export default function FeedPage() {
           transition: opacity 0.16s ease;
         }
 
-        .feed-swipe-deck :global(.swipe-card-modern) {
+        :global(.feed-swipe-deck .swipe-card-modern) {
           width: 100%;
-          max-width: 100%;
+          max-width: none;
           height: 100%;
           left: 0;
           right: 0;
@@ -533,7 +457,7 @@ export default function FeedPage() {
           will-change: transform, opacity;
         }
 
-        .feed-swipe-deck :global(.swipe-card-initial) {
+        :global(.feed-swipe-deck .swipe-card-initial) {
           font-size: clamp(2.5rem, 14vw, 4.5rem);
         }
 

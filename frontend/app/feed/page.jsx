@@ -44,7 +44,8 @@ export default function FeedPage() {
   const tokenRecoveryAttemptedRef = useRef(false);
 
   // Keep the feed sized to the real visual viewport after refresh, resize, and
-  // orientation changes without reading viewport values during render.
+  // orientation changes without reading viewport values during render. This
+  // runs before paint so hard-refresh starts with the same metrics as SPA nav.
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -71,6 +72,7 @@ export default function FeedPage() {
     };
 
     updateViewportMetrics({ defer: false });
+    // Some mobile browsers settle visualViewport after their first paint.
     timeoutId = window.setTimeout(() => updateViewportMetrics({ defer: false }), 250);
     window.addEventListener("resize", updateViewportMetrics);
     window.addEventListener("orientationchange", updateViewportMetrics);
@@ -412,6 +414,7 @@ export default function FeedPage() {
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          /* Fallback from legacy viewport to stable/dynamic mobile viewport units. */
           min-height: 100vh;
           min-height: 100svh;
           min-height: 100dvh;

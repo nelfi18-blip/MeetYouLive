@@ -1,23 +1,5 @@
 import { NextResponse } from "next/server";
-import { CANONICAL_HOST } from "@/lib/site";
 import { normalizeCallbackPath } from "@/lib/redirects";
-
-const WWW_CANONICAL_HOST = `www.${CANONICAL_HOST}`;
-
-function redirectToCanonicalHost(request) {
-  const hostname = request.headers.get("host")?.split(":")[0].toLowerCase();
-
-  if (hostname !== WWW_CANONICAL_HOST) {
-    return null;
-  }
-
-  const url = request.nextUrl.clone();
-  url.protocol = "https";
-  url.hostname = CANONICAL_HOST;
-  url.port = "";
-
-  return NextResponse.redirect(url, 308);
-}
 
 function redirectToPath(request, pathname) {
   const url = request.nextUrl.clone();
@@ -41,11 +23,6 @@ function redirectToLogin(request) {
 }
 
 export function middleware(request) {
-  const canonicalRedirect = redirectToCanonicalHost(request);
-  if (canonicalRedirect) {
-    return canonicalRedirect;
-  }
-
   const { pathname } = request.nextUrl;
 
   if (

@@ -15,6 +15,7 @@ function redirectToLogin(request) {
   // Keep only callbackUrl so protected-route params are preserved inside it
   // instead of leaking onto /login as unrelated top-level query params.
   url.search = "";
+  // searchParams.set keeps callback queries nested safely inside callbackUrl.
   url.searchParams.set(
     "callbackUrl",
     normalizeCallbackPath(`${request.nextUrl.pathname}${request.nextUrl.search}`)

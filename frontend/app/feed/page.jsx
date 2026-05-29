@@ -401,7 +401,8 @@ export default function FeedPage() {
           --feed-screen-width: var(--feed-viewport-width, 100vw);
           --feed-screen-height: var(--feed-viewport-height, 100dvh);
           --feed-header-logo-size: clamp(58px, 16vw, 84px);
-          --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.6rem);
+          --feed-header-air-gap: 0.6rem; /* small logo breathing room while keeping the card high on mobile */
+          --feed-header-content-height: calc(var(--feed-header-logo-size) + var(--feed-header-air-gap));
           --feed-bottom-nav-content-height: 72px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));

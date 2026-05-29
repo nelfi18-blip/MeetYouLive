@@ -1,5 +1,6 @@
 export const DEFAULT_AUTH_REDIRECT = "/feed";
 
+// `.local` is an arbitrary URL parser base; it is never used as a redirect target.
 const CALLBACK_URL_BASE = "https://meetyoulive.local";
 
 function parseRelativePath(value) {
@@ -37,6 +38,12 @@ export function normalizeCallbackPath(value, fallback = DEFAULT_AUTH_REDIRECT) {
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }
 
+export function buildLoginCallbackPath(callbackPath) {
+  const params = new URLSearchParams();
+  params.set("callbackUrl", normalizeCallbackPath(callbackPath));
+  return `/login?${params.toString()}`;
+}
+
 export function normalizeNextAuthRedirectPath(value, fallback = DEFAULT_AUTH_REDIRECT) {
   const parsed = parseRelativePath(value);
 
@@ -49,7 +56,7 @@ export function normalizeNextAuthRedirectPath(value, fallback = DEFAULT_AUTH_RED
       parsed.searchParams.get("callbackUrl"),
       fallback
     );
-    return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
+    return buildLoginCallbackPath(callbackPath);
   }
 
   return isSafeAppCallbackPath(parsed.pathname)

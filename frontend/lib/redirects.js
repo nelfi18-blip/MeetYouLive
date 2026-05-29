@@ -1,5 +1,6 @@
 export const DEFAULT_AUTH_REDIRECT = "/feed";
 
+// Arbitrary URL constructor base for parsing same-app relative callback paths.
 const CALLBACK_URL_BASE = "https://meetyoulive.local";
 
 function parseRelativePath(value) {

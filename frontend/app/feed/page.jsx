@@ -42,17 +42,16 @@ export default function FeedPage() {
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
+  const viewportFrameRef = useRef(null);
 
   // Keep the feed sized to the real visual viewport after refresh, resize, and
   // orientation changes without reading viewport values during render.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    let frameId = null;
-
     const updateViewportMetrics = () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      frameId = window.requestAnimationFrame(() => {
+      if (viewportFrameRef.current) window.cancelAnimationFrame(viewportFrameRef.current);
+      viewportFrameRef.current = window.requestAnimationFrame(() => {
         const viewport = window.visualViewport;
         const height = Math.round(viewport?.height || window.innerHeight || 0);
         const width = Math.round(viewport?.width || window.innerWidth || 0);
@@ -73,7 +72,8 @@ export default function FeedPage() {
     window.visualViewport?.addEventListener("scroll", updateViewportMetrics);
 
     return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
+      if (viewportFrameRef.current) window.cancelAnimationFrame(viewportFrameRef.current);
+      viewportFrameRef.current = null;
       window.removeEventListener("resize", updateViewportMetrics);
       window.removeEventListener("orientationchange", updateViewportMetrics);
       window.visualViewport?.removeEventListener("resize", updateViewportMetrics);

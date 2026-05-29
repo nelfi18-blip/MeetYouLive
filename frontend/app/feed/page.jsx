@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,68 +41,45 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
-  const [viewport, setViewport] = useState({ mounted: false, width: 0, height: 0 });
   const tokenRecoveryAttemptedRef = useRef(false);
 
-  const recalculateViewport = useCallback(() => {
+  // Keep the feed sized to the real visual viewport after refresh, resize, and
+  // orientation changes without reading viewport values during render.
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const visualViewport = window.visualViewport;
-    const width = Math.round(
-      visualViewport?.width ||
-        window.innerWidth ||
-        document.documentElement.clientWidth ||
-        0
-    );
-    const height = Math.round(
-      visualViewport?.height ||
-        window.innerHeight ||
-        document.documentElement.clientHeight ||
-        0
-    );
+    let frameId = null;
 
-    setViewport((current) => {
-      if (current.mounted && current.width === width && current.height === height) {
-        return current;
-      }
-      return { mounted: true, width, height };
-    });
-  }, []);
+    const updateViewportMetrics = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        const height = Math.round(viewport?.height || window.innerHeight || 0);
+        const width = Math.round(viewport?.width || window.innerWidth || 0);
 
-  useEffect(() => {
-    let frameId;
-    const scheduleRecalculate = () => {
-      cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(recalculateViewport);
-    };
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") scheduleRecalculate();
+        if (height > 0) {
+          document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
+        }
+        if (width > 0) {
+          document.documentElement.style.setProperty("--feed-viewport-width", `${width}px`);
+        }
+      });
     };
 
-    scheduleRecalculate();
-    const hydrationFrame = requestAnimationFrame(scheduleRecalculate);
-    const visualViewport = window.visualViewport;
-
-    window.addEventListener("resize", scheduleRecalculate);
-    window.addEventListener("orientationchange", scheduleRecalculate);
-    window.addEventListener("pageshow", scheduleRecalculate);
-    window.addEventListener("focus", scheduleRecalculate);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    visualViewport?.addEventListener("resize", scheduleRecalculate);
-    visualViewport?.addEventListener("scroll", scheduleRecalculate);
+    updateViewportMetrics();
+    window.addEventListener("resize", updateViewportMetrics);
+    window.addEventListener("orientationchange", updateViewportMetrics);
+    window.visualViewport?.addEventListener("resize", updateViewportMetrics);
+    window.visualViewport?.addEventListener("scroll", updateViewportMetrics);
 
     return () => {
-      cancelAnimationFrame(frameId);
-      cancelAnimationFrame(hydrationFrame);
-      window.removeEventListener("resize", scheduleRecalculate);
-      window.removeEventListener("orientationchange", scheduleRecalculate);
-      window.removeEventListener("pageshow", scheduleRecalculate);
-      window.removeEventListener("focus", scheduleRecalculate);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      visualViewport?.removeEventListener("resize", scheduleRecalculate);
-      visualViewport?.removeEventListener("scroll", scheduleRecalculate);
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateViewportMetrics);
+      window.removeEventListener("orientationchange", updateViewportMetrics);
+      window.visualViewport?.removeEventListener("resize", updateViewportMetrics);
+      window.visualViewport?.removeEventListener("scroll", updateViewportMetrics);
     };
-  }, [recalculateViewport]);
+  }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -335,21 +312,11 @@ export default function FeedPage() {
     }
   };
 
-  const feedPageClassName = `feed-page ${
-    viewport.mounted ? "feed-page--ready" : "feed-page--measuring"
-  }`;
-  const feedPageStyle = viewport.mounted
-    ? {
-        "--feed-viewport-width": `${viewport.width}px`,
-        "--feed-viewport-height": `${viewport.height}px`,
-      }
-    : undefined;
-
   /* --------------------------- Render --------------------------- */
   // Loading spinner only while auth/data are pending and no error yet.
   if (!error && loading) {
     return (
-      <div className={feedPageClassName} style={feedPageStyle}>
+      <div className="feed-page">
         <FeedHeader />
         <div className="feed-loading">
           <div className="spinner" />
@@ -362,7 +329,7 @@ export default function FeedPage() {
   // Error fallback (no floating initials, no orange overlay — just a clean card).
   if (error) {
     return (
-      <div className={feedPageClassName} style={feedPageStyle}>
+      <div className="feed-page">
         <FeedHeader />
         <div className="feed-error">
           <IconAlert />
@@ -384,7 +351,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
 
   return (
-    <div className={feedPageClassName} style={feedPageStyle}>
+    <div className="feed-page">
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 
@@ -433,7 +400,8 @@ export default function FeedPage() {
           --feed-safe-bottom: env(safe-area-inset-bottom);
           --feed-screen-width: var(--feed-viewport-width, 100vw);
           --feed-screen-height: var(--feed-viewport-height, 100dvh);
-          --feed-header-content-height: 76px;
+          --feed-header-logo-size: clamp(58px, 16vw, 84px);
+          --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.6rem);
           --feed-bottom-nav-content-height: 72px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
@@ -444,11 +412,6 @@ export default function FeedPage() {
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
           overflow-x: hidden;
-        }
-
-        .feed-page--measuring .feed-swipe-deck {
-          opacity: 0;
-          pointer-events: none;
         }
 
         .feed-loading,
@@ -508,9 +471,10 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: calc(var(--feed-screen-width) - 16px);
-          max-width: 100%;
-          height: calc(100% - 2px);
+          width: min(calc(var(--feed-screen-width) - 14px), 430px);
+          max-width: calc(100vw - 14px);
+          height: max(440px, calc(100% - 2px));
+          max-height: 700px;
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -519,9 +483,9 @@ export default function FeedPage() {
           transition: opacity 0.16s ease;
         }
 
-        .feed-swipe-deck :global(.swipe-card-modern) {
+        :global(.feed-swipe-deck .swipe-card-modern) {
           width: 100%;
-          max-width: 100%;
+          max-width: none;
           height: 100%;
           left: 0;
           right: 0;
@@ -533,7 +497,7 @@ export default function FeedPage() {
           will-change: transform, opacity;
         }
 
-        .feed-swipe-deck :global(.swipe-card-initial) {
+        :global(.feed-swipe-deck .swipe-card-initial) {
           font-size: clamp(2.5rem, 14vw, 4.5rem);
         }
 
@@ -545,7 +509,7 @@ export default function FeedPage() {
 
         @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(calc(var(--feed-screen-width) - 32px), 420px);
+            width: min(calc(var(--feed-screen-width) - 32px), 430px);
             max-height: 610px;
           }
         }
@@ -600,7 +564,7 @@ function FeedHeader() {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-height: 76px;
+          min-height: var(--feed-header-content-height);
           padding: 0.35rem 1rem 0.25rem;
           padding-top: calc(0.35rem + env(safe-area-inset-top));
           background: linear-gradient(180deg, rgba(15, 8, 33, 0.92), rgba(15, 8, 33, 0.72));
@@ -614,8 +578,8 @@ function FeedHeader() {
           text-decoration: none;
         }
         .feed-header-logo {
-          width: clamp(66px, 18vw, 116px);
-          height: clamp(66px, 18vw, 116px);
+          width: var(--feed-header-logo-size, clamp(58px, 16vw, 84px));
+          height: var(--feed-header-logo-size, clamp(58px, 16vw, 84px));
           display: block;
           object-fit: contain;
         }

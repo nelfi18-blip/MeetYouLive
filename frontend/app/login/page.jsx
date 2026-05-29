@@ -5,6 +5,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
+import { normalizeCallbackPath } from "@/lib/redirects";
 import { setToken, clearToken, fetchUserRole } from "@/lib/token";
 import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
@@ -14,6 +15,10 @@ import AuthBrandLogo from "@/components/AuthBrandLogo";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
+
+function getSafeCallbackPath(searchParams) {
+  return normalizeCallbackPath(searchParams.get("callbackUrl"));
+}
 
 function MailIcon() {
   return (
@@ -108,6 +113,8 @@ function LoginForm() {
       setChecking(false);
       return;
     }
+
+    const userRedirectPath = getSafeCallbackPath(searchParams);
     
     // Email/password users: redirect immediately from localStorage token.
     // Do this first so returning users are never shown the login form.
@@ -121,12 +128,12 @@ function LoginForm() {
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(userRedirectPath);
         }
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
         // Fallback to feed on error
-        router.replace("/feed");
+        router.replace(userRedirectPath);
       });
       return;
     }
@@ -151,13 +158,13 @@ function LoginForm() {
             console.log("[login] Admin detected – redirecting to /admin");
             router.replace("/admin");
           } else {
-            console.log("[login] Regular user – redirecting to /feed");
-            router.replace("/feed");
+            console.log(`[login] Regular user – redirecting to ${userRedirectPath}`);
+            router.replace(userRedirectPath);
           }
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
           // Fallback to feed on error
-          router.replace("/feed");
+          router.replace(userRedirectPath);
         });
         return;
       }
@@ -198,7 +205,7 @@ function LoginForm() {
                 // router navigation completes.
                 setToken(data.token);
                 const user = await fetchUserRole(data.token, 15000, 1);
-                router.replace(user?.role === "admin" ? "/admin" : "/feed");
+                router.replace(user?.role === "admin" ? "/admin" : userRedirectPath);
                 return;
               }
 
@@ -454,13 +461,14 @@ function LoginForm() {
 
       if (data.token) {
         setToken(data.token);
+        const userRedirectPath = getSafeCallbackPath(searchParams);
         
         // Check if user is admin and redirect accordingly
         const user = await fetchUserRole(data.token);
         if (user?.role === "admin") {
           router.replace("/admin");
         } else {
-          router.replace("/feed");
+          router.replace(userRedirectPath);
         }
         return;
       }
@@ -510,7 +518,14 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/login" })}
+          onClick={() => {
+            const userRedirectPath = getSafeCallbackPath(searchParams);
+            // Return to /login after Google OAuth so this page can finish the
+            // backend-token handshake before sending the user to callbackUrl.
+            signIn("google", {
+              callbackUrl: `/login?callbackUrl=${encodeURIComponent(userRedirectPath)}`,
+            });
+          }}
         >
           <span className="btn-google-icon" aria-hidden="true">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="Google" role="img">

@@ -8,9 +8,10 @@ import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import OfflineIndicator from "../components/OfflineIndicator";
 import InstallPrompt from "../components/InstallPrompt";
+import { CANONICAL_SITE_URL, canonicalUrl } from "@/lib/site";
 
 export const metadata = {
-  metadataBase: new URL("https://meetyoulive.net"),
+  metadataBase: new URL(CANONICAL_SITE_URL),
   title: {
     default: "MeetYouLive - Conecta, Transmite en Vivo y Conoce Personas",
     template: "%s | MeetYouLive",
@@ -59,7 +60,7 @@ export const metadata = {
     title: "MeetYouLive - Conecta, Transmite en Vivo y Conoce Personas",
     description:
       "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica. Plataforma de citas y streaming en vivo.",
-    url: "https://meetyoulive.net",
+    url: CANONICAL_SITE_URL,
     siteName: "MeetYouLive",
     images: [
       {
@@ -82,7 +83,7 @@ export const metadata = {
     site: "@meetyoulive",
   },
   alternates: {
-    canonical: "https://meetyoulive.net",
+    canonical: CANONICAL_SITE_URL,
   },
 };
 
@@ -99,8 +100,8 @@ export default function RootLayout({ children }) {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "MeetYouLive",
-    url: "https://meetyoulive.net",
-    logo: "https://meetyoulive.net/logo.svg",
+    url: CANONICAL_SITE_URL,
+    logo: canonicalUrl("/logo.svg"),
     description:
       "Plataforma de citas y streaming en vivo para crear conexiones reales.",
     sameAs: [
@@ -114,12 +115,12 @@ export default function RootLayout({ children }) {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "MeetYouLive",
-    url: "https://meetyoulive.net",
+    url: CANONICAL_SITE_URL,
     description:
       "Conoce personas, haz match, transmite en vivo y conecta de manera auténtica.",
     potentialAction: {
       "@type": "SearchAction",
-      target: "https://meetyoulive.net/search?q={search_term_string}",
+      target: canonicalUrl("/search?q={search_term_string}"),
       "query-input": "required name=search_term_string",
     },
   };

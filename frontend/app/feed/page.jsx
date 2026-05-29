@@ -471,10 +471,9 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(calc(var(--feed-screen-width) - 14px), 430px);
-          max-width: calc(100vw - 14px);
-          height: max(420px, calc(100% - 6px));
-          max-height: 680px;
+          width: clamp(320px, 94vw, 430px);
+          max-width: 430px;
+          height: max(540px, calc(var(--feed-available-height) - 6px));
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -510,7 +509,6 @@ export default function FeedPage() {
         @media (min-width: 769px) {
           .feed-swipe-deck {
             width: min(calc(var(--feed-screen-width) - 32px), 430px);
-            max-height: 610px;
           }
         }
 

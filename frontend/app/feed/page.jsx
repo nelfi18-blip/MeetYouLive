@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -43,10 +43,9 @@ export default function FeedPage() {
   const [authToken, setAuthToken] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
 
-  // Keep the feed sized to the real visual viewport after refresh, resize, and
-  // orientation changes without reading viewport values during render. This
-  // runs before paint so hard-refresh starts with the same metrics as SPA nav.
-  useLayoutEffect(() => {
+  // CSS owns the mobile-first feed size; these metrics only enhance it after
+  // hydration for viewport changes and mobile browser chrome adjustments.
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     let frameId = null;
@@ -54,14 +53,10 @@ export default function FeedPage() {
 
     const applyViewportMetrics = () => {
       const viewport = window.visualViewport;
-      const height = Math.round(viewport?.height || window.innerHeight || 0);
-      const width = Math.round(viewport?.width || window.innerWidth || 0);
+      const height = Math.round(Math.max(viewport?.height || 0, window.innerHeight || 0));
 
       if (height > 0) {
         document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
-      }
-      if (width > 0) {
-        document.documentElement.style.setProperty("--feed-viewport-width", `${width}px`);
       }
     };
 
@@ -406,8 +401,7 @@ export default function FeedPage() {
         .feed-page {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
-          --feed-screen-width: var(--feed-viewport-width, 100vw);
-          --feed-screen-height: var(--feed-viewport-height, 100svh);
+          --feed-screen-height: var(--feed-viewport-height, 100dvh);
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
@@ -482,10 +476,10 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(calc(var(--feed-screen-width) - 14px), 430px);
-          max-width: calc(100vw - 14px);
-          height: max(420px, calc(var(--feed-available-height) - 6px));
-          max-height: 680px;
+          width: min(94vw, 430px);
+          max-width: 430px;
+          height: calc(var(--feed-available-height) - 6px);
+          min-height: 420px;
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -520,7 +514,7 @@ export default function FeedPage() {
 
         @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(calc(var(--feed-screen-width) - 32px), 430px);
+            width: min(calc(100vw - 32px), 430px);
             max-height: 610px;
           }
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -45,28 +45,33 @@ export default function FeedPage() {
 
   // Keep the feed sized to the real visual viewport after refresh, resize, and
   // orientation changes without reading viewport values during render.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
     let frameId = null;
+    let timeoutId = null;
 
-    const updateViewportMetrics = () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      frameId = window.requestAnimationFrame(() => {
-        const viewport = window.visualViewport;
-        const height = Math.round(viewport?.height || window.innerHeight || 0);
-        const width = Math.round(viewport?.width || window.innerWidth || 0);
+    const applyViewportMetrics = () => {
+      const viewport = window.visualViewport;
+      const height = Math.round(viewport?.height || window.innerHeight || 0);
+      const width = Math.round(viewport?.width || window.innerWidth || 0);
 
-        if (height > 0) {
-          document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
-        }
-        if (width > 0) {
-          document.documentElement.style.setProperty("--feed-viewport-width", `${width}px`);
-        }
-      });
+      if (height > 0) {
+        document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
+      }
+      if (width > 0) {
+        document.documentElement.style.setProperty("--feed-viewport-width", `${width}px`);
+      }
     };
 
-    updateViewportMetrics();
+    const updateViewportMetrics = ({ defer = true } = {}) => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      if (!defer) applyViewportMetrics();
+      frameId = window.requestAnimationFrame(applyViewportMetrics);
+    };
+
+    updateViewportMetrics({ defer: false });
+    timeoutId = window.setTimeout(() => updateViewportMetrics({ defer: false }), 250);
     window.addEventListener("resize", updateViewportMetrics);
     window.addEventListener("orientationchange", updateViewportMetrics);
     window.visualViewport?.addEventListener("resize", updateViewportMetrics);
@@ -74,6 +79,7 @@ export default function FeedPage() {
 
     return () => {
       if (frameId) window.cancelAnimationFrame(frameId);
+      if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("resize", updateViewportMetrics);
       window.removeEventListener("orientationchange", updateViewportMetrics);
       window.visualViewport?.removeEventListener("resize", updateViewportMetrics);
@@ -399,13 +405,15 @@ export default function FeedPage() {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
           --feed-screen-width: var(--feed-viewport-width, 100vw);
-          --feed-screen-height: var(--feed-viewport-height, 100dvh);
+          --feed-screen-height: var(--feed-viewport-height, 100svh);
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          min-height: 100vh;
+          min-height: 100svh;
           min-height: 100dvh;
           min-height: var(--feed-screen-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -473,7 +481,7 @@ export default function FeedPage() {
           position: relative;
           width: min(calc(var(--feed-screen-width) - 14px), 430px);
           max-width: calc(100vw - 14px);
-          height: max(420px, calc(100% - 6px));
+          height: max(420px, calc(var(--feed-available-height) - 6px));
           max-height: 680px;
           display: flex;
           justify-content: center;

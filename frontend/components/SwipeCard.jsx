@@ -121,8 +121,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
                     next.add(currentPhoto);
                     return next;
                   });
-                  const remainingPhotoCount = Math.max(0, photos.length - 1);
-                  const nextMaxIndex = Math.max(0, remainingPhotoCount - 1);
+                  // The next render filters out this broken URL, so clamp against one fewer photo.
+                  const nextMaxIndex = Math.max(0, photos.length - 2);
                   setCurrentPhotoIndex((index) => Math.min(index, nextMaxIndex));
                 }}
               />

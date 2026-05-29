@@ -471,8 +471,10 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
+          /* 14px edge gap keeps the deck full-bleed on small phones without touching rounded viewport edges. */
           width: min(calc(var(--feed-screen-width) - 14px), 430px);
           max-width: calc(100vw - 14px);
+          /* 440px preserves a usable portrait card on short mobile viewports after header/nav space is reserved. */
           height: max(440px, calc(100% - 2px));
           max-height: 700px;
           display: flex;

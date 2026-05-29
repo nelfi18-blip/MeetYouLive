@@ -472,7 +472,6 @@ export default function FeedPage() {
         .feed-swipe-deck {
           position: relative;
           width: clamp(320px, 94vw, 430px);
-          max-width: 430px;
           height: max(540px, calc(var(--feed-available-height) - 6px));
           display: flex;
           justify-content: center;

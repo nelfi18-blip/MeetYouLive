@@ -151,7 +151,9 @@ export default function FeedPage() {
         let message = t("feed.genericError");
         if (recoveryStatus === 401 || recoveryStatus === 403) {
           message = t("feed.sessionExpired");
-        } else if (recoveryStatus === 0 || recoveryStatus >= 500) {
+        } else if (recoveryStatus === 0) {
+          message = t("feed.networkError");
+        } else if (recoveryStatus >= 500) {
           message = t("feed.serverStarting");
         }
         setError(message);
@@ -400,6 +402,7 @@ export default function FeedPage() {
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
+          --feed-section-top-padding: 6px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
@@ -459,7 +462,7 @@ export default function FeedPage() {
           align-items: flex-start;
           min-height: var(--feed-available-height);
           height: var(--feed-available-height);
-          padding: 6px 0 0;
+          padding: var(--feed-section-top-padding) 0 0;
           box-sizing: border-box;
         }
         .feed-match-section--empty {
@@ -471,8 +474,8 @@ export default function FeedPage() {
           position: relative;
           width: min(94vw, 430px);
           max-width: 430px;
-          /* Subtract the section's 6px top padding so the deck fits its stable viewport slot exactly. */
-          height: clamp(520px, calc(var(--feed-available-height) - 6px), 720px);
+          /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
+          height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;

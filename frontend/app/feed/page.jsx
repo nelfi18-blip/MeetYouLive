@@ -379,7 +379,6 @@ export default function FeedPage() {
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
-          --feed-viewport-height: 100lvh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           /* Use the large viewport for deck sizing so refresh/browser chrome changes do not shrink the card. */
           min-height: var(--feed-viewport-height);
@@ -448,6 +447,7 @@ export default function FeedPage() {
           position: relative;
           width: min(94vw, 430px);
           max-width: 430px;
+          /* Subtract the section's 6px top padding so the deck fits its stable viewport slot exactly. */
           height: clamp(520px, calc(var(--feed-available-height) - 6px), 720px);
           display: flex;
           justify-content: center;
@@ -478,6 +478,12 @@ export default function FeedPage() {
         @media (min-width: 641px) {
           .feed-page {
             --feed-bottom-nav-content-height: 72px;
+          }
+        }
+
+        @supports (height: 100lvh) {
+          .feed-page {
+            --feed-viewport-height: 100lvh;
           }
         }
 

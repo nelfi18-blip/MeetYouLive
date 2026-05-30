@@ -27,10 +27,12 @@ async function requestBackendToken(signal) {
     signal,
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    return { token: null, status: response.status };
+  }
 
   const data = await response.json();
-  return data?.token || null;
+  return { token: data?.token || null, status: response.status };
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
@@ -126,7 +128,7 @@ export default function FeedPage() {
 
     (async () => {
       try {
-        const recoveredToken = await requestBackendToken(controller.signal);
+        const { token: recoveredToken, status: recoveryStatus } = await requestBackendToken(controller.signal);
 
         if (cancelled) return;
 
@@ -137,7 +139,13 @@ export default function FeedPage() {
           return;
         }
 
-        setError(t("feed.genericError"));
+        let message = t("feed.genericError");
+        if (recoveryStatus === 401 || recoveryStatus === 403) {
+          message = t("feed.sessionExpired");
+        } else if (recoveryStatus >= 500) {
+          message = t("feed.serverStarting");
+        }
+        setError(message);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -207,8 +215,10 @@ export default function FeedPage() {
             status === "authenticated" &&
             session?.googleEmail
           ) {
-            const recoveredToken = await requestBackendToken(controller.signal);
+            const { token: recoveredToken } = await requestBackendToken(controller.signal);
             if (cancelled) return;
+            // Only restart the feed request when the proxy gives us a different token;
+            // if it matches, the 401/403 is not caused by a stale localStorage token.
             if (recoveredToken && recoveredToken !== authToken) {
               setToken(recoveredToken);
               setAuthToken(recoveredToken);
@@ -380,7 +390,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Use the large viewport for deck sizing so refresh/browser chrome changes do not shrink the card. */
+          /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);

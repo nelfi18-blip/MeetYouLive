@@ -224,7 +224,12 @@ export default function FeedPage() {
             status === "authenticated" &&
             session?.googleEmail
           ) {
-            const { token: recoveredToken } = await requestBackendToken(controller.signal);
+            let recoveredToken = null;
+            try {
+              ({ token: recoveredToken } = await requestBackendToken(controller.signal));
+            } catch (err) {
+              if (err.name === "AbortError") throw err;
+            }
             if (cancelled) return;
             // Only restart the feed request when the proxy gives us a different token;
             // if it matches, the 401/403 is not caused by a stale localStorage token.

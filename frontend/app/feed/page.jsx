@@ -22,17 +22,26 @@ const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 const FETCH_TIMEOUT_MS = 15000;
 
 async function requestBackendToken(signal) {
-  const response = await fetch("/api/auth/backend-token", {
-    method: "POST",
-    signal,
-  });
+  try {
+    const response = await fetch("/api/auth/backend-token", {
+      method: "POST",
+      signal,
+    });
 
-  if (!response.ok) {
-    return { token: null, status: response.status };
+    if (!response.ok) {
+      return { token: null, status: response.status };
+    }
+
+    try {
+      const data = await response.json();
+      return { token: data?.token || null, status: response.status };
+    } catch {
+      return { token: null, status: response.status };
+    }
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    return { token: null, status: 0 };
   }
-
-  const data = await response.json();
-  return { token: data?.token || null, status: response.status };
 }
 
 /* ------------------------ Inline SVG icon set ------------------------ */
@@ -142,7 +151,7 @@ export default function FeedPage() {
         let message = t("feed.genericError");
         if (recoveryStatus === 401 || recoveryStatus === 403) {
           message = t("feed.sessionExpired");
-        } else if (recoveryStatus >= 500) {
+        } else if (recoveryStatus === 0 || recoveryStatus >= 500) {
           message = t("feed.serverStarting");
         }
         setError(message);

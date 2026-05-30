@@ -43,47 +43,6 @@ export default function FeedPage() {
   const [authToken, setAuthToken] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
 
-  // CSS owns the mobile-first feed size; these metrics only enhance it after
-  // hydration for viewport changes and mobile browser chrome adjustments.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let frameId = null;
-    let timeoutId = null;
-
-    const applyViewportMetrics = () => {
-      const viewport = window.visualViewport;
-      const height = Math.round(Math.max(viewport?.height || 0, window.innerHeight || 0));
-
-      if (height > 0) {
-        document.documentElement.style.setProperty("--feed-viewport-height", `${height}px`);
-      }
-    };
-
-    const updateViewportMetrics = ({ defer = true } = {}) => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      if (!defer) applyViewportMetrics();
-      frameId = window.requestAnimationFrame(applyViewportMetrics);
-    };
-
-    updateViewportMetrics({ defer: false });
-    // Some mobile browsers settle visualViewport after their first paint.
-    timeoutId = window.setTimeout(() => updateViewportMetrics({ defer: false }), 250);
-    window.addEventListener("resize", updateViewportMetrics);
-    window.addEventListener("orientationchange", updateViewportMetrics);
-    window.visualViewport?.addEventListener("resize", updateViewportMetrics);
-    window.visualViewport?.addEventListener("scroll", updateViewportMetrics);
-
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      if (timeoutId) window.clearTimeout(timeoutId);
-      window.removeEventListener("resize", updateViewportMetrics);
-      window.removeEventListener("orientationchange", updateViewportMetrics);
-      window.visualViewport?.removeEventListener("resize", updateViewportMetrics);
-      window.visualViewport?.removeEventListener("scroll", updateViewportMetrics);
-    };
-  }, []);
-
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
@@ -376,7 +335,6 @@ export default function FeedPage() {
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,
-                    scale: 1 - stackIndex * 0.045,
                     opacity: 1 - stackIndex * 0.12,
                     pointerEvents: isTopCard ? "auto" : "none",
                   }}
@@ -401,18 +359,16 @@ export default function FeedPage() {
         .feed-page {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
-          --feed-screen-height: var(--feed-viewport-height, 100dvh);
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
-          --feed-available-height: calc(var(--feed-screen-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-available-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
           /* Fallback from legacy viewport to stable/dynamic mobile viewport units. */
           min-height: 100vh;
           min-height: 100svh;
           min-height: 100dvh;
-          min-height: var(--feed-screen-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
@@ -478,8 +434,7 @@ export default function FeedPage() {
           position: relative;
           width: min(94vw, 430px);
           max-width: 430px;
-          height: calc(var(--feed-available-height) - 6px);
-          min-height: 420px;
+          height: clamp(520px, 72dvh, 720px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -515,7 +470,6 @@ export default function FeedPage() {
         @media (min-width: 769px) {
           .feed-swipe-deck {
             width: min(calc(100vw - 32px), 430px);
-            max-height: 610px;
           }
         }
 

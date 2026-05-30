@@ -21,6 +21,18 @@ const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
 
+async function requestBackendToken(signal) {
+  const response = await fetch("/api/auth/backend-token", {
+    method: "POST",
+    signal,
+  });
+
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  return data?.token || null;
+}
+
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -114,30 +126,18 @@ export default function FeedPage() {
 
     (async () => {
       try {
-        const response = await fetch("/api/auth/backend-token", {
-          method: "POST",
-          signal: controller.signal,
-        });
+        const recoveredToken = await requestBackendToken(controller.signal);
 
         if (cancelled) return;
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.token) {
-            setToken(data.token);
-            setAuthToken(data.token);
-            setError(null);
-            return;
-          }
+        if (recoveredToken) {
+          setToken(recoveredToken);
+          setAuthToken(recoveredToken);
+          setError(null);
+          return;
         }
 
-        let message = t("feed.genericError");
-        if (response.status === 401 || response.status === 403) {
-          message = t("feed.sessionExpired");
-        } else if (response.status >= 500) {
-          message = t("feed.serverStarting");
-        }
-        setError(message);
+        setError(t("feed.genericError"));
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -202,6 +202,20 @@ export default function FeedPage() {
         if (cancelled) return;
 
         if (!feedRes.ok) {
+          if (
+            (feedRes.status === 401 || feedRes.status === 403) &&
+            status === "authenticated" &&
+            session?.googleEmail
+          ) {
+            const recoveredToken = await requestBackendToken(controller.signal);
+            if (cancelled) return;
+            if (recoveredToken && recoveredToken !== authToken) {
+              setToken(recoveredToken);
+              setAuthToken(recoveredToken);
+              return;
+            }
+          }
+
           let msg = t("feed.genericError");
           if (feedRes.status === 401 || feedRes.status === 403) {
             msg = t("feed.sessionExpired");
@@ -239,7 +253,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [authToken, session?.user?.id, t]);
+  }, [authToken, session?.googleEmail, session?.user?.id, status, t]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -364,11 +378,11 @@ export default function FeedPage() {
           --feed-bottom-nav-content-height: 68px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
-          --feed-available-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Fallback from legacy viewport to stable/dynamic mobile viewport units. */
-          min-height: 100vh;
-          min-height: 100svh;
-          min-height: 100dvh;
+          --feed-viewport-height: 100vh;
+          --feed-viewport-height: 100lvh;
+          --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          /* Use the large viewport for deck sizing so refresh/browser chrome changes do not shrink the card. */
+          min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
@@ -434,7 +448,7 @@ export default function FeedPage() {
           position: relative;
           width: min(94vw, 430px);
           max-width: 430px;
-          height: clamp(520px, 72dvh, 720px);
+          height: clamp(520px, calc(var(--feed-available-height) - 6px), 720px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;

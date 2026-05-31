@@ -17,6 +17,7 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 // This is longer than the backend-token request timeout so recovery can settle.
 const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
+const SWIPE_LOCK_TIMEOUT_MS = 1400;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -86,6 +87,7 @@ export default function FeedPage() {
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
+  const swipeUnlockTimeoutRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -95,6 +97,14 @@ export default function FeedPage() {
       router.replace("/login?callbackUrl=/feed");
     }
   }, [status, router]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeUnlockTimeoutRef.current) {
+        clearTimeout(swipeUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -308,9 +318,17 @@ export default function FeedPage() {
   }
 
   /* --------------------------- Actions --------------------------- */
+  const unlockSwipe = () => {
+    if (swipeUnlockTimeoutRef.current) {
+      clearTimeout(swipeUnlockTimeoutRef.current);
+      swipeUnlockTimeoutRef.current = null;
+    }
+    setSwipeLocked(false);
+  };
+
   const advance = () => {
     setCurrentIndex((i) => i + 1);
-    setSwipeLocked(false);
+    unlockSwipe();
   };
 
   const handleSwipe = async (profileId, direction) => {
@@ -320,7 +338,7 @@ export default function FeedPage() {
     }
 
     if (!profileId) {
-      setSwipeLocked(false);
+      unlockSwipe();
       return;
     }
 
@@ -337,7 +355,7 @@ export default function FeedPage() {
       advance();
     } catch (err) {
       console.error("Like error:", err);
-      setSwipeLocked(false);
+      unlockSwipe();
       setError(t("feed.likeError"));
     }
   };
@@ -345,6 +363,13 @@ export default function FeedPage() {
   const requestSwipe = (direction) => {
     if (!currentProfile || swipeLocked) return;
     setSwipeLocked(true);
+    if (swipeUnlockTimeoutRef.current) {
+      clearTimeout(swipeUnlockTimeoutRef.current);
+    }
+    swipeUnlockTimeoutRef.current = setTimeout(() => {
+      setSwipeLocked(false);
+      swipeUnlockTimeoutRef.current = null;
+    }, SWIPE_LOCK_TIMEOUT_MS);
     setActionSignal((signal) => ({ id: signal.id + 1, direction }));
   };
 

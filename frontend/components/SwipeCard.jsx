@@ -9,6 +9,12 @@ const SWIPE_EXIT_DISTANCE_X = 360;
 const SUPER_LIKE_EXIT_DISTANCE_Y = 420;
 const SWIPE_EXIT_DELAY_MS = 210;
 
+function getSwipeExitX(direction) {
+  if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
+  if (direction === "right") return SWIPE_EXIT_DISTANCE_X;
+  return 0;
+}
+
 export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, actionSignal }) {
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
@@ -43,7 +49,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
     if (!isActive || hasSwiped) return;
 
     setHasSwiped(true);
-    setExitX(direction === "left" ? -SWIPE_EXIT_DISTANCE_X : direction === "right" ? SWIPE_EXIT_DISTANCE_X : 0);
+    setExitX(getSwipeExitX(direction));
     setExitY(direction === "up" ? -SUPER_LIKE_EXIT_DISTANCE_Y : 0);
 
     // Haptic feedback (vibration) on mobile

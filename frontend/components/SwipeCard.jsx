@@ -8,6 +8,8 @@ import Link from "next/link";
 const SWIPE_EXIT_DISTANCE_X = 360;
 const SUPER_LIKE_EXIT_DISTANCE_Y = 420;
 const SWIPE_EXIT_DELAY_MS = 210;
+const SUPER_LIKE_VIBRATION_MS = 70;
+const STANDARD_VIBRATION_MS = 45;
 
 function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
@@ -54,7 +56,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
 
     // Haptic feedback (vibration) on mobile
     if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(direction === "up" ? 70 : 45);
+      navigator.vibrate(direction === "up" ? SUPER_LIKE_VIBRATION_MS : STANDARD_VIBRATION_MS);
     }
 
     swipeTimeoutRef.current = setTimeout(() => {

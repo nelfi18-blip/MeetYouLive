@@ -332,7 +332,9 @@ export default function FeedPage() {
   };
 
   const handleSwipe = async (profileId, direction) => {
-    if (direction !== "right" && direction !== "up") {
+    const shouldRecordLike = direction === "right" || direction === "up";
+
+    if (!shouldRecordLike) {
       advance();
       return;
     }
@@ -366,10 +368,7 @@ export default function FeedPage() {
     if (swipeUnlockTimeoutRef.current) {
       clearTimeout(swipeUnlockTimeoutRef.current);
     }
-    swipeUnlockTimeoutRef.current = setTimeout(() => {
-      setSwipeLocked(false);
-      swipeUnlockTimeoutRef.current = null;
-    }, SWIPE_LOCK_TIMEOUT_MS);
+    swipeUnlockTimeoutRef.current = setTimeout(unlockSwipe, SWIPE_LOCK_TIMEOUT_MS);
     setActionSignal((signal) => ({ id: signal.id + 1, direction }));
   };
 

@@ -123,7 +123,12 @@
     "serverError": "Error del servidor. Por favor, intenta de nuevo.",
     "sessionExpired": "Sesión expirada. Por favor, inicia sesión de nuevo.",
     "likeError": "No pudimos registrar tu me gusta. Intenta de nuevo.",
-    "recommendedProfilesAria": "Perfiles recomendados"
+    "recommendedProfilesAria": "Perfiles recomendados",
+    "actionDockAria": "Acciones del perfil",
+    "dislikeLabel": "No me gusta",
+    "superLikeLabel": "Super like",
+    "superLikeShortLabel": "Super",
+    "likeLabel": "Me gusta"
   },
   "common": {
     "loading": "Cargando...",

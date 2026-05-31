@@ -17,6 +17,7 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 // This is longer than the backend-token request timeout so recovery can settle.
 const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
+const SWIPE_LOCK_TIMEOUT_MS = 1400;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -53,6 +54,25 @@ const IconAlert = (props) => (
   </svg>
 );
 
+const IconX = (props) => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+
+const IconHeart = (props) => (
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+  </svg>
+);
+
+const IconStar = (props) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="m12 2.7 2.86 5.8 6.4.93-4.63 4.52 1.1 6.38L12 17.32l-5.73 3.01 1.1-6.38-4.63-4.52 6.4-.93L12 2.7Z" />
+  </svg>
+);
+
 /* --------------------------- Feed page --------------------------- */
 export default function FeedPage() {
   const { data: session, status } = useSession();
@@ -64,7 +84,10 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
+  const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
+  const swipeUnlockTimeoutRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -74,6 +97,14 @@ export default function FeedPage() {
       router.replace("/login?callbackUrl=/feed");
     }
   }, [status, router]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeUnlockTimeoutRef.current) {
+        clearTimeout(swipeUnlockTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -287,15 +318,31 @@ export default function FeedPage() {
   }
 
   /* --------------------------- Actions --------------------------- */
-  const advance = () => setCurrentIndex((i) => i + 1);
+  const unlockSwipe = () => {
+    if (swipeUnlockTimeoutRef.current) {
+      clearTimeout(swipeUnlockTimeoutRef.current);
+      swipeUnlockTimeoutRef.current = null;
+    }
+    setSwipeLocked(false);
+  };
+
+  const advance = () => {
+    setCurrentIndex((i) => i + 1);
+    unlockSwipe();
+  };
 
   const handleSwipe = async (profileId, direction) => {
-    if (direction !== "right") {
+    const shouldRecordLike = direction === "right" || direction === "up";
+
+    if (!shouldRecordLike) {
       advance();
       return;
     }
 
-    if (!profileId) return;
+    if (!profileId) {
+      unlockSwipe();
+      return;
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/match/like`, {
@@ -310,8 +357,19 @@ export default function FeedPage() {
       advance();
     } catch (err) {
       console.error("Like error:", err);
+      unlockSwipe();
       setError(t("feed.likeError"));
     }
+  };
+
+  const requestSwipe = (direction) => {
+    if (!currentProfile || swipeLocked) return;
+    setSwipeLocked(true);
+    if (swipeUnlockTimeoutRef.current) {
+      clearTimeout(swipeUnlockTimeoutRef.current);
+    }
+    swipeUnlockTimeoutRef.current = setTimeout(unlockSwipe, SWIPE_LOCK_TIMEOUT_MS);
+    setActionSignal((signal) => ({ id: signal.id + 1, direction }));
   };
 
   /* --------------------------- Render --------------------------- */
@@ -372,15 +430,50 @@ export default function FeedPage() {
                   profile={profile}
                   isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}
+                  actionSignal={isTopCard ? actionSignal : undefined}
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,
+                    scale: 1 - stackIndex * 0.035,
                     opacity: 1 - stackIndex * 0.12,
                     pointerEvents: isTopCard ? "auto" : "none",
                   }}
                 />
               );
             })}
+
+            <div className="feed-action-dock" aria-label={t("feed.actionDockAria")}>
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--pass"
+                aria-label={t("feed.dislikeLabel")}
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("left")}
+              >
+                <IconX />
+                <span>{t("feed.dislikeLabel")}</span>
+              </button>
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--super"
+                aria-label={t("feed.superLikeLabel")}
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("up")}
+              >
+                <IconStar />
+                <span>{t("feed.superLikeShortLabel")}</span>
+              </button>
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--like"
+                aria-label={t("feed.likeLabel")}
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("right")}
+              >
+                <IconHeart />
+                <span>{t("feed.likeLabel")}</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="feed-empty">
@@ -407,6 +500,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-info-panel-height: clamp(190px, 32%, 236px);
           /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -472,8 +566,8 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(94vw, 430px);
-          max-width: 430px;
+          width: min(96vw, 440px);
+          max-width: 440px;
           /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
           height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           display: flex;
@@ -491,11 +585,110 @@ export default function FeedPage() {
           left: 0;
           right: 0;
           margin: 0 auto;
-          background: rgba(255, 255, 255, 0.04);
+          background: linear-gradient(180deg, rgba(20, 12, 46, 0.98), rgba(15, 8, 33, 0.98));
           border: 1px solid rgba(224, 64, 251, 0.18);
           border-radius: inherit;
           transform-origin: center center;
           will-change: transform, opacity;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-image-wrapper) {
+          height: calc(100% - var(--feed-info-panel-height));
+          border-radius: inherit;
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          overflow: hidden;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-info) {
+          box-sizing: border-box;
+          min-height: 0;
+          height: var(--feed-info-panel-height);
+          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, 12dvh, 6.5rem);
+          background:
+            radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
+            linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        :global(.feed-swipe-deck .swipe-card-name) {
+          font-size: clamp(1.55rem, 7vw, 2rem);
+          line-height: 1.05;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-age) {
+          font-size: clamp(1.25rem, 5.5vw, 1.65rem);
+        }
+
+        :global(.feed-swipe-deck .swipe-card-location),
+        :global(.feed-swipe-deck .interest-tag) {
+          font-size: clamp(0.72rem, 3vw, 0.86rem);
+        }
+
+        .feed-action-dock {
+          position: absolute;
+          left: 50%;
+          bottom: clamp(14px, 3dvh, 26px);
+          z-index: 70;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: clamp(0.65rem, 2.5vw, 1rem);
+          width: min(92%, 374px);
+          transform: translateX(-50%);
+          pointer-events: none;
+        }
+
+        .feed-action-btn {
+          pointer-events: auto;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.25rem;
+          min-width: 0;
+          min-height: 64px;
+          padding: 0.55rem 0.7rem;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          color: #fff;
+          font-weight: 800;
+          font-size: clamp(0.65rem, 2.6vw, 0.76rem);
+          letter-spacing: -0.01em;
+          text-align: center;
+          cursor: pointer;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .feed-action-btn:disabled {
+          cursor: default;
+          opacity: 0.58;
+        }
+
+        .feed-action-btn:not(:disabled):active {
+          transform: scale(0.93);
+        }
+
+        .feed-action-btn--pass {
+          background: linear-gradient(135deg, rgba(20, 12, 46, 0.92), rgba(30, 30, 40, 0.88));
+          color: #d9d7e8;
+        }
+
+        .feed-action-btn--super {
+          width: clamp(62px, 17vw, 74px);
+          height: clamp(62px, 17vw, 74px);
+          min-height: 0;
+          padding: 0;
+          background: linear-gradient(135deg, #22d3ee, #8b5cf6);
+          box-shadow: 0 0 26px rgba(34, 211, 238, 0.38), 0 16px 36px rgba(0, 0, 0, 0.42);
+        }
+
+        .feed-action-btn--like {
+          background: linear-gradient(135deg, #ff4fa3, #e040fb);
+          box-shadow: 0 0 28px rgba(224, 64, 251, 0.36), 0 16px 36px rgba(0, 0, 0, 0.42);
         }
 
         :global(.feed-swipe-deck .swipe-card-initial) {
@@ -516,7 +709,7 @@ export default function FeedPage() {
 
         @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(calc(100vw - 32px), 430px);
+            width: min(calc(100vw - 32px), 440px);
           }
         }
 

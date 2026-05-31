@@ -21,6 +21,29 @@ const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
 
+async function requestBackendToken(signal) {
+  try {
+    const response = await fetch("/api/auth/backend-token", {
+      method: "POST",
+      signal,
+    });
+
+    if (!response.ok) {
+      return { token: null, status: response.status };
+    }
+
+    try {
+      const data = await response.json();
+      return { token: data?.token || null, status: response.status };
+    } catch {
+      return { token: null, status: response.status };
+    }
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    return { token: null, status: 0 };
+  }
+}
+
 /* ------------------------ Inline SVG icon set ------------------------ */
 const IconAlert = (props) => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -114,27 +137,23 @@ export default function FeedPage() {
 
     (async () => {
       try {
-        const response = await fetch("/api/auth/backend-token", {
-          method: "POST",
-          signal: controller.signal,
-        });
+        const { token: recoveredToken, status: recoveryStatus } = await requestBackendToken(controller.signal);
 
         if (cancelled) return;
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.token) {
-            setToken(data.token);
-            setAuthToken(data.token);
-            setError(null);
-            return;
-          }
+        if (recoveredToken) {
+          setToken(recoveredToken);
+          setAuthToken(recoveredToken);
+          setError(null);
+          return;
         }
 
         let message = t("feed.genericError");
-        if (response.status === 401 || response.status === 403) {
+        if (recoveryStatus === 401 || recoveryStatus === 403) {
           message = t("feed.sessionExpired");
-        } else if (response.status >= 500) {
+        } else if (recoveryStatus === 0) {
+          message = t("feed.networkError");
+        } else if (recoveryStatus >= 500) {
           message = t("feed.serverStarting");
         }
         setError(message);
@@ -202,6 +221,27 @@ export default function FeedPage() {
         if (cancelled) return;
 
         if (!feedRes.ok) {
+          if (
+            (feedRes.status === 401 || feedRes.status === 403) &&
+            status === "authenticated" &&
+            session?.googleEmail
+          ) {
+            let recoveredToken = null;
+            try {
+              ({ token: recoveredToken } = await requestBackendToken(controller.signal));
+            } catch (err) {
+              if (err.name === "AbortError") throw err;
+            }
+            if (cancelled) return;
+            // Only restart the feed request when the proxy gives us a different token;
+            // if it matches, the 401/403 is not caused by a stale localStorage token.
+            if (recoveredToken && recoveredToken !== authToken) {
+              setToken(recoveredToken);
+              setAuthToken(recoveredToken);
+              return;
+            }
+          }
+
           let msg = t("feed.genericError");
           if (feedRes.status === 401 || feedRes.status === 403) {
             msg = t("feed.sessionExpired");
@@ -239,7 +279,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [authToken, session?.user?.id, t]);
+  }, [authToken, session?.googleEmail, session?.user?.id, status, t]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -362,13 +402,13 @@ export default function FeedPage() {
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
+          --feed-section-top-padding: 6px;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
-          --feed-available-height: calc(100dvh - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Fallback from legacy viewport to stable/dynamic mobile viewport units. */
-          min-height: 100vh;
-          min-height: 100svh;
-          min-height: 100dvh;
+          --feed-viewport-height: 100vh;
+          --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
+          min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
@@ -422,7 +462,7 @@ export default function FeedPage() {
           align-items: flex-start;
           min-height: var(--feed-available-height);
           height: var(--feed-available-height);
-          padding: 6px 0 0;
+          padding: var(--feed-section-top-padding) 0 0;
           box-sizing: border-box;
         }
         .feed-match-section--empty {
@@ -434,7 +474,8 @@ export default function FeedPage() {
           position: relative;
           width: min(94vw, 430px);
           max-width: 430px;
-          height: clamp(520px, 72dvh, 720px);
+          /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
+          height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -464,6 +505,12 @@ export default function FeedPage() {
         @media (min-width: 641px) {
           .feed-page {
             --feed-bottom-nav-content-height: 72px;
+          }
+        }
+
+        @supports (height: 100lvh) {
+          .feed-page {
+            --feed-viewport-height: 100lvh;
           }
         }
 

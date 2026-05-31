@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +27,7 @@ async function requestBackendToken(signal) {
     const response = await fetch("/api/auth/backend-token", {
       method: "POST",
       signal,
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -224,93 +225,98 @@ export default function FeedPage() {
     return () => clearTimeout(timer);
   }, [status, authToken, t]);
 
-  // Fetch feed data once a backend token is ready.
-  useEffect(() => {
+  const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
     if (!authToken) return;
 
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     if (!API_URL) {
       setError(t("feed.genericError"));
       setLoading(false);
-      return undefined;
+      return;
     }
 
-    let cancelled = false;
     const controller = new AbortController();
+    const requestSignal = controller.signal;
+    const abortFromParent = () => controller.abort();
+    if (signal?.aborted) {
+      controller.abort();
+    } else {
+      signal?.addEventListener("abort", abortFromParent, { once: true });
+    }
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    (async () => {
-      try {
-        const feedRes = await fetch(`${API_URL}/api/feed`, {
-          headers: { Authorization: `Bearer ${authToken}` },
-          signal: controller.signal,
-          cache: "no-store",
-        });
+    try {
+      const feedRes = await fetch(`${API_URL}/api/feed`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        signal: requestSignal,
+        cache: "no-store",
+      });
 
-        if (cancelled) return;
-
-        if (!feedRes.ok) {
-          if (
-            (feedRes.status === 401 || feedRes.status === 403) &&
-            status === "authenticated" &&
-            session?.googleEmail
-          ) {
-            let recoveredToken = null;
-            try {
-              ({ token: recoveredToken } = await requestBackendToken(controller.signal));
-            } catch (err) {
-              if (err.name === "AbortError") throw err;
-            }
-            if (cancelled) return;
-            // Only restart the feed request when the proxy gives us a different token;
-            // if it matches, the 401/403 is not caused by a stale localStorage token.
-            if (recoveredToken && recoveredToken !== authToken) {
-              setToken(recoveredToken);
-              setAuthToken(recoveredToken);
-              return;
-            }
+      if (!feedRes.ok) {
+        if (
+          (feedRes.status === 401 || feedRes.status === 403) &&
+          status === "authenticated" &&
+          session?.googleEmail
+        ) {
+          let recoveredToken = null;
+          try {
+            ({ token: recoveredToken } = await requestBackendToken(requestSignal));
+          } catch (err) {
+            if (err.name === "AbortError") throw err;
           }
-
-          let msg = t("feed.genericError");
-          if (feedRes.status === 401 || feedRes.status === 403) {
-            msg = t("feed.sessionExpired");
-          } else if (feedRes.status >= 500) {
-            msg = t("feed.serverError");
+          // Only restart the feed request when the proxy gives us a different token;
+          // if it matches, the 401/403 is not caused by a stale localStorage token.
+          if (recoveredToken && recoveredToken !== authToken) {
+            setToken(recoveredToken);
+            setAuthToken(recoveredToken);
+            return;
           }
-          throw new Error(msg);
         }
 
-        const data = await feedRes.json();
-        const uniqueProfiles = Array.from(
-          new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
-        );
-
-        setCurrentIndex(0);
-        setProfiles(uniqueProfiles);
-
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        if (err.name === "AbortError") {
-          setError(t("feed.serverStarting"));
-        } else {
-          setError(err.message || t("feed.genericError"));
+        let msg = t("feed.genericError");
+        if (feedRes.status === 401 || feedRes.status === 403) {
+          msg = t("feed.sessionExpired");
+        } else if (feedRes.status >= 500) {
+          msg = t("feed.serverError");
         }
-      } finally {
-        clearTimeout(timeoutId);
-        // A replacement request owns the loading state after cancellation.
-        if (!cancelled) setLoading(false);
+        throw new Error(msg);
       }
-    })();
 
-    return () => {
-      cancelled = true;
+      const data = await feedRes.json();
+      const uniqueProfiles = Array.from(
+        new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+      );
+
+      setCurrentIndex(0);
+      setProfiles(uniqueProfiles);
+      setError(null);
+    } catch (err) {
+      if (signal?.aborted) return;
+      if (err.name === "AbortError") {
+        setError(t("feed.serverStarting"));
+      } else {
+        setError(err.message || t("feed.genericError"));
+      }
+    } finally {
       clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abortFromParent);
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [authToken, session?.googleEmail, status, t]);
+
+  // Fetch feed data once a backend token is ready.
+  useEffect(() => {
+    if (!authToken) return undefined;
+    const controller = new AbortController();
+    loadFeed({ signal: controller.signal });
+    return () => {
       controller.abort();
     };
-  }, [authToken, session?.googleEmail, session?.user?.id, status, t]);
+  }, [authToken, loadFeed]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -352,9 +358,18 @@ export default function FeedPage() {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ userId: profileId }),
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
-      advance();
+      const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
+      const nextIndex = Math.min(currentIndex, nextProfiles.length);
+      setProfiles(nextProfiles);
+      setCurrentIndex(nextIndex);
+      unlockSwipe();
+      router.refresh();
+      if (nextIndex >= nextProfiles.length) {
+        loadFeed({ silent: true });
+      }
     } catch (err) {
       console.error("Like error:", err);
       unlockSwipe();
@@ -398,7 +413,7 @@ export default function FeedPage() {
           <button
             type="button"
             className="feed-retry-btn"
-            onClick={() => window.location.reload()}
+            onClick={() => loadFeed()}
           >
             Intentar de nuevo
           </button>
@@ -507,6 +522,8 @@ export default function FeedPage() {
           background: var(--bg, #0f0821);
           color: var(--text, #fff);
           overflow-x: hidden;
+          width: 100%;
+          min-width: 0;
         }
 
         .feed-loading,
@@ -518,6 +535,9 @@ export default function FeedPage() {
           gap: 0.75rem;
           min-height: max(280px, var(--feed-available-height));
           padding: 4rem 1.5rem;
+          box-sizing: border-box;
+          width: 100%;
+          margin: 0 auto;
           text-align: center;
           color: var(--text-muted, #a39ec0);
         }
@@ -701,9 +721,9 @@ export default function FeedPage() {
           }
         }
 
-        @supports (height: 100lvh) {
+        @supports (height: 100dvh) {
           .feed-page {
-            --feed-viewport-height: 100lvh;
+            --feed-viewport-height: 100dvh;
           }
         }
 

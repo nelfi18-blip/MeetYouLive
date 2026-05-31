@@ -285,7 +285,7 @@ export default function DashboardPage() {
         !backendTokenAttempted.current
       ) {
         backendTokenAttempted.current = true;
-        fetch("/api/auth/backend-token", { method: "POST" })
+        fetch("/api/auth/backend-token", { method: "POST", cache: "no-store" })
           .then((r) => {
             if (!r.ok) {
               console.error("[dashboard] backend-token proxy failed:", r.status);
@@ -298,6 +298,7 @@ export default function DashboardPage() {
               setToken(data.token);
               return fetch(`${API_URL}/api/user/me`, {
                 headers: { Authorization: `Bearer ${data.token}` },
+                cache: "no-store",
               });
             }
             router.replace("/login");
@@ -343,6 +344,7 @@ export default function DashboardPage() {
     // Fetch real user data from the backend.
     fetch(`${API_URL}/api/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
       .then((r) => {
         if (r.status === 401 || r.status === 403) {
@@ -386,6 +388,7 @@ export default function DashboardPage() {
     setDashLoading(true);
     fetch(`${API_URL}/api/creator/dashboard`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data) setCreatorDash(data); })
@@ -399,6 +402,7 @@ export default function DashboardPage() {
     if (!token) return;
     fetch(`${API_URL}/api/rankings/my-stats`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data) setRankStats(data); })
@@ -414,6 +418,7 @@ export default function DashboardPage() {
       const r = await fetch(`${API_URL}/api/lives/${creatorDash.activeLive._id}/end`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       if (r.ok) setCreatorDash((prev) => ({ ...prev, activeLive: null }));
     } catch {}
@@ -431,6 +436,7 @@ export default function DashboardPage() {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ [key]: !currentVal }),
+        cache: "no-store",
       });
       if (r.ok) {
         const updated = await r.json();
@@ -459,7 +465,7 @@ export default function DashboardPage() {
           ))}
         </div>
         <style jsx>{`
-          .dashboard { display: flex; flex-direction: column; gap: 1.75rem; }
+          .dashboard { display: flex; flex-direction: column; justify-content: center; gap: 1.75rem; min-height: calc(100dvh - 140px); width: 100%; }
           .hero-skeleton { display: flex; align-items: center; gap: 1.25rem; padding: 2rem; background: rgba(15,8,32,0.6); border: 1px solid var(--border); border-radius: var(--radius); }
           .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
         `}</style>
@@ -469,8 +475,8 @@ export default function DashboardPage() {
 
   if (userError) {
     return (
-      <div className="dashboard" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-        <div style={{ padding: "2rem", background: "rgba(15,8,32,0.6)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center" }}>
+      <div className="dashboard" style={{ display: "flex", flexDirection: "column", justifyContent: "center", minHeight: "calc(100dvh - 140px)", width: "100%", gap: "1.75rem" }}>
+        <div style={{ width: "100%", boxSizing: "border-box", padding: "2rem", background: "rgba(15,8,32,0.6)", border: "1px solid var(--border)", borderRadius: "var(--radius)", textAlign: "center" }}>
           <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
             No se pudo cargar tu perfil. Verifica tu conexión o intenta más tarde.
           </p>

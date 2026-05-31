@@ -53,6 +53,25 @@ const IconAlert = (props) => (
   </svg>
 );
 
+const IconX = (props) => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+);
+
+const IconHeart = (props) => (
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+  </svg>
+);
+
+const IconStar = (props) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+    <path d="m12 2.7 2.86 5.8 6.4.93-4.63 4.52 1.1 6.38L12 17.32l-5.73 3.01 1.1-6.38-4.63-4.52 6.4-.93L12 2.7Z" />
+  </svg>
+);
+
 /* --------------------------- Feed page --------------------------- */
 export default function FeedPage() {
   const { data: session, status } = useSession();
@@ -64,6 +83,8 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
+  const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -287,15 +308,21 @@ export default function FeedPage() {
   }
 
   /* --------------------------- Actions --------------------------- */
-  const advance = () => setCurrentIndex((i) => i + 1);
+  const advance = () => {
+    setCurrentIndex((i) => i + 1);
+    setSwipeLocked(false);
+  };
 
   const handleSwipe = async (profileId, direction) => {
-    if (direction !== "right") {
+    if (direction !== "right" && direction !== "up") {
       advance();
       return;
     }
 
-    if (!profileId) return;
+    if (!profileId) {
+      setSwipeLocked(false);
+      return;
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/match/like`, {
@@ -310,8 +337,15 @@ export default function FeedPage() {
       advance();
     } catch (err) {
       console.error("Like error:", err);
+      setSwipeLocked(false);
       setError(t("feed.likeError"));
     }
+  };
+
+  const requestSwipe = (direction) => {
+    if (!currentProfile || swipeLocked) return;
+    setSwipeLocked(true);
+    setActionSignal((signal) => ({ id: signal.id + 1, direction }));
   };
 
   /* --------------------------- Render --------------------------- */
@@ -372,15 +406,50 @@ export default function FeedPage() {
                   profile={profile}
                   isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}
+                  actionSignal={isTopCard ? actionSignal : undefined}
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,
+                    scale: 1 - stackIndex * 0.035,
                     opacity: 1 - stackIndex * 0.12,
                     pointerEvents: isTopCard ? "auto" : "none",
                   }}
                 />
               );
             })}
+
+            <div className="feed-action-dock" aria-label="Acciones del perfil">
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--pass"
+                aria-label="No me gusta"
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("left")}
+              >
+                <IconX />
+                <span>No me gusta</span>
+              </button>
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--super"
+                aria-label="Super like"
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("up")}
+              >
+                <IconStar />
+                <span>Super</span>
+              </button>
+              <button
+                type="button"
+                className="feed-action-btn feed-action-btn--like"
+                aria-label="Me gusta"
+                disabled={swipeLocked}
+                onClick={() => requestSwipe("right")}
+              >
+                <IconHeart />
+                <span>Me gusta</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="feed-empty">
@@ -496,6 +565,76 @@ export default function FeedPage() {
           border-radius: inherit;
           transform-origin: center center;
           will-change: transform, opacity;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-info) {
+          padding-bottom: clamp(96px, 18vh, 126px);
+        }
+
+        .feed-action-dock {
+          position: absolute;
+          left: 50%;
+          bottom: clamp(14px, 3dvh, 26px);
+          z-index: 70;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: clamp(0.65rem, 2.5vw, 1rem);
+          width: min(92%, 374px);
+          transform: translateX(-50%);
+          pointer-events: none;
+        }
+
+        .feed-action-btn {
+          pointer-events: auto;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.25rem;
+          min-width: 0;
+          min-height: 64px;
+          padding: 0.55rem 0.7rem;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          color: #fff;
+          font-weight: 800;
+          font-size: clamp(0.65rem, 2.6vw, 0.76rem);
+          letter-spacing: -0.01em;
+          text-align: center;
+          cursor: pointer;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .feed-action-btn:disabled {
+          cursor: default;
+          opacity: 0.58;
+        }
+
+        .feed-action-btn:not(:disabled):active {
+          transform: scale(0.93);
+        }
+
+        .feed-action-btn--pass {
+          background: linear-gradient(135deg, rgba(20, 12, 46, 0.92), rgba(30, 30, 40, 0.88));
+          color: #d9d7e8;
+        }
+
+        .feed-action-btn--super {
+          width: clamp(62px, 17vw, 74px);
+          height: clamp(62px, 17vw, 74px);
+          min-height: 0;
+          padding: 0;
+          background: linear-gradient(135deg, #22d3ee, #8b5cf6);
+          box-shadow: 0 0 26px rgba(34, 211, 238, 0.38), 0 16px 36px rgba(0, 0, 0, 0.42);
+        }
+
+        .feed-action-btn--like {
+          background: linear-gradient(135deg, #ff4fa3, #e040fb);
+          box-shadow: 0 0 28px rgba(224, 64, 251, 0.36), 0 16px 36px rgba(0, 0, 0, 0.42);
         }
 
         :global(.feed-swipe-deck .swipe-card-initial) {

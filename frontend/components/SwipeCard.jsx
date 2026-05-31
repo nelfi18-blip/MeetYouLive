@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserImage, getDisplayName, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
-export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive }) {
+export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, actionSignal }) {
   const [exitX, setExitX] = useState(0);
+  const [exitY, setExitY] = useState(0);
+  const [hasSwiped, setHasSwiped] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
+  const swipeTimeoutRef = useRef(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
@@ -16,19 +19,49 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
   const likeOpacity = useTransform(x, [0, 100], [0, 1]);
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
 
+  useEffect(() => {
+    setExitX(0);
+    setExitY(0);
+    setHasSwiped(false);
+    setCurrentPhotoIndex(0);
+    setBrokenPhotoUrls(new Set());
+  }, [profile?._id]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeTimeoutRef.current) {
+        clearTimeout(swipeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isActive || !actionSignal?.id || !actionSignal.direction) return;
+    completeSwipe(actionSignal.direction);
+  }, [actionSignal, isActive]);
+
+  const completeSwipe = (direction) => {
+    if (!isActive || hasSwiped) return;
+
+    setHasSwiped(true);
+    setExitX(direction === "left" ? -360 : direction === "right" ? 360 : 0);
+    setExitY(direction === "up" ? -420 : 0);
+
+    // Haptic feedback (vibration) on mobile
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(direction === "up" ? 70 : 45);
+    }
+
+    swipeTimeoutRef.current = setTimeout(() => {
+      onSwipe?.(profile._id, direction);
+    }, 210);
+  };
+
   const handleDragEnd = (event, info) => {
-    if (!isActive) return;
+    if (!isActive || hasSwiped) return;
 
     if (Math.abs(info.offset.x) > 100) {
-      setExitX(info.offset.x > 0 ? 300 : -300);
-      const direction = info.offset.x > 0 ? "right" : "left";
-      
-      // Haptic feedback (vibration) on mobile
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      
-      onSwipe?.(profile._id, direction);
+      completeSwipe(info.offset.x > 0 ? "right" : "left");
     }
   };
 
@@ -83,12 +116,12 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive })
         zIndex,
         ...style,
       }}
-      drag={isActive ? "x" : false}
+      drag={isActive && !hasSwiped ? "x" : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={0.18}
       dragMomentum={false}
-      onDragEnd={isActive ? handleDragEnd : undefined}
-      animate={exitX !== 0 ? { x: exitX, opacity: 0.96 } : {}}
+      onDragEnd={isActive && !hasSwiped ? handleDragEnd : undefined}
+      animate={hasSwiped ? { x: exitX, y: exitY, opacity: 0, scale: 0.98 } : undefined}
       transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
       className={cardClassName}
       aria-hidden={!isActive}

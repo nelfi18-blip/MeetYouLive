@@ -123,7 +123,12 @@
     "serverError": "Erro do servidor. Por favor, tente novamente.",
     "sessionExpired": "Sessão expirada. Por favor, faça login novamente.",
     "likeError": "Não conseguimos registrar sua curtida. Tente novamente.",
-    "recommendedProfilesAria": "Perfis recomendados"
+    "recommendedProfilesAria": "Perfis recomendados",
+    "actionDockAria": "Ações do perfil",
+    "dislikeLabel": "Não gostei",
+    "superLikeLabel": "Super like",
+    "superLikeShortLabel": "Super",
+    "likeLabel": "Gostei"
   },
   "common": {
     "loading": "Carregando...",

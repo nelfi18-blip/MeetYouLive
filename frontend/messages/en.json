@@ -123,7 +123,12 @@
     "serverError": "Server error. Please try again.",
     "sessionExpired": "Session expired. Please sign in again.",
     "likeError": "We couldn't save your like. Please try again.",
-    "recommendedProfilesAria": "Recommended profiles"
+    "recommendedProfilesAria": "Recommended profiles",
+    "actionDockAria": "Profile actions",
+    "dislikeLabel": "Nope",
+    "superLikeLabel": "Super like",
+    "superLikeShortLabel": "Super",
+    "likeLabel": "Like"
   },
   "common": {
     "loading": "Loading...",

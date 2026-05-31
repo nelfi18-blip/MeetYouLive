@@ -418,36 +418,36 @@ export default function FeedPage() {
               );
             })}
 
-            <div className="feed-action-dock" aria-label="Acciones del perfil">
+            <div className="feed-action-dock" aria-label={t("feed.actionDockAria")}>
               <button
                 type="button"
                 className="feed-action-btn feed-action-btn--pass"
-                aria-label="No me gusta"
+                aria-label={t("feed.dislikeLabel")}
                 disabled={swipeLocked}
                 onClick={() => requestSwipe("left")}
               >
                 <IconX />
-                <span>No me gusta</span>
+                <span>{t("feed.dislikeLabel")}</span>
               </button>
               <button
                 type="button"
                 className="feed-action-btn feed-action-btn--super"
-                aria-label="Super like"
+                aria-label={t("feed.superLikeLabel")}
                 disabled={swipeLocked}
                 onClick={() => requestSwipe("up")}
               >
                 <IconStar />
-                <span>Super</span>
+                <span>{t("feed.superLikeShortLabel")}</span>
               </button>
               <button
                 type="button"
                 className="feed-action-btn feed-action-btn--like"
-                aria-label="Me gusta"
+                aria-label={t("feed.likeLabel")}
                 disabled={swipeLocked}
                 onClick={() => requestSwipe("right")}
               >
                 <IconHeart />
-                <span>Me gusta</span>
+                <span>{t("feed.likeLabel")}</span>
               </button>
             </div>
           </div>
@@ -476,6 +476,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-info-panel-height: clamp(190px, 32%, 236px);
           /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -541,8 +542,8 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(94vw, 430px);
-          max-width: 430px;
+          width: min(96vw, 440px);
+          max-width: 440px;
           /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
           height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           display: flex;
@@ -560,15 +561,44 @@ export default function FeedPage() {
           left: 0;
           right: 0;
           margin: 0 auto;
-          background: rgba(255, 255, 255, 0.04);
+          background: linear-gradient(180deg, rgba(20, 12, 46, 0.98), rgba(15, 8, 33, 0.98));
           border: 1px solid rgba(224, 64, 251, 0.18);
           border-radius: inherit;
           transform-origin: center center;
           will-change: transform, opacity;
         }
 
+        :global(.feed-swipe-deck .swipe-card-image-wrapper) {
+          height: calc(100% - var(--feed-info-panel-height));
+          border-radius: inherit;
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+          overflow: hidden;
+        }
+
         :global(.feed-swipe-deck .swipe-card-info) {
-          padding-bottom: clamp(96px, 18vh, 126px);
+          box-sizing: border-box;
+          min-height: 0;
+          height: var(--feed-info-panel-height);
+          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, 12dvh, 6.5rem);
+          background:
+            radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
+            linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        :global(.feed-swipe-deck .swipe-card-name) {
+          font-size: clamp(1.55rem, 7vw, 2rem);
+          line-height: 1.05;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-age) {
+          font-size: clamp(1.25rem, 5.5vw, 1.65rem);
+        }
+
+        :global(.feed-swipe-deck .swipe-card-location),
+        :global(.feed-swipe-deck .interest-tag) {
+          font-size: clamp(0.72rem, 3vw, 0.86rem);
         }
 
         .feed-action-dock {
@@ -655,7 +685,7 @@ export default function FeedPage() {
 
         @media (min-width: 769px) {
           .feed-swipe-deck {
-            width: min(calc(100vw - 32px), 430px);
+            width: min(calc(100vw - 32px), 440px);
           }
         }
 

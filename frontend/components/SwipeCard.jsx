@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserImage, getDisplayName, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
+
+const SWIPE_EXIT_DISTANCE_X = 360;
+const SUPER_LIKE_EXIT_DISTANCE_Y = 420;
+const SWIPE_EXIT_DELAY_MS = 210;
 
 export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, actionSignal }) {
   const [exitX, setExitX] = useState(0);
@@ -35,17 +39,12 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
     };
   }, []);
 
-  useEffect(() => {
-    if (!isActive || !actionSignal?.id || !actionSignal.direction) return;
-    completeSwipe(actionSignal.direction);
-  }, [actionSignal, isActive]);
-
-  const completeSwipe = (direction) => {
+  const completeSwipe = useCallback((direction) => {
     if (!isActive || hasSwiped) return;
 
     setHasSwiped(true);
-    setExitX(direction === "left" ? -360 : direction === "right" ? 360 : 0);
-    setExitY(direction === "up" ? -420 : 0);
+    setExitX(direction === "left" ? -SWIPE_EXIT_DISTANCE_X : direction === "right" ? SWIPE_EXIT_DISTANCE_X : 0);
+    setExitY(direction === "up" ? -SUPER_LIKE_EXIT_DISTANCE_Y : 0);
 
     // Haptic feedback (vibration) on mobile
     if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -54,8 +53,13 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
 
     swipeTimeoutRef.current = setTimeout(() => {
       onSwipe?.(profile._id, direction);
-    }, 210);
-  };
+    }, SWIPE_EXIT_DELAY_MS);
+  }, [hasSwiped, isActive, onSwipe, profile._id]);
+
+  useEffect(() => {
+    if (!isActive || !actionSignal?.id || !actionSignal.direction) return;
+    completeSwipe(actionSignal.direction);
+  }, [actionSignal, completeSwipe, isActive]);
 
   const handleDragEnd = (event, info) => {
     if (!isActive || hasSwiped) return;

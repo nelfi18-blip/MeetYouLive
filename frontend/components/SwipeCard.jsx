@@ -87,6 +87,8 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
   const rawPhotos = [
     ...(Array.isArray(profile.photos) ? profile.photos : []),
     ...(Array.isArray(profile.profilePhotos) ? profile.profilePhotos : []),
+    profile.profileImage,
+    profile.photo,
     userImage,
   ];
   const photos = Array.from(new Set(rawPhotos.map(normalizeImageUrl).filter(Boolean)))

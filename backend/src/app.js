@@ -43,6 +43,11 @@ const feedRoutes = require("./routes/feed.routes.js");
 
 const app = express();
 
+// Render/other proxies terminate TLS before forwarding requests to Express.
+// Trust the forwarded protocol so generated upload URLs stay https:// in
+// production instead of becoming mixed-content http:// image URLs.
+app.set("trust proxy", 1);
+
 // Error monitoring — must be initialised before any other middleware.
 initSentry(app);
 

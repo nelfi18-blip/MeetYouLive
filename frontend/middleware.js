@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import { normalizeCallbackPath } from "@/lib/redirects";
+import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
+
+function withCanonicalHostIndexing(request, response) {
+  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (host === `www.${CANONICAL_HOST}`) {
+    response.headers.set("X-Robots-Tag", "noindex, follow");
+    response.headers.set(
+      "Link",
+      `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`
+    );
+  }
+  return response;
+}
 
 function redirectToPath(request, pathname) {
   const url = request.nextUrl.clone();
   url.pathname = pathname;
   // Drop stale route-specific query params when forcing a known safe route.
   url.search = "";
-  return NextResponse.redirect(url);
+  return withCanonicalHostIndexing(request, NextResponse.redirect(url));
 }
 
 function redirectToLogin(request) {
@@ -19,7 +32,7 @@ function redirectToLogin(request) {
     "callbackUrl",
     normalizeCallbackPath(`${request.nextUrl.pathname}${request.nextUrl.search}`)
   );
-  return NextResponse.redirect(url);
+  return withCanonicalHostIndexing(request, NextResponse.redirect(url));
 }
 
 export function middleware(request) {
@@ -40,7 +53,7 @@ export function middleware(request) {
   // The homepage (/) must ALWAYS be accessible to everyone without redirects.
   // This is a public landing page that should never redirect to admin or auth pages.
   if (pathname === "/") {
-    return NextResponse.next();
+    return withCanonicalHostIndexing(request, NextResponse.next());
   }
 
   // Cookie set by email/password login AND by the dashboard once the backend
@@ -98,7 +111,7 @@ export function middleware(request) {
     url.pathname = "/admin/blocked";
     url.search = "";
     url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
+    return withCanonicalHostIndexing(request, NextResponse.redirect(url));
   }
 
   // Admins on auth pages (trying to login again) → send to admin dashboard
@@ -124,7 +137,7 @@ export function middleware(request) {
     return redirectToLogin(request);
   }
 
-  return NextResponse.next();
+  return withCanonicalHostIndexing(request, NextResponse.next());
 }
 
 export const config = {

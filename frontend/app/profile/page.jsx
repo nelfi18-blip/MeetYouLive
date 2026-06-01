@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -10,6 +10,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { normalizeImageUrl } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
@@ -67,16 +68,7 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
-const normalizeAvatarUrl = (avatarValue) => {
-  if (typeof avatarValue !== "string") return "";
-  const trimmed = avatarValue.trim();
-  if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
-    return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
-  }
-  return "";
-};
+const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
 
 const normalizePhotoList = (avatarValue, profilePhotosValue) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
@@ -167,7 +159,7 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
   const [user, setUser] = useState(null);
@@ -205,101 +197,116 @@ export default function ProfilePage() {
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const resolveToken = async () => {
-      let token = getToken();
-      if (token) return token;
-
-      if (session?.backendToken) {
-        setToken(session.backendToken);
-        return session.backendToken;
+  const refreshProfileSession = useCallback(async () => {
+    try {
+      if (typeof updateSession === "function") {
+        await updateSession();
       }
+    } catch (err) {
+      console.error("[profile] failed to refresh session:", err);
+    }
+    router.refresh();
+  }, [router, updateSession]);
 
-      if (status === "authenticated" && session?.googleEmail) {
-        try {
-          const response = await fetch("/api/auth/backend-token", { method: "POST" });
-          if (response.ok) {
-            const data = await response.json();
-            if (data?.token) {
-              setToken(data.token);
-              return data.token;
-            }
+  const applyLoadedProfile = useCallback((profile) => {
+    const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos);
+    const normalizedAvatar = normalizedPhotos[0] || "";
+    const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+    setUser(normalizedUser);
+    setEditForm({
+      username: normalizedUser.username || "",
+      name: normalizedUser.name || "",
+      bio: normalizedUser.bio || "",
+      avatar: normalizedUser.avatar || "",
+      profilePhotos: normalizedUser.profilePhotos || [],
+    });
+    if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
+    return normalizedUser;
+  }, [syncFromUser]);
+
+  const resolveToken = useCallback(async () => {
+    let token = getToken();
+    if (token) return token;
+
+    if (session?.backendToken) {
+      setToken(session.backendToken);
+      return session.backendToken;
+    }
+
+    if (status === "authenticated" && session?.googleEmail) {
+      try {
+        const response = await fetch("/api/auth/backend-token", { method: "POST", cache: "no-store" });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.token) {
+            setToken(data.token);
+            return data.token;
           }
-        } catch {
-          return null;
         }
+      } catch {
+        return null;
       }
+    }
 
-      return null;
-    };
+    return null;
+  }, [session?.backendToken, session?.googleEmail, status]);
 
-    const loadProfile = async () => {
-      if (status === "loading") return;
+  const loadProfile = useCallback(async ({ signal, silent = false } = {}) => {
+    if (status === "loading") return;
 
-      const token = await resolveToken();
-      if (cancelled) return;
+    const token = await resolveToken();
+    if (signal?.aborted) return;
 
-      if (!token) {
+    if (!token) {
+      clearToken();
+      router.replace("/login?callbackUrl=/profile");
+      return;
+    }
+
+    if (!silent) setLoading(true);
+    setError("");
+
+    try {
+      const headers = { Authorization: "Bearer " + token };
+      const [profileRes, boostRes] = await Promise.all([
+        fetch(`${API_URL}/api/user/me`, { headers, cache: "no-store", signal }),
+        fetch(`${API_URL}/api/matches/boost-status`, { headers, cache: "no-store", signal }).catch(() => null),
+      ]);
+
+      if (signal?.aborted) return;
+
+      if (profileRes.status === 401) {
         clearToken();
         router.replace("/login?callbackUrl=/profile");
         return;
       }
+      if (!profileRes.ok) throw new Error("Error al cargar perfil");
 
-      setLoading(true);
-      setError("");
+      const d = await profileRes.json();
+      applyLoadedProfile(d);
 
-      try {
-        const headers = { Authorization: "Bearer " + token };
-        const [profileRes, boostRes] = await Promise.all([
-          fetch(`${API_URL}/api/user/me`, { headers }),
-          fetch(`${API_URL}/api/matches/boost-status`, { headers }).catch(() => null),
-        ]);
-
-        if (cancelled) return;
-
-        if (profileRes.status === 401) {
-          clearToken();
-          router.replace("/login?callbackUrl=/profile");
-          return;
-        }
-        if (!profileRes.ok) throw new Error("Error al cargar perfil");
-
-        const d = await profileRes.json();
-        const normalizedPhotos = normalizePhotoList(d.avatar, d.profilePhotos);
-        const normalizedAvatar = normalizedPhotos[0] || "";
-        const normalizedUser = { ...d, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
-        setUser(normalizedUser);
-        setEditForm({
-          username: normalizedUser.username || "",
-          name: normalizedUser.name || "",
-          bio: normalizedUser.bio || "",
-          avatar: normalizedUser.avatar || "",
-          profilePhotos: normalizedUser.profilePhotos || [],
-        });
-        if (d.preferredLanguage) syncFromUser(d.preferredLanguage);
-
-        if (boostRes?.ok) {
-          const boostData = await boostRes.json();
-          setIsBoosted(boostData.isBoosted ?? false);
-          setBoostUntil(boostData.boostUntil ?? null);
-          setBoostPrice(boostData.boostPrice ?? 100);
-        }
-      } catch (err) {
-        console.error("[profile] failed to load profile:", err);
-        if (!cancelled) setError("No se pudo cargar el perfil");
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (boostRes?.ok) {
+        const boostData = await boostRes.json();
+        setIsBoosted(boostData.isBoosted ?? false);
+        setBoostUntil(boostData.boostUntil ?? null);
+        setBoostPrice(boostData.boostPrice ?? 100);
       }
-    };
+    } catch (err) {
+      if (signal?.aborted) return;
+      console.error("[profile] failed to load profile:", err);
+      setError("No se pudo cargar el perfil");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [applyLoadedProfile, resolveToken, router, status]);
 
-    loadProfile();
-
+  useEffect(() => {
+    const controller = new AbortController();
+    loadProfile({ signal: controller.signal });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [router, session?.backendToken, session?.googleEmail, status, syncFromUser]);
+  }, [loadProfile]);
 
   const handleBoost = async () => {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
@@ -308,12 +315,14 @@ export default function ProfilePage() {
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       const data = await res.json();
       if (res.ok) {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
         setUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
+        await refreshProfileSession();
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);
       } else {
@@ -342,8 +351,11 @@ export default function ProfilePage() {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ preferredLanguage: newLang }),
+          cache: "no-store",
         });
       }
+      setUser((current) => current ? { ...current, preferredLanguage: newLang } : current);
+      await refreshProfileSession();
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
     } catch {
@@ -392,6 +404,7 @@ export default function ProfilePage() {
           ...editForm,
           profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos),
         }),
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
@@ -409,6 +422,7 @@ export default function ProfilePage() {
       setPhotoUrlInput("");
       setSaveSuccess("Perfil actualizado correctamente");
       setEditing(false);
+      await refreshProfileSession();
     } catch { setSaveError("No se pudo conectar con el servidor"); }
     finally { setSaving(false); }
   };
@@ -425,6 +439,7 @@ export default function ProfilePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ currentPassword: pwdForm.currentPassword, newPassword: pwdForm.newPassword }),
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setPwdError(data.message || "Error al cambiar la contraseña"); return; }
@@ -442,11 +457,13 @@ export default function ProfilePage() {
       const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
       setUser((u) => ({ ...u, creatorStatus: "pending" }));
+      await refreshProfileSession();
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
   };
@@ -497,6 +514,7 @@ export default function ProfilePage() {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
+      cache: "no-store",
     });
     // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
     console.log("[avatar-upload] response status", res.status);
@@ -530,6 +548,7 @@ export default function ProfilePage() {
           avatar: normalized[0] || "",
           profilePhotos: normalized,
         }),
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) {
@@ -541,6 +560,7 @@ export default function ProfilePage() {
         return false;
       }
       applyPhotoPayload(data, successMessage);
+      await refreshProfileSession();
       return true;
     } catch {
       setSaveError("No se pudo conectar con el servidor.");
@@ -562,6 +582,7 @@ export default function ProfilePage() {
         return;
       }
       applyPhotoPayload(uploadResult.data, "Foto principal actualizada correctamente");
+      await refreshProfileSession();
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[avatar-upload] caught frontend error", err);
@@ -600,6 +621,7 @@ export default function ProfilePage() {
         }
         uploadedCount += 1;
         applyPhotoPayload(uploadResult.data);
+        await refreshProfileSession();
       }
       if (uploadedCount > 0) {
         setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
@@ -654,11 +676,13 @@ export default function ProfilePage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
+        cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setVerifyError(data.message || "Error al enviar la verificación"); return; }
       setVerifySuccess(data.message || "Foto enviada. Un administrador la revisará pronto.");
       setUser((u) => ({ ...u, verificationStatus: "pending" }));
+      await refreshProfileSession();
     } catch { setVerifyError("No se pudo conectar con el servidor"); }
     finally { setVerifyUploading(false); }
   };
@@ -1166,6 +1190,8 @@ export default function ProfilePage() {
           flex-direction: column;
           gap: 1.5rem;
           max-width: 580px;
+          width: 100%;
+          min-height: calc(100dvh - 140px);
           margin: 0 auto;
         }
 
@@ -1174,8 +1200,12 @@ export default function ProfilePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: 0.75rem;
           padding: 3rem;
+          min-height: calc(100dvh - 180px);
+          box-sizing: border-box;
+          text-align: center;
         }
 
         /* Banners */
@@ -1187,6 +1217,7 @@ export default function ProfilePage() {
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
+          text-align: center;
         }
 
         .banner-success {

@@ -14,6 +14,88 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+const normalizeHttpProtocol = (value) => {
+  const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
+  return protocol === "http" || protocol === "https" ? protocol : "https";
+};
+
+const getRequestOrigin = (req) => {
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
+  const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
+  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
+  return host ? `${protocol}://${host}` : "";
+};
+
+const normalizeFeedImageUrl = (req, value) => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const requestOrigin = getRequestOrigin(req);
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (requestOrigin) {
+        const requestUrl = new URL(requestOrigin);
+        if (
+          url.protocol === "http:" &&
+          requestUrl.protocol === "https:" &&
+          url.hostname === requestUrl.hostname &&
+          url.pathname.startsWith("/uploads/")
+        ) {
+          url.protocol = "https:";
+        }
+      }
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  if (trimmed.startsWith("/uploads/")) {
+    return requestOrigin ? `${requestOrigin}${trimmed}` : trimmed;
+  }
+
+  return "";
+};
+
+const serializeFeedImageFields = (req, item) => {
+  if (!item || typeof item !== "object") return item;
+
+  const rawPhotos = [
+    ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
+    ...(Array.isArray(item.photos) ? item.photos : []),
+  ];
+  const normalizedPhotos = [];
+  const seenPhotos = new Set();
+  for (const photo of rawPhotos) {
+    const normalized = normalizeFeedImageUrl(req, photo);
+    if (normalized && !seenPhotos.has(normalized)) {
+      seenPhotos.add(normalized);
+      normalizedPhotos.push(normalized);
+    }
+  }
+
+  const normalizedAvatar = normalizeFeedImageUrl(req, item.avatar) || normalizedPhotos[0] || "";
+  const profilePhotos = normalizedAvatar
+    ? [normalizedAvatar, ...normalizedPhotos.filter((photo) => photo !== normalizedAvatar)]
+    : normalizedPhotos;
+
+  return {
+    ...item,
+    avatar: normalizedAvatar,
+    profileImage: normalizedAvatar,
+    photo: normalizedAvatar,
+    photos: profilePhotos,
+    profilePhotos,
+  };
+};
+
 // Simple in-memory cache for featured creators (they change infrequently)
 let featuredCreatorsCache = null;
 let featuredCreatorsCacheTime = 0;
@@ -157,17 +239,28 @@ const getFeed = async (req, res) => {
       .filter((live) => hasLiveHost(String(live._id)))
       .slice(0, 12); // Take only first 12 after filtering
 
+    const serializedLives = filteredLives.map((live) => ({
+      ...live,
+      user: serializeFeedImageFields(req, live.user),
+    }));
+    const serializedRecommendedProfiles = recommendedProfiles.map((profile) =>
+      serializeFeedImageFields(req, profile)
+    );
+    const serializedFeaturedCreators = featuredCreators.map((creator) =>
+      serializeFeedImageFields(req, creator)
+    );
+
     const responseTime = Date.now() - startTime;
     console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
-      activeLives: filteredLives.length,
-      recommendedProfiles: recommendedProfiles.length,
-      featuredCreators: featuredCreators.length
+      activeLives: serializedLives.length,
+      recommendedProfiles: serializedRecommendedProfiles.length,
+      featuredCreators: serializedFeaturedCreators.length
     });
 
     res.json({
-      activeLives: filteredLives,
-      recommendedProfiles,
-      featuredCreators
+      activeLives: serializedLives,
+      recommendedProfiles: serializedRecommendedProfiles,
+      featuredCreators: serializedFeaturedCreators
     });
   } catch (error) {
     const errorTime = Date.now() - startTime;

@@ -139,7 +139,16 @@ export default function RootRedirectPage() {
     <div
       aria-busy="true"
       aria-label="Cargando…"
-      style={{ minHeight: "100vh", background: "#060411" }}
-    />
+      style={{
+        minHeight: "100dvh",
+        display: "grid",
+        placeItems: "center",
+        background: "#060411",
+        color: "#c9c3df",
+        fontWeight: 700,
+      }}
+    >
+      Cargando...
+    </div>
   );
 }

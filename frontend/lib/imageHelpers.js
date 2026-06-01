@@ -37,7 +37,7 @@ export function normalizeImageUrl(value) {
 
 /**
  * Get the best available user image
- * Priority: profilePhotos[0] > avatar > common OAuth/image fields > null
+ * Priority: profilePhotos/photos > avatar/profileImage/photo > common OAuth/image fields > null
  * 
  * @param {Object} user - User object with image fields
  * @returns {string|null} - Image URL or null for fallback
@@ -50,8 +50,15 @@ export function getUserImage(user) {
     if (firstPhoto) return firstPhoto;
   }
 
+  if (user.photos && Array.isArray(user.photos) && user.photos.length > 0) {
+    const firstPhoto = user.photos.map(normalizeImageUrl).find(Boolean);
+    if (firstPhoto) return firstPhoto;
+  }
+
   const fields = [
     user.avatar,
+    user.profileImage,
+    user.photo,
     user.photoURL,
     user.photoUrl,
     user.image,

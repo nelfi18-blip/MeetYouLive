@@ -428,7 +428,7 @@ export default function FeedPage() {
       setCurrentIndex(nextIndex);
       writeCachedFeed(nextProfiles, nextIndex);
       unlockSwipe();
-      if (nextProfiles.length === 0) {
+      if (nextIndex >= nextProfiles.length) {
         loadFeed({ silent: true });
       }
     } catch (err) {

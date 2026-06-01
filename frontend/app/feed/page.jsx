@@ -44,7 +44,7 @@ function readCachedFeed() {
 
     return {
       profiles: cachedProfiles,
-      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length - 1),
+      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length),
       hasCache: true,
     };
   } catch {
@@ -350,6 +350,8 @@ export default function FeedPage() {
 
       setCurrentIndex(0);
       setProfiles(uniqueProfiles);
+      setHasVisualCache(false);
+      writeCachedFeed(uniqueProfiles, 0);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -375,10 +377,6 @@ export default function FeedPage() {
     };
   }, [authToken, hasVisualCache, loadFeed]);
 
-  useEffect(() => {
-    writeCachedFeed(profiles, currentIndex);
-  }, [profiles, currentIndex]);
-
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
     visibleProfileStack.push({ profile: profiles[i], stackIndex: i - currentIndex });
@@ -394,7 +392,9 @@ export default function FeedPage() {
   };
 
   const advance = () => {
-    setCurrentIndex((i) => i + 1);
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
+    writeCachedFeed(profiles, nextIndex);
     unlockSwipe();
   };
 
@@ -423,7 +423,7 @@ export default function FeedPage() {
       });
       if (!res.ok) throw new Error("Failed to record like");
       const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-      const nextIndex = Math.min(currentIndex, Math.max(nextProfiles.length - 1, 0));
+      const nextIndex = Math.min(currentIndex, nextProfiles.length);
       setProfiles(nextProfiles);
       setCurrentIndex(nextIndex);
       writeCachedFeed(nextProfiles, nextIndex);

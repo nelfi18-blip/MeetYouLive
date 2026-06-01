@@ -465,7 +465,7 @@ export default function FeedPage() {
         aria-label={t("feed.recommendedProfilesAria")}
       >
         {showLoadingState ? (
-          <div className="feed-swipe-deck feed-swipe-deck--state" aria-live="polite">
+          <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
               <div className="spinner" />
               <p>Cargando tu feed...</p>
@@ -652,6 +652,7 @@ export default function FeedPage() {
         }
 
         .feed-swipe-deck--state {
+          margin: auto 0;
           overflow: hidden;
           background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
           border: 1px solid rgba(224, 64, 251, 0.14);

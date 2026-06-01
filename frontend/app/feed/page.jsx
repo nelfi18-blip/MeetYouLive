@@ -22,6 +22,52 @@ const SWIPE_LOCK_TIMEOUT_MS = 1400;
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
 
+const FEED_CACHE_KEY = "meetyoulive:feed:v1";
+const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+function readCachedFeed() {
+  if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
+
+  try {
+    const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
+    if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
+
+    const parsed = JSON.parse(raw);
+    const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
+    const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
+    const timestamp = Number(parsed?.timestamp) || 0;
+
+    if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      return { profiles: [], currentIndex: 0, hasCache: false };
+    }
+
+    return {
+      profiles: cachedProfiles,
+      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length - 1),
+      hasCache: true,
+    };
+  } catch {
+    return { profiles: [], currentIndex: 0, hasCache: false };
+  }
+}
+
+function writeCachedFeed(profiles, currentIndex) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (!profiles.length) {
+      window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      FEED_CACHE_KEY,
+      JSON.stringify({ profiles, currentIndex, timestamp: Date.now() })
+    );
+  } catch {}
+}
+
 async function requestBackendToken(signal) {
   try {
     const response = await fetch("/api/auth/backend-token", {
@@ -83,6 +129,7 @@ export default function FeedPage() {
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
@@ -105,6 +152,16 @@ export default function FeedPage() {
         clearTimeout(swipeUnlockTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const cachedFeed = readCachedFeed();
+    if (!cachedFeed.hasCache) return;
+
+    setProfiles(cachedFeed.profiles);
+    setCurrentIndex(cachedFeed.currentIndex);
+    setLoading(false);
+    setHasVisualCache(true);
   }, []);
 
   // Admins shouldn't see the consumer feed.
@@ -312,11 +369,15 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authToken) return undefined;
     const controller = new AbortController();
-    loadFeed({ signal: controller.signal });
+    loadFeed({ signal: controller.signal, silent: hasVisualCache });
     return () => {
       controller.abort();
     };
-  }, [authToken, loadFeed]);
+  }, [authToken, hasVisualCache, loadFeed]);
+
+  useEffect(() => {
+    writeCachedFeed(profiles, currentIndex);
+  }, [profiles, currentIndex]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -362,12 +423,12 @@ export default function FeedPage() {
       });
       if (!res.ok) throw new Error("Failed to record like");
       const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-      const nextIndex = Math.min(currentIndex, nextProfiles.length);
+      const nextIndex = Math.min(currentIndex, Math.max(nextProfiles.length - 1, 0));
       setProfiles(nextProfiles);
       setCurrentIndex(nextIndex);
+      writeCachedFeed(nextProfiles, nextIndex);
       unlockSwipe();
-      router.refresh();
-      if (nextIndex >= nextProfiles.length) {
+      if (nextProfiles.length === 0) {
         loadFeed({ silent: true });
       }
     } catch (err) {
@@ -388,42 +449,10 @@ export default function FeedPage() {
   };
 
   /* --------------------------- Render --------------------------- */
-  // Loading spinner only while auth/data are pending and no error yet.
-  if (!error && loading) {
-    return (
-      <div className="feed-page">
-        <FeedHeader />
-        <div className="feed-loading">
-          <div className="spinner" />
-          <p>Cargando tu feed...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error fallback (no floating initials, no orange overlay — just a clean card).
-  if (error) {
-    return (
-      <div className="feed-page">
-        <FeedHeader />
-        <div className="feed-error">
-          <IconAlert />
-          <h3>No pudimos cargar tu feed</h3>
-          <p>{error}</p>
-          <button
-            type="button"
-            className="feed-retry-btn"
-            onClick={() => loadFeed()}
-          >
-            Intentar de nuevo
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const currentProfile = profiles[currentIndex];
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
+  const showLoadingState = !error && loading && !hasMoreProfiles;
+  const showErrorState = error && !hasMoreProfiles;
 
   return (
     <div className="feed-page">
@@ -435,7 +464,29 @@ export default function FeedPage() {
         className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
         aria-label={t("feed.recommendedProfilesAria")}
       >
-        {hasMoreProfiles ? (
+        {showLoadingState ? (
+          <div className="feed-swipe-deck feed-swipe-deck--state" aria-live="polite">
+            <div className="feed-loading">
+              <div className="spinner" />
+              <p>Cargando tu feed...</p>
+            </div>
+          </div>
+        ) : showErrorState ? (
+          <div className="feed-swipe-deck feed-swipe-deck--state" aria-live="assertive">
+            <div className="feed-error">
+              <IconAlert />
+              <h3>No pudimos cargar tu feed</h3>
+              <p>{error}</p>
+              <button
+                type="button"
+                className="feed-retry-btn"
+                onClick={() => loadFeed()}
+              >
+                Intentar de nuevo
+              </button>
+            </div>
+          </div>
+        ) : hasMoreProfiles ? (
           <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
               const isTopCard = stackIndex === 0;
@@ -528,15 +579,17 @@ export default function FeedPage() {
 
         .feed-loading,
         .feed-error {
+          position: absolute;
+          inset: 0;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 0.75rem;
-          min-height: max(280px, var(--feed-available-height));
-          padding: 4rem 1.5rem;
+          padding: 2rem 1.5rem;
           box-sizing: border-box;
           width: 100%;
+          min-width: 0;
           margin: 0 auto;
           text-align: center;
           color: var(--text-muted, #a39ec0);
@@ -596,6 +649,13 @@ export default function FeedPage() {
           contain: layout paint;
           border-radius: 22px;
           transition: opacity 0.16s ease;
+        }
+
+        .feed-swipe-deck--state {
+          overflow: hidden;
+          background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
+          border: 1px solid rgba(224, 64, 251, 0.14);
+          box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
         }
 
         :global(.feed-swipe-deck .swipe-card-modern) {

@@ -68,6 +68,31 @@ function writeCachedFeed(profiles, currentIndex) {
   } catch {}
 }
 
+function keepVisibleProfile(fetchedProfiles, previousProfiles, previousIndex, preserveCurrentProfile) {
+  if (!preserveCurrentProfile) {
+    return { profiles: fetchedProfiles, currentIndex: 0 };
+  }
+
+  const currentProfile = previousProfiles[previousIndex];
+  const currentProfileId = currentProfile?._id;
+  if (!currentProfileId) {
+    return { profiles: fetchedProfiles, currentIndex: 0 };
+  }
+
+  const fetchedIndex = fetchedProfiles.findIndex((profile) => profile?._id === currentProfileId);
+  if (fetchedIndex >= 0) {
+    return { profiles: fetchedProfiles, currentIndex: fetchedIndex };
+  }
+
+  return {
+    profiles: [
+      currentProfile,
+      ...fetchedProfiles.filter((profile) => profile?._id !== currentProfileId),
+    ],
+    currentIndex: 0,
+  };
+}
+
 async function requestBackendToken(signal) {
   try {
     const response = await fetch("/api/auth/backend-token", {
@@ -136,6 +161,7 @@ export default function FeedPage() {
   const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
+  const visibleFeedRef = useRef({ profiles: [], currentIndex: 0 });
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -163,6 +189,10 @@ export default function FeedPage() {
     setLoading(false);
     setHasVisualCache(true);
   }, []);
+
+  useEffect(() => {
+    visibleFeedRef.current = { profiles, currentIndex };
+  }, [profiles, currentIndex]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -348,10 +378,18 @@ export default function FeedPage() {
         new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
       );
 
-      setCurrentIndex(0);
-      setProfiles(uniqueProfiles);
+      const previousFeed = visibleFeedRef.current;
+      const nextFeed = keepVisibleProfile(
+        uniqueProfiles,
+        previousFeed.profiles,
+        previousFeed.currentIndex,
+        silent
+      );
+
+      setCurrentIndex(nextFeed.currentIndex);
+      setProfiles(nextFeed.profiles);
       setHasVisualCache(false);
-      writeCachedFeed(uniqueProfiles, 0);
+      writeCachedFeed(nextFeed.profiles, nextFeed.currentIndex);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -391,10 +429,15 @@ export default function FeedPage() {
     setSwipeLocked(false);
   };
 
+  const clearActionSignal = () => {
+    setActionSignal({ id: 0, direction: null });
+  };
+
   const advance = () => {
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
     writeCachedFeed(profiles, nextIndex);
+    clearActionSignal();
     unlockSwipe();
   };
 
@@ -427,12 +470,14 @@ export default function FeedPage() {
       setProfiles(nextProfiles);
       setCurrentIndex(nextIndex);
       writeCachedFeed(nextProfiles, nextIndex);
+      clearActionSignal();
       unlockSwipe();
       if (nextIndex >= nextProfiles.length) {
         loadFeed({ silent: true });
       }
     } catch (err) {
       console.error("Like error:", err);
+      clearActionSignal();
       unlockSwipe();
       setError(t("feed.likeError"));
     }

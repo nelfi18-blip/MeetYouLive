@@ -10,6 +10,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { normalizeImageUrl } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
@@ -68,14 +69,7 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
 };
 
 const normalizeAvatarUrl = (avatarValue) => {
-  if (typeof avatarValue !== "string") return "";
-  const trimmed = avatarValue.trim();
-  if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
-    return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
-  }
-  return "";
+  return normalizeImageUrl(avatarValue) || "";
 };
 
 const normalizePhotoList = (avatarValue, profilePhotosValue) => {

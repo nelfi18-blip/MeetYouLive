@@ -14,10 +14,16 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+const normalizeHttpProtocol = (value) => {
+  const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
+  return protocol === "http" || protocol === "https" ? protocol : "https";
+};
+
 const getRequestOrigin = (req) => {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = forwardedProto || req.protocol || "https";
+  const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
+  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
   return host ? `${protocol}://${host}` : "";
 };
 
@@ -32,7 +38,12 @@ const normalizeFeedImageUrl = (req, value) => {
       const url = new URL(trimmed);
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
-        if (url.protocol === "http:" && requestUrl.protocol === "https:" && url.hostname === requestUrl.hostname) {
+        if (
+          url.protocol === "http:" &&
+          requestUrl.protocol === "https:" &&
+          url.hostname === requestUrl.hostname &&
+          url.pathname.startsWith("/uploads/")
+        ) {
           url.protocol = "https:";
         }
       }

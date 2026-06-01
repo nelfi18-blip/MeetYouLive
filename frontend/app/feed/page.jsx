@@ -162,6 +162,7 @@ export default function FeedPage() {
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
   const visibleFeedRef = useRef({ profiles: [], currentIndex: 0 });
+  const loadedFeedTokenRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -408,6 +409,9 @@ export default function FeedPage() {
   // Fetch feed data once a backend token is ready.
   useEffect(() => {
     if (!authToken) return undefined;
+    if (loadedFeedTokenRef.current === authToken) return undefined;
+    loadedFeedTokenRef.current = authToken;
+
     const controller = new AbortController();
     loadFeed({ signal: controller.signal, silent: hasVisualCache });
     return () => {

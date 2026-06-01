@@ -32,7 +32,7 @@ const normalizeFeedImageUrl = (req, value) => {
       const url = new URL(trimmed);
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
-        if (url.protocol === "http:" && requestUrl.protocol === "https:" && url.host === requestUrl.host) {
+        if (url.protocol === "http:" && requestUrl.protocol === "https:" && url.hostname === requestUrl.hostname) {
           url.protocol = "https:";
         }
       }
@@ -61,9 +61,13 @@ const serializeFeedImageFields = (req, item) => {
     ...(Array.isArray(item.photos) ? item.photos : []),
   ];
   const normalizedPhotos = [];
+  const seenPhotos = new Set();
   for (const photo of rawPhotos) {
     const normalized = normalizeFeedImageUrl(req, photo);
-    if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
+    if (normalized && !seenPhotos.has(normalized)) {
+      seenPhotos.add(normalized);
+      normalizedPhotos.push(normalized);
+    }
   }
 
   const normalizedAvatar = normalizeFeedImageUrl(req, item.avatar) || normalizedPhotos[0] || "";

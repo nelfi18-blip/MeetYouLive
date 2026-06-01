@@ -68,9 +68,7 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
-const normalizeAvatarUrl = (avatarValue) => {
-  return normalizeImageUrl(avatarValue) || "";
-};
+const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
 
 const normalizePhotoList = (avatarValue, profilePhotosValue) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);

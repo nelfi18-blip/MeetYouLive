@@ -411,8 +411,10 @@ export default function FeedPage() {
       return;
     }
 
-    const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-    const nextIndex = Math.min(currentIndex, nextProfiles.length);
+    const previousProfiles = profiles;
+    const previousIndex = currentIndex;
+    const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
+    const nextIndex = Math.min(previousIndex, nextProfiles.length);
     setProfiles(nextProfiles);
     setCurrentIndex(nextIndex);
     writeCachedFeed(nextProfiles, nextIndex);
@@ -434,9 +436,9 @@ export default function FeedPage() {
       unlockSwipe();
     } catch (err) {
       console.error("Like error:", err);
-      setProfiles(profiles);
-      setCurrentIndex(currentIndex);
-      writeCachedFeed(profiles, currentIndex);
+      setProfiles(previousProfiles);
+      setCurrentIndex(previousIndex);
+      writeCachedFeed(previousProfiles, previousIndex);
       unlockSwipe();
       setError(t("feed.likeError"));
     }

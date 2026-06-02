@@ -127,16 +127,18 @@ const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setA
 router.get("/:id/public", userLimiter, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select(
-      "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location"
+      "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location isBlocked isSuspended"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     
     // Hide admin and moderator profiles from public view
-    if (user.role === "admin" || user.role === "moderator") {
+    if (user.role === "admin" || user.role === "moderator" || user.isBlocked || user.isSuspended) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
     
     const profile = user.toObject();
+    delete profile.isBlocked;
+    delete profile.isSuspended;
     const photoFields = serializeUserPhotoFields(req, profile);
     profile.avatar = photoFields.avatar;
     profile.profilePhotos = photoFields.profilePhotos;

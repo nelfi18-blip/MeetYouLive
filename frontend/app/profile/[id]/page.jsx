@@ -8,6 +8,11 @@ import { getToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const PRIVATE_CALL_CREATOR_ROLES = new Set(["creator", "subCreator"]);
+
+function isPaidCreatorCallProfile(profile) {
+  return PRIVATE_CALL_CREATOR_ROLES.has(profile?.role);
+}
 
 function getProfilePhotos(profile) {
   if (!profile) return [];
@@ -34,7 +39,7 @@ export default function PublicProfilePage() {
   const [liking, setLiking] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
-  const [brokenPhotos, setBrokenPhotos] = useState(() => new Set());
+  const [brokenPhotos, setBrokenPhotos] = useState(new Set());
 
   useEffect(() => {
     if (!profileId || !API_URL) {
@@ -162,7 +167,7 @@ export default function PublicProfilePage() {
         },
         body: JSON.stringify({
           recipientId: profileId,
-          type: profile?.role === "creator" || profile?.role === "subCreator" ? "paid_creator" : "social",
+          type: isPaidCreatorCallProfile(profile) ? "paid_creator" : "social",
         }),
         cache: "no-store",
       });
@@ -271,9 +276,8 @@ export default function PublicProfilePage() {
                 <Link
                   href={`/live/${profile.liveId}`}
                   className="profile-action profile-action--video"
-                  aria-label={t("publicProfile.joinLive")}
                 >
-                  {t("publicProfile.video")}
+                  {t("publicProfile.joinLive")}
                 </Link>
               ) : (
                 <button type="button" className="profile-action profile-action--video" onClick={handleVideoCall} disabled={videoLoading}>

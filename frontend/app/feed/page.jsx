@@ -416,7 +416,6 @@ export default function FeedPage() {
     setProfiles(nextProfiles);
     setCurrentIndex(nextIndex);
     writeCachedFeed(nextProfiles, nextIndex);
-    unlockSwipe();
     if (nextIndex >= nextProfiles.length) {
       loadFeed({ silent: true });
     }
@@ -432,8 +431,13 @@ export default function FeedPage() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
+      unlockSwipe();
     } catch (err) {
       console.error("Like error:", err);
+      setProfiles(profiles);
+      setCurrentIndex(currentIndex);
+      writeCachedFeed(profiles, currentIndex);
+      unlockSwipe();
       setError(t("feed.likeError"));
     }
   };

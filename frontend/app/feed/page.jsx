@@ -414,7 +414,7 @@ export default function FeedPage() {
     const previousProfiles = profiles;
     const previousIndex = currentIndex;
     const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
-    const nextIndex = Math.min(previousIndex, nextProfiles.length);
+    const nextIndex = nextProfiles.length ? Math.min(previousIndex, nextProfiles.length - 1) : 0;
     setProfiles(nextProfiles);
     setCurrentIndex(nextIndex);
     writeCachedFeed(nextProfiles, nextIndex);

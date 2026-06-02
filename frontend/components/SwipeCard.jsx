@@ -235,8 +235,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
       </div>
 
       {/* Profile Info */}
-      {isActive && (
-        <div className="swipe-card-info">
+      <div className="swipe-card-info">
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
               {displayName}
@@ -273,11 +272,10 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
               )}
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Quick Info Button */}
-      {isActive && profileId && (
+      {profileId && (
         <Link href={`/profile/${encodeURIComponent(profileId)}`} className="swipe-card-info-btn" aria-label="View full profile">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>

@@ -79,6 +79,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
 
   const userImage = getUserImage(profile);
   const displayName = getDisplayName(profile);
+  const profileId = profile?._id ? String(profile._id) : "";
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
@@ -234,8 +235,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
       </div>
 
       {/* Profile Info */}
-      {isActive && (
-        <div className="swipe-card-info">
+      <div className="swipe-card-info">
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
               {displayName}
@@ -272,12 +272,11 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
               )}
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Quick Info Button */}
-      {isActive && (
-        <Link href={`/profile/${profile._id}`} className="swipe-card-info-btn" aria-label="View full profile">
+      {profileId && (
+        <Link href={`/profile/${encodeURIComponent(profileId)}`} className="swipe-card-info-btn" aria-label="View full profile">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="16" x2="12" y2="12"/>

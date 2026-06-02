@@ -129,11 +129,11 @@ router.get("/:id/public", userLimiter, async (req, res) => {
     const user = await User.findById(req.params.id).select(
       "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location isBlocked isSuspended"
     );
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) return res.status(404).json({ message: "User not found" });
     
     // Hide admin and moderator profiles from public view
     if (user.role === "admin" || user.role === "moderator" || user.isBlocked || user.isSuspended) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: "User not found" });
     }
     
     const profile = user.toObject();

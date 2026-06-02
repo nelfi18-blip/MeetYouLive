@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const PRIVATE_CALL_CREATOR_ROLES = new Set(["creator", "subCreator"]);
+const MAX_DISPLAYED_INTERESTS = 8;
 
 function isPaidCreatorCallProfile(profile) {
   return PRIVATE_CALL_CREATOR_ROLES.has(profile?.role);
@@ -99,7 +100,11 @@ export default function PublicProfilePage() {
     try {
       const response = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(profileId)}`, {
         method: "POST",
-        headers: { Authorization: "Bearer " + token },
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
         cache: "no-store",
       });
       if (!response.ok) throw new Error(t("publicProfile.likeError"));
@@ -240,7 +245,7 @@ export default function PublicProfilePage() {
 
             {interests.length > 0 && (
               <div className="profile-tags">
-                {interests.slice(0, 8).map((interest) => (
+                {interests.slice(0, MAX_DISPLAYED_INTERESTS).map((interest) => (
                   <span key={interest}>{interest}</span>
                 ))}
               </div>

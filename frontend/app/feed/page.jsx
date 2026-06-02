@@ -414,8 +414,9 @@ export default function FeedPage() {
     const previousProfiles = profiles;
     const previousIndex = currentIndex;
     const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
-    const nextLastIndex = nextProfiles.length - 1;
-    const nextIndex = nextLastIndex >= 0 ? Math.min(Math.max(previousIndex, 0), nextLastIndex) : 0;
+    // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
+    // so we do not resurface already-swiped profiles after liking the last card.
+    const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
     setProfiles(nextProfiles);
     setCurrentIndex(nextIndex);
     writeCachedFeed(nextProfiles, nextIndex);
@@ -431,7 +432,7 @@ export default function FeedPage() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
-      if (!nextProfiles.length) {
+      if (nextIndex >= nextProfiles.length) {
         loadFeed({ silent: true });
       }
       unlockSwipe();

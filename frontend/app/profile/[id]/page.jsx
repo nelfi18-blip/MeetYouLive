@@ -268,7 +268,13 @@ export default function PublicProfilePage() {
                 {chatLoading ? t("publicProfile.opening") : t("publicProfile.chat")}
               </button>
               {isLive ? (
-                <Link href={`/live/${profile.liveId}`} className="profile-action profile-action--video">{t("publicProfile.video")}</Link>
+                <Link
+                  href={`/live/${profile.liveId}`}
+                  className="profile-action profile-action--video"
+                  aria-label={t("publicProfile.joinLive")}
+                >
+                  {t("publicProfile.video")}
+                </Link>
               ) : (
                 <button type="button" className="profile-action profile-action--video" onClick={handleVideoCall} disabled={videoLoading}>
                   {videoLoading ? t("publicProfile.calling") : t("publicProfile.video")}

@@ -106,7 +106,8 @@
     "opening": "Opening…",
     "chat": "Chat",
     "calling": "Calling…",
-    "video": "Video"
+    "video": "Video",
+    "joinLive": "Join this profile's live stream"
   },
   "home": {
     "heroTitle": "Discover Amazing People",

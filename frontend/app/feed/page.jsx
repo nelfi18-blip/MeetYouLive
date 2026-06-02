@@ -28,6 +28,16 @@ const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 function readCachedFeed() {
   if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
 
+  const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
+  const nextIndex = Math.min(currentIndex, nextProfiles.length);
+  setProfiles(nextProfiles);
+  setCurrentIndex(nextIndex);
+  writeCachedFeed(nextProfiles, nextIndex);
+  unlockSwipe();
+  if (nextIndex >= nextProfiles.length) {
+    loadFeed({ silent: true });
+  }
+
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
     if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
@@ -422,18 +432,8 @@ export default function FeedPage() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
-      const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-      const nextIndex = Math.min(currentIndex, nextProfiles.length);
-      setProfiles(nextProfiles);
-      setCurrentIndex(nextIndex);
-      writeCachedFeed(nextProfiles, nextIndex);
-      unlockSwipe();
-      if (nextIndex >= nextProfiles.length) {
-        loadFeed({ silent: true });
-      }
     } catch (err) {
       console.error("Like error:", err);
-      unlockSwipe();
       setError(t("feed.likeError"));
     }
   };

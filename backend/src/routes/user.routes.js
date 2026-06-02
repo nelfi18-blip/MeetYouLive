@@ -126,19 +126,15 @@ const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setA
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select(
-      "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location isBlocked isSuspended"
-    );
+    const user = await User.findOne({
+      _id: req.params.id,
+      role: { $nin: ["admin", "moderator"] },
+      isBlocked: { $ne: true },
+      isSuspended: { $ne: true },
+    }).select("username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location");
     if (!user) return res.status(404).json({ message: "User not found" });
-    
-    // Hide admin and moderator profiles from public view
-    if (user.role === "admin" || user.role === "moderator" || user.isBlocked || user.isSuspended) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    
+
     const profile = user.toObject();
-    delete profile.isBlocked;
-    delete profile.isSuspended;
     const photoFields = serializeUserPhotoFields(req, profile);
     profile.avatar = photoFields.avatar;
     profile.profilePhotos = photoFields.profilePhotos;

@@ -8,11 +8,11 @@ import { getToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const PRIVATE_CALL_CREATOR_ROLES = new Set(["creator", "subCreator"]);
+const PAID_CREATOR_ROLES = new Set(["creator", "subCreator"]);
 const MAX_DISPLAYED_INTERESTS = 8;
 
 function isPaidCreatorCallProfile(profile) {
-  return PRIVATE_CALL_CREATOR_ROLES.has(profile?.role);
+  return PAID_CREATOR_ROLES.has(profile?.role);
 }
 
 function getProfilePhotos(profile) {
@@ -279,7 +279,7 @@ export default function PublicProfilePage() {
               </button>
               {isLive ? (
                 <Link
-                  href={`/live/${profile.liveId}`}
+                  href={`/live/${encodeURIComponent(profile.liveId)}`}
                   className="profile-action profile-action--video"
                 >
                   {t("publicProfile.joinLive")}

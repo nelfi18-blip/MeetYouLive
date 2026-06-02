@@ -86,6 +86,28 @@
     "exploreLive": "Explorar ao vivo",
     "myChats": "Meus chats"
   },
+  "publicProfile": {
+    "invalidProfile": "Perfil inválido.",
+    "notFound": "Perfil não encontrado.",
+    "loadError": "Não foi possível carregar o perfil.",
+    "likeError": "Não foi possível enviar o like.",
+    "likeSent": "Like enviado.",
+    "chatStartError": "Não foi possível iniciar o chat.",
+    "chatOpenError": "Não foi possível abrir o chat.",
+    "videoStartError": "Não foi possível iniciar a videochamada.",
+    "videoOpenError": "Não foi possível abrir a videochamada.",
+    "loading": "Carregando perfil…",
+    "openErrorTitle": "Não foi possível abrir este perfil",
+    "backToFeed": "Voltar ao feed",
+    "liveBadge": "AO VIVO",
+    "galleryLabel": "Fotos do perfil",
+    "sending": "Enviando…",
+    "like": "Like",
+    "opening": "Abrindo…",
+    "chat": "Chat",
+    "calling": "Ligando…",
+    "video": "Video"
+  },
   "home": {
     "heroTitle": "Descubra Pessoas Incríveis",
     "heroSubtitle": "Transmissões ao vivo • Conexões reais • Comunidade ativa",

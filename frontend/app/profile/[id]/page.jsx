@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getDisplayName, getUserImage, normalizeImageUrl } from "@/lib/imageHelpers";
 import { getToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,6 +25,7 @@ function getProfilePhotos(profile) {
 export default function PublicProfilePage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
   const profileId = typeof id === "string" && id !== "undefined" && id !== "null" ? id : "";
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (!profileId || !API_URL) {
       setLoading(false);
-      setError("Perfil no válido.");
+      setError(t("publicProfile.invalidProfile"));
       return;
     }
 
@@ -50,9 +52,9 @@ export default function PublicProfilePage() {
       cache: "no-store",
     })
       .then((response) => {
-        if (response.status === 404) throw new Error("Perfil no encontrado.");
-        if (response.status === 400) throw new Error("Perfil no válido.");
-        if (!response.ok) throw new Error("No se pudo cargar el perfil.");
+        if (response.status === 404) throw new Error(t("publicProfile.notFound"));
+        if (response.status === 400) throw new Error(t("publicProfile.invalidProfile"));
+        if (!response.ok) throw new Error(t("publicProfile.loadError"));
         return response.json();
       })
       .then((data) => {
@@ -60,14 +62,14 @@ export default function PublicProfilePage() {
         setBrokenPhotos(new Set());
       })
       .catch((err) => {
-        if (err.name !== "AbortError") setError(err.message || "No se pudo cargar el perfil.");
+        if (err.name !== "AbortError") setError(err.message || t("publicProfile.loadError"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => controller.abort();
-  }, [profileId]);
+  }, [profileId, t]);
 
   const photos = useMemo(
     () => getProfilePhotos(profile).filter((photo) => !brokenPhotos.has(photo)),
@@ -95,10 +97,10 @@ export default function PublicProfilePage() {
         headers: { Authorization: "Bearer " + token },
         cache: "no-store",
       });
-      if (!response.ok) throw new Error("No se pudo enviar el like.");
-      setLikeStatus("Like enviado.");
+      if (!response.ok) throw new Error(t("publicProfile.likeError"));
+      setLikeStatus(t("publicProfile.likeSent"));
     } catch (err) {
-      setLikeStatus(err.message || "No se pudo enviar el like.");
+      setLikeStatus(err.message || t("publicProfile.likeError"));
     } finally {
       setLiking(false);
     }
@@ -130,22 +132,22 @@ export default function PublicProfilePage() {
         body: JSON.stringify({ recipientId: profileId }),
         cache: "no-store",
       });
-      if (!response.ok) throw new Error("No se pudo iniciar el chat.");
+      if (!response.ok) throw new Error(t("publicProfile.chatStartError"));
       const chat = await response.json();
       if (chat?._id) {
         router.push(`/chats/${chat._id}`);
       } else {
-        throw new Error("No se pudo abrir el chat.");
+        throw new Error(t("publicProfile.chatOpenError"));
       }
     } catch (err) {
-      setLikeStatus(err.message || "No se pudo iniciar el chat.");
+      setLikeStatus(err.message || t("publicProfile.chatStartError"));
     } finally {
       setChatLoading(false);
     }
   };
 
   const handleVideoCall = async () => {
-    if (!profileId || videoLoading) return;
+    if (!profileId || videoLoading || !profile) return;
     const token = requireToken();
     if (!token) return;
 
@@ -160,19 +162,19 @@ export default function PublicProfilePage() {
         },
         body: JSON.stringify({
           recipientId: profileId,
-          type: profile.role === "creator" || profile.role === "subCreator" ? "paid_creator" : "social",
+          type: profile?.role === "creator" || profile?.role === "subCreator" ? "paid_creator" : "social",
         }),
         cache: "no-store",
       });
       const call = await response.json();
-      if (!response.ok) throw new Error(call?.message || "No se pudo iniciar la videollamada.");
+      if (!response.ok) throw new Error(call?.message || t("publicProfile.videoStartError"));
       if (call?._id) {
         router.push(`/call/${call._id}`);
       } else {
-        throw new Error("No se pudo abrir la videollamada.");
+        throw new Error(t("publicProfile.videoOpenError"));
       }
     } catch (err) {
-      setLikeStatus(err.message || "No se pudo iniciar la videollamada.");
+      setLikeStatus(err.message || t("publicProfile.videoStartError"));
     } finally {
       setVideoLoading(false);
     }
@@ -183,15 +185,15 @@ export default function PublicProfilePage() {
       {loading && (
         <section className="profile-state" role="status" aria-live="polite">
           <div className="profile-spinner" />
-          <p>Cargando perfil…</p>
+          <p>{t("publicProfile.loading")}</p>
         </section>
       )}
 
       {!loading && error && (
         <section className="profile-state profile-state--error" aria-live="assertive">
-          <h1>No pudimos abrir este perfil</h1>
+          <h1>{t("publicProfile.openErrorTitle")}</h1>
           <p>{error}</p>
-          <Link href="/feed" className="profile-secondary-link">Volver al feed</Link>
+          <Link href="/feed" className="profile-secondary-link">{t("publicProfile.backToFeed")}</Link>
         </section>
       )}
 
@@ -219,7 +221,7 @@ export default function PublicProfilePage() {
                 </svg>
               </div>
             )}
-            {isLive && <span className="profile-live-badge">EN VIVO</span>}
+            {isLive && <span className="profile-live-badge">{t("publicProfile.liveBadge")}</span>}
           </div>
 
           <div className="profile-body">
@@ -240,7 +242,7 @@ export default function PublicProfilePage() {
             )}
 
             {photos.length > 1 && (
-              <div className="profile-gallery" aria-label="Fotos del perfil">
+              <div className="profile-gallery" aria-label={t("publicProfile.galleryLabel")}>
                 {photos.slice(1).map((photo) => (
                   <img
                     key={photo}
@@ -260,22 +262,22 @@ export default function PublicProfilePage() {
 
             <div className="profile-actions">
               <button type="button" className="profile-action profile-action--like" onClick={handleLike} disabled={liking}>
-                {liking ? "Enviando…" : "Like"}
+                {liking ? t("publicProfile.sending") : t("publicProfile.like")}
               </button>
               <button type="button" className="profile-action" onClick={handleChat} disabled={chatLoading}>
-                {chatLoading ? "Abriendo…" : "Chat"}
+                {chatLoading ? t("publicProfile.opening") : t("publicProfile.chat")}
               </button>
               {isLive ? (
-                <Link href={`/live/${profile.liveId}`} className="profile-action profile-action--video">Video</Link>
+                <Link href={`/live/${profile.liveId}`} className="profile-action profile-action--video">{t("publicProfile.video")}</Link>
               ) : (
                 <button type="button" className="profile-action profile-action--video" onClick={handleVideoCall} disabled={videoLoading}>
-                  {videoLoading ? "Llamando…" : "Video"}
+                  {videoLoading ? t("publicProfile.calling") : t("publicProfile.video")}
                 </button>
               )}
             </div>
             {likeStatus && <p className="profile-like-status" aria-live="polite">{likeStatus}</p>}
 
-            <Link href="/feed" className="profile-secondary-link">← Volver al feed</Link>
+            <Link href="/feed" className="profile-secondary-link">← {t("publicProfile.backToFeed")}</Link>
           </div>
         </section>
       )}

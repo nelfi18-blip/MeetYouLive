@@ -53,7 +53,11 @@ export default function PublicProfilePage() {
     setLoading(true);
     setError("");
 
+    const token = getToken();
+    const headers = token ? { Authorization: "Bearer " + token } : undefined;
+
     fetch(`${API_URL}/api/user/${encodeURIComponent(profileId)}/public`, {
+      headers,
       signal: controller.signal,
       cache: "no-store",
     })
@@ -142,12 +146,12 @@ export default function PublicProfilePage() {
         body: JSON.stringify({ recipientId: profileId }),
         cache: "no-store",
       });
-      if (!response.ok) throw new Error(t("publicProfile.chatStartError"));
-      const chat = await response.json();
+      const chat = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(chat?.message || t("publicProfile.chatStartError"));
       if (chat?._id) {
         router.push(`/chats/${chat._id}`);
       } else {
-        throw new Error(t("publicProfile.chatOpenError"));
+        throw new Error(chat?.message || t("publicProfile.chatOpenError"));
       }
     } catch (err) {
       setLikeStatus(err.message || t("publicProfile.chatStartError"));
@@ -281,6 +285,7 @@ export default function PublicProfilePage() {
                 <Link
                   href={`/live/${encodeURIComponent(profile.liveId)}`}
                   className="profile-action profile-action--video"
+                  role="button"
                 >
                   {t("publicProfile.joinLive")}
                 </Link>

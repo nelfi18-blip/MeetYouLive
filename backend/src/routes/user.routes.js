@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
@@ -124,8 +124,12 @@ const serializeUserPhotoFields = (req, userLike) => {
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
 // Public profile — returns safe fields for a given user/creator
-router.get("/:id/public", userLimiter, async (req, res) => {
+router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
     const user = await User.findOne({
       _id: req.params.id,
       role: { $nin: ["admin", "moderator"] },

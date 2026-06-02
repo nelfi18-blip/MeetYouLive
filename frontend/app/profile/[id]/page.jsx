@@ -30,6 +30,8 @@ export default function PublicProfilePage() {
   const [error, setError] = useState("");
   const [likeStatus, setLikeStatus] = useState("");
   const [liking, setLiking] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
   const [brokenPhotos, setBrokenPhotos] = useState(() => new Set());
 
   useEffect(() => {
@@ -99,6 +101,80 @@ export default function PublicProfilePage() {
       setLikeStatus(err.message || "No se pudo enviar el like.");
     } finally {
       setLiking(false);
+    }
+  };
+
+  const requireToken = () => {
+    const token = getToken();
+    if (!token) {
+      router.push(`/login?callbackUrl=/profile/${encodeURIComponent(profileId)}`);
+      return null;
+    }
+    return token;
+  };
+
+  const handleChat = async () => {
+    if (!profileId || chatLoading) return;
+    const token = requireToken();
+    if (!token) return;
+
+    setChatLoading(true);
+    setLikeStatus("");
+    try {
+      const response = await fetch(`${API_URL}/api/chats`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ recipientId: profileId }),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("No se pudo iniciar el chat.");
+      const chat = await response.json();
+      if (chat?._id) {
+        router.push(`/chats/${chat._id}`);
+      } else {
+        throw new Error("No se pudo abrir el chat.");
+      }
+    } catch (err) {
+      setLikeStatus(err.message || "No se pudo iniciar el chat.");
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleVideoCall = async () => {
+    if (!profileId || videoLoading) return;
+    const token = requireToken();
+    if (!token) return;
+
+    setVideoLoading(true);
+    setLikeStatus("");
+    try {
+      const response = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipientId: profileId,
+          type: profile.role === "creator" || profile.role === "subCreator" ? "paid_creator" : "social",
+        }),
+        cache: "no-store",
+      });
+      const call = await response.json();
+      if (!response.ok) throw new Error(call?.message || "No se pudo iniciar la videollamada.");
+      if (call?._id) {
+        router.push(`/call/${call._id}`);
+      } else {
+        throw new Error("No se pudo abrir la videollamada.");
+      }
+    } catch (err) {
+      setLikeStatus(err.message || "No se pudo iniciar la videollamada.");
+    } finally {
+      setVideoLoading(false);
     }
   };
 
@@ -186,11 +262,15 @@ export default function PublicProfilePage() {
               <button type="button" className="profile-action profile-action--like" onClick={handleLike} disabled={liking}>
                 {liking ? "Enviando…" : "Like"}
               </button>
-              <Link href="/chats" className="profile-action">Chat</Link>
+              <button type="button" className="profile-action" onClick={handleChat} disabled={chatLoading}>
+                {chatLoading ? "Abriendo…" : "Chat"}
+              </button>
               {isLive ? (
                 <Link href={`/live/${profile.liveId}`} className="profile-action profile-action--video">Video</Link>
               ) : (
-                <Link href="/private-calls" className="profile-action profile-action--video">Video</Link>
+                <button type="button" className="profile-action profile-action--video" onClick={handleVideoCall} disabled={videoLoading}>
+                  {videoLoading ? "Llamando…" : "Video"}
+                </button>
               )}
             </div>
             {likeStatus && <p className="profile-like-status" aria-live="polite">{likeStatus}</p>}

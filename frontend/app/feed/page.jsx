@@ -551,6 +551,25 @@ export default function FeedPage() {
       return;
     }
 
+    const previousProfiles = profiles;
+    const previousIndex = currentIndex;
+    const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
+    // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
+    // so we do not resurface already-swiped profiles after liking the last card.
+    const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
+    debugFeed("handleLike applying next profiles", {
+      likedProfileId: profileId,
+      currentIndexBefore: previousIndex,
+      currentIndexAfter: nextIndex,
+      currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+      ...summarizeProfiles(nextProfiles),
+    });
+    profilesRef.current = nextProfiles;
+    currentIndexRef.current = nextIndex;
+    setProfiles(nextProfiles);
+    setCurrentIndex(nextIndex);
+    writeCachedFeed(nextProfiles, nextIndex);
+
     try {
       const res = await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
@@ -562,26 +581,17 @@ export default function FeedPage() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
-      const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-      const nextIndex = Math.min(currentIndex, nextProfiles.length);
-      debugFeed("handleLike applying next profiles", {
-        likedProfileId: profileId,
-        currentIndexBefore: currentIndex,
-        currentIndexAfter: nextIndex,
-        currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
-        ...summarizeProfiles(nextProfiles),
-      });
-      profilesRef.current = nextProfiles;
-      currentIndexRef.current = nextIndex;
-      setProfiles(nextProfiles);
-      setCurrentIndex(nextIndex);
-      writeCachedFeed(nextProfiles, nextIndex);
-      unlockSwipe();
       if (nextIndex >= nextProfiles.length) {
         loadFeed({ silent: true });
       }
+      unlockSwipe();
     } catch (err) {
       console.error("Like error:", err);
+      profilesRef.current = previousProfiles;
+      currentIndexRef.current = previousIndex;
+      setProfiles(previousProfiles);
+      setCurrentIndex(previousIndex);
+      writeCachedFeed(previousProfiles, previousIndex);
       unlockSwipe();
       setError(t("feed.likeError"));
     }

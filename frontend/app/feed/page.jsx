@@ -24,12 +24,33 @@ const FETCH_TIMEOUT_MS = 15000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
+
+function getProfileId(profile) {
+  return profile?._id || profile?.id || null;
+}
+
+function summarizeProfiles(profiles) {
+  return {
+    count: profiles.length,
+    ids: profiles.map(getProfileId).filter(Boolean),
+  };
+}
+
+function getCurrentProfileId(profiles, currentIndex) {
+  return getProfileId(profiles[currentIndex]);
+}
+
+function debugFeed(message, details = {}) {
+  console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+}
 
 function readCachedFeed() {
   if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
 
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
+    debugFeed("sessionStorage read", { key: FEED_CACHE_KEY, hasValue: Boolean(raw) });
     if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
 
     const parsed = JSON.parse(raw);
@@ -39,15 +60,29 @@ function readCachedFeed() {
 
     if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      debugFeed("sessionStorage removed", {
+        key: FEED_CACHE_KEY,
+        reason: cachedProfiles.length ? "expired" : "empty",
+        currentIndex: cachedIndex,
+        ...summarizeProfiles(cachedProfiles),
+      });
       return { profiles: [], currentIndex: 0, hasCache: false };
     }
 
+    const currentIndex = Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
+    debugFeed("sessionStorage cache accepted", {
+      key: FEED_CACHE_KEY,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(cachedProfiles, currentIndex),
+      ...summarizeProfiles(cachedProfiles),
+    });
     return {
       profiles: cachedProfiles,
-      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length),
+      currentIndex,
       hasCache: true,
     };
-  } catch {
+  } catch (err) {
+    debugFeed("sessionStorage read failed", { key: FEED_CACHE_KEY, error: err.message });
     return { profiles: [], currentIndex: 0, hasCache: false };
   }
 }
@@ -58,6 +93,7 @@ function writeCachedFeed(profiles, currentIndex) {
   try {
     if (!profiles.length) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      debugFeed("sessionStorage removed", { key: FEED_CACHE_KEY, reason: "empty-write" });
       return;
     }
 
@@ -65,7 +101,15 @@ function writeCachedFeed(profiles, currentIndex) {
       FEED_CACHE_KEY,
       JSON.stringify({ profiles, currentIndex, timestamp: Date.now() })
     );
-  } catch {}
+    debugFeed("sessionStorage written", {
+      key: FEED_CACHE_KEY,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      ...summarizeProfiles(profiles),
+    });
+  } catch (err) {
+    debugFeed("sessionStorage write failed", { key: FEED_CACHE_KEY, error: err.message });
+  }
 }
 
 async function requestBackendToken(signal) {
@@ -136,6 +180,10 @@ export default function FeedPage() {
   const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
+  const profilesRef = useRef([]);
+  const currentIndexRef = useRef(0);
+  const hasVisualCacheRef = useRef(false);
+  const deckRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -158,11 +206,31 @@ export default function FeedPage() {
     const cachedFeed = readCachedFeed();
     if (!cachedFeed.hasCache) return;
 
+    debugFeed("applying cached feed before network refresh", {
+      currentIndex: cachedFeed.currentIndex,
+      currentProfileId: getCurrentProfileId(cachedFeed.profiles, cachedFeed.currentIndex),
+      ...summarizeProfiles(cachedFeed.profiles),
+    });
+    profilesRef.current = cachedFeed.profiles;
+    currentIndexRef.current = cachedFeed.currentIndex;
+    hasVisualCacheRef.current = true;
     setProfiles(cachedFeed.profiles);
     setCurrentIndex(cachedFeed.currentIndex);
     setLoading(false);
     setHasVisualCache(true);
   }, []);
+
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    hasVisualCacheRef.current = hasVisualCache;
+  }, [hasVisualCache]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -283,7 +351,22 @@ export default function FeedPage() {
   }, [status, authToken, t]);
 
   const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
-    if (!authToken) return;
+    const profilesBeforeRefresh = profilesRef.current;
+    const indexBeforeRefresh = currentIndexRef.current;
+    const profileIdBeforeRefresh = getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh);
+
+    debugFeed("loadFeed() start", {
+      silent,
+      currentIndex: indexBeforeRefresh,
+      currentProfileIdBefore: profileIdBeforeRefresh,
+      profileCountBefore: profilesBeforeRefresh.length,
+      hasVisualCache: hasVisualCacheRef.current,
+    });
+
+    if (!authToken) {
+      debugFeed("loadFeed() skipped", { reason: "missing-auth-token" });
+      return;
+    }
 
     if (!silent) {
       setLoading(true);
@@ -291,6 +374,7 @@ export default function FeedPage() {
     setError(null);
 
     if (!API_URL) {
+      debugFeed("loadFeed() failed before request", { reason: "missing-api-url" });
       setError(t("feed.genericError"));
       setLoading(false);
       return;
@@ -348,10 +432,51 @@ export default function FeedPage() {
         new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
       );
 
-      setCurrentIndex(0);
-      setProfiles(uniqueProfiles);
+      debugFeed("profiles received", {
+        currentIndexBefore: indexBeforeRefresh,
+        currentProfileIdBefore: profileIdBeforeRefresh,
+        ...summarizeProfiles(uniqueProfiles),
+      });
+
+      let nextProfiles = uniqueProfiles;
+      let nextIndex = 0;
+      if (silent && profileIdBeforeRefresh) {
+        const matchingIndex = uniqueProfiles.findIndex(
+          (profile) => getProfileId(profile) === profileIdBeforeRefresh
+        );
+        if (matchingIndex >= 0) {
+          nextIndex = matchingIndex;
+        } else {
+          const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
+          nextProfiles = currentProfile
+            ? [
+                currentProfile,
+                ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
+              ]
+            : uniqueProfiles;
+          nextIndex = 0;
+        }
+      }
+
+      debugFeed("loadFeed() applying profiles", {
+        silent,
+        currentIndexBefore: indexBeforeRefresh,
+        currentProfileIdBefore: profileIdBeforeRefresh,
+        currentIndexAfter: nextIndex,
+        currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+        preservedCurrentProfile: Boolean(
+          profileIdBeforeRefresh &&
+            getCurrentProfileId(nextProfiles, nextIndex) === profileIdBeforeRefresh
+        ),
+      });
+
+      currentIndexRef.current = nextIndex;
+      profilesRef.current = nextProfiles;
+      setCurrentIndex(nextIndex);
+      setProfiles(nextProfiles);
+      hasVisualCacheRef.current = false;
       setHasVisualCache(false);
-      writeCachedFeed(uniqueProfiles, 0);
+      writeCachedFeed(nextProfiles, nextIndex);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -367,15 +492,17 @@ export default function FeedPage() {
     }
   }, [authToken, session?.googleEmail, status, t]);
 
-  // Fetch feed data once a backend token is ready.
+  // Fetch feed data once a backend token is ready. Do not depend on
+  // hasVisualCache: loadFeed clears that flag after a silent refresh, and
+  // re-running here would reset the visible profile on mobile refresh.
   useEffect(() => {
     if (!authToken) return undefined;
     const controller = new AbortController();
-    loadFeed({ signal: controller.signal, silent: hasVisualCache });
+    loadFeed({ signal: controller.signal, silent: hasVisualCacheRef.current });
     return () => {
       controller.abort();
     };
-  }, [authToken, hasVisualCache, loadFeed]);
+  }, [authToken, loadFeed]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -393,6 +520,13 @@ export default function FeedPage() {
 
   const advance = () => {
     const nextIndex = currentIndex + 1;
+    debugFeed("nextProfile() called", {
+      currentIndexBefore: currentIndex,
+      currentProfileIdBefore: getCurrentProfileId(profiles, currentIndex),
+      currentIndexAfter: nextIndex,
+      currentProfileIdAfter: getCurrentProfileId(profiles, nextIndex),
+    });
+    currentIndexRef.current = nextIndex;
     setCurrentIndex(nextIndex);
     writeCachedFeed(profiles, nextIndex);
     unlockSwipe();
@@ -400,6 +534,12 @@ export default function FeedPage() {
 
   const handleSwipe = async (profileId, direction) => {
     const shouldRecordLike = direction === "right" || direction === "up";
+    debugFeed(`${shouldRecordLike ? "handleLike" : "handleDislike"} called`, {
+      profileId,
+      direction,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+    });
 
     if (!shouldRecordLike) {
       advance();
@@ -424,6 +564,15 @@ export default function FeedPage() {
       if (!res.ok) throw new Error("Failed to record like");
       const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
       const nextIndex = Math.min(currentIndex, nextProfiles.length);
+      debugFeed("handleLike applying next profiles", {
+        likedProfileId: profileId,
+        currentIndexBefore: currentIndex,
+        currentIndexAfter: nextIndex,
+        currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+        ...summarizeProfiles(nextProfiles),
+      });
+      profilesRef.current = nextProfiles;
+      currentIndexRef.current = nextIndex;
       setProfiles(nextProfiles);
       setCurrentIndex(nextIndex);
       writeCachedFeed(nextProfiles, nextIndex);
@@ -439,6 +588,13 @@ export default function FeedPage() {
   };
 
   const requestSwipe = (direction) => {
+    debugFeed("swipe action requested", {
+      direction,
+      ignored: !currentProfile || swipeLocked,
+      swipeLocked,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+    });
     if (!currentProfile || swipeLocked) return;
     setSwipeLocked(true);
     if (swipeUnlockTimeoutRef.current) {
@@ -453,6 +609,26 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
   const showLoadingState = !error && loading && !hasMoreProfiles;
   const showErrorState = error && !hasMoreProfiles;
+
+  useEffect(() => {
+    if (!hasMoreProfiles) return;
+    const deck = deckRef.current;
+    const card = deck?.querySelector(".swipe-card-modern");
+    if (!deck || !card) return;
+
+    const deckRect = deck.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    debugFeed("card size/class", {
+      currentIndex,
+      currentProfileId: getProfileId(currentProfile),
+      deckClassName: deck.className,
+      deckWidth: Math.round(deckRect.width),
+      deckHeight: Math.round(deckRect.height),
+      cardClassName: card.className,
+      cardWidth: Math.round(cardRect.width),
+      cardHeight: Math.round(cardRect.height),
+    });
+  }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
 
   return (
     <div className="feed-page">
@@ -487,7 +663,7 @@ export default function FeedPage() {
             </div>
           </div>
         ) : hasMoreProfiles ? (
-          <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
+          <div ref={deckRef} className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
               const isTopCard = stackIndex === 0;
               return (

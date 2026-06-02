@@ -184,6 +184,8 @@ export default function FeedPage() {
   const currentIndexRef = useRef(0);
   const hasVisualCacheRef = useRef(false);
   const likeInFlightRef = useRef(false);
+  const actionInFlightRef = useRef(false);
+  const swipeLockedRef = useRef(false);
   const deckRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -516,34 +518,79 @@ export default function FeedPage() {
       clearTimeout(swipeUnlockTimeoutRef.current);
       swipeUnlockTimeoutRef.current = null;
     }
+    swipeLockedRef.current = false;
+    actionInFlightRef.current = false;
     setSwipeLocked(false);
   };
 
-  const advance = () => {
-    const nextIndex = currentIndex + 1;
+  const advance = (profileId) => {
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
+    if (profileId && activeProfileId !== profileId) {
+      debugFeed("nextProfile() ignored", {
+        reason: "stale-profile",
+        requestedProfileId: profileId,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      unlockSwipe();
+      return false;
+    }
+
+    const nextIndex = activeIndex + 1;
     debugFeed("nextProfile() called", {
-      currentIndexBefore: currentIndex,
-      currentProfileIdBefore: getCurrentProfileId(profiles, currentIndex),
+      currentIndexBefore: activeIndex,
+      currentProfileIdBefore: activeProfileId,
       currentIndexAfter: nextIndex,
-      currentProfileIdAfter: getCurrentProfileId(profiles, nextIndex),
+      currentProfileIdAfter: getCurrentProfileId(activeProfiles, nextIndex),
     });
     currentIndexRef.current = nextIndex;
     setCurrentIndex(nextIndex);
-    writeCachedFeed(profiles, nextIndex);
+    writeCachedFeed(activeProfiles, nextIndex);
     unlockSwipe();
+    return true;
   };
 
   const handleSwipe = async (profileId, direction) => {
     const shouldRecordLike = direction === "right" || direction === "up";
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
     debugFeed(`${shouldRecordLike ? "handleLike" : "handleDislike"} called`, {
       profileId,
       direction,
-      currentIndex,
-      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      currentIndex: activeIndex,
+      currentProfileId: activeProfileId,
     });
 
+    if (!profileId || activeProfileId !== profileId) {
+      debugFeed("swipe ignored", {
+        reason: profileId ? "stale-profile" : "missing-profile-id",
+        requestedProfileId: profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      unlockSwipe();
+      return;
+    }
+
+    if (actionInFlightRef.current) {
+      debugFeed("swipe ignored", {
+        reason: "action-in-flight",
+        profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      unlockSwipe();
+      return;
+    }
+    actionInFlightRef.current = true;
+
     if (!shouldRecordLike) {
-      advance();
+      advance(profileId);
       return;
     }
 
@@ -559,14 +606,9 @@ export default function FeedPage() {
       return;
     }
 
-    if (!profileId) {
-      unlockSwipe();
-      return;
-    }
-
     likeInFlightRef.current = true;
-    const previousProfiles = profiles;
-    const previousIndex = currentIndex;
+    const previousProfiles = activeProfiles;
+    const previousIndex = activeIndex;
     const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
     // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
     // so we do not resurface already-swiped profiles after liking the last card.
@@ -596,7 +638,7 @@ export default function FeedPage() {
       });
       if (!res.ok) throw new Error("Failed to record like");
       if (nextIndex >= nextProfiles.length) {
-        loadFeed({ silent: true });
+        await loadFeed({ silent: true });
       }
       likeInFlightRef.current = false;
       unlockSwipe();
@@ -614,14 +656,18 @@ export default function FeedPage() {
   };
 
   const requestSwipe = (direction) => {
+    const isBusy = swipeLockedRef.current || actionInFlightRef.current || likeInFlightRef.current;
     debugFeed("swipe action requested", {
       direction,
-      ignored: !currentProfile || swipeLocked,
-      swipeLocked,
+      ignored: !currentProfile || isBusy,
+      swipeLocked: swipeLockedRef.current,
+      actionInFlight: actionInFlightRef.current,
+      likeInFlight: likeInFlightRef.current,
       currentIndex,
       currentProfileId: getCurrentProfileId(profiles, currentIndex),
     });
-    if (!currentProfile || swipeLocked) return;
+    if (!currentProfile || isBusy) return;
+    swipeLockedRef.current = true;
     setSwipeLocked(true);
     if (swipeUnlockTimeoutRef.current) {
       clearTimeout(swipeUnlockTimeoutRef.current);
@@ -768,6 +814,8 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-deck-width: min(94vw, 430px);
+          --feed-deck-height: clamp(560px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
           /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
           min-height: var(--feed-viewport-height);
@@ -829,8 +877,8 @@ export default function FeedPage() {
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          min-height: var(--feed-available-height);
-          height: var(--feed-available-height);
+          min-height: max(var(--feed-available-height), calc(var(--feed-deck-height) + var(--feed-section-top-padding)));
+          height: max(var(--feed-available-height), calc(var(--feed-deck-height) + var(--feed-section-top-padding)));
           padding: var(--feed-section-top-padding) 0 0;
           box-sizing: border-box;
         }
@@ -841,10 +889,13 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(96vw, 440px);
-          max-width: 440px;
-          /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
-          height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          flex: 0 0 auto;
+          width: var(--feed-deck-width);
+          min-width: var(--feed-deck-width);
+          max-width: var(--feed-deck-width);
+          height: var(--feed-deck-height);
+          min-height: var(--feed-deck-height);
+          max-height: var(--feed-deck-height);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -854,6 +905,12 @@ export default function FeedPage() {
         }
 
         .feed-swipe-deck--state {
+          width: var(--feed-deck-width);
+          min-width: var(--feed-deck-width);
+          max-width: var(--feed-deck-width);
+          height: var(--feed-deck-height);
+          min-height: var(--feed-deck-height);
+          max-height: var(--feed-deck-height);
           margin: auto 0;
           overflow: hidden;
           background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
@@ -991,8 +1048,13 @@ export default function FeedPage() {
         }
 
         @media (min-width: 769px) {
+          .feed-page {
+            --feed-deck-width: min(calc(100vw - 32px), 440px);
+            --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          }
+
           .feed-swipe-deck {
-            width: min(calc(100vw - 32px), 440px);
+            width: var(--feed-deck-width);
           }
         }
 

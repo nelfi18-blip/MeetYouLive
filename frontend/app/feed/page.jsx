@@ -183,6 +183,7 @@ export default function FeedPage() {
   const profilesRef = useRef([]);
   const currentIndexRef = useRef(0);
   const hasVisualCacheRef = useRef(false);
+  const likeInFlightRef = useRef(false);
   const deckRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -546,11 +547,24 @@ export default function FeedPage() {
       return;
     }
 
+    if (likeInFlightRef.current) {
+      debugFeed("handleLike ignored", {
+        reason: "like-in-flight",
+        profileId,
+        direction,
+        currentIndex,
+        currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      });
+      unlockSwipe();
+      return;
+    }
+
     if (!profileId) {
       unlockSwipe();
       return;
     }
 
+    likeInFlightRef.current = true;
     const previousProfiles = profiles;
     const previousIndex = currentIndex;
     const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
@@ -584,9 +598,11 @@ export default function FeedPage() {
       if (nextIndex >= nextProfiles.length) {
         loadFeed({ silent: true });
       }
+      likeInFlightRef.current = false;
       unlockSwipe();
     } catch (err) {
       console.error("Like error:", err);
+      likeInFlightRef.current = false;
       profilesRef.current = previousProfiles;
       currentIndexRef.current = previousIndex;
       setProfiles(previousProfiles);

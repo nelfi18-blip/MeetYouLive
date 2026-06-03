@@ -184,8 +184,8 @@ export default function FeedPage() {
   const currentIndexRef = useRef(0);
   const hasVisualCacheRef = useRef(false);
   const likeInFlightRef = useRef(false);
-  const actionInFlightRef = useRef(false);
-  const processingActionRef = useRef(false);
+  const requestedActionRef = useRef(false);
+  const activeActionRef = useRef(false);
   const pendingActionProfileIdRef = useRef(null);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
@@ -533,17 +533,17 @@ export default function FeedPage() {
       swipeUnlockTimeoutRef.current = null;
     }
     swipeLockedRef.current = false;
-    actionInFlightRef.current = false;
-    processingActionRef.current = false;
+    requestedActionRef.current = false;
+    activeActionRef.current = false;
     pendingActionProfileIdRef.current = null;
     setSwipeLocked(false);
   };
 
   const unlockTimedOutSwipe = () => {
     swipeUnlockTimeoutRef.current = null;
-    // Keep the lock while the accepted action is already mutating the deck; only
-    // release request-time locks where SwipeCard never reports an onSwipe.
-    if (processingActionRef.current || likeInFlightRef.current) return;
+    // Keep the lock while the deck is mutating or the like API is still pending;
+    // only release request-time locks where SwipeCard never reports an onSwipe.
+    if (activeActionRef.current || likeInFlightRef.current) return;
     unlockSwipe();
   };
 
@@ -588,9 +588,9 @@ export default function FeedPage() {
       currentProfileId: activeProfileId,
     });
 
-    if (processingActionRef.current || likeInFlightRef.current) {
+    if (activeActionRef.current || likeInFlightRef.current) {
       debugFeed("swipe ignored", {
-        reason: processingActionRef.current ? "action-processing" : "like-in-flight",
+        reason: activeActionRef.current ? "active-action" : "like-in-flight",
         profileId,
         direction,
         currentIndex: activeIndex,
@@ -612,12 +612,12 @@ export default function FeedPage() {
     }
 
     if (
-      actionInFlightRef.current &&
+      requestedActionRef.current &&
       pendingActionProfileIdRef.current &&
       pendingActionProfileIdRef.current !== profileId
     ) {
       debugFeed("swipe ignored", {
-        reason: "different-action-in-flight",
+        reason: "different-requested-action",
         profileId,
         direction,
         currentIndex: activeIndex,
@@ -626,13 +626,13 @@ export default function FeedPage() {
       unlockSwipe();
       return;
     }
-    const isRequestedButtonAction =
-      actionInFlightRef.current && pendingActionProfileIdRef.current === profileId;
-    if (!isRequestedButtonAction) {
-      actionInFlightRef.current = true;
+    const isPendingActionForSameProfile =
+      requestedActionRef.current && pendingActionProfileIdRef.current === profileId;
+    if (!isPendingActionForSameProfile) {
+      requestedActionRef.current = true;
       pendingActionProfileIdRef.current = profileId;
     }
-    processingActionRef.current = true;
+    activeActionRef.current = true;
     swipeLockedRef.current = true;
     setSwipeLocked(true);
     feedMutationVersionRef.current += 1;
@@ -706,22 +706,22 @@ export default function FeedPage() {
     const currentProfileId = getProfileId(currentProfile);
     const isBusy =
       swipeLockedRef.current ||
-      actionInFlightRef.current ||
-      processingActionRef.current ||
+      requestedActionRef.current ||
+      activeActionRef.current ||
       likeInFlightRef.current;
     debugFeed("swipe action requested", {
       direction,
       ignored: !currentProfileId || isBusy,
       swipeLocked: swipeLockedRef.current,
-      actionInFlight: actionInFlightRef.current,
-      processingAction: processingActionRef.current,
+      requestedAction: requestedActionRef.current,
+      activeAction: activeActionRef.current,
       likeInFlight: likeInFlightRef.current,
       currentIndex,
       currentProfileId: getCurrentProfileId(profiles, currentIndex),
     });
     if (!currentProfileId || isBusy) return;
     swipeLockedRef.current = true;
-    actionInFlightRef.current = true;
+    requestedActionRef.current = true;
     pendingActionProfileIdRef.current = currentProfileId;
     setSwipeLocked(true);
     if (swipeUnlockTimeoutRef.current) {
@@ -869,7 +869,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Full-width mobile deck footprint; loading/refresh states must keep this same large card size. */
+          /* Use the large mobile card footprint (near full-width, 600px min) so refresh/loading never falls back to the smaller global card size. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);

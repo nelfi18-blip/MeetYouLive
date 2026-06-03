@@ -185,7 +185,10 @@ export default function FeedPage() {
   const hasVisualCacheRef = useRef(false);
   const likeInFlightRef = useRef(false);
   const actionInFlightRef = useRef(false);
+  const processingActionRef = useRef(false);
+  const pendingActionProfileIdRef = useRef(null);
   const swipeLockedRef = useRef(false);
+  const feedMutationVersionRef = useRef(0);
   const deckRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -354,6 +357,7 @@ export default function FeedPage() {
   }, [status, authToken, t]);
 
   const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
+    const mutationVersionAtStart = feedMutationVersionRef.current;
     const profilesBeforeRefresh = profilesRef.current;
     const indexBeforeRefresh = currentIndexRef.current;
     const profileIdBeforeRefresh = getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh);
@@ -473,6 +477,16 @@ export default function FeedPage() {
         ),
       });
 
+      if (mutationVersionAtStart !== feedMutationVersionRef.current) {
+        debugFeed("loadFeed() skipped stale response", {
+          silent,
+          mutationVersionAtStart,
+          mutationVersionNow: feedMutationVersionRef.current,
+          currentProfileIdBefore: profileIdBeforeRefresh,
+        });
+        return;
+      }
+
       currentIndexRef.current = nextIndex;
       profilesRef.current = nextProfiles;
       setCurrentIndex(nextIndex);
@@ -520,7 +534,15 @@ export default function FeedPage() {
     }
     swipeLockedRef.current = false;
     actionInFlightRef.current = false;
+    processingActionRef.current = false;
+    pendingActionProfileIdRef.current = null;
     setSwipeLocked(false);
+  };
+
+  const unlockTimedOutSwipe = () => {
+    swipeUnlockTimeoutRef.current = null;
+    if (processingActionRef.current || likeInFlightRef.current) return;
+    unlockSwipe();
   };
 
   const advance = (profileId) => {
@@ -564,6 +586,17 @@ export default function FeedPage() {
       currentProfileId: activeProfileId,
     });
 
+    if (processingActionRef.current || likeInFlightRef.current) {
+      debugFeed("swipe ignored", {
+        reason: processingActionRef.current ? "action-processing" : "like-in-flight",
+        profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      return;
+    }
+
     if (!profileId || activeProfileId !== profileId) {
       debugFeed("swipe ignored", {
         reason: profileId ? "stale-profile" : "missing-profile-id",
@@ -576,9 +609,13 @@ export default function FeedPage() {
       return;
     }
 
-    if (actionInFlightRef.current) {
+    if (
+      actionInFlightRef.current &&
+      pendingActionProfileIdRef.current &&
+      pendingActionProfileIdRef.current !== profileId
+    ) {
       debugFeed("swipe ignored", {
-        reason: "action-in-flight",
+        reason: "different-action-in-flight",
         profileId,
         direction,
         currentIndex: activeIndex,
@@ -588,6 +625,11 @@ export default function FeedPage() {
       return;
     }
     actionInFlightRef.current = true;
+    processingActionRef.current = true;
+    pendingActionProfileIdRef.current = profileId;
+    swipeLockedRef.current = true;
+    setSwipeLocked(true);
+    feedMutationVersionRef.current += 1;
 
     if (!shouldRecordLike) {
       advance(profileId);
@@ -602,7 +644,6 @@ export default function FeedPage() {
         currentIndex,
         currentProfileId: getCurrentProfileId(profiles, currentIndex),
       });
-      unlockSwipe();
       return;
     }
 
@@ -656,23 +697,31 @@ export default function FeedPage() {
   };
 
   const requestSwipe = (direction) => {
-    const isBusy = swipeLockedRef.current || actionInFlightRef.current || likeInFlightRef.current;
+    const currentProfileId = getProfileId(currentProfile);
+    const isBusy =
+      swipeLockedRef.current ||
+      actionInFlightRef.current ||
+      processingActionRef.current ||
+      likeInFlightRef.current;
     debugFeed("swipe action requested", {
       direction,
-      ignored: !currentProfile || isBusy,
+      ignored: !currentProfileId || isBusy,
       swipeLocked: swipeLockedRef.current,
       actionInFlight: actionInFlightRef.current,
+      processingAction: processingActionRef.current,
       likeInFlight: likeInFlightRef.current,
       currentIndex,
       currentProfileId: getCurrentProfileId(profiles, currentIndex),
     });
-    if (!currentProfile || isBusy) return;
+    if (!currentProfileId || isBusy) return;
     swipeLockedRef.current = true;
+    actionInFlightRef.current = true;
+    pendingActionProfileIdRef.current = currentProfileId;
     setSwipeLocked(true);
     if (swipeUnlockTimeoutRef.current) {
       clearTimeout(swipeUnlockTimeoutRef.current);
     }
-    swipeUnlockTimeoutRef.current = setTimeout(unlockSwipe, SWIPE_LOCK_TIMEOUT_MS);
+    swipeUnlockTimeoutRef.current = setTimeout(unlockTimedOutSwipe, SWIPE_LOCK_TIMEOUT_MS);
     setActionSignal((signal) => ({ id: signal.id + 1, direction }));
   };
 
@@ -814,10 +863,10 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          --feed-deck-width: min(94vw, 430px);
-          --feed-deck-height: clamp(560px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          --feed-deck-width: min(96vw, 440px);
+          --feed-deck-height: clamp(600px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
-          /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
+          /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
@@ -1043,7 +1092,13 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
-            --feed-viewport-height: 100dvh;
+            min-height: 100dvh;
+          }
+        }
+
+        @supports (height: 100lvh) {
+          .feed-page {
+            --feed-viewport-height: 100lvh;
           }
         }
 

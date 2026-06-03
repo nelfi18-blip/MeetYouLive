@@ -863,6 +863,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          /* Match the production mobile card footprint so refresh/loading states never collapse smaller. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
@@ -1092,7 +1093,7 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
-            min-height: 100dvh;
+            min-height: max(100dvh, var(--feed-viewport-height));
           }
         }
 

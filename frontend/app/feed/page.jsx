@@ -736,6 +736,7 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
   const showLoadingState = !error && loading && !hasMoreProfiles;
   const showErrorState = error && !hasMoreProfiles;
+  const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
 
   useEffect(() => {
     if (!hasMoreProfiles) return;
@@ -764,7 +765,7 @@ export default function FeedPage() {
 
       {/* 2. MODERN SWIPE DECK */}
       <section
-        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
+        className={`feed-section feed-match-section${showEmptyState ? " feed-match-section--empty" : ""}`}
         aria-label={t("feed.recommendedProfilesAria")}
       >
         {showLoadingState ? (
@@ -967,7 +968,7 @@ export default function FeedPage() {
           height: var(--feed-deck-height);
           min-height: var(--feed-deck-height);
           max-height: var(--feed-deck-height);
-          margin: auto 0;
+          margin: 0;
           overflow: hidden;
           background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
           border: 1px solid rgba(224, 64, 251, 0.14);

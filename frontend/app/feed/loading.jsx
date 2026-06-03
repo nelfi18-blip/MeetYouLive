@@ -1,3 +1,5 @@
+"use client";
+
 export default function FeedLoading() {
   return (
     <div className="feed-page feed-page--initial-loading">

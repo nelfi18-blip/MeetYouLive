@@ -541,6 +541,8 @@ export default function FeedPage() {
 
   const unlockTimedOutSwipe = () => {
     swipeUnlockTimeoutRef.current = null;
+    // Keep the lock while the accepted action is already mutating the deck; only
+    // release request-time locks where SwipeCard never reports an onSwipe.
     if (processingActionRef.current || likeInFlightRef.current) return;
     unlockSwipe();
   };
@@ -624,9 +626,13 @@ export default function FeedPage() {
       unlockSwipe();
       return;
     }
-    actionInFlightRef.current = true;
+    const isRequestedButtonAction =
+      actionInFlightRef.current && pendingActionProfileIdRef.current === profileId;
+    if (!isRequestedButtonAction) {
+      actionInFlightRef.current = true;
+      pendingActionProfileIdRef.current = profileId;
+    }
     processingActionRef.current = true;
-    pendingActionProfileIdRef.current = profileId;
     swipeLockedRef.current = true;
     setSwipeLocked(true);
     feedMutationVersionRef.current += 1;
@@ -863,7 +869,7 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Match the production mobile card footprint so refresh/loading states never collapse smaller. */
+          /* Full-width mobile deck footprint; loading/refresh states must keep this same large card size. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
@@ -1093,6 +1099,7 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
+            /* Use dvh as a floor, while lvh below becomes the stable non-shrinking viewport basis when available. */
             min-height: max(100dvh, var(--feed-viewport-height));
           }
         }

@@ -176,7 +176,7 @@ export default function FeedPage() {
   const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
-  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
+  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
@@ -728,7 +728,7 @@ export default function FeedPage() {
       clearTimeout(swipeUnlockTimeoutRef.current);
     }
     swipeUnlockTimeoutRef.current = setTimeout(unlockTimedOutSwipe, SWIPE_LOCK_TIMEOUT_MS);
-    setActionSignal((signal) => ({ id: signal.id + 1, direction }));
+    setActionSignal((signal) => ({ id: signal.id + 1, direction, profileId: currentProfileId }));
   };
 
   /* --------------------------- Render --------------------------- */
@@ -869,9 +869,9 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          /* Use the large mobile card footprint (near full-width, 600px min) so refresh/loading never falls back to the smaller global card size. */
+          /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
-          --feed-deck-height: clamp(600px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          --feed-deck-height: clamp(600px, 72vh, 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
@@ -1099,6 +1099,7 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
+            --feed-deck-height: clamp(600px, 72dvh, 720px);
             /* Use dvh as a floor, while lvh below becomes the stable non-shrinking viewport basis when available. */
             min-height: max(100dvh, var(--feed-viewport-height));
           }
@@ -1107,6 +1108,7 @@ export default function FeedPage() {
         @supports (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
+            --feed-deck-height: clamp(600px, 72lvh, 720px);
           }
         }
 

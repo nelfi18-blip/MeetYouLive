@@ -65,9 +65,19 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
   }, [hasSwiped, isActive, onSwipe, profile._id]);
 
   useEffect(() => {
-    if (!isActive || !actionSignal?.id || !actionSignal.direction) return;
+    const actionProfileId = actionSignal?.profileId ? String(actionSignal.profileId) : "";
+    const currentProfileId = profile?._id ? String(profile._id) : "";
+    if (
+      !isActive ||
+      !actionSignal?.id ||
+      !actionSignal.direction ||
+      !actionProfileId ||
+      actionProfileId !== currentProfileId
+    ) {
+      return;
+    }
     completeSwipe(actionSignal.direction);
-  }, [actionSignal, completeSwipe, isActive]);
+  }, [actionSignal, completeSwipe, isActive, profile?._id]);
 
   const handleDragEnd = (event, info) => {
     if (!isActive || hasSwiped) return;

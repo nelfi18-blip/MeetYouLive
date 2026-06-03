@@ -772,7 +772,7 @@ export default function FeedPage() {
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
               <div className="spinner" />
-              <p>Cargando tu feed...</p>
+              <p>{t("feed.loadingLabel")}</p>
             </div>
           </div>
         ) : showErrorState ? (

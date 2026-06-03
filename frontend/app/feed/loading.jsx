@@ -1,6 +1,10 @@
 "use client";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 export default function FeedLoading() {
+  const { t } = useLanguage();
+
   return (
     <div className="feed-page feed-page--initial-loading">
       <header className="feed-header" aria-label="MeetYouLive">
@@ -8,12 +12,12 @@ export default function FeedLoading() {
         <img src="/logo.svg" alt="" className="feed-header-logo" />
       </header>
 
-      <section className="feed-section feed-match-section" aria-label="Cargando perfiles recomendados">
+      <section className="feed-section feed-match-section" aria-label={t("feed.recommendedProfilesAria")}>
         <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
           <div className="feed-loading">
             <div className="feed-loading__pulse" aria-hidden="true" />
             <div className="spinner" aria-hidden="true" />
-            <p>Cargando tu feed...</p>
+            <p>{t("feed.loadingLabel")}</p>
           </div>
         </div>
       </section>

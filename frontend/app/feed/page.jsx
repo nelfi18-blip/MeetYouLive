@@ -27,6 +27,7 @@ const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
 const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
+const EMPTY_CACHED_FEED = { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -61,7 +62,7 @@ function debugFeed(message, details = {}) {
 }
 
 function getEmptyCachedFeed() {
-  return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
+  return EMPTY_CACHED_FEED;
 }
 
 function readCachedFeed() {
@@ -279,7 +280,7 @@ export default function FeedPage() {
     const cachedFeed = readCachedFeed();
     const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
     currentProfileIdRef.current = storedCurrentProfileId;
-    if (storedCurrentProfileId) {
+    if (storedCurrentProfileId && !cachedFeed.currentProfileId) {
       writeStoredCurrentProfileId(storedCurrentProfileId);
     }
     if (!cachedFeed.hasCache) return;
@@ -292,7 +293,6 @@ export default function FeedPage() {
     profilesRef.current = cachedFeed.profiles;
     currentIndexRef.current = cachedFeed.currentIndex;
     currentProfileIdRef.current = cachedFeed.currentProfileId;
-    writeStoredCurrentProfileId(cachedFeed.currentProfileId);
     hasVisualCacheRef.current = true;
     setProfiles(cachedFeed.profiles);
     setCurrentIndex(cachedFeed.currentIndex);
@@ -312,6 +312,7 @@ export default function FeedPage() {
   useEffect(() => {
     currentIndexRef.current = currentIndex;
     const currentProfileId = getCurrentProfileId(profiles, currentIndex);
+    // Clear the visible profile ref when a non-empty deck has been exhausted.
     if (currentProfileId || profiles.length) {
       currentProfileIdRef.current = currentProfileId;
     }

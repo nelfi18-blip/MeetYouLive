@@ -256,13 +256,11 @@ export default function FeedPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/match/like`, {
+      const response = await fetch(`${API_URL}/api/matches/like/${currentProfile._id}`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: "Bearer " + token,
         },
-        body: JSON.stringify({ userId: currentProfile._id }),
         cache: "no-store",
       });
 

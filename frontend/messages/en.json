@@ -146,6 +146,8 @@
     "serverError": "Server error. Please try again.",
     "sessionExpired": "Session expired. Please sign in again.",
     "likeError": "We couldn't save your like. Please try again.",
+    "passError": "We couldn't save your nope. Please try again.",
+    "pendingAction": "Saving...",
     "recommendedProfilesAria": "Recommended profiles",
     "actionDockAria": "Profile actions",
     "dislikeLabel": "Nope",

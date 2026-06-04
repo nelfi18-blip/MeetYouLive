@@ -336,6 +336,7 @@ export default function FeedPage() {
               labels={{
                 pass: translateWithFallback("feed.dislikeLabel", "No me gusta"),
                 like: translateWithFallback("feed.likeLabel", "Me gusta"),
+                pending: translateWithFallback("feed.pendingAction", "Registrando..."),
               }}
             />
           ) : (
@@ -508,6 +509,7 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
   const location = findFirstNonEmptyString(profile?.location, profile?.city, profile?.country);
   const interests = getProfileInterests(profile);
   const fallbackInitial = name.trim()[0]?.toUpperCase() || "M";
+  const preventDragStart = (event) => event.stopPropagation();
 
   const exitX = exitDirection === "left" ? -ACTION_EXIT_DISTANCE_X : exitDirection === "right" ? ACTION_EXIT_DISTANCE_X : 0;
   const exitRotate = exitDirection === "left" ? -16 : exitDirection === "right" ? 16 : 0;
@@ -522,7 +524,7 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
         borderRadius: "inherit",
         touchAction: "pan-y",
       }}
-      drag={disabled ? false : "x"}
+      drag={disabled ? undefined : "x"}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.16}
       dragMomentum={false}
@@ -560,7 +562,7 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
 
         <div className="profile-feedback" aria-live="polite">
           {pending ? (
-            <p className="profile-status">Registrando...</p>
+            <p className="profile-status">{labels.pending}</p>
           ) : error ? (
             <p className="profile-error" role="alert">{error}</p>
           ) : null}
@@ -568,11 +570,11 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
       </div>
 
       <div className="profile-actions" aria-label="Acciones del perfil">
-        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onPointerDown={(event) => event.stopPropagation()} onClick={onPass}>
+        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onPointerDown={preventDragStart} onClick={onPass}>
           <strong>✕</strong>
           <span>{labels.pass}</span>
         </button>
-        <button type="button" className="profile-action profile-action--like" disabled={disabled} onPointerDown={(event) => event.stopPropagation()} onClick={onLike}>
+        <button type="button" className="profile-action profile-action--like" disabled={disabled} onPointerDown={preventDragStart} onClick={onLike}>
           <strong>♥</strong>
           <span>{labels.like}</span>
         </button>
@@ -580,11 +582,6 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
 
       <style jsx>{`
         .profile-card-panel {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-          border-radius: inherit;
-          touch-action: pan-y;
           will-change: transform, opacity;
         }
 

@@ -82,9 +82,19 @@
    ========================================================= */
 *, *::before, *::after { box-sizing: border-box; }
 
+html {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  min-width: 0;
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background:
@@ -95,6 +105,8 @@ body {
   background-color: #0f0821;
   background-attachment: fixed;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 body::before {
@@ -118,6 +130,8 @@ a { color: inherit; text-decoration: none; }
    Layout
    ========================================================= */
 .main-content {
+  width: 100%;
+  min-width: 0;
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
@@ -635,8 +649,16 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
-  .main-content { padding-bottom: var(--bottom-spacing-mobile); }
+  .main-content {
+    max-width: none;
+    margin: 0;
+    padding-bottom: var(--bottom-spacing-mobile);
+  }
   .hide-mobile  { display: none !important; }
+
+  body {
+    background-attachment: scroll;
+  }
 }
 @media (min-width: 769px) {
   .hide-desktop { display: none !important; }
@@ -4002,6 +4024,9 @@ select {
 /* Improved mobile navigation */
 @media (max-width: 768px) {
   .main-content {
+    max-width: none;
+    width: 100%;
+    margin: 0;
     padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
   }
 

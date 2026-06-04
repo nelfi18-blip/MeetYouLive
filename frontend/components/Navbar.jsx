@@ -742,6 +742,7 @@ export default function Navbar() {
         }
 
         @media (max-width: 768px) {
+          .navbar { display: none; }
           .navbar-links { display: none; }
           .navbar-username { display: none; }
           .bottom-nav { display: flex; }

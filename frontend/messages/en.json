@@ -146,6 +146,7 @@
     "serverError": "Server error. Please try again.",
     "sessionExpired": "Session expired. Please sign in again.",
     "likeError": "We couldn't save your like. Please try again.",
+    "loadingLabel": "Loading your feed...",
     "recommendedProfilesAria": "Recommended profiles",
     "actionDockAria": "Profile actions",
     "dislikeLabel": "Nope",

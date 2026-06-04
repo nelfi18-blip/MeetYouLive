@@ -61,7 +61,7 @@ function getProfileInterests(profile) {
   return values.filter(Boolean).slice(0, 4);
 }
 
-async function fetchBackendToken(signal) {
+async function fetchBackendSession(signal) {
   const response = await fetch("/api/auth/backend-token", {
     method: "POST",
     cache: "no-store",
@@ -212,10 +212,11 @@ export default function FeedPage() {
         tokenControllerRef.current = controller;
         const timeoutId = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
         try {
-          const backendSession = await fetchBackendToken(controller.signal);
+          const backendSession = await fetchBackendSession(controller.signal);
           token = backendSession?.token || token;
           currentUserId = backendSession?.userId || currentUserId;
         } catch (err) {
+          // Keep a previously stored token usable if the session refresh only failed while recovering the user id.
           if (!hadToken && err.name !== "AbortError") token = null;
         } finally {
           clearTimeout(timeoutId);

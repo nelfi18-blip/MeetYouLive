@@ -14,6 +14,9 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+const toObjectIdOrNull = (id) =>
+  id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -162,10 +165,7 @@ const getFeed = async (req, res) => {
   try {
     console.log("[Feed API] Fetching feed data...");
 
-    const authenticatedUserId =
-      req.userId && mongoose.Types.ObjectId.isValid(req.userId)
-        ? new mongoose.Types.ObjectId(req.userId)
-        : null;
+    const authenticatedUserId = toObjectIdOrNull(req.userId);
     const recommendedProfilesMatch = {
       role: "user", // Excludes creators and all staff roles
       isBlocked: false,

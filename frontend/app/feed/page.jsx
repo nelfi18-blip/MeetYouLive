@@ -38,6 +38,25 @@ function getProfileName(profile) {
   return findFirstNonEmptyString(profile?.displayName, profile?.name, profile?.username, profile?.email) || "MeetYouLive";
 }
 
+function getProfileId(profile) {
+  return profile?._id ? String(profile._id) : "";
+}
+
+function getUserIdFromToken(token) {
+  if (!token || typeof token !== "string") return "";
+  const [, payload] = token.split(".");
+  if (!payload) return "";
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "=");
+    const decoded = JSON.parse(atob(paddedPayload));
+    return findFirstNonEmptyString(decoded?.id, decoded?._id, decoded?.userId, decoded?.sub) || "";
+  } catch {
+    return "";
+  }
+}
+
 function getProfileAge(profile) {
   if (profile?.age) return profile.age;
   if (!profile?.birthdate && !profile?.dateOfBirth) return "";
@@ -82,6 +101,7 @@ export default function FeedPage() {
   const [error, setError] = useState(null);
 
   const authTokenRef = useRef(null);
+  const currentUserIdRef = useRef("");
   const bootStartedRef = useRef(false);
   const actionPendingRef = useRef(false);
   const passUnlockTimeoutRef = useRef(null);
@@ -144,11 +164,15 @@ export default function FeedPage() {
         }
 
         const data = await response.json();
+        const currentUserId = currentUserIdRef.current;
         const uniqueProfiles = Array.from(
           new Map(
             (data?.recommendedProfiles || [])
-              .filter((profile) => profile?._id)
-              .map((profile) => [profile._id, profile])
+              .filter((profile) => {
+                const profileId = getProfileId(profile);
+                return profileId && (!currentUserId || profileId !== currentUserId);
+              })
+              .map((profile) => [getProfileId(profile), profile])
           ).values()
         );
 
@@ -217,6 +241,7 @@ export default function FeedPage() {
       }
 
       authTokenRef.current = token;
+      currentUserIdRef.current = getUserIdFromToken(token);
       setToken(token);
       await loadFeed(token);
     };
@@ -245,6 +270,11 @@ export default function FeedPage() {
 
   const handleLike = useCallback(async () => {
     if (!currentProfile || actionPendingRef.current) return;
+
+    if (getProfileId(currentProfile) === currentUserIdRef.current) {
+      advanceOneProfile();
+      return;
+    }
 
     const token = authTokenRef.current;
     if (!API_URL || !token) {

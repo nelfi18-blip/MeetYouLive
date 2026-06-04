@@ -161,6 +161,20 @@ const getFeed = async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("[Feed API] Fetching feed data...");
+
+    const authenticatedUserId =
+      req.userId && mongoose.Types.ObjectId.isValid(req.userId)
+        ? new mongoose.Types.ObjectId(req.userId)
+        : null;
+    const recommendedProfilesMatch = {
+      role: "user", // Excludes creators and all staff roles
+      isBlocked: false,
+      isSuspended: false,
+      onboardingComplete: true
+    };
+    if (authenticatedUserId) {
+      recommendedProfilesMatch._id = { $ne: authenticatedUserId };
+    }
     
     // Run all queries in parallel for better performance
     const [allLives, recommendedProfiles, featuredCreators] = await Promise.all([
@@ -178,12 +192,7 @@ const getFeed = async (req, res) => {
       // Add randomization for variety
       User.aggregate([
         {
-          $match: {
-            role: "user", // Excludes creators and all staff roles
-            isBlocked: false,
-            isSuspended: false,
-            onboardingComplete: true
-          }
+          $match: recommendedProfilesMatch
         },
         { $sample: { size: 12 } }, // Randomize selection
         {

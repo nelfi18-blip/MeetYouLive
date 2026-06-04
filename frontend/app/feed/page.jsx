@@ -25,6 +25,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
+const FEED_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -43,7 +44,24 @@ function getCurrentProfileId(profiles, currentIndex) {
 }
 
 function debugFeed(message, details = {}) {
+  if (!FEED_DEBUG_ENABLED) return;
   console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+}
+
+function preserveCurrentProfileInFeed(
+  currentProfile,
+  uniqueProfiles,
+  profileIdBeforeRefresh,
+  currentUserId
+) {
+  if (!currentProfile || !currentUserId || getProfileId(currentProfile) === currentUserId) {
+    return uniqueProfiles;
+  }
+
+  return [
+    currentProfile,
+    ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
+  ];
 }
 
 function readCachedFeed() {
@@ -495,12 +513,12 @@ export default function FeedPage() {
           nextIndex = matchingIndex;
         } else {
           const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
-          nextProfiles = currentProfile && currentUserId && getProfileId(currentProfile) !== currentUserId
-            ? [
-                currentProfile,
-                ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
-              ]
-            : uniqueProfiles;
+          nextProfiles = preserveCurrentProfileInFeed(
+            currentProfile,
+            uniqueProfiles,
+            profileIdBeforeRefresh,
+            currentUserId
+          );
           nextIndex = 0;
         }
       }
@@ -790,6 +808,7 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
 
   useEffect(() => {
+    if (!FEED_DEBUG_ENABLED) return;
     if (!hasMoreProfiles) return;
     const deck = deckRef.current;
     const card = deck?.querySelector(".swipe-card-modern");

@@ -32,6 +32,20 @@ function getProfileId(profile) {
   return profileId ? String(profileId) : "";
 }
 
+function getNullableIdString(id) {
+  return id == null ? "" : String(id);
+}
+
+function isRecommendedProfile(profile, currentUserId) {
+  const profileId = getProfileId(profile);
+  return profileId && currentUserId && profileId !== currentUserId;
+}
+
+function shouldKeepProfileInDeck(profile, removedProfileId, currentUserId) {
+  const existingProfileId = getProfileId(profile);
+  return existingProfileId !== removedProfileId && (!currentUserId || existingProfileId !== currentUserId);
+}
+
 function summarizeProfiles(profiles) {
   return {
     count: profiles.length,
@@ -147,7 +161,7 @@ async function requestBackendToken(signal) {
       const data = await response.json();
       return {
         token: data?.token || null,
-        userId: data?.user?.id ? String(data.user.id) : "",
+        userId: getNullableIdString(data?.user?.id),
         status: response.status,
       };
     } catch {
@@ -486,13 +500,9 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       const currentUserId = currentUserIdRef.current;
-      const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
-        const profileId = getProfileId(profile);
-        if (profileId && currentUserId && profileId !== currentUserId) {
-          entries.push([profileId, profile]);
-        }
-        return entries;
-      }, []);
+      const profileEntries = (data?.recommendedProfiles || [])
+        .filter((profile) => isRecommendedProfile(profile, currentUserId))
+        .map((profile) => [getProfileId(profile), profile]);
       const uniqueProfiles = Array.from(
         new Map(profileEntries).values()
       );
@@ -720,10 +730,9 @@ export default function FeedPage() {
     const previousProfiles = activeProfiles;
     const previousIndex = activeIndex;
     const currentUserId = currentUserIdRef.current;
-    const nextProfiles = previousProfiles.filter((profile) => {
-      const existingProfileId = getProfileId(profile);
-      return existingProfileId !== profileId && (!currentUserId || existingProfileId !== currentUserId);
-    });
+    const nextProfiles = previousProfiles.filter((profile) =>
+      shouldKeepProfileInDeck(profile, profileId, currentUserId)
+    );
     // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
     // so we do not resurface already-swiped profiles after liking the last card.
     const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);

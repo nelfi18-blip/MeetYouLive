@@ -121,7 +121,7 @@ export const authOptions = {
               if (data.token) {
                 token.backendToken = data.token;
               }
-              if (data.user?.id) {
+              if (data.user?.id != null) {
                 token.backendUserId = String(data.user.id);
               }
               if (!data.token) {

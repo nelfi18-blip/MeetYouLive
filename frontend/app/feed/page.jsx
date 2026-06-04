@@ -608,8 +608,8 @@ export default function FeedPage() {
       // Refresh can remove the profile that was available to undo, so clear it
       // instead of restoring an action for a profile no longer in this deck.
       setLastAction((action) => {
-        if (!action?.profileId || nextProfileIds.has(action.profileId)) return action;
-        return null;
+        if (!action?.profileId) return null;
+        return nextProfileIds.has(action.profileId) ? action : null;
       });
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);

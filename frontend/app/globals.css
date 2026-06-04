@@ -108,6 +108,12 @@ body {
   overflow-x: hidden;
 }
 
+@media (min-width: 769px) {
+  body {
+    background-attachment: fixed;
+  }
+}
+
 @supports (min-height: 100dvh) {
   body {
     min-height: 100dvh;
@@ -654,6 +660,12 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
+  .main-content {
+    max-width: none;
+    margin: 0;
+    padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
+  }
+
   .hide-mobile  { display: none !important; }
 }
 @media (min-width: 769px) {
@@ -4019,12 +4031,6 @@ select {
 
 /* Improved mobile navigation */
 @media (max-width: 768px) {
-  .main-content {
-    max-width: none;
-    margin: 0;
-    padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
-  }
-
   /* Mobile-optimized headers */
   .page-title {
     font-size: 1.75rem;

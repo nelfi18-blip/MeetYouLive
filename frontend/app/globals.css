@@ -649,11 +649,6 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
-  .main-content {
-    max-width: none;
-    margin: 0;
-    padding-bottom: var(--bottom-spacing-mobile);
-  }
   .hide-mobile  { display: none !important; }
 
   body {

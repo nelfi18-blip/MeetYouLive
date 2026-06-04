@@ -663,8 +663,7 @@ main.main-content:has(.admin-shell) {
   .main-content {
     max-width: none;
     margin: 0;
-    padding: 1rem;
-    padding-bottom: calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom));
+    padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
   }
 
   .hide-mobile  { display: none !important; }

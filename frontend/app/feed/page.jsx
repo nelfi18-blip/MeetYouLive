@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
@@ -996,7 +997,7 @@ export default function FeedPage() {
               </button>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--super"
+                className="feed-action-btn feed-action-btn--undo"
                 aria-label={t("feed.undoLabel")}
                 disabled={swipeLocked || !lastAction}
                 onClick={handleUndoLastAction}
@@ -1256,7 +1257,7 @@ export default function FeedPage() {
           color: #d9d7e8;
         }
 
-        .feed-action-btn--super {
+        .feed-action-btn--undo {
           width: clamp(62px, 17vw, 74px);
           height: clamp(62px, 17vw, 74px);
           min-height: 0;

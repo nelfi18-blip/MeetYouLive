@@ -509,10 +509,16 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
   const location = findFirstNonEmptyString(profile?.location, profile?.city, profile?.country);
   const interests = getProfileInterests(profile);
   const fallbackInitial = name.trim()[0]?.toUpperCase() || "M";
-  const preventDragStart = (event) => event.stopPropagation();
+  const stopActionPointerPropagation = (event) => event.stopPropagation();
 
   const exitX = exitDirection === "left" ? -ACTION_EXIT_DISTANCE_X : exitDirection === "right" ? ACTION_EXIT_DISTANCE_X : 0;
   const exitRotate = exitDirection === "left" ? -16 : exitDirection === "right" ? 16 : 0;
+  const cardMotionTarget = {
+    x: exitX,
+    rotate: exitRotate,
+    opacity: exitDirection ? 0 : 1,
+    scale: exitDirection ? 0.96 : 1,
+  };
 
   return (
     <motion.div
@@ -524,12 +530,12 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
         borderRadius: "inherit",
         touchAction: "pan-y",
       }}
-      drag={disabled ? undefined : "x"}
+      drag={!disabled && "x"}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.16}
       dragMomentum={false}
-      onDragEnd={disabled ? undefined : onDragEnd}
-      animate={{ x: exitX, rotate: exitRotate, opacity: exitDirection ? 0 : 1, scale: exitDirection ? 0.96 : 1 }}
+      onDragEnd={onDragEnd}
+      animate={cardMotionTarget}
       transition={{ duration: ACTION_EXIT_MS / 1000, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="profile-photo">
@@ -570,11 +576,11 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
       </div>
 
       <div className="profile-actions" aria-label="Acciones del perfil">
-        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onPointerDown={preventDragStart} onClick={onPass}>
+        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onPointerDown={stopActionPointerPropagation} onClick={onPass}>
           <strong>✕</strong>
           <span>{labels.pass}</span>
         </button>
-        <button type="button" className="profile-action profile-action--like" disabled={disabled} onPointerDown={preventDragStart} onClick={onLike}>
+        <button type="button" className="profile-action profile-action--like" disabled={disabled} onPointerDown={stopActionPointerPropagation} onClick={onLike}>
           <strong>♥</strong>
           <span>{labels.like}</span>
         </button>

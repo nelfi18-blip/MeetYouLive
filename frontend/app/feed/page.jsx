@@ -271,7 +271,8 @@ export default function FeedPage() {
   const handleLike = useCallback(async () => {
     if (!currentProfile || actionPendingRef.current) return;
 
-    if (getProfileId(currentProfile) === currentUserIdRef.current) {
+    const currentUserId = currentUserIdRef.current;
+    if (currentUserId && getProfileId(currentProfile) === currentUserId) {
       advanceOneProfile();
       return;
     }

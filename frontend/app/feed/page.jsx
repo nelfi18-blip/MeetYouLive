@@ -25,7 +25,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
-const FEED_DEBUG_ENABLED = process.env.NODE_ENV !== "production";
+const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;

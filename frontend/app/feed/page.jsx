@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -10,7 +11,9 @@ import { getToken, setToken } from "@/lib/token";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const FEED_TIMEOUT_MS = 15000;
 const TOKEN_TIMEOUT_MS = 12000;
-const PASS_LOCK_MS = 260;
+const ACTION_EXIT_MS = 260;
+const ACTION_EXIT_DISTANCE_X = 440;
+const DRAG_ACTION_THRESHOLD_X = 92;
 
 const findFirstNonEmptyString = (...values) =>
   values.find((value) => typeof value === "string" && value.trim());
@@ -80,11 +83,12 @@ export default function FeedPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionPending, setIsActionPending] = useState(false);
   const [error, setError] = useState(null);
+  const [exitDirection, setExitDirection] = useState(null);
 
   const authTokenRef = useRef(null);
   const bootStartedRef = useRef(false);
   const actionPendingRef = useRef(false);
-  const passUnlockTimeoutRef = useRef(null);
+  const actionTransitionTimeoutRef = useRef(null);
   const feedControllerRef = useRef(null);
   const tokenControllerRef = useRef(null);
 
@@ -175,7 +179,7 @@ export default function FeedPage() {
     return () => {
       feedControllerRef.current?.abort();
       tokenControllerRef.current?.abort();
-      if (passUnlockTimeoutRef.current) clearTimeout(passUnlockTimeoutRef.current);
+      if (actionTransitionTimeoutRef.current) clearTimeout(actionTransitionTimeoutRef.current);
     };
   }, []);
 
@@ -228,22 +232,18 @@ export default function FeedPage() {
     setDeck(profiles, currentIndex + 1);
   }, [currentIndex, profiles, setDeck]);
 
-  const unlockActionsAfterDelay = useCallback(() => {
-    if (passUnlockTimeoutRef.current) clearTimeout(passUnlockTimeoutRef.current);
-    passUnlockTimeoutRef.current = setTimeout(() => {
+  const finishSuccessfulAction = useCallback((direction) => {
+    if (actionTransitionTimeoutRef.current) clearTimeout(actionTransitionTimeoutRef.current);
+    setExitDirection(direction);
+    actionTransitionTimeoutRef.current = setTimeout(() => {
+      advanceOneProfile();
+      setExitDirection(null);
       setActionLock(false);
-      passUnlockTimeoutRef.current = null;
-    }, PASS_LOCK_MS);
-  }, [setActionLock]);
+      actionTransitionTimeoutRef.current = null;
+    }, ACTION_EXIT_MS);
+  }, [advanceOneProfile, setActionLock]);
 
-  const handlePass = useCallback(() => {
-    if (!currentProfile || actionPendingRef.current) return;
-    setActionLock(true);
-    advanceOneProfile();
-    unlockActionsAfterDelay();
-  }, [advanceOneProfile, currentProfile, setActionLock, unlockActionsAfterDelay]);
-
-  const handleLike = useCallback(async () => {
+  const submitProfileAction = useCallback(async (action) => {
     if (!currentProfile || actionPendingRef.current) return;
 
     const token = authTokenRef.current;
@@ -252,31 +252,53 @@ export default function FeedPage() {
       return;
     }
 
+    const profileId = currentProfile._id;
+    const isLike = action === "like";
+
     setActionLock(true);
     setError(null);
+    setExitDirection(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        body: JSON.stringify({ userId: currentProfile._id }),
+      const response = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(profileId)}`, {
+        method: isLike ? "POST" : "DELETE",
+        headers: { Authorization: "Bearer " + token },
         cache: "no-store",
       });
 
       if (!response.ok) {
-        throw new Error(translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
+        const fallback = isLike
+          ? translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo.")
+          : translateWithFallback("feed.passError", "No pudimos registrar tu no me gusta. Intenta de nuevo.");
+        throw new Error(fallback);
       }
 
-      advanceOneProfile();
+      finishSuccessfulAction(isLike ? "right" : "left");
     } catch (err) {
-      setError(err.message || translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
-    } finally {
+      setError(
+        err.message ||
+          (isLike
+            ? translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo.")
+            : translateWithFallback("feed.passError", "No pudimos registrar tu no me gusta. Intenta de nuevo."))
+      );
+      setExitDirection(null);
       setActionLock(false);
     }
-  }, [advanceOneProfile, currentProfile, setActionLock, translateWithFallback]);
+  }, [currentProfile, finishSuccessfulAction, setActionLock, translateWithFallback]);
+
+  const handlePass = useCallback(() => {
+    submitProfileAction("pass");
+  }, [submitProfileAction]);
+
+  const handleLike = useCallback(() => {
+    submitProfileAction("like");
+  }, [submitProfileAction]);
+
+  const handleCardDragEnd = useCallback((event, info) => {
+    if (actionPendingRef.current || !currentProfile) return;
+    if (Math.abs(info.offset.x) < DRAG_ACTION_THRESHOLD_X) return;
+    submitProfileAction(info.offset.x > 0 ? "like" : "pass");
+  }, [currentProfile, submitProfileAction]);
 
   const retryFeed = useCallback(() => {
     if (!authTokenRef.current || isLoading) return;
@@ -305,7 +327,10 @@ export default function FeedPage() {
             <ProfileCard
               profile={currentProfile}
               disabled={isActionPending}
+              pending={isActionPending}
               error={error}
+              exitDirection={exitDirection}
+              onDragEnd={handleCardDragEnd}
               onPass={handlePass}
               onLike={handleLike}
               labels={{
@@ -476,7 +501,7 @@ function FeedState({ title, message, onRetry }) {
   );
 }
 
-function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
+function ProfileCard({ profile, disabled, pending, error, exitDirection, labels, onDragEnd, onPass, onLike }) {
   const image = getProfileImage(profile);
   const name = getProfileName(profile);
   const age = getProfileAge(profile);
@@ -484,8 +509,20 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
   const interests = getProfileInterests(profile);
   const fallbackInitial = name.trim()[0]?.toUpperCase() || "M";
 
+  const exitX = exitDirection === "left" ? -ACTION_EXIT_DISTANCE_X : exitDirection === "right" ? ACTION_EXIT_DISTANCE_X : 0;
+  const exitRotate = exitDirection === "left" ? -16 : exitDirection === "right" ? 16 : 0;
+
   return (
-    <>
+    <motion.div
+      className="profile-card-panel"
+      drag={disabled ? false : "x"}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.16}
+      dragMomentum={false}
+      onDragEnd={disabled ? undefined : onDragEnd}
+      animate={{ x: exitX, rotate: exitRotate, opacity: exitDirection ? 0 : 1, scale: exitDirection ? 0.96 : 1 }}
+      transition={{ duration: ACTION_EXIT_MS / 1000, ease: [0.22, 1, 0.36, 1] }}
+    >
       <div className="profile-photo">
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -514,21 +551,36 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
           </div>
         ) : null}
 
-        {error ? <p className="profile-error" role="alert">{error}</p> : null}
+        <div className="profile-feedback" aria-live="polite">
+          {pending ? (
+            <p className="profile-status">Registrando...</p>
+          ) : error ? (
+            <p className="profile-error" role="alert">{error}</p>
+          ) : null}
+        </div>
       </div>
 
       <div className="profile-actions" aria-label="Acciones del perfil">
-        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onClick={onPass}>
+        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onPointerDown={(event) => event.stopPropagation()} onClick={onPass}>
           <strong>✕</strong>
           <span>{labels.pass}</span>
         </button>
-        <button type="button" className="profile-action profile-action--like" disabled={disabled} onClick={onLike}>
+        <button type="button" className="profile-action profile-action--like" disabled={disabled} onPointerDown={(event) => event.stopPropagation()} onClick={onLike}>
           <strong>♥</strong>
           <span>{labels.like}</span>
         </button>
       </div>
 
       <style jsx>{`
+        .profile-card-panel {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          border-radius: inherit;
+          touch-action: pan-y;
+          will-change: transform, opacity;
+        }
+
         .profile-photo,
         .profile-photo img,
         .profile-photo-fallback,
@@ -616,14 +668,27 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
           -webkit-backdrop-filter: blur(14px);
         }
 
+        .profile-feedback {
+          min-height: 42px;
+        }
+
+        .profile-status,
         .profile-error {
           margin: 0;
           border-radius: 16px;
           padding: 0.7rem 0.85rem;
-          background: rgba(255, 79, 163, 0.16);
-          color: #ffd7ea;
           font-size: 0.88rem;
           font-weight: 700;
+        }
+
+        .profile-status {
+          background: rgba(139, 92, 246, 0.18);
+          color: #efe7ff;
+        }
+
+        .profile-error {
+          background: rgba(255, 79, 163, 0.16);
+          color: #ffd7ea;
         }
 
         .profile-actions {
@@ -681,6 +746,6 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
           background: linear-gradient(135deg, rgba(255, 79, 163, 0.96), rgba(224, 64, 251, 0.94));
         }
       `}</style>
-    </>
+    </motion.div>
   );
 }

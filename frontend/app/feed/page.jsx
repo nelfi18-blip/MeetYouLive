@@ -27,7 +27,8 @@ const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
 
 function getProfileId(profile) {
-  return profile?._id || profile?.id || null;
+  const profileId = profile?._id || profile?.id;
+  return profileId ? String(profileId) : "";
 }
 
 function summarizeProfiles(profiles) {
@@ -126,13 +127,17 @@ async function requestBackendToken(signal) {
 
     try {
       const data = await response.json();
-      return { token: data?.token || null, status: response.status };
+      return {
+        token: data?.token || null,
+        userId: data?.user?.id ? String(data.user.id) : "",
+        status: response.status,
+      };
     } catch {
-      return { token: null, status: response.status };
+      return { token: null, userId: "", status: response.status };
     }
   } catch (err) {
     if (err.name === "AbortError") throw err;
-    return { token: null, status: 0 };
+    return { token: null, userId: "", status: 0 };
   }
 }
 
@@ -190,6 +195,7 @@ export default function FeedPage() {
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
   const deckRef = useRef(null);
+  const currentUserIdRef = useRef("");
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -231,6 +237,11 @@ export default function FeedPage() {
   }, [profiles]);
 
   useEffect(() => {
+    const currentUserId = session?.backendUserId || session?.user?.id || "";
+    currentUserIdRef.current = currentUserId ? String(currentUserId) : "";
+  }, [session?.backendUserId, session?.user?.id]);
+
+  useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
@@ -262,6 +273,10 @@ export default function FeedPage() {
     let controller;
 
     const localToken = getToken();
+    const sessionCurrentUserId = session?.backendUserId || session?.user?.id || "";
+    if (sessionCurrentUserId) {
+      currentUserIdRef.current = String(sessionCurrentUserId);
+    }
 
     if (session?.backendToken) {
       setToken(session.backendToken);
@@ -270,12 +285,15 @@ export default function FeedPage() {
       return undefined;
     }
 
-    if (localToken) {
+    if (status === "loading") return undefined;
+
+    if (
+      localToken &&
+      (status !== "authenticated" || currentUserIdRef.current || !session?.googleEmail)
+    ) {
       setAuthToken(localToken);
       return undefined;
     }
-
-    if (status === "loading") return undefined;
 
     if (status === "unauthenticated") {
       setLoading(false);
@@ -300,13 +318,25 @@ export default function FeedPage() {
 
     (async () => {
       try {
-        const { token: recoveredToken, status: recoveryStatus } = await requestBackendToken(controller.signal);
+        const {
+          token: recoveredToken,
+          userId: recoveredUserId,
+          status: recoveryStatus,
+        } = await requestBackendToken(controller.signal);
 
         if (cancelled) return;
 
         if (recoveredToken) {
           setToken(recoveredToken);
+          currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
           setAuthToken(recoveredToken);
+          setError(null);
+          return;
+        }
+
+        if (localToken) {
+          currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          setAuthToken(localToken);
           setError(null);
           return;
         }
@@ -339,7 +369,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller?.abort();
     };
-  }, [status, session?.backendToken, session?.googleEmail, t]);
+  }, [status, session?.backendToken, session?.backendUserId, session?.googleEmail, session?.user?.id, t]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
@@ -412,7 +442,9 @@ export default function FeedPage() {
         ) {
           let recoveredToken = null;
           try {
-            ({ token: recoveredToken } = await requestBackendToken(requestSignal));
+            const recoveredSession = await requestBackendToken(requestSignal);
+            recoveredToken = recoveredSession.token;
+            currentUserIdRef.current = recoveredSession.userId || currentUserIdRef.current;
           } catch (err) {
             if (err.name === "AbortError") throw err;
           }
@@ -435,8 +467,16 @@ export default function FeedPage() {
       }
 
       const data = await feedRes.json();
+      const currentUserId = currentUserIdRef.current;
+      const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
+        const profileId = getProfileId(profile);
+        if (profileId && currentUserId && profileId !== currentUserId) {
+          entries.push([profileId, profile]);
+        }
+        return entries;
+      }, []);
       const uniqueProfiles = Array.from(
-        new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+        new Map(profileEntries).values()
       );
 
       debugFeed("profiles received", {
@@ -455,7 +495,7 @@ export default function FeedPage() {
           nextIndex = matchingIndex;
         } else {
           const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
-          nextProfiles = currentProfile
+          nextProfiles = currentProfile && currentUserId && getProfileId(currentProfile) !== currentUserId
             ? [
                 currentProfile,
                 ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
@@ -642,6 +682,11 @@ export default function FeedPage() {
       return;
     }
 
+    if (currentUserIdRef.current && profileId === currentUserIdRef.current) {
+      advance(profileId);
+      return;
+    }
+
     if (likeInFlightRef.current) {
       debugFeed("handleLike ignored", {
         reason: "like-in-flight",
@@ -656,7 +701,11 @@ export default function FeedPage() {
     likeInFlightRef.current = true;
     const previousProfiles = activeProfiles;
     const previousIndex = activeIndex;
-    const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
+    const currentUserId = currentUserIdRef.current;
+    const nextProfiles = previousProfiles.filter((profile) => {
+      const existingProfileId = getProfileId(profile);
+      return existingProfileId !== profileId && (!currentUserId || existingProfileId !== currentUserId);
+    });
     // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
     // so we do not resurface already-swiped profiles after liking the last card.
     const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
@@ -703,7 +752,9 @@ export default function FeedPage() {
   };
 
   const requestSwipe = (direction) => {
-    const currentProfileId = getProfileId(currentProfile);
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const currentProfileId = getCurrentProfileId(activeProfiles, activeIndex);
     const isBusy =
       swipeLockedRef.current ||
       requestedActionRef.current ||
@@ -716,8 +767,8 @@ export default function FeedPage() {
       requestedAction: requestedActionRef.current,
       activeAction: activeActionRef.current,
       likeInFlight: likeInFlightRef.current,
-      currentIndex,
-      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      currentIndex: activeIndex,
+      currentProfileId,
     });
     if (!currentProfileId || isBusy) return;
     swipeLockedRef.current = true;

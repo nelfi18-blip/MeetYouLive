@@ -120,7 +120,11 @@ export const authOptions = {
               const data = await res.json();
               if (data.token) {
                 token.backendToken = data.token;
-              } else {
+              }
+              if (data.user?.id) {
+                token.backendUserId = String(data.user.id);
+              }
+              if (!data.token) {
                 console.warn("[NextAuth] /api/auth/google-session responded OK but returned no token");
               }
             } else {
@@ -160,10 +164,14 @@ export const authOptions = {
         session.user.name = token.name || session.user.name || "";
         session.user.email = token.email || session.user.email || "";
         session.user.image = token.picture || session.user.image || "";
+        session.user.id = token.backendUserId || session.user.id || "";
       }
       // Expose backend token and Google identity for client-side auth flows
       if (token.backendToken) {
         session.backendToken = token.backendToken;
+      }
+      if (token.backendUserId) {
+        session.backendUserId = token.backendUserId;
       }
       if (token.googleEmail) {
         session.googleEmail = token.googleEmail;
@@ -173,6 +181,7 @@ export const authOptions = {
         console.log("[NextAuth] Session data:", {
           googleEmail: session.googleEmail || "(not set)",
           googleName: session.googleName || "(not set)",
+          backendUserId: session.backendUserId || "(not set)",
           hasBackendToken: Boolean(session.backendToken),
         });
       }

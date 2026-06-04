@@ -146,6 +146,7 @@
     "serverError": "Erro do servidor. Por favor, tente novamente.",
     "sessionExpired": "Sessão expirada. Por favor, faça login novamente.",
     "likeError": "Não conseguimos registrar sua curtida. Tente novamente.",
+    "loadingLabel": "Carregando seu feed...",
     "recommendedProfilesAria": "Perfis recomendados",
     "actionDockAria": "Ações do perfil",
     "dislikeLabel": "Não gostei",

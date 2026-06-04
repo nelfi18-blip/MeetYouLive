@@ -121,8 +121,9 @@ export const authOptions = {
               if (data.token) {
                 token.backendToken = data.token;
               }
-              if (data.user?.id) {
-                token.backendUserId = String(data.user.id);
+              const backendUserId = data.user?.id != null ? String(data.user.id) : "";
+              if (backendUserId) {
+                token.backendUserId = backendUserId;
               }
               if (!data.token) {
                 console.warn("[NextAuth] /api/auth/google-session responded OK but returned no token");

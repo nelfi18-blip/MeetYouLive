@@ -25,10 +25,20 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
+const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
   return profileId ? String(profileId) : "";
+}
+
+function getNullableIdString(id) {
+  return id == null ? "" : String(id);
+}
+
+function isRecommendedProfile(profile, currentUserId) {
+  const profileId = getProfileId(profile);
+  return profileId && currentUserId && profileId !== currentUserId;
 }
 
 function summarizeProfiles(profiles) {
@@ -43,7 +53,26 @@ function getCurrentProfileId(profiles, currentIndex) {
 }
 
 function debugFeed(message, details = {}) {
-  console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+  if (!FEED_DEBUG_ENABLED) return;
+  try {
+    console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+  } catch {}
+}
+
+function preserveCurrentProfileInFeed(
+  currentProfile,
+  uniqueProfiles,
+  profileIdBeforeRefresh,
+  currentUserId
+) {
+  if (!currentProfile || !currentUserId || getProfileId(currentProfile) === currentUserId) {
+    return uniqueProfiles;
+  }
+
+  return [
+    currentProfile,
+    ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
+  ];
 }
 
 function readCachedFeed() {
@@ -129,7 +158,7 @@ async function requestBackendToken(signal) {
       const data = await response.json();
       return {
         token: data?.token || null,
-        userId: data?.user?.id ? String(data.user.id) : "",
+        userId: getNullableIdString(data?.user?.id),
         status: response.status,
       };
     } catch {
@@ -468,13 +497,9 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       const currentUserId = currentUserIdRef.current;
-      const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
-        const profileId = getProfileId(profile);
-        if (profileId && currentUserId && profileId !== currentUserId) {
-          entries.push([profileId, profile]);
-        }
-        return entries;
-      }, []);
+      const profileEntries = (data?.recommendedProfiles || [])
+        .filter((profile) => isRecommendedProfile(profile, currentUserId))
+        .map((profile) => [getProfileId(profile), profile]);
       const uniqueProfiles = Array.from(
         new Map(profileEntries).values()
       );
@@ -495,12 +520,12 @@ export default function FeedPage() {
           nextIndex = matchingIndex;
         } else {
           const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
-          nextProfiles = currentProfile && currentUserId && getProfileId(currentProfile) !== currentUserId
-            ? [
-                currentProfile,
-                ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
-              ]
-            : uniqueProfiles;
+          nextProfiles = preserveCurrentProfileInFeed(
+            currentProfile,
+            uniqueProfiles,
+            profileIdBeforeRefresh,
+            currentUserId
+          );
           nextIndex = 0;
         }
       }
@@ -686,8 +711,8 @@ export default function FeedPage() {
         reason: "action-in-flight",
         profileId,
         direction,
-        currentIndex,
-        currentProfileId: getCurrentProfileId(profiles, currentIndex),
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
       });
       return false;
     }
@@ -769,6 +794,7 @@ export default function FeedPage() {
   const activeCardError = hasMoreProfiles ? error : null;
 
   useEffect(() => {
+    if (!FEED_DEBUG_ENABLED) return;
     if (!hasMoreProfiles) return;
     const deck = deckRef.current;
     const card = deck?.querySelector(".swipe-card-modern");

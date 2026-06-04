@@ -720,8 +720,8 @@ export default function FeedPage() {
         reason: "like-in-flight",
         profileId,
         direction,
-        currentIndex,
-        currentProfileId: getCurrentProfileId(profiles, currentIndex),
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
       });
       return;
     }

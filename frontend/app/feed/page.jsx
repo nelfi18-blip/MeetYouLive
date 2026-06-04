@@ -515,6 +515,7 @@ function ProfileCard({ profile, disabled, pending, error, exitDirection, labels,
   return (
     <motion.div
       className="profile-card-panel"
+      style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: "inherit", touchAction: "pan-y" }}
       drag={disabled ? false : "x"}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.16}

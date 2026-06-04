@@ -60,15 +60,17 @@ function debugFeed(message, details = {}) {
   } catch {}
 }
 
+function getEmptyCachedFeed() {
+  return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
+}
+
 function readCachedFeed() {
-  if (typeof window === "undefined") {
-    return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
-  }
+  if (typeof window === "undefined") return getEmptyCachedFeed();
 
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
     debugFeed("sessionStorage read", { key: FEED_CACHE_KEY, hasValue: Boolean(raw) });
-    if (!raw) return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
+    if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
     const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
@@ -84,7 +86,7 @@ function readCachedFeed() {
         currentIndex: cachedIndex,
         ...summarizeProfiles(cachedProfiles),
       });
-      return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
+      return getEmptyCachedFeed();
     }
 
     const currentProfileIndex = cachedCurrentProfileId
@@ -92,7 +94,7 @@ function readCachedFeed() {
       : -1;
     const currentIndex = currentProfileIndex >= 0
       ? currentProfileIndex
-      : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
+      : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length - 1);
     const currentProfileId = cachedCurrentProfileId || getCurrentProfileId(cachedProfiles, currentIndex);
     debugFeed("sessionStorage cache accepted", {
       key: FEED_CACHE_KEY,
@@ -108,7 +110,7 @@ function readCachedFeed() {
     };
   } catch (err) {
     debugFeed("sessionStorage read failed", { key: FEED_CACHE_KEY, error: err.message });
-    return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
+    return getEmptyCachedFeed();
   }
 }
 
@@ -555,6 +557,7 @@ export default function FeedPage() {
       });
 
       let nextIndex = 0;
+      // Refreshes and retries restore by visible profile id; only real user actions advance.
       if (profileIdBeforeRefresh) {
         const matchingIndex = uniqueProfiles.findIndex(
           (profile) => getProfileId(profile) === profileIdBeforeRefresh

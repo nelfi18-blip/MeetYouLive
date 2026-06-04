@@ -701,7 +701,11 @@ export default function FeedPage() {
     likeInFlightRef.current = true;
     const previousProfiles = activeProfiles;
     const previousIndex = activeIndex;
-    const nextProfiles = previousProfiles.filter((profile) => getProfileId(profile) !== profileId);
+    const currentUserId = currentUserIdRef.current;
+    const nextProfiles = previousProfiles.filter((profile) => {
+      const existingProfileId = getProfileId(profile);
+      return existingProfileId !== profileId && (!currentUserId || existingProfileId !== currentUserId);
+    });
     // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
     // so we do not resurface already-swiped profiles after liking the last card.
     const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
@@ -748,7 +752,9 @@ export default function FeedPage() {
   };
 
   const requestSwipe = (direction) => {
-    const currentProfileId = getProfileId(currentProfile);
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const currentProfileId = getCurrentProfileId(activeProfiles, activeIndex);
     const isBusy =
       swipeLockedRef.current ||
       requestedActionRef.current ||
@@ -761,8 +767,8 @@ export default function FeedPage() {
       requestedAction: requestedActionRef.current,
       activeAction: activeActionRef.current,
       likeInFlight: likeInFlightRef.current,
-      currentIndex,
-      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      currentIndex: activeIndex,
+      currentProfileId,
     });
     if (!currentProfileId || isBusy) return;
     swipeLockedRef.current = true;

@@ -4,123 +4,71 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { fetchUserRole, getToken, setToken } from "@/lib/token";
+import { getToken, setToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
+const FEED_TIMEOUT_MS = 15000;
+const TOKEN_TIMEOUT_MS = 12000;
+const PASS_LOCK_MS = 260;
 
-// Hard ceiling on how long we wait for the NextAuth session / backend token
-// to hydrate before surfacing a friendly fallback. Prevents the page from
-// sitting on a spinner indefinitely on slow connections or Render cold starts.
-// This is longer than the backend-token request timeout so recovery can settle.
-const INIT_TIMEOUT_MS = 30000;
-const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
-const SWIPE_LOCK_TIMEOUT_MS = 1400;
+const findFirstNonEmptyString = (...values) =>
+  values.find((value) => typeof value === "string" && value.trim());
 
-// Hard ceiling for the feed API request itself.
-const FETCH_TIMEOUT_MS = 15000;
-
-const FEED_CACHE_KEY = "meetyoulive:feed:v1";
-const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-
-function readCachedFeed() {
-  if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
-
-  try {
-    const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
-    if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
-
-    const parsed = JSON.parse(raw);
-    const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
-    const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
-    const timestamp = Number(parsed?.timestamp) || 0;
-
-    if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
-      window.sessionStorage.removeItem(FEED_CACHE_KEY);
-      return { profiles: [], currentIndex: 0, hasCache: false };
-    }
-
-    return {
-      profiles: cachedProfiles,
-      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length),
-      hasCache: true,
-    };
-  } catch {
-    return { profiles: [], currentIndex: 0, hasCache: false };
-  }
+function normalizeImageUrl(value) {
+  if (!value || typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "null" || trimmed === "undefined") return "";
+  return trimmed;
 }
 
-function writeCachedFeed(profiles, currentIndex) {
-  if (typeof window === "undefined") return;
-
-  try {
-    if (!profiles.length) {
-      window.sessionStorage.removeItem(FEED_CACHE_KEY);
-      return;
-    }
-
-    window.sessionStorage.setItem(
-      FEED_CACHE_KEY,
-      JSON.stringify({ profiles, currentIndex, timestamp: Date.now() })
-    );
-  } catch {}
+function getProfileImage(profile) {
+  const photos = [
+    ...(Array.isArray(profile?.photos) ? profile.photos : []),
+    ...(Array.isArray(profile?.profilePhotos) ? profile.profilePhotos : []),
+    profile?.profileImage,
+    profile?.photo,
+    profile?.avatar,
+    profile?.image,
+  ];
+  return photos.map(normalizeImageUrl).find(Boolean) || "";
 }
 
-async function requestBackendToken(signal) {
-  try {
-    const response = await fetch("/api/auth/backend-token", {
-      method: "POST",
-      signal,
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return { token: null, status: response.status };
-    }
-
-    try {
-      const data = await response.json();
-      return { token: data?.token || null, status: response.status };
-    } catch {
-      return { token: null, status: response.status };
-    }
-  } catch (err) {
-    if (err.name === "AbortError") throw err;
-    return { token: null, status: 0 };
-  }
+function getProfileName(profile) {
+  return findFirstNonEmptyString(profile?.displayName, profile?.name, profile?.username, profile?.email) || "MeetYouLive";
 }
 
-/* ------------------------ Inline SVG icon set ------------------------ */
-const IconAlert = (props) => (
-  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" />
-    <line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-);
+function getProfileAge(profile) {
+  if (profile?.age) return profile.age;
+  if (!profile?.birthdate && !profile?.dateOfBirth) return "";
+  const date = new Date(profile.birthdate || profile.dateOfBirth);
+  if (Number.isNaN(date.getTime())) return "";
+  const diff = Date.now() - date.getTime();
+  const age = new Date(diff).getUTCFullYear() - 1970;
+  return age > 0 ? age : "";
+}
 
-const IconX = (props) => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
-  </svg>
-);
+function getProfileInterests(profile) {
+  const values = Array.isArray(profile?.interests)
+    ? profile.interests
+    : Array.isArray(profile?.tags)
+      ? profile.tags
+      : [];
+  return values.filter(Boolean).slice(0, 4);
+}
 
-const IconHeart = (props) => (
-  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
-  </svg>
-);
+async function fetchBackendToken(signal) {
+  const response = await fetch("/api/auth/backend-token", {
+    method: "POST",
+    cache: "no-store",
+    signal,
+  });
 
-const IconStar = (props) => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-    <path d="m12 2.7 2.86 5.8 6.4.93-4.63 4.52 1.1 6.38L12 17.32l-5.73 3.01 1.1-6.38-4.63-4.52 6.4-.93L12 2.7Z" />
-  </svg>
-);
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => ({}));
+  return data?.token || null;
+}
 
-/* --------------------------- Feed page --------------------------- */
 export default function FeedPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -128,749 +76,611 @@ export default function FeedPage() {
 
   const [profiles, setProfiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [hasVisualCache, setHasVisualCache] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionPending, setIsActionPending] = useState(false);
   const [error, setError] = useState(null);
-  const [authToken, setAuthToken] = useState(null);
-  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
-  const [swipeLocked, setSwipeLocked] = useState(false);
-  const tokenRecoveryAttemptedRef = useRef(false);
-  const swipeUnlockTimeoutRef = useRef(null);
 
-  // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
-  // they come back here after sign-in; authenticated refresh always stays on
-  // /feed and never bounces to an alternate layout).
-  useEffect(() => {
-    if (status === "unauthenticated" && !getToken()) {
-      router.replace("/login?callbackUrl=/feed");
-    }
-  }, [status, router]);
+  const authTokenRef = useRef(null);
+  const bootStartedRef = useRef(false);
+  const actionPendingRef = useRef(false);
+  const passUnlockTimeoutRef = useRef(null);
+  const feedControllerRef = useRef(null);
+  const tokenControllerRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
-      if (swipeUnlockTimeoutRef.current) {
-        clearTimeout(swipeUnlockTimeoutRef.current);
+  const translateWithFallback = useCallback(
+    (key, fallback) => {
+      const translated = t?.(key);
+      return translated && translated !== key ? translated : fallback;
+    },
+    [t]
+  );
+
+  const setDeck = useCallback((nextProfiles, nextIndex = 0) => {
+    const safeProfiles = Array.isArray(nextProfiles) ? nextProfiles : [];
+    const safeIndex = Math.min(Math.max(nextIndex, 0), safeProfiles.length);
+    setProfiles(safeProfiles);
+    setCurrentIndex(safeIndex);
+    setCurrentProfile(safeProfiles[safeIndex] || null);
+  }, []);
+
+  const setActionLock = useCallback((locked) => {
+    actionPendingRef.current = locked;
+    setIsActionPending(locked);
+  }, []);
+
+  const loadFeed = useCallback(
+    async (token) => {
+      if (!API_URL) {
+        setDeck([], 0);
+        setError(translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
+        setIsLoading(false);
+        return;
       }
-    };
-  }, []);
 
-  useEffect(() => {
-    const cachedFeed = readCachedFeed();
-    if (!cachedFeed.hasCache) return;
+      feedControllerRef.current?.abort();
+      const controller = new AbortController();
+      feedControllerRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
 
-    setProfiles(cachedFeed.profiles);
-    setCurrentIndex(cachedFeed.currentIndex);
-    setLoading(false);
-    setHasVisualCache(true);
-  }, []);
-
-  // Admins shouldn't see the consumer feed.
-  useEffect(() => {
-    if (!authToken) return;
-    let mounted = true;
-    fetchUserRole(authToken)
-      .then((u) => {
-        if (mounted && u?.role === "admin") router.replace("/admin");
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [authToken, router]);
-
-  // Resolve a usable backend JWT for refresh and SPA navigation paths. On hard
-  // refresh, NextAuth can be authenticated before session.backendToken is
-  // available, so recover it through the server-side proxy or fall back to the
-  // locally persisted backend token.
-  useEffect(() => {
-    let cancelled = false;
-    let timeoutId;
-    let controller;
-
-    const localToken = getToken();
-
-    if (session?.backendToken) {
-      setToken(session.backendToken);
-      setAuthToken(session.backendToken);
+      setIsLoading(true);
       setError(null);
-      return undefined;
-    }
 
-    if (localToken) {
-      setAuthToken(localToken);
-      return undefined;
-    }
-
-    if (status === "loading") return undefined;
-
-    if (status === "unauthenticated") {
-      setLoading(false);
-      return undefined;
-    }
-
-    if (status !== "authenticated") return undefined;
-
-    if (!session?.googleEmail) {
-      setError(t("feed.genericError"));
-      setLoading(false);
-      return undefined;
-    }
-
-    if (tokenRecoveryAttemptedRef.current) return undefined;
-    tokenRecoveryAttemptedRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    controller = new AbortController();
-    timeoutId = setTimeout(() => controller.abort(), BACKEND_TOKEN_FETCH_TIMEOUT_MS);
-
-    (async () => {
       try {
-        const { token: recoveredToken, status: recoveryStatus } = await requestBackendToken(controller.signal);
+        const response = await fetch(`${API_URL}/api/feed`, {
+          headers: { Authorization: "Bearer " + token },
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
-        if (cancelled) return;
-
-        if (recoveredToken) {
-          setToken(recoveredToken);
-          setAuthToken(recoveredToken);
-          setError(null);
-          return;
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+          }
+          if (response.status >= 500) {
+            throw new Error(translateWithFallback("feed.serverError", "Error del servidor. Por favor, intenta de nuevo."));
+          }
+          throw new Error(translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
         }
 
-        let message = t("feed.genericError");
-        if (recoveryStatus === 401 || recoveryStatus === 403) {
-          message = t("feed.sessionExpired");
-        } else if (recoveryStatus === 0) {
-          message = t("feed.networkError");
-        } else if (recoveryStatus >= 500) {
-          message = t("feed.serverStarting");
-        }
-        setError(message);
-        setLoading(false);
+        const data = await response.json();
+        const uniqueProfiles = Array.from(
+          new Map(
+            (data?.recommendedProfiles || [])
+              .filter((profile) => profile?._id)
+              .map((profile) => [profile._id, profile])
+          ).values()
+        );
+
+        setDeck(uniqueProfiles, 0);
       } catch (err) {
-        if (cancelled) return;
         if (err.name === "AbortError") {
-          setError(t("feed.serverStarting"));
+          setError(translateWithFallback("feed.serverStarting", "El servidor está iniciando. Esto puede tomar unos segundos."));
         } else {
-          setError(t("feed.genericError"));
+          setError(err.message || translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
         }
-        setLoading(false);
+        setDeck([], 0);
       } finally {
         clearTimeout(timeoutId);
+        if (feedControllerRef.current === controller) {
+          feedControllerRef.current = null;
+        }
+        setIsLoading(false);
       }
-    })();
+    },
+    [setDeck, translateWithFallback]
+  );
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-      controller?.abort();
-    };
-  }, [status, session?.backendToken, session?.googleEmail, t]);
-
-  // Safety net: never sit on the loading spinner forever waiting for the
-  // session/token to hydrate.
   useEffect(() => {
-    if (authToken) return;
-    if (status === "unauthenticated") return;
-    const timer = setTimeout(() => {
-      setLoading(false);
-      setError(
-        (t && t("feed.serverStarting")) ||
-          "El servidor está tardando en responder. Por favor, intenta de nuevo."
-      );
-    }, INIT_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [status, authToken, t]);
+    return () => {
+      feedControllerRef.current?.abort();
+      tokenControllerRef.current?.abort();
+      if (passUnlockTimeoutRef.current) clearTimeout(passUnlockTimeoutRef.current);
+    };
+  }, []);
 
-  const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
-    if (!authToken) return;
+  useEffect(() => {
+    if (bootStartedRef.current || status === "loading") return;
 
-    if (!silent) {
-      setLoading(true);
+    if (status === "unauthenticated" && !getToken()) {
+      setIsLoading(false);
+      router.replace("/login?callbackUrl=/feed");
+      return;
     }
+
+    bootStartedRef.current = true;
+
+    const start = async () => {
+      let token = session?.backendToken || getToken();
+
+      if (!token && status === "authenticated") {
+        const controller = new AbortController();
+        tokenControllerRef.current = controller;
+        const timeoutId = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
+        try {
+          token = await fetchBackendToken(controller.signal);
+        } catch (err) {
+          if (err.name !== "AbortError") token = null;
+        } finally {
+          clearTimeout(timeoutId);
+          if (tokenControllerRef.current === controller) {
+            tokenControllerRef.current = null;
+          }
+        }
+      }
+
+      if (!token) {
+        setDeck([], 0);
+        setError(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+        setIsLoading(false);
+        return;
+      }
+
+      authTokenRef.current = token;
+      setToken(token);
+      await loadFeed(token);
+    };
+
+    start();
+  }, [loadFeed, router, session?.backendToken, setDeck, status, translateWithFallback]);
+
+  const advanceOneProfile = useCallback(() => {
+    setDeck(profiles, currentIndex + 1);
+  }, [currentIndex, profiles, setDeck]);
+
+  const unlockActionsAfterDelay = useCallback(() => {
+    if (passUnlockTimeoutRef.current) clearTimeout(passUnlockTimeoutRef.current);
+    passUnlockTimeoutRef.current = setTimeout(() => {
+      setActionLock(false);
+      passUnlockTimeoutRef.current = null;
+    }, PASS_LOCK_MS);
+  }, [setActionLock]);
+
+  const handlePass = useCallback(() => {
+    if (!currentProfile || actionPendingRef.current) return;
+    setActionLock(true);
+    advanceOneProfile();
+    unlockActionsAfterDelay();
+  }, [advanceOneProfile, currentProfile, setActionLock, unlockActionsAfterDelay]);
+
+  const handleLike = useCallback(async () => {
+    if (!currentProfile || actionPendingRef.current) return;
+
+    const token = authTokenRef.current;
+    if (!API_URL || !token) {
+      setError(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+      return;
+    }
+
+    setActionLock(true);
     setError(null);
 
-    if (!API_URL) {
-      setError(t("feed.genericError"));
-      setLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const requestSignal = controller.signal;
-    const abortFromParent = () => controller.abort();
-    if (signal?.aborted) {
-      controller.abort();
-    } else {
-      signal?.addEventListener("abort", abortFromParent, { once: true });
-    }
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
     try {
-      const feedRes = await fetch(`${API_URL}/api/feed`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-        signal: requestSignal,
-        cache: "no-store",
-      });
-
-      if (!feedRes.ok) {
-        if (
-          (feedRes.status === 401 || feedRes.status === 403) &&
-          status === "authenticated" &&
-          session?.googleEmail
-        ) {
-          let recoveredToken = null;
-          try {
-            ({ token: recoveredToken } = await requestBackendToken(requestSignal));
-          } catch (err) {
-            if (err.name === "AbortError") throw err;
-          }
-          // Only restart the feed request when the proxy gives us a different token;
-          // if it matches, the 401/403 is not caused by a stale localStorage token.
-          if (recoveredToken && recoveredToken !== authToken) {
-            setToken(recoveredToken);
-            setAuthToken(recoveredToken);
-            return;
-          }
-        }
-
-        let msg = t("feed.genericError");
-        if (feedRes.status === 401 || feedRes.status === 403) {
-          msg = t("feed.sessionExpired");
-        } else if (feedRes.status >= 500) {
-          msg = t("feed.serverError");
-        }
-        throw new Error(msg);
-      }
-
-      const data = await feedRes.json();
-      const uniqueProfiles = Array.from(
-        new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
-      );
-
-      setCurrentIndex(0);
-      setProfiles(uniqueProfiles);
-      setHasVisualCache(false);
-      writeCachedFeed(uniqueProfiles, 0);
-      setError(null);
-    } catch (err) {
-      if (signal?.aborted) return;
-      if (err.name === "AbortError") {
-        setError(t("feed.serverStarting"));
-      } else {
-        setError(err.message || t("feed.genericError"));
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      signal?.removeEventListener("abort", abortFromParent);
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [authToken, session?.googleEmail, status, t]);
-
-  // Fetch feed data once a backend token is ready.
-  useEffect(() => {
-    if (!authToken) return undefined;
-    const controller = new AbortController();
-    loadFeed({ signal: controller.signal, silent: hasVisualCache });
-    return () => {
-      controller.abort();
-    };
-  }, [authToken, hasVisualCache, loadFeed]);
-
-  const visibleProfileStack = [];
-  for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
-    visibleProfileStack.push({ profile: profiles[i], stackIndex: i - currentIndex });
-  }
-
-  /* --------------------------- Actions --------------------------- */
-  const unlockSwipe = () => {
-    if (swipeUnlockTimeoutRef.current) {
-      clearTimeout(swipeUnlockTimeoutRef.current);
-      swipeUnlockTimeoutRef.current = null;
-    }
-    setSwipeLocked(false);
-  };
-
-  const advance = () => {
-    const nextIndex = currentIndex + 1;
-    setCurrentIndex(nextIndex);
-    writeCachedFeed(profiles, nextIndex);
-    unlockSwipe();
-  };
-
-  const handleSwipe = async (profileId, direction) => {
-    const shouldRecordLike = direction === "right" || direction === "up";
-
-    if (!shouldRecordLike) {
-      advance();
-      return;
-    }
-
-    if (!profileId) {
-      unlockSwipe();
-      return;
-    }
-
-    const previousProfiles = profiles;
-    const previousIndex = currentIndex;
-    const nextProfiles = previousProfiles.filter((profile) => profile._id !== profileId);
-    // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
-    // so we do not resurface already-swiped profiles after liking the last card.
-    const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
-    setProfiles(nextProfiles);
-    setCurrentIndex(nextIndex);
-    writeCachedFeed(nextProfiles, nextIndex);
-
-    try {
-      const res = await fetch(`${API_URL}/api/match/like`, {
+      const response = await fetch(`${API_URL}/api/match/like`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
+          Authorization: "Bearer " + token,
         },
-        body: JSON.stringify({ userId: profileId }),
+        body: JSON.stringify({ userId: currentProfile._id }),
         cache: "no-store",
       });
-      if (!res.ok) throw new Error("Failed to record like");
-      if (nextIndex >= nextProfiles.length) {
-        loadFeed({ silent: true });
+
+      if (!response.ok) {
+        throw new Error(translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
       }
-      unlockSwipe();
+
+      advanceOneProfile();
     } catch (err) {
-      console.error("Like error:", err);
-      setProfiles(previousProfiles);
-      setCurrentIndex(previousIndex);
-      writeCachedFeed(previousProfiles, previousIndex);
-      unlockSwipe();
-      setError(t("feed.likeError"));
+      setError(err.message || translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
+    } finally {
+      setActionLock(false);
     }
-  };
+  }, [advanceOneProfile, currentProfile, setActionLock, translateWithFallback]);
 
-  const requestSwipe = (direction) => {
-    if (!currentProfile || swipeLocked) return;
-    setSwipeLocked(true);
-    if (swipeUnlockTimeoutRef.current) {
-      clearTimeout(swipeUnlockTimeoutRef.current);
-    }
-    swipeUnlockTimeoutRef.current = setTimeout(unlockSwipe, SWIPE_LOCK_TIMEOUT_MS);
-    setActionSignal((signal) => ({ id: signal.id + 1, direction }));
-  };
+  const retryFeed = useCallback(() => {
+    if (!authTokenRef.current || isLoading) return;
+    loadFeed(authTokenRef.current);
+  }, [isLoading, loadFeed]);
 
-  /* --------------------------- Render --------------------------- */
-  const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
-  const showLoadingState = !error && loading && !hasMoreProfiles;
-  const showErrorState = error && !hasMoreProfiles;
+  const hasProfile = !!currentProfile;
+  const cardClassName = `feed-card${hasProfile ? "" : " feed-card--state"}`;
 
   return (
-    <div className="feed-page">
-      {/* 1. APPROVED BRAND HEADER */}
-      <FeedHeader />
+    <main className="feed-page">
+      <header className="feed-header">
+        <Link href="/feed" className="feed-brand" aria-label="MeetYouLive">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" className="feed-logo" />
+        </Link>
+      </header>
 
-      {/* 2. MODERN SWIPE DECK */}
-      <section
-        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
-        aria-label={t("feed.recommendedProfilesAria")}
-      >
-        {showLoadingState ? (
-          <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
-            <div className="feed-loading">
-              <div className="spinner" />
-              <p>Cargando tu feed...</p>
-            </div>
-          </div>
-        ) : showErrorState ? (
-          <div className="feed-swipe-deck feed-swipe-deck--state" aria-live="assertive">
-            <div className="feed-error">
-              <IconAlert />
-              <h3>No pudimos cargar tu feed</h3>
-              <p>{error}</p>
-              <button
-                type="button"
-                className="feed-retry-btn"
-                onClick={() => loadFeed()}
-              >
-                Intentar de nuevo
-              </button>
-            </div>
-          </div>
-        ) : hasMoreProfiles ? (
-          <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
-            {visibleProfileStack.map(({ profile, stackIndex }) => {
-              const isTopCard = stackIndex === 0;
-              return (
-                <SwipeCard
-                  key={profile._id}
-                  profile={profile}
-                  isActive={isTopCard}
-                  onSwipe={isTopCard ? handleSwipe : undefined}
-                  actionSignal={isTopCard ? actionSignal : undefined}
-                  zIndex={30 - stackIndex}
-                  style={{
-                    y: stackIndex * 10,
-                    scale: 1 - stackIndex * 0.035,
-                    opacity: 1 - stackIndex * 0.12,
-                    pointerEvents: isTopCard ? "auto" : "none",
-                  }}
-                />
-              );
-            })}
-
-            <div className="feed-action-dock" aria-label={t("feed.actionDockAria")}>
-              <button
-                type="button"
-                className="feed-action-btn feed-action-btn--pass"
-                aria-label={t("feed.dislikeLabel")}
-                disabled={swipeLocked}
-                onClick={() => requestSwipe("left")}
-              >
-                <IconX />
-                <span>{t("feed.dislikeLabel")}</span>
-              </button>
-              <button
-                type="button"
-                className="feed-action-btn feed-action-btn--super"
-                aria-label={t("feed.superLikeLabel")}
-                disabled={swipeLocked}
-                onClick={() => requestSwipe("up")}
-              >
-                <IconStar />
-                <span>{t("feed.superLikeShortLabel")}</span>
-              </button>
-              <button
-                type="button"
-                className="feed-action-btn feed-action-btn--like"
-                aria-label={t("feed.likeLabel")}
-                disabled={swipeLocked}
-                onClick={() => requestSwipe("right")}
-              >
-                <IconHeart />
-                <span>{t("feed.likeLabel")}</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="feed-empty">
-            <h3>That's everyone for now</h3>
-            <p>Check back later for new people.</p>
-            <Link href="/explore" className="feed-empty-btn">
-              Explorar creadores
-            </Link>
-          </div>
-        )}
+      <section className="feed-stage" aria-label={translateWithFallback("feed.recommendedProfilesAria", "Perfiles recomendados")}>
+        <article className={cardClassName} aria-busy={isLoading || isActionPending}>
+          {isLoading ? (
+            <FeedState title="Cargando tu feed" message="Buscando perfiles para ti..." />
+          ) : error && !hasProfile ? (
+            <FeedState title="No pudimos cargar tu feed" message={error} onRetry={retryFeed} />
+          ) : hasProfile ? (
+            <ProfileCard
+              profile={currentProfile}
+              disabled={isActionPending}
+              error={error}
+              onPass={handlePass}
+              onLike={handleLike}
+              labels={{
+                pass: translateWithFallback("feed.dislikeLabel", "No me gusta"),
+                like: translateWithFallback("feed.likeLabel", "Me gusta"),
+              }}
+            />
+          ) : (
+            <FeedState title="No hay más perfiles" message="Vuelve más tarde para descubrir nuevas personas." onRetry={retryFeed} />
+          )}
+        </article>
       </section>
-
-      {/* 3. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
 
       <style jsx>{`
         .feed-page {
-          --feed-safe-top: env(safe-area-inset-top);
-          --feed-safe-bottom: env(safe-area-inset-bottom);
-          --feed-header-logo-size: clamp(52px, 15vw, 76px);
-          --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
-          --feed-bottom-nav-content-height: 68px;
-          --feed-section-top-padding: 6px;
-          --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
-          --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
-          --feed-viewport-height: 100vh;
-          --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
-          --feed-info-panel-height: clamp(190px, 32%, 236px);
-          /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
-          min-height: var(--feed-viewport-height);
-          padding-bottom: var(--feed-bottom-nav-height);
-          background: var(--bg, #0f0821);
-          color: var(--text, #fff);
-          overflow-x: hidden;
-          width: 100%;
-          min-width: 0;
-        }
-
-        .feed-loading,
-        .feed-error {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          padding: 2rem 1.5rem;
-          box-sizing: border-box;
-          width: 100%;
-          min-width: 0;
-          margin: 0 auto;
-          text-align: center;
-          color: var(--text-muted, #a39ec0);
-        }
-        .feed-error :global(svg) {
-          color: #e040fb;
-          margin-bottom: 0.5rem;
-        }
-        .feed-error h3 {
-          margin: 0;
-          color: var(--text, #fff);
-          font-size: 1.1rem;
-        }
-        .feed-error p {
-          margin: 0;
-          max-width: 420px;
-        }
-        .feed-retry-btn {
-          margin-top: 0.5rem;
-          padding: 0.75rem 1.75rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border: none;
-          border-radius: 999px;
-          cursor: pointer;
-          font-size: 0.95rem;
-          box-shadow: 0 4px 16px rgba(224, 64, 251, 0.35);
-        }
-
-        .feed-section {
-          padding: 0;
-        }
-        .feed-match-section {
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
-          min-height: var(--feed-available-height);
-          height: var(--feed-available-height);
-          padding: var(--feed-section-top-padding) 0 0;
-          box-sizing: border-box;
-        }
-        .feed-match-section--empty {
-          align-items: center;
-          padding: 0.75rem 1rem 1rem;
-        }
-
-        .feed-swipe-deck {
-          position: relative;
-          width: min(96vw, 440px);
-          max-width: 440px;
-          /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
-          height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
-          display: flex;
-          justify-content: center;
-          touch-action: pan-y;
-          contain: layout paint;
-          border-radius: 22px;
-          transition: opacity 0.16s ease;
-        }
-
-        .feed-swipe-deck--state {
-          margin: auto 0;
-          overflow: hidden;
-          background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
-          border: 1px solid rgba(224, 64, 251, 0.14);
-          box-shadow: 0 22px 54px rgba(0, 0, 0, 0.26);
-        }
-
-        :global(.feed-swipe-deck .swipe-card-modern) {
-          width: 100%;
-          max-width: none;
-          height: 100%;
-          left: 0;
-          right: 0;
-          margin: 0 auto;
-          background: linear-gradient(180deg, rgba(20, 12, 46, 0.98), rgba(15, 8, 33, 0.98));
-          border: 1px solid rgba(224, 64, 251, 0.18);
-          border-radius: inherit;
-          transform-origin: center center;
-          will-change: transform, opacity;
-        }
-
-        :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          height: calc(100% - var(--feed-info-panel-height));
-          border-radius: inherit;
-          border-bottom-left-radius: 0;
-          border-bottom-right-radius: 0;
-          overflow: hidden;
-        }
-
-        :global(.feed-swipe-deck .swipe-card-info) {
-          box-sizing: border-box;
-          min-height: 0;
-          height: var(--feed-info-panel-height);
-          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, 12dvh, 6.5rem);
+          --feed-bg: #0f0821;
+          --feed-card-width: min(94vw, 430px);
+          --feed-card-height: clamp(540px, 78svh, 720px);
+          min-height: 100svh;
+          padding-bottom: calc(76px + env(safe-area-inset-bottom));
           background:
-            radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+            radial-gradient(circle at 50% 0%, rgba(224, 64, 251, 0.16), transparent 34%),
+            var(--feed-bg);
+          color: #fff;
+          overflow-x: hidden;
         }
 
-        :global(.feed-swipe-deck .swipe-card-name) {
-          font-size: clamp(1.55rem, 7vw, 2rem);
-          line-height: 1.05;
+        .feed-header {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          display: flex;
+          justify-content: center;
+          padding: calc(0.45rem + env(safe-area-inset-top)) 1rem 0.45rem;
+          background: rgba(15, 8, 33, 0.9);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
         }
 
-        :global(.feed-swipe-deck .swipe-card-age) {
-          font-size: clamp(1.25rem, 5.5vw, 1.65rem);
+        .feed-brand,
+        .feed-logo {
+          display: block;
         }
 
-        :global(.feed-swipe-deck .swipe-card-location),
-        :global(.feed-swipe-deck .interest-tag) {
-          font-size: clamp(0.72rem, 3vw, 0.86rem);
+        .feed-logo {
+          width: clamp(52px, 14vw, 72px);
+          height: clamp(52px, 14vw, 72px);
+          object-fit: contain;
         }
 
-        .feed-action-dock {
-          position: absolute;
-          left: 50%;
-          bottom: clamp(14px, 3dvh, 26px);
-          z-index: 70;
+        .feed-stage {
           display: grid;
-          grid-template-columns: 1fr auto 1fr;
-          align-items: center;
-          gap: clamp(0.65rem, 2.5vw, 1rem);
-          width: min(92%, 374px);
-          transform: translateX(-50%);
-          pointer-events: none;
+          place-items: start center;
+          min-height: calc(100svh - 84px - 76px - env(safe-area-inset-bottom));
+          padding: 0.75rem 0 0;
+          box-sizing: border-box;
         }
 
-        .feed-action-btn {
-          pointer-events: auto;
-          display: inline-flex;
+        .feed-card {
+          position: relative;
+          width: var(--feed-card-width);
+          height: var(--feed-card-height);
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 28px;
+          background: linear-gradient(180deg, rgba(31, 20, 66, 0.98), rgba(15, 8, 33, 0.99));
+          box-shadow: 0 24px 58px rgba(0, 0, 0, 0.36);
+          contain: layout paint;
+        }
+
+        .feed-card--state {
+          display: grid;
+          place-items: center;
+        }
+
+        @media (max-width: 380px) {
+          .feed-page {
+            --feed-card-width: min(96vw, 430px);
+            --feed-card-height: clamp(520px, 76svh, 680px);
+          }
+        }
+
+        @media (min-width: 700px) {
+          .feed-page {
+            --feed-card-height: clamp(600px, 74svh, 740px);
+          }
+        }
+      `}</style>
+    </main>
+  );
+}
+
+function FeedState({ title, message, onRetry }) {
+  return (
+    <div className="feed-state" role="status" aria-live="polite">
+      <div className="feed-state-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+        </svg>
+      </div>
+      <h1>{title}</h1>
+      <p>{message}</p>
+      {onRetry && (
+        <button type="button" className="feed-state-button" onClick={onRetry}>
+          Intentar de nuevo
+        </button>
+      )}
+
+      <style jsx>{`
+        .feed-state {
+          display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.25rem;
-          min-width: 0;
-          min-height: 64px;
-          padding: 0.55rem 0.7rem;
-          border: 1px solid rgba(255, 255, 255, 0.16);
+          gap: 0.85rem;
+          width: 100%;
+          height: 100%;
+          padding: 2rem;
+          box-sizing: border-box;
+          text-align: center;
+          color: #d8d2ef;
+        }
+
+        .feed-state-mark {
+          display: grid;
+          place-items: center;
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ff4fa3, #8b5cf6);
+          color: #fff;
+          box-shadow: 0 18px 44px rgba(224, 64, 251, 0.32);
+        }
+
+        .feed-state-mark svg {
+          width: 34px;
+          height: 34px;
+          fill: currentColor;
+        }
+
+        .feed-state h1 {
+          margin: 0;
+          color: #fff;
+          font-size: clamp(1.35rem, 6vw, 1.85rem);
+          line-height: 1.1;
+        }
+
+        .feed-state p {
+          max-width: 320px;
+          margin: 0;
+          font-size: 0.98rem;
+          line-height: 1.45;
+        }
+
+        .feed-state-button {
+          margin-top: 0.4rem;
+          border: 0;
           border-radius: 999px;
+          padding: 0.85rem 1.35rem;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
           color: #fff;
           font-weight: 800;
-          font-size: clamp(0.65rem, 2.6vw, 0.76rem);
-          letter-spacing: -0.01em;
-          text-align: center;
           cursor: pointer;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
-        }
-
-        .feed-action-btn:disabled {
-          cursor: default;
-          opacity: 0.58;
-        }
-
-        .feed-action-btn:not(:disabled):active {
-          transform: scale(0.93);
-        }
-
-        .feed-action-btn--pass {
-          background: linear-gradient(135deg, rgba(20, 12, 46, 0.92), rgba(30, 30, 40, 0.88));
-          color: #d9d7e8;
-        }
-
-        .feed-action-btn--super {
-          width: clamp(62px, 17vw, 74px);
-          height: clamp(62px, 17vw, 74px);
-          min-height: 0;
-          padding: 0;
-          background: linear-gradient(135deg, #22d3ee, #8b5cf6);
-          box-shadow: 0 0 26px rgba(34, 211, 238, 0.38), 0 16px 36px rgba(0, 0, 0, 0.42);
-        }
-
-        .feed-action-btn--like {
-          background: linear-gradient(135deg, #ff4fa3, #e040fb);
-          box-shadow: 0 0 28px rgba(224, 64, 251, 0.36), 0 16px 36px rgba(0, 0, 0, 0.42);
-        }
-
-        :global(.feed-swipe-deck .swipe-card-initial) {
-          font-size: clamp(2.5rem, 14vw, 4.5rem);
-        }
-
-        @media (min-width: 641px) {
-          .feed-page {
-            --feed-bottom-nav-content-height: 72px;
-          }
-        }
-
-        @supports (height: 100dvh) {
-          .feed-page {
-            --feed-viewport-height: 100dvh;
-          }
-        }
-
-        @media (min-width: 769px) {
-          .feed-swipe-deck {
-            width: min(calc(100vw - 32px), 440px);
-          }
-        }
-
-        .feed-empty {
-          padding: 3rem 1rem;
-          text-align: center;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 20px;
-        }
-        .feed-empty h3 {
-          margin: 0 0 0.5rem;
-          font-size: 1.05rem;
-        }
-        .feed-empty p {
-          margin: 0 0 1.25rem;
-          color: var(--text-muted, #a39ec0);
-          font-size: 0.9rem;
-        }
-        .feed-empty-btn {
-          display: inline-block;
-          padding: 0.7rem 1.4rem;
-          background: linear-gradient(135deg, #e040fb, #8b5cf6);
-          color: #fff;
-          font-weight: 700;
-          border-radius: 999px;
-          font-size: 0.85rem;
-          text-decoration: none;
-          box-shadow: 0 4px 12px rgba(224, 64, 251, 0.3);
         }
       `}</style>
     </div>
   );
 }
 
-/* --------------------------- Sub-components --------------------------- */
+function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
+  const image = getProfileImage(profile);
+  const name = getProfileName(profile);
+  const age = getProfileAge(profile);
+  const location = findFirstNonEmptyString(profile?.location, profile?.city, profile?.country);
+  const interests = getProfileInterests(profile);
+  const fallbackInitial = name.trim()[0]?.toUpperCase() || "M";
 
-function FeedHeader() {
   return (
-    <header className="feed-header">
-      <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className="feed-header-logo" />
-      </Link>
+    <>
+      <div className="profile-photo">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt={name} draggable="false" />
+        ) : (
+          <div className="profile-photo-fallback" aria-hidden="true">{fallbackInitial}</div>
+        )}
+      </div>
+
+      <div className="profile-scrim" />
+
+      <div className="profile-info">
+        <div>
+          <h1>
+            {name}
+            {age ? <span>{age}</span> : null}
+          </h1>
+          {location ? <p className="profile-location">{location}</p> : null}
+        </div>
+
+        {interests.length > 0 ? (
+          <div className="profile-tags">
+            {interests.map((interest) => (
+              <span key={interest}>{interest}</span>
+            ))}
+          </div>
+        ) : null}
+
+        {error ? <p className="profile-error" role="alert">{error}</p> : null}
+      </div>
+
+      <div className="profile-actions" aria-label="Acciones del perfil">
+        <button type="button" className="profile-action profile-action--pass" disabled={disabled} onClick={onPass}>
+          <strong>✕</strong>
+          <span>{labels.pass}</span>
+        </button>
+        <button type="button" className="profile-action profile-action--like" disabled={disabled} onClick={onLike}>
+          <strong>♥</strong>
+          <span>{labels.like}</span>
+        </button>
+      </div>
 
       <style jsx>{`
-        .feed-header {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.5rem 1rem;
-          padding-top: calc(0.5rem + env(safe-area-inset-top));
-          background: rgba(15, 8, 33, 0.85);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        .profile-photo,
+        .profile-photo img,
+        .profile-photo-fallback,
+        .profile-scrim {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
         }
-        .feed-header-brand {
+
+        .profile-photo img {
+          object-fit: cover;
+          user-select: none;
+        }
+
+        .profile-photo-fallback {
+          display: grid;
+          place-items: center;
+          background:
+            radial-gradient(circle at 30% 20%, rgba(34, 211, 238, 0.32), transparent 34%),
+            linear-gradient(135deg, #8b5cf6, #e040fb 52%, #ff4fa3);
+          color: rgba(255, 255, 255, 0.9);
+          font-size: clamp(5rem, 28vw, 9rem);
+          font-weight: 900;
+        }
+
+        .profile-scrim {
+          background:
+            linear-gradient(180deg, transparent 38%, rgba(15, 8, 33, 0.38) 58%, rgba(15, 8, 33, 0.96) 100%),
+            linear-gradient(0deg, rgba(0, 0, 0, 0.2), transparent 55%);
+        }
+
+        .profile-info {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 116px;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+          padding: 0 1.25rem;
+        }
+
+        .profile-info h1 {
+          display: flex;
+          align-items: baseline;
+          gap: 0.55rem;
+          margin: 0;
+          font-size: clamp(2rem, 10vw, 3rem);
+          line-height: 0.95;
+          letter-spacing: -0.05em;
+          text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .profile-info h1 span {
+          font-size: 0.7em;
+          font-weight: 700;
+          letter-spacing: -0.03em;
+        }
+
+        .profile-location {
+          margin: 0.35rem 0 0;
+          color: #ebe7ff;
+          font-size: 1rem;
+          font-weight: 700;
+          text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+        }
+
+        .profile-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+        }
+
+        .profile-tags span {
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 999px;
+          padding: 0.42rem 0.68rem;
+          background: rgba(15, 8, 33, 0.5);
+          color: #fff;
+          font-size: 0.78rem;
+          font-weight: 800;
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+        }
+
+        .profile-error {
+          margin: 0;
+          border-radius: 16px;
+          padding: 0.7rem 0.85rem;
+          background: rgba(255, 79, 163, 0.16);
+          color: #ffd7ea;
+          font-size: 0.88rem;
+          font-weight: 700;
+        }
+
+        .profile-actions {
+          position: absolute;
+          left: 50%;
+          bottom: calc(18px + env(safe-area-inset-bottom));
+          z-index: 3;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.85rem;
+          width: min(88%, 340px);
+          transform: translateX(-50%);
+        }
+
+        .profile-action {
           display: inline-flex;
           align-items: center;
-          text-decoration: none;
+          justify-content: center;
+          gap: 0.45rem;
+          min-height: 64px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-radius: 999px;
+          color: #fff;
+          font-weight: 900;
+          cursor: pointer;
+          box-shadow: 0 18px 38px rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          transition: transform 0.16s ease, opacity 0.16s ease;
         }
-        .feed-header-logo {
-          width: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
-          height: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
-          display: block;
-          object-fit: contain;
+
+        .profile-action strong {
+          font-size: 1.45rem;
+          line-height: 1;
+        }
+
+        .profile-action span {
+          font-size: 0.86rem;
+        }
+
+        .profile-action:disabled {
+          cursor: default;
+          opacity: 0.52;
+        }
+
+        .profile-action:not(:disabled):active {
+          transform: scale(0.95);
+        }
+
+        .profile-action--pass {
+          background: rgba(21, 17, 33, 0.84);
+        }
+
+        .profile-action--like {
+          background: linear-gradient(135deg, rgba(255, 79, 163, 0.96), rgba(224, 64, 251, 0.94));
         }
       `}</style>
-    </header>
+    </>
   );
 }

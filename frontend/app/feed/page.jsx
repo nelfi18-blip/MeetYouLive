@@ -24,12 +24,34 @@ const FETCH_TIMEOUT_MS = 15000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
+
+function getProfileId(profile) {
+  const profileId = profile?._id || profile?.id;
+  return profileId ? String(profileId) : "";
+}
+
+function summarizeProfiles(profiles) {
+  return {
+    count: profiles.length,
+    ids: profiles.map(getProfileId).filter(Boolean),
+  };
+}
+
+function getCurrentProfileId(profiles, currentIndex) {
+  return getProfileId(profiles[currentIndex]);
+}
+
+function debugFeed(message, details = {}) {
+  console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+}
 
 function readCachedFeed() {
   if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
 
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
+    debugFeed("sessionStorage read", { key: FEED_CACHE_KEY, hasValue: Boolean(raw) });
     if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
 
     const parsed = JSON.parse(raw);
@@ -39,15 +61,29 @@ function readCachedFeed() {
 
     if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      debugFeed("sessionStorage removed", {
+        key: FEED_CACHE_KEY,
+        reason: cachedProfiles.length ? "expired" : "empty",
+        currentIndex: cachedIndex,
+        ...summarizeProfiles(cachedProfiles),
+      });
       return { profiles: [], currentIndex: 0, hasCache: false };
     }
 
+    const currentIndex = Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
+    debugFeed("sessionStorage cache accepted", {
+      key: FEED_CACHE_KEY,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(cachedProfiles, currentIndex),
+      ...summarizeProfiles(cachedProfiles),
+    });
     return {
       profiles: cachedProfiles,
-      currentIndex: Math.min(Math.max(cachedIndex, 0), cachedProfiles.length),
+      currentIndex,
       hasCache: true,
     };
-  } catch {
+  } catch (err) {
+    debugFeed("sessionStorage read failed", { key: FEED_CACHE_KEY, error: err.message });
     return { profiles: [], currentIndex: 0, hasCache: false };
   }
 }
@@ -58,6 +94,7 @@ function writeCachedFeed(profiles, currentIndex) {
   try {
     if (!profiles.length) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
+      debugFeed("sessionStorage removed", { key: FEED_CACHE_KEY, reason: "empty-write" });
       return;
     }
 
@@ -65,32 +102,15 @@ function writeCachedFeed(profiles, currentIndex) {
       FEED_CACHE_KEY,
       JSON.stringify({ profiles, currentIndex, timestamp: Date.now() })
     );
-  } catch {}
-}
-
-function keepVisibleProfile(fetchedProfiles, previousProfiles, previousIndex, preserveCurrentProfile) {
-  if (!preserveCurrentProfile) {
-    return { profiles: fetchedProfiles, currentIndex: 0 };
+    debugFeed("sessionStorage written", {
+      key: FEED_CACHE_KEY,
+      currentIndex,
+      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      ...summarizeProfiles(profiles),
+    });
+  } catch (err) {
+    debugFeed("sessionStorage write failed", { key: FEED_CACHE_KEY, error: err.message });
   }
-
-  const currentProfile = previousProfiles[previousIndex];
-  const currentProfileId = currentProfile?._id;
-  if (!currentProfileId) {
-    return { profiles: fetchedProfiles, currentIndex: 0 };
-  }
-
-  const fetchedIndex = fetchedProfiles.findIndex((profile) => profile?._id === currentProfileId);
-  if (fetchedIndex >= 0) {
-    return { profiles: fetchedProfiles, currentIndex: fetchedIndex };
-  }
-
-  return {
-    profiles: [
-      currentProfile,
-      ...fetchedProfiles.filter((profile) => profile?._id !== currentProfileId),
-    ],
-    currentIndex: 0,
-  };
 }
 
 async function requestBackendToken(signal) {
@@ -107,13 +127,17 @@ async function requestBackendToken(signal) {
 
     try {
       const data = await response.json();
-      return { token: data?.token || null, status: response.status };
+      return {
+        token: data?.token || null,
+        userId: data?.user?.id ? String(data.user.id) : "",
+        status: response.status,
+      };
     } catch {
-      return { token: null, status: response.status };
+      return { token: null, userId: "", status: response.status };
     }
   } catch (err) {
     if (err.name === "AbortError") throw err;
-    return { token: null, status: 0 };
+    return { token: null, userId: "", status: 0 };
   }
 }
 
@@ -157,12 +181,21 @@ export default function FeedPage() {
   const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
-  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null });
+  const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
-  const visibleFeedRef = useRef({ profiles: [], currentIndex: 0 });
-  const loadedFeedTokenRef = useRef(null);
+  const profilesRef = useRef([]);
+  const currentIndexRef = useRef(0);
+  const hasVisualCacheRef = useRef(false);
+  const likeInFlightRef = useRef(false);
+  const requestedActionRef = useRef(false);
+  const activeActionRef = useRef(false);
+  const pendingActionProfileIdRef = useRef(null);
+  const swipeLockedRef = useRef(false);
+  const feedMutationVersionRef = useRef(0);
+  const deckRef = useRef(null);
+  const currentUserIdRef = useRef("");
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -185,6 +218,14 @@ export default function FeedPage() {
     const cachedFeed = readCachedFeed();
     if (!cachedFeed.hasCache) return;
 
+    debugFeed("applying cached feed before network refresh", {
+      currentIndex: cachedFeed.currentIndex,
+      currentProfileId: getCurrentProfileId(cachedFeed.profiles, cachedFeed.currentIndex),
+      ...summarizeProfiles(cachedFeed.profiles),
+    });
+    profilesRef.current = cachedFeed.profiles;
+    currentIndexRef.current = cachedFeed.currentIndex;
+    hasVisualCacheRef.current = true;
     setProfiles(cachedFeed.profiles);
     setCurrentIndex(cachedFeed.currentIndex);
     setLoading(false);
@@ -192,8 +233,21 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
-    visibleFeedRef.current = { profiles, currentIndex };
-  }, [profiles, currentIndex]);
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  useEffect(() => {
+    const currentUserId = session?.backendUserId || session?.user?.id || "";
+    currentUserIdRef.current = currentUserId ? String(currentUserId) : "";
+  }, [session?.backendUserId, session?.user?.id]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    hasVisualCacheRef.current = hasVisualCache;
+  }, [hasVisualCache]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -219,6 +273,10 @@ export default function FeedPage() {
     let controller;
 
     const localToken = getToken();
+    const sessionCurrentUserId = session?.backendUserId || session?.user?.id || "";
+    if (sessionCurrentUserId) {
+      currentUserIdRef.current = String(sessionCurrentUserId);
+    }
 
     if (session?.backendToken) {
       setToken(session.backendToken);
@@ -227,12 +285,15 @@ export default function FeedPage() {
       return undefined;
     }
 
-    if (localToken) {
+    if (status === "loading") return undefined;
+
+    if (
+      localToken &&
+      (status !== "authenticated" || currentUserIdRef.current || !session?.googleEmail)
+    ) {
       setAuthToken(localToken);
       return undefined;
     }
-
-    if (status === "loading") return undefined;
 
     if (status === "unauthenticated") {
       setLoading(false);
@@ -257,13 +318,25 @@ export default function FeedPage() {
 
     (async () => {
       try {
-        const { token: recoveredToken, status: recoveryStatus } = await requestBackendToken(controller.signal);
+        const {
+          token: recoveredToken,
+          userId: recoveredUserId,
+          status: recoveryStatus,
+        } = await requestBackendToken(controller.signal);
 
         if (cancelled) return;
 
         if (recoveredToken) {
           setToken(recoveredToken);
+          currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
           setAuthToken(recoveredToken);
+          setError(null);
+          return;
+        }
+
+        if (localToken) {
+          currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          setAuthToken(localToken);
           setError(null);
           return;
         }
@@ -296,7 +369,7 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       controller?.abort();
     };
-  }, [status, session?.backendToken, session?.googleEmail, t]);
+  }, [status, session?.backendToken, session?.backendUserId, session?.googleEmail, session?.user?.id, t]);
 
   // Safety net: never sit on the loading spinner forever waiting for the
   // session/token to hydrate.
@@ -314,7 +387,23 @@ export default function FeedPage() {
   }, [status, authToken, t]);
 
   const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
-    if (!authToken) return;
+    const mutationVersionAtStart = feedMutationVersionRef.current;
+    const profilesBeforeRefresh = profilesRef.current;
+    const indexBeforeRefresh = currentIndexRef.current;
+    const profileIdBeforeRefresh = getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh);
+
+    debugFeed("loadFeed() start", {
+      silent,
+      currentIndex: indexBeforeRefresh,
+      currentProfileIdBefore: profileIdBeforeRefresh,
+      profileCountBefore: profilesBeforeRefresh.length,
+      hasVisualCache: hasVisualCacheRef.current,
+    });
+
+    if (!authToken) {
+      debugFeed("loadFeed() skipped", { reason: "missing-auth-token" });
+      return;
+    }
 
     if (!silent) {
       setLoading(true);
@@ -322,6 +411,7 @@ export default function FeedPage() {
     setError(null);
 
     if (!API_URL) {
+      debugFeed("loadFeed() failed before request", { reason: "missing-api-url" });
       setError(t("feed.genericError"));
       setLoading(false);
       return;
@@ -352,7 +442,9 @@ export default function FeedPage() {
         ) {
           let recoveredToken = null;
           try {
-            ({ token: recoveredToken } = await requestBackendToken(requestSignal));
+            const recoveredSession = await requestBackendToken(requestSignal);
+            recoveredToken = recoveredSession.token;
+            currentUserIdRef.current = recoveredSession.userId || currentUserIdRef.current;
           } catch (err) {
             if (err.name === "AbortError") throw err;
           }
@@ -375,22 +467,73 @@ export default function FeedPage() {
       }
 
       const data = await feedRes.json();
+      const currentUserId = currentUserIdRef.current;
+      const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
+        const profileId = getProfileId(profile);
+        if (profileId && currentUserId && profileId !== currentUserId) {
+          entries.push([profileId, profile]);
+        }
+        return entries;
+      }, []);
       const uniqueProfiles = Array.from(
-        new Map((data.recommendedProfiles || []).map((p) => [p._id, p])).values()
+        new Map(profileEntries).values()
       );
 
-      const previousFeed = visibleFeedRef.current;
-      const nextFeed = keepVisibleProfile(
-        uniqueProfiles,
-        previousFeed.profiles,
-        previousFeed.currentIndex,
-        silent
-      );
+      debugFeed("profiles received", {
+        currentIndexBefore: indexBeforeRefresh,
+        currentProfileIdBefore: profileIdBeforeRefresh,
+        ...summarizeProfiles(uniqueProfiles),
+      });
 
-      setCurrentIndex(nextFeed.currentIndex);
-      setProfiles(nextFeed.profiles);
+      let nextProfiles = uniqueProfiles;
+      let nextIndex = 0;
+      if (silent && profileIdBeforeRefresh) {
+        const matchingIndex = uniqueProfiles.findIndex(
+          (profile) => getProfileId(profile) === profileIdBeforeRefresh
+        );
+        if (matchingIndex >= 0) {
+          nextIndex = matchingIndex;
+        } else {
+          const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
+          nextProfiles = currentProfile && currentUserId && getProfileId(currentProfile) !== currentUserId
+            ? [
+                currentProfile,
+                ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
+              ]
+            : uniqueProfiles;
+          nextIndex = 0;
+        }
+      }
+
+      debugFeed("loadFeed() applying profiles", {
+        silent,
+        currentIndexBefore: indexBeforeRefresh,
+        currentProfileIdBefore: profileIdBeforeRefresh,
+        currentIndexAfter: nextIndex,
+        currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+        preservedCurrentProfile: Boolean(
+          profileIdBeforeRefresh &&
+            getCurrentProfileId(nextProfiles, nextIndex) === profileIdBeforeRefresh
+        ),
+      });
+
+      if (mutationVersionAtStart !== feedMutationVersionRef.current) {
+        debugFeed("loadFeed() skipped stale response", {
+          silent,
+          mutationVersionAtStart,
+          mutationVersionNow: feedMutationVersionRef.current,
+          currentProfileIdBefore: profileIdBeforeRefresh,
+        });
+        return;
+      }
+
+      currentIndexRef.current = nextIndex;
+      profilesRef.current = nextProfiles;
+      setCurrentIndex(nextIndex);
+      setProfiles(nextProfiles);
+      hasVisualCacheRef.current = false;
       setHasVisualCache(false);
-      writeCachedFeed(nextFeed.profiles, nextFeed.currentIndex);
+      writeCachedFeed(nextProfiles, nextIndex);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -406,18 +549,17 @@ export default function FeedPage() {
     }
   }, [authToken, session?.googleEmail, status, t]);
 
-  // Fetch feed data once a backend token is ready.
+  // Fetch feed data once a backend token is ready. Do not depend on
+  // hasVisualCache: loadFeed clears that flag after a silent refresh, and
+  // re-running here would reset the visible profile on mobile refresh.
   useEffect(() => {
     if (!authToken) return undefined;
-    if (loadedFeedTokenRef.current === authToken) return undefined;
-    loadedFeedTokenRef.current = authToken;
-
     const controller = new AbortController();
-    loadFeed({ signal: controller.signal, silent: hasVisualCache });
+    loadFeed({ signal: controller.signal, silent: hasVisualCacheRef.current });
     return () => {
       controller.abort();
     };
-  }, [authToken, hasVisualCache, loadFeed]);
+  }, [authToken, loadFeed]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
@@ -430,33 +572,155 @@ export default function FeedPage() {
       clearTimeout(swipeUnlockTimeoutRef.current);
       swipeUnlockTimeoutRef.current = null;
     }
+    swipeLockedRef.current = false;
+    requestedActionRef.current = false;
+    activeActionRef.current = false;
+    pendingActionProfileIdRef.current = null;
     setSwipeLocked(false);
   };
 
-  const clearActionSignal = () => {
-    setActionSignal({ id: 0, direction: null });
+  const unlockTimedOutSwipe = () => {
+    swipeUnlockTimeoutRef.current = null;
+    // Keep the lock while the deck is mutating or the like API is still pending;
+    // only release request-time locks where SwipeCard never reports an onSwipe.
+    if (activeActionRef.current || likeInFlightRef.current) return;
+    unlockSwipe();
   };
 
-  const advance = () => {
-    const nextIndex = currentIndex + 1;
+  const advance = (profileId) => {
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
+    if (profileId && activeProfileId !== profileId) {
+      debugFeed("nextProfile() ignored", {
+        reason: "stale-profile",
+        requestedProfileId: profileId,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      unlockSwipe();
+      return false;
+    }
+
+    const nextIndex = activeIndex + 1;
+    debugFeed("nextProfile() called", {
+      currentIndexBefore: activeIndex,
+      currentProfileIdBefore: activeProfileId,
+      currentIndexAfter: nextIndex,
+      currentProfileIdAfter: getCurrentProfileId(activeProfiles, nextIndex),
+    });
+    currentIndexRef.current = nextIndex;
     setCurrentIndex(nextIndex);
-    writeCachedFeed(profiles, nextIndex);
-    clearActionSignal();
+    writeCachedFeed(activeProfiles, nextIndex);
     unlockSwipe();
+    return true;
   };
 
   const handleSwipe = async (profileId, direction) => {
     const shouldRecordLike = direction === "right" || direction === "up";
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
+    debugFeed(`${shouldRecordLike ? "handleLike" : "handleDislike"} called`, {
+      profileId,
+      direction,
+      currentIndex: activeIndex,
+      currentProfileId: activeProfileId,
+    });
 
-    if (!shouldRecordLike) {
-      advance();
+    if (activeActionRef.current || likeInFlightRef.current) {
+      debugFeed("swipe ignored", {
+        reason: activeActionRef.current ? "active-action" : "like-in-flight",
+        profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
       return;
     }
 
-    if (!profileId) {
+    if (!profileId || activeProfileId !== profileId) {
+      debugFeed("swipe ignored", {
+        reason: profileId ? "stale-profile" : "missing-profile-id",
+        requestedProfileId: profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
       unlockSwipe();
       return;
     }
+
+    if (
+      requestedActionRef.current &&
+      pendingActionProfileIdRef.current &&
+      pendingActionProfileIdRef.current !== profileId
+    ) {
+      debugFeed("swipe ignored", {
+        reason: "different-requested-action",
+        profileId,
+        direction,
+        currentIndex: activeIndex,
+        currentProfileId: activeProfileId,
+      });
+      unlockSwipe();
+      return;
+    }
+    const isPendingActionForSameProfile =
+      requestedActionRef.current && pendingActionProfileIdRef.current === profileId;
+    if (!isPendingActionForSameProfile) {
+      requestedActionRef.current = true;
+      pendingActionProfileIdRef.current = profileId;
+    }
+    activeActionRef.current = true;
+    swipeLockedRef.current = true;
+    setSwipeLocked(true);
+    feedMutationVersionRef.current += 1;
+
+    if (!shouldRecordLike) {
+      advance(profileId);
+      return;
+    }
+
+    if (currentUserIdRef.current && profileId === currentUserIdRef.current) {
+      advance(profileId);
+      return;
+    }
+
+    if (likeInFlightRef.current) {
+      debugFeed("handleLike ignored", {
+        reason: "like-in-flight",
+        profileId,
+        direction,
+        currentIndex,
+        currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      });
+      return;
+    }
+
+    likeInFlightRef.current = true;
+    const previousProfiles = activeProfiles;
+    const previousIndex = activeIndex;
+    const currentUserId = currentUserIdRef.current;
+    const nextProfiles = previousProfiles.filter((profile) => {
+      const existingProfileId = getProfileId(profile);
+      return existingProfileId !== profileId && (!currentUserId || existingProfileId !== currentUserId);
+    });
+    // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
+    // so we do not resurface already-swiped profiles after liking the last card.
+    const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
+    debugFeed("handleLike applying next profiles", {
+      likedProfileId: profileId,
+      currentIndexBefore: previousIndex,
+      currentIndexAfter: nextIndex,
+      currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+      ...summarizeProfiles(nextProfiles),
+    });
+    profilesRef.current = nextProfiles;
+    currentIndexRef.current = nextIndex;
+    setProfiles(nextProfiles);
+    setCurrentIndex(nextIndex);
+    writeCachedFeed(nextProfiles, nextIndex);
 
     try {
       const res = await fetch(`${API_URL}/api/match/like`, {
@@ -469,32 +733,53 @@ export default function FeedPage() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to record like");
-      const nextProfiles = profiles.filter((profile) => profile._id !== profileId);
-      const nextIndex = Math.min(currentIndex, nextProfiles.length);
-      setProfiles(nextProfiles);
-      setCurrentIndex(nextIndex);
-      writeCachedFeed(nextProfiles, nextIndex);
-      clearActionSignal();
-      unlockSwipe();
       if (nextIndex >= nextProfiles.length) {
-        loadFeed({ silent: true });
+        await loadFeed({ silent: true });
       }
+      likeInFlightRef.current = false;
+      unlockSwipe();
     } catch (err) {
       console.error("Like error:", err);
-      clearActionSignal();
+      likeInFlightRef.current = false;
+      profilesRef.current = previousProfiles;
+      currentIndexRef.current = previousIndex;
+      setProfiles(previousProfiles);
+      setCurrentIndex(previousIndex);
+      writeCachedFeed(previousProfiles, previousIndex);
       unlockSwipe();
       setError(t("feed.likeError"));
     }
   };
 
   const requestSwipe = (direction) => {
-    if (!currentProfile || swipeLocked) return;
+    const activeProfiles = profilesRef.current;
+    const activeIndex = currentIndexRef.current;
+    const currentProfileId = getCurrentProfileId(activeProfiles, activeIndex);
+    const isBusy =
+      swipeLockedRef.current ||
+      requestedActionRef.current ||
+      activeActionRef.current ||
+      likeInFlightRef.current;
+    debugFeed("swipe action requested", {
+      direction,
+      ignored: !currentProfileId || isBusy,
+      swipeLocked: swipeLockedRef.current,
+      requestedAction: requestedActionRef.current,
+      activeAction: activeActionRef.current,
+      likeInFlight: likeInFlightRef.current,
+      currentIndex: activeIndex,
+      currentProfileId,
+    });
+    if (!currentProfileId || isBusy) return;
+    swipeLockedRef.current = true;
+    requestedActionRef.current = true;
+    pendingActionProfileIdRef.current = currentProfileId;
     setSwipeLocked(true);
     if (swipeUnlockTimeoutRef.current) {
       clearTimeout(swipeUnlockTimeoutRef.current);
     }
-    swipeUnlockTimeoutRef.current = setTimeout(unlockSwipe, SWIPE_LOCK_TIMEOUT_MS);
-    setActionSignal((signal) => ({ id: signal.id + 1, direction }));
+    swipeUnlockTimeoutRef.current = setTimeout(unlockTimedOutSwipe, SWIPE_LOCK_TIMEOUT_MS);
+    setActionSignal((signal) => ({ id: signal.id + 1, direction, profileId: currentProfileId }));
   };
 
   /* --------------------------- Render --------------------------- */
@@ -502,6 +787,27 @@ export default function FeedPage() {
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
   const showLoadingState = !error && loading && !hasMoreProfiles;
   const showErrorState = error && !hasMoreProfiles;
+  const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
+
+  useEffect(() => {
+    if (!hasMoreProfiles) return;
+    const deck = deckRef.current;
+    const card = deck?.querySelector(".swipe-card-modern");
+    if (!deck || !card) return;
+
+    const deckRect = deck.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    debugFeed("card size/class", {
+      currentIndex,
+      currentProfileId: getProfileId(currentProfile),
+      deckClassName: deck.className,
+      deckWidth: Math.round(deckRect.width),
+      deckHeight: Math.round(deckRect.height),
+      cardClassName: card.className,
+      cardWidth: Math.round(cardRect.width),
+      cardHeight: Math.round(cardRect.height),
+    });
+  }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
 
   return (
     <div className="feed-page">
@@ -510,14 +816,14 @@ export default function FeedPage() {
 
       {/* 2. MODERN SWIPE DECK */}
       <section
-        className={`feed-section feed-match-section${hasMoreProfiles ? "" : " feed-match-section--empty"}`}
+        className={`feed-section feed-match-section${showEmptyState ? " feed-match-section--empty" : ""}`}
         aria-label={t("feed.recommendedProfilesAria")}
       >
         {showLoadingState ? (
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
               <div className="spinner" />
-              <p>Cargando tu feed...</p>
+              <p>{t("feed.loadingLabel")}</p>
             </div>
           </div>
         ) : showErrorState ? (
@@ -536,7 +842,7 @@ export default function FeedPage() {
             </div>
           </div>
         ) : hasMoreProfiles ? (
-          <div className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
+          <div ref={deckRef} className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
               const isTopCard = stackIndex === 0;
               return (
@@ -615,8 +921,11 @@ export default function FeedPage() {
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
+          --feed-deck-width: min(96vw, 440px);
+          --feed-deck-height: clamp(600px, 72vh, 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
-          /* Older browsers use 100vh; browsers with lvh support upgrade below for stable refresh sizing. */
+          /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
@@ -676,8 +985,8 @@ export default function FeedPage() {
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          min-height: var(--feed-available-height);
-          height: var(--feed-available-height);
+          min-height: max(var(--feed-available-height), calc(var(--feed-deck-height) + var(--feed-section-top-padding)));
+          height: max(var(--feed-available-height), calc(var(--feed-deck-height) + var(--feed-section-top-padding)));
           padding: var(--feed-section-top-padding) 0 0;
           box-sizing: border-box;
         }
@@ -688,10 +997,13 @@ export default function FeedPage() {
 
         .feed-swipe-deck {
           position: relative;
-          width: min(96vw, 440px);
-          max-width: 440px;
-          /* Subtract the section's top padding so the deck fits its stable viewport slot exactly. */
-          height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          flex: 0 0 auto;
+          width: var(--feed-deck-width);
+          min-width: var(--feed-deck-width);
+          max-width: var(--feed-deck-width);
+          height: var(--feed-deck-height);
+          min-height: var(--feed-deck-height);
+          max-height: var(--feed-deck-height);
           display: flex;
           justify-content: center;
           touch-action: pan-y;
@@ -701,7 +1013,13 @@ export default function FeedPage() {
         }
 
         .feed-swipe-deck--state {
-          margin: auto 0;
+          width: var(--feed-deck-width);
+          min-width: var(--feed-deck-width);
+          max-width: var(--feed-deck-width);
+          height: var(--feed-deck-height);
+          min-height: var(--feed-deck-height);
+          max-height: var(--feed-deck-height);
+          margin: 0;
           overflow: hidden;
           background: linear-gradient(180deg, rgba(20, 12, 46, 0.92), rgba(15, 8, 33, 0.96));
           border: 1px solid rgba(224, 64, 251, 0.14);
@@ -833,13 +1151,27 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
-            --feed-viewport-height: 100dvh;
+            --feed-deck-height: clamp(600px, 72dvh, 720px);
+            /* Use dvh as a floor, while lvh below becomes the stable non-shrinking viewport basis when available. */
+            min-height: max(100dvh, var(--feed-viewport-height));
+          }
+        }
+
+        @supports (height: 100lvh) {
+          .feed-page {
+            --feed-viewport-height: 100lvh;
+            --feed-deck-height: clamp(600px, 72lvh, 720px);
           }
         }
 
         @media (min-width: 769px) {
+          .feed-page {
+            --feed-deck-width: min(calc(100vw - 32px), 440px);
+            --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+          }
+
           .feed-swipe-deck {
-            width: min(calc(100vw - 32px), 440px);
+            width: var(--feed-deck-width);
           }
         }
 

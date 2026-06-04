@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
 const User = require("../models/User.js");
@@ -124,18 +124,20 @@ const serializeUserPhotoFields = (req, userLike) => {
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
 // Public profile — returns safe fields for a given user/creator
-router.get("/:id/public", userLimiter, async (req, res) => {
+router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select(
-      "username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location"
-    );
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
-    
-    // Hide admin and moderator profiles from public view
-    if (user.role === "admin" || user.role === "moderator") {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
     }
-    
+
+    const user = await User.findOne({
+      _id: req.params.id,
+      role: { $nin: ["admin", "moderator"] },
+      isBlocked: { $ne: true },
+      isSuspended: { $ne: true },
+    }).select("username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
     const profile = user.toObject();
     const photoFields = serializeUserPhotoFields(req, profile);
     profile.avatar = photoFields.avatar;

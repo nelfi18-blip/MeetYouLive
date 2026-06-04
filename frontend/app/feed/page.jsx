@@ -87,7 +87,7 @@ export default function FeedPage() {
   const feedControllerRef = useRef(null);
   const tokenControllerRef = useRef(null);
 
-  const label = useCallback(
+  const translateWithFallback = useCallback(
     (key, fallback) => {
       const translated = t?.(key);
       return translated && translated !== key ? translated : fallback;
@@ -112,7 +112,7 @@ export default function FeedPage() {
     async (token) => {
       if (!API_URL) {
         setDeck([], 0);
-        setError(label("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
+        setError(translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
         setIsLoading(false);
         return;
       }
@@ -134,25 +134,29 @@ export default function FeedPage() {
 
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
-            throw new Error(label("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+            throw new Error(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
           }
           if (response.status >= 500) {
-            throw new Error(label("feed.serverError", "Error del servidor. Por favor, intenta de nuevo."));
+            throw new Error(translateWithFallback("feed.serverError", "Error del servidor. Por favor, intenta de nuevo."));
           }
-          throw new Error(label("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
+          throw new Error(translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
         }
 
         const data = await response.json();
         const uniqueProfiles = Array.from(
-          new Map((data?.recommendedProfiles || []).map((profile) => [profile?._id, profile])).values()
-        ).filter((profile) => profile?._id);
+          new Map(
+            (data?.recommendedProfiles || [])
+              .filter((profile) => profile?._id)
+              .map((profile) => [profile._id, profile])
+          ).values()
+        );
 
         setDeck(uniqueProfiles, 0);
       } catch (err) {
         if (err.name === "AbortError") {
-          setError(label("feed.serverStarting", "El servidor está iniciando. Esto puede tomar unos segundos."));
+          setError(translateWithFallback("feed.serverStarting", "El servidor está iniciando. Esto puede tomar unos segundos."));
         } else {
-          setError(err.message || label("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
+          setError(err.message || translateWithFallback("feed.genericError", "No pudimos cargar tu feed. Por favor, intenta de nuevo."));
         }
         setDeck([], 0);
       } finally {
@@ -163,7 +167,7 @@ export default function FeedPage() {
         setIsLoading(false);
       }
     },
-    [label, setDeck]
+    [setDeck, translateWithFallback]
   );
 
   useEffect(() => {
@@ -206,7 +210,7 @@ export default function FeedPage() {
 
       if (!token) {
         setDeck([], 0);
-        setError(label("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+        setError(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
         setIsLoading(false);
         return;
       }
@@ -217,13 +221,13 @@ export default function FeedPage() {
     };
 
     start();
-  }, [label, loadFeed, router, session?.backendToken, setDeck, status]);
+  }, [loadFeed, router, session?.backendToken, setDeck, status, translateWithFallback]);
 
   const advanceOneProfile = useCallback(() => {
     setDeck(profiles, currentIndex + 1);
   }, [currentIndex, profiles, setDeck]);
 
-  const releasePassLockSoon = useCallback(() => {
+  const unlockActionsAfterDelay = useCallback(() => {
     if (passUnlockTimeoutRef.current) clearTimeout(passUnlockTimeoutRef.current);
     passUnlockTimeoutRef.current = setTimeout(() => {
       setActionLock(false);
@@ -235,15 +239,15 @@ export default function FeedPage() {
     if (!currentProfile || actionPendingRef.current) return;
     setActionLock(true);
     advanceOneProfile();
-    releasePassLockSoon();
-  }, [advanceOneProfile, currentProfile, releasePassLockSoon, setActionLock]);
+    unlockActionsAfterDelay();
+  }, [advanceOneProfile, currentProfile, setActionLock, unlockActionsAfterDelay]);
 
   const handleLike = useCallback(async () => {
     if (!currentProfile || actionPendingRef.current) return;
 
     const token = authTokenRef.current;
     if (!API_URL || !token) {
-      setError(label("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
+      setError(translateWithFallback("feed.sessionExpired", "Sesión expirada. Por favor, inicia sesión de nuevo."));
       return;
     }
 
@@ -262,16 +266,16 @@ export default function FeedPage() {
       });
 
       if (!response.ok) {
-        throw new Error(label("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
+        throw new Error(translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
       }
 
       advanceOneProfile();
     } catch (err) {
-      setError(err.message || label("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
+      setError(err.message || translateWithFallback("feed.likeError", "No pudimos registrar tu me gusta. Intenta de nuevo."));
     } finally {
       setActionLock(false);
     }
-  }, [advanceOneProfile, currentProfile, label, setActionLock]);
+  }, [advanceOneProfile, currentProfile, setActionLock, translateWithFallback]);
 
   const retryFeed = useCallback(() => {
     if (!authTokenRef.current || isLoading) return;
@@ -290,7 +294,7 @@ export default function FeedPage() {
         </Link>
       </header>
 
-      <section className="feed-stage" aria-label={label("feed.recommendedProfilesAria", "Perfiles recomendados")}>
+      <section className="feed-stage" aria-label={translateWithFallback("feed.recommendedProfilesAria", "Perfiles recomendados")}>
         <article className={cardClassName} aria-busy={isLoading || isActionPending}>
           {isLoading ? (
             <FeedState title="Cargando tu feed" message="Buscando perfiles para ti..." />
@@ -304,8 +308,8 @@ export default function FeedPage() {
               onPass={handlePass}
               onLike={handleLike}
               labels={{
-                pass: label("feed.dislikeLabel", "No me gusta"),
-                like: label("feed.likeLabel", "Me gusta"),
+                pass: translateWithFallback("feed.dislikeLabel", "No me gusta"),
+                like: translateWithFallback("feed.likeLabel", "Me gusta"),
               }}
             />
           ) : (
@@ -476,7 +480,7 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt={name} draggable="false" />
         ) : (
-          <div className="profile-photo-fallback" aria-hidden="true">{name.charAt(0).toUpperCase()}</div>
+          <div className="profile-photo-fallback" aria-hidden="true">{(name.charAt(0) || "M").toUpperCase()}</div>
         )}
       </div>
 

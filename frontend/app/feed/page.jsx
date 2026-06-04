@@ -273,22 +273,27 @@ export default function FeedPage() {
     let controller;
 
     const localToken = getToken();
+    const sessionCurrentUserId = session?.backendUserId || session?.user?.id || "";
+    if (sessionCurrentUserId) {
+      currentUserIdRef.current = String(sessionCurrentUserId);
+    }
 
     if (session?.backendToken) {
       setToken(session.backendToken);
       setAuthToken(session.backendToken);
-      const currentUserId = session?.backendUserId || session?.user?.id || "";
-      currentUserIdRef.current = currentUserId ? String(currentUserId) : "";
       setError(null);
       return undefined;
     }
 
-    if (localToken) {
+    if (status === "loading") return undefined;
+
+    if (
+      localToken &&
+      (status !== "authenticated" || currentUserIdRef.current || !session?.googleEmail)
+    ) {
       setAuthToken(localToken);
       return undefined;
     }
-
-    if (status === "loading") return undefined;
 
     if (status === "unauthenticated") {
       setLoading(false);
@@ -323,8 +328,15 @@ export default function FeedPage() {
 
         if (recoveredToken) {
           setToken(recoveredToken);
-          setAuthToken(recoveredToken);
           currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          setAuthToken(recoveredToken);
+          setError(null);
+          return;
+        }
+
+        if (localToken) {
+          currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          setAuthToken(localToken);
           setError(null);
           return;
         }
@@ -458,7 +470,7 @@ export default function FeedPage() {
       const currentUserId = currentUserIdRef.current;
       const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
         const profileId = getProfileId(profile);
-        if (profileId && (!currentUserId || profileId !== currentUserId)) {
+        if (profileId && currentUserId && profileId !== currentUserId) {
           entries.push([profileId, profile]);
         }
         return entries;
@@ -483,7 +495,7 @@ export default function FeedPage() {
           nextIndex = matchingIndex;
         } else {
           const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
-          nextProfiles = currentProfile && (!currentUserId || getProfileId(currentProfile) !== currentUserId)
+          nextProfiles = currentProfile && currentUserId && getProfileId(currentProfile) !== currentUserId
             ? [
                 currentProfile,
                 ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),

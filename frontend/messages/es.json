@@ -154,7 +154,13 @@
     "dislikeLabel": "No me gusta",
     "superLikeLabel": "Super like",
     "superLikeShortLabel": "Super",
-    "likeLabel": "Me gusta"
+    "likeLabel": "Me gusta",
+    "undoLabel": "Deshacer última acción",
+    "undoShortLabel": "Deshacer",
+    "undoError": "No pudimos deshacer tu última acción. Intenta de nuevo.",
+    "emptyTitle": "No hay más perfiles por ahora",
+    "emptyDescription": "Vuelve a cargar para buscar más personas cuando quieras.",
+    "reloadProfiles": "Buscar más perfiles"
   },
   "common": {
     "loading": "Cargando...",

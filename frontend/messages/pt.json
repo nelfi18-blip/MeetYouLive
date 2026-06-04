@@ -154,7 +154,13 @@
     "dislikeLabel": "Não gostei",
     "superLikeLabel": "Super like",
     "superLikeShortLabel": "Super",
-    "likeLabel": "Gostei"
+    "likeLabel": "Gostei",
+    "undoLabel": "Desfazer última ação",
+    "undoShortLabel": "Desfazer",
+    "undoError": "Não conseguimos desfazer sua última ação. Tente novamente.",
+    "emptyTitle": "Não há mais perfis por enquanto",
+    "emptyDescription": "Recarregue para procurar mais pessoas quando quiser.",
+    "reloadProfiles": "Buscar mais perfis"
   },
   "common": {
     "loading": "Carregando...",

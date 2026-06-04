@@ -154,7 +154,13 @@
     "dislikeLabel": "Nope",
     "superLikeLabel": "Super like",
     "superLikeShortLabel": "Super",
-    "likeLabel": "Like"
+    "likeLabel": "Like",
+    "undoLabel": "Undo last action",
+    "undoShortLabel": "Undo",
+    "undoError": "We couldn't undo your last action. Please try again.",
+    "emptyTitle": "No more profiles for now",
+    "emptyDescription": "Reload to look for more people whenever you want.",
+    "reloadProfiles": "Find more profiles"
   },
   "common": {
     "loading": "Loading...",

@@ -153,15 +153,15 @@ export default function FeedPage() {
 
         const data = await response.json();
         const currentUserId = currentUserIdRef.current;
+        const profileEntries = (data?.recommendedProfiles || []).reduce((entries, profile) => {
+          const profileId = getProfileId(profile);
+          if (profileId && (!currentUserId || profileId !== currentUserId)) {
+            entries.push([profileId, profile]);
+          }
+          return entries;
+        }, []);
         const uniqueProfiles = Array.from(
-          new Map(
-            (data?.recommendedProfiles || [])
-              .filter((profile) => {
-                const profileId = getProfileId(profile);
-                return profileId && (!currentUserId || profileId !== currentUserId);
-              })
-              .map((profile) => [getProfileId(profile), profile])
-          ).values()
+          new Map(profileEntries).values()
         );
 
         setDeck(uniqueProfiles, 0);
@@ -216,7 +216,7 @@ export default function FeedPage() {
           token = backendSession?.token || token;
           currentUserId = backendSession?.userId || currentUserId;
         } catch (err) {
-          // Keep a previously stored token usable if the session refresh only failed while recovering the user id.
+          // If a token already exists, keep loading; the backend still enforces self-exclusion.
           if (!hadToken && err.name !== "AbortError") token = null;
         } finally {
           clearTimeout(timeoutId);

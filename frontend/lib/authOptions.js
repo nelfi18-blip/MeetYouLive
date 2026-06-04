@@ -120,10 +120,11 @@ export const authOptions = {
               const data = await res.json();
               if (data.token) {
                 token.backendToken = data.token;
-                if (data.user?.id) {
-                  token.backendUserId = String(data.user.id);
-                }
-              } else {
+              }
+              if (data.user?.id) {
+                token.backendUserId = String(data.user.id);
+              }
+              if (!data.token) {
                 console.warn("[NextAuth] /api/auth/google-session responded OK but returned no token");
               }
             } else {

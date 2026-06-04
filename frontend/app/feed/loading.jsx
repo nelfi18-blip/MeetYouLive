@@ -33,9 +33,10 @@ export default function FeedLoading() {
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
+          --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           --feed-deck-width: min(96vw, 440px);
-          --feed-deck-height: clamp(600px, 72vh, 720px);
+          --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
           background: var(--bg, #0f0821);
@@ -171,7 +172,6 @@ export default function FeedLoading() {
 
         @supports (height: 100dvh) {
           .feed-page {
-            --feed-deck-height: clamp(600px, 72dvh, 720px);
             min-height: max(100dvh, var(--feed-viewport-height));
           }
         }
@@ -179,7 +179,7 @@ export default function FeedLoading() {
         @supports (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
-            --feed-deck-height: clamp(600px, 72lvh, 720px);
+            --feed-stable-viewport-height: 100lvh;
           }
         }
 

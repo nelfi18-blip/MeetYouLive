@@ -92,6 +92,8 @@ function readCachedFeed() {
     const currentProfileIndex = cachedCurrentProfileId
       ? cachedProfiles.findIndex((profile) => getProfileId(profile) === cachedCurrentProfileId)
       : -1;
+    // Allow currentIndex === cachedProfiles.length as the exhausted-feed sentinel
+    // so refreshes do not resurrect the last already-swiped profile.
     const currentIndex = currentProfileIndex >= 0
       ? currentProfileIndex
       : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
@@ -244,6 +246,7 @@ export default function FeedPage() {
   const [authToken, setAuthToken] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
+  // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
   const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
@@ -602,6 +605,8 @@ export default function FeedPage() {
       profilesRef.current = uniqueProfiles;
       setCurrentIndex(nextIndex);
       setProfiles(uniqueProfiles);
+      // Refresh can remove the profile that was available to undo, so clear it
+      // instead of restoring an action for a profile no longer in this deck.
       setLastAction((action) => {
         if (!action?.profileId || nextProfileIds.has(action.profileId)) return action;
         return null;
@@ -903,6 +908,7 @@ export default function FeedPage() {
   const showErrorState = error && !hasMoreProfiles;
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
+  const isUndoDisabled = swipeLocked || !lastAction;
 
   useEffect(() => {
     if (!FEED_DEBUG_ENABLED) return;
@@ -999,7 +1005,7 @@ export default function FeedPage() {
                 type="button"
                 className="feed-action-btn feed-action-btn--undo"
                 aria-label={t("feed.undoLabel")}
-                disabled={swipeLocked || !lastAction}
+                disabled={isUndoDisabled}
                 onClick={handleUndoLastAction}
               >
                 <IconUndo />
@@ -1026,7 +1032,7 @@ export default function FeedPage() {
                 type="button"
                 className="feed-empty-btn feed-empty-btn--secondary"
                 onClick={handleUndoLastAction}
-                disabled={swipeLocked || !lastAction}
+                disabled={isUndoDisabled}
               >
                 {t("feed.undoLabel")}
               </button>

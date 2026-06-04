@@ -59,7 +59,9 @@ function getCurrentProfileId(profiles, currentIndex) {
 
 function debugFeed(message, details = {}) {
   if (!FEED_DEBUG_ENABLED) return;
-  console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+  try {
+    console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
+  } catch {}
 }
 
 function preserveCurrentProfileInFeed(

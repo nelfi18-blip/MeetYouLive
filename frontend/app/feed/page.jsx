@@ -23,6 +23,7 @@ const SWIPE_LOCK_TIMEOUT_MS = 1400;
 const FETCH_TIMEOUT_MS = 15000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
+const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
 const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
@@ -59,33 +60,22 @@ function debugFeed(message, details = {}) {
   } catch {}
 }
 
-function preserveCurrentProfileInFeed(
-  currentProfile,
-  uniqueProfiles,
-  profileIdBeforeRefresh,
-  currentUserId
-) {
-  if (!currentProfile || !currentUserId || getProfileId(currentProfile) === currentUserId) {
-    return uniqueProfiles;
-  }
-
-  return [
-    currentProfile,
-    ...uniqueProfiles.filter((profile) => getProfileId(profile) !== profileIdBeforeRefresh),
-  ];
+function getEmptyCachedFeed() {
+  return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
 }
 
 function readCachedFeed() {
-  if (typeof window === "undefined") return { profiles: [], currentIndex: 0, hasCache: false };
+  if (typeof window === "undefined") return getEmptyCachedFeed();
 
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
     debugFeed("sessionStorage read", { key: FEED_CACHE_KEY, hasValue: Boolean(raw) });
-    if (!raw) return { profiles: [], currentIndex: 0, hasCache: false };
+    if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
     const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
     const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
+    const cachedCurrentProfileId = getNullableIdString(parsed?.currentProfileId);
     const timestamp = Number(parsed?.timestamp) || 0;
 
     if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
@@ -96,24 +86,62 @@ function readCachedFeed() {
         currentIndex: cachedIndex,
         ...summarizeProfiles(cachedProfiles),
       });
-      return { profiles: [], currentIndex: 0, hasCache: false };
+      return getEmptyCachedFeed();
     }
 
-    const currentIndex = Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
+    const currentProfileIndex = cachedCurrentProfileId
+      ? cachedProfiles.findIndex((profile) => getProfileId(profile) === cachedCurrentProfileId)
+      : -1;
+    const currentIndex = currentProfileIndex >= 0
+      ? currentProfileIndex
+      : Math.min(Math.max(cachedIndex, 0), Math.max(cachedProfiles.length - 1, 0));
+    const currentProfileId = cachedCurrentProfileId || getCurrentProfileId(cachedProfiles, currentIndex);
     debugFeed("sessionStorage cache accepted", {
       key: FEED_CACHE_KEY,
       currentIndex,
-      currentProfileId: getCurrentProfileId(cachedProfiles, currentIndex),
+      currentProfileId,
       ...summarizeProfiles(cachedProfiles),
     });
     return {
       profiles: cachedProfiles,
       currentIndex,
+      currentProfileId,
       hasCache: true,
     };
   } catch (err) {
     debugFeed("sessionStorage read failed", { key: FEED_CACHE_KEY, error: err.message });
-    return { profiles: [], currentIndex: 0, hasCache: false };
+    return getEmptyCachedFeed();
+  }
+}
+
+function readStoredCurrentProfileId() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    return getNullableIdString(window.sessionStorage.getItem(FEED_CURRENT_PROFILE_KEY));
+  } catch (err) {
+    debugFeed("current profile sessionStorage read failed", {
+      key: FEED_CURRENT_PROFILE_KEY,
+      error: err.message,
+    });
+    return "";
+  }
+}
+
+function writeStoredCurrentProfileId(profileId) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (profileId) {
+      window.sessionStorage.setItem(FEED_CURRENT_PROFILE_KEY, profileId);
+    } else {
+      window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
+    }
+  } catch (err) {
+    debugFeed("current profile sessionStorage write failed", {
+      key: FEED_CURRENT_PROFILE_KEY,
+      error: err.message,
+    });
   }
 }
 
@@ -121,6 +149,9 @@ function writeCachedFeed(profiles, currentIndex) {
   if (typeof window === "undefined") return;
 
   try {
+    const currentProfileId = getCurrentProfileId(profiles, currentIndex);
+    writeStoredCurrentProfileId(currentProfileId);
+
     if (!profiles.length) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
       debugFeed("sessionStorage removed", { key: FEED_CACHE_KEY, reason: "empty-write" });
@@ -129,12 +160,12 @@ function writeCachedFeed(profiles, currentIndex) {
 
     window.sessionStorage.setItem(
       FEED_CACHE_KEY,
-      JSON.stringify({ profiles, currentIndex, timestamp: Date.now() })
+      JSON.stringify({ profiles, currentIndex, currentProfileId, timestamp: Date.now() })
     );
     debugFeed("sessionStorage written", {
       key: FEED_CACHE_KEY,
       currentIndex,
-      currentProfileId: getCurrentProfileId(profiles, currentIndex),
+      currentProfileId,
       ...summarizeProfiles(profiles),
     });
   } catch (err) {
@@ -225,6 +256,7 @@ export default function FeedPage() {
   const feedMutationVersionRef = useRef(0);
   const deckRef = useRef(null);
   const currentUserIdRef = useRef("");
+  const currentProfileIdRef = useRef("");
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -245,15 +277,21 @@ export default function FeedPage() {
 
   useEffect(() => {
     const cachedFeed = readCachedFeed();
+    const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
+    currentProfileIdRef.current = storedCurrentProfileId;
+    if (storedCurrentProfileId && !cachedFeed.currentProfileId) {
+      writeStoredCurrentProfileId(storedCurrentProfileId);
+    }
     if (!cachedFeed.hasCache) return;
 
     debugFeed("applying cached feed before network refresh", {
       currentIndex: cachedFeed.currentIndex,
-      currentProfileId: getCurrentProfileId(cachedFeed.profiles, cachedFeed.currentIndex),
+      currentProfileId: cachedFeed.currentProfileId,
       ...summarizeProfiles(cachedFeed.profiles),
     });
     profilesRef.current = cachedFeed.profiles;
     currentIndexRef.current = cachedFeed.currentIndex;
+    currentProfileIdRef.current = cachedFeed.currentProfileId;
     hasVisualCacheRef.current = true;
     setProfiles(cachedFeed.profiles);
     setCurrentIndex(cachedFeed.currentIndex);
@@ -272,7 +310,12 @@ export default function FeedPage() {
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
+    const currentProfileId = getCurrentProfileId(profiles, currentIndex);
+    // Clear the visible profile ref when a non-empty deck has been exhausted.
+    if (currentProfileId || profiles.length) {
+      currentProfileIdRef.current = currentProfileId;
+    }
+  }, [currentIndex, profiles]);
 
   useEffect(() => {
     hasVisualCacheRef.current = hasVisualCache;
@@ -419,7 +462,10 @@ export default function FeedPage() {
     const mutationVersionAtStart = feedMutationVersionRef.current;
     const profilesBeforeRefresh = profilesRef.current;
     const indexBeforeRefresh = currentIndexRef.current;
-    const profileIdBeforeRefresh = getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh);
+    const profileIdBeforeRefresh =
+      getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh) ||
+      currentProfileIdRef.current ||
+      readStoredCurrentProfileId();
 
     debugFeed("loadFeed() start", {
       silent,
@@ -510,23 +556,14 @@ export default function FeedPage() {
         ...summarizeProfiles(uniqueProfiles),
       });
 
-      let nextProfiles = uniqueProfiles;
       let nextIndex = 0;
-      if (silent && profileIdBeforeRefresh) {
+      // Refreshes and retries restore by visible profile id; only real user actions advance.
+      if (profileIdBeforeRefresh) {
         const matchingIndex = uniqueProfiles.findIndex(
           (profile) => getProfileId(profile) === profileIdBeforeRefresh
         );
         if (matchingIndex >= 0) {
           nextIndex = matchingIndex;
-        } else {
-          const currentProfile = profilesBeforeRefresh[indexBeforeRefresh];
-          nextProfiles = preserveCurrentProfileInFeed(
-            currentProfile,
-            uniqueProfiles,
-            profileIdBeforeRefresh,
-            currentUserId
-          );
-          nextIndex = 0;
         }
       }
 
@@ -535,10 +572,10 @@ export default function FeedPage() {
         currentIndexBefore: indexBeforeRefresh,
         currentProfileIdBefore: profileIdBeforeRefresh,
         currentIndexAfter: nextIndex,
-        currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
+        currentProfileIdAfter: getCurrentProfileId(uniqueProfiles, nextIndex),
         preservedCurrentProfile: Boolean(
           profileIdBeforeRefresh &&
-            getCurrentProfileId(nextProfiles, nextIndex) === profileIdBeforeRefresh
+            getCurrentProfileId(uniqueProfiles, nextIndex) === profileIdBeforeRefresh
         ),
       });
 
@@ -553,12 +590,13 @@ export default function FeedPage() {
       }
 
       currentIndexRef.current = nextIndex;
-      profilesRef.current = nextProfiles;
+      currentProfileIdRef.current = getCurrentProfileId(uniqueProfiles, nextIndex);
+      profilesRef.current = uniqueProfiles;
       setCurrentIndex(nextIndex);
-      setProfiles(nextProfiles);
+      setProfiles(uniqueProfiles);
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);
-      writeCachedFeed(nextProfiles, nextIndex);
+      writeCachedFeed(uniqueProfiles, nextIndex);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -635,6 +673,7 @@ export default function FeedPage() {
       currentProfileIdAfter: getCurrentProfileId(activeProfiles, nextIndex),
     });
     currentIndexRef.current = nextIndex;
+    currentProfileIdRef.current = getCurrentProfileId(activeProfiles, nextIndex);
     setCurrentIndex(nextIndex);
     writeCachedFeed(activeProfiles, nextIndex);
     unlockSwipe();
@@ -930,10 +969,11 @@ export default function FeedPage() {
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
+          --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
-          --feed-deck-height: clamp(600px, 72vh, 720px);
+          --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
           --feed-info-panel-height: clamp(190px, 32%, 236px);
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
@@ -1062,7 +1102,7 @@ export default function FeedPage() {
           box-sizing: border-box;
           min-height: 0;
           height: var(--feed-info-panel-height);
-          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, 12dvh, 6.5rem);
+          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, calc(var(--feed-stable-viewport-height) * 0.12), 6.5rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
             linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
@@ -1086,7 +1126,7 @@ export default function FeedPage() {
         .feed-action-dock {
           position: absolute;
           left: 50%;
-          bottom: clamp(14px, 3dvh, 26px);
+          bottom: clamp(14px, calc(var(--feed-stable-viewport-height) * 0.03), 26px);
           z-index: 70;
           display: grid;
           grid-template-columns: 1fr auto 1fr;
@@ -1161,8 +1201,6 @@ export default function FeedPage() {
 
         @supports (height: 100dvh) {
           .feed-page {
-            --feed-deck-height: clamp(600px, 72dvh, 720px);
-            /* Use dvh as a floor, while lvh below becomes the stable non-shrinking viewport basis when available. */
             min-height: max(100dvh, var(--feed-viewport-height));
           }
         }
@@ -1170,7 +1208,7 @@ export default function FeedPage() {
         @supports (height: 100lvh) {
           .feed-page {
             --feed-viewport-height: 100lvh;
-            --feed-deck-height: clamp(600px, 72lvh, 720px);
+            --feed-stable-viewport-height: 100lvh;
           }
         }
 

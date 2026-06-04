@@ -42,21 +42,6 @@ function getProfileId(profile) {
   return profile?._id ? String(profile._id) : "";
 }
 
-function getUserIdFromToken(token) {
-  if (!token || typeof token !== "string") return "";
-  const [, payload] = token.split(".");
-  if (!payload) return "";
-
-  try {
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "=");
-    const decoded = JSON.parse(atob(paddedPayload));
-    return findFirstNonEmptyString(decoded?.id, decoded?._id, decoded?.userId, decoded?.sub) || "";
-  } catch {
-    return "";
-  }
-}
-
 function getProfileAge(profile) {
   if (profile?.age) return profile.age;
   if (!profile?.birthdate && !profile?.dateOfBirth) return "";
@@ -85,7 +70,10 @@ async function fetchBackendToken(signal) {
 
   if (!response.ok) return null;
   const data = await response.json().catch(() => ({}));
-  return data?.token || null;
+  return {
+    token: data?.token || "",
+    userId: data?.user?.id ? String(data.user.id) : "",
+  };
 }
 
 export default function FeedPage() {
@@ -216,15 +204,19 @@ export default function FeedPage() {
 
     const start = async () => {
       let token = session?.backendToken || getToken();
+      let currentUserId = session?.backendUserId || session?.user?.id || "";
 
-      if (!token && status === "authenticated") {
+      if (status === "authenticated" && (!token || !currentUserId)) {
+        const hadToken = Boolean(token);
         const controller = new AbortController();
         tokenControllerRef.current = controller;
         const timeoutId = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
         try {
-          token = await fetchBackendToken(controller.signal);
+          const backendSession = await fetchBackendToken(controller.signal);
+          token = backendSession?.token || token;
+          currentUserId = backendSession?.userId || currentUserId;
         } catch (err) {
-          if (err.name !== "AbortError") token = null;
+          if (!hadToken && err.name !== "AbortError") token = null;
         } finally {
           clearTimeout(timeoutId);
           if (tokenControllerRef.current === controller) {
@@ -241,13 +233,13 @@ export default function FeedPage() {
       }
 
       authTokenRef.current = token;
-      currentUserIdRef.current = getUserIdFromToken(token);
+      currentUserIdRef.current = currentUserId ? String(currentUserId) : "";
       setToken(token);
       await loadFeed(token);
     };
 
     start();
-  }, [loadFeed, router, session?.backendToken, setDeck, status, translateWithFallback]);
+  }, [loadFeed, router, session?.backendToken, session?.backendUserId, session?.user?.id, setDeck, status, translateWithFallback]);
 
   const advanceOneProfile = useCallback(() => {
     setDeck(profiles, currentIndex + 1);

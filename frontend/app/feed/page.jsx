@@ -41,11 +41,6 @@ function isRecommendedProfile(profile, currentUserId) {
   return profileId && currentUserId && profileId !== currentUserId;
 }
 
-function shouldKeepProfileInDeck(profile, removedProfileId, currentUserId) {
-  const existingProfileId = getProfileId(profile);
-  return existingProfileId !== removedProfileId && (!currentUserId || existingProfileId !== currentUserId);
-}
-
 function summarizeProfiles(profiles) {
   return {
     count: profiles.length,
@@ -611,7 +606,7 @@ export default function FeedPage() {
 
   const unlockTimedOutSwipe = () => {
     swipeUnlockTimeoutRef.current = null;
-    // Keep the lock while the deck is mutating or the like API is still pending;
+    // Keep the lock while the deck is mutating or the action API is still pending;
     // only release request-time locks where SwipeCard never reports an onSwipe.
     if (activeActionRef.current || likeInFlightRef.current) return;
     unlockSwipe();
@@ -647,11 +642,11 @@ export default function FeedPage() {
   };
 
   const handleSwipe = async (profileId, direction) => {
-    const shouldRecordLike = direction === "right" || direction === "up";
+    const isLike = direction === "right" || direction === "up";
     const activeProfiles = profilesRef.current;
     const activeIndex = currentIndexRef.current;
     const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
-    debugFeed(`${shouldRecordLike ? "handleLike" : "handleDislike"} called`, {
+    debugFeed(`${isLike ? "handleLike" : "handleDislike"} called`, {
       profileId,
       direction,
       currentIndex: activeIndex,
@@ -660,13 +655,13 @@ export default function FeedPage() {
 
     if (activeActionRef.current || likeInFlightRef.current) {
       debugFeed("swipe ignored", {
-        reason: activeActionRef.current ? "active-action" : "like-in-flight",
+        reason: activeActionRef.current ? "active-action" : "action-in-flight",
         profileId,
         direction,
         currentIndex: activeIndex,
         currentProfileId: activeProfileId,
       });
-      return;
+      return false;
     }
 
     if (!profileId || activeProfileId !== profileId) {
@@ -678,7 +673,7 @@ export default function FeedPage() {
         currentProfileId: activeProfileId,
       });
       unlockSwipe();
-      return;
+      return false;
     }
 
     if (
@@ -694,7 +689,7 @@ export default function FeedPage() {
         currentProfileId: activeProfileId,
       });
       unlockSwipe();
-      return;
+      return false;
     }
     const isPendingActionForSameProfile =
       requestedActionRef.current && pendingActionProfileIdRef.current === profileId;
@@ -707,76 +702,55 @@ export default function FeedPage() {
     setSwipeLocked(true);
     feedMutationVersionRef.current += 1;
 
-    if (!shouldRecordLike) {
-      advance(profileId);
-      return;
-    }
-
     if (currentUserIdRef.current && profileId === currentUserIdRef.current) {
-      advance(profileId);
-      return;
+      return true;
     }
 
     if (likeInFlightRef.current) {
-      debugFeed("handleLike ignored", {
-        reason: "like-in-flight",
+      debugFeed("handleAction ignored", {
+        reason: "action-in-flight",
         profileId,
         direction,
         currentIndex: activeIndex,
         currentProfileId: activeProfileId,
       });
-      return;
+      return false;
     }
 
     likeInFlightRef.current = true;
-    const previousProfiles = activeProfiles;
-    const previousIndex = activeIndex;
-    const currentUserId = currentUserIdRef.current;
-    const nextProfiles = previousProfiles.filter((profile) =>
-      shouldKeepProfileInDeck(profile, profileId, currentUserId)
-    );
-    // Allow nextIndex === nextProfiles.length as the "end of deck" sentinel
-    // so we do not resurface already-swiped profiles after liking the last card.
-    const nextIndex = Math.min(Math.max(previousIndex, 0), nextProfiles.length);
-    debugFeed("handleLike applying next profiles", {
-      likedProfileId: profileId,
-      currentIndexBefore: previousIndex,
-      currentIndexAfter: nextIndex,
-      currentProfileIdAfter: getCurrentProfileId(nextProfiles, nextIndex),
-      ...summarizeProfiles(nextProfiles),
-    });
-    profilesRef.current = nextProfiles;
-    currentIndexRef.current = nextIndex;
-    setProfiles(nextProfiles);
-    setCurrentIndex(nextIndex);
-    writeCachedFeed(nextProfiles, nextIndex);
+    setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/match/like`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ userId: profileId }),
+      if (!API_URL || !authToken) {
+        throw new Error(t("feed.sessionExpired"));
+      }
+
+      const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(profileId)}`, {
+        method: isLike ? "POST" : "DELETE",
+        headers: { Authorization: "Bearer " + authToken },
         cache: "no-store",
       });
-      if (!res.ok) throw new Error("Failed to record like");
-      if (nextIndex >= nextProfiles.length) {
-        await loadFeed({ silent: true });
+
+      if (!res.ok) {
+        throw new Error(isLike ? t("feed.likeError") : t("feed.passError"));
       }
+
       likeInFlightRef.current = false;
-      unlockSwipe();
+      return true;
     } catch (err) {
-      console.error("Like error:", err);
+      console.error("Swipe action error:", err);
       likeInFlightRef.current = false;
-      profilesRef.current = previousProfiles;
-      currentIndexRef.current = previousIndex;
-      setProfiles(previousProfiles);
-      setCurrentIndex(previousIndex);
-      writeCachedFeed(previousProfiles, previousIndex);
       unlockSwipe();
-      setError(t("feed.likeError"));
+      setError(err.message || (isLike ? t("feed.likeError") : t("feed.passError")));
+      return false;
+    }
+  };
+
+  const handleSwipeExitComplete = async (profileId) => {
+    const advanced = advance(profileId);
+    if (!advanced) return;
+    if (currentIndexRef.current >= profilesRef.current.length) {
+      await loadFeed({ silent: true });
     }
   };
 
@@ -817,6 +791,7 @@ export default function FeedPage() {
   const showLoadingState = !error && loading && !hasMoreProfiles;
   const showErrorState = error && !hasMoreProfiles;
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
+  const activeCardError = hasMoreProfiles ? error : null;
 
   useEffect(() => {
     if (!FEED_DEBUG_ENABLED) return;
@@ -881,7 +856,12 @@ export default function FeedPage() {
                   profile={profile}
                   isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}
+                  onExitComplete={isTopCard ? handleSwipeExitComplete : undefined}
                   actionSignal={isTopCard ? actionSignal : undefined}
+                  disabled={isTopCard ? swipeLocked : true}
+                  pending={isTopCard && swipeLocked && !activeCardError}
+                  error={isTopCard ? activeCardError : null}
+                  pendingLabel={t("feed.pendingAction")}
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,

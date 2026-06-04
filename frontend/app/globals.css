@@ -103,7 +103,7 @@ body {
     radial-gradient(circle at 60% 88%, rgba(124,58,237,0.14) 0%, transparent 48%),
     linear-gradient(180deg, #0f0821 0%, #140c2e 60%, #0f0821 100%);
   background-color: #0f0821;
-  background-attachment: fixed;
+  background-attachment: scroll;
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
@@ -650,10 +650,6 @@ main.main-content:has(.admin-shell) {
    ========================================================= */
 @media (max-width: 768px) {
   .hide-mobile  { display: none !important; }
-
-  body {
-    background-attachment: scroll;
-  }
 }
 @media (min-width: 769px) {
   .hide-desktop { display: none !important; }
@@ -4020,7 +4016,6 @@ select {
 @media (max-width: 768px) {
   .main-content {
     max-width: none;
-    width: 100%;
     margin: 0;
     padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
   }

@@ -148,6 +148,7 @@
     "likeError": "Não conseguimos registrar sua curtida. Tente novamente.",
     "passError": "Não conseguimos registrar sua rejeição. Tente novamente.",
     "pendingAction": "Registrando...",
+    "loadingLabel": "Carregando seu feed...",
     "recommendedProfilesAria": "Perfis recomendados",
     "actionDockAria": "Ações do perfil",
     "dislikeLabel": "Não gostei",

@@ -17,10 +17,11 @@ function getSwipeExitX(direction) {
   return 0;
 }
 
-export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, actionSignal }) {
+export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIndex, isActive, actionSignal, disabled = false, pending = false, error = null, pendingLabel = "" }) {
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
   const [hasSwiped, setHasSwiped] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
   const swipeTimeoutRef = useRef(null);
@@ -35,6 +36,7 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
     setExitX(0);
     setExitY(0);
     setHasSwiped(false);
+    setIsSubmitting(false);
     setCurrentPhotoIndex(0);
     setBrokenPhotoUrls(new Set());
   }, [profile?._id]);
@@ -47,8 +49,20 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
     };
   }, []);
 
-  const completeSwipe = useCallback((direction) => {
-    if (!isActive || hasSwiped) return;
+  const completeSwipe = useCallback(async (direction, { force = false } = {}) => {
+    if (!isActive || hasSwiped || (!force && disabled) || isSubmitting) return;
+
+    setIsSubmitting(true);
+    let shouldExit = true;
+    try {
+      shouldExit = (await onSwipe?.(profile._id, direction)) !== false;
+    } catch {
+      shouldExit = false;
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    if (!shouldExit) return;
 
     setHasSwiped(true);
     setExitX(getSwipeExitX(direction));
@@ -60,17 +74,27 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
     }
 
     swipeTimeoutRef.current = setTimeout(() => {
-      onSwipe?.(profile._id, direction);
+      onExitComplete?.(profile._id, direction);
     }, SWIPE_EXIT_DELAY_MS);
-  }, [hasSwiped, isActive, onSwipe, profile._id]);
+  }, [disabled, hasSwiped, isActive, isSubmitting, onExitComplete, onSwipe, profile._id]);
 
   useEffect(() => {
-    if (!isActive || !actionSignal?.id || !actionSignal.direction) return;
-    completeSwipe(actionSignal.direction);
-  }, [actionSignal, completeSwipe, isActive]);
+    const actionProfileId = actionSignal?.profileId ? String(actionSignal.profileId) : "";
+    const currentProfileId = profile?._id ? String(profile._id) : "";
+    if (
+      !isActive ||
+      !actionSignal?.id ||
+      !actionSignal.direction ||
+      !actionProfileId ||
+      actionProfileId !== currentProfileId
+    ) {
+      return;
+    }
+    completeSwipe(actionSignal.direction, { force: true });
+  }, [actionSignal, completeSwipe, isActive, profile?._id]);
 
   const handleDragEnd = (event, info) => {
-    if (!isActive || hasSwiped) return;
+    if (!isActive || hasSwiped || disabled || isSubmitting) return;
 
     if (Math.abs(info.offset.x) > 100) {
       completeSwipe(info.offset.x > 0 ? "right" : "left");
@@ -131,11 +155,11 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
         zIndex,
         ...style,
       }}
-      drag={isActive && !hasSwiped ? "x" : false}
+      drag={isActive && !hasSwiped && !disabled && !isSubmitting ? "x" : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={0.18}
       dragMomentum={false}
-      onDragEnd={isActive && !hasSwiped ? handleDragEnd : undefined}
+      onDragEnd={isActive && !hasSwiped && !disabled && !isSubmitting ? handleDragEnd : undefined}
       animate={hasSwiped ? { x: exitX, y: exitY, opacity: 0, scale: 0.98 } : undefined}
       transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
       className={cardClassName}
@@ -270,6 +294,11 @@ export default function SwipeCard({ profile, onSwipe, style, zIndex, isActive, a
                   +{interests.length - 3}
                 </span>
               )}
+            </div>
+          )}
+          {(pending || error) && (
+            <div className={`swipe-card-action-status${error ? " swipe-card-action-status--error" : ""}`} role={error ? "alert" : "status"} aria-live="polite">
+              {error || pendingLabel}
             </div>
           )}
       </div>

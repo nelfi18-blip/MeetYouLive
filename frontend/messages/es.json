@@ -148,6 +148,7 @@
     "likeError": "No pudimos registrar tu me gusta. Intenta de nuevo.",
     "passError": "No pudimos registrar tu no me gusta. Intenta de nuevo.",
     "pendingAction": "Registrando...",
+    "loadingLabel": "Cargando tu feed...",
     "recommendedProfilesAria": "Perfiles recomendados",
     "actionDockAria": "Acciones del perfil",
     "dislikeLabel": "No me gusta",

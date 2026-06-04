@@ -14,6 +14,9 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+const toObjectIdOrNull = (id) =>
+  id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -161,6 +164,17 @@ const getFeed = async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("[Feed API] Fetching feed data...");
+
+    const authenticatedUserId = toObjectIdOrNull(req.userId);
+    const recommendedProfilesMatch = {
+      role: "user", // Excludes creators and all staff roles
+      isBlocked: false,
+      isSuspended: false,
+      onboardingComplete: true
+    };
+    if (authenticatedUserId) {
+      recommendedProfilesMatch._id = { $ne: authenticatedUserId };
+    }
     
     // Run all queries in parallel for better performance
     const [allLives, recommendedProfiles, featuredCreators] = await Promise.all([
@@ -178,12 +192,7 @@ const getFeed = async (req, res) => {
       // Add randomization for variety
       User.aggregate([
         {
-          $match: {
-            role: "user", // Excludes creators and all staff roles
-            isBlocked: false,
-            isSuspended: false,
-            onboardingComplete: true
-          }
+          $match: recommendedProfilesMatch
         },
         { $sample: { size: 12 } }, // Randomize selection
         {

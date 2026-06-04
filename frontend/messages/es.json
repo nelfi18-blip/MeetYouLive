@@ -146,6 +146,8 @@
     "serverError": "Error del servidor. Por favor, intenta de nuevo.",
     "sessionExpired": "Sesión expirada. Por favor, inicia sesión de nuevo.",
     "likeError": "No pudimos registrar tu me gusta. Intenta de nuevo.",
+    "passError": "No pudimos registrar tu no me gusta. Intenta de nuevo.",
+    "pendingAction": "Registrando...",
     "loadingLabel": "Cargando tu feed...",
     "recommendedProfilesAria": "Perfiles recomendados",
     "actionDockAria": "Acciones del perfil",

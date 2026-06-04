@@ -1733,6 +1733,19 @@ main.main-content:has(.admin-shell) {
   gap: 4px;
 }
 
+.swipe-card-action-status {
+  margin-top: 8px;
+  min-height: 18px;
+  color: #f8d7ff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.swipe-card-action-status--error {
+  color: #ffb4c6;
+}
+
 .swipe-card-info-btn {
   position: absolute;
   top: 20px;

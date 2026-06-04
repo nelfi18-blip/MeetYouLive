@@ -27,7 +27,6 @@ const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
 const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
-const EMPTY_CACHED_FEED = { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -62,7 +61,7 @@ function debugFeed(message, details = {}) {
 }
 
 function getEmptyCachedFeed() {
-  return EMPTY_CACHED_FEED;
+  return { profiles: [], currentIndex: 0, currentProfileId: "", hasCache: false };
 }
 
 function readCachedFeed() {
@@ -95,7 +94,7 @@ function readCachedFeed() {
       : -1;
     const currentIndex = currentProfileIndex >= 0
       ? currentProfileIndex
-      : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length - 1);
+      : Math.min(Math.max(cachedIndex, 0), Math.max(cachedProfiles.length - 1, 0));
     const currentProfileId = cachedCurrentProfileId || getCurrentProfileId(cachedProfiles, currentIndex);
     debugFeed("sessionStorage cache accepted", {
       key: FEED_CACHE_KEY,

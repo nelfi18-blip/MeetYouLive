@@ -309,7 +309,10 @@ export default function FeedPage() {
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
-    currentProfileIdRef.current = getCurrentProfileId(profiles, currentIndex);
+    const currentProfileId = getCurrentProfileId(profiles, currentIndex);
+    if (currentProfileId || profiles.length) {
+      currentProfileIdRef.current = currentProfileId;
+    }
   }, [currentIndex, profiles]);
 
   useEffect(() => {

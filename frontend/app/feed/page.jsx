@@ -9,10 +9,11 @@ import { getToken, setToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const FEED_TIMEOUT_MS = 15000;
-const TOKEN_TIMEOUT_MS = 22000;
+const TOKEN_TIMEOUT_MS = 12000;
 const PASS_LOCK_MS = 260;
 
-const pickFirst = (...values) => values.find((value) => typeof value === "string" && value.trim());
+const findFirstNonEmptyString = (...values) =>
+  values.find((value) => typeof value === "string" && value.trim());
 
 function normalizeImageUrl(value) {
   if (!value || typeof value !== "string") return "";
@@ -34,7 +35,7 @@ function getProfileImage(profile) {
 }
 
 function getProfileName(profile) {
-  return pickFirst(profile?.displayName, profile?.name, profile?.username, profile?.email) || "MeetYouLive";
+  return findFirstNonEmptyString(profile?.displayName, profile?.name, profile?.username, profile?.email) || "MeetYouLive";
 }
 
 function getProfileAge(profile) {
@@ -401,7 +402,11 @@ export default function FeedPage() {
 function FeedState({ title, message, onRetry }) {
   return (
     <div className="feed-state" role="status" aria-live="polite">
-      <div className="feed-state-mark" aria-hidden="true">♥</div>
+      <div className="feed-state-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+        </svg>
+      </div>
       <h1>{title}</h1>
       <p>{message}</p>
       {onRetry && (
@@ -433,8 +438,13 @@ function FeedState({ title, message, onRetry }) {
           border-radius: 50%;
           background: linear-gradient(135deg, #ff4fa3, #8b5cf6);
           color: #fff;
-          font-size: 2rem;
           box-shadow: 0 18px 44px rgba(224, 64, 251, 0.32);
+        }
+
+        .feed-state-mark svg {
+          width: 34px;
+          height: 34px;
+          fill: currentColor;
         }
 
         .feed-state h1 {
@@ -470,8 +480,9 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
   const image = getProfileImage(profile);
   const name = getProfileName(profile);
   const age = getProfileAge(profile);
-  const location = pickFirst(profile?.location, profile?.city, profile?.country);
+  const location = findFirstNonEmptyString(profile?.location, profile?.city, profile?.country);
   const interests = getProfileInterests(profile);
+  const fallbackInitial = name.trim()[0]?.toUpperCase() || "M";
 
   return (
     <>
@@ -480,7 +491,7 @@ function ProfileCard({ profile, disabled, error, labels, onPass, onLike }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt={name} draggable="false" />
         ) : (
-          <div className="profile-photo-fallback" aria-hidden="true">{(name.charAt(0) || "M").toUpperCase()}</div>
+          <div className="profile-photo-fallback" aria-hidden="true">{fallbackInitial}</div>
         )}
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserImage, getDisplayName, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getUserImage, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -30,8 +30,8 @@ export default function SwipeCard({
   pending = false,
   error = null,
   pendingLabel = "",
-  bioMoreLabel = "Ver más",
-  bioLessLabel = "Ver menos",
+  bioMoreLabel = "See more",
+  bioLessLabel = "See less",
 }) {
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
@@ -124,13 +124,7 @@ export default function SwipeCard({
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
-  const rawBio = [
-    profile.bio,
-    profile.description,
-    profile.about,
-    profile.creatorProfile?.bio,
-  ].find((value) => typeof value === "string" && value.trim());
-  const bio = rawBio ? rawBio.trim() : "";
+  const bio = getBioText(profile);
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.

@@ -37,7 +37,13 @@ const getRequestOrigin = (req) => {
 const getFeedImageValue = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
-  return value.url || value.secure_url || value.src || value.path || "";
+  return (
+    value.secure_url || // Cloudinary and similar hosted image providers.
+    value.url || // Generic persisted URL objects.
+    value.src || // Browser/file preview objects.
+    value.path || // Local upload metadata stored with a path.
+    ""
+  );
 };
 
 const normalizeFeedImageUrl = (req, value) => {
@@ -71,7 +77,7 @@ const normalizeFeedImageUrl = (req, value) => {
     return `https:${trimmed}`;
   }
 
-  if (/^\/?uploads\//i.test(trimmed)) {
+  if (/^\/?uploads\//.test(trimmed)) {
     const uploadPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
     return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }

@@ -33,13 +33,13 @@ export function normalizeImageUrl(value) {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
   const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
-  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
-  const relativePath = normalizedPath.replace(/^\/+/, "");
 
   if (trimmed.startsWith("/")) {
+    const relativePath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/").replace(/^\/+/, "");
     return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
   }
 
+  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
   if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
     return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
   }

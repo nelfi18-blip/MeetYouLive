@@ -566,7 +566,7 @@ export default function FeedPage() {
       const visibleProfiles = previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)
         ? [previousCurrentProfile, ...uniqueProfiles]
         : uniqueProfiles;
-      const nextProfileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
+      const nextProfileIds = new Set(visibleProfiles.map(getProfileId).filter(Boolean));
 
       debugFeed("profiles received", {
         currentIndexBefore: indexBeforeRefresh,

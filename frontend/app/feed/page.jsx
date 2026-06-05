@@ -559,18 +559,26 @@ export default function FeedPage() {
       const uniqueProfiles = Array.from(
         new Map(profileEntries).values()
       );
-      const nextProfileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
+      const profileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
+      const previousCurrentProfile = profileIdBeforeRefresh
+        ? profilesBeforeRefresh.find((profile) => getProfileId(profile) === profileIdBeforeRefresh)
+        : null;
+      const visibleProfiles = previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)
+        ? [previousCurrentProfile, ...uniqueProfiles]
+        : uniqueProfiles;
+      const nextProfileIds = new Set(visibleProfiles.map(getProfileId).filter(Boolean));
 
       debugFeed("profiles received", {
         currentIndexBefore: indexBeforeRefresh,
         currentProfileIdBefore: profileIdBeforeRefresh,
-        ...summarizeProfiles(uniqueProfiles),
+        preservedCachedProfile: Boolean(previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)),
+        ...summarizeProfiles(visibleProfiles),
       });
 
       let nextIndex = 0;
       // Refreshes and retries restore by visible profile id; only real user actions advance.
       if (profileIdBeforeRefresh) {
-        const matchingIndex = uniqueProfiles.findIndex(
+        const matchingIndex = visibleProfiles.findIndex(
           (profile) => getProfileId(profile) === profileIdBeforeRefresh
         );
         if (matchingIndex >= 0) {
@@ -583,10 +591,10 @@ export default function FeedPage() {
         currentIndexBefore: indexBeforeRefresh,
         currentProfileIdBefore: profileIdBeforeRefresh,
         currentIndexAfter: nextIndex,
-        currentProfileIdAfter: getCurrentProfileId(uniqueProfiles, nextIndex),
+        currentProfileIdAfter: getCurrentProfileId(visibleProfiles, nextIndex),
         preservedCurrentProfile: Boolean(
           profileIdBeforeRefresh &&
-            getCurrentProfileId(uniqueProfiles, nextIndex) === profileIdBeforeRefresh
+            getCurrentProfileId(visibleProfiles, nextIndex) === profileIdBeforeRefresh
         ),
       });
 
@@ -601,10 +609,10 @@ export default function FeedPage() {
       }
 
       currentIndexRef.current = nextIndex;
-      currentProfileIdRef.current = getCurrentProfileId(uniqueProfiles, nextIndex);
-      profilesRef.current = uniqueProfiles;
+      currentProfileIdRef.current = getCurrentProfileId(visibleProfiles, nextIndex);
+      profilesRef.current = visibleProfiles;
       setCurrentIndex(nextIndex);
-      setProfiles(uniqueProfiles);
+      setProfiles(visibleProfiles);
       // Refresh can remove the profile that was available to undo, so clear it
       // instead of restoring an action for a profile no longer in this deck.
       setLastAction((action) => {
@@ -613,7 +621,7 @@ export default function FeedPage() {
       });
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);
-      writeCachedFeed(uniqueProfiles, nextIndex);
+      writeCachedFeed(visibleProfiles, nextIndex);
       setError(null);
     } catch (err) {
       if (signal?.aborted) return;
@@ -1064,7 +1072,7 @@ export default function FeedPage() {
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
-          --feed-info-panel-height: clamp(214px, 34%, 260px);
+          --feed-info-panel-height: clamp(238px, 38%, 292px);
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -1192,7 +1200,7 @@ export default function FeedPage() {
           box-sizing: border-box;
           min-height: 0;
           height: var(--feed-info-panel-height);
-          padding: clamp(0.85rem, 3vw, 1.05rem) clamp(0.95rem, 3.6vw, 1.2rem) clamp(4.35rem, calc(var(--feed-stable-viewport-height) * 0.1), 5.55rem);
+          padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
             linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
@@ -1231,12 +1239,17 @@ export default function FeedPage() {
         :global(.feed-swipe-deck .swipe-card-bio) {
           font-size: clamp(0.78rem, 3.1vw, 0.9rem);
           line-height: 1.32;
+          -webkit-line-clamp: 3;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-bio--expanded) {
+          -webkit-line-clamp: 5;
         }
 
         .feed-action-dock {
           position: absolute;
           left: 50%;
-          bottom: clamp(12px, calc(var(--feed-stable-viewport-height) * 0.026), 22px);
+          bottom: clamp(8px, calc(var(--feed-stable-viewport-height) * 0.02), 18px);
           z-index: 70;
           display: grid;
           grid-template-columns: 1fr auto 1fr;
@@ -1255,8 +1268,8 @@ export default function FeedPage() {
           justify-content: center;
           gap: 0.25rem;
           min-width: 0;
-          min-height: 58px;
-          padding: 0.48rem 0.64rem;
+          min-height: 52px;
+          padding: 0.42rem 0.58rem;
           border: 1px solid rgba(255, 255, 255, 0.16);
           border-radius: 999px;
           color: #fff;
@@ -1286,8 +1299,8 @@ export default function FeedPage() {
         }
 
         .feed-action-btn--undo {
-          width: clamp(58px, 15.5vw, 68px);
-          height: clamp(58px, 15.5vw, 68px);
+          width: clamp(52px, 14vw, 62px);
+          height: clamp(52px, 14vw, 62px);
           min-height: 0;
           padding: 0;
           background: linear-gradient(135deg, #22d3ee, #8b5cf6);

@@ -552,11 +552,12 @@ export default function FeedPage() {
         const syncedProfiles = mergeProfilesPreservingDeck(profilesBeforeRefresh, visibleProfiles);
         const normalizedIndex = Math.max(indexBeforeRefresh, 0);
         const hasProfileAtIndex = normalizedIndex < syncedProfiles.length;
-        const preservedIndex = hasProfileAtIndex ? normalizedIndex : syncedProfiles.length;
-        const preservedProfileId =
-          hasProfileAtIndex
-            ? getCurrentProfileId(syncedProfiles, normalizedIndex)
-            : "";
+        if (!hasProfileAtIndex) {
+          setError(null);
+          return;
+        }
+        const preservedIndex = normalizedIndex;
+        const preservedProfileId = getCurrentProfileId(syncedProfiles, preservedIndex);
         currentIndexRef.current = preservedIndex;
         currentProfileIdRef.current = preservedProfileId;
         profilesRef.current = syncedProfiles;

@@ -18,18 +18,31 @@ export function normalizeImageUrl(value) {
   const trimmed = typeof raw === 'string' ? raw.trim() : "";
 
   if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
   const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
   if (trimmed.startsWith("/")) {
-    return apiOrigin ? `${apiOrigin}${trimmed}` : trimmed;
+    const withoutApiPrefix = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
+    const relativePath = withoutApiPrefix.startsWith("/") ? withoutApiPrefix.slice(1) : withoutApiPrefix;
+    return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
   }
 
-  if (/^(uploads|images|media|avatars|profile-photos)\//i.test(trimmed)) {
-    return apiOrigin ? `${apiOrigin}/${trimmed}` : `/${trimmed}`;
+  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
+  if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
+    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
   }
 
   return null;
@@ -119,6 +132,25 @@ export function getDisplayName(user) {
   
   // Fallback
   return "Usuario";
+}
+
+/**
+ * Get the first available profile biography/description text.
+ *
+ * @param {Object} user - User/profile object with bio fields
+ * @returns {string} - Trimmed bio text or empty string
+ */
+export function getBioText(user) {
+  if (!user) return "";
+
+  const rawBio = [
+    user.bio,
+    user.description,
+    user.about,
+    user.creatorProfile?.bio,
+  ].find((value) => typeof value === "string" && value.trim());
+
+  return rawBio ? rawBio.trim() : "";
 }
 
 /**

@@ -14,6 +14,9 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
+const toObjectIdOrNull = (id) =>
+  id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -27,15 +30,35 @@ const getRequestOrigin = (req) => {
   return host ? `${protocol}://${host}` : "";
 };
 
+/**
+ * Accept image fields stored as strings or common upload/provider objects.
+ * Supports raw URL strings, Cloudinary-style url/secure_url, and file src/path values.
+ */
+const getFeedImageValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return (
+    value.secure_url || // Cloudinary and similar hosted image providers.
+    value.url || // Generic persisted URL objects.
+    value.src || // Browser/file preview objects.
+    value.path || // Local upload metadata stored with a path.
+    ""
+  );
+};
+
 const normalizeFeedImageUrl = (req, value) => {
-  if (typeof value !== "string") return "";
-  const trimmed = value.trim();
+  const rawValue = getFeedImageValue(value);
+  if (typeof rawValue !== "string") return "";
+  const trimmed = rawValue.trim();
   if (!trimmed) return "";
 
   const requestOrigin = getRequestOrigin(req);
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
         if (
@@ -57,8 +80,12 @@ const normalizeFeedImageUrl = (req, value) => {
     return `https:${trimmed}`;
   }
 
-  if (trimmed.startsWith("/uploads/")) {
-    return requestOrigin ? `${requestOrigin}${trimmed}` : trimmed;
+  const normalizedPath = trimmed
+    .replace(/^\/?api\/uploads\//i, "uploads/")
+    .replace(/^\/?uploads\//i, "uploads/");
+  if (/^uploads\//.test(normalizedPath)) {
+    const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
+    return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }
 
   return "";
@@ -68,8 +95,11 @@ const serializeFeedImageFields = (req, item) => {
   if (!item || typeof item !== "object") return item;
 
   const rawPhotos = [
+    item.avatar,
     ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
     ...(Array.isArray(item.photos) ? item.photos : []),
+    item.profileImage,
+    item.photo,
   ];
   const normalizedPhotos = [];
   const seenPhotos = new Set();
@@ -161,6 +191,17 @@ const getFeed = async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("[Feed API] Fetching feed data...");
+
+    const authenticatedUserId = toObjectIdOrNull(req.userId);
+    const recommendedProfilesMatch = {
+      role: "user", // Excludes creators and all staff roles
+      isBlocked: false,
+      isSuspended: false,
+      onboardingComplete: true
+    };
+    if (authenticatedUserId) {
+      recommendedProfilesMatch._id = { $ne: authenticatedUserId };
+    }
     
     // Run all queries in parallel for better performance
     const [allLives, recommendedProfiles, featuredCreators] = await Promise.all([
@@ -178,12 +219,7 @@ const getFeed = async (req, res) => {
       // Add randomization for variety
       User.aggregate([
         {
-          $match: {
-            role: "user", // Excludes creators and all staff roles
-            isBlocked: false,
-            isSuspended: false,
-            onboardingComplete: true
-          }
+          $match: recommendedProfilesMatch
         },
         { $sample: { size: 12 } }, // Randomize selection
         {
@@ -191,6 +227,9 @@ const getFeed = async (req, res) => {
             name: 1,
             avatar: 1,
             profilePhotos: 1,
+            photos: 1,
+            profileImage: 1,
+            photo: 1,
             location: 1,
             bio: 1,
             tags: 1,

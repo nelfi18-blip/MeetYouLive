@@ -25,8 +25,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
-const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG !== "false";
+const FEED_DEBUG_ENABLED = false;
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -53,12 +52,33 @@ function getCurrentProfileId(profiles, currentIndex) {
   return getProfileId(profiles[currentIndex]);
 }
 
-function debugFeed(message, details = {}) {
-  if (!FEED_DEBUG_ENABLED) return;
-  try {
-    console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
-  } catch {}
+function mergeProfilesPreservingDeck(cachedProfiles, refreshedProfiles) {
+  if (!cachedProfiles.length) return refreshedProfiles;
+
+  const refreshedById = new Map(
+    refreshedProfiles
+      .map((profile) => [getProfileId(profile), profile])
+      .filter(([profileId]) => Boolean(profileId))
+  );
+  const seenProfileIds = new Set();
+  const mergedProfiles = cachedProfiles.map((profile) => {
+    const profileId = getProfileId(profile);
+    if (!profileId) return profile;
+    seenProfileIds.add(profileId);
+    return refreshedById.get(profileId) || profile;
+  });
+
+  refreshedProfiles.forEach((profile) => {
+    const profileId = getProfileId(profile);
+    if (!profileId || seenProfileIds.has(profileId)) return;
+    seenProfileIds.add(profileId);
+    mergedProfiles.push(profile);
+  });
+
+  return mergedProfiles;
 }
+
+function debugFeed() {}
 
 function getViewportDebugSnapshot() {
   if (typeof window === "undefined") return {};
@@ -735,6 +755,26 @@ export default function FeedPage() {
           mutationVersionNow: feedMutationVersionRef.current,
           currentProfileIdBefore: profileIdBeforeRefresh,
         });
+        return;
+      }
+
+      if (silent && hasVisualCacheRef.current && profilesBeforeRefresh.length) {
+        const syncedProfiles = mergeProfilesPreservingDeck(profilesBeforeRefresh, visibleProfiles);
+        const preservedIndex = Math.min(
+          Math.max(indexBeforeRefresh, 0),
+          syncedProfiles.length
+        );
+        const preservedProfileId = getCurrentProfileId(syncedProfiles, preservedIndex);
+        currentIndexRef.current = preservedIndex;
+        currentProfileIdRef.current = preservedProfileId;
+        profilesRef.current = syncedProfiles;
+        setProfiles(syncedProfiles);
+        setLastAction((action) => {
+          if (!action?.profileId) return null;
+          return nextProfileIds.has(action.profileId) ? action : null;
+        });
+        writeCachedFeed(syncedProfiles, preservedIndex);
+        setError(null);
         return;
       }
 

@@ -1,62 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-const FEED_LOADING_DEBUG_PREFIX = "[feed-loading-debug]";
-const FEED_LOADING_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG !== "false";
-
-function getLoadingViewportDebugSnapshot() {
-  if (typeof window === "undefined") return {};
-
-  const visualViewport = window.visualViewport;
-  return {
-    viewport: {
-      innerWidth: window.innerWidth,
-      innerHeight: window.innerHeight,
-      visualWidth: visualViewport ? Math.round(visualViewport.width) : null,
-      visualHeight: visualViewport ? Math.round(visualViewport.height) : null,
-      visualScale: visualViewport ? visualViewport.scale : null,
-      documentWidth: document.documentElement?.clientWidth || null,
-      documentHeight: document.documentElement?.clientHeight || null,
-      bodyWidth: document.body?.clientWidth || null,
-      bodyHeight: document.body?.clientHeight || null,
-    },
-  };
-}
-
-function getLoadingElementMetrics(element) {
-  if (!element) return null;
-  const rect = element.getBoundingClientRect();
-  return {
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-    top: Math.round(rect.top),
-    left: Math.round(rect.left),
-    className: element.className || "",
-  };
-}
-
-function debugFeedLoading(message, details = {}) {
-  if (!FEED_LOADING_DEBUG_ENABLED) return;
-  try {
-    console.info(`${FEED_LOADING_DEBUG_PREFIX} ${message}`, details);
-  } catch {}
-}
 
 export default function FeedLoading() {
   const { t } = useLanguage();
-
-  useEffect(() => {
-    if (!FEED_LOADING_DEBUG_ENABLED) return;
-    const page = document.querySelector(".feed-page--initial-loading");
-    const deck = page?.querySelector(".feed-swipe-deck");
-    debugFeedLoading("initial loading shell mounted", {
-      ...getLoadingViewportDebugSnapshot(),
-      page: getLoadingElementMetrics(page),
-      deck: getLoadingElementMetrics(deck),
-    });
-  }, []);
 
   return (
     <div className="feed-page feed-page--initial-loading">

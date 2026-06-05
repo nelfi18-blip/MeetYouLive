@@ -11,6 +11,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const PAID_CREATOR_ROLES = new Set(["creator", "subCreator"]);
 const MAX_DISPLAYED_INTERESTS = 8;
 
+function toSafeText(value) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
+  return "";
+}
+
 function isPaidCreatorCallProfile(profile) {
   return PAID_CREATOR_ROLES.has(profile?.role);
 }
@@ -23,6 +29,16 @@ function getProfilePhotos(profile) {
     profile.avatar,
     profile.profileImage,
     profile.photo,
+    profile.image,
+    profile.imageUrl,
+    profile.photoURL,
+    profile.photoUrl,
+    profile.picture,
+    profile.creatorProfile?.avatar,
+    profile.creatorProfile?.profileImage,
+    profile.creatorProfile?.photo,
+    ...(Array.isArray(profile.creatorProfile?.profilePhotos) ? profile.creatorProfile.profilePhotos : []),
+    ...(Array.isArray(profile.creatorProfile?.photos) ? profile.creatorProfile.photos : []),
     getUserImage(profile),
   ];
   return Array.from(new Set(rawPhotos.map(normalizeImageUrl).filter(Boolean)));
@@ -68,6 +84,9 @@ export default function PublicProfilePage() {
         return response.json();
       })
       .then((data) => {
+        if (!data || typeof data !== "object") {
+          throw new Error(t("publicProfile.loadError"));
+        }
         setProfile(data);
         setBrokenPhotos(new Set());
       })
@@ -87,8 +106,13 @@ export default function PublicProfilePage() {
   );
   const mainPhoto = photos[0] || null;
   const displayName = getDisplayName(profile);
-  const username = profile?.username ? `@${profile.username}` : "";
-  const interests = Array.isArray(profile?.interests) ? profile.interests : [];
+  const usernameText = toSafeText(profile?.username);
+  const username = usernameText ? `@${usernameText}` : "";
+  const location = toSafeText(profile?.location);
+  const bio = toSafeText(profile?.bio);
+  const interests = Array.isArray(profile?.interests)
+    ? profile.interests.map(toSafeText).filter(Boolean)
+    : [];
   const isLive = profile?.isLive && profile?.liveId;
 
   const handleLike = async () => {
@@ -242,10 +266,10 @@ export default function PublicProfilePage() {
             <div className="profile-heading">
               <h1>{displayName}</h1>
               {username && <p>{username}</p>}
-              {profile.location && <span>{profile.location}</span>}
+              {location && <span>{location}</span>}
             </div>
 
-            {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+            {bio && <p className="profile-bio">{bio}</p>}
 
             {interests.length > 0 && (
               <div className="profile-tags">

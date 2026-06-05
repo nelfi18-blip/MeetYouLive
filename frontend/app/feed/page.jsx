@@ -33,6 +33,19 @@ function getProfileId(profile) {
   return profileId ? String(profileId) : "";
 }
 
+function isProfileObject(profile) {
+  return profile && typeof profile === "object" && Boolean(getProfileId(profile));
+}
+
+function sanitizeProfileList(value, currentUserId = "") {
+  if (!Array.isArray(value)) return [];
+  const entries = value
+    .filter(isProfileObject)
+    .filter((profile) => isRecommendedProfile(profile, currentUserId))
+    .map((profile) => [getProfileId(profile), profile]);
+  return Array.from(new Map(entries).values());
+}
+
 function getNullableIdString(id) {
   return id == null ? "" : String(id);
 }
@@ -43,6 +56,7 @@ function isRecommendedProfile(profile, currentUserId) {
 }
 
 function summarizeProfiles(profiles) {
+  if (!Array.isArray(profiles)) return { count: 0, ids: [] };
   return {
     count: profiles.length,
     ids: profiles.map(getProfileId).filter(Boolean),
@@ -73,7 +87,7 @@ function readCachedFeed() {
     if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
-    const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
+    const cachedProfiles = sanitizeProfileList(parsed?.profiles);
     const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
     const cachedCurrentProfileId = getNullableIdString(parsed?.currentProfileId);
     const timestamp = Number(parsed?.timestamp) || 0;
@@ -553,12 +567,7 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       const currentUserId = currentUserIdRef.current;
-      const profileEntries = (data?.recommendedProfiles || [])
-        .filter((profile) => isRecommendedProfile(profile, currentUserId))
-        .map((profile) => [getProfileId(profile), profile]);
-      const uniqueProfiles = Array.from(
-        new Map(profileEntries).values()
-      );
+      const uniqueProfiles = sanitizeProfileList(data?.recommendedProfiles, currentUserId);
       const profileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
       const previousCurrentProfile = profileIdBeforeRefresh
         ? profilesBeforeRefresh.find((profile) => getProfileId(profile) === profileIdBeforeRefresh)
@@ -939,6 +948,7 @@ export default function FeedPage() {
     });
   }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
 
+  if (!isProfileObject(profile)) return null;
   return (
     <div className="feed-page">
       {/* 1. APPROVED BRAND HEADER */}

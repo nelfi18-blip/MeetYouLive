@@ -44,6 +44,8 @@ export default function SwipeCard({
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
+  const safeProfile = profile && typeof profile === "object" ? profile : {};
+  const profileId = safeProfile?._id || safeProfile?.id ? String(safeProfile._id || safeProfile.id) : "";
   
   const likeOpacity = useTransform(x, [0, 100], [0, 1]);
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
@@ -56,7 +58,7 @@ export default function SwipeCard({
     setCurrentPhotoIndex(0);
     setBrokenPhotoUrls(new Set());
     setIsBioExpanded(false);
-  }, [profile?._id]);
+  }, [profileId]);
 
   useEffect(() => {
     return () => {
@@ -67,12 +69,12 @@ export default function SwipeCard({
   }, []);
 
   const completeSwipe = useCallback(async (direction, { force = false } = {}) => {
-    if (!isActive || hasSwiped || (!force && disabled) || isSubmitting) return;
+    if (!isActive || hasSwiped || (!force && disabled) || isSubmitting || !profileId) return;
 
     setIsSubmitting(true);
     let shouldExit = true;
     try {
-      shouldExit = (await onSwipe?.(profile._id, direction)) !== false;
+      shouldExit = (await onSwipe?.(profileId, direction)) !== false;
     } catch {
       shouldExit = false;
     } finally {
@@ -91,13 +93,13 @@ export default function SwipeCard({
     }
 
     swipeTimeoutRef.current = setTimeout(() => {
-      onExitComplete?.(profile._id, direction);
+      onExitComplete?.(profileId, direction);
     }, SWIPE_EXIT_DELAY_MS);
-  }, [disabled, hasSwiped, isActive, isSubmitting, onExitComplete, onSwipe, profile._id]);
+  }, [disabled, hasSwiped, isActive, isSubmitting, onExitComplete, onSwipe, profileId]);
 
   useEffect(() => {
     const actionProfileId = actionSignal?.profileId ? String(actionSignal.profileId) : "";
-    const currentProfileId = profile?._id ? String(profile._id) : "";
+    const currentProfileId = profileId;
     if (
       !isActive ||
       !actionSignal?.id ||
@@ -108,7 +110,7 @@ export default function SwipeCard({
       return;
     }
     completeSwipe(actionSignal.direction, { force: true });
-  }, [actionSignal, completeSwipe, isActive, profile?._id]);
+  }, [actionSignal, completeSwipe, isActive, profileId]);
 
   const handleDragEnd = (event, info) => {
     if (!isActive || hasSwiped || disabled || isSubmitting) return;
@@ -118,21 +120,20 @@ export default function SwipeCard({
     }
   };
 
-  const userImage = getUserImage(profile);
-  const displayName = getDisplayName(profile);
-  const profileId = profile?._id ? String(profile._id) : "";
-  const age = profile.age || "";
-  const location = profile.location || "";
-  const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
-  const bio = getBioText(profile);
+  const userImage = getUserImage(safeProfile);
+  const displayName = getDisplayName(safeProfile);
+  const age = safeProfile.age || "";
+  const location = safeProfile.location || "";
+  const distance = safeProfile.distance ? `${Math.round(safeProfile.distance)}km away` : "";
+  const bio = getBioText(safeProfile);
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
   const rawPhotos = [
-    ...(Array.isArray(profile.photos) ? profile.photos : []),
-    ...(Array.isArray(profile.profilePhotos) ? profile.profilePhotos : []),
-    profile.profileImage,
-    profile.photo,
+    ...(Array.isArray(safeProfile.photos) ? safeProfile.photos : []),
+    ...(Array.isArray(safeProfile.profilePhotos) ? safeProfile.profilePhotos : []),
+    safeProfile.profileImage,
+    safeProfile.photo,
     userImage,
   ];
   const photos = Array.from(new Set(rawPhotos.map(normalizeImageUrl).filter(Boolean)))
@@ -140,12 +141,16 @@ export default function SwipeCard({
   const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
   
   // Online status
-  const isOnline = profile.isOnline || profile.lastSeen;
-  const recentlyActive = profile.lastSeen && 
-    (Date.now() - new Date(profile.lastSeen).getTime()) < 5 * 60 * 1000; // 5 mins
+  const isOnline = safeProfile.isOnline || safeProfile.lastSeen;
+  const recentlyActive = safeProfile.lastSeen && 
+    (Date.now() - new Date(safeProfile.lastSeen).getTime()) < 5 * 60 * 1000; // 5 mins
   
   // Interests/hobbies
-  const interests = profile.interests || profile.tags || [];
+  const interests = Array.isArray(safeProfile.interests)
+    ? safeProfile.interests
+    : Array.isArray(safeProfile.tags)
+    ? safeProfile.tags
+    : [];
   
   const handlePhotoClick = (e) => {
     e.preventDefault();
@@ -282,7 +287,7 @@ export default function SwipeCard({
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
               {displayName}
-              {profile.isVerified && (
+              {safeProfile.isVerified && (
                 <span className="swipe-card-verified" title="Verified">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>

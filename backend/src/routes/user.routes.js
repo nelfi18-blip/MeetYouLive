@@ -64,27 +64,68 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
   if (/^https?:\/\//i.test(relativePath)) return relativePath;
   const host = req.get("host");
   if (!host) return relativePath;
-  return `${req.protocol}://${host}${relativePath}`;
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProto || req.protocol || "https";
+  return `${protocol}://${host}${relativePath}`;
 };
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 
+const getPhotoValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return value.secure_url || value.url || value.src || value.path || "";
+};
+
 const sanitizePhotoUrl = (req, value) => {
-  if (typeof value !== "string") return "";
-  const trimmed = value.trim();
+  const rawValue = getPhotoValue(value);
+  if (typeof rawValue !== "string") return "";
+  const trimmed = rawValue.trim();
   if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.protocol === "http:" && /(^|\.)meetyoulive\.net$/i.test(url.hostname)) {
+        url.protocol = "https:";
+      }
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
   if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed)) return toAbsoluteUploadUrl(req, trimmed);
+  if (/^\/?api\/uploads\/[a-zA-Z0-9._-]+$/i.test(trimmed)) {
+    return toAbsoluteUploadUrl(req, trimmed.replace(/^\/?api\/uploads\//i, "/uploads/"));
+  }
   return "";
 };
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
+  const extraPhotos = [
+    currentUser?.profileImage,
+    currentUser?.photo,
+    currentUser?.image,
+    currentUser?.imageUrl,
+    currentUser?.photoURL,
+    currentUser?.photoUrl,
+    currentUser?.picture,
+    ...(Array.isArray(currentUser?.photos) ? currentUser.photos : []),
+    currentUser?.creatorProfile?.avatar,
+    currentUser?.creatorProfile?.profileImage,
+    currentUser?.creatorProfile?.photo,
+    ...(Array.isArray(currentUser?.creatorProfile?.photos) ? currentUser.creatorProfile.photos : []),
+    ...(Array.isArray(currentUser?.creatorProfile?.profilePhotos) ? currentUser.creatorProfile.profilePhotos : []),
+  ];
   const basePhotos = Array.isArray(profilePhotosInput)
-    ? profilePhotosInput
+    ? [...profilePhotosInput, ...extraPhotos]
     : Array.isArray(currentUser?.profilePhotos)
-    ? currentUser.profilePhotos
-    : [];
+    ? [...currentUser.profilePhotos, ...extraPhotos]
+    : extraPhotos;
 
   const normalizedPhotos = [];
   for (const value of basePhotos) {
@@ -118,7 +159,14 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
 
 const serializeUserPhotoFields = (req, userLike) => {
   const { avatar, profilePhotos } = normalizeProfilePhotos(req, userLike?.profilePhotos, userLike?.avatar, userLike);
-  return { avatar, profilePhotos, maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS };
+  return {
+    avatar,
+    profileImage: avatar,
+    photo: avatar,
+    photos: profilePhotos,
+    profilePhotos,
+    maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS,
+  };
 };
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
@@ -135,12 +183,15 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
       role: { $nin: ["admin", "moderator"] },
       isBlocked: { $ne: true },
       isSuspended: { $ne: true },
-    }).select("username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location");
+    }).select("username name avatar profilePhotos photos profileImage photo image imageUrl photoURL photoUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location");
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const profile = user.toObject();
     const photoFields = serializeUserPhotoFields(req, profile);
     profile.avatar = photoFields.avatar;
+    profile.profileImage = photoFields.profileImage;
+    profile.photo = photoFields.photo;
+    profile.photos = photoFields.photos;
     profile.profilePhotos = photoFields.profilePhotos;
     const activeLive = await Live.findOne({ user: user._id, isLive: true }).select("_id");
     profile.isLive = !!activeLive;

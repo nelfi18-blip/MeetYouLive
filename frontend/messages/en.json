@@ -158,6 +158,8 @@
     "undoLabel": "Undo last action",
     "undoShortLabel": "Undo",
     "undoError": "We couldn't undo your last action. Please try again.",
+    "bioMoreLabel": "See more",
+    "bioLessLabel": "See less",
     "emptyTitle": "No more profiles for now",
     "emptyDescription": "Reload to look for more people whenever you want.",
     "reloadProfiles": "Find more profiles"

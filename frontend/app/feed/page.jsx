@@ -979,6 +979,8 @@ export default function FeedPage() {
                   pending={isTopCard && swipeLocked && !activeCardError}
                   error={isTopCard ? activeCardError : null}
                   pendingLabel={t("feed.pendingAction")}
+                  bioMoreLabel={t("feed.bioMoreLabel")}
+                  bioLessLabel={t("feed.bioLessLabel")}
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,
@@ -1062,7 +1064,7 @@ export default function FeedPage() {
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
-          --feed-info-panel-height: clamp(190px, 32%, 236px);
+          --feed-info-panel-height: clamp(214px, 34%, 260px);
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -1190,20 +1192,21 @@ export default function FeedPage() {
           box-sizing: border-box;
           min-height: 0;
           height: var(--feed-info-panel-height);
-          padding: clamp(1rem, 3.5vw, 1.25rem) clamp(1rem, 4vw, 1.35rem) clamp(5rem, calc(var(--feed-stable-viewport-height) * 0.12), 6.5rem);
+          padding: clamp(0.85rem, 3vw, 1.05rem) clamp(0.95rem, 3.6vw, 1.2rem) clamp(4.35rem, calc(var(--feed-stable-viewport-height) * 0.1), 5.55rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
             linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
           border-top: 1px solid rgba(255, 255, 255, 0.08);
+          gap: clamp(0.25rem, 1.2vw, 0.45rem);
         }
 
         :global(.feed-swipe-deck .swipe-card-name) {
-          font-size: clamp(1.55rem, 7vw, 2rem);
+          font-size: clamp(1.35rem, 6vw, 1.8rem);
           line-height: 1.05;
         }
 
         :global(.feed-swipe-deck .swipe-card-age) {
-          font-size: clamp(1.25rem, 5.5vw, 1.65rem);
+          font-size: clamp(1.1rem, 4.8vw, 1.45rem);
         }
 
         :global(.feed-swipe-deck .swipe-card-location),
@@ -1211,15 +1214,34 @@ export default function FeedPage() {
           font-size: clamp(0.72rem, 3vw, 0.86rem);
         }
 
+        :global(.feed-swipe-deck .swipe-card-name-age) {
+          margin-bottom: 0;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-interests) {
+          margin-top: 0.1rem;
+          gap: 0.35rem;
+        }
+
+        :global(.feed-swipe-deck .interest-tag) {
+          padding: 0.32rem 0.62rem;
+          line-height: 1.1;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-bio) {
+          font-size: clamp(0.78rem, 3.1vw, 0.9rem);
+          line-height: 1.32;
+        }
+
         .feed-action-dock {
           position: absolute;
           left: 50%;
-          bottom: clamp(14px, calc(var(--feed-stable-viewport-height) * 0.03), 26px);
+          bottom: clamp(12px, calc(var(--feed-stable-viewport-height) * 0.026), 22px);
           z-index: 70;
           display: grid;
           grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          gap: clamp(0.65rem, 2.5vw, 1rem);
+          gap: clamp(0.5rem, 2vw, 0.85rem);
           width: min(92%, 374px);
           transform: translateX(-50%);
           pointer-events: none;
@@ -1233,8 +1255,8 @@ export default function FeedPage() {
           justify-content: center;
           gap: 0.25rem;
           min-width: 0;
-          min-height: 64px;
-          padding: 0.55rem 0.7rem;
+          min-height: 58px;
+          padding: 0.48rem 0.64rem;
           border: 1px solid rgba(255, 255, 255, 0.16);
           border-radius: 999px;
           color: #fff;
@@ -1264,8 +1286,8 @@ export default function FeedPage() {
         }
 
         .feed-action-btn--undo {
-          width: clamp(62px, 17vw, 74px);
-          height: clamp(62px, 17vw, 74px);
+          width: clamp(58px, 15.5vw, 68px);
+          height: clamp(58px, 15.5vw, 68px);
           min-height: 0;
           padding: 0;
           background: linear-gradient(135deg, #22d3ee, #8b5cf6);

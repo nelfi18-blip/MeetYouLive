@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserImage, getDisplayName, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getUserImage, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -10,6 +10,7 @@ const SUPER_LIKE_EXIT_DISTANCE_Y = 420;
 const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
+const BIO_COLLAPSED_CHAR_LIMIT = 120;
 
 function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
@@ -17,13 +18,28 @@ function getSwipeExitX(direction) {
   return 0;
 }
 
-export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIndex, isActive, actionSignal, disabled = false, pending = false, error = null, pendingLabel = "" }) {
+export default function SwipeCard({
+  profile,
+  onSwipe,
+  onExitComplete,
+  style,
+  zIndex,
+  isActive,
+  actionSignal,
+  disabled = false,
+  pending = false,
+  error = null,
+  pendingLabel = "",
+  bioMoreLabel = "See more",
+  bioLessLabel = "See less",
+}) {
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
   const [hasSwiped, setHasSwiped] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
@@ -39,6 +55,7 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
     setIsSubmitting(false);
     setCurrentPhotoIndex(0);
     setBrokenPhotoUrls(new Set());
+    setIsBioExpanded(false);
   }, [profile?._id]);
 
   useEffect(() => {
@@ -107,6 +124,8 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
+  const bio = getBioText(profile);
+  const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
   const rawPhotos = [
@@ -295,6 +314,26 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
                 </span>
               )}
             </div>
+          )}
+          {bio && (
+           <div className="swipe-card-bio-wrap">
+             <p className={`swipe-card-bio${isBioExpanded ? " swipe-card-bio--expanded" : ""}`}>
+               {bio}
+             </p>
+             {canExpandBio && (
+               <button
+                 type="button"
+                 className="swipe-card-bio-toggle"
+                 onClick={(event) => {
+                   event.preventDefault();
+                   event.stopPropagation();
+                   setIsBioExpanded((expanded) => !expanded);
+                 }}
+               >
+                 {isBioExpanded ? bioLessLabel : bioMoreLabel}
+               </button>
+             )}
+           </div>
           )}
           {(pending || error) && (
             <div className={`swipe-card-action-status${error ? " swipe-card-action-status--error" : ""}`} role={error ? "alert" : "status"} aria-live="polite">

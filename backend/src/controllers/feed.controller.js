@@ -30,9 +30,26 @@ const getRequestOrigin = (req) => {
   return host ? `${protocol}://${host}` : "";
 };
 
+/**
+ * Accept image fields stored as strings or common upload/provider objects.
+ * Supports raw URL strings, Cloudinary-style url/secure_url, and file src/path values.
+ */
+const getFeedImageValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return (
+    value.secure_url || // Cloudinary and similar hosted image providers.
+    value.url || // Generic persisted URL objects.
+    value.src || // Browser/file preview objects.
+    value.path || // Local upload metadata stored with a path.
+    ""
+  );
+};
+
 const normalizeFeedImageUrl = (req, value) => {
-  if (typeof value !== "string") return "";
-  const trimmed = value.trim();
+  const rawValue = getFeedImageValue(value);
+  if (typeof rawValue !== "string") return "";
+  const trimmed = rawValue.trim();
   if (!trimmed) return "";
 
   const requestOrigin = getRequestOrigin(req);
@@ -60,8 +77,9 @@ const normalizeFeedImageUrl = (req, value) => {
     return `https:${trimmed}`;
   }
 
-  if (trimmed.startsWith("/uploads/")) {
-    return requestOrigin ? `${requestOrigin}${trimmed}` : trimmed;
+  if (/^\/?uploads\//.test(trimmed)) {
+    const uploadPath = `/${trimmed.replace(/^\/+/, "")}`;
+    return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }
 
   return "";
@@ -73,6 +91,8 @@ const serializeFeedImageFields = (req, item) => {
   const rawPhotos = [
     ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
     ...(Array.isArray(item.photos) ? item.photos : []),
+    item.profileImage,
+    item.photo,
   ];
   const normalizedPhotos = [];
   const seenPhotos = new Set();
@@ -200,6 +220,9 @@ const getFeed = async (req, res) => {
             name: 1,
             avatar: 1,
             profilePhotos: 1,
+            photos: 1,
+            profileImage: 1,
+            photo: 1,
             location: 1,
             bio: 1,
             tags: 1,

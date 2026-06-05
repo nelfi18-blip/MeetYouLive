@@ -158,6 +158,8 @@
     "undoLabel": "Desfazer última ação",
     "undoShortLabel": "Desfazer",
     "undoError": "Não conseguimos desfazer sua última ação. Tente novamente.",
+    "bioMoreLabel": "Ver mais",
+    "bioLessLabel": "Ver menos",
     "emptyTitle": "Não há mais perfis por enquanto",
     "emptyDescription": "Recarregue para procurar mais pessoas quando quiser.",
     "reloadProfiles": "Buscar mais perfis"

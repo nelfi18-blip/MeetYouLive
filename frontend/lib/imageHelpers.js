@@ -122,6 +122,25 @@ export function getDisplayName(user) {
 }
 
 /**
+ * Get the first available profile biography/description text.
+ *
+ * @param {Object} user - User/profile object with bio fields
+ * @returns {string} - Trimmed bio text or empty string
+ */
+export function getBioText(user) {
+  if (!user) return "";
+
+  const rawBio = [
+    user.bio,
+    user.description,
+    user.about,
+    user.creatorProfile?.bio,
+  ].find((value) => typeof value === "string" && value.trim());
+
+  return rawBio ? rawBio.trim() : "";
+}
+
+/**
  * Get the first letter of a name for avatar fallbacks
  * Returns uppercase letter or "?" if no valid name
  * 

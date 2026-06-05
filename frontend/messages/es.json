@@ -158,6 +158,8 @@
     "undoLabel": "Deshacer última acción",
     "undoShortLabel": "Deshacer",
     "undoError": "No pudimos deshacer tu última acción. Intenta de nuevo.",
+    "bioMoreLabel": "Ver más",
+    "bioLessLabel": "Ver menos",
     "emptyTitle": "No hay más perfiles por ahora",
     "emptyDescription": "Vuelve a cargar para buscar más personas cuando quieras.",
     "reloadProfiles": "Buscar más perfiles"

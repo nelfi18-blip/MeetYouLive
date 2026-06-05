@@ -30,6 +30,10 @@ const getRequestOrigin = (req) => {
   return host ? `${protocol}://${host}` : "";
 };
 
+/**
+ * Accept image fields stored as strings or common upload/provider objects.
+ * Supports raw URL strings, Cloudinary-style url/secure_url, and file src/path values.
+ */
 const getFeedImageValue = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";

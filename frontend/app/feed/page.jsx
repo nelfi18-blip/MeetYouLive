@@ -979,6 +979,8 @@ export default function FeedPage() {
                   pending={isTopCard && swipeLocked && !activeCardError}
                   error={isTopCard ? activeCardError : null}
                   pendingLabel={t("feed.pendingAction")}
+                  bioMoreLabel={t("feed.bioMoreLabel")}
+                  bioLessLabel={t("feed.bioLessLabel")}
                   zIndex={30 - stackIndex}
                   style={{
                     y: stackIndex * 10,

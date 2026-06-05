@@ -18,7 +18,21 @@ function getSwipeExitX(direction) {
   return 0;
 }
 
-export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIndex, isActive, actionSignal, disabled = false, pending = false, error = null, pendingLabel = "" }) {
+export default function SwipeCard({
+  profile,
+  onSwipe,
+  onExitComplete,
+  style,
+  zIndex,
+  isActive,
+  actionSignal,
+  disabled = false,
+  pending = false,
+  error = null,
+  pendingLabel = "",
+  bioMoreLabel = "Ver más",
+  bioLessLabel = "Ver menos",
+}) {
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
   const [hasSwiped, setHasSwiped] = useState(false);
@@ -110,12 +124,13 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
-  const bio = [
+  const rawBio = [
     profile.bio,
     profile.description,
     profile.about,
     profile.creatorProfile?.bio,
-  ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  ].find((value) => typeof value === "string" && value.trim());
+  const bio = rawBio ? rawBio.trim() : "";
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
@@ -321,7 +336,7 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
                    setIsBioExpanded((expanded) => !expanded);
                  }}
                >
-                 {isBioExpanded ? "Ver menos" : "Ver más"}
+                 {isBioExpanded ? bioLessLabel : bioMoreLabel}
                </button>
              )}
            </div>

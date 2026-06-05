@@ -18,18 +18,29 @@ export function normalizeImageUrl(value) {
   const trimmed = typeof raw === 'string' ? raw.trim() : "";
 
   if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
   const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
 
   if (trimmed.startsWith("/")) {
-    return apiOrigin ? `${apiOrigin}${trimmed}` : trimmed;
+    return apiOrigin ? `${apiOrigin}/${normalizedPath.replace(/^\/+/, "")}` : `/${normalizedPath.replace(/^\/+/, "")}`;
   }
 
-  if (/^(uploads|images|media|avatars|profile-photos)\//i.test(trimmed)) {
-    return apiOrigin ? `${apiOrigin}/${trimmed}` : `/${trimmed}`;
+  if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
+    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
   }
 
   return null;

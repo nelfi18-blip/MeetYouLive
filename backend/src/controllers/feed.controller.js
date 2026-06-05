@@ -56,6 +56,9 @@ const normalizeFeedImageUrl = (req, value) => {
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
         if (
@@ -77,8 +80,14 @@ const normalizeFeedImageUrl = (req, value) => {
     return `https:${trimmed}`;
   }
 
+  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
   if (/^\/?uploads\//.test(trimmed)) {
     const uploadPath = `/${trimmed.replace(/^\/+/, "")}`;
+    return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
+  }
+
+  if (/^uploads\//i.test(normalizedPath)) {
+    const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
     return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }
 
@@ -89,6 +98,7 @@ const serializeFeedImageFields = (req, item) => {
   if (!item || typeof item !== "object") return item;
 
   const rawPhotos = [
+    item.avatar,
     ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
     ...(Array.isArray(item.photos) ? item.photos : []),
     item.profileImage,

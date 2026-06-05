@@ -920,7 +920,7 @@ export default function FeedPage() {
 
   /* --------------------------- Render --------------------------- */
   const currentProfile = profiles[currentIndex];
-  const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
+  const hasMoreProfiles = currentIndex < profiles.length && isProfileObject(currentProfile);
   const showLoadingState = !error && loading && !hasMoreProfiles;
   const showErrorState = error && !hasMoreProfiles;
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
@@ -948,7 +948,6 @@ export default function FeedPage() {
     });
   }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
 
-  if (!isProfileObject(profile)) return null;
   return (
     <div className="feed-page">
       {/* 1. APPROVED BRAND HEADER */}
@@ -984,10 +983,11 @@ export default function FeedPage() {
         ) : hasMoreProfiles ? (
           <div ref={deckRef} className="feed-swipe-deck" aria-live="polite" suppressHydrationWarning>
             {visibleProfileStack.map(({ profile, stackIndex }) => {
+              if (!isProfileObject(profile)) return null;
               const isTopCard = stackIndex === 0;
               return (
                 <SwipeCard
-                  key={profile._id}
+                  key={getProfileId(profile)}
                   profile={profile}
                   isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}

@@ -10,6 +10,7 @@ const SUPER_LIKE_EXIT_DISTANCE_Y = 420;
 const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
+const BIO_COLLAPSED_CHAR_LIMIT = 120;
 
 function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
@@ -24,6 +25,7 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
   const swipeTimeoutRef = useRef(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
@@ -39,6 +41,7 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
     setIsSubmitting(false);
     setCurrentPhotoIndex(0);
     setBrokenPhotoUrls(new Set());
+    setIsBioExpanded(false);
   }, [profile?._id]);
 
   useEffect(() => {
@@ -107,6 +110,13 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
   const age = profile.age || "";
   const location = profile.location || "";
   const distance = profile.distance ? `${Math.round(profile.distance)}km away` : "";
+  const bio = [
+    profile.bio,
+    profile.description,
+    profile.about,
+    profile.creatorProfile?.bio,
+  ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
   const rawPhotos = [
@@ -295,6 +305,26 @@ export default function SwipeCard({ profile, onSwipe, onExitComplete, style, zIn
                 </span>
               )}
             </div>
+          )}
+          {bio && (
+           <div className="swipe-card-bio-wrap">
+             <p className={`swipe-card-bio${isBioExpanded ? " swipe-card-bio--expanded" : ""}`}>
+               {bio}
+             </p>
+             {canExpandBio && (
+               <button
+                 type="button"
+                 className="swipe-card-bio-toggle"
+                 onClick={(event) => {
+                   event.preventDefault();
+                   event.stopPropagation();
+                   setIsBioExpanded((expanded) => !expanded);
+                 }}
+               >
+                 {isBioExpanded ? "Ver menos" : "Ver más"}
+               </button>
+             )}
+           </div>
           )}
           {(pending || error) && (
             <div className={`swipe-card-action-status${error ? " swipe-card-action-status--error" : ""}`} role={error ? "alert" : "status"} aria-live="polite">

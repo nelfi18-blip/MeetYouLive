@@ -47,11 +47,11 @@ function getCurrentProfileId(profiles, currentIndex) {
 function mergeProfilesPreservingDeck(cachedProfiles, refreshedProfiles) {
   if (!cachedProfiles.length) return refreshedProfiles;
 
-  const refreshedById = refreshedProfiles.reduce((profilesById, profile) => {
+  const refreshedById = new Map();
+  refreshedProfiles.forEach((profile) => {
     const profileId = getProfileId(profile);
-    if (profileId) profilesById.set(profileId, profile);
-    return profilesById;
-  }, new Map());
+    if (profileId) refreshedById.set(profileId, profile);
+  });
   const seenProfileIds = new Set();
   const mergedProfiles = cachedProfiles.map((profile) => {
     const profileId = getProfileId(profile);
@@ -550,13 +550,12 @@ export default function FeedPage() {
 
       if (silent && hasVisualCacheRef.current && profilesBeforeRefresh.length) {
         const syncedProfiles = mergeProfilesPreservingDeck(profilesBeforeRefresh, visibleProfiles);
-        const preservedIndex = Math.min(
-          Math.max(indexBeforeRefresh, 0),
-          syncedProfiles.length
-        );
+        const normalizedIndex = Math.max(indexBeforeRefresh, 0);
+        const hasProfileAtIndex = normalizedIndex < syncedProfiles.length;
+        const preservedIndex = hasProfileAtIndex ? normalizedIndex : syncedProfiles.length;
         const preservedProfileId =
-          preservedIndex < syncedProfiles.length
-            ? getCurrentProfileId(syncedProfiles, preservedIndex)
+          hasProfileAtIndex
+            ? getCurrentProfileId(syncedProfiles, normalizedIndex)
             : "";
         currentIndexRef.current = preservedIndex;
         currentProfileIdRef.current = preservedProfileId;

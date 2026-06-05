@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v30";
+const CACHE_NAME = "meetyoulive-v31";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -48,9 +48,14 @@ self.addEventListener("fetch", (event) => {
   // Skip cross-origin requests
   if (url.origin !== self.location.origin) return;
 
-  // Always serve the feed shell from the network so legacy UI is never restored
-  // from an old page cache after deploys or refreshes.
-  if (url.pathname === "/feed" || url.pathname.startsWith("/feed/")) {
+  // Always serve primary app shells from the network so legacy responsive UI is
+  // never restored from an old page cache after deploys or refreshes.
+  const NETWORK_ONLY_PAGE_ROUTES = ["/feed", "/profile", "/dashboard"];
+  if (
+    NETWORK_ONLY_PAGE_ROUTES.some(
+      (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)
+    )
+  ) {
     event.respondWith(fetch(request));
     return;
   }

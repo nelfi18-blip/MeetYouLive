@@ -35,7 +35,8 @@ export function normalizeImageUrl(value) {
   const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
   if (trimmed.startsWith("/")) {
-    const relativePath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/").replace(/^\/+/, "");
+    const withoutApiPrefix = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
+    const relativePath = withoutApiPrefix.startsWith("/") ? withoutApiPrefix.slice(1) : withoutApiPrefix;
     return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
   }
 

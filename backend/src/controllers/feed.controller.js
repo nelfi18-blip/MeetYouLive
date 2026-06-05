@@ -80,8 +80,10 @@ const normalizeFeedImageUrl = (req, value) => {
     return `https:${trimmed}`;
   }
 
-  const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
-  if (/^\/?uploads\//i.test(normalizedPath)) {
+  const normalizedPath = trimmed
+    .replace(/^\/?api\/uploads\//i, "uploads/")
+    .replace(/^\/?uploads\//i, "uploads/");
+  if (/^uploads\//.test(normalizedPath)) {
     const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
     return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }

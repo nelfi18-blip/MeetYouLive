@@ -1770,6 +1770,12 @@ main.main-content:has(.admin-shell) {
   cursor: pointer;
 }
 
+.swipe-card-bio-toggle:focus-visible {
+  outline: 2px solid rgba(240, 171, 252, 0.9);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
 .swipe-card-action-status {
   margin-top: 8px;
   min-height: 18px;

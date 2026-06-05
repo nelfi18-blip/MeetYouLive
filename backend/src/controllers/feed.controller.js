@@ -78,7 +78,7 @@ const normalizeFeedImageUrl = (req, value) => {
   }
 
   if (/^\/?uploads\//.test(trimmed)) {
-    const uploadPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    const uploadPath = `/${trimmed.replace(/^\/+/, "")}`;
     return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
   }
 

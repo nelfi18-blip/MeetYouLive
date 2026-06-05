@@ -92,9 +92,11 @@ function readCachedFeed() {
     const currentProfileIndex = cachedCurrentProfileId
       ? cachedProfiles.findIndex((profile) => getProfileId(profile) === cachedCurrentProfileId)
       : -1;
+    // Allow currentIndex === cachedProfiles.length as the exhausted-feed sentinel
+    // so refreshes do not resurrect the last already-swiped profile.
     const currentIndex = currentProfileIndex >= 0
       ? currentProfileIndex
-      : Math.min(Math.max(cachedIndex, 0), Math.max(cachedProfiles.length - 1, 0));
+      : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
     const currentProfileId = cachedCurrentProfileId || getCurrentProfileId(cachedProfiles, currentIndex);
     debugFeed("sessionStorage cache accepted", {
       key: FEED_CACHE_KEY,
@@ -223,9 +225,10 @@ const IconHeart = (props) => (
   </svg>
 );
 
-const IconStar = (props) => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-    <path d="m12 2.7 2.86 5.8 6.4.93-4.63 4.52 1.1 6.38L12 17.32l-5.73 3.01 1.1-6.38-4.63-4.52 6.4-.93L12 2.7Z" />
+const IconUndo = (props) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10a6 6 0 0 1 0 12h-2" />
   </svg>
 );
 
@@ -243,6 +246,8 @@ export default function FeedPage() {
   const [authToken, setAuthToken] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
+  // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
+  const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
   const swipeUnlockTimeoutRef = useRef(null);
   const profilesRef = useRef([]);
@@ -257,6 +262,7 @@ export default function FeedPage() {
   const deckRef = useRef(null);
   const currentUserIdRef = useRef("");
   const currentProfileIdRef = useRef("");
+  const lastActionRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -320,6 +326,10 @@ export default function FeedPage() {
   useEffect(() => {
     hasVisualCacheRef.current = hasVisualCache;
   }, [hasVisualCache]);
+
+  useEffect(() => {
+    lastActionRef.current = lastAction;
+  }, [lastAction]);
 
   // Admins shouldn't see the consumer feed.
   useEffect(() => {
@@ -549,6 +559,7 @@ export default function FeedPage() {
       const uniqueProfiles = Array.from(
         new Map(profileEntries).values()
       );
+      const nextProfileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
 
       debugFeed("profiles received", {
         currentIndexBefore: indexBeforeRefresh,
@@ -594,6 +605,12 @@ export default function FeedPage() {
       profilesRef.current = uniqueProfiles;
       setCurrentIndex(nextIndex);
       setProfiles(uniqueProfiles);
+      // Refresh can remove the profile that was available to undo, so clear it
+      // instead of restoring an action for a profile no longer in this deck.
+      setLastAction((action) => {
+        if (!action?.profileId) return null;
+        return nextProfileIds.has(action.profileId) ? action : null;
+      });
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);
       writeCachedFeed(uniqueProfiles, nextIndex);
@@ -774,6 +791,7 @@ export default function FeedPage() {
         throw new Error(isLike ? t("feed.likeError") : t("feed.passError"));
       }
 
+      setLastAction({ profileId, actionType: isLike ? "like" : "dislike" });
       likeInFlightRef.current = false;
       return true;
     } catch (err) {
@@ -788,8 +806,67 @@ export default function FeedPage() {
   const handleSwipeExitComplete = async (profileId) => {
     const advanced = advance(profileId);
     if (!advanced) return;
-    if (currentIndexRef.current >= profilesRef.current.length) {
-      await loadFeed({ silent: true });
+  };
+
+  const handleUndoLastAction = async () => {
+    const action = lastActionRef.current;
+    const activeProfiles = profilesRef.current;
+    const targetIndex = action?.profileId
+      ? activeProfiles.findIndex((profile) => getProfileId(profile) === action.profileId)
+      : -1;
+    const isBusy =
+      swipeLockedRef.current ||
+      requestedActionRef.current ||
+      activeActionRef.current ||
+      likeInFlightRef.current;
+
+    debugFeed("undo last action requested", {
+      ignored: !action || targetIndex < 0 || isBusy,
+      action,
+      targetIndex,
+      currentIndex: currentIndexRef.current,
+    });
+
+    if (!action || isBusy) return;
+    if (targetIndex < 0) {
+      setLastAction(null);
+      return;
+    }
+
+    swipeLockedRef.current = true;
+    likeInFlightRef.current = true;
+    feedMutationVersionRef.current += 1;
+    setSwipeLocked(true);
+    setError(null);
+
+    try {
+      if (action.actionType === "like") {
+        if (!API_URL || !authToken) {
+          throw new Error(t("feed.sessionExpired"));
+        }
+
+        const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(action.profileId)}`, {
+          method: "DELETE",
+          headers: { Authorization: "Bearer " + authToken },
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error(t("feed.undoError"));
+        }
+      }
+
+      currentIndexRef.current = targetIndex;
+      currentProfileIdRef.current = action.profileId;
+      setCurrentIndex(targetIndex);
+      writeCachedFeed(activeProfiles, targetIndex);
+      setLastAction(null);
+    } catch (err) {
+      console.error("Undo action error:", err);
+      setError(err.message || t("feed.undoError"));
+    } finally {
+      likeInFlightRef.current = false;
+      unlockSwipe();
     }
   };
 
@@ -831,6 +908,7 @@ export default function FeedPage() {
   const showErrorState = error && !hasMoreProfiles;
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
+  const isUndoDisabled = swipeLocked || !lastAction;
 
   useEffect(() => {
     if (!FEED_DEBUG_ENABLED) return;
@@ -925,13 +1003,13 @@ export default function FeedPage() {
               </button>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--super"
-                aria-label={t("feed.superLikeLabel")}
-                disabled={swipeLocked}
-                onClick={() => requestSwipe("up")}
+                className="feed-action-btn feed-action-btn--undo"
+                aria-label={t("feed.undoLabel")}
+                disabled={isUndoDisabled}
+                onClick={handleUndoLastAction}
               >
-                <IconStar />
-                <span>{t("feed.superLikeShortLabel")}</span>
+                <IconUndo />
+                <span>{t("feed.undoShortLabel")}</span>
               </button>
               <button
                 type="button"
@@ -947,11 +1025,21 @@ export default function FeedPage() {
           </div>
         ) : (
           <div className="feed-empty">
-            <h3>That's everyone for now</h3>
-            <p>Check back later for new people.</p>
-            <Link href="/explore" className="feed-empty-btn">
-              Explorar creadores
-            </Link>
+            <h3>{t("feed.emptyTitle")}</h3>
+            <p>{t("feed.emptyDescription")}</p>
+            <div className="feed-empty-actions">
+              <button
+                type="button"
+                className="feed-empty-btn feed-empty-btn--secondary"
+                onClick={handleUndoLastAction}
+                disabled={isUndoDisabled}
+              >
+                {t("feed.undoLabel")}
+              </button>
+              <button type="button" className="feed-empty-btn" onClick={() => loadFeed()}>
+                {t("feed.reloadProfiles")}
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -1175,7 +1263,7 @@ export default function FeedPage() {
           color: #d9d7e8;
         }
 
-        .feed-action-btn--super {
+        .feed-action-btn--undo {
           width: clamp(62px, 17vw, 74px);
           height: clamp(62px, 17vw, 74px);
           min-height: 0;
@@ -1239,16 +1327,33 @@ export default function FeedPage() {
           color: var(--text-muted, #a39ec0);
           font-size: 0.9rem;
         }
+        .feed-empty-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0.75rem;
+        }
         .feed-empty-btn {
           display: inline-block;
           padding: 0.7rem 1.4rem;
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
           color: #fff;
           font-weight: 700;
+          border: 0;
           border-radius: 999px;
           font-size: 0.85rem;
           text-decoration: none;
           box-shadow: 0 4px 12px rgba(224, 64, 251, 0.3);
+          cursor: pointer;
+        }
+        .feed-empty-btn--secondary {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          box-shadow: none;
+        }
+        .feed-empty-btn:disabled {
+          cursor: default;
+          opacity: 0.55;
         }
       `}</style>
     </div>

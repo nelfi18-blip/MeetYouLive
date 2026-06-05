@@ -26,7 +26,7 @@ const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
-const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
+const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG !== "false";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -58,6 +58,83 @@ function debugFeed(message, details = {}) {
   try {
     console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
   } catch {}
+}
+
+function getViewportDebugSnapshot() {
+  if (typeof window === "undefined") return {};
+
+  const visualViewport = window.visualViewport;
+  return {
+    viewport: {
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      visualWidth: visualViewport ? Math.round(visualViewport.width) : null,
+      visualHeight: visualViewport ? Math.round(visualViewport.height) : null,
+      visualScale: visualViewport ? visualViewport.scale : null,
+      documentWidth: document.documentElement?.clientWidth || null,
+      documentHeight: document.documentElement?.clientHeight || null,
+      bodyWidth: document.body?.clientWidth || null,
+      bodyHeight: document.body?.clientHeight || null,
+      scrollY: Math.round(window.scrollY || 0),
+    },
+    route: {
+      pathname: window.location?.pathname || "",
+      search: window.location?.search || "",
+    },
+  };
+}
+
+function getElementDebugMetrics(element) {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  return {
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+    top: Math.round(rect.top),
+    left: Math.round(rect.left),
+    className: element.className || "",
+  };
+}
+
+function getFeedLayoutDebugSnapshot(deck) {
+  if (typeof window === "undefined") return {};
+
+  const page = document.querySelector(".feed-page");
+  const section = document.querySelector(".feed-match-section");
+  const card = deck?.querySelector(".swipe-card-modern");
+  const imageWrapper = card?.querySelector(".swipe-card-image-wrapper");
+  const infoPanel = card?.querySelector(".swipe-card-info");
+  const pageStyles = page ? window.getComputedStyle(page) : null;
+  const cardStyles = card ? window.getComputedStyle(card) : null;
+
+  return {
+    ...getViewportDebugSnapshot(),
+    cssVars: pageStyles
+      ? {
+          feedDeckWidth: pageStyles.getPropertyValue("--feed-deck-width").trim(),
+          feedDeckHeight: pageStyles.getPropertyValue("--feed-deck-height").trim(),
+          feedViewportHeight: pageStyles.getPropertyValue("--feed-viewport-height").trim(),
+          feedStableViewportHeight: pageStyles.getPropertyValue("--feed-stable-viewport-height").trim(),
+          feedAvailableHeight: pageStyles.getPropertyValue("--feed-available-height").trim(),
+          feedInfoPanelHeight: pageStyles.getPropertyValue("--feed-info-panel-height").trim(),
+        }
+      : null,
+    computedCard: cardStyles
+      ? {
+          width: cardStyles.width,
+          height: cardStyles.height,
+          maxWidth: cardStyles.maxWidth,
+          transform: cardStyles.transform,
+          position: cardStyles.position,
+        }
+      : null,
+    page: getElementDebugMetrics(page),
+    section: getElementDebugMetrics(section),
+    deck: getElementDebugMetrics(deck),
+    card: getElementDebugMetrics(card),
+    imageWrapper: getElementDebugMetrics(imageWrapper),
+    infoPanel: getElementDebugMetrics(infoPanel),
+  };
 }
 
 function getEmptyCachedFeed() {
@@ -263,6 +340,8 @@ export default function FeedPage() {
   const currentUserIdRef = useRef("");
   const currentProfileIdRef = useRef("");
   const lastActionRef = useRef(null);
+  const renderCountRef = useRef(0);
+  const previousRenderStateRef = useRef(null);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
@@ -284,6 +363,14 @@ export default function FeedPage() {
   useEffect(() => {
     const cachedFeed = readCachedFeed();
     const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
+    debugFeed("mount cache restore effect", {
+      hasCache: cachedFeed.hasCache,
+      cachedCurrentIndex: cachedFeed.currentIndex,
+      cachedCurrentProfileId: cachedFeed.currentProfileId,
+      storedCurrentProfileId,
+      ...summarizeProfiles(cachedFeed.profiles),
+      ...getViewportDebugSnapshot(),
+    });
     currentProfileIdRef.current = storedCurrentProfileId;
     if (storedCurrentProfileId && !cachedFeed.currentProfileId) {
       writeStoredCurrentProfileId(storedCurrentProfileId);
@@ -299,6 +386,13 @@ export default function FeedPage() {
     currentIndexRef.current = cachedFeed.currentIndex;
     currentProfileIdRef.current = cachedFeed.currentProfileId;
     hasVisualCacheRef.current = true;
+    debugFeed("state update scheduled by cache restore", {
+      setProfilesCount: cachedFeed.profiles.length,
+      setCurrentIndex: cachedFeed.currentIndex,
+      setLoading: false,
+      setHasVisualCache: true,
+      ...getViewportDebugSnapshot(),
+    });
     setProfiles(cachedFeed.profiles);
     setCurrentIndex(cachedFeed.currentIndex);
     setLoading(false);
@@ -362,6 +456,12 @@ export default function FeedPage() {
 
     if (session?.backendToken) {
       setToken(session.backendToken);
+      debugFeed("authToken update scheduled", {
+        source: "session.backendToken",
+        status,
+        hasVisualCache: hasVisualCacheRef.current,
+        ...getViewportDebugSnapshot(),
+      });
       setAuthToken(session.backendToken);
       setError(null);
       return undefined;
@@ -373,6 +473,12 @@ export default function FeedPage() {
       localToken &&
       (status !== "authenticated" || currentUserIdRef.current || !session?.googleEmail)
     ) {
+      debugFeed("authToken update scheduled", {
+        source: "localStorage token",
+        status,
+        hasVisualCache: hasVisualCacheRef.current,
+        ...getViewportDebugSnapshot(),
+      });
       setAuthToken(localToken);
       return undefined;
     }
@@ -411,6 +517,13 @@ export default function FeedPage() {
         if (recoveredToken) {
           setToken(recoveredToken);
           currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          debugFeed("authToken update scheduled", {
+            source: "backend-token recovery",
+            status,
+            recoveredUserId,
+            hasVisualCache: hasVisualCacheRef.current,
+            ...getViewportDebugSnapshot(),
+          });
           setAuthToken(recoveredToken);
           setError(null);
           return;
@@ -418,6 +531,13 @@ export default function FeedPage() {
 
         if (localToken) {
           currentUserIdRef.current = recoveredUserId || currentUserIdRef.current;
+          debugFeed("authToken update scheduled", {
+            source: "localStorage fallback after recovery",
+            status,
+            recoveredUserId,
+            hasVisualCache: hasVisualCacheRef.current,
+            ...getViewportDebugSnapshot(),
+          });
           setAuthToken(localToken);
           setError(null);
           return;
@@ -537,6 +657,12 @@ export default function FeedPage() {
           // if it matches, the 401/403 is not caused by a stale localStorage token.
           if (recoveredToken && recoveredToken !== authToken) {
             setToken(recoveredToken);
+            debugFeed("authToken update scheduled", {
+              source: "loadFeed 401/403 retry recovery",
+              status,
+              hasVisualCache: hasVisualCacheRef.current,
+              ...getViewportDebugSnapshot(),
+            });
             setAuthToken(recoveredToken);
             return;
           }
@@ -592,10 +718,14 @@ export default function FeedPage() {
         currentProfileIdBefore: profileIdBeforeRefresh,
         currentIndexAfter: nextIndex,
         currentProfileIdAfter: getCurrentProfileId(visibleProfiles, nextIndex),
+        profileCountAfter: visibleProfiles.length,
+        mutationVersionAtStart,
+        mutationVersionNow: feedMutationVersionRef.current,
         preservedCurrentProfile: Boolean(
           profileIdBeforeRefresh &&
             getCurrentProfileId(visibleProfiles, nextIndex) === profileIdBeforeRefresh
         ),
+        ...getFeedLayoutDebugSnapshot(deckRef.current),
       });
 
       if (mutationVersionAtStart !== feedMutationVersionRef.current) {
@@ -611,6 +741,15 @@ export default function FeedPage() {
       currentIndexRef.current = nextIndex;
       currentProfileIdRef.current = getCurrentProfileId(visibleProfiles, nextIndex);
       profilesRef.current = visibleProfiles;
+      debugFeed("state update scheduled by loadFeed()", {
+        silent,
+        setCurrentIndex: nextIndex,
+        setProfilesCount: visibleProfiles.length,
+        setHasVisualCache: false,
+        setLoadingFinally: false,
+        currentProfileIdAfter: getCurrentProfileId(visibleProfiles, nextIndex),
+        ...getFeedLayoutDebugSnapshot(deckRef.current),
+      });
       setCurrentIndex(nextIndex);
       setProfiles(visibleProfiles);
       // Refresh can remove the profile that was available to undo, so clear it
@@ -696,6 +835,7 @@ export default function FeedPage() {
       currentProfileIdBefore: activeProfileId,
       currentIndexAfter: nextIndex,
       currentProfileIdAfter: getCurrentProfileId(activeProfiles, nextIndex),
+      ...getFeedLayoutDebugSnapshot(deckRef.current),
     });
     currentIndexRef.current = nextIndex;
     currentProfileIdRef.current = getCurrentProfileId(activeProfiles, nextIndex);
@@ -866,6 +1006,12 @@ export default function FeedPage() {
 
       currentIndexRef.current = targetIndex;
       currentProfileIdRef.current = action.profileId;
+      debugFeed("state update scheduled by undo", {
+        setCurrentIndex: targetIndex,
+        currentProfileIdAfter: action.profileId,
+        profileCount: activeProfiles.length,
+        ...getFeedLayoutDebugSnapshot(deckRef.current),
+      });
       setCurrentIndex(targetIndex);
       writeCachedFeed(activeProfiles, targetIndex);
       setLastAction(null);
@@ -917,6 +1063,55 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
+  const currentProfileId = getProfileId(currentProfile);
+
+  useEffect(() => {
+    if (!FEED_DEBUG_ENABLED) return;
+
+    renderCountRef.current += 1;
+    const nextRenderState = {
+      renderCount: renderCountRef.current,
+      status,
+      loading,
+      hasVisualCache,
+      hasMoreProfiles,
+      showLoadingState,
+      showErrorState,
+      showEmptyState,
+      currentIndex,
+      currentProfileId,
+      profileCount: profiles.length,
+      authTokenReady: Boolean(authToken),
+      swipeLocked,
+      actionSignalId: actionSignal.id,
+      actionSignalDirection: actionSignal.direction,
+      actionSignalProfileId: actionSignal.profileId,
+      lastActionProfileId: lastAction?.profileId || null,
+    };
+    const previousRenderState = previousRenderStateRef.current;
+    const changedState = previousRenderState
+      ? Object.fromEntries(
+          Object.entries(nextRenderState).filter(
+            ([key, value]) => previousRenderState[key] !== value
+          )
+        )
+      : nextRenderState;
+
+    debugFeed("FeedPage render committed", {
+      changedState,
+      state: nextRenderState,
+      refs: {
+        currentIndexRef: currentIndexRef.current,
+        currentProfileIdRef: currentProfileIdRef.current,
+        profilesRefCount: profilesRef.current.length,
+        hasVisualCacheRef: hasVisualCacheRef.current,
+        swipeLockedRef: swipeLockedRef.current,
+        feedMutationVersion: feedMutationVersionRef.current,
+      },
+      ...getFeedLayoutDebugSnapshot(deckRef.current),
+    });
+    previousRenderStateRef.current = nextRenderState;
+  });
 
   useEffect(() => {
     if (!FEED_DEBUG_ENABLED) return;
@@ -929,15 +1124,40 @@ export default function FeedPage() {
     const cardRect = card.getBoundingClientRect();
     debugFeed("card size/class", {
       currentIndex,
-      currentProfileId: getProfileId(currentProfile),
-      deckClassName: deck.className,
+      currentProfileId,
       deckWidth: Math.round(deckRect.width),
       deckHeight: Math.round(deckRect.height),
-      cardClassName: card.className,
       cardWidth: Math.round(cardRect.width),
       cardHeight: Math.round(cardRect.height),
+      ...getFeedLayoutDebugSnapshot(deck),
     });
-  }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
+  }, [currentIndex, currentProfile, currentProfileId, hasMoreProfiles, loading]);
+
+  useEffect(() => {
+    if (!FEED_DEBUG_ENABLED) return undefined;
+    if (!hasMoreProfiles) return undefined;
+    const deck = deckRef.current;
+    const card = deck?.querySelector(".swipe-card-modern");
+    const page = document.querySelector(".feed-page");
+    const section = document.querySelector(".feed-match-section");
+    const observedElements = [page, section, deck, card].filter(Boolean);
+    if (!observedElements.length || typeof ResizeObserver === "undefined") return undefined;
+
+    const observer = new ResizeObserver((entries) => {
+      debugFeed("ResizeObserver layout change", {
+        currentIndex,
+        currentProfileId,
+        entries: entries.map((entry) => ({
+          className: entry.target.className || entry.target.tagName,
+          width: Math.round(entry.contentRect.width),
+          height: Math.round(entry.contentRect.height),
+        })),
+        ...getFeedLayoutDebugSnapshot(deckRef.current),
+      });
+    });
+    observedElements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [currentIndex, currentProfileId, hasMoreProfiles, profiles.length]);
 
   return (
     <div className="feed-page">

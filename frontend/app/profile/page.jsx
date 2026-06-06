@@ -197,6 +197,11 @@ export default function ProfilePage() {
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
 
+  const publishProfileUpdated = useCallback((updatedUser) => {
+    if (typeof window === "undefined" || !updatedUser) return;
+    window.dispatchEvent(new CustomEvent("profile:updated", { detail: updatedUser }));
+  }, []);
+
   const refreshProfileSession = useCallback(async () => {
     try {
       if (typeof updateSession === "function") {
@@ -207,6 +212,14 @@ export default function ProfilePage() {
     }
     router.refresh();
   }, [router, updateSession]);
+
+  const updateAndPublishUser = useCallback((updates) => {
+    if (!user) return null;
+    const nextUser = typeof updates === "function" ? updates(user) : { ...user, ...updates };
+    setUser(nextUser);
+    publishProfileUpdated(nextUser);
+    return nextUser;
+  }, [publishProfileUpdated, user]);
 
   const applyLoadedProfile = useCallback((profile) => {
     const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos);
@@ -221,8 +234,9 @@ export default function ProfilePage() {
       profilePhotos: normalizedUser.profilePhotos || [],
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
+    publishProfileUpdated(normalizedUser);
     return normalizedUser;
-  }, [syncFromUser]);
+  }, [publishProfileUpdated, syncFromUser]);
 
   const resolveToken = useCallback(async () => {
     let token = getToken();
@@ -354,7 +368,7 @@ export default function ProfilePage() {
           cache: "no-store",
         });
       }
-      setUser((current) => current ? { ...current, preferredLanguage: newLang } : current);
+      updateAndPublishUser({ preferredLanguage: newLang });
       await refreshProfileSession();
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
@@ -422,6 +436,7 @@ export default function ProfilePage() {
       setPhotoUrlInput("");
       setSaveSuccess("Perfil actualizado correctamente");
       setEditing(false);
+      publishProfileUpdated(normalizedUser);
       await refreshProfileSession();
     } catch { setSaveError("No se pudo conectar con el servidor"); }
     finally { setSaving(false); }
@@ -462,7 +477,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      setUser((u) => ({ ...u, creatorStatus: "pending" }));
+      updateAndPublishUser({ creatorStatus: "pending" });
       await refreshProfileSession();
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
@@ -471,7 +486,7 @@ export default function ProfilePage() {
   const applyPhotoPayload = (payload, successMessage = "") => {
     const normalizedPhotos = normalizePhotoList(payload?.avatar, payload?.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
-    setUser((prev) => (prev ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos } : prev));
+    updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos });
     setEditForm((prev) => (
       prev
         ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos }

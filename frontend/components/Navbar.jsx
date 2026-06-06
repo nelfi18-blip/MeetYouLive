@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -43,22 +43,44 @@ export default function Navbar() {
   const [avatar, setAvatar] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const applyProfile = useCallback((profile) => {
+    if (!profile || typeof profile !== "object") return;
+    if ("username" in profile || "name" in profile) {
+      setUsername(profile.username || profile.name || "");
+    }
+    if ("role" in profile) setRole(profile.role || "");
+    if ("creatorStatus" in profile) setCreatorStatus(profile.creatorStatus || "");
+    if ("avatar" in profile) setAvatar(profile.avatar || "");
+    if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
+  }, [syncFromUser]);
+
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
 
-    fetch(`${API_URL}/api/user/me`, { headers })
+    fetch(`${API_URL}/api/user/me`, { headers, cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) { setUsername(d.username || d.name || ""); setRole(d.role || ""); setCreatorStatus(d.creatorStatus || ""); setAvatar(d.avatar || ""); } })
+      .then((d) => { if (d) applyProfile(d); })
       .catch(() => {});
 
     fetch(`${API_URL}/api/user/coins`, { headers })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d) setCoins(d.coins); })
       .catch(() => {});
-  }, [session, syncFromUser]);
+  }, [session, applyProfile]);
+
+  useEffect(() => {
+    const handleProfileUpdated = (event) => {
+      applyProfile(event.detail);
+    };
+
+    window.addEventListener("profile:updated", handleProfileUpdated);
+    return () => {
+      window.removeEventListener("profile:updated", handleProfileUpdated);
+    };
+  }, [applyProfile]);
 
   // Unread notification count — fetch on mount and poll every 60s
   useEffect(() => {

@@ -171,6 +171,7 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
         headers: {
           Authorization: "Bearer " + token,
         },
+        cache: "no-store",
         signal: controller.signal,
       });
 

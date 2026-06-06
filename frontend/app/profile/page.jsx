@@ -360,11 +360,9 @@ export default function ProfilePage() {
           cache: "no-store",
         });
       }
-      setUser((current) => {
-        const nextUser = current ? { ...current, preferredLanguage: newLang } : current;
-        publishProfileUpdated(nextUser);
-        return nextUser;
-      });
+      const nextUser = user ? { ...user, preferredLanguage: newLang } : user;
+      setUser(nextUser);
+      publishProfileUpdated(nextUser);
       await refreshProfileSession();
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
@@ -473,11 +471,9 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      setUser((u) => {
-        const nextUser = u ? { ...u, creatorStatus: "pending" } : u;
-        publishProfileUpdated(nextUser);
-        return nextUser;
-      });
+      const nextUser = user ? { ...user, creatorStatus: "pending" } : user;
+      setUser(nextUser);
+      publishProfileUpdated(nextUser);
       await refreshProfileSession();
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
@@ -486,11 +482,9 @@ export default function ProfilePage() {
   const applyPhotoPayload = (payload, successMessage = "") => {
     const normalizedPhotos = normalizePhotoList(payload?.avatar, payload?.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
-    setUser((prev) => {
-      const nextUser = prev ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos } : prev;
-      publishProfileUpdated(nextUser);
-      return nextUser;
-    });
+    const nextUser = user ? { ...user, avatar: normalizedAvatar, profilePhotos: normalizedPhotos } : user;
+    setUser(nextUser);
+    publishProfileUpdated(nextUser);
     setEditForm((prev) => (
       prev
         ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 import GiftButton from "@/components/GiftButton";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import HiddenLikesSection from "@/components/HiddenLikesSection";
@@ -39,6 +40,7 @@ function CallIcon() {
 
 export default function MatchesPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -93,11 +95,11 @@ export default function MatchesPage() {
         router.push(`/chats/${chat._id}`);
       } else {
         const data = await res.json().catch(() => ({}));
-        setChatError(data.message || "No se pudo abrir el chat");
+        setChatError(data.message || t("matchesPage.chatOpenError"));
         setTimeout(() => setChatError(""), 4000);
       }
     } catch {
-      setChatError("Error de conexión");
+      setChatError(t("matchesPage.connectionError"));
       setTimeout(() => setChatError(""), 4000);
     }
   };

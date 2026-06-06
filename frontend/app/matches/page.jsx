@@ -42,6 +42,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [chatError, setChatError] = useState("");
   const [callError, setCallError] = useState("");
 
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function MatchesPage() {
 
   const startChat = async (userId) => {
     const token = localStorage.getItem("token");
+    setChatError("");
     try {
       const res = await fetch(`${API_URL}/api/chats`, {
         method: "POST",
@@ -84,14 +86,19 @@ export default function MatchesPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ participantId: userId }),
+        body: JSON.stringify({ recipientId: userId }),
       });
       if (res.ok) {
         const chat = await res.json();
         router.push(`/chats/${chat._id}`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setChatError(data.message || "No se pudo abrir el chat");
+        setTimeout(() => setChatError(""), 4000);
       }
     } catch {
-      // ignore
+      setChatError("Error de conexión");
+      setTimeout(() => setChatError(""), 4000);
     }
   };
 
@@ -139,6 +146,7 @@ export default function MatchesPage() {
       </div>
 
       {error && <div className="banner-error">{error}</div>}
+      {chatError && <div className="banner-error">{chatError}</div>}
       {callError && <div className="banner-error">{callError}</div>}
 
       {loading && (

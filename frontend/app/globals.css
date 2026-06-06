@@ -4229,11 +4229,6 @@ a,
   }
 }
 
-/* Prevent pull-to-refresh on some mobile browsers */
-body {
-  overscroll-behavior-y: contain;
-}
-
 /* Mobile-optimized text selection */
 ::selection {
   background-color: rgba(224, 64, 251, 0.3);

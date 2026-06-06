@@ -25,8 +25,6 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-const FEED_DEBUG_PREFIX = "[feed-refresh-debug]";
-const FEED_DEBUG_ENABLED = process.env.NEXT_PUBLIC_ENABLE_FEED_DEBUG === "true";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -42,22 +40,34 @@ function isRecommendedProfile(profile, currentUserId) {
   return profileId && currentUserId && profileId !== currentUserId;
 }
 
-function summarizeProfiles(profiles) {
-  return {
-    count: profiles.length,
-    ids: profiles.map(getProfileId).filter(Boolean),
-  };
-}
-
 function getCurrentProfileId(profiles, currentIndex) {
   return getProfileId(profiles[currentIndex]);
 }
 
-function debugFeed(message, details = {}) {
-  if (!FEED_DEBUG_ENABLED) return;
-  try {
-    console.info(`${FEED_DEBUG_PREFIX} ${message}`, details);
-  } catch {}
+function mergeProfilesPreservingDeck(cachedProfiles, refreshedProfiles) {
+  if (!cachedProfiles.length) return refreshedProfiles;
+
+  const refreshedById = new Map();
+  refreshedProfiles.forEach((profile) => {
+    const profileId = getProfileId(profile);
+    if (profileId) refreshedById.set(profileId, profile);
+  });
+  const seenProfileIds = new Set();
+  const mergedProfiles = cachedProfiles.map((profile) => {
+    const profileId = getProfileId(profile);
+    if (!profileId) return profile;
+    seenProfileIds.add(profileId);
+    return refreshedById.get(profileId) || profile;
+  });
+
+  refreshedProfiles.forEach((profile) => {
+    const profileId = getProfileId(profile);
+    if (!profileId || seenProfileIds.has(profileId)) return;
+    seenProfileIds.add(profileId);
+    mergedProfiles.push(profile);
+  });
+
+  return mergedProfiles;
 }
 
 function getEmptyCachedFeed() {
@@ -69,7 +79,6 @@ function readCachedFeed() {
 
   try {
     const raw = window.sessionStorage.getItem(FEED_CACHE_KEY);
-    debugFeed("sessionStorage read", { key: FEED_CACHE_KEY, hasValue: Boolean(raw) });
     if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
@@ -80,12 +89,6 @@ function readCachedFeed() {
 
     if (!cachedProfiles.length || Date.now() - timestamp > FEED_CACHE_MAX_AGE_MS) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
-      debugFeed("sessionStorage removed", {
-        key: FEED_CACHE_KEY,
-        reason: cachedProfiles.length ? "expired" : "empty",
-        currentIndex: cachedIndex,
-        ...summarizeProfiles(cachedProfiles),
-      });
       return getEmptyCachedFeed();
     }
 
@@ -98,12 +101,6 @@ function readCachedFeed() {
       ? currentProfileIndex
       : Math.min(Math.max(cachedIndex, 0), cachedProfiles.length);
     const currentProfileId = cachedCurrentProfileId || getCurrentProfileId(cachedProfiles, currentIndex);
-    debugFeed("sessionStorage cache accepted", {
-      key: FEED_CACHE_KEY,
-      currentIndex,
-      currentProfileId,
-      ...summarizeProfiles(cachedProfiles),
-    });
     return {
       profiles: cachedProfiles,
       currentIndex,
@@ -111,7 +108,6 @@ function readCachedFeed() {
       hasCache: true,
     };
   } catch (err) {
-    debugFeed("sessionStorage read failed", { key: FEED_CACHE_KEY, error: err.message });
     return getEmptyCachedFeed();
   }
 }
@@ -122,10 +118,6 @@ function readStoredCurrentProfileId() {
   try {
     return getNullableIdString(window.sessionStorage.getItem(FEED_CURRENT_PROFILE_KEY));
   } catch (err) {
-    debugFeed("current profile sessionStorage read failed", {
-      key: FEED_CURRENT_PROFILE_KEY,
-      error: err.message,
-    });
     return "";
   }
 }
@@ -140,10 +132,6 @@ function writeStoredCurrentProfileId(profileId) {
       window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
     }
   } catch (err) {
-    debugFeed("current profile sessionStorage write failed", {
-      key: FEED_CURRENT_PROFILE_KEY,
-      error: err.message,
-    });
   }
 }
 
@@ -156,7 +144,6 @@ function writeCachedFeed(profiles, currentIndex) {
 
     if (!profiles.length) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
-      debugFeed("sessionStorage removed", { key: FEED_CACHE_KEY, reason: "empty-write" });
       return;
     }
 
@@ -164,14 +151,7 @@ function writeCachedFeed(profiles, currentIndex) {
       FEED_CACHE_KEY,
       JSON.stringify({ profiles, currentIndex, currentProfileId, timestamp: Date.now() })
     );
-    debugFeed("sessionStorage written", {
-      key: FEED_CACHE_KEY,
-      currentIndex,
-      currentProfileId,
-      ...summarizeProfiles(profiles),
-    });
   } catch (err) {
-    debugFeed("sessionStorage write failed", { key: FEED_CACHE_KEY, error: err.message });
   }
 }
 
@@ -290,11 +270,6 @@ export default function FeedPage() {
     }
     if (!cachedFeed.hasCache) return;
 
-    debugFeed("applying cached feed before network refresh", {
-      currentIndex: cachedFeed.currentIndex,
-      currentProfileId: cachedFeed.currentProfileId,
-      ...summarizeProfiles(cachedFeed.profiles),
-    });
     profilesRef.current = cachedFeed.profiles;
     currentIndexRef.current = cachedFeed.currentIndex;
     currentProfileIdRef.current = cachedFeed.currentProfileId;
@@ -477,16 +452,7 @@ export default function FeedPage() {
       currentProfileIdRef.current ||
       readStoredCurrentProfileId();
 
-    debugFeed("loadFeed() start", {
-      silent,
-      currentIndex: indexBeforeRefresh,
-      currentProfileIdBefore: profileIdBeforeRefresh,
-      profileCountBefore: profilesBeforeRefresh.length,
-      hasVisualCache: hasVisualCacheRef.current,
-    });
-
     if (!authToken) {
-      debugFeed("loadFeed() skipped", { reason: "missing-auth-token" });
       return;
     }
 
@@ -496,7 +462,6 @@ export default function FeedPage() {
     setError(null);
 
     if (!API_URL) {
-      debugFeed("loadFeed() failed before request", { reason: "missing-api-url" });
       setError(t("feed.genericError"));
       setLoading(false);
       return;
@@ -568,13 +533,6 @@ export default function FeedPage() {
         : uniqueProfiles;
       const nextProfileIds = new Set(visibleProfiles.map(getProfileId).filter(Boolean));
 
-      debugFeed("profiles received", {
-        currentIndexBefore: indexBeforeRefresh,
-        currentProfileIdBefore: profileIdBeforeRefresh,
-        preservedCachedProfile: Boolean(previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)),
-        ...summarizeProfiles(visibleProfiles),
-      });
-
       let nextIndex = 0;
       // Refreshes and retries restore by visible profile id; only real user actions advance.
       if (profileIdBeforeRefresh) {
@@ -586,25 +544,30 @@ export default function FeedPage() {
         }
       }
 
-      debugFeed("loadFeed() applying profiles", {
-        silent,
-        currentIndexBefore: indexBeforeRefresh,
-        currentProfileIdBefore: profileIdBeforeRefresh,
-        currentIndexAfter: nextIndex,
-        currentProfileIdAfter: getCurrentProfileId(visibleProfiles, nextIndex),
-        preservedCurrentProfile: Boolean(
-          profileIdBeforeRefresh &&
-            getCurrentProfileId(visibleProfiles, nextIndex) === profileIdBeforeRefresh
-        ),
-      });
-
       if (mutationVersionAtStart !== feedMutationVersionRef.current) {
-        debugFeed("loadFeed() skipped stale response", {
-          silent,
-          mutationVersionAtStart,
-          mutationVersionNow: feedMutationVersionRef.current,
-          currentProfileIdBefore: profileIdBeforeRefresh,
+        return;
+      }
+
+      if (silent && hasVisualCacheRef.current && profilesBeforeRefresh.length) {
+        const syncedProfiles = mergeProfilesPreservingDeck(profilesBeforeRefresh, visibleProfiles);
+        const normalizedIndex = Math.max(indexBeforeRefresh, 0);
+        const hasProfileAtIndex = normalizedIndex < syncedProfiles.length;
+        if (!hasProfileAtIndex) {
+          setError(null);
+          return;
+        }
+        const preservedIndex = normalizedIndex;
+        const preservedProfileId = getCurrentProfileId(syncedProfiles, preservedIndex);
+        currentIndexRef.current = preservedIndex;
+        currentProfileIdRef.current = preservedProfileId;
+        profilesRef.current = syncedProfiles;
+        setProfiles(syncedProfiles);
+        setLastAction((action) => {
+          if (!action?.profileId) return null;
+          return nextProfileIds.has(action.profileId) ? action : null;
         });
+        writeCachedFeed(syncedProfiles, preservedIndex);
+        setError(null);
         return;
       }
 
@@ -638,8 +601,7 @@ export default function FeedPage() {
   }, [authToken, session?.googleEmail, status, t]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
-  // hasVisualCache: loadFeed clears that flag after a silent refresh, and
-  // re-running here would reset the visible profile on mobile refresh.
+  // hasVisualCache: re-running here would reset the visible profile on mobile refresh.
   useEffect(() => {
     if (!authToken) return undefined;
     const controller = new AbortController();
@@ -680,23 +642,11 @@ export default function FeedPage() {
     const activeIndex = currentIndexRef.current;
     const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
     if (profileId && activeProfileId !== profileId) {
-      debugFeed("nextProfile() ignored", {
-        reason: "stale-profile",
-        requestedProfileId: profileId,
-        currentIndex: activeIndex,
-        currentProfileId: activeProfileId,
-      });
       unlockSwipe();
       return false;
     }
 
     const nextIndex = activeIndex + 1;
-    debugFeed("nextProfile() called", {
-      currentIndexBefore: activeIndex,
-      currentProfileIdBefore: activeProfileId,
-      currentIndexAfter: nextIndex,
-      currentProfileIdAfter: getCurrentProfileId(activeProfiles, nextIndex),
-    });
     currentIndexRef.current = nextIndex;
     currentProfileIdRef.current = getCurrentProfileId(activeProfiles, nextIndex);
     setCurrentIndex(nextIndex);
@@ -710,32 +660,12 @@ export default function FeedPage() {
     const activeProfiles = profilesRef.current;
     const activeIndex = currentIndexRef.current;
     const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
-    debugFeed(`${isLike ? "handleLike" : "handleDislike"} called`, {
-      profileId,
-      direction,
-      currentIndex: activeIndex,
-      currentProfileId: activeProfileId,
-    });
 
     if (activeActionRef.current || likeInFlightRef.current) {
-      debugFeed("swipe ignored", {
-        reason: activeActionRef.current ? "active-action" : "action-in-flight",
-        profileId,
-        direction,
-        currentIndex: activeIndex,
-        currentProfileId: activeProfileId,
-      });
       return false;
     }
 
     if (!profileId || activeProfileId !== profileId) {
-      debugFeed("swipe ignored", {
-        reason: profileId ? "stale-profile" : "missing-profile-id",
-        requestedProfileId: profileId,
-        direction,
-        currentIndex: activeIndex,
-        currentProfileId: activeProfileId,
-      });
       unlockSwipe();
       return false;
     }
@@ -745,13 +675,6 @@ export default function FeedPage() {
       pendingActionProfileIdRef.current &&
       pendingActionProfileIdRef.current !== profileId
     ) {
-      debugFeed("swipe ignored", {
-        reason: "different-requested-action",
-        profileId,
-        direction,
-        currentIndex: activeIndex,
-        currentProfileId: activeProfileId,
-      });
       unlockSwipe();
       return false;
     }
@@ -771,13 +694,6 @@ export default function FeedPage() {
     }
 
     if (likeInFlightRef.current) {
-      debugFeed("handleAction ignored", {
-        reason: "action-in-flight",
-        profileId,
-        direction,
-        currentIndex: activeIndex,
-        currentProfileId: activeProfileId,
-      });
       return false;
     }
 
@@ -827,13 +743,6 @@ export default function FeedPage() {
       requestedActionRef.current ||
       activeActionRef.current ||
       likeInFlightRef.current;
-
-    debugFeed("undo last action requested", {
-      ignored: !action || targetIndex < 0 || isBusy,
-      action,
-      targetIndex,
-      currentIndex: currentIndexRef.current,
-    });
 
     if (!action || isBusy) return;
     if (targetIndex < 0) {
@@ -887,16 +796,6 @@ export default function FeedPage() {
       requestedActionRef.current ||
       activeActionRef.current ||
       likeInFlightRef.current;
-    debugFeed("swipe action requested", {
-      direction,
-      ignored: !currentProfileId || isBusy,
-      swipeLocked: swipeLockedRef.current,
-      requestedAction: requestedActionRef.current,
-      activeAction: activeActionRef.current,
-      likeInFlight: likeInFlightRef.current,
-      currentIndex: activeIndex,
-      currentProfileId,
-    });
     if (!currentProfileId || isBusy) return;
     swipeLockedRef.current = true;
     requestedActionRef.current = true;
@@ -917,27 +816,7 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
-
-  useEffect(() => {
-    if (!FEED_DEBUG_ENABLED) return;
-    if (!hasMoreProfiles) return;
-    const deck = deckRef.current;
-    const card = deck?.querySelector(".swipe-card-modern");
-    if (!deck || !card) return;
-
-    const deckRect = deck.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    debugFeed("card size/class", {
-      currentIndex,
-      currentProfileId: getProfileId(currentProfile),
-      deckClassName: deck.className,
-      deckWidth: Math.round(deckRect.width),
-      deckHeight: Math.round(deckRect.height),
-      cardClassName: card.className,
-      cardWidth: Math.round(cardRect.width),
-      cardHeight: Math.round(cardRect.height),
-    });
-  }, [currentIndex, currentProfile, hasMoreProfiles, loading]);
+  const currentProfileId = getProfileId(currentProfile);
 
   return (
     <div className="feed-page">

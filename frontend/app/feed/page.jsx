@@ -255,6 +255,19 @@ export default function FeedPage() {
   const currentProfileIdRef = useRef("");
   const lastActionRef = useRef(null);
 
+  const resetFeedAfterProfileUpdate = useCallback(() => {
+    clearCachedFeed();
+    currentProfileIdRef.current = "";
+    hasVisualCacheRef.current = false;
+    profilesRef.current = [];
+    currentIndexRef.current = 0;
+    setHasVisualCache(false);
+    setProfiles([]);
+    setCurrentIndex(0);
+    setLastAction(null);
+    setLoading(true);
+  }, []);
+
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
@@ -274,11 +287,7 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (consumeProfileUpdatedMarker()) {
-      clearCachedFeed();
-      currentProfileIdRef.current = "";
-      hasVisualCacheRef.current = false;
-      setHasVisualCache(false);
-      setLoading(true);
+      resetFeedAfterProfileUpdate();
       return;
     }
 
@@ -298,7 +307,7 @@ export default function FeedPage() {
     setCurrentIndex(cachedFeed.currentIndex);
     setLoading(false);
     setHasVisualCache(true);
-  }, []);
+  }, [resetFeedAfterProfileUpdate]);
 
   useEffect(() => {
     profilesRef.current = profiles;
@@ -622,17 +631,9 @@ export default function FeedPage() {
 
   useEffect(() => {
     const handleProfileUpdated = () => {
-      clearCachedFeed();
-      currentProfileIdRef.current = "";
-      hasVisualCacheRef.current = false;
-      setHasVisualCache(false);
-      setProfiles([]);
-      setCurrentIndex(0);
-      setLastAction(null);
+      resetFeedAfterProfileUpdate();
       if (authToken) {
         loadFeed();
-      } else {
-        setLoading(true);
       }
     };
 
@@ -640,7 +641,7 @@ export default function FeedPage() {
     return () => {
       window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
-  }, [authToken, loadFeed]);
+  }, [authToken, loadFeed, resetFeedAfterProfileUpdate]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.

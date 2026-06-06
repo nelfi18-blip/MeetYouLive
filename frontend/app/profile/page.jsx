@@ -362,7 +362,7 @@ export default function ProfilePage() {
       }
       const nextUser = user ? { ...user, preferredLanguage: newLang } : user;
       setUser(nextUser);
-      publishProfileUpdated(nextUser);
+      if (nextUser) publishProfileUpdated(nextUser);
       await refreshProfileSession();
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
@@ -473,7 +473,7 @@ export default function ProfilePage() {
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
       const nextUser = user ? { ...user, creatorStatus: "pending" } : user;
       setUser(nextUser);
-      publishProfileUpdated(nextUser);
+      if (nextUser) publishProfileUpdated(nextUser);
       await refreshProfileSession();
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
@@ -484,7 +484,7 @@ export default function ProfilePage() {
     const normalizedAvatar = normalizedPhotos[0] || "";
     const nextUser = user ? { ...user, avatar: normalizedAvatar, profilePhotos: normalizedPhotos } : user;
     setUser(nextUser);
-    publishProfileUpdated(nextUser);
+    if (nextUser) publishProfileUpdated(nextUser);
     setEditForm((prev) => (
       prev
         ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos }

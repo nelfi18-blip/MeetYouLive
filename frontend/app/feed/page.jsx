@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
+import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -155,6 +156,16 @@ function writeCachedFeed(profiles, currentIndex) {
   }
 }
 
+function clearCachedFeed() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(FEED_CACHE_KEY);
+    window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
+  } catch {
+  }
+}
+
 async function requestBackendToken(signal) {
   try {
     const response = await fetch("/api/auth/backend-token", {
@@ -262,6 +273,15 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
+    if (consumeProfileUpdatedMarker()) {
+      clearCachedFeed();
+      currentProfileIdRef.current = "";
+      hasVisualCacheRef.current = false;
+      setHasVisualCache(false);
+      setLoading(true);
+      return;
+    }
+
     const cachedFeed = readCachedFeed();
     const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
     currentProfileIdRef.current = storedCurrentProfileId;
@@ -599,6 +619,28 @@ export default function FeedPage() {
       if (!signal?.aborted) setLoading(false);
     }
   }, [authToken, session?.googleEmail, status, t]);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      clearCachedFeed();
+      currentProfileIdRef.current = "";
+      hasVisualCacheRef.current = false;
+      setHasVisualCache(false);
+      setProfiles([]);
+      setCurrentIndex(0);
+      setLastAction(null);
+      if (authToken) {
+        loadFeed();
+      } else {
+        setLoading(true);
+      }
+    };
+
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    };
+  }, [authToken, loadFeed]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.

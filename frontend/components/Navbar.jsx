@@ -9,6 +9,7 @@ import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -76,9 +77,9 @@ export default function Navbar() {
       applyProfile(event.detail);
     };
 
-    window.addEventListener("profile:updated", handleProfileUpdated);
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     return () => {
-      window.removeEventListener("profile:updated", handleProfileUpdated);
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
   }, [applyProfile]);
 

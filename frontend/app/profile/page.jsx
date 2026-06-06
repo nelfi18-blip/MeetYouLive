@@ -11,6 +11,7 @@ import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { normalizeImageUrl } from "@/lib/imageHelpers";
+import { publishProfileUpdated } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
@@ -196,11 +197,6 @@ export default function ProfilePage() {
   const [boostLoading, setBoostLoading] = useState(false);
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
-
-  const publishProfileUpdated = useCallback((updatedUser) => {
-    if (typeof window === "undefined" || !updatedUser) return;
-    window.dispatchEvent(new CustomEvent("profile:updated", { detail: updatedUser }));
-  }, []);
 
   const refreshProfileSession = useCallback(async () => {
     try {

@@ -629,19 +629,19 @@ export default function FeedPage() {
     }
   }, [authToken, session?.googleEmail, status, t]);
 
-  useEffect(() => {
-    const handleProfileUpdated = () => {
-      resetFeedAfterProfileUpdate();
-      if (authToken) {
-        loadFeed();
-      }
-    };
+  const handleProfileUpdated = useCallback(() => {
+    resetFeedAfterProfileUpdate();
+    if (authToken) {
+      loadFeed();
+    }
+  }, [authToken, loadFeed, resetFeedAfterProfileUpdate]);
 
+  useEffect(() => {
     window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     return () => {
       window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
-  }, [authToken, loadFeed, resetFeedAfterProfileUpdate]);
+  }, [handleProfileUpdated]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.

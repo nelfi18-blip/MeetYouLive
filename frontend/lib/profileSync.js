@@ -5,7 +5,11 @@ export function publishProfileUpdated(profile) {
   if (typeof window === "undefined" || !profile) return;
 
   try {
-    window.sessionStorage.setItem(PROFILE_UPDATED_MARKER_KEY, String(Date.now()));
+    const profileId = profile?._id || profile?.id || "";
+    window.sessionStorage.setItem(
+      PROFILE_UPDATED_MARKER_KEY,
+      JSON.stringify({ updatedAt: Date.now(), profileId: profileId ? String(profileId) : "" })
+    );
   } catch {
   }
 

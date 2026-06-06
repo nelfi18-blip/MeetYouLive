@@ -235,6 +235,7 @@ export default function FeedPage() {
   const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [profileSyncVersion, setProfileSyncVersion] = useState(0);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
@@ -266,6 +267,7 @@ export default function FeedPage() {
     setCurrentIndex(0);
     setLastAction(null);
     setLoading(true);
+    setProfileSyncVersion((version) => version + 1);
   }, []);
 
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
@@ -631,10 +633,7 @@ export default function FeedPage() {
 
   const handleProfileUpdated = useCallback(() => {
     resetFeedAfterProfileUpdate();
-    if (authToken) {
-      loadFeed();
-    }
-  }, [authToken, loadFeed, resetFeedAfterProfileUpdate]);
+  }, [resetFeedAfterProfileUpdate]);
 
   useEffect(() => {
     window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
@@ -652,7 +651,7 @@ export default function FeedPage() {
     return () => {
       controller.abort();
     };
-  }, [authToken, loadFeed]);
+  }, [authToken, loadFeed, profileSyncVersion]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {

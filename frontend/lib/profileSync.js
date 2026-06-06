@@ -5,7 +5,7 @@ export function publishProfileUpdated(profile) {
   if (typeof window === "undefined" || !profile) return;
 
   try {
-    const profileId = profile?._id || profile?.id || "";
+    const profileId = profile._id || profile.id || "";
     window.sessionStorage.setItem(
       PROFILE_UPDATED_MARKER_KEY,
       JSON.stringify({ updatedAt: Date.now(), profileId: profileId ? String(profileId) : "" })

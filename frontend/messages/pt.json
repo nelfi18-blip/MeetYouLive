@@ -55,6 +55,10 @@
     "en": "English",
     "pt": "Português"
   },
+  "matchesPage": {
+    "chatOpenError": "Não foi possível abrir o chat",
+    "connectionError": "Erro de conexão"
+  },
   "profile": {
     "title": "Meu Perfil",
     "loading": "Carregando perfil...",

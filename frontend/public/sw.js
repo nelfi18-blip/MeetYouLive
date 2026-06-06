@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v31";
+const CACHE_NAME = "meetyoulive-v32";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -9,7 +9,6 @@ const STATIC_ASSETS = [
 
 // API endpoints that should be cached for offline access
 const CACHED_API_PATTERNS = [
-  /\/api\/user\/me$/,
   /\/api\/notifications/,
   /\/api\/chats$/,
 ];

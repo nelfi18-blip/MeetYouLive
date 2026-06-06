@@ -213,6 +213,14 @@ export default function ProfilePage() {
     router.refresh();
   }, [router, updateSession]);
 
+  const updateAndPublishUser = useCallback((updates) => {
+    if (!user) return null;
+    const nextUser = typeof updates === "function" ? updates(user) : { ...user, ...updates };
+    setUser(nextUser);
+    publishProfileUpdated(nextUser);
+    return nextUser;
+  }, [publishProfileUpdated, user]);
+
   const applyLoadedProfile = useCallback((profile) => {
     const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
@@ -360,9 +368,7 @@ export default function ProfilePage() {
           cache: "no-store",
         });
       }
-      const nextUser = user ? { ...user, preferredLanguage: newLang } : user;
-      setUser(nextUser);
-      if (nextUser) publishProfileUpdated(nextUser);
+      updateAndPublishUser({ preferredLanguage: newLang });
       await refreshProfileSession();
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
@@ -471,9 +477,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
       setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      const nextUser = user ? { ...user, creatorStatus: "pending" } : user;
-      setUser(nextUser);
-      if (nextUser) publishProfileUpdated(nextUser);
+      updateAndPublishUser({ creatorStatus: "pending" });
       await refreshProfileSession();
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
@@ -482,9 +486,7 @@ export default function ProfilePage() {
   const applyPhotoPayload = (payload, successMessage = "") => {
     const normalizedPhotos = normalizePhotoList(payload?.avatar, payload?.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
-    const nextUser = user ? { ...user, avatar: normalizedAvatar, profilePhotos: normalizedPhotos } : user;
-    setUser(nextUser);
-    if (nextUser) publishProfileUpdated(nextUser);
+    updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos });
     setEditForm((prev) => (
       prev
         ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos }

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
-import getSocket from "@/lib/socket";
+import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -111,7 +111,6 @@ export default function ChatConversationPage() {
     
     let mounted = true;
     let timeoutId = null;
-    const socket = getSocket();
     if (!socket) return;
     
     const handleChatGift = (data) => {

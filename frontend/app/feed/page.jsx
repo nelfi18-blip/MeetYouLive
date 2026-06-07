@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
+import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -155,6 +156,16 @@ function writeCachedFeed(profiles, currentIndex) {
   }
 }
 
+function clearCachedFeed() {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(FEED_CACHE_KEY);
+    window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
+  } catch {
+  }
+}
+
 async function requestBackendToken(signal) {
   try {
     const response = await fetch("/api/auth/backend-token", {
@@ -224,6 +235,7 @@ export default function FeedPage() {
   const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [profileSyncVersion, setProfileSyncVersion] = useState(0);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
@@ -244,6 +256,20 @@ export default function FeedPage() {
   const currentProfileIdRef = useRef("");
   const lastActionRef = useRef(null);
 
+  const resetFeedAfterProfileUpdate = useCallback(() => {
+    clearCachedFeed();
+    currentProfileIdRef.current = "";
+    hasVisualCacheRef.current = false;
+    profilesRef.current = [];
+    currentIndexRef.current = 0;
+    setHasVisualCache(false);
+    setProfiles([]);
+    setCurrentIndex(0);
+    setLastAction(null);
+    setLoading(true);
+    setProfileSyncVersion((version) => version + 1);
+  }, []);
+
   // Redirect unauthenticated users to login (preserving callbackUrl=/feed so
   // they come back here after sign-in; authenticated refresh always stays on
   // /feed and never bounces to an alternate layout).
@@ -262,6 +288,11 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
+    if (consumeProfileUpdatedMarker()) {
+      resetFeedAfterProfileUpdate();
+      return;
+    }
+
     const cachedFeed = readCachedFeed();
     const storedCurrentProfileId = cachedFeed.currentProfileId || readStoredCurrentProfileId();
     currentProfileIdRef.current = storedCurrentProfileId;
@@ -278,7 +309,7 @@ export default function FeedPage() {
     setCurrentIndex(cachedFeed.currentIndex);
     setLoading(false);
     setHasVisualCache(true);
-  }, []);
+  }, [resetFeedAfterProfileUpdate]);
 
   useEffect(() => {
     profilesRef.current = profiles;
@@ -600,6 +631,17 @@ export default function FeedPage() {
     }
   }, [authToken, session?.googleEmail, status, t]);
 
+  const handleProfileUpdated = useCallback(() => {
+    resetFeedAfterProfileUpdate();
+  }, [resetFeedAfterProfileUpdate]);
+
+  useEffect(() => {
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    };
+  }, [handleProfileUpdated]);
+
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.
   useEffect(() => {
@@ -609,7 +651,7 @@ export default function FeedPage() {
     return () => {
       controller.abort();
     };
-  }, [authToken, loadFeed]);
+  }, [authToken, loadFeed, profileSyncVersion]);
 
   const visibleProfileStack = [];
   for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {

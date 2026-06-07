@@ -12,6 +12,7 @@ const { hasLiveHost } = require("../lib/socket.js");
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
+const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 const toObjectIdOrNull = (id) =>
@@ -23,7 +24,7 @@ const parseExcludedProfileIds = (exclude) => {
     .flatMap((value) => (typeof value === "string" ? value.split(",") : []))
     .map((value) => value.trim())
     .filter(Boolean)
-    .slice(0, 200)
+    .slice(0, MAX_CLIENT_EXCLUDED_PROFILE_IDS)
     .map(toObjectIdOrNull)
     .filter(Boolean);
   return Array.from(new Map(ids.map((id) => [id.toString(), id])).values());

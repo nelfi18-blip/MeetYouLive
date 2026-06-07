@@ -32,6 +32,10 @@ const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
 
+function limitSeenProfileIds(profileIds) {
+  return Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean))).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
+}
+
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
   return profileId ? String(profileId) : "";
@@ -177,9 +181,7 @@ function readSeenProfileIds() {
   try {
     const raw = window.localStorage.getItem(FEED_SEEN_PROFILE_IDS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.map(getNullableIdString).filter(Boolean).slice(-FEED_SEEN_PROFILE_IDS_LIMIT)
-      : [];
+    return Array.isArray(parsed) ? limitSeenProfileIds(parsed) : [];
   } catch {
     return [];
   }
@@ -189,10 +191,9 @@ function writeSeenProfileIds(profileIds) {
   if (typeof window === "undefined") return;
 
   try {
-    const uniqueProfileIds = Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean)));
     window.localStorage.setItem(
       FEED_SEEN_PROFILE_IDS_KEY,
-      JSON.stringify(uniqueProfileIds.slice(-FEED_SEEN_PROFILE_IDS_LIMIT))
+      JSON.stringify(limitSeenProfileIds(profileIds))
     );
   } catch {
   }

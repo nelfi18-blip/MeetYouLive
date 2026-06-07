@@ -17,6 +17,18 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
 
+const parseExcludedProfileIds = (exclude) => {
+  const rawValues = Array.isArray(exclude) ? exclude : [exclude];
+  const ids = rawValues
+    .flatMap((value) => (typeof value === "string" ? value.split(",") : []))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 200)
+    .map(toObjectIdOrNull)
+    .filter(Boolean);
+  return Array.from(new Map(ids.map((id) => [id.toString(), id])).values());
+};
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -193,14 +205,26 @@ const getFeed = async (req, res) => {
     console.log("[Feed API] Fetching feed data...");
 
     const authenticatedUserId = toObjectIdOrNull(req.userId);
+    const excludedProfileIds = parseExcludedProfileIds(req.query.exclude);
+    if (authenticatedUserId) {
+      excludedProfileIds.push(authenticatedUserId);
+      const userLikes = await Like.find({ from: authenticatedUserId }).select("to").lean();
+      userLikes.forEach((like) => {
+        const likedProfileId = toObjectIdOrNull(like.to);
+        if (likedProfileId) excludedProfileIds.push(likedProfileId);
+      });
+    }
+    const uniqueExcludedProfileIds = Array.from(
+      new Map(excludedProfileIds.map((id) => [id.toString(), id])).values()
+    );
     const recommendedProfilesMatch = {
       role: "user", // Excludes creators and all staff roles
       isBlocked: false,
       isSuspended: false,
       onboardingComplete: true
     };
-    if (authenticatedUserId) {
-      recommendedProfilesMatch._id = { $ne: authenticatedUserId };
+    if (uniqueExcludedProfileIds.length) {
+      recommendedProfilesMatch._id = { $nin: uniqueExcludedProfileIds };
     }
     
     // Run all queries in parallel for better performance

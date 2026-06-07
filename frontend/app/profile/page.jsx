@@ -1882,7 +1882,56 @@ export default function ProfilePage() {
         }
 
         @media (max-width: 540px) {
-          .profile-card-content { padding: 1.25rem; gap: 1rem; }
+          .profile-page {
+            max-width: none;
+            width: 100%;
+            min-width: 0;
+            margin: 0;
+            gap: 1rem;
+          }
+
+          .profile-card,
+          .form-card,
+          .stats-grid,
+          .premium-upsell-card,
+          .actions-card,
+          .creator-cta-card,
+          .creator-pending-card,
+          .creator-active-card,
+          .boost-profile-card {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .profile-card-content {
+            padding: 1.25rem;
+            gap: 1rem;
+            flex-direction: column;
+          }
+
+          .profile-avatar-wrap {
+            align-self: center;
+          }
+
+          .profile-info {
+            min-width: 0;
+            width: 100%;
+            text-align: center;
+          }
+
+          .profile-bio {
+            max-width: none;
+          }
+
+          .profile-actions-top {
+            width: 100%;
+            flex-direction: row;
+          }
+
+          .profile-actions-top .btn {
+            flex: 1;
+          }
+
           .profile-extra-strip { padding: 0 1.25rem 1rem; }
           .profile-photo-url-row { grid-template-columns: 1fr; }
           .profile-photo-thumb-actions { flex-direction: row; flex-wrap: wrap; }

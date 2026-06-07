@@ -75,6 +75,7 @@
   --floating-button-offset: 100px;
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
+  --profile-bottom-spacing-mobile: 88px; /* Profile content clearance above fixed mobile bottom nav */
 }
 
 /* =========================================================
@@ -664,10 +665,28 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
+  /* Global fallback so the desktop top bar never flashes on mobile. */
+  .navbar {
+    display: none;
+  }
+
   .main-content {
     max-width: none;
+    width: 100%;
     margin: 0;
     padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
+  }
+
+  .main-content-bottom-nav {
+    min-height: 100dvh;
+  }
+
+  /* Profile owns mobile safe-area spacing so its cards render full-width from first paint. */
+  .main-content-profile {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem 0.75rem calc(var(--profile-bottom-spacing-mobile) + env(safe-area-inset-bottom)) 0.75rem;
   }
 
   .hide-mobile  { display: none !important; }

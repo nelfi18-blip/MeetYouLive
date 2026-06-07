@@ -665,6 +665,7 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
+  /* Global fallback so the desktop top bar never flashes on mobile bottom-nav routes. */
   .navbar,
   .navbar--bottom-route {
     display: none;
@@ -681,6 +682,7 @@ main.main-content:has(.admin-shell) {
     min-height: 100dvh;
   }
 
+  /* Profile owns mobile safe-area spacing so its cards render full-width from first paint. */
   main.main-content:has(.profile-page) {
     max-width: none;
     width: 100%;

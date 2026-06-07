@@ -680,7 +680,6 @@ main.main-content:has(.admin-shell) {
     min-height: 100dvh;
   }
 
-  .main-content-profile,
   main.main-content:has(.profile-page) {
     max-width: none;
     width: 100%;

@@ -257,6 +257,7 @@ export default function FeedPage() {
   const lastActionRef = useRef(null);
 
   const resetFeedAfterProfileUpdate = useCallback(() => {
+    feedMutationVersionRef.current += 1;
     clearCachedFeed();
     currentProfileIdRef.current = "";
     hasVisualCacheRef.current = false;

@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v32";
+const CACHE_NAME = "meetyoulive-v33";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -12,6 +12,8 @@ const CACHED_API_PATTERNS = [
   /\/api\/notifications/,
   /\/api\/chats$/,
 ];
+
+const NETWORK_ONLY_API_ROUTES = ["/api/user/me", "/api/feed"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -52,6 +54,15 @@ self.addEventListener("fetch", (event) => {
   const NETWORK_ONLY_PAGE_ROUTES = ["/feed", "/profile", "/dashboard"];
   if (
     NETWORK_ONLY_PAGE_ROUTES.some(
+      (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)
+    )
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (
+    NETWORK_ONLY_API_ROUTES.some(
       (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)
     )
   ) {

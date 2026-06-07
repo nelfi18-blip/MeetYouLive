@@ -26,6 +26,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -166,6 +167,29 @@ function clearCachedFeed() {
   }
 }
 
+function roundLayoutNumber(value) {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+}
+
+function getElementLayoutSnapshot(element) {
+  if (!element) return null;
+
+  const rect = element.getBoundingClientRect();
+  return {
+    className: typeof element.className === "string" ? element.className : "",
+    width: roundLayoutNumber(rect.width),
+    height: roundLayoutNumber(rect.height),
+    top: roundLayoutNumber(rect.top),
+    left: roundLayoutNumber(rect.left),
+    bottom: roundLayoutNumber(rect.bottom),
+    right: roundLayoutNumber(rect.right),
+  };
+}
+
+function readCssCustomProperty(styles, propertyName) {
+  return styles.getPropertyValue(propertyName).trim();
+}
+
 async function requestBackendToken(signal) {
   try {
     const response = await fetch("/api/auth/backend-token", {
@@ -251,10 +275,64 @@ export default function FeedPage() {
   const pendingActionProfileIdRef = useRef(null);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
+  const pageRef = useRef(null);
   const deckRef = useRef(null);
   const currentUserIdRef = useRef("");
   const currentProfileIdRef = useRef("");
   const lastActionRef = useRef(null);
+
+  const logFeedLayoutDiagnostic = useCallback((reason) => {
+    if (typeof window === "undefined") return;
+
+    const visualViewport = window.visualViewport;
+    const pageElement = pageRef.current;
+    const deckElement = deckRef.current;
+    const cardElement = deckElement?.querySelector(".swipe-card-modern") || null;
+    const pageStyles = pageElement ? window.getComputedStyle(pageElement) : null;
+
+    console.info(FEED_LAYOUT_DIAGNOSTIC_LABEL, {
+      reason,
+      timestamp: new Date().toISOString(),
+      viewport: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight,
+        documentClientWidth: document.documentElement.clientWidth,
+        documentClientHeight: document.documentElement.clientHeight,
+        visualViewportWidth: roundLayoutNumber(visualViewport?.width),
+        visualViewportHeight: roundLayoutNumber(visualViewport?.height),
+        visualViewportScale: roundLayoutNumber(visualViewport?.scale),
+        visualViewportOffsetTop: roundLayoutNumber(visualViewport?.offsetTop),
+        visualViewportOffsetLeft: roundLayoutNumber(visualViewport?.offsetLeft),
+        devicePixelRatio: window.devicePixelRatio,
+        orientationType: screen.orientation?.type || null,
+        orientationAngle: screen.orientation?.angle ?? window.orientation ?? null,
+      },
+      cssSupport: {
+        svh: CSS.supports("height", "100svh"),
+        dvh: CSS.supports("height", "100dvh"),
+        lvh: CSS.supports("height", "100lvh"),
+      },
+      feedCssVars: pageStyles
+        ? {
+            feedViewportHeight: readCssCustomProperty(pageStyles, "--feed-viewport-height"),
+            feedStableViewportHeight: readCssCustomProperty(pageStyles, "--feed-stable-viewport-height"),
+            feedAvailableHeight: readCssCustomProperty(pageStyles, "--feed-available-height"),
+            feedDeckWidth: readCssCustomProperty(pageStyles, "--feed-deck-width"),
+            feedDeckHeight: readCssCustomProperty(pageStyles, "--feed-deck-height"),
+            feedInfoPanelHeight: readCssCustomProperty(pageStyles, "--feed-info-panel-height"),
+            feedSafeTop: readCssCustomProperty(pageStyles, "--feed-safe-top"),
+            feedSafeBottom: readCssCustomProperty(pageStyles, "--feed-safe-bottom"),
+          }
+        : null,
+      elements: {
+        main: getElementLayoutSnapshot(pageElement),
+        deck: getElementLayoutSnapshot(deckElement),
+        card: getElementLayoutSnapshot(cardElement),
+      },
+    });
+  }, []);
 
   const resetFeedAfterProfileUpdate = useCallback(() => {
     feedMutationVersionRef.current += 1;
@@ -287,6 +365,47 @@ export default function FeedPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    let animationFrameId = null;
+    let delayedLogId = null;
+
+    const scheduleDiagnostic = (reason) => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        logFeedLayoutDiagnostic(reason);
+      });
+    };
+
+    scheduleDiagnostic("mount");
+    delayedLogId = setTimeout(() => scheduleDiagnostic("post-refresh-recalculation"), 650);
+
+    const handleWindowResize = () => scheduleDiagnostic("window-resize");
+    const handleOrientationChange = () => scheduleDiagnostic("orientation-change");
+    const handleVisualViewportResize = () => scheduleDiagnostic("visual-viewport-resize");
+    const handleVisualViewportScroll = () => scheduleDiagnostic("visual-viewport-scroll");
+
+    window.addEventListener("resize", handleWindowResize);
+    window.addEventListener("orientationchange", handleOrientationChange);
+    window.visualViewport?.addEventListener("resize", handleVisualViewportResize);
+    window.visualViewport?.addEventListener("scroll", handleVisualViewportScroll);
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      if (delayedLogId) {
+        clearTimeout(delayedLogId);
+      }
+      window.removeEventListener("resize", handleWindowResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
+      window.visualViewport?.removeEventListener("resize", handleVisualViewportResize);
+      window.visualViewport?.removeEventListener("scroll", handleVisualViewportScroll);
+    };
+  }, [logFeedLayoutDiagnostic]);
 
   useEffect(() => {
     if (consumeProfileUpdatedMarker()) {
@@ -659,6 +778,16 @@ export default function FeedPage() {
     visibleProfileStack.push({ profile: profiles[i], stackIndex: i - currentIndex });
   }
 
+  useEffect(() => {
+    const animationFrameId = requestAnimationFrame(() => {
+      logFeedLayoutDiagnostic("feed-render");
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [currentIndex, error, loading, logFeedLayoutDiagnostic, profiles.length]);
+
   /* --------------------------- Actions --------------------------- */
   const unlockSwipe = () => {
     if (swipeUnlockTimeoutRef.current) {
@@ -862,7 +991,7 @@ export default function FeedPage() {
   const currentProfileId = getProfileId(currentProfile);
 
   return (
-    <div className="feed-page">
+    <div ref={pageRef} className="feed-page">
       {/* 1. APPROVED BRAND HEADER */}
       <FeedHeader />
 

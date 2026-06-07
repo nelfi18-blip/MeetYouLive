@@ -169,55 +169,55 @@ function clearCachedFeed() {
     window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
   } catch {
   }
+}
 
-  function readSeenProfileIds() {
-    if (typeof window === "undefined") return [];
+function readSeenProfileIds() {
+  if (typeof window === "undefined") return [];
 
-    try {
-      const raw = window.localStorage.getItem(FEED_SEEN_PROFILE_IDS_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed)
-        ? parsed.map(getNullableIdString).filter(Boolean).slice(-FEED_SEEN_PROFILE_IDS_LIMIT)
-        : [];
-    } catch {
-      return [];
+  try {
+    const raw = window.localStorage.getItem(FEED_SEEN_PROFILE_IDS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.map(getNullableIdString).filter(Boolean).slice(-FEED_SEEN_PROFILE_IDS_LIMIT)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSeenProfileIds(profileIds) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const uniqueProfileIds = Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean)));
+    window.localStorage.setItem(
+      FEED_SEEN_PROFILE_IDS_KEY,
+      JSON.stringify(uniqueProfileIds.slice(-FEED_SEEN_PROFILE_IDS_LIMIT))
+    );
+  } catch {
+  }
+}
+
+function addSeenProfileId(profileId) {
+  if (!profileId) return;
+  writeSeenProfileIds([...readSeenProfileIds(), profileId]);
+}
+
+function removeSeenProfileId(profileId) {
+  if (!profileId) return;
+  writeSeenProfileIds(readSeenProfileIds().filter((storedProfileId) => storedProfileId !== profileId));
+}
+
+function buildFeedUrl({ excludeSeen = false } = {}) {
+  const url = new URL(`${API_URL}/api/feed`);
+  if (excludeSeen) {
+    const seenProfileIds = readSeenProfileIds();
+    if (seenProfileIds.length) {
+      url.searchParams.set("exclude", seenProfileIds.join(","));
     }
+    url.searchParams.set("fresh", String(Date.now()));
   }
-
-  function writeSeenProfileIds(profileIds) {
-    if (typeof window === "undefined") return;
-
-    try {
-      const uniqueProfileIds = Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean)));
-      window.localStorage.setItem(
-        FEED_SEEN_PROFILE_IDS_KEY,
-        JSON.stringify(uniqueProfileIds.slice(-FEED_SEEN_PROFILE_IDS_LIMIT))
-      );
-    } catch {
-    }
-  }
-
-  function addSeenProfileId(profileId) {
-    if (!profileId) return;
-    writeSeenProfileIds([...readSeenProfileIds(), profileId]);
-  }
-
-  function removeSeenProfileId(profileId) {
-    if (!profileId) return;
-    writeSeenProfileIds(readSeenProfileIds().filter((storedProfileId) => storedProfileId !== profileId));
-  }
-
-  function buildFeedUrl({ excludeSeen = false } = {}) {
-    const url = new URL(`${API_URL}/api/feed`);
-    if (excludeSeen) {
-      const seenProfileIds = readSeenProfileIds();
-      if (seenProfileIds.length) {
-        url.searchParams.set("exclude", seenProfileIds.join(","));
-      }
-      url.searchParams.set("fresh", String(Date.now()));
-    }
-    return url.toString();
-  }
+  return url.toString();
 }
 
 function roundLayoutNumber(value) {

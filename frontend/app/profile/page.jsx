@@ -1907,7 +1907,6 @@ export default function ProfilePage() {
             padding: 1.25rem;
             gap: 1rem;
             flex-direction: column;
-            align-items: stretch;
           }
 
           .profile-avatar-wrap {

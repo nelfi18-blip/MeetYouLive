@@ -52,6 +52,7 @@ export default function Navbar() {
     if ("role" in profile) setRole(profile.role || "");
     if ("creatorStatus" in profile) setCreatorStatus(profile.creatorStatus || "");
     if ("avatar" in profile) setAvatar(profile.avatar || "");
+    if ("coins" in profile) setCoins(profile.coins ?? 0);
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
   }, [syncFromUser]);
 
@@ -192,7 +193,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="navbar">
+      <nav className={`navbar${shouldUseModernBottomNav ? " navbar--bottom-route" : ""}`}>
         {/* Brand */}
         <div className="navbar-brand">
           <Link href={homePath} className="navbar-logo">
@@ -489,7 +490,6 @@ export default function Navbar() {
         .coins-badge:hover::before {
           transform: translateX(100%);
         }
-        }
         .coins-badge:hover {
           background: rgba(251,146,60,0.18);
           box-shadow: 0 0 14px rgba(251,146,60,0.3);
@@ -769,6 +769,10 @@ export default function Navbar() {
           .navbar-links { display: none; }
           .navbar-username { display: none; }
           .bottom-nav { display: flex; }
+        }
+
+        @media (max-width: 1024px) {
+          .navbar--bottom-route { display: none; }
         }
 
         @media (max-width: 480px) {

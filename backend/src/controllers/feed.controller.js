@@ -209,9 +209,9 @@ const getFeed = async (req, res) => {
     const excludedProfileIds = parseExcludedProfileIds(req.query.exclude);
     if (authenticatedUserId) {
       excludedProfileIds.push(authenticatedUserId);
-      const userLikes = await Like.find({ from: authenticatedUserId }).select("to").lean();
-      userLikes.forEach((like) => {
-        const likedProfileId = toObjectIdOrNull(like.to);
+      const likedProfileIds = await Like.distinct("to", { from: authenticatedUserId });
+      likedProfileIds.forEach((profileId) => {
+        const likedProfileId = toObjectIdOrNull(profileId);
         if (likedProfileId) excludedProfileIds.push(likedProfileId);
       });
     }

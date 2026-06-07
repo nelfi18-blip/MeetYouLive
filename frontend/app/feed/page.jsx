@@ -32,10 +32,6 @@ const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
 
-function limitSeenProfileIds(profileIds) {
-  return Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean))).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
-}
-
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
   return profileId ? String(profileId) : "";
@@ -43,6 +39,10 @@ function getProfileId(profile) {
 
 function getNullableIdString(id) {
   return id == null ? "" : String(id);
+}
+
+function limitSeenProfileIds(profileIds) {
+  return Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean))).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
 }
 
 function isRecommendedProfile(profile, currentUserId) {
@@ -216,7 +216,7 @@ function buildFeedUrl({ excludeSeen = false } = {}) {
     if (seenProfileIds.length) {
       url.searchParams.set("exclude", seenProfileIds.join(","));
     }
-    url.searchParams.set("fresh", String(Date.now()));
+    url.searchParams.set("cacheBust", String(Date.now()));
   }
   return url.toString();
 }

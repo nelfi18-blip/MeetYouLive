@@ -229,9 +229,8 @@ export default function ProfilePage() {
       profilePhotos: normalizedUser.profilePhotos || [],
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
-    publishProfileUpdated(normalizedUser);
     return normalizedUser;
-  }, [publishProfileUpdated, syncFromUser]);
+  }, [syncFromUser]);
 
   const resolveToken = useCallback(async () => {
     let token = getToken();

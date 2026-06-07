@@ -206,8 +206,7 @@ export default function ProfilePage() {
     } catch (err) {
       console.error("[profile] failed to refresh session:", err);
     }
-    router.refresh();
-  }, [router, updateSession]);
+  }, [updateSession]);
 
   const updateAndPublishUser = useCallback((updates) => {
     if (!user) return null;
@@ -331,7 +330,7 @@ export default function ProfilePage() {
       if (res.ok) {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
-        setUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
+        updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
         await refreshProfileSession();
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);

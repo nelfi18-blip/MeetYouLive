@@ -27,6 +27,8 @@ const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
+const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
+const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -369,8 +371,20 @@ export default function FeedPage() {
   useEffect(() => {
     let animationFrameId = null;
     let delayedLogId = null;
+    let eventDebounceId = null;
 
-    const scheduleDiagnostic = (reason) => {
+    const scheduleDiagnostic = (reason, delayMs = 0) => {
+      if (delayMs > 0) {
+        if (eventDebounceId) {
+          clearTimeout(eventDebounceId);
+        }
+        eventDebounceId = setTimeout(() => {
+          eventDebounceId = null;
+          scheduleDiagnostic(reason);
+        }, delayMs);
+        return;
+      }
+
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
       }
@@ -381,12 +395,15 @@ export default function FeedPage() {
     };
 
     scheduleDiagnostic("mount");
-    delayedLogId = setTimeout(() => scheduleDiagnostic("post-refresh-recalculation"), 650);
+    delayedLogId = setTimeout(
+      () => scheduleDiagnostic("post-refresh-recalculation"),
+      POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS
+    );
 
-    const handleWindowResize = () => scheduleDiagnostic("window-resize");
-    const handleOrientationChange = () => scheduleDiagnostic("orientation-change");
-    const handleVisualViewportResize = () => scheduleDiagnostic("visual-viewport-resize");
-    const handleVisualViewportScroll = () => scheduleDiagnostic("visual-viewport-scroll");
+    const handleWindowResize = () => scheduleDiagnostic("window-resize", FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS);
+    const handleOrientationChange = () => scheduleDiagnostic("orientation-change", FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS);
+    const handleVisualViewportResize = () => scheduleDiagnostic("visual-viewport-resize", FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS);
+    const handleVisualViewportScroll = () => scheduleDiagnostic("visual-viewport-scroll", FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS);
 
     window.addEventListener("resize", handleWindowResize);
     window.addEventListener("orientationchange", handleOrientationChange);
@@ -399,6 +416,9 @@ export default function FeedPage() {
       }
       if (delayedLogId) {
         clearTimeout(delayedLogId);
+      }
+      if (eventDebounceId) {
+        clearTimeout(eventDebounceId);
       }
       window.removeEventListener("resize", handleWindowResize);
       window.removeEventListener("orientationchange", handleOrientationChange);

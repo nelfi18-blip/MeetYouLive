@@ -206,18 +206,19 @@ const getFeed = async (req, res) => {
     console.log("[Feed API] Fetching feed data...");
 
     const authenticatedUserId = toObjectIdOrNull(req.userId);
-    const excludedProfileIds = parseExcludedProfileIds(req.query.exclude);
-    if (authenticatedUserId) {
-      excludedProfileIds.push(authenticatedUserId);
-      const likedProfileIds = await Like.distinct("to", { from: authenticatedUserId });
-      likedProfileIds.forEach((profileId) => {
-        const likedProfileId = toObjectIdOrNull(profileId);
-        if (likedProfileId) excludedProfileIds.push(likedProfileId);
-      });
-    }
-    const uniqueExcludedProfileIds = Array.from(
-      new Map(excludedProfileIds.map((id) => [id.toString(), id])).values()
+    const excludedProfileIdsById = new Map(
+      parseExcludedProfileIds(req.query.exclude).map((profileId) => [profileId.toString(), profileId])
     );
+    const addExcludedProfileId = (profileId) => {
+      const objectId = toObjectIdOrNull(profileId);
+      if (objectId) excludedProfileIdsById.set(objectId.toString(), objectId);
+    };
+    if (authenticatedUserId) {
+      addExcludedProfileId(authenticatedUserId);
+      const likedProfileIds = await Like.distinct("to", { from: authenticatedUserId });
+      likedProfileIds.forEach(addExcludedProfileId);
+    }
+    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     const recommendedProfilesMatch = {
       role: "user", // Excludes creators and all staff roles
       isBlocked: false,

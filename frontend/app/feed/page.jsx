@@ -42,7 +42,11 @@ function getNullableIdString(id) {
 }
 
 function limitSeenProfileIds(profileIds) {
-  return Array.from(new Set(profileIds.map(getNullableIdString).filter(Boolean))).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
+  return profileIds.map(getNullableIdString).filter(Boolean).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
+}
+
+function normalizeSeenProfileIds(profileIds) {
+  return Array.from(new Set(limitSeenProfileIds(profileIds)));
 }
 
 function isRecommendedProfile(profile, currentUserId) {
@@ -181,7 +185,7 @@ function readSeenProfileIds() {
   try {
     const raw = window.localStorage.getItem(FEED_SEEN_PROFILE_IDS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? limitSeenProfileIds(parsed) : [];
+    return Array.isArray(parsed) ? normalizeSeenProfileIds(parsed) : [];
   } catch {
     return [];
   }
@@ -200,8 +204,11 @@ function writeSeenProfileIds(profileIds) {
 }
 
 function addSeenProfileId(profileId) {
-  if (!profileId) return;
-  writeSeenProfileIds([...readSeenProfileIds(), profileId]);
+  const normalizedProfileId = getNullableIdString(profileId);
+  if (!normalizedProfileId) return;
+  const seenProfileIds = readSeenProfileIds();
+  if (seenProfileIds.includes(normalizedProfileId)) return;
+  writeSeenProfileIds([...seenProfileIds, normalizedProfileId]);
 }
 
 function removeSeenProfileId(profileId) {

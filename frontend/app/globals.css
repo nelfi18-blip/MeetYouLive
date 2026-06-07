@@ -75,6 +75,7 @@
   --floating-button-offset: 100px;
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
+  --profile-bottom-spacing-mobile: 88px; /* Profile content clearance above fixed mobile bottom nav */
 }
 
 /* =========================================================
@@ -666,7 +667,7 @@ main.main-content:has(.admin-shell) {
 @media (max-width: 768px) {
   .navbar,
   .navbar--bottom-route {
-    display: none !important;
+    display: none;
   }
 
   .main-content {
@@ -684,7 +685,7 @@ main.main-content:has(.admin-shell) {
     max-width: none;
     width: 100%;
     margin: 0;
-    padding: 0.75rem 0.75rem calc(88px + env(safe-area-inset-bottom)) 0.75rem;
+    padding: 0.75rem 0.75rem calc(var(--profile-bottom-spacing-mobile) + env(safe-area-inset-bottom)) 0.75rem;
   }
 
   .hide-mobile  { display: none !important; }

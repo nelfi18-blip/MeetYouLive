@@ -12,10 +12,23 @@ const { hasLiveHost } = require("../lib/socket.js");
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
+const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+
+const parseExcludedProfileIds = (exclude) => {
+  const rawValues = Array.isArray(exclude) ? exclude : [exclude];
+  const ids = rawValues
+    .flatMap((value) => (typeof value === "string" ? value.split(",") : []))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, MAX_CLIENT_EXCLUDED_PROFILE_IDS)
+    .map(toObjectIdOrNull)
+    .filter(Boolean);
+  return Array.from(new Map(ids.map((id) => [id.toString(), id])).values());
+};
 
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
@@ -193,14 +206,27 @@ const getFeed = async (req, res) => {
     console.log("[Feed API] Fetching feed data...");
 
     const authenticatedUserId = toObjectIdOrNull(req.userId);
+    const excludedProfileIdsById = new Map(
+      parseExcludedProfileIds(req.query.exclude).map((profileId) => [profileId.toString(), profileId])
+    );
+    const addExcludedProfileId = (profileId) => {
+      const objectId = toObjectIdOrNull(profileId);
+      if (objectId) excludedProfileIdsById.set(objectId.toString(), objectId);
+    };
+    if (authenticatedUserId) {
+      addExcludedProfileId(authenticatedUserId);
+      const likedProfileIds = await Like.distinct("to", { from: authenticatedUserId });
+      likedProfileIds.forEach(addExcludedProfileId);
+    }
+    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     const recommendedProfilesMatch = {
       role: "user", // Excludes creators and all staff roles
       isBlocked: false,
       isSuspended: false,
       onboardingComplete: true
     };
-    if (authenticatedUserId) {
-      recommendedProfilesMatch._id = { $ne: authenticatedUserId };
+    if (uniqueExcludedProfileIds.length) {
+      recommendedProfilesMatch._id = { $nin: uniqueExcludedProfileIds };
     }
     
     // Run all queries in parallel for better performance

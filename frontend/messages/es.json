@@ -165,8 +165,8 @@
     "bioMoreLabel": "Ver más",
     "bioLessLabel": "Ver menos",
     "emptyTitle": "No hay más perfiles por ahora",
-    "emptyDescription": "Vuelve a cargar para buscar más personas cuando quieras.",
-    "reloadProfiles": "Buscar más perfiles"
+    "emptyDescription": "No hay nuevos perfiles por ahora. Vuelve más tarde.",
+    "reloadProfiles": "Buscar nuevos perfiles"
   },
   "common": {
     "loading": "Cargando...",

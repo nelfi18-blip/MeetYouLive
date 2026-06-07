@@ -25,7 +25,9 @@ const FETCH_TIMEOUT_MS = 15000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
+const FEED_SEEN_PROFILE_IDS_KEY = "meetyoulive:feed:seenProfileIds:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
@@ -37,6 +39,14 @@ function getProfileId(profile) {
 
 function getNullableIdString(id) {
   return id == null ? "" : String(id);
+}
+
+function limitSeenProfileIds(profileIds) {
+  return profileIds.map(getNullableIdString).filter(Boolean).slice(-FEED_SEEN_PROFILE_IDS_LIMIT);
+}
+
+function normalizeSeenProfileIds(profileIds) {
+  return Array.from(new Set(limitSeenProfileIds(profileIds)));
 }
 
 function isRecommendedProfile(profile, currentUserId) {
@@ -167,6 +177,55 @@ function clearCachedFeed() {
     window.sessionStorage.removeItem(FEED_CURRENT_PROFILE_KEY);
   } catch {
   }
+}
+
+function readSeenProfileIds() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(FEED_SEEN_PROFILE_IDS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? normalizeSeenProfileIds(parsed) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSeenProfileIds(profileIds) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      FEED_SEEN_PROFILE_IDS_KEY,
+      JSON.stringify(limitSeenProfileIds(profileIds))
+    );
+  } catch {
+  }
+}
+
+function addSeenProfileId(profileId) {
+  const normalizedProfileId = getNullableIdString(profileId);
+  if (!normalizedProfileId) return;
+  const seenProfileIds = readSeenProfileIds();
+  if (seenProfileIds.includes(normalizedProfileId)) return;
+  writeSeenProfileIds([...seenProfileIds, normalizedProfileId]);
+}
+
+function removeSeenProfileId(profileId) {
+  if (!profileId) return;
+  writeSeenProfileIds(readSeenProfileIds().filter((storedProfileId) => storedProfileId !== profileId));
+}
+
+function buildFeedUrl({ excludeSeen = false } = {}) {
+  const url = new URL(`${API_URL}/api/feed`);
+  if (excludeSeen) {
+    const seenProfileIds = readSeenProfileIds();
+    if (seenProfileIds.length) {
+      url.searchParams.set("exclude", seenProfileIds.join(","));
+    }
+    url.searchParams.set("cacheBust", String(Date.now()));
+  }
+  return url.toString();
 }
 
 function roundLayoutNumber(value) {
@@ -614,14 +673,16 @@ export default function FeedPage() {
     return () => clearTimeout(timer);
   }, [status, authToken, t]);
 
-  const loadFeed = useCallback(async ({ signal, silent = false } = {}) => {
-    const mutationVersionAtStart = feedMutationVersionRef.current;
-    const profilesBeforeRefresh = profilesRef.current;
-    const indexBeforeRefresh = currentIndexRef.current;
+  const loadFeed = useCallback(async ({ signal, silent = false, fresh = false } = {}) => {
+    let mutationVersionAtStart = feedMutationVersionRef.current;
+    const profilesBeforeRefresh = fresh ? [] : profilesRef.current;
+    const indexBeforeRefresh = fresh ? 0 : currentIndexRef.current;
     const profileIdBeforeRefresh =
-      getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh) ||
-      currentProfileIdRef.current ||
-      readStoredCurrentProfileId();
+      fresh
+        ? ""
+        : getCurrentProfileId(profilesBeforeRefresh, indexBeforeRefresh) ||
+          currentProfileIdRef.current ||
+          readStoredCurrentProfileId();
 
     if (!authToken) {
       return;
@@ -631,6 +692,17 @@ export default function FeedPage() {
       setLoading(true);
     }
     setError(null);
+    if (fresh) {
+      feedMutationVersionRef.current += 1;
+      mutationVersionAtStart = feedMutationVersionRef.current;
+      clearCachedFeed();
+      currentProfileIdRef.current = "";
+      currentIndexRef.current = 0;
+      profilesRef.current = [];
+      hasVisualCacheRef.current = false;
+      setHasVisualCache(false);
+      setLastAction(null);
+    }
 
     if (!API_URL) {
       setError(t("feed.genericError"));
@@ -649,7 +721,7 @@ export default function FeedPage() {
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
-      const feedRes = await fetch(`${API_URL}/api/feed`, {
+      const feedRes = await fetch(buildFeedUrl({ excludeSeen: fresh }), {
         headers: { Authorization: `Bearer ${authToken}` },
         signal: requestSignal,
         cache: "no-store",
@@ -907,6 +979,7 @@ export default function FeedPage() {
         throw new Error(isLike ? t("feed.likeError") : t("feed.passError"));
       }
 
+      addSeenProfileId(profileId);
       setLastAction({ profileId, actionType: isLike ? "like" : "dislike" });
       likeInFlightRef.current = false;
       return true;
@@ -967,6 +1040,7 @@ export default function FeedPage() {
 
       currentIndexRef.current = targetIndex;
       currentProfileIdRef.current = action.profileId;
+      removeSeenProfileId(action.profileId);
       setCurrentIndex(targetIndex);
       writeCachedFeed(activeProfiles, targetIndex);
       setLastAction(null);
@@ -1117,7 +1191,7 @@ export default function FeedPage() {
               >
                 {t("feed.undoLabel")}
               </button>
-              <button type="button" className="feed-empty-btn" onClick={() => loadFeed()}>
+              <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true })}>
                 {t("feed.reloadProfiles")}
               </button>
             </div>

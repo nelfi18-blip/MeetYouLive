@@ -664,10 +664,28 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
+  .navbar,
+  .navbar--bottom-route {
+    display: none !important;
+  }
+
   .main-content {
     max-width: none;
+    width: 100%;
     margin: 0;
     padding: 1rem 1rem calc(var(--bottom-spacing-mobile) + env(safe-area-inset-bottom)) 1rem;
+  }
+
+  .main-content-bottom-nav {
+    min-height: 100dvh;
+  }
+
+  .main-content-profile,
+  main.main-content:has(.profile-page) {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem 0.75rem calc(88px + env(safe-area-inset-bottom)) 0.75rem;
   }
 
   .hide-mobile  { display: none !important; }

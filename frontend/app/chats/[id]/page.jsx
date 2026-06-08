@@ -257,7 +257,7 @@ export default function ChatConversationPage() {
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
-                <div className="bubble-avatar avatar-placeholder" aria-hidden="true" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
+                <div className="bubble-avatar avatar-placeholder" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
                   {senderImage ? (
                     <img src={senderImage} alt={senderName} className="bubble-avatar-img" />
                   ) : (

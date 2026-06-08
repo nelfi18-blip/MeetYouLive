@@ -6,7 +6,8 @@
  */
 const validateHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
-  return protocol === "http" || protocol === "https" ? protocol : "";
+  const allowedProtocols = new Set(["http", "https"]);
+  return allowedProtocols.has(protocol) ? protocol : "";
 };
 
 /**
@@ -20,13 +21,13 @@ const getRequestOrigin = (req) => {
   const protocol = validateHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
   const hostname = host?.split(":")[0] || "";
-  const hasValidLabels = hostname === "localhost" || hostname.split(".").every(Boolean);
+  const hasValidLabels = Boolean(hostname) && (hostname === "localhost" || hostname.split(".").every(Boolean));
   if (
     !protocol ||
     !host ||
     hostname.includes("..") ||
     !hasValidLabels ||
-    !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)
+    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::\d+)?$/i.test(host)
   ) {
     return "";
   }
@@ -52,7 +53,9 @@ const getPhotoUrlValue = (value) => {
  * @returns {string} Normalized upload path or empty string.
  */
 const normalizeUploadPath = (value) =>
-  typeof value === "string" ? value.replace(/^\/?(?:api\/)?uploads\//i, "uploads/") : "";
+  typeof value === "string" && !value.includes("..")
+    ? value.replace(/^\/?(?:api\/)?uploads\//i, "uploads/")
+    : "";
 
 /**
  * Normalize a photo field into an absolute or renderable URL.

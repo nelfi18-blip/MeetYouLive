@@ -109,7 +109,7 @@ const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+$/;
 function isEmailLikeName(value) {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
-  if (!trimmed) return true;
+  if (!trimmed) return false;
   // Hide exact emails and email-like internal handles such as "user@domain".
   return EMAIL_PATTERN.test(trimmed) || EMAIL_LIKE_PATTERN.test(trimmed);
 }

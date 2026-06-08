@@ -2095,6 +2095,7 @@ export default function CrushPage() {
       const feedProfiles = Array.isArray(data?.recommendedProfiles) ? data.recommendedProfiles : [];
       const featured = Array.isArray(data?.featuredCreators) ? data.featuredCreators : [];
       const seen = new Set();
+      // Feed recommendations drive the list; featured creators fill premium slots without duplicating cards.
       const merged = [...feedProfiles, ...featured].filter((profile) => {
         const id = getProfileId(profile);
         if (!id || seen.has(id)) return false;

@@ -102,7 +102,6 @@ export default function PublicProfilePage() {
   useEffect(() => {
     const token = getToken();
     if (!profileId || !token) {
-      setMatchAccess({ checked: true, match: false });
       return;
     }
 

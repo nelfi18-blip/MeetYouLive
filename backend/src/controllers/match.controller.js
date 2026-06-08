@@ -19,6 +19,7 @@ const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
+const MATCH_USER_FIELDS = "username name avatar profilePhotos profileImage photo photos bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
 // Boost packs – bulk purchase with coin discount
 const BOOST_PACKS = [
@@ -358,7 +359,7 @@ exports.getMatches = async (req, res) => {
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar profilePhotos profileImage photo photos bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium");
+    }).populate("from", MATCH_USER_FIELDS);
 
     const matches = mutualLikes.map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;

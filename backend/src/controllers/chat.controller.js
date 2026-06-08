@@ -6,11 +6,12 @@ const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role";
 
 const getChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.userId })
-      .populate("participants", "username name avatar profilePhotos profileImage photo role")
+      .populate("participants", CHAT_USER_FIELDS)
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
@@ -43,7 +44,7 @@ const getChatById = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    }).populate("participants", "username name avatar profilePhotos profileImage photo role");
+    }).populate("participants", CHAT_USER_FIELDS);
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
     const payload = chat.toObject();
     payload.participants = payload.participants.map((participant) =>
@@ -76,13 +77,13 @@ const createOrGetChat = async (req, res) => {
     let chat = await Chat.findOne({
       participants: { $all: [req.userId, recipientId], $size: 2 },
     })
-      .populate("participants", "username name avatar profilePhotos profileImage photo")
+      .populate("participants", CHAT_USER_FIELDS)
       .populate("lastMessage");
 
     if (!chat) {
       chat = await Chat.create({ participants: [req.userId, recipientId] });
       chat = await Chat.findById(chat._id)
-        .populate("participants", "username name avatar profilePhotos profileImage photo")
+        .populate("participants", CHAT_USER_FIELDS)
         .populate("lastMessage");
     }
 
@@ -105,7 +106,7 @@ const getMessages = async (req, res) => {
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
 
     const messages = await Message.find({ chat: req.params.chatId })
-      .populate("sender", "username name avatar profilePhotos profileImage photo")
+      .populate("sender", CHAT_USER_FIELDS)
       .sort({ createdAt: 1 })
       .limit(100); // Returns the most recent 100 messages; paginate with skip/limit if needed
 
@@ -142,7 +143,7 @@ const sendMessage = async (req, res) => {
       updatedAt: new Date(),
     });
 
-    const populated = await Message.findById(message._id).populate("sender", "username name avatar profilePhotos profileImage photo");
+    const populated = await Message.findById(message._id).populate("sender", CHAT_USER_FIELDS);
     const payload = populated.toObject();
     payload.sender = withSerializedUserPhotoFields(req, payload.sender);
     res.status(201).json(payload);

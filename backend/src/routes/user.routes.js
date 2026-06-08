@@ -68,7 +68,15 @@ const getRequestOrigin = (req) => {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
+  const hostMatch = /^(.+?)(?::(\d{1,5}))?$/.exec(host || "");
+  const hostname = hostMatch?.[1] || "";
+  const port = hostMatch?.[2] ? Number(hostMatch[2]) : null;
+  const validHostname =
+    hostname === "localhost" ||
+    hostname
+      .split(".")
+      .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+  if (!validHostname || (port !== null && (port < 1 || port > 65535))) return "";
   return `${protocol}://${host}`;
 };
 
@@ -121,7 +129,7 @@ const sanitizePhotoUrl = (req, value) => {
   const normalizedPath = trimmed
     .replace(/^\/?api\/uploads\//i, "uploads/")
     .replace(/^\/?uploads\//i, "uploads/");
-  if (/^uploads\/[a-zA-Z0-9/_-][a-zA-Z0-9/._-]*$/.test(normalizedPath)) {
+  if (/^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedPath)) {
     return toAbsoluteUploadUrl(req, `/${normalizedPath}`);
   }
   return "";
@@ -183,6 +191,7 @@ const serializeUserPhotoFields = (req, userLike) => {
     normalizedPhotos[0],
     userLike
   );
+  // profilePhotos is the canonical persisted field; aliases keep feed/public clients in sync.
   return {
     avatar,
     profileImage: avatar,

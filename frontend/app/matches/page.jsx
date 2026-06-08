@@ -11,6 +11,7 @@ import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -219,11 +220,12 @@ export default function MatchesPage() {
             const compatibilityScore = user.compatibilityScore ?? null;
             const sharedInterests = user.sharedInterests || [];
             const statusBadges = computeStatusBadges(user);
+            const userImage = getUserImage(user);
             return (
               <div key={user._id} className="match-card">
                 <div className="match-avatar-wrap">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={displayName} className="match-avatar-img" />
+                  {userImage ? (
+                    <img src={userImage} alt={displayName} className="match-avatar-img" />
                   ) : (
                     <div className="match-avatar-placeholder">{initial}</div>
                   )}

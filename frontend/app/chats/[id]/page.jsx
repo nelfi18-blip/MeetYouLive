@@ -6,6 +6,7 @@ import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
 import socket from "@/lib/socket";
+import { getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -32,6 +33,7 @@ export default function ChatConversationPage() {
   // - Backend maps "private_call" → "chat" in socket events for UI clarity
 
   const otherName = otherUser?.username || otherUser?.name || "Usuario";
+  const otherImage = getUserImage(otherUser);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -196,8 +198,8 @@ export default function ChatConversationPage() {
           {otherName && (
             <>
               <div className="peer-avatar avatar-placeholder">
-                {otherUser?.avatar ? (
-                  <img src={otherUser.avatar} alt={otherName} className="peer-avatar-img" />
+                {otherImage ? (
+                  <img src={otherImage} alt={otherName} className="peer-avatar-img" />
                 ) : (
                   otherName[0].toUpperCase()
                 )}
@@ -250,11 +252,17 @@ export default function ChatConversationPage() {
 
         {!loading && messages.map((msg) => {
           const isMine = msg.sender?._id === currentUserId;
+          const senderImage = getUserImage(msg.sender);
+          const senderName = msg.sender?.username || msg.sender?.name || "Usuario";
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
                 <div className="bubble-avatar avatar-placeholder" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
-                  {(msg.sender?.username || msg.sender?.name || "U")[0].toUpperCase()}
+                  {senderImage ? (
+                    <img src={senderImage} alt={senderName} className="bubble-avatar-img" />
+                  ) : (
+                    senderName[0].toUpperCase()
+                  )}
                 </div>
               )}
               <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
@@ -350,6 +358,19 @@ export default function ChatConversationPage() {
           border: 1px solid var(--border-glow);
           border-radius: var(--radius);
           backdrop-filter: blur(16px);
+        }
+
+        .bubble-avatar,
+        .peer-avatar {
+          overflow: hidden;
+        }
+
+        .bubble-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          border-radius: 50%;
         }
 
         .back-btn {

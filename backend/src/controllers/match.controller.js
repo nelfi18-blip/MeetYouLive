@@ -10,6 +10,7 @@ const { calculateCompatibility } = require("../services/compatibility.service.js
 const { getIO } = require("../lib/socket.js");
 const { queueEvent } = require("../services/push.service.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -18,6 +19,8 @@ const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
+// Query every legacy photo alias so serializer can promote the first real photo.
+const MATCH_USER_FIELDS = "username name avatar profilePhotos profileImage photo photos bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
 // Boost packs – bulk purchase with coin discount
 const BOOST_PACKS = [
@@ -357,14 +360,14 @@ exports.getMatches = async (req, res) => {
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium");
+    }).populate("from", MATCH_USER_FIELDS);
 
     const matches = mutualLikes.map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
         myInterests, myIntent, user.interests, user.intent
       );
-      return { ...user, sharedInterests, compatibilityScore };
+      return { ...withSerializedUserPhotoFields(req, user), sharedInterests, compatibilityScore };
     });
 
     res.json({ matches });

@@ -463,6 +463,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
       {
         $project: {
           username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
+          profilePhotos: 1, photos: 1, profileImage: 1, photo: 1,
           interests: 1, intent: 1, location: 1, role: 1,
           creatorProfile: 1, birthdate: 1,
           followersCount: 1, isVerified: 1, isPremium: 1,
@@ -487,6 +488,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         myInterests, myIntent, u.interests || [], u.intent || ""
       );
 
+      Object.assign(u, serializeUserPhotoFields(req, u));
       u.sharedInterests = sharedInterests;
       u.compatibilityScore = compatibilityScore;
 

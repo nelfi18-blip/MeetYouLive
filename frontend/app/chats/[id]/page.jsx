@@ -253,14 +253,15 @@ export default function ChatConversationPage() {
         {!loading && messages.map((msg) => {
           const isMine = msg.sender?._id === currentUserId;
           const senderImage = getUserImage(msg.sender);
+          const senderName = msg.sender?.username || msg.sender?.name || "Usuario";
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
-                <div className="bubble-avatar avatar-placeholder" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
+                <div className="bubble-avatar avatar-placeholder" aria-label={senderName} style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
                   {senderImage ? (
-                    <img src={senderImage} alt={msg.sender?.username || msg.sender?.name || "Usuario"} className="bubble-avatar-img" />
+                    <img src={senderImage} alt={senderName} className="bubble-avatar-img" />
                   ) : (
-                    (msg.sender?.username || msg.sender?.name || "U")[0].toUpperCase()
+                    senderName[0].toUpperCase()
                   )}
                 </div>
               )}

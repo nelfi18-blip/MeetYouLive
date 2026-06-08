@@ -182,9 +182,9 @@ const serializeFeedImageFields = (req, item) => {
   if (!item || typeof item !== "object") return item;
 
   const rawPhotos = [
-    item.avatar,
     ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
     ...(Array.isArray(item.photos) ? item.photos : []),
+    item.avatar,
     item.profileImage,
     item.photo,
   ];
@@ -198,7 +198,7 @@ const serializeFeedImageFields = (req, item) => {
     }
   }
 
-  const normalizedAvatar = normalizeFeedImageUrl(req, item.avatar) || normalizedPhotos[0] || "";
+  const normalizedAvatar = normalizedPhotos[0] || normalizeFeedImageUrl(req, item.avatar) || "";
   const profilePhotos = normalizedAvatar
     ? [normalizedAvatar, ...normalizedPhotos.filter((photo) => photo !== normalizedAvatar)]
     : normalizedPhotos;

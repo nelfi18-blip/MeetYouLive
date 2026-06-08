@@ -16,6 +16,16 @@
   --text-dim:     #9a90b6;
   --focus-outline:#ffffff;
   --focus-ring:   #22d3ee;
+  --focus-ring-glow: rgba(34,211,238,0.42);
+  --aurora-start-x: -1.5vw;
+  --aurora-start-y: -1vh;
+  --aurora-mid-x: 1vw;
+  --aurora-mid-y: 1.5vh;
+  --aurora-end-x: 1.5vw;
+  --aurora-end-y: -0.5vh;
+  --aurora-rotate-start: -1deg;
+  --aurora-rotate-mid: 1deg;
+  --aurora-rotate-end: -0.5deg;
 
   /* Neon accents */
   --accent:        #e040fb;
@@ -142,15 +152,6 @@ body::before {
 }
 
 body::after {
-  --aurora-start-x: -1.5vw;
-  --aurora-start-y: -1vh;
-  --aurora-mid-x: 1vw;
-  --aurora-mid-y: 1.5vh;
-  --aurora-end-x: 1.5vw;
-  --aurora-end-y: -0.5vh;
-  --aurora-rotate-start: -1deg;
-  --aurora-rotate-mid: 1deg;
-  --aurora-rotate-end: -0.5deg;
   content: "";
   position: fixed;
   inset: -8%;
@@ -181,7 +182,7 @@ a { color: inherit; text-decoration: none; }
 :focus-visible {
   outline: 2px solid var(--focus-outline);
   outline-offset: 3px;
-  box-shadow: 0 0 0 5px var(--bg), 0 0 0 8px var(--focus-ring), 0 0 24px rgba(34,211,238,0.42);
+  box-shadow: 0 0 0 5px var(--bg), 0 0 0 8px var(--focus-ring), 0 0 24px var(--focus-ring-glow);
 }
 
 p,

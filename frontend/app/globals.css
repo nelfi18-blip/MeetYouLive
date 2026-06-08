@@ -118,12 +118,6 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  body::after {
-    animation: aurora-drift 16s ease-in-out infinite alternate;
-  }
-}
-
 @supports (min-height: 100dvh) {
   body {
     min-height: 100dvh;
@@ -160,17 +154,23 @@ body::after {
   z-index: -1;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  body::after {
+    animation: aurora-drift 16s ease-in-out infinite alternate;
+  }
+}
+
 a { color: inherit; text-decoration: none; }
 
 ::selection {
-  background: rgba(224,64,251,0.38);
+  background: rgba(171,31,199,0.72);
   color: #fff;
 }
 
 :focus-visible {
-  outline: 3px solid #22d3ee;
+  outline: 2px solid #ffffff;
   outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(255,255,255,0.32), 0 0 24px rgba(34,211,238,0.42);
+  box-shadow: 0 0 0 5px #0f0821, 0 0 0 8px #22d3ee, 0 0 24px rgba(34,211,238,0.42);
 }
 
 p,
@@ -764,13 +764,13 @@ main.main-content:has(.admin-shell) {
 
 @keyframes aurora-drift {
   0% {
-    transform: translate3d(-1.5%, -1%, 0) rotate(-1deg) scale(1);
+    transform: translate3d(-1.5%, -1%, 0) rotate(-1deg);
   }
   50% {
-    transform: translate3d(1%, 1.5%, 0) rotate(1deg) scale(1.04);
+    transform: translate3d(1%, 1.5%, 0) rotate(1deg);
   }
   100% {
-    transform: translate3d(1.5%, -0.5%, 0) rotate(-0.5deg) scale(1.02);
+    transform: translate3d(1.5%, -0.5%, 0) rotate(-0.5deg);
   }
 }
 

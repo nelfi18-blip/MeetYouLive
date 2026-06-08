@@ -87,7 +87,7 @@ export default function ChatsPage() {
             const userImage = getUserImage(other);
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
-                <div className="chat-avatar" aria-label={displayName}>
+                <div className="chat-avatar">
                   {userImage ? (
                     <img src={userImage} alt={displayName} className="chat-avatar-img" />
                   ) : (

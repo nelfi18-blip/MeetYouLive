@@ -27,7 +27,25 @@ const getRequestOrigin = (req) => {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
+  if (!host || /[/\\?#@]/.test(host)) return "";
+  let parsedHost;
+  try {
+    parsedHost = new URL(`${protocol}://${host}`);
+  } catch {
+    return "";
+  }
+  const hostname = parsedHost.hostname || "";
+  const port = parsedHost.port ? Number(parsedHost.port) : null;
+  const validHostname =
+    hostname === "localhost" ||
+    (hostname.includes(".") &&
+      !hostname.includes("--") &&
+      !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname) &&
+      !hostname.includes(":") &&
+      hostname
+        .split(".")
+        .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)));
+  if (!validHostname || (port !== null && (port < 1 || port > 65535))) return "";
   return `${protocol}://${host}`;
 };
 
@@ -87,15 +105,16 @@ const serializeAdminUser = (req, user) => {
     user.profileImage,
     user.avatar,
     user.photo,
-  ];
+  ].filter(Boolean);
   const normalizedPhotos = [];
   for (const photo of rawPhotos) {
     const normalized = normalizeAdminPhotoUrl(req, photo);
     if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
   }
   const avatar = normalizedPhotos[0] || "";
+  const { password, ...safeUser } = user;
   return {
-    ...user,
+    ...safeUser,
     avatar,
     profileImage: avatar,
     photo: avatar,

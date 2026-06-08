@@ -79,6 +79,7 @@ export function getUserImage(user) {
     photos: user.photos,
     profileImage: user.profileImage,
     avatar: user.avatar,
+    photo: user.photo,
     selectedImage,
   });
 

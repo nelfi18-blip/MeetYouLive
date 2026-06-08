@@ -243,8 +243,8 @@ const serializeFeedImageFields = (req, item) => {
   const rawPhotos = [
     ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
     ...(Array.isArray(item.photos) ? item.photos : []),
-    item.avatar,
     item.profileImage,
+    item.avatar,
     item.photo,
   ];
   const normalizedPhotos = [];

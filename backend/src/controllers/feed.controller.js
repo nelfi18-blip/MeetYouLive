@@ -430,6 +430,7 @@ const getFeed = async (req, res) => {
       featuredCreators: serializedFeaturedCreators.length
     });
 
+    res.set("Cache-Control", "no-store");
     res.json({
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,

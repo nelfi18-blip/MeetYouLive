@@ -87,6 +87,22 @@ const getFeedDiagnosticUserSummary = (user = {}) => ({
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
   "name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt";
+const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
+const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
+const RECOMMENDED_PROFILES_BASE_MATCH = {
+  role: "user",
+  isBlocked: false,
+  isSuspended: false,
+  onboardingComplete: true,
+};
+
+const buildRecommendedProfilesMatch = (excludedProfileIds = []) => {
+  const match = { ...RECOMMENDED_PROFILES_BASE_MATCH };
+  if (excludedProfileIds.length) {
+    match._id = { $nin: excludedProfileIds };
+  }
+  return match;
+};
 
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
@@ -277,15 +293,7 @@ const getFeed = async (req, res) => {
       likedProfileIds.forEach(addExcludedProfileId);
     }
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    const recommendedProfilesMatch = {
-      role: "user", // Excludes creators and all staff roles
-      isBlocked: false,
-      isSuspended: false,
-      onboardingComplete: true
-    };
-    if (uniqueExcludedProfileIds.length) {
-      recommendedProfilesMatch._id = { $nin: uniqueExcludedProfileIds };
-    }
+    const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
     
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
@@ -810,7 +818,7 @@ const getFeedExclusionReasons = (user, context) => {
   if (context.clientExcludedProfileIds.has(userId)) reasons.push("client_excluded");
   if (context.returnedProfileIds.has(userId)) reasons.push("returned_by_feed");
   if (!context.returnedProfileIds.has(userId) && reasons.length === 0) {
-    reasons.push("eligible_but_outside_feed_limit_or_sort");
+    reasons.push("not_returned_by_current_top_12_after_filters");
   }
 
   return reasons;
@@ -830,6 +838,10 @@ const getFeedDiagnostics = async (req, res) => {
     const targetId = toObjectIdOrNull(req.query.targetId || req.query.userId);
     const targetEmail = isNonEmptyString(req.query.targetEmail) ? req.query.targetEmail.trim() : "";
     const targetUsername = isNonEmptyString(req.query.targetUsername) ? req.query.targetUsername.trim() : "";
+    const diagnosticLimit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || FEED_DIAGNOSTIC_DEFAULT_LIMIT, 1),
+      FEED_DIAGNOSTIC_MAX_LIMIT
+    );
 
     const clientExcludedObjectIds = parseExcludedProfileIds(req.query.exclude);
     const clientExcludedProfileIds = new Set(clientExcludedObjectIds.map((id) => id.toString()));
@@ -846,15 +858,7 @@ const getFeedDiagnostics = async (req, res) => {
       likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)
     );
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    const feedMatch = {
-      role: "user",
-      isBlocked: false,
-      isSuspended: false,
-      onboardingComplete: true,
-    };
-    if (uniqueExcludedProfileIds.length) {
-      feedMatch._id = { $nin: uniqueExcludedProfileIds };
-    }
+    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
 
     const [totalUserCandidates, totalAfterServerFilters, returnedProfiles, diagnosticUsers, targetByQuery] =
       await Promise.all([
@@ -866,10 +870,12 @@ const getFeedDiagnostics = async (req, res) => {
           { $limit: 12 },
           { $project: { _id: 1 } },
         ]),
+        // Intentionally samples users before feed filters so excluded users can include
+        // the actual blocking reason instead of disappearing from diagnostics.
         User.find({ role: "user" })
           .select(FEED_DIAGNOSTIC_USER_FIELDS)
           .sort({ createdAt: -1, _id: -1 })
-          .limit(200)
+          .limit(diagnosticLimit)
           .lean(),
         targetId || targetEmail || targetUsername
           ? User.findOne({
@@ -919,6 +925,7 @@ const getFeedDiagnostics = async (req, res) => {
       returnedProfileIds: Array.from(returnedProfileIds),
       target: targetDiagnostics,
       excludedUsers,
+      excludedUsersLimit: diagnosticLimit,
       appliedFilters: {
         role: "user",
         onboardingComplete: true,

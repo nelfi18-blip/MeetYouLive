@@ -85,6 +85,9 @@ const getFeedDiagnosticUserSummary = (user = {}) => ({
   lastActiveAt: user.lastActiveAt || null,
 });
 
+const FEED_DIAGNOSTIC_USER_FIELDS =
+  "name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt";
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -864,7 +867,7 @@ const getFeedDiagnostics = async (req, res) => {
           { $project: { _id: 1 } },
         ]),
         User.find({ role: "user" })
-          .select("name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt")
+          .select(FEED_DIAGNOSTIC_USER_FIELDS)
           .sort({ createdAt: -1, _id: -1 })
           .limit(200)
           .lean(),
@@ -874,7 +877,7 @@ const getFeedDiagnostics = async (req, res) => {
               ...(targetEmail ? { email: targetEmail } : {}),
               ...(targetUsername ? { username: targetUsername } : {}),
             })
-              .select("name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt")
+              .select(FEED_DIAGNOSTIC_USER_FIELDS)
               .lean()
           : Promise.resolve(null),
       ]);
@@ -924,9 +927,9 @@ const getFeedDiagnostics = async (req, res) => {
         excludeViewerSelf: Boolean(viewerId),
         excludeLikedByViewer: Boolean(viewerId),
         excludeClientProvidedIds: clientExcludedProfileIds.size > 0,
-        genderPreferences: "not_applied_in_/api/feed",
-        inactiveUsers: "not_applied_in_/api/feed",
-        dislikedUsers: "not_persisted_server_side; frontend may pass local seen ids as exclude",
+        genderPreferences: "not_applied",
+        inactiveUsers: "not_applied",
+        dislikedUsers: "not_persisted_server_side",
       },
       frontendCacheKeys: {
         sessionStorageFeed: "meetyoulive:feed:v1",

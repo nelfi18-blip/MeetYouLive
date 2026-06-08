@@ -246,6 +246,7 @@ router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDAT
 
 // Revenue: admin, finance
 router.get("/revenue", adminLimiter, verifyToken, requirePermission("VIEW_REVENUE"), getRevenueMetrics);
+router.get("/feed-diagnostics", adminLimiter, verifyToken, requireAdmin, getFeedDiagnostics);
 
 // All routes below require admin role only
 router.use(adminLimiter, verifyToken, requireAdmin);
@@ -259,7 +260,6 @@ router.patch("/users/:id/verify", verifyUser);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
 router.get("/metrics/overview", getMetricsOverview);
-router.get("/feed-diagnostics", getFeedDiagnostics);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);
 

@@ -113,15 +113,12 @@ export default function PublicProfilePage() {
       signal: controller.signal,
     })
       .then((response) => {
-        if (!response.ok) throw new Error(t("publicProfile.loadError"));
+        if (!response.ok) return null;
         return response.json();
       })
       .then((data) => setMatchAccess({ checked: true, match: data?.match === true }))
       .catch((err) => {
-        if (err.name !== "AbortError") {
-          setMatchAccess({ checked: true, match: false });
-          setLikeStatus(t("publicProfile.loadError"));
-        }
+        if (err.name !== "AbortError") setMatchAccess({ checked: true, match: false });
       });
     return () => controller.abort();
   }, [profileId]);

@@ -383,6 +383,7 @@ const getFeed = async (req, res) => {
 
     let recommendedProfiles = recommendedProfilesPrimary;
     if (recommendedProfiles.length === 0) {
+      // Two-phase fallback keeps fresh/unseen profiles first; only recycle older seen profiles when the primary deck is empty.
       const selfExcludedIds = authenticatedUserId ? [authenticatedUserId] : [];
       recommendedProfiles = await User.aggregate(
         buildRecommendedProfilesPipeline(buildRecommendedProfilesMatch(selfExcludedIds), 12)

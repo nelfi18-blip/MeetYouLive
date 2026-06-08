@@ -103,12 +103,15 @@ export function getLiveThumbnail(live) {
  * @param {Object} user - User object with name, username fields
  * @returns {string} - Safe display name (never empty)
  */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+$/;
+
 function isEmailLikeName(value) {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
   if (!trimmed) return true;
   // Hide exact emails and email-like internal handles such as "user@domain".
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) || /^[^\s@]+@[^\s@]+$/.test(trimmed);
+  return EMAIL_PATTERN.test(trimmed) || EMAIL_LIKE_PATTERN.test(trimmed);
 }
 
 function getSafeNamePart(value) {

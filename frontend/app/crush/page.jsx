@@ -45,6 +45,10 @@ function calcAge(birthdate) {
   return age > 0 ? age : null;
 }
 
+function getProfileId(profile) {
+  return String(profile?._id || profile?.userId || "");
+}
+
 // ─── SuperCrushConfirmModal ───────────────────────────────────────────────────
 function SuperCrushConfirmModal({
   user,
@@ -2092,7 +2096,7 @@ export default function CrushPage() {
       const featured = Array.isArray(data?.featuredCreators) ? data.featuredCreators : [];
       const seen = new Set();
       const merged = [...feedProfiles, ...featured].filter((profile) => {
-        const id = String(profile._id || profile.userId || "");
+        const id = getProfileId(profile);
         if (!id || seen.has(id)) return false;
         seen.add(id);
         return true;

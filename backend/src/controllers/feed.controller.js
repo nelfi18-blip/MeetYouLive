@@ -104,6 +104,65 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = []) => {
   return match;
 };
 
+const buildRecommendedProfilesPipeline = (match, limit) => [
+  { $match: match },
+  {
+    $addFields: {
+      isBoostedNow: {
+        $cond: [
+          { $and: ["$boostUntil", { $gt: ["$boostUntil", new Date()] }] },
+          1,
+          0,
+        ],
+      },
+      popularityScore: { $add: [{ $ifNull: ["$followersCount", 0] }, { $ifNull: ["$likesReceivedCount", 0] }] },
+    },
+  },
+  { $sort: { isBoostedNow: -1, createdAt: -1, popularityScore: -1, _id: -1 } },
+  { $limit: limit },
+  {
+    $project: {
+      name: 1,
+      displayName: 1,
+      firstName: 1,
+      lastName: 1,
+      username: 1,
+      avatar: 1,
+      profileImage: 1,
+      photo: 1,
+      profilePhotos: 1,
+      photos: 1,
+      bio: 1,
+      tags: 1,
+      gender: 1,
+      birthdate: 1,
+      location: 1,
+      interests: 1,
+      intent: 1,
+      isOnline: 1,
+      isVerified: 1,
+      isPremium: 1,
+      followersCount: 1,
+      createdAt: 1,
+      boostUntil: 1,
+      age: {
+        $cond: {
+          if: { $ne: ["$birthdate", null] },
+          then: {
+            $floor: {
+              $divide: [
+                { $subtract: ["$$NOW", "$birthdate"] },
+                365.25 * 24 * 60 * 60 * 1000
+              ]
+            }
+          },
+          else: null
+        }
+      },
+    },
+  },
+];
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -302,7 +361,7 @@ const getFeed = async (req, res) => {
       : Promise.resolve(null);
 
     // Run all queries in parallel for better performance
-    const [allLives, recommendedProfiles, featuredCreators, currentUserProfile] = await Promise.all([
+    const [allLives, recommendedProfilesPrimary, featuredCreators, currentUserProfile] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
       Live.find({
         isLive: true,
@@ -315,49 +374,20 @@ const getFeed = async (req, res) => {
       
       // ❤️ Recommended users (NO admin, NO staff) - use query to filter directly
       // Add randomization for variety
-      User.aggregate([
-        {
-          $match: recommendedProfilesMatch
-        },
-        { $sort: { createdAt: -1, _id: -1 } }, // Prioritize newly valid users so they become visible quickly
-        { $limit: 12 },
-        {
-          $project: {
-            name: 1,
-            avatar: 1,
-            profilePhotos: 1,
-            photos: 1,
-            profileImage: 1,
-            photo: 1,
-            location: 1,
-            bio: 1,
-            tags: 1,
-            interests: 1,
-            isOnline: 1,
-            // Calculate age from birthdate without exposing raw birthdate
-            // Use $$NOW system variable for better performance (evaluated once per query)
-            age: {
-              $cond: {
-                if: { $ne: ["$birthdate", null] },
-                then: {
-                  $floor: {
-                    $divide: [
-                      { $subtract: ["$$NOW", "$birthdate"] },
-                      365.25 * 24 * 60 * 60 * 1000
-                    ]
-                  }
-                },
-                else: null
-              }
-            }
-          }
-        }
-      ]),
+      User.aggregate(buildRecommendedProfilesPipeline(recommendedProfilesMatch, 12)),
       
       // ⭐ Featured creators - use cached function (data changes infrequently)
       getFeaturedCreatorsWithCache(),
       currentUserProfilePromise
     ]);
+
+    let recommendedProfiles = recommendedProfilesPrimary;
+    if (recommendedProfiles.length === 0 && uniqueExcludedProfileIds.length > 0) {
+      const selfExcludedIds = authenticatedUserId ? [authenticatedUserId] : [];
+      recommendedProfiles = await User.aggregate(
+        buildRecommendedProfilesPipeline(buildRecommendedProfilesMatch(selfExcludedIds), 12)
+      );
+    }
 
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);

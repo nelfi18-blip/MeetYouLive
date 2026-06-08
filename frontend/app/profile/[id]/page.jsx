@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getDisplayName, getUserImage, normalizeImageUrl } from "@/lib/imageHelpers";
 import { getToken } from "@/lib/token";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -41,15 +42,15 @@ export default function PublicProfilePage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
   const [brokenPhotos, setBrokenPhotos] = useState(new Set());
+  const [matchAccess, setMatchAccess] = useState({ checked: false, match: false });
 
-  useEffect(() => {
+  const loadProfile = useCallback(({ signal } = {}) => {
     if (!profileId || !API_URL) {
       setLoading(false);
       setError(t("publicProfile.invalidProfile"));
       return;
     }
 
-    const controller = new AbortController();
     setLoading(true);
     setError("");
 
@@ -58,7 +59,7 @@ export default function PublicProfilePage() {
 
     fetch(`${API_URL}/api/user/${encodeURIComponent(profileId)}/public`, {
       headers,
-      signal: controller.signal,
+      signal,
       cache: "no-store",
     })
       .then((response) => {
@@ -75,11 +76,16 @@ export default function PublicProfilePage() {
         if (err.name !== "AbortError") setError(err.message || t("publicProfile.loadError"));
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       });
 
-    return () => controller.abort();
   }, [profileId, t]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadProfile({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadProfile]);
 
   const photos = useMemo(
     () => getProfilePhotos(profile).filter((photo) => !brokenPhotos.has(photo)),
@@ -90,6 +96,35 @@ export default function PublicProfilePage() {
   const username = profile?.username ? `@${profile.username}` : "";
   const interests = Array.isArray(profile?.interests) ? profile.interests : [];
   const isLive = profile?.isLive && profile?.liveId;
+  const canChat = matchAccess.match;
+  const canVideo = matchAccess.match || isLive;
+
+  useEffect(() => {
+    const token = getToken();
+    if (!profileId || !token) {
+      setMatchAccess({ checked: true, match: false });
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/matches/check/${encodeURIComponent(profileId)}`, {
+      headers: { Authorization: "Bearer " + token },
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setMatchAccess({ checked: true, match: data?.match === true }))
+      .catch((err) => {
+        if (err.name !== "AbortError") setMatchAccess({ checked: true, match: false });
+      });
+    return () => controller.abort();
+  }, [profileId]);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => loadProfile();
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+  }, [loadProfile]);
 
   const handleLike = async () => {
     if (!profileId || liking) return;
@@ -278,10 +313,12 @@ export default function PublicProfilePage() {
               <button type="button" className="profile-action profile-action--like" onClick={handleLike} disabled={liking}>
                 {liking ? t("publicProfile.sending") : t("publicProfile.like")}
               </button>
-              <button type="button" className="profile-action" onClick={handleChat} disabled={chatLoading}>
-                {chatLoading ? t("publicProfile.opening") : t("publicProfile.chat")}
-              </button>
-              {isLive ? (
+              {canChat && (
+                <button type="button" className="profile-action" onClick={handleChat} disabled={chatLoading}>
+                  {chatLoading ? t("publicProfile.opening") : t("publicProfile.chat")}
+                </button>
+              )}
+              {isLive && canVideo ? (
                 <Link
                   href={`/live/${encodeURIComponent(profile.liveId)}`}
                   className="profile-action profile-action--video"
@@ -289,11 +326,11 @@ export default function PublicProfilePage() {
                 >
                   {t("publicProfile.joinLive")}
                 </Link>
-              ) : (
+              ) : canVideo ? (
                 <button type="button" className="profile-action profile-action--video" onClick={handleVideoCall} disabled={videoLoading}>
                   {videoLoading ? t("publicProfile.calling") : t("publicProfile.video")}
                 </button>
-              )}
+              ) : null}
             </div>
             {likeStatus && <p className="profile-like-status" aria-live="polite">{likeStatus}</p>}
 
@@ -431,7 +468,7 @@ export default function PublicProfilePage() {
 
         .profile-gallery {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
           gap: 0.45rem;
         }
 
@@ -445,7 +482,7 @@ export default function PublicProfilePage() {
 
         .profile-actions {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
           gap: 0.6rem;
         }
 

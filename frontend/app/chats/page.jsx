@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
-import { getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -14,7 +15,7 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const fetchChats = useCallback(({ silent = false } = {}) => {
     const token = localStorage.getItem("token");
     if (!token) {
       clearToken();
@@ -22,8 +23,10 @@ export default function ChatsPage() {
       return;
     }
 
+    if (!silent) setLoading(true);
     fetch(`${API_URL}/api/chats`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     })
       .then((r) => {
         if (r.status === 401) {
@@ -40,6 +43,16 @@ export default function ChatsPage() {
       .catch(() => setError("No se pudo cargar los chats"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    fetchChats();
+  }, [fetchChats]);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => fetchChats({ silent: true });
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+  }, [fetchChats]);
 
   return (
     <div className="chats-page">
@@ -79,9 +92,7 @@ export default function ChatsPage() {
         <div className="chats-list">
           {chats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
-            // Defensive: ensure we never get empty strings from username/name
-            const rawName = other.username?.trim() || other.name?.trim() || "Usuario";
-            const displayName = rawName.length > 0 ? rawName : "Usuario";
+            const displayName = getDisplayName(other);
             const initial = displayName[0].toUpperCase();
             const lastMsg = chat.lastMessage;
             const userImage = getUserImage(other);

@@ -1,6 +1,7 @@
 export const BOTTOM_NAV_ROUTES = [
   "/feed",
   "/explore",
+  "/crush",
   "/matches",
   "/chats",
   "/profile",

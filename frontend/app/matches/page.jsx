@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
@@ -11,7 +11,8 @@ import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -48,7 +49,7 @@ export default function MatchesPage() {
   const [chatError, setChatError] = useState("");
   const [callError, setCallError] = useState("");
 
-  useEffect(() => {
+  const fetchMatches = useCallback(({ silent = false } = {}) => {
     const token = localStorage.getItem("token");
     if (!token) {
       clearToken();
@@ -56,8 +57,10 @@ export default function MatchesPage() {
       return;
     }
 
+    if (!silent) setLoading(true);
     fetch(`${API_URL}/api/matches`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: "Bearer " + token },
+      cache: "no-store",
     })
       .then((r) => {
         if (r.status === 401) {
@@ -69,7 +72,6 @@ export default function MatchesPage() {
       })
       .then((d) => {
         if (d) {
-          // Defensive filter: exclude admin/moderator from matches
           const safeMatches = (d.matches || [])
             .filter(u => u && u.role !== "admin" && u.role !== "moderator");
           setMatches(safeMatches);
@@ -78,6 +80,16 @@ export default function MatchesPage() {
       .catch(() => setError("No se pudieron cargar los matches"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => fetchMatches({ silent: true });
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+  }, [fetchMatches]);
 
   const startChat = async (userId) => {
     const token = localStorage.getItem("token");
@@ -211,7 +223,7 @@ export default function MatchesPage() {
           </div>
           <div className="matches-grid">
           {matches.map((user) => {
-            const displayName = user.username || user.name || "Usuario";
+            const displayName = getDisplayName(user);
             const initial = displayName[0].toUpperCase();
             const isCreator = user.role === "creator";
             const roleLabel = isCreator ? "Creador" : user.role === "admin" ? "Admin" : "Usuario";

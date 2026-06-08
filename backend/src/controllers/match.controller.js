@@ -697,7 +697,7 @@ exports.getLikesReceived = async (req, res) => {
     const [myLikes, incomingLikes] = await Promise.all([
       Like.find({ from: userId }).select("to"),
       Like.find({ to: userId })
-        .populate("from", "username name avatar")
+        .populate("from", MATCH_USER_FIELDS)
         .sort({ createdAt: -1 }),
     ]);
 
@@ -713,7 +713,11 @@ exports.getLikesReceived = async (req, res) => {
     for (const like of nonMutual) {
       if (like.revealed) {
         const u = like.from.toObject ? like.from.toObject() : like.from;
-        revealed.push({ likeId: String(like._id), user: u, crushType: like.crushType });
+        revealed.push({
+          likeId: String(like._id),
+          user: withSerializedUserPhotoFields(req, u),
+          crushType: like.crushType,
+        });
       } else {
         // Only expose the likeId so the client can count locked items
         locked.push({ likeId: String(like._id), crushType: like.crushType });

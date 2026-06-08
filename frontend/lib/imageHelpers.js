@@ -71,7 +71,18 @@ export function getUserImage(user) {
     user.picture,
   ];
 
-  return rawPhotos.map(normalizeImageUrl).find(Boolean) || null;
+  const selectedImage = rawPhotos.map(normalizeImageUrl).find(Boolean) || null;
+
+  console.debug("[image-selection]", {
+    userId: user._id,
+    profilePhotos: user.profilePhotos,
+    photos: user.photos,
+    profileImage: user.profileImage,
+    avatar: user.avatar,
+    selectedImage,
+  });
+
+  return selectedImage;
 }
 
 /**

@@ -26,6 +26,7 @@
   --aurora-rotate-start: -1deg;
   --aurora-rotate-mid: 1deg;
   --aurora-rotate-end: -0.5deg;
+  --background-layer-z-index: -1;
 
   /* Neon accents */
   --accent:        #e040fb;
@@ -55,6 +56,7 @@
   --shadow:        0 18px 48px rgba(4,2,12,0.6);
   --shadow-sm:     0 8px 24px rgba(4,2,12,0.48);
   --shadow-lg:     0 26px 72px rgba(4,2,12,0.74);
+  --shadow-glass:  0 18px 54px rgba(0,0,0,0.62);
   --shadow-accent: 0 0 12px rgba(224,64,251,0.4), 0 0 24px rgba(224,64,251,0.2);
   --shadow-indigo: 0 0 12px rgba(124,58,237,0.35), 0 0 24px rgba(34,211,238,0.2);
   --glow-pink:     0 0 12px rgba(224,64,251,0.4), 0 0 24px rgba(224,64,251,0.2);
@@ -122,6 +124,7 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @media (min-width: 769px) {
@@ -148,7 +151,7 @@ body::before {
   -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
   mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
   opacity: 0.35;
-  z-index: -1;
+  z-index: var(--background-layer-z-index);
 }
 
 body::after {
@@ -163,7 +166,7 @@ body::after {
   filter: blur(14px);
   opacity: 0.7;
   transform: translate3d(0, 0, 0);
-  z-index: -1;
+  z-index: var(--background-layer-z-index);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -299,7 +302,7 @@ main.main-content:has(.admin-shell) {
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border: 1px solid rgba(255,255,255,0.13);
   border-radius: var(--radius);
-  box-shadow: 0 18px 54px rgba(0,0,0,0.62), var(--highlight-inset);
+  box-shadow: var(--shadow-glass), var(--highlight-inset);
   color: var(--text);
 }
 

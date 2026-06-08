@@ -160,7 +160,6 @@ export default function ChatsPage() {
           font-size: 1.1rem;
           flex-shrink: 0;
           box-shadow: 0 0 0 2px rgba(224,64,251,0.2);
-          overflow: hidden;
         }
 
         .chat-avatar-img {
@@ -168,6 +167,7 @@ export default function ChatsPage() {
           height: 100%;
           object-fit: cover;
           display: block;
+          border-radius: 50%;
         }
 
         .chat-info { flex: 1; min-width: 0; }

@@ -19,6 +19,7 @@ const EXTRA_SWIPES_BATCH = 10; // swipes per unlock
 const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
+// Query every legacy photo alias so serializer can promote the first real photo.
 const MATCH_USER_FIELDS = "username name avatar profilePhotos profileImage photo photos bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
 // Boost packs – bulk purchase with coin discount

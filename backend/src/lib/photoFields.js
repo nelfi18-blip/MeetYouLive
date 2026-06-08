@@ -21,7 +21,10 @@ const getRequestOrigin = (req) => {
   const protocol = validateHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
   const hostname = host?.split(":")[0] || "";
-  const hasValidLabels = Boolean(hostname) && (hostname === "localhost" || hostname.split(".").every(Boolean));
+  const hostnameLabels = hostname.split(".");
+  const hasValidLabels =
+    Boolean(hostname) &&
+    (hostname === "localhost" || (hostnameLabels.length >= 2 && hostnameLabels.every(Boolean)));
   if (
     !protocol ||
     !host ||
@@ -46,6 +49,16 @@ const getPhotoUrlValue = (value) => {
   return value.secure_url || value.url || value.src || value.path || "";
 };
 
+const hasUnsafePathSegment = (value) => {
+  if (typeof value !== "string") return true;
+  if (value.includes("..") || /%2e/i.test(value)) return true;
+  try {
+    return decodeURIComponent(value).split(/[\\/]/).includes("..");
+  } catch {
+    return true;
+  }
+};
+
 /**
  * Normalize legacy upload path prefixes to uploads/.
  *
@@ -53,7 +66,7 @@ const getPhotoUrlValue = (value) => {
  * @returns {string} Normalized upload path or empty string.
  */
 const normalizeUploadPath = (value) =>
-  typeof value === "string" && !value.includes("..")
+  typeof value === "string" && !hasUnsafePathSegment(value)
     ? value.replace(/^\/?(?:api\/)?uploads\//i, "uploads/")
     : "";
 
@@ -74,6 +87,7 @@ const normalizePhotoUrl = (req, value) => {
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
+      if (hasUnsafePathSegment(url.pathname)) return "";
       if (url.pathname.startsWith("/api/uploads/")) {
         url.pathname = `/${normalizeUploadPath(url.pathname)}`;
       }

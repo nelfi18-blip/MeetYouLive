@@ -6,6 +6,7 @@ const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+// Query every legacy photo alias so serializer can promote the first real photo.
 const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role";
 
 const getChats = async (req, res) => {

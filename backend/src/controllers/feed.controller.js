@@ -70,6 +70,40 @@ const getFeedProfileStatus = (user) => {
   };
 };
 
+const getFeedDiagnosticUserSummary = (user = {}) => ({
+  id: String(user._id),
+  role: user.role || null,
+  onboardingComplete: user.onboardingComplete === true,
+  profileComplete: getFeedProfileMissingFields(user).length === 0,
+  missingFields: getFeedProfileMissingFields(user),
+  hasAge: Boolean(user.birthdate),
+  hasLocation: isNonEmptyString(user.location),
+  hasName: isNonEmptyString(user.name),
+  hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
+  isBlocked: user.isBlocked === true,
+  isSuspended: user.isSuspended === true,
+  lastActiveAt: user.lastActiveAt || null,
+});
+
+const FEED_DIAGNOSTIC_USER_FIELDS =
+  "name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt";
+const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
+const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
+const RECOMMENDED_PROFILES_BASE_MATCH = {
+  role: "user",
+  isBlocked: false,
+  isSuspended: false,
+  onboardingComplete: true,
+};
+
+const buildRecommendedProfilesMatch = (excludedProfileIds = []) => {
+  const match = { ...RECOMMENDED_PROFILES_BASE_MATCH };
+  if (excludedProfileIds.length) {
+    match._id = { $nin: excludedProfileIds };
+  }
+  return match;
+};
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -259,15 +293,7 @@ const getFeed = async (req, res) => {
       likedProfileIds.forEach(addExcludedProfileId);
     }
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    const recommendedProfilesMatch = {
-      role: "user", // Excludes creators and all staff roles
-      isBlocked: false,
-      isSuspended: false,
-      onboardingComplete: true
-    };
-    if (uniqueExcludedProfileIds.length) {
-      recommendedProfilesMatch._id = { $nin: uniqueExcludedProfileIds };
-    }
+    const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
     
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
@@ -779,6 +805,152 @@ const getTopMatchProfiles = async (count, currentUserId) => {
   }
 };
 
+const getFeedExclusionReasons = (user, context) => {
+  const reasons = [];
+  const userId = String(user._id);
+
+  if (user.role !== "user") reasons.push(`role:${user.role || "missing"}`);
+  if (user.isBlocked === true) reasons.push("blocked");
+  if (user.isSuspended === true) reasons.push("suspended");
+  if (user.onboardingComplete !== true) reasons.push("onboarding_incomplete");
+  if (context.viewerId && userId === context.viewerId) reasons.push("viewer_self");
+  if (context.likedProfileIds.has(userId)) reasons.push("liked_by_viewer");
+  if (context.clientExcludedProfileIds.has(userId)) reasons.push("client_excluded");
+  if (context.returnedProfileIds.has(userId)) reasons.push("returned_by_feed");
+  if (!context.returnedProfileIds.has(userId) && reasons.length === 0) {
+    reasons.push("passes_filters_but_not_in_returned_top_12");
+  }
+
+  return reasons;
+};
+
+/**
+ * GET /api/admin/feed-diagnostics
+ * Admin-only diagnostic view of the same recommendedProfiles path used by /api/feed.
+ */
+const getFeedDiagnostics = async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const viewerId =
+      toObjectIdOrNull(req.query.viewerId) ||
+      toObjectIdOrNull(req.query.currentUserId) ||
+      toObjectIdOrNull(req.userId);
+    const targetId = toObjectIdOrNull(req.query.targetId || req.query.userId);
+    const targetEmail = isNonEmptyString(req.query.targetEmail) ? req.query.targetEmail.trim() : "";
+    const targetUsername = isNonEmptyString(req.query.targetUsername) ? req.query.targetUsername.trim() : "";
+    const diagnosticLimit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || FEED_DIAGNOSTIC_DEFAULT_LIMIT, 1),
+      FEED_DIAGNOSTIC_MAX_LIMIT
+    );
+
+    const clientExcludedObjectIds = parseExcludedProfileIds(req.query.exclude);
+    const clientExcludedProfileIds = new Set(clientExcludedObjectIds.map((id) => id.toString()));
+    const excludedProfileIdsById = new Map(clientExcludedObjectIds.map((id) => [id.toString(), id]));
+    if (viewerId) excludedProfileIdsById.set(viewerId.toString(), viewerId);
+
+    const likedProfileIdsRaw = viewerId ? await Like.distinct("to", { from: viewerId }) : [];
+    likedProfileIdsRaw.forEach((profileId) => {
+      const objectId = toObjectIdOrNull(profileId);
+      if (objectId) excludedProfileIdsById.set(objectId.toString(), objectId);
+    });
+
+    const likedProfileIds = new Set(
+      likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)
+    );
+    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
+    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
+
+    const [totalUserCandidates, totalAfterServerFilters, returnedProfiles, diagnosticUsers, targetByQuery] =
+      await Promise.all([
+        User.countDocuments({ role: "user" }),
+        User.countDocuments(feedMatch),
+        User.aggregate([
+          { $match: feedMatch },
+          { $sort: { createdAt: -1, _id: -1 } },
+          { $limit: 12 },
+          { $project: { _id: 1 } },
+        ]),
+        // Intentionally samples users before feed filters so excluded users can include
+        // the actual blocking reason instead of disappearing from diagnostics.
+        User.find({ role: "user" })
+          .select(FEED_DIAGNOSTIC_USER_FIELDS)
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(diagnosticLimit)
+          .lean(),
+        targetId || targetEmail || targetUsername
+          ? User.findOne({
+              ...(targetId ? { _id: targetId } : {}),
+              ...(targetEmail ? { email: targetEmail } : {}),
+              ...(targetUsername ? { username: targetUsername } : {}),
+            })
+              .select(FEED_DIAGNOSTIC_USER_FIELDS)
+              .lean()
+          : Promise.resolve(null),
+      ]);
+
+    const returnedProfileIds = new Set(returnedProfiles.map((profile) => String(profile._id)));
+    const context = {
+      viewerId: viewerId ? viewerId.toString() : "",
+      likedProfileIds,
+      clientExcludedProfileIds,
+      returnedProfileIds,
+    };
+    const diagnosticUsersById = new Map(diagnosticUsers.map((user) => [String(user._id), user]));
+    if (targetByQuery) diagnosticUsersById.set(String(targetByQuery._id), targetByQuery);
+
+    const excludedUsers = Array.from(diagnosticUsersById.values())
+      .filter((user) => !returnedProfileIds.has(String(user._id)))
+      .map((user) => ({
+        id: String(user._id),
+        reasons: getFeedExclusionReasons(user, context),
+      }));
+
+    const targetDiagnostics = targetByQuery
+      ? {
+          ...getFeedDiagnosticUserSummary(targetByQuery),
+          reasons: getFeedExclusionReasons(targetByQuery, context),
+          returnedByFeed: returnedProfileIds.has(String(targetByQuery._id)),
+        }
+      : null;
+
+    res.json({
+      ok: true,
+      counts: {
+        totalUserCandidates,
+        totalAfterServerFilters,
+        returnedByFeed: returnedProfileIds.size,
+        likedByViewerExcluded: likedProfileIds.size,
+        clientExcluded: clientExcludedProfileIds.size,
+      },
+      returnedProfileIds: Array.from(returnedProfileIds),
+      target: targetDiagnostics,
+      excludedUsers,
+      excludedUsersLimit: diagnosticLimit,
+      appliedFilters: {
+        role: "user",
+        onboardingComplete: true,
+        isBlocked: false,
+        isSuspended: false,
+        excludeViewerSelf: Boolean(viewerId),
+        excludeLikedByViewer: Boolean(viewerId),
+        excludeClientProvidedIds: clientExcludedProfileIds.size > 0,
+        genderPreferences: "not_applied",
+        inactiveUsers: "not_applied",
+        dislikedUsers: "not_persisted_server_side",
+      },
+      frontendCacheKeys: {
+        sessionStorageFeed: "meetyoulive:feed:v1",
+        sessionStorageCurrentProfile: "meetyoulive:feed:currentProfileId:v1",
+        localStorageSeenProfiles: "meetyoulive:feed:seenProfileIds:v1",
+      },
+      responseTimeMs: Date.now() - startTime,
+    });
+  } catch (err) {
+    console.error("[Feed Diagnostics] Error:", err.message);
+    res.status(500).json({ message: "Error al diagnosticar feed" });
+  }
+};
+
 /**
  * POST /api/feed/track-visit
  * Track when a user views another user's profile (for hook system)
@@ -913,6 +1085,7 @@ module.exports = {
   getLiveOnlyFeed,
   getMatchOnlyFeed,
   getTopFeed,
+  getFeedDiagnostics,
   trackProfileVisit,
   getRecentVisits,
   sendGreeting,

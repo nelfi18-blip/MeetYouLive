@@ -50,6 +50,7 @@ const {
   approveWithdrawal,
   rejectWithdrawal,
 } = require("../controllers/withdraw.controller.js");
+const { getFeedDiagnostics } = require("../controllers/feed.controller.js");
 
 const router = Router();
 
@@ -245,6 +246,7 @@ router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDAT
 
 // Revenue: admin, finance
 router.get("/revenue", adminLimiter, verifyToken, requirePermission("VIEW_REVENUE"), getRevenueMetrics);
+router.get("/feed-diagnostics", adminLimiter, verifyToken, requireAdmin, getFeedDiagnostics);
 
 // All routes below require admin role only
 router.use(adminLimiter, verifyToken, requireAdmin);

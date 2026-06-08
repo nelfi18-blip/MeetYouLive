@@ -7,7 +7,15 @@ const getRequestOrigin = (req) => {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
+  const hostname = host?.split(":")[0] || "";
+  if (
+    !host ||
+    hostname.includes("..") ||
+    !hostname.split(".").every(Boolean) ||
+    !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)
+  ) {
+    return "";
+  }
   return `${protocol}://${host}`;
 };
 
@@ -16,6 +24,11 @@ const getPhotoUrlValue = (value) => {
   if (!value || typeof value !== "object") return "";
   return value.secure_url || value.url || value.src || value.path || "";
 };
+
+const normalizeUploadPath = (value) =>
+  value
+    .replace(/^\/?api\/uploads\//i, "uploads/")
+    .replace(/^\/?uploads\//i, "uploads/");
 
 const normalizePhotoUrl = (req, value) => {
   const rawValue = getPhotoUrlValue(value);
@@ -28,7 +41,7 @@ const normalizePhotoUrl = (req, value) => {
     try {
       const url = new URL(trimmed);
       if (url.pathname.startsWith("/api/uploads/")) {
-        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+        url.pathname = `/${normalizeUploadPath(url.pathname)}`;
       }
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
@@ -49,9 +62,7 @@ const normalizePhotoUrl = (req, value) => {
 
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
 
-  const normalizedPath = trimmed
-    .replace(/^\/?api\/uploads\//i, "uploads/")
-    .replace(/^\/?uploads\//i, "uploads/");
+  const normalizedPath = normalizeUploadPath(trimmed);
   if (/^uploads\//.test(normalizedPath)) {
     const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
     return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;

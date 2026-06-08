@@ -488,12 +488,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         myInterests, myIntent, u.interests || [], u.intent || ""
       );
 
-      const photoFields = serializeUserPhotoFields(req, u);
-      u.avatar = photoFields.avatar;
-      u.profileImage = photoFields.profileImage;
-      u.photo = photoFields.photo;
-      u.photos = photoFields.photos;
-      u.profilePhotos = photoFields.profilePhotos;
+      Object.assign(u, serializeUserPhotoFields(req, u));
       u.sharedInterests = sharedInterests;
       u.compatibilityScore = compatibilityScore;
 

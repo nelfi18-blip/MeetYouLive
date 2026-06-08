@@ -321,6 +321,7 @@ export default function FeedPage() {
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
   const [profileSyncVersion, setProfileSyncVersion] = useState(0);
+  const [viewerProfileStatus, setViewerProfileStatus] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
@@ -406,6 +407,7 @@ export default function FeedPage() {
     setProfiles([]);
     setCurrentIndex(0);
     setLastAction(null);
+    setViewerProfileStatus(null);
     setLoading(true);
     setProfileSyncVersion((version) => version + 1);
   }, []);
@@ -702,6 +704,7 @@ export default function FeedPage() {
       hasVisualCacheRef.current = false;
       setHasVisualCache(false);
       setLastAction(null);
+      setViewerProfileStatus(null);
     }
 
     if (!API_URL) {
@@ -760,6 +763,7 @@ export default function FeedPage() {
       }
 
       const data = await feedRes.json();
+      setViewerProfileStatus(data?.viewerProfileStatus || null);
       const currentUserId = currentUserIdRef.current;
       const profileEntries = (data?.recommendedProfiles || [])
         .filter((profile) => isRecommendedProfile(profile, currentUserId))
@@ -859,7 +863,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authToken) return undefined;
     const controller = new AbortController();
-    loadFeed({ signal: controller.signal, silent: hasVisualCacheRef.current });
+    loadFeed({ signal: controller.signal, silent: false });
     return () => {
       controller.abort();
     };
@@ -1083,6 +1087,8 @@ export default function FeedPage() {
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
   const currentProfileId = getProfileId(currentProfile);
+  const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
+  const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
 
   return (
     <div ref={pageRef} className="feed-page">
@@ -1180,17 +1186,23 @@ export default function FeedPage() {
           </div>
         ) : (
           <div className="feed-empty">
-            <h3>{t("feed.emptyTitle")}</h3>
-            <p>{t("feed.emptyDescription")}</p>
+            <h3>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteTitle") : t("feed.emptyTitle")}</h3>
+            <p>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteDescription") : t("feed.emptyDescription")}</p>
             <div className="feed-empty-actions">
-              <button
-                type="button"
-                className="feed-empty-btn feed-empty-btn--secondary"
-                onClick={handleUndoLastAction}
-                disabled={isUndoDisabled}
-              >
-                {t("feed.undoLabel")}
-              </button>
+              {shouldShowProfileIncompleteState ? (
+                <Link href={profileCompletionHref} className="feed-empty-btn feed-empty-btn--secondary">
+                  {t("feed.profileIncompleteAction")}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="feed-empty-btn feed-empty-btn--secondary"
+                  onClick={handleUndoLastAction}
+                  disabled={isUndoDisabled}
+                >
+                  {t("feed.undoLabel")}
+                </button>
+              )}
               <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true })}>
                 {t("feed.reloadProfiles")}
               </button>

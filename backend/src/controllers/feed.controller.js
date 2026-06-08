@@ -30,6 +30,46 @@ const parseExcludedProfileIds = (exclude) => {
   return Array.from(new Map(ids.map((id) => [id.toString(), id])).values());
 };
 
+const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+
+const hasFeedPhoto = (user = {}) => {
+  const photoFields = [
+    user.avatar,
+    user.profileImage,
+    user.photo,
+    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
+    ...(Array.isArray(user.photos) ? user.photos : []),
+  ];
+  return photoFields.some((photo) => isNonEmptyString(getFeedImageValue(photo)));
+};
+
+const getFeedProfileMissingFields = (user = {}) => {
+  const missingFields = [];
+  if (!isNonEmptyString(user.name)) missingFields.push("name");
+  if (!hasFeedPhoto(user)) missingFields.push("photo");
+  if (!isNonEmptyString(user.gender)) missingFields.push("gender");
+  if (!user.birthdate) missingFields.push("birthdate");
+  if (!isNonEmptyString(user.location)) missingFields.push("location");
+  if (!Array.isArray(user.interests) || user.interests.length === 0) missingFields.push("interests");
+  if (!isNonEmptyString(user.intent)) missingFields.push("intent");
+  return missingFields;
+};
+
+const getFeedProfileStatus = (user) => {
+  if (!user) return null;
+  const missingFields = getFeedProfileMissingFields(user);
+  const isRegularActiveUser =
+    user.role === "user" &&
+    user.isBlocked !== true &&
+    user.isSuspended !== true;
+  return {
+    onboardingComplete: user.onboardingComplete === true,
+    profileComplete: missingFields.length === 0,
+    canAppearInFeed: isRegularActiveUser && user.onboardingComplete === true && missingFields.length === 0,
+    missingFields,
+  };
+};
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -229,8 +269,14 @@ const getFeed = async (req, res) => {
       recommendedProfilesMatch._id = { $nin: uniqueExcludedProfileIds };
     }
     
+    const currentUserProfilePromise = authenticatedUserId
+      ? User.findById(authenticatedUserId)
+          .select("name avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete role isBlocked isSuspended")
+          .lean()
+      : Promise.resolve(null);
+
     // Run all queries in parallel for better performance
-    const [allLives, recommendedProfiles, featuredCreators] = await Promise.all([
+    const [allLives, recommendedProfiles, featuredCreators, currentUserProfile] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
       Live.find({
         isLive: true,
@@ -247,7 +293,8 @@ const getFeed = async (req, res) => {
         {
           $match: recommendedProfilesMatch
         },
-        { $sample: { size: 12 } }, // Randomize selection
+        { $sort: { createdAt: -1, _id: -1 } }, // Prioritize newly valid users so they become visible quickly
+        { $limit: 12 },
         {
           $project: {
             name: 1,
@@ -282,7 +329,8 @@ const getFeed = async (req, res) => {
       ]),
       
       // ⭐ Featured creators - use cached function (data changes infrequently)
-      getFeaturedCreatorsWithCache()
+      getFeaturedCreatorsWithCache(),
+      currentUserProfilePromise
     ]);
 
     // Apply active live filter FIRST to ensure only truly active streams
@@ -325,7 +373,8 @@ const getFeed = async (req, res) => {
     res.json({
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
-      featuredCreators: serializedFeaturedCreators
+      featuredCreators: serializedFeaturedCreators,
+      viewerProfileStatus: getFeedProfileStatus(currentUserProfile)
     });
   } catch (error) {
     const errorTime = Date.now() - startTime;

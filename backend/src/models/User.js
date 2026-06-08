@@ -216,6 +216,15 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({
+  role: 1,
+  isBlocked: 1,
+  isSuspended: 1,
+  onboardingComplete: 1,
+  createdAt: -1,
+  _id: -1,
+});
+
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

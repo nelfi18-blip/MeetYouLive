@@ -130,8 +130,8 @@ const serializeUserPhotoFields = (req, userLike) => {
   const rawPhotos = [
     ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
     ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
-    userLike?.avatar,
     userLike?.profileImage,
+    userLike?.avatar,
     userLike?.photo,
   ];
   const normalizedPhotos = [];

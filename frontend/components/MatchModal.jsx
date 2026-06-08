@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -21,7 +22,8 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const [error, setError] = useState("");
   const [particles, setParticles] = useState([]);
 
-  const displayName = user?.username || user?.name || "Usuario";
+  const displayName = getDisplayName(user);
+  const image = getUserImage(user);
   const isCreator = user?.role === "creator" || user?.role === "subCreator";
   const isLive = isCreator && user?.isLive && user?.liveId;
   const privateCallEnabled = isCreator && user?.creatorProfile?.privateCallEnabled;
@@ -122,8 +124,8 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
         </div>
 
         <div className="match-avatar-wrap">
-          {user.avatar ? (
-            <img src={user.avatar} alt={displayName} className="match-avatar-img" />
+          {image ? (
+            <img src={image} alt={displayName} className="match-avatar-img" />
           ) : (
             <div className="match-avatar-placeholder">{displayName[0]?.toUpperCase()}</div>
           )}

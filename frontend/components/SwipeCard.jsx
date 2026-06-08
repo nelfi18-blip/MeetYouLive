@@ -129,9 +129,10 @@ export default function SwipeCard({
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
   const rawPhotos = [
-    ...(Array.isArray(profile.photos) ? profile.photos : []),
     ...(Array.isArray(profile.profilePhotos) ? profile.profilePhotos : []),
+    ...(Array.isArray(profile.photos) ? profile.photos : []),
     profile.profileImage,
+    profile.avatar,
     profile.photo,
     userImage,
   ];

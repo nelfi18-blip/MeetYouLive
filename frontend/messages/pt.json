@@ -166,6 +166,9 @@
     "bioLessLabel": "Ver menos",
     "emptyTitle": "Não há mais perfis por enquanto",
     "emptyDescription": "Não há novos perfis por enquanto. Volte mais tarde.",
+    "profileIncompleteTitle": "Complete seu perfil",
+    "profileIncompleteDescription": "Para que seu perfil fique visível no feed, adicione foto, idade, gênero, localização e interesses.",
+    "profileIncompleteAction": "Completar perfil",
     "reloadProfiles": "Buscar novos perfis"
   },
   "common": {

@@ -166,6 +166,9 @@
     "bioLessLabel": "See less",
     "emptyTitle": "No more profiles for now",
     "emptyDescription": "There are no new profiles for now. Come back later.",
+    "profileIncompleteTitle": "Complete your profile",
+    "profileIncompleteDescription": "To make your profile visible in the feed, add a photo, age, gender, location, and interests.",
+    "profileIncompleteAction": "Complete profile",
     "reloadProfiles": "Find new profiles"
   },
   "common": {

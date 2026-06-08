@@ -73,9 +73,12 @@ const getRequestOrigin = (req) => {
   const port = hostMatch?.[2] ? Number(hostMatch[2]) : null;
   const validHostname =
     hostname === "localhost" ||
-    hostname
-      .split(".")
-      .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+    (hostname.includes(".") &&
+      !hostname.includes("--") &&
+      !hostname.split(".").every((label) => /^\d+$/.test(label)) &&
+      hostname
+        .split(".")
+        .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)));
   if (!validHostname || (port !== null && (port < 1 || port > 65535))) return "";
   return `${protocol}://${host}`;
 };
@@ -105,9 +108,7 @@ const sanitizePhotoUrl = (req, value) => {
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
-      if (url.pathname.startsWith("/api/uploads/")) {
-        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
-      }
+      url.pathname = url.pathname.replace(/^\/api\/uploads\//i, "/uploads/");
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
         if (
@@ -126,9 +127,7 @@ const sanitizePhotoUrl = (req, value) => {
   }
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
 
-  const normalizedPath = trimmed
-    .replace(/^\/?api\/uploads\//i, "uploads/")
-    .replace(/^\/?uploads\//i, "uploads/");
+  const normalizedPath = trimmed.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
   if (/^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedPath)) {
     return toAbsoluteUploadUrl(req, `/${normalizedPath}`);
   }
@@ -217,7 +216,7 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
       isBlocked: { $ne: true },
       isSuspended: { $ne: true },
     })
-      .select("username name avatar profilePhotos photos profileImage photo bio role creatorStatus isVerifiedCreator creatorProfile interests location")
+      .select("username name avatar profilePhotos bio role creatorStatus isVerifiedCreator creatorProfile interests location")
       .lean();
     if (!user) return res.status(404).json({ message: "User not found" });
 

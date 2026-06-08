@@ -383,10 +383,13 @@ const getFeed = async (req, res) => {
 
     let recommendedProfiles = recommendedProfilesPrimary;
     if (recommendedProfiles.length === 0) {
-      // Two-phase fallback keeps fresh/unseen profiles first; buildRecommendedProfilesMatch preserves user/block filters while only relaxing seen/liked exclusions.
       const selfExcludedIds = authenticatedUserId ? [authenticatedUserId] : [];
+      const fallbackProfilesMatch = {
+        ...RECOMMENDED_PROFILES_BASE_MATCH,
+        ...(selfExcludedIds.length ? { _id: { $nin: selfExcludedIds } } : {}),
+      };
       recommendedProfiles = await User.aggregate(
-        buildRecommendedProfilesPipeline(buildRecommendedProfilesMatch(selfExcludedIds), 12)
+        buildRecommendedProfilesPipeline(fallbackProfilesMatch, 12)
       );
     }
 

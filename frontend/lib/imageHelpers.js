@@ -123,7 +123,7 @@ function getSafeNamePart(value) {
 export function getDisplayName(user) {
   if (!user) return "Usuario";
 
-  const fullName = [getSafeNamePart(user.firstName), getSafeNamePart(user.lastName)].filter(Boolean).join(" ").trim();
+  const fullName = [getSafeNamePart(user.firstName), getSafeNamePart(user.lastName)].filter(Boolean).join(" ");
   const candidates = [
     user.displayName,
     user.name,

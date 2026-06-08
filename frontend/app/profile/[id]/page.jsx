@@ -96,8 +96,8 @@ export default function PublicProfilePage() {
   const username = profile?.username ? `@${profile.username}` : "";
   const interests = Array.isArray(profile?.interests) ? profile.interests : [];
   const isLive = profile?.isLive && profile?.liveId;
-  const canChat = matchAccess.match;
-  const canVideo = matchAccess.match || isLive;
+  const canChat = matchAccess.checked && matchAccess.match;
+  const canVideo = isLive || (matchAccess.checked && matchAccess.match);
 
   useEffect(() => {
     const token = getToken();

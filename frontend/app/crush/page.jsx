@@ -11,6 +11,7 @@ import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const ACTIVITY_BANNER_DURATION_MS = 3500;
@@ -42,6 +43,10 @@ function calcAge(birthdate) {
   const m = now.getMonth() - bd.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < bd.getDate())) age -= 1;
   return age > 0 ? age : null;
+}
+
+function getProfileId(profile) {
+  return String(profile?._id || profile?.userId || "");
 }
 
 // ─── SuperCrushConfirmModal ───────────────────────────────────────────────────
@@ -2074,51 +2079,54 @@ export default function CrushPage() {
     return () => clearTimeout(id);
   }, [isBoosted, boostUntil, fetchConfig]);
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/rankings/featured`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        const live = (d.liveNow || []).map((l) => ({
-          _id: l.userId || l._id,
-          userId: l.userId,
-          username: l.username || l.user?.username,
-          name: l.name || l.user?.name,
-          avatar: l.avatar || l.user?.avatar,
-          profilePhotos: l.profilePhotos || l.user?.profilePhotos,
-          isLive: true,
-          liveId: l._id || l.liveId,
-          role: l.role || l.user?.role || "creator",
-          creatorProfile: l.creatorProfile || l.user?.creatorProfile,
-          totalCoins: 0,
-        }));
-        const top = (d.topWeek || []).map((c) => ({
-          _id: c.userId,
-          userId: c.userId,
-          username: c.username,
-          name: c.name,
-          avatar: c.avatar,
-          profilePhotos: c.profilePhotos,
-          isLive: false,
-          liveId: null,
-          role: c.role,
-          creatorProfile: c.creatorProfile,
-          totalCoins: c.totalCoins || 0,
-        }));
-        const seen = new Set();
-        const merged = [...live, ...top].filter((c) => {
-          const id = String(c._id || c.userId || "");
-          if (!id || seen.has(id)) return false;
-          seen.add(id);
-          return true;
-        });
-        setFeaturedCreators(merged.slice(0, 10));
-      })
-      .catch(() => {
+  const fetchHighlights = useCallback(async ({ signal } = {}) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/feed`, {
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+        signal,
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const feedProfiles = Array.isArray(data?.recommendedProfiles) ? data.recommendedProfiles : [];
+      const featured = Array.isArray(data?.featuredCreators) ? data.featuredCreators : [];
+      const seen = new Set();
+      // Feed recommendations drive the list; featured creators fill premium slots without duplicating cards.
+      const merged = [...feedProfiles, ...featured].filter((profile) => {
+        const id = getProfileId(profile);
+        if (!id) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      setFeaturedCreators(merged.slice(0, 10));
+    } catch (err) {
+      if (err.name !== "AbortError") {
         /* highlighted profiles are optional */
-      })
-      .finally(() => setLoading(false));
+      }
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchHighlights({ signal: controller.signal });
+    return () => controller.abort();
+  }, [fetchHighlights]);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      fetchConfig();
+      fetchHighlights();
+    };
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
+  }, [fetchConfig, fetchHighlights]);
 
   useEffect(() => {
     const handleCrushReceived = ({ fromUsername, crushType }) => {

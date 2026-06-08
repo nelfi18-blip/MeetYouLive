@@ -103,6 +103,7 @@ html {
   width: 100%;
   min-height: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -123,6 +124,9 @@ body {
   background-attachment: scroll;
   min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -210,6 +214,9 @@ h3 {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2.25rem 1.5rem;
+  min-height: calc(100vh - 96px);
+  overflow-x: hidden;
+  overflow-y: visible;
   animation: page-fade-in 0.28s ease-out;
 }
 

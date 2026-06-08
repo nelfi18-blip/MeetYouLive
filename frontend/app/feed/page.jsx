@@ -863,7 +863,7 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authToken) return undefined;
     const controller = new AbortController();
-    loadFeed({ signal: controller.signal, silent: false });
+    loadFeed({ signal: controller.signal, silent: false, fresh: true });
     return () => {
       controller.abort();
     };
@@ -1116,7 +1116,7 @@ export default function FeedPage() {
               <button
                 type="button"
                 className="feed-retry-btn"
-                onClick={() => loadFeed()}
+                onClick={() => loadFeed({ fresh: true })}
               >
                 Intentar de nuevo
               </button>

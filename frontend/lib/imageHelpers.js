@@ -58,34 +58,20 @@ export function normalizeImageUrl(value) {
 export function getUserImage(user) {
   if (!user) return null;
 
-  if (user.profilePhotos && Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0) {
-    const firstPhoto = user.profilePhotos.map(normalizeImageUrl).find(Boolean);
-    if (firstPhoto) return firstPhoto;
-  }
-
-  if (user.photos && Array.isArray(user.photos) && user.photos.length > 0) {
-    const firstPhoto = user.photos.map(normalizeImageUrl).find(Boolean);
-    if (firstPhoto) return firstPhoto;
-  }
-
-  const fields = [
-    user.avatar,
+  const rawPhotos = [
+    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
+    ...(Array.isArray(user.photos) ? user.photos : []),
     user.profileImage,
+    user.avatar,
     user.photo,
     user.photoURL,
     user.photoUrl,
     user.image,
     user.imageUrl,
-    user.profileImage,
     user.picture,
   ];
 
-  for (const field of fields) {
-    const normalized = normalizeImageUrl(field);
-    if (normalized) return normalized;
-  }
-
-  return null;
+  return rawPhotos.map(normalizeImageUrl).find(Boolean) || null;
 }
 
 /**
@@ -112,26 +98,40 @@ export function getLiveThumbnail(live) {
 
 /**
  * Get safe display name from user object
- * Priority: name > username > "Usuario"
+ * Priority: displayName > name > firstName + lastName > username > "Usuario"
  * 
  * @param {Object} user - User object with name, username fields
  * @returns {string} - Safe display name (never empty)
  */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+$/;
+
+function isEmailLikeName(value) {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  // Hide exact emails and email-like internal handles such as "user@domain".
+  return EMAIL_PATTERN.test(trimmed) || EMAIL_LIKE_PATTERN.test(trimmed);
+}
+
+function getSafeNamePart(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed && !isEmailLikeName(trimmed) ? trimmed : "";
+}
+
 export function getDisplayName(user) {
   if (!user) return "Usuario";
-  
-  // Priority 1: name
-  if (user.name && typeof user.name === 'string' && user.name.trim()) {
-    return user.name.trim();
-  }
-  
-  // Priority 2: username
-  if (user.username && typeof user.username === 'string' && user.username.trim()) {
-    return user.username.trim();
-  }
-  
-  // Fallback
-  return "Usuario";
+
+  const fullName = [getSafeNamePart(user.firstName), getSafeNamePart(user.lastName)].filter(Boolean).join(" ");
+  const candidates = [
+    user.displayName,
+    user.name,
+    fullName,
+    user.username,
+  ];
+
+  return candidates.map(getSafeNamePart).find(Boolean) || "Usuario";
 }
 
 /**

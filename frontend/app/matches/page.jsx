@@ -319,6 +319,7 @@ export default function MatchesPage() {
           overflow-x: hidden;
           overflow-y: visible;
           touch-action: pan-y;
+          pointer-events: auto;
         }
 
         .fomo-matches-hint {
@@ -385,6 +386,7 @@ export default function MatchesPage() {
           flex-direction: column;
           align-items: center;
           gap: 0.9rem;
+          touch-action: pan-y;
           transition: all var(--transition-slow);
         }
         .match-card:hover {
@@ -505,6 +507,7 @@ export default function MatchesPage() {
           flex-direction: column;
           gap: 0.45rem;
           width: 100%;
+          touch-action: pan-y;
         }
 
         .match-action-btn {
@@ -515,6 +518,7 @@ export default function MatchesPage() {
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
+          touch-action: manipulation;
         }
 
         .match-call-btn {

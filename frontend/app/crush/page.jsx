@@ -2473,6 +2473,7 @@ export default function CrushPage() {
           overflow-x: hidden;
           overflow-y: visible;
           touch-action: pan-y;
+          pointer-events: auto;
         }
         .page-glow {
           position: fixed;
@@ -2602,6 +2603,7 @@ export default function CrushPage() {
           );
           border: 1px solid rgba(255, 45, 120, 0.2);
           overflow: hidden;
+          touch-action: pan-y;
         }
         .eyebrow {
           display: inline-flex;
@@ -2659,6 +2661,7 @@ export default function CrushPage() {
           border-radius: 24px;
           background: rgba(9, 3, 22, 0.62);
           border: 1px solid rgba(255, 255, 255, 0.07);
+          touch-action: pan-y;
         }
         .section-heading-row {
           display: flex;

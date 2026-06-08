@@ -64,18 +64,27 @@ const normalizeHttpProtocol = (value) => {
   return protocol === "http" || protocol === "https" ? protocol : "https";
 };
 
+const isIpAddress = (hostname) =>
+  /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(":");
+
 const getRequestOrigin = (req) => {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
   const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-  const hostMatch = /^(.+?)(?::(\d{1,5}))?$/.exec(host || "");
-  const hostname = hostMatch?.[1] || "";
-  const port = hostMatch?.[2] ? Number(hostMatch[2]) : null;
+  if (!host || /[/\\?#@]/.test(host)) return "";
+  let parsedHost;
+  try {
+    parsedHost = new URL(`${protocol}://${host}`);
+  } catch {
+    return "";
+  }
+  const hostname = parsedHost.hostname || "";
+  const port = parsedHost.port ? Number(parsedHost.port) : null;
   const validHostname =
     hostname === "localhost" ||
     (hostname.includes(".") &&
       !hostname.includes("--") &&
-      !hostname.split(".").every((label) => /^\d+$/.test(label)) &&
+      !isIpAddress(hostname) &&
       hostname
         .split(".")
         .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)));
@@ -108,7 +117,7 @@ const sanitizePhotoUrl = (req, value) => {
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
-      url.pathname = url.pathname.replace(/^\/api\/uploads\//i, "/uploads/");
+      url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
         if (
@@ -127,8 +136,8 @@ const sanitizePhotoUrl = (req, value) => {
   }
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
 
-  const normalizedPath = trimmed.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
-  if (/^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedPath)) {
+  const normalizedPath = trimmed.replace(/^\/?(?:api\/)?uploads\//, "uploads/");
+  if (/^uploads\/[a-zA-Z0-9._](?:[a-zA-Z0-9._-]*[a-zA-Z0-9._])?$/.test(normalizedPath)) {
     return toAbsoluteUploadUrl(req, `/${normalizedPath}`);
   }
   return "";

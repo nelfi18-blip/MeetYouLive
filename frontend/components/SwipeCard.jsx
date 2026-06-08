@@ -188,7 +188,6 @@ export default function SwipeCard({
       <div 
         className="swipe-card-image-wrapper"
         onClick={isActive ? handlePhotoClick : undefined}
-        onTouchStart={isActive ? handlePhotoClick : undefined}
       >
         <AnimatePresence mode="wait">
           <motion.div

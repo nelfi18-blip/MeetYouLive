@@ -1696,6 +1696,7 @@ main.main-content:has(.admin-shell) {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   cursor: grab;
   user-select: none;
+  touch-action: pan-y;
   isolation: isolate;
   background: var(--swipe-card-bg-gradient);
 }
@@ -1709,6 +1710,7 @@ main.main-content:has(.admin-shell) {
   width: 100%;
   height: 100%;
   background: var(--swipe-card-bg-gradient);
+  touch-action: pan-y;
 }
 
 .swipe-card-image {
@@ -1857,6 +1859,7 @@ main.main-content:has(.admin-shell) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  touch-action: pan-y;
 }
 
 .swipe-card-name-age {
@@ -1955,6 +1958,7 @@ main.main-content:has(.admin-shell) {
   color: white;
   border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.2s ease;
+  touch-action: manipulation;
 }
 
 .swipe-card-info-btn:hover {
@@ -2342,6 +2346,8 @@ main.main-content:has(.admin-shell) {
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 1000;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  touch-action: pan-y;
 }
 
 .bottom-nav-modern .nav-item {
@@ -2356,6 +2362,8 @@ main.main-content:has(.admin-shell) {
   padding: 8px 12px;
   border-radius: 12px;
   min-width: 60px;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .bottom-nav-modern .nav-item svg {

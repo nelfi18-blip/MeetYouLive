@@ -73,6 +73,7 @@ export function getUserImage(user) {
 
   const selectedImage = rawPhotos.map(normalizeImageUrl).find(Boolean) || null;
 
+  // TODO: Remove this temporary photo diagnostic after Matches/Crush image rollout is verified.
   console.debug("[image-selection]", {
     userId: user._id,
     profilePhotos: user.profilePhotos,

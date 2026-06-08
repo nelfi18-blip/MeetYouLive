@@ -311,7 +311,15 @@ export default function MatchesPage() {
       )}
 
       <style jsx>{`
-        .matches-page { display: flex; flex-direction: column; gap: 1.75rem; }
+        .matches-page {
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+          min-height: auto;
+          overflow-x: hidden;
+          overflow-y: visible;
+          touch-action: pan-y;
+        }
 
         .fomo-matches-hint {
           font-size: 0.8rem;

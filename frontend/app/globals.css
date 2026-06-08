@@ -745,6 +745,15 @@ main.main-content:has(.admin-shell) {
    Responsive helpers
    ========================================================= */
 @media (max-width: 768px) {
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Global fallback so the desktop top bar never flashes on mobile. */
   .navbar {
     display: none;
@@ -758,7 +767,8 @@ main.main-content:has(.admin-shell) {
   }
 
   .main-content-bottom-nav {
-    min-height: 100dvh;
+    min-height: auto;
+    overflow-y: visible;
   }
 
   /* Profile owns mobile safe-area spacing so its cards render full-width from first paint. */

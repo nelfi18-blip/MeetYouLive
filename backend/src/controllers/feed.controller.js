@@ -818,7 +818,7 @@ const getFeedExclusionReasons = (user, context) => {
   if (context.clientExcludedProfileIds.has(userId)) reasons.push("client_excluded");
   if (context.returnedProfileIds.has(userId)) reasons.push("returned_by_feed");
   if (!context.returnedProfileIds.has(userId) && reasons.length === 0) {
-    reasons.push("not_returned_by_current_top_12_after_filters");
+    reasons.push("passes_filters_but_not_in_returned_top_12");
   }
 
   return reasons;
@@ -899,11 +899,11 @@ const getFeedDiagnostics = async (req, res) => {
     if (targetByQuery) diagnosticUsersById.set(String(targetByQuery._id), targetByQuery);
 
     const excludedUsers = Array.from(diagnosticUsersById.values())
+      .filter((user) => !returnedProfileIds.has(String(user._id)))
       .map((user) => ({
         id: String(user._id),
-        reasons: getFeedExclusionReasons(user, context).filter((reason) => reason !== "returned_by_feed"),
-      }))
-      .filter((entry) => !returnedProfileIds.has(entry.id));
+        reasons: getFeedExclusionReasons(user, context),
+      }));
 
     const targetDiagnostics = targetByQuery
       ? {

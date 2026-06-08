@@ -107,6 +107,7 @@ function isEmailLikeName(value) {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
   if (!trimmed) return true;
+  // Hide exact emails and email-like internal handles such as "user@domain".
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) || /^[^\s@]+@[^\s@]+$/.test(trimmed);
 }
 

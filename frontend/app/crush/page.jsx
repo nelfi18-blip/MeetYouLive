@@ -2081,7 +2081,7 @@ export default function CrushPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/feed?cacheBust=${Date.now()}`, {
+      const res = await fetch(`${API_URL}/api/feed`, {
         headers: { Authorization: "Bearer " + token },
         cache: "no-store",
         signal,

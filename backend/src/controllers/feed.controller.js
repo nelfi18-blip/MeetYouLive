@@ -382,7 +382,7 @@ const getFeed = async (req, res) => {
     ]);
 
     let recommendedProfiles = recommendedProfilesPrimary;
-    if (recommendedProfiles.length === 0 && uniqueExcludedProfileIds.length > 0) {
+    if (recommendedProfiles.length === 0) {
       const selfExcludedIds = authenticatedUserId ? [authenticatedUserId] : [];
       recommendedProfiles = await User.aggregate(
         buildRecommendedProfilesPipeline(buildRecommendedProfilesMatch(selfExcludedIds), 12)

@@ -112,10 +112,16 @@ export default function PublicProfilePage() {
       cache: "no-store",
       signal: controller.signal,
     })
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => {
+        if (!response.ok) throw new Error(t("publicProfile.loadError"));
+        return response.json();
+      })
       .then((data) => setMatchAccess({ checked: true, match: data?.match === true }))
       .catch((err) => {
-        if (err.name !== "AbortError") setMatchAccess({ checked: true, match: false });
+        if (err.name !== "AbortError") {
+          setMatchAccess({ checked: true, match: false });
+          setLikeStatus(t("publicProfile.loadError"));
+        }
       });
     return () => controller.abort();
   }, [profileId]);

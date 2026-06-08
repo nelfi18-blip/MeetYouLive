@@ -2467,10 +2467,12 @@ export default function CrushPage() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
-          min-height: calc(100svh - 80px);
-          padding-bottom: 1.5rem;
+          min-height: auto;
+          padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
           position: relative;
           overflow-x: hidden;
+          overflow-y: visible;
+          touch-action: pan-y;
         }
         .page-glow {
           position: fixed;

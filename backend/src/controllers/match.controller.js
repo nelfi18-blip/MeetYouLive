@@ -10,6 +10,7 @@ const { calculateCompatibility } = require("../services/compatibility.service.js
 const { getIO } = require("../lib/socket.js");
 const { queueEvent } = require("../services/push.service.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -357,14 +358,14 @@ exports.getMatches = async (req, res) => {
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", "username name avatar bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium");
+    }).populate("from", "username name avatar profilePhotos profileImage photo photos bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium");
 
     const matches = mutualLikes.map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
         myInterests, myIntent, user.interests, user.intent
       );
-      return { ...user, sharedInterests, compatibilityScore };
+      return { ...withSerializedUserPhotoFields(req, user), sharedInterests, compatibilityScore };
     });
 
     res.json({ matches });

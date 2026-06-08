@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -83,10 +84,15 @@ export default function ChatsPage() {
             const displayName = rawName.length > 0 ? rawName : "Usuario";
             const initial = displayName[0].toUpperCase();
             const lastMsg = chat.lastMessage;
+            const userImage = getUserImage(other);
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
                 <div className="chat-avatar">
-                  {initial}
+                  {userImage ? (
+                    <img src={userImage} alt={displayName} className="chat-avatar-img" />
+                  ) : (
+                    initial
+                  )}
                 </div>
                 <div className="chat-info">
                   <div className="chat-name">{displayName}</div>
@@ -154,6 +160,14 @@ export default function ChatsPage() {
           font-size: 1.1rem;
           flex-shrink: 0;
           box-shadow: 0 0 0 2px rgba(224,64,251,0.2);
+          overflow: hidden;
+        }
+
+        .chat-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
         }
 
         .chat-info { flex: 1; min-width: 0; }

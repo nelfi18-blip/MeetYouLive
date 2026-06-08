@@ -2,6 +2,7 @@ const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
@@ -9,7 +10,7 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 const getChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.userId })
-      .populate("participants", "username name role")
+      .populate("participants", "username name avatar profilePhotos profileImage photo role")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
 
@@ -25,7 +26,7 @@ const getChats = async (req, res) => {
 
     const result = filteredChats.map((chat) => ({
       _id: chat._id,
-      participants: chat.participants,
+      participants: chat.participants.map((participant) => withSerializedUserPhotoFields(req, participant)),
       lastMessage: chat.lastMessage,
       currentUserId: req.userId,
       updatedAt: chat.updatedAt,
@@ -42,9 +43,13 @@ const getChatById = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    }).populate("participants", "username name avatar role");
+    }).populate("participants", "username name avatar profilePhotos profileImage photo role");
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
-    res.json(chat);
+    const payload = chat.toObject();
+    payload.participants = payload.participants.map((participant) =>
+      withSerializedUserPhotoFields(req, participant)
+    );
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -71,17 +76,21 @@ const createOrGetChat = async (req, res) => {
     let chat = await Chat.findOne({
       participants: { $all: [req.userId, recipientId], $size: 2 },
     })
-      .populate("participants", "username name")
+      .populate("participants", "username name avatar profilePhotos profileImage photo")
       .populate("lastMessage");
 
     if (!chat) {
       chat = await Chat.create({ participants: [req.userId, recipientId] });
       chat = await Chat.findById(chat._id)
-        .populate("participants", "username name")
+        .populate("participants", "username name avatar profilePhotos profileImage photo")
         .populate("lastMessage");
     }
 
-    res.json(chat);
+    const payload = chat.toObject();
+    payload.participants = payload.participants.map((participant) =>
+      withSerializedUserPhotoFields(req, participant)
+    );
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -96,11 +105,15 @@ const getMessages = async (req, res) => {
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
 
     const messages = await Message.find({ chat: req.params.chatId })
-      .populate("sender", "username name")
+      .populate("sender", "username name avatar profilePhotos profileImage photo")
       .sort({ createdAt: 1 })
       .limit(100); // Returns the most recent 100 messages; paginate with skip/limit if needed
 
-    res.json(messages);
+    res.json(messages.map((message) => {
+      const payload = message.toObject();
+      payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+      return payload;
+    }));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -129,8 +142,10 @@ const sendMessage = async (req, res) => {
       updatedAt: new Date(),
     });
 
-    const populated = await Message.findById(message._id).populate("sender", "username name");
-    res.status(201).json(populated);
+    const populated = await Message.findById(message._id).populate("sender", "username name avatar profilePhotos profileImage photo");
+    const payload = populated.toObject();
+    payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+    res.status(201).json(payload);
 
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});

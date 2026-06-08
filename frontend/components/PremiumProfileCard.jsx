@@ -5,6 +5,7 @@ import Badge from "./Badge";
 import StatusBadges from "./StatusBadges";
 import InteractionButton from "./InteractionButton";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { getUserImage } from "@/lib/imageHelpers";
 
 /**
  * PremiumProfileCard - Enhanced ProfileCard with InteractionButton system
@@ -53,6 +54,7 @@ export default function PremiumProfileCard({
     : [];
   const privateCallEnabled = isCreator && user.creatorProfile?.privateCallEnabled;
   const statusBadges = computeStatusBadges(user);
+  const userImage = getUserImage(user);
 
   return (
     <>
@@ -77,8 +79,8 @@ export default function PremiumProfileCard({
 
         {/* Avatar */}
         <div className="card-avatar-wrap">
-          {user.avatar ? (
-            <img src={user.avatar} alt={displayName} className="card-avatar-img" />
+          {userImage ? (
+            <img src={userImage} alt={displayName} className="card-avatar-img" />
           ) : (
             <div className="card-avatar-placeholder">{initial}</div>
           )}

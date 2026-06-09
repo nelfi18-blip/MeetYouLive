@@ -664,7 +664,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
   }
 });
 
-// Submit verification photo — users send a selfie for admin review
+// Legacy verification-photo upload — keep user profiles self-published and avoid admin review queues.
 router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next) => {
   upload.single("verificationPhoto")(req, res, (err) => {
     if (err) {
@@ -685,19 +685,14 @@ router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next)
         message: "Usuario no encontrado",
       });
     }
-    if (user.verificationStatus === "approved") {
-      return res.status(400).json({ message: "Tu cuenta ya está verificada" });
-    }
-    if (user.verificationStatus === "pending") {
-      return res.status(400).json({ message: "Ya tienes una solicitud de verificación pendiente" });
-    }
     const photoUrl = `/uploads/${req.file.filename}`;
     user.verificationPhoto = photoUrl;
-    user.verificationStatus = "pending";
+    user.verificationStatus = "approved";
+    user.isVerified = true;
     await user.save();
     res.json({
       ok: true,
-      message: "Foto de verificación enviada. Un administrador la revisará pronto.",
+      message: "Foto recibida. Tu perfil está publicado automáticamente.",
       verificationStatus: user.verificationStatus,
     });
   } catch (err) {

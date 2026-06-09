@@ -185,9 +185,6 @@ export default function ProfilePage() {
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
 
-  const [verifyError, setVerifyError] = useState("");
-  const [verifySuccess, setVerifySuccess] = useState("");
-  const [verifyUploading, setVerifyUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState("");
 
@@ -674,28 +671,6 @@ export default function ProfilePage() {
     if (saved) setPhotoUrlInput("");
   };
 
-  const handleVerificationSubmit = async (file) => {
-    if (!file) return;
-    setVerifyError(""); setVerifySuccess(""); setVerifyUploading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const formData = new FormData();
-      formData.append("verificationPhoto", file);
-      const res = await fetch(`${API_URL}/api/user/me/verification-photo`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (!res.ok) { setVerifyError(data.message || "Error al enviar la verificación"); return; }
-      setVerifySuccess(data.message || "Foto enviada. Un administrador la revisará pronto.");
-      setUser((u) => ({ ...u, verificationStatus: "pending" }));
-      await refreshProfileSession();
-    } catch { setVerifyError("No se pudo conectar con el servidor"); }
-    finally { setVerifyUploading(false); }
-  };
-
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
@@ -1086,48 +1061,6 @@ export default function ProfilePage() {
                 <div className="creator-cta-sub">Accede a tu estudio, gestiona tus directos y consulta tus ganancias.</div>
               </div>
               <Link href="/creator" className="btn btn-primary creator-cta-btn">Ir al Estudio</Link>
-            </div>
-          )}
-
-          {/* Identity verification */}
-          {isNotAdmin && user.verificationStatus !== "approved" && (
-            <div className="form-card">
-              <h2 className="form-card-title">
-                {user.verificationStatus === "pending" ? "⏳ Verificación en revisión" : "🪪 Verificar identidad"}
-              </h2>
-              {user.verificationStatus === "pending" ? (
-                <p style={{ color: "#fbbf24", fontSize: "0.875rem", lineHeight: 1.5 }}>
-                  Tu foto de verificación está siendo revisada por un administrador. Te avisaremos pronto.
-                </p>
-              ) : user.verificationStatus === "rejected" ? (
-                <>
-                  <p style={{ color: "var(--error)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
-                    Tu verificación anterior fue rechazada. Puedes intentarlo de nuevo con una foto más clara.
-                  </p>
-                  {verifyError && <div className="banner-error" style={{ marginBottom: "0.75rem" }}>{verifyError}</div>}
-                  {verifySuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{verifySuccess}</div>}
-                  {!verifySuccess && (
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1.25rem", borderRadius: "var(--radius-sm)", background: "var(--grad-primary)", color: "#fff", fontSize: "0.875rem", fontWeight: 700, cursor: verifyUploading ? "not-allowed" : "pointer", opacity: verifyUploading ? 0.7 : 1 }}>
-                      {verifyUploading ? "Enviando…" : "📷 Subir nueva foto de verificación"}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} disabled={verifyUploading} onChange={(e) => handleVerificationSubmit(e.target.files[0])} />
-                    </label>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
-                    Sube una selfie sosteniendo un papel con tu nombre de usuario para demostrar que eres un usuario real. Un administrador revisará tu solicitud.
-                  </p>
-                  {verifyError && <div className="banner-error" style={{ marginBottom: "0.75rem" }}>{verifyError}</div>}
-                  {verifySuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{verifySuccess}</div>}
-                  {!verifySuccess && (
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1.25rem", borderRadius: "var(--radius-sm)", background: "var(--grad-primary)", color: "#fff", fontSize: "0.875rem", fontWeight: 700, cursor: verifyUploading ? "not-allowed" : "pointer", opacity: verifyUploading ? 0.7 : 1 }}>
-                      {verifyUploading ? "Enviando…" : "📷 Subir foto de verificación"}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} disabled={verifyUploading} onChange={(e) => handleVerificationSubmit(e.target.files[0])} />
-                    </label>
-                  )}
-                </>
-              )}
             </div>
           )}
 

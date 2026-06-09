@@ -18,6 +18,111 @@ const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const mongoose = require("mongoose");
 
+const normalizeHttpProtocol = (value) => {
+  const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
+  return protocol === "http" || protocol === "https" ? protocol : "https";
+};
+
+const getRequestOrigin = (req) => {
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
+  const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
+  if (!host || /[/\\?#@]/.test(host)) return "";
+  let parsedHost;
+  try {
+    parsedHost = new URL(`${protocol}://${host}`);
+  } catch {
+    return "";
+  }
+  const hostname = parsedHost.hostname || "";
+  const port = parsedHost.port ? Number(parsedHost.port) : null;
+  const validHostname =
+    hostname === "localhost" ||
+    (hostname.includes(".") &&
+      !hostname.includes("--") &&
+      !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname) &&
+      !hostname.includes(":") &&
+      hostname
+        .split(".")
+        .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label)));
+  if (!validHostname || (port !== null && (port < 1 || port > 65535))) return "";
+  return `${protocol}://${host}`;
+};
+
+const getPhotoUrlValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return value.secure_url || value.url || value.src || value.path || "";
+};
+
+const normalizeAdminPhotoUrl = (req, value) => {
+  const rawValue = getPhotoUrlValue(value);
+  if (typeof rawValue !== "string") return "";
+  const trimmed = rawValue.trim();
+  if (!trimmed) return "";
+
+  const requestOrigin = getRequestOrigin(req);
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.pathname.startsWith("/api/uploads/")) {
+        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      }
+      if (requestOrigin) {
+        const requestUrl = new URL(requestOrigin);
+        if (
+          url.protocol === "http:" &&
+          requestUrl.protocol === "https:" &&
+          url.hostname === requestUrl.hostname &&
+          url.pathname.startsWith("/uploads/")
+        ) {
+          url.protocol = "https:";
+        }
+      }
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+
+  const normalizedPath = trimmed
+    .replace(/^\/?api\/uploads\//i, "uploads/")
+    .replace(/^\/?uploads\//i, "uploads/");
+  if (/^uploads\//.test(normalizedPath)) {
+    const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
+    return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
+  }
+
+  return "";
+};
+
+const serializeAdminUser = (req, user) => {
+  const rawPhotos = [
+    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
+    ...(Array.isArray(user.photos) ? user.photos : []),
+    user.profileImage,
+    user.avatar,
+    user.photo,
+  ].filter(Boolean);
+  const normalizedPhotos = [];
+  for (const photo of rawPhotos) {
+    const normalized = normalizeAdminPhotoUrl(req, photo);
+    if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
+  }
+  const avatar = normalizedPhotos[0] || "";
+  const { password, ...safeUser } = user;
+  return {
+    ...safeUser,
+    avatar,
+    profileImage: avatar,
+    photo: avatar,
+    profilePhotos: normalizedPhotos,
+    photos: normalizedPhotos,
+  };
+};
+
 const PLATFORM_EARNINGS_RATE = 0.4;
 /** Retries up to MAX_ATTEMPTS times to ensure uniqueness. */
 async function generateUniqueAgencyCode(user) {
@@ -207,11 +312,13 @@ exports.getUsers = async (req, res) => {
       User.find(filter, "-password")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       User.countDocuments(filter),
     ]);
 
-    return res.json({ ok: true, users, total, page, limit });
+    res.set("Cache-Control", "no-store");
+    return res.json({ ok: true, users: users.map((user) => serializeAdminUser(req, user)), total, page, limit });
   } catch (error) {
     console.error("Admin users error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo usuarios" });

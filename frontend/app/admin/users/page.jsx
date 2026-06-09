@@ -53,7 +53,10 @@ function AdminUsersInner() {
       if (search) params.set("search", search);
       if (roleFilter) params.set("role", roleFilter);
       if (statusFilter) params.set("status", statusFilter);
-      const res = await fetch(`${API_URL}/api/admin/users?${params}`, { headers: authHeader() });
+      const res = await fetch(`${API_URL}/api/admin/users?${params}`, {
+        headers: authHeader(),
+        cache: "no-store",
+      });
       if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
       if (res.status === 403) { setError("Sin permisos de administrador."); return; }
       if (!res.ok) throw new Error("server");

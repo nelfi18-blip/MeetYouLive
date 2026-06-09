@@ -664,49 +664,13 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
   }
 });
 
-// Submit verification photo — users send a selfie for admin review
-router.post("/me/verification-photo", userLimiter, verifyToken, (req, res, next) => {
-  upload.single("verificationPhoto")(req, res, (err) => {
-    if (err) {
-      return sendUploadError(res, err, "Error al subir la imagen");
-    }
-    next();
+// Legacy verification-photo uploads no longer create admin review queues.
+router.post("/me/verification-photo", userLimiter, verifyToken, async (req, res) => {
+  res.status(410).json({
+    ok: false,
+    code: "VERIFICATION_REVIEW_DISABLED",
+    message: "La revisión manual de usuarios normales ya no es necesaria. Tus fotos de perfil se publican automáticamente.",
   });
-}, async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
-    }
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({
-        ok: false,
-        code: "USER_NOT_FOUND",
-        message: "Usuario no encontrado",
-      });
-    }
-    if (user.verificationStatus === "approved") {
-      return res.status(400).json({ message: "Tu cuenta ya está verificada" });
-    }
-    if (user.verificationStatus === "pending") {
-      return res.status(400).json({ message: "Ya tienes una solicitud de verificación pendiente" });
-    }
-    const photoUrl = `/uploads/${req.file.filename}`;
-    user.verificationPhoto = photoUrl;
-    user.verificationStatus = "pending";
-    await user.save();
-    res.json({
-      ok: true,
-      message: "Foto de verificación enviada. Un administrador la revisará pronto.",
-      verificationStatus: user.verificationStatus,
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      code: "UPLOAD_FAILED",
-      message: "No se pudo procesar la subida de la imagen",
-    });
-  }
 });
 
 // Follow a creator/user

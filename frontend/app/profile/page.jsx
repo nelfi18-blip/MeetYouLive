@@ -19,12 +19,7 @@ const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const DISCOVERY_GOAL_OPTIONS = [
-  { value: "serious_relationship", label: "Relación seria" },
-  { value: "friendship", label: "Amistad" },
-  { value: "dating", label: "Citas" },
-  { value: "networking", label: "Networking" },
-];
+const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
@@ -112,9 +107,7 @@ const normalizeDiscoveryForm = (user = {}) => {
     discoveryAgeMax: ageRange.max ?? "",
     discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
     discoveryLanguages: languages.filter((lang) => ["es", "en", "pt"].includes(lang)),
-    discoveryGoals: goals.filter((goal) =>
-      ["serious_relationship", "friendship", "dating", "networking"].includes(goal)
-    ),
+    discoveryGoals: goals.filter((goal) => DISCOVERY_GOAL_OPTIONS.includes(goal)),
   };
 };
 
@@ -256,6 +249,12 @@ export default function ProfilePage() {
   const [boostLoading, setBoostLoading] = useState(false);
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
+  const goalLabelByValue = {
+    serious_relationship: t("profile.goalSeriousRelationship"),
+    friendship: t("profile.goalFriendship"),
+    dating: t("profile.goalDating"),
+    networking: t("profile.goalNetworking"),
+  };
 
   const refreshProfileSession = useCallback(async () => {
     try {
@@ -381,7 +380,6 @@ export default function ProfilePage() {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -468,6 +466,7 @@ export default function ProfilePage() {
 
     try {
       const token = localStorage.getItem("token");
+      const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
       const res = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -867,20 +866,20 @@ export default function ProfilePage() {
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Quiero conocer</label>
+                  <label className="form-label">{t("profile.interestedInLabel")}</label>
                   <select
                     className="input"
                     value={editForm.interestedIn}
                     onChange={(e) => setEditForm((f) => ({ ...f, interestedIn: e.target.value }))}
                   >
-                    <option value="">Sin preferencia</option>
-                    <option value="women">Mujeres</option>
-                    <option value="men">Hombres</option>
-                    <option value="both">Ambos</option>
+                    <option value="">{t("profile.interestedInNone")}</option>
+                    <option value="women">{t("profile.interestedInWomen")}</option>
+                    <option value="men">{t("profile.interestedInMen")}</option>
+                    <option value="both">{t("profile.interestedInBoth")}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Rango de edad</label>
+                  <label className="form-label">{t("profile.ageRangeLabel")}</label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
                     <input
                       className="input"
@@ -889,7 +888,7 @@ export default function ProfilePage() {
                       max={100}
                       value={editForm.discoveryAgeMin}
                       onChange={(e) => setEditForm((f) => ({ ...f, discoveryAgeMin: e.target.value }))}
-                      placeholder="Edad mínima"
+                      placeholder={t("profile.ageMinPlaceholder")}
                     />
                     <input
                       className="input"
@@ -898,12 +897,12 @@ export default function ProfilePage() {
                       max={100}
                       value={editForm.discoveryAgeMax}
                       onChange={(e) => setEditForm((f) => ({ ...f, discoveryAgeMax: e.target.value }))}
-                      placeholder="Edad máxima"
+                      placeholder={t("profile.ageMaxPlaceholder")}
                     />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Distancia máxima (km)</label>
+                  <label className="form-label">{t("profile.maxDistanceLabel")}</label>
                   <input
                     className="input"
                     type="number"
@@ -911,11 +910,11 @@ export default function ProfilePage() {
                     max={10000}
                     value={editForm.discoveryMaxDistanceKm}
                     onChange={(e) => setEditForm((f) => ({ ...f, discoveryMaxDistanceKm: e.target.value }))}
-                    placeholder="Ej: 50"
+                    placeholder={t("profile.maxDistancePlaceholder")}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Idiomas</label>
+                  <label className="form-label">{t("profile.languagesLabel")}</label>
                   <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
                     {SUPPORTED_LANGS.map((code) => {
                       const checked = editForm.discoveryLanguages.includes(code);
@@ -940,12 +939,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Busco</label>
+                  <label className="form-label">{t("profile.goalsLabel")}</label>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "0.45rem 0.7rem" }}>
                     {DISCOVERY_GOAL_OPTIONS.map((option) => {
-                      const checked = editForm.discoveryGoals.includes(option.value);
+                      const checked = editForm.discoveryGoals.includes(option);
                       return (
-                        <label key={option.value} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                        <label key={option} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                           <input
                             type="checkbox"
                             checked={checked}
@@ -953,12 +952,12 @@ export default function ProfilePage() {
                               setEditForm((f) => ({
                                 ...f,
                                 discoveryGoals: checked
-                                  ? f.discoveryGoals.filter((goal) => goal !== option.value)
-                                  : [...f.discoveryGoals, option.value],
+                                  ? f.discoveryGoals.filter((goal) => goal !== option)
+                                  : [...f.discoveryGoals, option],
                               }))
                             }
                           />
-                          <span>{option.label}</span>
+                          <span>{goalLabelByValue[option] || option}</span>
                         </label>
                       );
                     })}
@@ -1133,36 +1132,38 @@ export default function ProfilePage() {
             (user.discoveryPreferences?.languages || []).length > 0 ||
             (user.discoveryPreferences?.goals || []).length > 0) && (
             <div className="form-card">
-              <h2 className="form-card-title">🎯 Preferencias de descubrimiento</h2>
+              <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
               <div style={{ display: "grid", gap: "0.5rem" }}>
                 {user.interestedIn && (
                   <div>
-                    <strong>Quiero conocer:</strong>{" "}
-                    {user.interestedIn === "women" && "Mujeres"}
-                    {user.interestedIn === "men" && "Hombres"}
-                    {user.interestedIn === "both" && "Ambos"}
+                    <strong>{t("profile.interestedInLabel")}:</strong>{" "}
+                    {user.interestedIn === "women" && t("profile.interestedInWomen")}
+                    {user.interestedIn === "men" && t("profile.interestedInMen")}
+                    {user.interestedIn === "both" && t("profile.interestedInBoth")}
                   </div>
                 )}
                 {(user.discoveryPreferences?.ageRange?.min != null || user.discoveryPreferences?.ageRange?.max != null) && (
                   <div>
-                    <strong>Edad:</strong>{" "}
+                    <strong>{t("profile.ageSummaryLabel")}:</strong>{" "}
                     {user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}
                   </div>
                 )}
                 {user.discoveryPreferences?.maxDistanceKm != null && (
-                  <div><strong>Distancia:</strong> {user.discoveryPreferences.maxDistanceKm} km</div>
+                  <div>
+                    <strong>{t("profile.distanceSummaryLabel")}:</strong> {user.discoveryPreferences.maxDistanceKm} km
+                  </div>
                 )}
                 {(user.discoveryPreferences?.languages || []).length > 0 && (
                   <div>
-                    <strong>Idiomas:</strong>{" "}
+                    <strong>{t("profile.languagesSummaryLabel")}:</strong>{" "}
                     {(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}
                   </div>
                 )}
                 {(user.discoveryPreferences?.goals || []).length > 0 && (
                   <div>
-                    <strong>Busco:</strong>{" "}
+                    <strong>{t("profile.goalsSummaryLabel")}:</strong>{" "}
                     {(user.discoveryPreferences.goals || [])
-                      .map((goal) => DISCOVERY_GOAL_OPTIONS.find((option) => option.value === goal)?.label || goal)
+                      .map((goal) => goalLabelByValue[goal] || goal)
                       .join(", ")}
                   </div>
                 )}

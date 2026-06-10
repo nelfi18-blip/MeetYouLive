@@ -70,6 +70,7 @@ const discoveryPreferencesSchema = new mongoose.Schema(
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
     languages: { type: [String], default: [] },
     goals: {
+      // Discovery goals are mapped to profile intent filters in backend/src/lib/discovery.js.
       type: [String],
       enum: ["serious_relationship", "friendship", "dating", "networking"],
       default: [],

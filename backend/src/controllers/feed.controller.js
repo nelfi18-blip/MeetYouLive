@@ -8,23 +8,13 @@ const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { isApprovedCreator } = require("../lib/creatorUtils.js");
 const { hasLiveHost } = require("../lib/socket.js");
+const { buildDiscoveryMatch } = require("../lib/discovery.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
-const DISCOVERY_GOAL_INTENT_MAP = {
-  serious_relationship: ["dating"],
-  friendship: ["casual"],
-  dating: ["dating", "casual"],
-  networking: ["creator", "live"],
-};
-const DISCOVERY_GENDER_MATCH = {
-  women: ["woman"],
-  men: ["man"],
-  both: ["woman", "man"],
-};
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -105,55 +95,6 @@ const RECOMMENDED_PROFILES_BASE_MATCH = {
   isBlocked: false,
   isSuspended: false,
   onboardingComplete: true,
-};
-
-const buildDiscoveryMatch = (viewer = null) => {
-  if (!viewer) return {};
-  const match = {};
-
-  if (DISCOVERY_GENDER_MATCH[viewer.interestedIn]) {
-    match.gender = { $in: DISCOVERY_GENDER_MATCH[viewer.interestedIn] };
-  }
-
-  if (viewer.gender === "man" || viewer.gender === "woman") {
-    const reciprocalInterestedIn =
-      viewer.gender === "man" ? ["", null, "men", "both"] : ["", null, "women", "both"];
-    match.interestedIn = { $in: reciprocalInterestedIn };
-  }
-
-  const ageRange = viewer.discoveryPreferences?.ageRange || {};
-  const minAge = Number.isFinite(ageRange.min) ? ageRange.min : null;
-  const maxAge = Number.isFinite(ageRange.max) ? ageRange.max : null;
-  if (minAge !== null || maxAge !== null) {
-    const birthdateFilter = {};
-    if (minAge !== null) {
-      const maxBirthdate = new Date();
-      maxBirthdate.setFullYear(maxBirthdate.getFullYear() - minAge);
-      birthdateFilter.$lte = maxBirthdate;
-    }
-    if (maxAge !== null) {
-      const minBirthdate = new Date();
-      minBirthdate.setFullYear(minBirthdate.getFullYear() - maxAge);
-      birthdateFilter.$gte = minBirthdate;
-    }
-    match.birthdate = birthdateFilter;
-  }
-
-  if (Array.isArray(viewer.discoveryPreferences?.languages) && viewer.discoveryPreferences.languages.length > 0) {
-    match.preferredLanguage = { $in: viewer.discoveryPreferences.languages };
-  }
-
-  if (Array.isArray(viewer.discoveryPreferences?.goals) && viewer.discoveryPreferences.goals.length > 0) {
-    const allowedIntents = new Set();
-    viewer.discoveryPreferences.goals.forEach((goal) => {
-      (DISCOVERY_GOAL_INTENT_MAP[goal] || []).forEach((intent) => allowedIntents.add(intent));
-    });
-    if (allowedIntents.size > 0) {
-      match.intent = { $in: Array.from(allowedIntents) };
-    }
-  }
-
-  return match;
 };
 
 const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch = {}) => {
@@ -446,26 +387,7 @@ const getFeed = async (req, res) => {
       buildRecommendedProfilesPipeline(recommendedProfilesMatch, 12)
     );
 
-    let recommendedProfiles = recommendedProfilesPrimary.filter((profile) => {
-      // Defensive runtime guard to ensure discovery filtering remains applied
-      if (discoveryMatch.gender?.$in && !discoveryMatch.gender.$in.includes(profile.gender)) return false;
-      return true;
-    });
-    if (!recommendedProfiles.length) {
-      recommendedProfiles = await User.aggregate(buildRecommendedProfilesPipeline(recommendedProfilesMatch, 12));
-    }
-
-    if (recommendedProfiles.length === 0) {
-      const selfExcludedIds = authenticatedUserId ? [authenticatedUserId] : [];
-      const fallbackProfilesMatch = {
-        ...RECOMMENDED_PROFILES_BASE_MATCH,
-        ...(selfExcludedIds.length ? { _id: { $nin: selfExcludedIds } } : {}),
-        ...discoveryMatch,
-      };
-      recommendedProfiles = await User.aggregate(
-        buildRecommendedProfilesPipeline(fallbackProfilesMatch, 12)
-      );
-    }
+    const recommendedProfiles = recommendedProfilesPrimary;
 
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);

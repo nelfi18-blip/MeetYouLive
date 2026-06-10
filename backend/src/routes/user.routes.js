@@ -10,6 +10,7 @@ const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getOnlineUsers } = require("../lib/socket.js");
+const { DISCOVERY_GOAL_INTENT_MAP, DISCOVERY_GENDER_MATCH, buildDiscoveryMatch } = require("../lib/discovery.js");
 
 const router = Router();
 
@@ -101,20 +102,9 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
-const ALLOWED_INTERESTED_IN = ["women", "men", "both", ""];
-const ALLOWED_DISCOVERY_GOALS = ["serious_relationship", "friendship", "dating", "networking"];
+const ALLOWED_INTERESTED_IN = [...Object.keys(DISCOVERY_GENDER_MATCH), ""];
+const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
-const DISCOVERY_GOAL_INTENT_MAP = {
-  serious_relationship: ["dating"],
-  friendship: ["casual"],
-  dating: ["dating", "casual"],
-  networking: ["creator", "live"],
-};
-const DISCOVERY_GENDER_MATCH = {
-  women: ["woman"],
-  men: ["man"],
-  both: ["woman", "man"],
-};
 
 const getPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
@@ -274,54 +264,6 @@ const parseDiscoveryPreferencesInput = (input) => {
   return Object.keys(updates).length > 0 ? updates : null;
 };
 
-const buildDiscoveryFilters = (me) => {
-  if (!me) return {};
-  const filter = {};
-
-  if (DISCOVERY_GENDER_MATCH[me.interestedIn]) {
-    filter.gender = { $in: DISCOVERY_GENDER_MATCH[me.interestedIn] };
-  }
-
-  if (me.gender === "man" || me.gender === "woman") {
-    const reciprocalInterestedIn = me.gender === "man" ? ["", null, "men", "both"] : ["", null, "women", "both"];
-    filter.interestedIn = { $in: reciprocalInterestedIn };
-  }
-
-  const ageRange = me.discoveryPreferences?.ageRange || {};
-  const minAge = Number.isFinite(ageRange.min) ? ageRange.min : null;
-  const maxAge = Number.isFinite(ageRange.max) ? ageRange.max : null;
-  if (minAge !== null || maxAge !== null) {
-    const birthdateFilter = {};
-    if (minAge !== null) {
-      const maxBirthdate = new Date();
-      maxBirthdate.setFullYear(maxBirthdate.getFullYear() - minAge);
-      birthdateFilter.$lte = maxBirthdate;
-    }
-    if (maxAge !== null) {
-      const minBirthdate = new Date();
-      minBirthdate.setFullYear(minBirthdate.getFullYear() - maxAge);
-      birthdateFilter.$gte = minBirthdate;
-    }
-    filter.birthdate = birthdateFilter;
-  }
-
-  if (Array.isArray(me.discoveryPreferences?.languages) && me.discoveryPreferences.languages.length > 0) {
-    filter.preferredLanguage = { $in: me.discoveryPreferences.languages };
-  }
-
-  if (Array.isArray(me.discoveryPreferences?.goals) && me.discoveryPreferences.goals.length > 0) {
-    const intentSet = new Set();
-    me.discoveryPreferences.goals.forEach((goal) => {
-      (DISCOVERY_GOAL_INTENT_MAP[goal] || []).forEach((intent) => intentSet.add(intent));
-    });
-    if (intentSet.size > 0) {
-      filter.intent = { $in: Array.from(intentSet) };
-    }
-  }
-
-  return filter;
-};
-
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => {
   try {
@@ -410,6 +352,10 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       interestedIn,
       discoveryPreferences,
     } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(req.userId)) {
+      return res.status(400).json({ message: "ID inválido" });
+    }
+    const currentUserObjectId = new mongoose.Types.ObjectId(req.userId);
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -446,13 +392,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
 
     if (updates.username) {
-      const existing = await User.findOne({ username: updates.username, _id: { $ne: req.userId } });
+      const existing = await User.findOne({ username: updates.username, _id: { $ne: currentUserObjectId } });
       if (existing) {
         return res.status(400).json({ message: "Este nombre de usuario ya está en uso" });
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUserObjectId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
@@ -505,6 +451,10 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       interestedIn,
       discoveryPreferences,
     } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(req.userId)) {
+      return res.status(400).json({ message: "ID inválido" });
+    }
+    const currentUserObjectId = new mongoose.Types.ObjectId(req.userId);
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = { onboardingComplete: true };
@@ -535,7 +485,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
     }
 
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUserObjectId, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
@@ -584,7 +534,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
-    const discoveryFilters = buildDiscoveryFilters(me);
+    const discoveryFilters = buildDiscoveryMatch(me);
 
     const now = new Date();
 

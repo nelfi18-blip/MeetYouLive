@@ -352,10 +352,6 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       interestedIn,
       discoveryPreferences,
     } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(req.userId)) {
-      return res.status(400).json({ message: "ID inválido" });
-    }
-    const currentUserObjectId = new mongoose.Types.ObjectId(req.userId);
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -392,13 +388,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
 
     if (updates.username) {
-      const existing = await User.findOne({ username: updates.username, _id: { $ne: currentUserObjectId } });
+      const existing = await User.findOne({ username: updates.username, _id: { $ne: currentUser._id } });
       if (existing) {
         return res.status(400).json({ message: "Este nombre de usuario ya está en uso" });
       }
     }
 
-    const user = await User.findByIdAndUpdate(currentUserObjectId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
@@ -451,10 +447,6 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       interestedIn,
       discoveryPreferences,
     } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(req.userId)) {
-      return res.status(400).json({ message: "ID inválido" });
-    }
-    const currentUserObjectId = new mongoose.Types.ObjectId(req.userId);
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = { onboardingComplete: true };
@@ -485,7 +477,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
     }
 
-    const user = await User.findByIdAndUpdate(currentUserObjectId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);

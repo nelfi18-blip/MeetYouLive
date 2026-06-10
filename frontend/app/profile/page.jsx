@@ -495,7 +495,7 @@ export default function ProfilePage() {
         ...normalizeDiscoveryForm(normalizedUser),
       });
       setPhotoUrlInput("");
-      setSaveSuccess("Perfil actualizado correctamente");
+      setSaveSuccess(t("profile.saveSuccess"));
       setEditing(false);
       publishProfileUpdated(normalizedUser);
       await refreshProfileSession();

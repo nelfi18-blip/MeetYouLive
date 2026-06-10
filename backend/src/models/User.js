@@ -56,6 +56,28 @@ const creatorApplicationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const discoveryAgeRangeSchema = new mongoose.Schema(
+  {
+    min: { type: Number, default: null, min: 18, max: 100 },
+    max: { type: Number, default: null, min: 18, max: 100 },
+  },
+  { _id: false }
+);
+
+const discoveryPreferencesSchema = new mongoose.Schema(
+  {
+    ageRange: { type: discoveryAgeRangeSchema, default: () => ({}) },
+    maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
+    languages: { type: [String], default: [] },
+    goals: {
+      type: [String],
+      enum: ["serious_relationship", "friendship", "dating", "networking"],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -69,6 +91,8 @@ const userSchema = new mongoose.Schema(
     birthdate: { type: Date, default: null },
     interests: { type: [String], default: [] },
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
+    interestedIn: { type: String, enum: ["women", "men", "both", ""], default: "" },
+    discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
     location: { type: String, default: "" },
     onboardingComplete: { type: Boolean, default: false },
     role: { 

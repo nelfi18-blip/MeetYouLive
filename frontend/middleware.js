@@ -4,11 +4,14 @@ import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
+  if (isAdminPath) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   if (host === `www.${CANONICAL_HOST}`) {
-    response.headers.set("X-Robots-Tag", "noindex, follow");
+    if (!isAdminPath) {
+      response.headers.set("X-Robots-Tag", "noindex, follow");
+    }
     response.headers.set(
       "Link",
       `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`

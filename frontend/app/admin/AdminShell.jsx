@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl } from "@/lib/token";
+import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl, getToken } from "@/lib/token";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
@@ -33,7 +33,8 @@ export default function AdminLayout({ children }) {
     if (pathname === "/admin/login") return;
     const token = localStorage.getItem("admin_token");
     if (!token) {
-      router.replace("/admin/login");
+      clearAdminToken();
+      router.replace(getToken() ? "/feed" : "/login");
       return;
     }
     try {

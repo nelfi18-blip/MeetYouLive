@@ -335,7 +335,19 @@ async function getFeaturedCreatorsWithCache() {
  */
 /**
  * Compute a single primary exclusion reason code for the feed diagnosis response.
- * Priority: role > blocked > suspended > onboarding > missing photo > other fields > passes.
+ *
+ * Checks are evaluated in priority order:
+ *   1. "not_regular_user"     – role is not "user" (e.g. creator, admin, staff)
+ *   2. "user_blocked"         – isBlocked is true
+ *   3. "user_suspended"       – isSuspended is true
+ *   4. "onboarding_incomplete"– onboardingComplete is not true
+ *   5. "missing_profile_photo"– no photo found in any photo field
+ *   6. "profile_incomplete"   – other required profile fields are missing
+ *   7. "passes_filters"       – user passes all base feed filters
+ *
+ * @param {object} user         – Lean Mongoose user document.
+ * @param {string[]} missingFields – Result of getFeedProfileMissingFields(user).
+ * @returns {string} Reason code.
  */
 const computeFeedExclusionReason = (user, missingFields) => {
   if (user.role !== "user") return "not_regular_user";
@@ -348,8 +360,15 @@ const computeFeedExclusionReason = (user, missingFields) => {
 };
 
 /**
- * Build a per-user feed diagnosis object for the ?diagnose= param.
- * Only returned when the requesting user is an admin.
+ * Build a per-user feed diagnosis object for the ?diagnose= query param.
+ * Only included in the /api/feed response when the requesting user is an admin.
+ *
+ * @param {import('express').Request} req              – Express request (used to normalise image URLs).
+ * @param {object} diagnoseTarget                      – Lean Mongoose user document for the target.
+ * @param {Set<string>} returnedProfileIdSet           – IDs of profiles actually returned in this feed response.
+ * @param {Set<string>} excludedProfileIdSet           – IDs excluded server-side (liked + self + client-provided).
+ * @returns {object} Diagnosis object with visibleInFeed, reason, missingProfileFields, photoDiagnosis, etc.
+ *                   Returns null only when diagnoseTarget is falsy (caller handles the not-found case separately).
  */
 const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet) => {
   if (!diagnoseTarget) return null;
@@ -381,11 +400,15 @@ const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedP
     profilePhotos: diagnoseTarget.profilePhotos || [],
     photos: diagnoseTarget.photos || [],
   };
-  const normalizedAvatar = normalizeFeedImageUrl(req, diagnoseTarget.avatar) ||
-    normalizeFeedImageUrl(req, diagnoseTarget.profileImage) ||
-    (Array.isArray(diagnoseTarget.profilePhotos) && diagnoseTarget.profilePhotos.length > 0
+
+  // Resolve the best available avatar URL using the same fallback order as the feed serialiser.
+  const normalizedFromAvatar = normalizeFeedImageUrl(req, diagnoseTarget.avatar);
+  const normalizedFromProfileImage = normalizeFeedImageUrl(req, diagnoseTarget.profileImage);
+  const firstProfilePhoto =
+    Array.isArray(diagnoseTarget.profilePhotos) && diagnoseTarget.profilePhotos.length > 0
       ? normalizeFeedImageUrl(req, diagnoseTarget.profilePhotos[0])
-      : "");
+      : "";
+  const normalizedAvatar = normalizedFromAvatar || normalizedFromProfileImage || firstProfilePhoto;
 
   return {
     userId: targetIdStr,
@@ -513,7 +536,7 @@ const getFeed = async (req, res) => {
         const excludedProfileIdSet = new Set(excludedProfileIdsById.keys());
         diagnosis = diagnoseTarget
           ? buildFeedDiagnosis(req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet)
-          : { userId: diagnoseUserId.toString(), visibleInFeed: false, reason: "not_found", details: null };
+          : { userId: diagnoseUserId.toString(), visibleInFeed: false, reason: "not_found", profileSummary: null };
       }
     }
 

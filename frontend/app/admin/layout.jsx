@@ -1,5 +1,4 @@
 import AdminShell from "./AdminShell";
-import { CANONICAL_SITE_URL } from "@/lib/site";
 
 export const metadata = {
   title: "MeetYouLive Admin",
@@ -10,9 +9,6 @@ export const metadata = {
       index: false,
       follow: false,
     },
-  },
-  alternates: {
-    canonical: CANONICAL_SITE_URL,
   },
 };
 

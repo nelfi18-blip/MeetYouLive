@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
 ];
 
-export default function AdminLayout({ children }) {
+export default function AdminShell({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [adminUser, setAdminUser] = useState(null);

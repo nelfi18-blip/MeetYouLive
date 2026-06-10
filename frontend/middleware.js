@@ -11,11 +11,11 @@ function withCanonicalHostIndexing(request, response) {
   if (host === `www.${CANONICAL_HOST}`) {
     if (!isAdminPath) {
       response.headers.set("X-Robots-Tag", "noindex, follow");
+      response.headers.set(
+        "Link",
+        `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`
+      );
     }
-    response.headers.set(
-      "Link",
-      `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`
-    );
   }
   return response;
 }

@@ -4,12 +4,18 @@ import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
+  if (isAdminPath) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   if (host === `www.${CANONICAL_HOST}`) {
-    response.headers.set("X-Robots-Tag", "noindex, follow");
-    response.headers.set(
-      "Link",
-      `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`
-    );
+    if (!isAdminPath) {
+      response.headers.set("X-Robots-Tag", "noindex, follow");
+      response.headers.set(
+        "Link",
+        `<${canonicalUrl(`${request.nextUrl.pathname}${request.nextUrl.search}`)}>; rel="canonical"`
+      );
+    }
   }
   return response;
 }
@@ -68,6 +74,7 @@ export function middleware(request) {
     request.cookies.get("__Secure-next-auth.session-token")?.value ||
     request.cookies.get("authjs.session-token")?.value ||
     request.cookies.get("__Secure-authjs.session-token")?.value;
+  const hasUserSession = Boolean(backendSession) || Boolean(nextAuthSession);
 
   // Cookie set on successful admin login — separate from regular user sessions.
   const adminSession = request.cookies.get("admin-session")?.value;
@@ -95,7 +102,7 @@ export function middleware(request) {
   const isAdminLoginPage = pathname === "/admin/login";
 
   if (isAdminRoute && !isAdminLoginPage && !adminSession) {
-    return redirectToPath(request, "/admin/login");
+    return redirectToPath(request, hasUserSession ? "/feed" : "/login");
   }
 
   // Already-authenticated admin on admin login page → send to dashboard.

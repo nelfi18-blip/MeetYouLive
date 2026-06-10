@@ -387,8 +387,6 @@ const getFeed = async (req, res) => {
       buildRecommendedProfilesPipeline(recommendedProfilesMatch, 12)
     );
 
-    const recommendedProfiles = recommendedProfilesPrimary;
-
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);
 
@@ -412,7 +410,7 @@ const getFeed = async (req, res) => {
       ...live,
       user: serializeFeedImageFields(req, live.user),
     }));
-    const serializedRecommendedProfiles = recommendedProfiles.map((profile) =>
+    const serializedRecommendedProfiles = recommendedProfilesPrimary.map((profile) =>
       serializeFeedImageFields(req, profile)
     );
     const serializedFeaturedCreators = featuredCreators.map((creator) =>

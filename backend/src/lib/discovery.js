@@ -37,8 +37,7 @@ const buildDiscoveryMatch = (viewer = null) => {
     }
     if (maxAge !== null) {
       const minBirthdate = new Date();
-      minBirthdate.setFullYear(minBirthdate.getFullYear() - (maxAge + 1));
-      minBirthdate.setDate(minBirthdate.getDate() + 1);
+      minBirthdate.setFullYear(minBirthdate.getFullYear() - maxAge);
       birthdateFilter.$gte = minBirthdate;
     }
     match.birthdate = birthdateFilter;

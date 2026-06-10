@@ -22,6 +22,14 @@ const NAV_ITEMS = [
   { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
 ];
 
+function getSafeNonAdminRedirect() {
+  try {
+    return getToken() ? "/feed" : "/login";
+  } catch {
+    return "/login";
+  }
+}
+
 export default function AdminShell({ children }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -34,7 +42,7 @@ export default function AdminShell({ children }) {
     const token = localStorage.getItem("admin_token");
     if (!token) {
       clearAdminToken();
-      router.replace(getToken() ? "/feed" : "/login");
+      router.replace(getSafeNonAdminRedirect());
       return;
     }
     try {

@@ -74,6 +74,7 @@ export function middleware(request) {
     request.cookies.get("__Secure-next-auth.session-token")?.value ||
     request.cookies.get("authjs.session-token")?.value ||
     request.cookies.get("__Secure-authjs.session-token")?.value;
+  const hasUserSession = Boolean(backendSession) || Boolean(nextAuthSession);
 
   // Cookie set on successful admin login — separate from regular user sessions.
   const adminSession = request.cookies.get("admin-session")?.value;
@@ -101,7 +102,7 @@ export function middleware(request) {
   const isAdminLoginPage = pathname === "/admin/login";
 
   if (isAdminRoute && !isAdminLoginPage && !adminSession) {
-    return redirectToPath(request, backendSession || nextAuthSession ? "/feed" : "/login");
+    return redirectToPath(request, hasUserSession ? "/feed" : "/login");
   }
 
   // Already-authenticated admin on admin login page → send to dashboard.

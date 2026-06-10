@@ -9,6 +9,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function getSafeNonAdminRedirect() {
+  try {
+    return getToken() ? "/feed" : "/login";
+  } catch {
+    return "/login";
+  }
+}
+
 function fmt(n) {
   return (n ?? 0).toLocaleString();
 }
@@ -159,7 +167,7 @@ export default function AdminDashboard() {
     const token = localStorage.getItem("admin_token");
     if (!token) {
       clearAdminToken();
-      router.replace(getToken() ? "/feed" : "/login");
+      router.replace(getSafeNonAdminRedirect());
       return;
     }
     try {

@@ -4,6 +4,9 @@ import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   if (host === `www.${CANONICAL_HOST}`) {
     response.headers.set("X-Robots-Tag", "noindex, follow");
     response.headers.set(
@@ -95,7 +98,7 @@ export function middleware(request) {
   const isAdminLoginPage = pathname === "/admin/login";
 
   if (isAdminRoute && !isAdminLoginPage && !adminSession) {
-    return redirectToPath(request, "/admin/login");
+    return redirectToPath(request, backendSession || nextAuthSession ? "/feed" : "/login");
   }
 
   // Already-authenticated admin on admin login page → send to dashboard.

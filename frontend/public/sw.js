@@ -1,4 +1,4 @@
-const CACHE_NAME = "meetyoulive-v34";
+const CACHE_NAME = "meetyoulive-v35";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
 
   // Always serve primary app shells from the network so legacy responsive UI is
   // never restored from an old page cache after deploys or refreshes.
-  const NETWORK_ONLY_PAGE_ROUTES = ["/feed", "/profile", "/dashboard"];
+  const NETWORK_ONLY_PAGE_ROUTES = ["/admin", "/feed", "/profile", "/dashboard"];
   if (
     NETWORK_ONLY_PAGE_ROUTES.some(
       (route) => url.pathname === route || url.pathname.startsWith(`${route}/`)

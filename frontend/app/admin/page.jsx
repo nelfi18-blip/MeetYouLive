@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { clearAdminToken } from "@/lib/token";
+import { clearAdminToken, getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -157,7 +157,11 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     const token = localStorage.getItem("admin_token");
-    if (!token) { router.replace("/admin/login"); return; }
+    if (!token) {
+      clearAdminToken();
+      router.replace(getToken() ? "/feed" : "/login");
+      return;
+    }
     try {
       const [overviewRes, analyticsRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/overview`, { headers: authHeader() }),

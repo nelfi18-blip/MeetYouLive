@@ -337,12 +337,110 @@ async function getFeaturedCreatorsWithCache() {
  * - recommendedProfiles: Regular users (NO admin, NO staff)
  * - featuredCreators: Top approved creators by earnings
  */
+/**
+ * Compute a single primary exclusion reason code for the feed diagnosis response.
+ *
+ * Checks are evaluated in priority order:
+ *   1. "not_regular_user"     – role is not "user" (e.g. creator, admin, staff)
+ *   2. "user_blocked"         – isBlocked is true
+ *   3. "user_suspended"       – isSuspended is true
+ *   4. "onboarding_incomplete"– onboardingComplete is not true
+ *   5. "missing_profile_photo"– no photo found in any photo field
+ *   6. "profile_incomplete"   – other required profile fields are missing
+ *   7. "passes_filters"       – user passes all base feed filters
+ *
+ * @param {object} user         – Lean Mongoose user document.
+ * @param {string[]} missingFields – Result of getFeedProfileMissingFields(user).
+ * @returns {string} Reason code.
+ */
+const computeFeedExclusionReason = (user, missingFields) => {
+  if (user.role !== "user") return "not_regular_user";
+  if (user.isBlocked === true) return "user_blocked";
+  if (user.isSuspended === true) return "user_suspended";
+  if (user.onboardingComplete !== true) return "onboarding_incomplete";
+  if (missingFields.includes("photo")) return "missing_profile_photo";
+  if (missingFields.length > 0) return "profile_incomplete";
+  return "passes_filters";
+};
+
+/**
+ * Build a per-user feed diagnosis object for the ?diagnose= query param.
+ * Only included in the /api/feed response when the requesting user is an admin.
+ *
+ * @param {import('express').Request} req              – Express request (used to normalise image URLs).
+ * @param {object} diagnoseTarget                      – Lean Mongoose user document for the target.
+ * @param {Set<string>} returnedProfileIdSet           – IDs of profiles actually returned in this feed response.
+ * @param {Set<string>} excludedProfileIdSet           – IDs excluded server-side (liked + self + client-provided).
+ * @returns {object} Diagnosis object with visibleInFeed, reason, missingProfileFields, photoDiagnosis, etc.
+ *                   Returns null only when diagnoseTarget is falsy (caller handles the not-found case separately).
+ */
+const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet) => {
+  if (!diagnoseTarget) return null;
+
+  const missingFields = getFeedProfileMissingFields(diagnoseTarget);
+  const passesBaseFilters =
+    diagnoseTarget.role === "user" &&
+    diagnoseTarget.isBlocked !== true &&
+    diagnoseTarget.isSuspended !== true &&
+    diagnoseTarget.onboardingComplete === true &&
+    missingFields.length === 0;
+
+  const targetIdStr = String(diagnoseTarget._id);
+  const isExcludedByViewer = excludedProfileIdSet.has(targetIdStr);
+  const isReturnedByFeed = returnedProfileIdSet.has(targetIdStr);
+
+  let reason = computeFeedExclusionReason(diagnoseTarget, missingFields);
+  if (reason === "passes_filters") {
+    if (isExcludedByViewer) reason = "excluded_by_viewer_or_already_liked";
+    else if (!isReturnedByFeed) reason = "passes_filters_not_in_top_results";
+    else reason = "visible_in_feed";
+  }
+
+  // Collect raw photo field values for image diagnosis
+  const photoFields = {
+    avatar: diagnoseTarget.avatar || null,
+    profileImage: diagnoseTarget.profileImage || null,
+    photo: diagnoseTarget.photo || null,
+    profilePhotos: diagnoseTarget.profilePhotos || [],
+    photos: diagnoseTarget.photos || [],
+  };
+
+  // Resolve the best available avatar URL using the same fallback order as the feed serialiser.
+  const normalizedFromAvatar = normalizeFeedImageUrl(req, diagnoseTarget.avatar);
+  const normalizedFromProfileImage = normalizeFeedImageUrl(req, diagnoseTarget.profileImage);
+  const firstProfilePhoto =
+    Array.isArray(diagnoseTarget.profilePhotos) && diagnoseTarget.profilePhotos.length > 0
+      ? normalizeFeedImageUrl(req, diagnoseTarget.profilePhotos[0])
+      : "";
+  const normalizedAvatar = normalizedFromAvatar || normalizedFromProfileImage || firstProfilePhoto;
+
+  return {
+    userId: targetIdStr,
+    email: diagnoseTarget.email || null,
+    username: diagnoseTarget.username || null,
+    visibleInFeed: reason === "visible_in_feed",
+    reason,
+    passesBaseFilters,
+    isReturnedByFeed,
+    isExcludedByViewer,
+    missingProfileFields: missingFields,
+    photoDiagnosis: {
+      hasPhoto: !missingFields.includes("photo"),
+      normalizedAvatarUrl: normalizedAvatar || null,
+      rawPhotoFields: photoFields,
+    },
+    profileSummary: getFeedDiagnosticUserSummary(diagnoseTarget),
+  };
+};
+
 const getFeed = async (req, res) => {
   const startTime = Date.now();
   try {
     console.log("[Feed API] Fetching feed data...");
 
     const authenticatedUserId = toObjectIdOrNull(req.userId);
+    const diagnoseUserId = toObjectIdOrNull(req.query.diagnose);
+
     const excludedProfileIdsById = new Map(
       parseExcludedProfileIds(req.query.exclude).map((profileId) => [profileId.toString(), profileId])
     );
@@ -366,7 +464,7 @@ const getFeed = async (req, res) => {
       : Promise.resolve(null);
 
     // Run independent queries in parallel for better performance
-    const [allLives, featuredCreators, currentUserProfile] = await Promise.all([
+    const [allLives, featuredCreators, currentUserProfile, diagnoseTarget] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
       Live.find({
         isLive: true,
@@ -378,7 +476,12 @@ const getFeed = async (req, res) => {
         .lean(),
       // ⭐ Featured creators - use cached function (data changes infrequently)
       getFeaturedCreatorsWithCache(),
-      currentUserProfilePromise
+      currentUserProfilePromise,
+
+      // 🔍 Optional diagnostic target (only fetched when ?diagnose= is present)
+      diagnoseUserId
+        ? User.findById(diagnoseUserId).select(FEED_DIAGNOSTIC_USER_FIELDS).lean()
+        : Promise.resolve(null),
     ]);
 
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
@@ -417,6 +520,20 @@ const getFeed = async (req, res) => {
       serializeFeedImageFields(req, creator)
     );
 
+    // Build optional admin-only diagnosis
+    let diagnosis = undefined;
+    if (diagnoseUserId) {
+      if (!currentUserProfile || currentUserProfile.role !== "admin") {
+        diagnosis = { error: "unauthorized", reason: "only_admins_can_use_diagnose_param" };
+      } else {
+        const returnedProfileIdSet = new Set(recommendedProfiles.map((p) => String(p._id)));
+        const excludedProfileIdSet = new Set(excludedProfileIdsById.keys());
+        diagnosis = diagnoseTarget
+          ? buildFeedDiagnosis(req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet)
+          : { userId: diagnoseUserId.toString(), visibleInFeed: false, reason: "not_found", profileSummary: null };
+      }
+    }
+
     const responseTime = Date.now() - startTime;
     console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
       activeLives: serializedLives.length,
@@ -425,12 +542,14 @@ const getFeed = async (req, res) => {
     });
 
     res.set("Cache-Control", "no-store");
-    res.json({
+    const responseBody = {
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       featuredCreators: serializedFeaturedCreators,
-      viewerProfileStatus: getFeedProfileStatus(currentUserProfile)
-    });
+      viewerProfileStatus: getFeedProfileStatus(currentUserProfile),
+    };
+    if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
+    res.json(responseBody);
   } catch (error) {
     const errorTime = Date.now() - startTime;
     console.error(`[Feed API] Error loading feed after ${errorTime}ms:`, error.message);

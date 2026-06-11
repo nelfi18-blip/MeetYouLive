@@ -464,7 +464,7 @@ const getFeed = async (req, res) => {
       : Promise.resolve(null);
 
     // Run independent queries in parallel for better performance
-    const [allLives, featuredCreators, currentUserProfile, diagnoseTarget] = await Promise.all([
+    const [allLives, featuredCreators, currentUserProfile] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
       Live.find({
         isLive: true,
@@ -477,11 +477,6 @@ const getFeed = async (req, res) => {
       // ⭐ Featured creators - use cached function (data changes infrequently)
       getFeaturedCreatorsWithCache(),
       currentUserProfilePromise,
-
-      // 🔍 Optional diagnostic target (only fetched when ?diagnose= is present)
-      diagnoseUserId
-        ? User.findById(diagnoseUserId).select(FEED_DIAGNOSTIC_USER_FIELDS).lean()
-        : Promise.resolve(null),
     ]);
 
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
@@ -524,8 +519,9 @@ const getFeed = async (req, res) => {
     let diagnosis = undefined;
     if (diagnoseUserId) {
       if (!currentUserProfile || currentUserProfile.role !== "admin") {
-        diagnosis = { error: "unauthorized", reason: "only_admins_can_use_diagnose_param" };
+        diagnosis = { message: "Only admins can use the diagnose parameter" };
       } else {
+        const diagnoseTarget = await User.findById(diagnoseUserId).select(FEED_DIAGNOSTIC_USER_FIELDS).lean();
         const returnedProfileIdSet = new Set(recommendedProfiles.map((p) => String(p._id)));
         const excludedProfileIdSet = new Set(excludedProfileIdsById.keys());
         diagnosis = diagnoseTarget

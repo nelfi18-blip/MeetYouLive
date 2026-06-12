@@ -1230,6 +1230,7 @@ export default function FeedPage() {
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-section-top-padding: 6px;
+          --feed-accent-purple-rgb: 224, 64, 251;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
@@ -1321,7 +1322,7 @@ export default function FeedPage() {
           gap: 0.75rem;
           width: min(92vw, 420px);
           padding: 0.72rem 0.85rem;
-          border: 1px solid rgba(224, 64, 251, 0.28);
+          border: 1px solid rgba(var(--feed-accent-purple-rgb), 0.28);
           border-radius: 16px;
           background: rgba(20, 12, 46, 0.86);
           color: #fff;

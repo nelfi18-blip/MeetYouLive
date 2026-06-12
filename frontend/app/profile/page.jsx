@@ -103,7 +103,7 @@ const normalizeDiscoveryForm = (user = {}) => {
   const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
-    interestedIn: user.interestedIn || "both",
+    interestedIn: user.interestedIn === "" || user.interestedIn == null ? "both" : user.interestedIn,
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
@@ -889,7 +889,6 @@ export default function ProfilePage() {
                     value={editForm.interestedIn}
                     onChange={(e) => setEditForm((f) => ({ ...f, interestedIn: e.target.value }))}
                   >
-                    <option value="">{t("profile.interestedInNone")}</option>
                     <option value="women">{t("profile.interestedInWomen")}</option>
                     <option value="men">{t("profile.interestedInMen")}</option>
                     <option value="both">{t("profile.interestedInBoth")}</option>

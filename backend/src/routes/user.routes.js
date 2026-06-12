@@ -108,7 +108,7 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
-const ALLOWED_INTERESTED_IN = [...Object.keys(DISCOVERY_GENDER_MATCH), ""];
+const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
 const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];

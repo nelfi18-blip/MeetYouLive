@@ -11,19 +11,23 @@ const DISCOVERY_GENDER_MATCH = {
   both: ["woman", "man"],
 };
 
+const isUnsetInterestedIn = (interestedIn) => interestedIn == null || interestedIn === "";
+const normalizeInterestedIn = (interestedIn) =>
+  isUnsetInterestedIn(interestedIn) || !DISCOVERY_GENDER_MATCH[interestedIn] ? "both" : interestedIn;
+
 const normalizeDiscoveryCompatibility = (viewer = null) => {
   if (!viewer) return null;
   return {
     ...viewer,
     gender: viewer.gender || null,
-    interestedIn: DISCOVERY_GENDER_MATCH[viewer.interestedIn] ? viewer.interestedIn : "both",
+    interestedIn: normalizeInterestedIn(viewer.interestedIn),
   };
 };
 
 const getDiscoveryCompatibilityUpdates = (user = {}) => {
   const updates = {};
   if (user.gender === undefined || user.gender === "") updates.gender = null;
-  if (!user.interestedIn) updates.interestedIn = "both";
+  if (isUnsetInterestedIn(user.interestedIn)) updates.interestedIn = "both";
   return updates;
 };
 

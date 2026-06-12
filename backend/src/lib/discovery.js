@@ -11,7 +11,17 @@ const DISCOVERY_GENDER_MATCH = {
   both: ["woman", "man"],
 };
 
+const normalizeDiscoveryCompatibility = (viewer = null) => {
+  if (!viewer) return null;
+  return {
+    ...viewer,
+    gender: viewer.gender || null,
+    interestedIn: DISCOVERY_GENDER_MATCH[viewer.interestedIn] ? viewer.interestedIn : "both",
+  };
+};
+
 const buildDiscoveryMatch = (viewer = null) => {
+  viewer = normalizeDiscoveryCompatibility(viewer);
   if (!viewer) return {};
   const match = {};
 
@@ -63,5 +73,6 @@ const buildDiscoveryMatch = (viewer = null) => {
 module.exports = {
   DISCOVERY_GOAL_INTENT_MAP,
   DISCOVERY_GENDER_MATCH,
+  normalizeDiscoveryCompatibility,
   buildDiscoveryMatch,
 };

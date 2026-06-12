@@ -102,7 +102,8 @@ const normalizeDiscoveryForm = (user = {}) => {
   const languages = Array.isArray(preferences.languages) ? preferences.languages : [];
   const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
   return {
-    interestedIn: typeof user.interestedIn === "string" ? user.interestedIn : "",
+    gender: typeof user.gender === "string" ? user.gender : "",
+    interestedIn: typeof user.interestedIn === "string" && user.interestedIn ? user.interestedIn : "both",
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
@@ -128,7 +129,8 @@ const buildDiscoveryPayloadFromForm = (form) => {
   const sortedMax = min !== null && max !== null ? Math.max(min, max) : max;
 
   return {
-    interestedIn: form.interestedIn || "",
+    gender: form.gender || null,
+    interestedIn: form.interestedIn || "both",
     discoveryPreferences: {
       ageRange: { min: sortedMin, max: sortedMax },
       maxDistanceKm,
@@ -216,6 +218,7 @@ export default function ProfilePage() {
     bio: "",
     avatar: "",
     profilePhotos: [],
+    gender: "",
     interestedIn: "",
     discoveryAgeMin: "",
     discoveryAgeMax: "",
@@ -864,6 +867,20 @@ export default function ProfilePage() {
                   <textarea className="input bio-textarea" value={editForm.bio}
                     onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.genderLabel")}</label>
+                  <select
+                    className="input"
+                    value={editForm.gender}
+                    onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))}
+                  >
+                    <option value="">{t("profile.genderNone")}</option>
+                    <option value="woman">{t("profile.genderWoman")}</option>
+                    <option value="man">{t("profile.genderMan")}</option>
+                    <option value="nonbinary">{t("profile.genderNonbinary")}</option>
+                    <option value="other">{t("profile.genderOther")}</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.interestedInLabel")}</label>

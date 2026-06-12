@@ -227,16 +227,15 @@ async function run() {
   // Tally exclusion reasons for feed
   const feedReasonCounts = {};
   const crushReasonCounts = {};
+  // Count each full reason string as-is (reasons are already short descriptive labels)
   for (const u of excludedFeed) {
     for (const r of u.feedExclusionReasons) {
-      const key = r.split(":")[0]; // group by the label part
-      feedReasonCounts[key] = (feedReasonCounts[key] || 0) + 1;
+      feedReasonCounts[r] = (feedReasonCounts[r] || 0) + 1;
     }
   }
   for (const u of excludedCrush) {
     for (const r of u.crushExclusionReasons) {
-      const key = r.split(":")[0];
-      crushReasonCounts[key] = (crushReasonCounts[key] || 0) + 1;
+      crushReasonCounts[r] = (crushReasonCounts[r] || 0) + 1;
     }
   }
 
@@ -419,7 +418,8 @@ async function run() {
   } else {
     const byReason = {};
     for (const u of excludedFeed) {
-      const key = u.feedExclusionReasons.join(" | ") || "unknown";
+      // Group by the primary (first) exclusion reason for cleaner aggregation
+      const key = u.feedExclusionReasons[0] || "unknown";
       if (!byReason[key]) byReason[key] = [];
       byReason[key].push(u);
     }

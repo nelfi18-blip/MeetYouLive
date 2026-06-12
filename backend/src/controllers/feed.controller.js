@@ -13,14 +13,16 @@ const {
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
-const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { serializeUserPhotoFields, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
-const FEED_PHOTO_ALIASES = "image imageUrl photoUrl photoURL picture";
+const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
+const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
+const PHOTO_CHECK_REQUEST = { protocol: "https", get: () => "" };
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -39,22 +41,8 @@ const parseExcludedProfileIds = (exclude) => {
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
 
-const hasFeedPhoto = (user = {}) => {
-  const photoFields = [
-    user.avatar,
-    user.profileImage,
-    user.photo,
-    user.photoURL,
-    user.photoUrl,
-    user.image,
-    user.imageUrl,
-    user.picture,
-    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
-    ...(Array.isArray(user.photos) ? user.photos : []),
-    ...(Array.isArray(user.images) ? user.images : []),
-  ];
-  return photoFields.some((photo) => isNonEmptyString(getFeedImageValue(photo)));
-};
+const hasFeedPhoto = (user = {}) =>
+  serializeUserPhotoFields(PHOTO_CHECK_REQUEST, user).profilePhotos.length > 0;
 
 const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];
@@ -104,7 +92,7 @@ const getFeedDiagnosticUserSummary = (user = {}) => ({
 });
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
-  `name username email role avatar profilePhotos profileImage photo photos images ${FEED_PHOTO_ALIASES} gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
+  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {
@@ -148,17 +136,7 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
       firstName: 1,
       lastName: 1,
       username: 1,
-      avatar: 1,
-      profileImage: 1,
-      photo: 1,
-      photoURL: 1,
-      photoUrl: 1,
-      image: 1,
-      imageUrl: 1,
-      picture: 1,
-      profilePhotos: 1,
-      photos: 1,
-      images: 1,
+      ...Object.fromEntries(FEED_PHOTO_FIELD_NAMES.map((field) => [field, 1])),
       bio: 1,
       tags: 1,
       gender: 1,
@@ -305,7 +283,7 @@ async function getFeaturedCreatorsWithCache() {
       })
         .sort({ earningsCoins: -1 })
         .limit(12)
-        .select(`name avatar profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} earningsCoins`)
+        .select(`name ${FEED_PHOTO_FIELDS} earningsCoins`)
         .lean();
       
       // Update cache
@@ -450,7 +428,7 @@ const getFeed = async (req, res) => {
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
           .select(
-            `name avatar profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} gender birthdate location interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences`
+            `name ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences`
           )
           .lean()
       : Promise.resolve(null);
@@ -615,7 +593,7 @@ const getHybridFeed = async (req, res) => {
 const getLiveStreams = async (req, count, currentUserId) => {
   try {
     const lives = await Live.find({ isLive: true, endedAt: null })
-      .populate("user", `username name avatar profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} role creatorStatus isVerifiedCreator followersCount`)
+      .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator followersCount`)
       .select("-streamKey -paidViewers")
       .lean();
 
@@ -711,7 +689,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       username: { $ne: null },
       ...discoveryMatch,
     })
-      .select(`username name avatar bio gender birthdate location interests intent profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} isVerifiedCreator createdAt`)
+      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
       .limit(count * 3) // Fetch more to allow for filtering
       .lean();
 
@@ -870,7 +848,7 @@ const getTopFeed = async (req, res) => {
 const getTopLiveStreams = async (req, count) => {
   try {
     const lives = await Live.find({ isLive: true, endedAt: null })
-      .populate("user", `username name avatar profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} role creatorStatus isVerifiedCreator`)
+      .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator`)
       .select("-streamKey -paidViewers")
       .lean();
 
@@ -940,7 +918,7 @@ const getTopMatchProfiles = async (req, count, currentUserId) => {
       username: { $ne: null },
       ...discoveryMatch,
     })
-      .select(`username name avatar bio gender birthdate location interests profilePhotos photos images profileImage photo ${FEED_PHOTO_ALIASES} isVerifiedCreator followersCount`)
+      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
       .sort({ followersCount: -1, _id: 1 })
       .limit(count)
       .lean();

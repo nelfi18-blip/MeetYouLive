@@ -20,6 +20,17 @@ function getSafeCallbackPath(searchParams) {
   return normalizeCallbackPath(searchParams.get("callbackUrl"));
 }
 
+/**
+ * Decide where to redirect a user after login.
+ * Admin users go to /admin; users who haven't completed onboarding go to
+ * /onboarding; everyone else goes to the requested callbackUrl / feed.
+ */
+function getPostLoginRedirectPath(user, fallbackPath) {
+  if (user?.role === "admin") return "/admin";
+  if (user?.onboardingComplete === false) return "/onboarding";
+  return fallbackPath;
+}
+
 function MailIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -125,11 +136,7 @@ function LoginForm() {
       
       // Check if user is admin and redirect accordingly
       fetchUserRole(localToken).then((user) => {
-        if (user?.role === "admin") {
-          router.replace("/admin");
-        } else {
-          router.replace(userRedirectPath);
-        }
+        router.replace(getPostLoginRedirectPath(user, userRedirectPath));
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
         // Fallback to feed on error
@@ -154,13 +161,9 @@ function LoginForm() {
         
         // Check if user is admin and redirect accordingly
         fetchUserRole(session.backendToken).then((user) => {
-          if (user?.role === "admin") {
-            console.log("[login] Admin detected – redirecting to /admin");
-            router.replace("/admin");
-          } else {
-            console.log(`[login] Regular user – redirecting to ${userRedirectPath}`);
-            router.replace(userRedirectPath);
-          }
+          const dest = getPostLoginRedirectPath(user, userRedirectPath);
+          console.log(`[login] Redirecting to ${dest}`);
+          router.replace(dest);
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
           // Fallback to feed on error
@@ -205,7 +208,7 @@ function LoginForm() {
                 // router navigation completes.
                 setToken(data.token);
                 const user = await fetchUserRole(data.token, 15000, 1);
-                router.replace(user?.role === "admin" ? "/admin" : userRedirectPath);
+                router.replace(getPostLoginRedirectPath(user, userRedirectPath));
                 return;
               }
 
@@ -465,11 +468,7 @@ function LoginForm() {
         
         // Check if user is admin and redirect accordingly
         const user = await fetchUserRole(data.token);
-        if (user?.role === "admin") {
-          router.replace("/admin");
-        } else {
-          router.replace(userRedirectPath);
-        }
+        router.replace(getPostLoginRedirectPath(user, userRedirectPath));
         return;
       }
 

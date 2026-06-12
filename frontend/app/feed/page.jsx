@@ -858,6 +858,13 @@ export default function FeedPage() {
     };
   }, [handleProfileUpdated]);
 
+  // Redirect to onboarding when the feed confirms the profile is incomplete.
+  useEffect(() => {
+    if (viewerProfileStatus && viewerProfileStatus.onboardingComplete === false && !loading) {
+      router.replace("/onboarding");
+    }
+  }, [viewerProfileStatus, loading, router]);
+
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.
   useEffect(() => {

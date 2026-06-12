@@ -6,6 +6,7 @@ import Image from "next/image";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
+const MIN_INTERESTS = 3;
 const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
@@ -142,6 +143,7 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [location, setLocation] = useState("");
+  const [interestedIn, setInterestedIn] = useState("both");
 
   // Step 3 fields (interests)
   const [interests, setInterests] = useState([]);
@@ -150,6 +152,19 @@ export default function OnboardingPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState(null);
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
+
+  // Completion percentage (computed from required fields filled so far)
+  const completionPercent = (() => {
+    const checks = [
+      Boolean(mainPhotoFile),
+      Boolean(birthdate),
+      Boolean(location.trim()),
+      Boolean(gender),
+      Boolean(interestedIn),
+      interests.length >= MIN_INTERESTS,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  })();
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -286,17 +301,35 @@ export default function OnboardingPage() {
         setError("El nombre es obligatorio");
         return;
       }
+      if (!gender) {
+        setError("Selecciona tu género para continuar");
+        return;
+      }
+      if (!birthdate) {
+        setError("La fecha de nacimiento es obligatoria");
+        return;
+      }
+      if (!location.trim()) {
+        setError("La ubicación es obligatoria");
+        return;
+      }
+    }
+    if (step === 3) {
+      if (interests.length < MIN_INTERESTS) {
+        setError(`Selecciona al menos ${MIN_INTERESTS} intereses para continuar`);
+        return;
+      }
     }
     goToStep(step + 1);
   };
 
-  const handleSkipFinish = async () => {
-    await finish();
-  };
-
   const finish = async () => {
-    setLoading(true);
     setError("");
+    if (!mainPhotoFile && extraPhotoFiles.length === 0) {
+      setError("Sube al menos una foto para continuar");
+      return;
+    }
+    setLoading(true);
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -411,6 +444,7 @@ export default function OnboardingPage() {
           avatar: finalAvatarUrl || undefined,
           profilePhotos: finalProfilePhotos.length ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS) : undefined,
           intent: intent || undefined,
+          interestedIn: interestedIn || undefined,
         }),
       });
       if (!res.ok) {
@@ -450,6 +484,10 @@ export default function OnboardingPage() {
             })}
             <div className="ob-progress-bar">
               <div className="ob-progress-fill" style={{ width: `${((step - 1) / (STEPS.length - 2)) * 100}%` }} />
+            </div>
+            <div className="ob-completion-percent">
+              <span className="ob-completion-label">Perfil completado: </span>
+              <span className="ob-completion-value">{completionPercent}%</span>
             </div>
           </div>
         )}
@@ -562,13 +600,13 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Género</label>
+                  <label className="ob-label">Género *</label>
                   <select
                     className="input"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                   >
-                    <option value="">Prefiero no decirlo</option>
+                    <option value="">Selecciona…</option>
                     <option value="man">Hombre</option>
                     <option value="woman">Mujer</option>
                     <option value="nonbinary">No binario</option>
@@ -577,7 +615,7 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Fecha de nacimiento</label>
+                  <label className="ob-label">Fecha de nacimiento *</label>
                   <input
                     className="input"
                     type="date"
@@ -588,15 +626,30 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="ob-field">
-                <label className="ob-label">Ciudad / País</label>
-                <input
-                  className="input"
-                  placeholder="Ej: Madrid, España"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  maxLength={80}
-                />
+              <div className="ob-row">
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Ciudad / País *</label>
+                  <input
+                    className="input"
+                    placeholder="Ej: Madrid, España"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    maxLength={80}
+                  />
+                </div>
+
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Quiero conocer *</label>
+                  <select
+                    className="input"
+                    value={interestedIn}
+                    onChange={(e) => setInterestedIn(e.target.value)}
+                  >
+                    <option value="both">Todos</option>
+                    <option value="women">Mujeres</option>
+                    <option value="men">Hombres</option>
+                  </select>
+                </div>
               </div>
 
               <div className="ob-actions ob-actions-row">
@@ -616,7 +669,7 @@ export default function OnboardingPage() {
           {step === 3 && (
             <div className="ob-section">
               <h2 className="ob-title">¿Qué te gusta?</h2>
-              <p className="ob-subtitle">Selecciona hasta 10 intereses para conectar mejor</p>
+              <p className="ob-subtitle">Selecciona al menos {MIN_INTERESTS} intereses (máximo {MAX_INTERESTS})</p>
 
               <div className="ob-interests-grid">
                 {INTERESTS.map((interest) => (
@@ -632,6 +685,9 @@ export default function OnboardingPage() {
 
               <div className="ob-selected-count">
                 {interests.length}/{MAX_INTERESTS} seleccionados
+                {interests.length < MIN_INTERESTS && (
+                  <span className="ob-min-hint"> (mínimo {MIN_INTERESTS})</span>
+                )}
               </div>
 
               <div className="ob-actions ob-actions-row">
@@ -744,10 +800,6 @@ export default function OnboardingPage() {
                   {loading ? "Guardando…" : "¡Listo! Entrar →"}
                 </button>
               </div>
-
-              <button className="ob-skip" onClick={handleSkipFinish} disabled={loading}>
-                Omitir foto por ahora
-              </button>
             </div>
           )}
 
@@ -830,6 +882,27 @@ export default function OnboardingPage() {
           background: var(--grad-primary);
           border-radius: 2px;
           transition: width 0.4s ease;
+        }
+        .ob-completion-percent {
+          margin-top: 0.9rem;
+          text-align: center;
+          font-size: 0.78rem;
+        }
+        .ob-completion-label {
+          color: var(--text-muted);
+        }
+        .ob-completion-value {
+          font-weight: 700;
+          color: var(--grad-primary, #e040fb);
+          background: linear-gradient(90deg, #e040fb, #7c3aed);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .ob-min-hint {
+          color: var(--text-muted);
+          font-size: 0.82em;
+          margin-left: 0.25rem;
         }
         .ob-step {
           display: flex;

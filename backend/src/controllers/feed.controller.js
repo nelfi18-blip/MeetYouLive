@@ -13,12 +13,16 @@ const {
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
+const { hasSerializableUserPhoto, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
+const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
+const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
+const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -37,16 +41,8 @@ const parseExcludedProfileIds = (exclude) => {
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
 
-const hasFeedPhoto = (user = {}) => {
-  const photoFields = [
-    user.avatar,
-    user.profileImage,
-    user.photo,
-    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
-    ...(Array.isArray(user.photos) ? user.photos : []),
-  ];
-  return photoFields.some((photo) => isNonEmptyString(getFeedImageValue(photo)));
-};
+const hasFeedPhoto = (user = {}) =>
+  hasSerializableUserPhoto(PHOTO_VALIDATION_STUB_REQUEST, user);
 
 const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];
@@ -96,7 +92,7 @@ const getFeedDiagnosticUserSummary = (user = {}) => ({
 });
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
-  "name username email role avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt";
+  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {
@@ -140,11 +136,7 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
       firstName: 1,
       lastName: 1,
       username: 1,
-      avatar: 1,
-      profileImage: 1,
-      photo: 1,
-      profilePhotos: 1,
-      photos: 1,
+      ...Object.fromEntries(FEED_PHOTO_FIELD_NAMES.map((field) => [field, 1])),
       bio: 1,
       tags: 1,
       gender: 1,
@@ -251,38 +243,7 @@ const normalizeFeedImageUrl = (req, value) => {
 };
 
 const serializeFeedImageFields = (req, item) => {
-  if (!item || typeof item !== "object") return item;
-
-  const rawPhotos = [
-    ...(Array.isArray(item.profilePhotos) ? item.profilePhotos : []),
-    ...(Array.isArray(item.photos) ? item.photos : []),
-    item.profileImage,
-    item.avatar,
-    item.photo,
-  ];
-  const normalizedPhotos = [];
-  const seenPhotos = new Set();
-  for (const photo of rawPhotos) {
-    const normalized = normalizeFeedImageUrl(req, photo);
-    if (normalized && !seenPhotos.has(normalized)) {
-      seenPhotos.add(normalized);
-      normalizedPhotos.push(normalized);
-    }
-  }
-
-  const normalizedAvatar = normalizedPhotos[0] || normalizeFeedImageUrl(req, item.avatar) || "";
-  const profilePhotos = normalizedAvatar
-    ? [normalizedAvatar, ...normalizedPhotos.filter((photo) => photo !== normalizedAvatar)]
-    : normalizedPhotos;
-
-  return {
-    ...item,
-    avatar: normalizedAvatar,
-    profileImage: normalizedAvatar,
-    photo: normalizedAvatar,
-    photos: profilePhotos,
-    profilePhotos,
-  };
+  return withSerializedUserPhotoFields(req, item);
 };
 
 // Simple in-memory cache for featured creators (they change infrequently)
@@ -322,7 +283,7 @@ async function getFeaturedCreatorsWithCache() {
       })
         .sort({ earningsCoins: -1 })
         .limit(12)
-        .select("name avatar earningsCoins")
+        .select(`name ${FEED_PHOTO_FIELDS} earningsCoins`)
         .lean();
       
       // Update cache
@@ -467,7 +428,7 @@ const getFeed = async (req, res) => {
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
           .select(
-            "name avatar profilePhotos profileImage photo gender birthdate location interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences"
+            `name ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences`
           )
           .lean()
       : Promise.resolve(null);
@@ -603,8 +564,8 @@ const getHybridFeed = async (req, res) => {
 
     // Parallel fetch: live streams and match profiles
     const [liveStreams, matchProfiles] = await Promise.all([
-      getLiveStreams(liveCount, userId),
-      getMatchProfiles(matchCount, userId, likedIds),
+      getLiveStreams(req, liveCount, userId),
+      getMatchProfiles(req, matchCount, userId, likedIds),
     ]);
 
     // Intelligent mixing: prioritize content
@@ -629,10 +590,10 @@ const getHybridFeed = async (req, res) => {
  * Fetch live streams with priority sorting
  * Priority: Verified creators > High viewer count > New streams
  */
-const getLiveStreams = async (count, currentUserId) => {
+const getLiveStreams = async (req, count, currentUserId) => {
   try {
     const lives = await Live.find({ isLive: true, endedAt: null })
-      .populate("user", "username name avatar role creatorStatus isVerifiedCreator followersCount")
+      .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator followersCount`)
       .select("-streamKey -paidViewers")
       .lean();
 
@@ -680,6 +641,7 @@ const getLiveStreams = async (count, currentUserId) => {
 
       return {
         ...live,
+        user: serializeFeedImageFields(req, live.user),
         totalCoinsEarned,
         priority,
         type: "live",
@@ -700,7 +662,7 @@ const getLiveStreams = async (count, currentUserId) => {
  * Priority: New users > Active users > Users with complete profiles
  * Excludes: Already liked users, creators, self, blocked users
  */
-const getMatchProfiles = async (count, currentUserId, likedIds) => {
+const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
   try {
     // Fetch current user's data for filtering
     const currentUser = await User.findById(currentUserId)
@@ -727,7 +689,7 @@ const getMatchProfiles = async (count, currentUserId, likedIds) => {
       username: { $ne: null },
       ...discoveryMatch,
     })
-      .select("username name avatar bio gender birthdate location interests intent profilePhotos isVerifiedCreator createdAt")
+      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
       .limit(count * 3) // Fetch more to allow for filtering
       .lean();
 
@@ -745,7 +707,7 @@ const getMatchProfiles = async (count, currentUserId, likedIds) => {
       priority += Math.random() * 100; // Add randomness for variety
 
       return {
-        ...user,
+        ...serializeFeedImageFields(req, user),
         priority,
         type: "match",
         tags: generateTags(user, isNew),
@@ -814,7 +776,7 @@ const getLiveOnlyFeed = async (req, res) => {
     const { limit = DEFAULT_FEED_SIZE } = req.query;
     const feedSize = Math.min(parseInt(limit, 10) || DEFAULT_FEED_SIZE, MAX_FEED_SIZE);
 
-    const liveStreams = await getLiveStreams(feedSize, req.userId);
+    const liveStreams = await getLiveStreams(req, feedSize, req.userId);
 
     res.json({
       ok: true,
@@ -839,7 +801,7 @@ const getMatchOnlyFeed = async (req, res) => {
     const userLikes = await Like.find({ from: req.userId }).select("to").lean();
     const likedIds = userLikes.map((l) => l.to.toString());
 
-    const matchProfiles = await getMatchProfiles(feedSize, req.userId, likedIds);
+    const matchProfiles = await getMatchProfiles(req, feedSize, req.userId, likedIds);
 
     res.json({
       ok: true,
@@ -866,8 +828,8 @@ const getTopFeed = async (req, res) => {
     const matchCount = Math.floor(feedSize * 0.3); // 30% match
 
     const [topLives, topUsers] = await Promise.all([
-      getTopLiveStreams(liveCount),
-      getTopMatchProfiles(matchCount, req.userId),
+      getTopLiveStreams(req, liveCount),
+      getTopMatchProfiles(req, matchCount, req.userId),
     ]);
 
     const feed = [...topLives, ...topUsers];
@@ -883,10 +845,10 @@ const getTopFeed = async (req, res) => {
   }
 };
 
-const getTopLiveStreams = async (count) => {
+const getTopLiveStreams = async (req, count) => {
   try {
     const lives = await Live.find({ isLive: true, endedAt: null })
-      .populate("user", "username name avatar role creatorStatus isVerifiedCreator")
+      .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus isVerifiedCreator`)
       .select("-streamKey -paidViewers")
       .lean();
 
@@ -924,6 +886,7 @@ const getTopLiveStreams = async (count) => {
 
         return {
           ...live,
+          user: serializeFeedImageFields(req, live.user),
           totalCoinsEarned,
           isTrending,
           type: "live",
@@ -940,7 +903,7 @@ const getTopLiveStreams = async (count) => {
   }
 };
 
-const getTopMatchProfiles = async (count, currentUserId) => {
+const getTopMatchProfiles = async (req, count, currentUserId) => {
   try {
     const currentUser = await User.findById(currentUserId).select("gender interestedIn discoveryPreferences").lean();
     const discoveryMatch = buildDiscoveryMatch(currentUser);
@@ -955,13 +918,13 @@ const getTopMatchProfiles = async (count, currentUserId) => {
       username: { $ne: null },
       ...discoveryMatch,
     })
-      .select("username name avatar bio gender birthdate location interests profilePhotos isVerifiedCreator followersCount")
+      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
       .sort({ followersCount: -1, _id: 1 })
       .limit(count)
       .lean();
 
     return users.map((user) => ({
-      ...user,
+      ...serializeFeedImageFields(req, user),
       type: "match",
       tags: generateTags(user, false),
     }));

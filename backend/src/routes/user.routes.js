@@ -195,9 +195,15 @@ const serializeUserPhotoFields = (req, userLike) => {
   const rawPhotos = [
     ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
     ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
+    ...(Array.isArray(userLike?.images) ? userLike.images : []),
     userLike?.avatar,
     userLike?.profileImage,
     userLike?.photo,
+    userLike?.photoURL,
+    userLike?.photoUrl,
+    userLike?.image,
+    userLike?.imageUrl,
+    userLike?.picture,
   ];
   const normalizedPhotos = [];
   for (const value of rawPhotos) {
@@ -284,7 +290,7 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
       isBlocked: { $ne: true },
       isSuspended: { $ne: true },
     })
-      .select("displayName name firstName lastName username avatar profilePhotos photos profileImage photo bio role creatorStatus isVerifiedCreator creatorProfile interests location")
+      .select("displayName name firstName lastName username avatar profilePhotos photos images profileImage photo photoURL photoUrl image imageUrl picture bio role creatorStatus isVerifiedCreator creatorProfile interests location")
       .lean();
     if (!user) return res.status(404).json({ message: "User not found" });
 

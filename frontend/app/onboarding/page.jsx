@@ -156,7 +156,7 @@ export default function OnboardingPage() {
   // Completion percentage (computed from required fields filled so far)
   const completionPercent = (() => {
     const checks = [
-      Boolean(mainPhotoFile),
+      Boolean(mainPhotoPreview),
       Boolean(birthdate),
       Boolean(location.trim()),
       Boolean(gender),
@@ -325,7 +325,7 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     setError("");
-    if (!mainPhotoFile && extraPhotoFiles.length === 0) {
+    if (!mainPhotoFile && !mainPhotoPreview && extraPhotoFiles.length === 0) {
       setError("Sube al menos una foto para continuar");
       return;
     }

@@ -121,7 +121,8 @@ const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
  * Required: photo, birthdate, location, gender, interestedIn, ≥ MIN_ONBOARDING_INTERESTS interests.
  */
 const getMinProfileCompletion = (user = {}) => {
-  const hasPhoto = typeof user.avatar === "string" && user.avatar.trim().length > 0;
+  const hasPhoto = (typeof user.avatar === "string" && user.avatar.trim().length > 0) ||
+    (Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
   const hasBirthdate = Boolean(user.birthdate);
   const hasLocation = typeof user.location === "string" && user.location.trim().length > 0;
   const hasGender = typeof user.gender === "string" && user.gender.trim().length > 0;
@@ -377,7 +378,9 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     const profileCompletion = getMinProfileCompletion(payload);
     if (payload.onboardingComplete === true && !profileCompletion.complete) {
       payload.onboardingComplete = false;
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: false } }).catch(() => {});
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: false } }).catch((err) => {
+        console.error("[lazy-onboarding-reset] failed:", err.message);
+      });
     }
     payload.profileCompletion = profileCompletion;
 

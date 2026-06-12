@@ -24,6 +24,8 @@ function AuthSuccessHandler() {
       fetchUserRole(token).then((user) => {
         if (user?.role === "admin") {
           router.replace("/admin");
+        } else if (user?.onboardingComplete === false) {
+          router.replace("/onboarding");
         } else {
           router.replace("/feed");
         }

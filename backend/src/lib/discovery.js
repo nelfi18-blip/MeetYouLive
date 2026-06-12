@@ -20,6 +20,13 @@ const normalizeDiscoveryCompatibility = (viewer = null) => {
   };
 };
 
+const getDiscoveryCompatibilityUpdates = (user = {}) => {
+  const updates = {};
+  if (user.gender === undefined || user.gender === "") updates.gender = null;
+  if (!user.interestedIn) updates.interestedIn = "both";
+  return updates;
+};
+
 const buildDiscoveryMatch = (viewer = null) => {
   viewer = normalizeDiscoveryCompatibility(viewer);
   if (!viewer) return {};
@@ -74,5 +81,6 @@ module.exports = {
   DISCOVERY_GOAL_INTENT_MAP,
   DISCOVERY_GENDER_MATCH,
   normalizeDiscoveryCompatibility,
+  getDiscoveryCompatibilityUpdates,
   buildDiscoveryMatch,
 };

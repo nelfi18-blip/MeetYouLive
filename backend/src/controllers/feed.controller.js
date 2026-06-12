@@ -8,7 +8,11 @@ const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { isApprovedCreator } = require("../lib/creatorUtils.js");
 const { hasLiveHost } = require("../lib/socket.js");
-const { buildDiscoveryMatch, normalizeDiscoveryCompatibility } = require("../lib/discovery.js");
+const {
+  buildDiscoveryMatch,
+  getDiscoveryCompatibilityUpdates,
+  normalizeDiscoveryCompatibility,
+} = require("../lib/discovery.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
@@ -32,18 +36,6 @@ const parseExcludedProfileIds = (exclude) => {
 };
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
-
-const getDiscoveryCompatibilityUpdates = (user = {}) => {
-  const updates = {};
-  if (user.gender === undefined || user.gender === "") updates.gender = null;
-  if (!isNonEmptyString(user.interestedIn)) updates.interestedIn = "both";
-  return updates;
-};
-
-const ensureDiscoveryCompatibility = (user = null) => {
-  if (!user) return null;
-  return normalizeDiscoveryCompatibility(user);
-};
 
 const hasFeedPhoto = (user = {}) => {
   const photoFields = [
@@ -495,7 +487,7 @@ const getFeed = async (req, res) => {
     ]);
     if (currentUserProfile) {
       const compatibilityUpdates = getDiscoveryCompatibilityUpdates(currentUserProfile);
-      currentUserProfile = ensureDiscoveryCompatibility(currentUserProfile);
+      currentUserProfile = normalizeDiscoveryCompatibility(currentUserProfile);
       if (Object.keys(compatibilityUpdates).length > 0) {
         User.updateOne({ _id: currentUserProfile._id }, { $set: compatibilityUpdates }).catch(() => {});
       }

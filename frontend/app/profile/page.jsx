@@ -103,7 +103,7 @@ const normalizeDiscoveryForm = (user = {}) => {
   const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
-    interestedIn: typeof user.interestedIn === "string" && user.interestedIn ? user.interestedIn : "both",
+    interestedIn: user.interestedIn || "both",
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",

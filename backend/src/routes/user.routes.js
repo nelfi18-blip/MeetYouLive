@@ -14,6 +14,7 @@ const {
   DISCOVERY_GOAL_INTENT_MAP,
   DISCOVERY_GENDER_MATCH,
   buildDiscoveryMatch,
+  getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
 
@@ -111,15 +112,6 @@ const ALLOWED_INTERESTED_IN = [...Object.keys(DISCOVERY_GENDER_MATCH), ""];
 const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
-
-const getDiscoveryCompatibilityUpdates = (user = {}) => {
-  const updates = {};
-  if (user.gender === undefined || user.gender === "") updates.gender = null;
-  if (!user.interestedIn) updates.interestedIn = "both";
-  return updates;
-};
-
-const normalizeDiscoveryCompatibilityPayload = (payload = {}) => normalizeDiscoveryCompatibility(payload);
 
 const getPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
@@ -336,7 +328,7 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
       Object.assign(payload, compatibilityUpdates);
       User.updateOne({ _id: user._id }, { $set: compatibilityUpdates }).catch(() => {});
     }
-    Object.assign(payload, normalizeDiscoveryCompatibilityPayload(payload));
+    Object.assign(payload, normalizeDiscoveryCompatibility(payload));
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;

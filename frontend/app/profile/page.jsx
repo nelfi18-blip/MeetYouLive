@@ -19,6 +19,7 @@ const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
@@ -95,6 +96,48 @@ const reorderWithMain = (photos, mainPhoto) => {
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
 
+const normalizeDiscoveryForm = (user = {}) => {
+  const preferences = user.discoveryPreferences || {};
+  const ageRange = preferences.ageRange || {};
+  const languages = Array.isArray(preferences.languages) ? preferences.languages : [];
+  const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
+  return {
+    interestedIn: typeof user.interestedIn === "string" ? user.interestedIn : "",
+    discoveryAgeMin: ageRange.min ?? "",
+    discoveryAgeMax: ageRange.max ?? "",
+    discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
+    discoveryLanguages: languages.filter((lang) => ["es", "en", "pt"].includes(lang)),
+    discoveryGoals: goals.filter((goal) => DISCOVERY_GOAL_OPTIONS.includes(goal)),
+  };
+};
+
+const buildDiscoveryPayloadFromForm = (form) => {
+  const minRaw = form.discoveryAgeMin === "" ? null : Number(form.discoveryAgeMin);
+  const maxRaw = form.discoveryAgeMax === "" ? null : Number(form.discoveryAgeMax);
+  const min =
+    minRaw === null || Number.isNaN(minRaw) ? null : Math.max(18, Math.min(100, Math.floor(minRaw)));
+  const max =
+    maxRaw === null || Number.isNaN(maxRaw) ? null : Math.max(18, Math.min(100, Math.floor(maxRaw)));
+  const distanceRaw = form.discoveryMaxDistanceKm === "" ? null : Number(form.discoveryMaxDistanceKm);
+  const maxDistanceKm =
+    distanceRaw === null || Number.isNaN(distanceRaw)
+      ? null
+      : Math.max(1, Math.min(10000, Math.floor(distanceRaw)));
+
+  const sortedMin = min !== null && max !== null ? Math.min(min, max) : min;
+  const sortedMax = min !== null && max !== null ? Math.max(min, max) : max;
+
+  return {
+    interestedIn: form.interestedIn || "",
+    discoveryPreferences: {
+      ageRange: { min: sortedMin, max: sortedMax },
+      maxDistanceKm,
+      languages: Array.isArray(form.discoveryLanguages) ? form.discoveryLanguages : [],
+      goals: Array.isArray(form.discoveryGoals) ? form.discoveryGoals : [],
+    },
+  };
+};
+
 function StarIcon()    { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function EditIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function KeyIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>; }
@@ -167,7 +210,19 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: "", name: "", bio: "", avatar: "", profilePhotos: [] });
+  const [editForm, setEditForm] = useState({
+    username: "",
+    name: "",
+    bio: "",
+    avatar: "",
+    profilePhotos: [],
+    interestedIn: "",
+    discoveryAgeMin: "",
+    discoveryAgeMax: "",
+    discoveryMaxDistanceKm: "",
+    discoveryLanguages: [],
+    discoveryGoals: [],
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState("");
@@ -194,6 +249,12 @@ export default function ProfilePage() {
   const [boostLoading, setBoostLoading] = useState(false);
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
+  const goalLabelByValue = {
+    serious_relationship: t("profile.goalSeriousRelationship"),
+    friendship: t("profile.goalFriendship"),
+    dating: t("profile.goalDating"),
+    networking: t("profile.goalNetworking"),
+  };
 
   const refreshProfileSession = useCallback(async () => {
     try {
@@ -217,6 +278,7 @@ export default function ProfilePage() {
     const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
     const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+    const discoveryDefaults = normalizeDiscoveryForm(normalizedUser);
     setUser(normalizedUser);
     setEditForm({
       username: normalizedUser.username || "",
@@ -224,6 +286,7 @@ export default function ProfilePage() {
       bio: normalizedUser.bio || "",
       avatar: normalizedUser.avatar || "",
       profilePhotos: normalizedUser.profilePhotos || [],
+      ...discoveryDefaults,
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
     return normalizedUser;
@@ -384,6 +447,7 @@ export default function ProfilePage() {
       bio: user.bio || "",
       avatar: normalizedAvatar,
       profilePhotos: normalizedPhotos,
+      ...normalizeDiscoveryForm(user),
     });
     setPhotoUrlInput("");
     setSaveError(""); setSaveSuccess("");
@@ -402,12 +466,17 @@ export default function ProfilePage() {
 
     try {
       const token = localStorage.getItem("token");
+      const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
       const res = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          ...editForm,
+          username: editForm.username,
+          name: editForm.name,
+          bio: editForm.bio,
+          avatar: editForm.avatar,
           profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos),
+          ...discoveryPayload,
         }),
         cache: "no-store",
       });
@@ -423,9 +492,10 @@ export default function ProfilePage() {
         bio: normalizedUser.bio || "",
         avatar: normalizedUser.avatar || "",
         profilePhotos: normalizedUser.profilePhotos || [],
+        ...normalizeDiscoveryForm(normalizedUser),
       });
       setPhotoUrlInput("");
-      setSaveSuccess("Perfil actualizado correctamente");
+      setSaveSuccess(t("profile.saveSuccess"));
       setEditing(false);
       publishProfileUpdated(normalizedUser);
       await refreshProfileSession();
@@ -796,6 +866,104 @@ export default function ProfilePage() {
                     placeholder="Cuéntanos algo sobre ti…" maxLength={200} rows={3} />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">{t("profile.interestedInLabel")}</label>
+                  <select
+                    className="input"
+                    value={editForm.interestedIn}
+                    onChange={(e) => setEditForm((f) => ({ ...f, interestedIn: e.target.value }))}
+                  >
+                    <option value="">{t("profile.interestedInNone")}</option>
+                    <option value="women">{t("profile.interestedInWomen")}</option>
+                    <option value="men">{t("profile.interestedInMen")}</option>
+                    <option value="both">{t("profile.interestedInBoth")}</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.ageRangeLabel")}</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                    <input
+                      className="input"
+                      type="number"
+                      min={18}
+                      max={100}
+                      value={editForm.discoveryAgeMin}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryAgeMin: e.target.value }))}
+                      placeholder={t("profile.ageMinPlaceholder")}
+                    />
+                    <input
+                      className="input"
+                      type="number"
+                      min={18}
+                      max={100}
+                      value={editForm.discoveryAgeMax}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryAgeMax: e.target.value }))}
+                      placeholder={t("profile.ageMaxPlaceholder")}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.maxDistanceLabel")}</label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={editForm.discoveryMaxDistanceKm}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discoveryMaxDistanceKm: e.target.value }))}
+                    placeholder={t("profile.maxDistancePlaceholder")}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.languagesLabel")}</label>
+                  <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
+                    {SUPPORTED_LANGS.map((code) => {
+                      const checked = editForm.discoveryLanguages.includes(code);
+                      return (
+                        <label key={code} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setEditForm((f) => ({
+                                ...f,
+                                discoveryLanguages: checked
+                                  ? f.discoveryLanguages.filter((langCode) => langCode !== code)
+                                  : [...f.discoveryLanguages, code],
+                              }))
+                            }
+                          />
+                          <span>{t(`lang.${code}`)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.goalsLabel")}</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "0.45rem 0.7rem" }}>
+                    {DISCOVERY_GOAL_OPTIONS.map((option) => {
+                      const checked = editForm.discoveryGoals.includes(option);
+                      return (
+                        <label key={option} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setEditForm((f) => ({
+                                ...f,
+                                discoveryGoals: checked
+                                  ? f.discoveryGoals.filter((goal) => goal !== option)
+                                  : [...f.discoveryGoals, option],
+                              }))
+                            }
+                          />
+                          <span>{goalLabelByValue[option] || option}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="form-group">
                   <label className="form-label">Foto de perfil</label>
                   <div className="profile-photo-manager">
                     <div className="profile-main-photo-card">
@@ -956,6 +1124,52 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
+
+          {(user.interestedIn ||
+            user.discoveryPreferences?.ageRange?.min != null ||
+            user.discoveryPreferences?.ageRange?.max != null ||
+            user.discoveryPreferences?.maxDistanceKm != null ||
+            (user.discoveryPreferences?.languages || []).length > 0 ||
+            (user.discoveryPreferences?.goals || []).length > 0) && (
+            <div className="form-card">
+              <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
+              <div style={{ display: "grid", gap: "0.5rem" }}>
+                {user.interestedIn && (
+                  <div>
+                    <strong>{t("profile.interestedInLabel")}:</strong>{" "}
+                    {user.interestedIn === "women" && t("profile.interestedInWomen")}
+                    {user.interestedIn === "men" && t("profile.interestedInMen")}
+                    {user.interestedIn === "both" && t("profile.interestedInBoth")}
+                  </div>
+                )}
+                {(user.discoveryPreferences?.ageRange?.min != null || user.discoveryPreferences?.ageRange?.max != null) && (
+                  <div>
+                    <strong>{t("profile.ageSummaryLabel")}:</strong>{" "}
+                    {user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}
+                  </div>
+                )}
+                {user.discoveryPreferences?.maxDistanceKm != null && (
+                  <div>
+                    <strong>{t("profile.distanceSummaryLabel")}:</strong> {user.discoveryPreferences.maxDistanceKm} km
+                  </div>
+                )}
+                {(user.discoveryPreferences?.languages || []).length > 0 && (
+                  <div>
+                    <strong>{t("profile.languagesSummaryLabel")}:</strong>{" "}
+                    {(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}
+                  </div>
+                )}
+                {(user.discoveryPreferences?.goals || []).length > 0 && (
+                  <div>
+                    <strong>{t("profile.goalsSummaryLabel")}:</strong>{" "}
+                    {(user.discoveryPreferences.goals || [])
+                      .map((goal) => goalLabelByValue[goal] || goal)
+                      .join(", ")}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Interests & Intent */}
           {isNotAdmin && (user.interests?.length > 0 || user.intent) && (

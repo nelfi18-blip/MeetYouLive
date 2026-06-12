@@ -10,6 +10,7 @@ const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getOnlineUsers } = require("../lib/socket.js");
+const { DISCOVERY_GOAL_INTENT_MAP, DISCOVERY_GENDER_MATCH, buildDiscoveryMatch } = require("../lib/discovery.js");
 
 const router = Router();
 
@@ -101,6 +102,9 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
+const ALLOWED_INTERESTED_IN = [...Object.keys(DISCOVERY_GENDER_MATCH), ""];
+const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
+const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 
 const getPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
@@ -212,6 +216,54 @@ const serializeUserPhotoFields = (req, userLike) => {
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
+const parseDiscoveryPreferencesInput = (input) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const updates = {};
+
+  if (input.ageRange && typeof input.ageRange === "object" && !Array.isArray(input.ageRange)) {
+    const minRaw = input.ageRange.min;
+    const maxRaw = input.ageRange.max;
+    const min = minRaw === null || minRaw === "" ? null : Number(minRaw);
+    const max = maxRaw === null || maxRaw === "" ? null : Number(maxRaw);
+    if ((min === null || Number.isFinite(min)) && (max === null || Number.isFinite(max))) {
+      const sanitizedMin = min === null ? null : Math.max(18, Math.min(100, Math.floor(min)));
+      const sanitizedMax = max === null ? null : Math.max(18, Math.min(100, Math.floor(max)));
+      const minFinal =
+        sanitizedMin !== null && sanitizedMax !== null ? Math.min(sanitizedMin, sanitizedMax) : sanitizedMin;
+      const maxFinal =
+        sanitizedMin !== null && sanitizedMax !== null ? Math.max(sanitizedMin, sanitizedMax) : sanitizedMax;
+      updates.ageRange = { min: minFinal, max: maxFinal };
+    }
+  }
+
+  if (input.maxDistanceKm !== undefined) {
+    if (input.maxDistanceKm === null || input.maxDistanceKm === "") {
+      updates.maxDistanceKm = null;
+    } else {
+      const parsedDistance = Number(input.maxDistanceKm);
+      if (Number.isFinite(parsedDistance)) {
+        updates.maxDistanceKm = Math.max(1, Math.min(10000, Math.floor(parsedDistance)));
+      }
+    }
+  }
+
+  if (Array.isArray(input.languages)) {
+    updates.languages = input.languages
+      .map((lang) => (typeof lang === "string" ? lang.trim() : ""))
+      .filter((lang) => ALLOWED_DISCOVERY_LANGUAGES.includes(lang))
+      .slice(0, ALLOWED_DISCOVERY_LANGUAGES.length);
+  }
+
+  if (Array.isArray(input.goals)) {
+    updates.goals = input.goals
+      .map((goal) => (typeof goal === "string" ? goal.trim() : ""))
+      .filter((goal) => ALLOWED_DISCOVERY_GOALS.includes(goal))
+      .slice(0, ALLOWED_DISCOVERY_GOALS.length);
+  }
+
+  return Object.keys(updates).length > 0 ? updates : null;
+};
+
 // Public profile — returns safe fields for a given user/creator
 router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => {
   try {
@@ -289,7 +341,17 @@ router.get("/coins", userLimiter, verifyToken, async (req, res) => {
 
 router.patch("/me", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { username, name, bio, avatar, profilePhotos, preferredLanguage, intent } = req.body;
+    const {
+      username,
+      name,
+      bio,
+      avatar,
+      profilePhotos,
+      preferredLanguage,
+      intent,
+      interestedIn,
+      discoveryPreferences,
+    } = req.body;
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -317,15 +379,22 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       const allowedIntents = ["dating", "casual", "live", "creator", ""];
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
+    if (interestedIn !== undefined) {
+      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+    }
+    if (discoveryPreferences !== undefined) {
+      const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
+      if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
+    }
 
     if (updates.username) {
-      const existing = await User.findOne({ username: updates.username, _id: { $ne: req.userId } });
+      const existing = await User.findOne({ username: updates.username, _id: { $ne: currentUser._id } });
       if (existing) {
         return res.status(400).json({ message: "Este nombre de usuario ya está en uso" });
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
@@ -365,7 +434,19 @@ const MAX_INTERESTS = 10;
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
-    const { avatar, profilePhotos, gender, birthdate, interests, location, name, bio, intent } = req.body;
+    const {
+      avatar,
+      profilePhotos,
+      gender,
+      birthdate,
+      interests,
+      location,
+      name,
+      bio,
+      intent,
+      interestedIn,
+      discoveryPreferences,
+    } = req.body;
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = { onboardingComplete: true };
@@ -388,8 +469,15 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       const allowedIntents = ["dating", "casual", "live", "creator", ""];
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
+    if (interestedIn !== undefined) {
+      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+    }
+    if (discoveryPreferences !== undefined) {
+      const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
+      if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
+    }
 
-    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
@@ -433,9 +521,12 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Fetch the current user's interests and intent for compatibility scoring
-    const me = await User.findById(req.userId).select("interests intent");
+    const me = await User.findById(req.userId).select(
+      "interests intent gender interestedIn discoveryPreferences"
+    );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
+    const discoveryFilters = buildDiscoveryMatch(me);
 
     const now = new Date();
 
@@ -448,6 +539,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
           isBlocked: false,
           onboardingComplete: true,
           role: { $nin: STAFF_ROLES },
+          ...discoveryFilters,
         },
       },
       {

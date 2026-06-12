@@ -10,7 +10,13 @@ const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
 const { getOnlineUsers } = require("../lib/socket.js");
-const { DISCOVERY_GOAL_INTENT_MAP, DISCOVERY_GENDER_MATCH, buildDiscoveryMatch } = require("../lib/discovery.js");
+const {
+  DISCOVERY_GOAL_INTENT_MAP,
+  DISCOVERY_GENDER_MATCH,
+  buildDiscoveryMatch,
+  getDiscoveryCompatibilityUpdates,
+  normalizeDiscoveryCompatibility,
+} = require("../lib/discovery.js");
 
 const router = Router();
 
@@ -102,7 +108,8 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
-const ALLOWED_INTERESTED_IN = [...Object.keys(DISCOVERY_GENDER_MATCH), ""];
+const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
+const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 
@@ -316,6 +323,12 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     }
 
     const payload = user.toObject();
+    const compatibilityUpdates = getDiscoveryCompatibilityUpdates(payload);
+    if (Object.keys(compatibilityUpdates).length > 0) {
+      Object.assign(payload, compatibilityUpdates);
+      User.updateOne({ _id: user._id }, { $set: compatibilityUpdates }).catch(() => {});
+    }
+    Object.assign(payload, normalizeDiscoveryCompatibility(payload));
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
@@ -349,6 +362,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       profilePhotos,
       preferredLanguage,
       intent,
+      gender,
       interestedIn,
       discoveryPreferences,
     } = req.body;
@@ -379,8 +393,12 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       const allowedIntents = ["dating", "casual", "live", "creator", ""];
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
+    if (gender !== undefined) {
+      if (ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
+    }
     if (interestedIn !== undefined) {
-      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+      if (interestedIn === "") updates.interestedIn = "both";
+      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
@@ -456,7 +474,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.avatar = normalizedPhotoState.avatar;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
     }
-    if (gender !== undefined) updates.gender = gender;
+    if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
     if (location !== undefined) updates.location = location.trim();
@@ -470,7 +488,8 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
     if (interestedIn !== undefined) {
-      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
+      if (interestedIn === "") updates.interestedIn = "both";
+      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);

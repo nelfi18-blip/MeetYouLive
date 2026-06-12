@@ -1089,6 +1089,7 @@ export default function FeedPage() {
   const currentProfileId = getProfileId(currentProfile);
   const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
+  const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
 
   return (
     <div ref={pageRef} className="feed-page">
@@ -1100,6 +1101,14 @@ export default function FeedPage() {
         className={`feed-section feed-match-section${showEmptyState ? " feed-match-section--empty" : ""}`}
         aria-label={t("feed.recommendedProfilesAria")}
       >
+        {shouldShowPreferenceBanner && !showLoadingState && !showErrorState && (
+          <div className="feed-preferences-banner">
+            <span>{t("feed.preferencesBannerText")}</span>
+            <Link href="/profile" className="feed-preferences-banner-link">
+              {t("feed.preferencesBannerAction")}
+            </Link>
+          </div>
+        )}
         {showLoadingState ? (
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
@@ -1221,6 +1230,7 @@ export default function FeedPage() {
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
           --feed-section-top-padding: 6px;
+          --feed-accent-purple-rgb: 224, 64, 251;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
           --feed-viewport-height: 100vh;
@@ -1287,6 +1297,7 @@ export default function FeedPage() {
           padding: 0;
         }
         .feed-match-section {
+          position: relative;
           display: flex;
           justify-content: center;
           align-items: flex-start;
@@ -1298,6 +1309,43 @@ export default function FeedPage() {
         .feed-match-section--empty {
           align-items: center;
           padding: 0.75rem 1rem 1rem;
+        }
+
+        .feed-preferences-banner {
+          position: absolute;
+          top: max(8px, var(--feed-section-top-padding));
+          left: 50%;
+          z-index: 95;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          width: min(92vw, 420px);
+          padding: 0.72rem 0.85rem;
+          border: 1px solid rgba(var(--feed-accent-purple-rgb), 0.28);
+          border-radius: 16px;
+          background: rgba(20, 12, 46, 0.86);
+          color: #fff;
+          box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          transform: translateX(-50%);
+        }
+        .feed-preferences-banner span {
+          min-width: 0;
+          font-size: 0.82rem;
+          line-height: 1.25;
+          color: var(--text-muted, #d9d4ef);
+        }
+        .feed-preferences-banner-link {
+          flex: 0 0 auto;
+          color: #fff;
+          font-size: 0.78rem;
+          font-weight: 800;
+          text-decoration: none;
+          padding: 0.42rem 0.72rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #e040fb, #8b5cf6);
         }
 
         .feed-swipe-deck {

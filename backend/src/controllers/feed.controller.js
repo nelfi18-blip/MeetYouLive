@@ -8,7 +8,11 @@ const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { isApprovedCreator } = require("../lib/creatorUtils.js");
 const { hasLiveHost } = require("../lib/socket.js");
-const { buildDiscoveryMatch } = require("../lib/discovery.js");
+const {
+  buildDiscoveryMatch,
+  getDiscoveryCompatibilityUpdates,
+  normalizeDiscoveryCompatibility,
+} = require("../lib/discovery.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
@@ -48,7 +52,6 @@ const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];
   if (!isNonEmptyString(user.name)) missingFields.push("name");
   if (!hasFeedPhoto(user)) missingFields.push("photo");
-  if (!isNonEmptyString(user.gender)) missingFields.push("gender");
   if (!user.birthdate) missingFields.push("birthdate");
   if (!isNonEmptyString(user.location)) missingFields.push("location");
   if (!Array.isArray(user.interests) || user.interests.length === 0) missingFields.push("interests");
@@ -59,6 +62,8 @@ const getFeedProfileMissingFields = (user = {}) => {
 const getFeedProfileStatus = (user) => {
   if (!user) return null;
   const missingFields = getFeedProfileMissingFields(user);
+  const normalizedDiscovery = normalizeDiscoveryCompatibility(user);
+  const needsGenderPreference = !isNonEmptyString(normalizedDiscovery.gender);
   const isRegularActiveUser =
     user.role === "user" &&
     user.isBlocked !== true &&
@@ -68,6 +73,10 @@ const getFeedProfileStatus = (user) => {
     profileComplete: missingFields.length === 0,
     canAppearInFeed: isRegularActiveUser && user.onboardingComplete === true && missingFields.length === 0,
     missingFields,
+    preferenceCompletionNeeded: needsGenderPreference,
+    missingPreferenceFields: needsGenderPreference ? ["gender"] : [],
+    interestedIn: normalizedDiscovery.interestedIn,
+    gender: normalizedDiscovery.gender,
   };
 };
 
@@ -464,7 +473,7 @@ const getFeed = async (req, res) => {
       : Promise.resolve(null);
 
     // Run independent queries in parallel for better performance
-    const [allLives, featuredCreators, currentUserProfile] = await Promise.all([
+    let [allLives, featuredCreators, currentUserProfile] = await Promise.all([
       // 🔴 Active live streams ONLY - fetch more than 12 to account for filtering
       Live.find({
         isLive: true,
@@ -478,6 +487,13 @@ const getFeed = async (req, res) => {
       getFeaturedCreatorsWithCache(),
       currentUserProfilePromise,
     ]);
+    if (currentUserProfile) {
+      const compatibilityUpdates = getDiscoveryCompatibilityUpdates(currentUserProfile);
+      currentUserProfile = normalizeDiscoveryCompatibility(currentUserProfile);
+      if (Object.keys(compatibilityUpdates).length > 0) {
+        User.updateOne({ _id: currentUserProfile._id }, { $set: compatibilityUpdates }).catch(() => {});
+      }
+    }
 
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
     const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, discoveryMatch);

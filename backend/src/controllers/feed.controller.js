@@ -22,7 +22,7 @@ const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
-const PHOTO_CHECK_REQUEST = { protocol: "https", get: () => "" };
+const STUB_PHOTO_CHECK_REQUEST = { protocol: "https", get: () => "" };
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -42,7 +42,7 @@ const parseExcludedProfileIds = (exclude) => {
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
 
 const hasFeedPhoto = (user = {}) =>
-  serializeUserPhotoFields(PHOTO_CHECK_REQUEST, user).profilePhotos.length > 0;
+  serializeUserPhotoFields(STUB_PHOTO_CHECK_REQUEST, user).profilePhotos.length > 0;
 
 const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];

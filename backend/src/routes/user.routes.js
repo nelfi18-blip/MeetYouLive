@@ -108,10 +108,39 @@ const toAbsoluteUploadUrl = (req, relativePath = "") => {
 
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
+const MAX_INTERESTS = 10;
+const MIN_ONBOARDING_INTERESTS = 3;
 const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
 const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
+
+/**
+ * Check whether a user object meets the minimum profile requirements for
+ * onboarding completion.
+ * Required: photo, birthdate, location, gender, interestedIn, ≥ MIN_ONBOARDING_INTERESTS interests.
+ */
+const getMinProfileCompletion = (user = {}) => {
+  const hasPhoto = (typeof user.avatar === "string" && user.avatar.trim().length > 0) ||
+    (Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
+  const hasBirthdate = Boolean(user.birthdate);
+  const hasLocation = typeof user.location === "string" && user.location.trim().length > 0;
+  const hasGender = typeof user.gender === "string" && user.gender.trim().length > 0;
+  const hasInterestedIn = typeof user.interestedIn === "string" && user.interestedIn.trim().length > 0;
+  const hasInterests = Array.isArray(user.interests) && user.interests.length >= MIN_ONBOARDING_INTERESTS;
+
+  const fields = [
+    { key: "photo", done: hasPhoto },
+    { key: "birthdate", done: hasBirthdate },
+    { key: "location", done: hasLocation },
+    { key: "gender", done: hasGender },
+    { key: "interestedIn", done: hasInterestedIn },
+    { key: "interests", done: hasInterests },
+  ];
+  const missing = fields.filter((f) => !f.done).map((f) => f.key);
+  const percent = Math.round(((fields.length - missing.length) / fields.length) * 100);
+  return { complete: missing.length === 0, percent, missing };
+};
 
 const getPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
@@ -342,6 +371,19 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     // even for documents created before these fields were added to the schema.
     if (payload.role == null) payload.role = "user";
     if (payload.creatorStatus == null) payload.creatorStatus = "none";
+
+    // Compute profile completion and lazily reset onboardingComplete when a
+    // previously-marked-complete user is now missing required fields (e.g. from
+    // a stricter requirement rollout).
+    const profileCompletion = getMinProfileCompletion(payload);
+    if (payload.onboardingComplete === true && !profileCompletion.complete) {
+      payload.onboardingComplete = false;
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: false } }).catch((err) => {
+        console.error("[lazy-onboarding-reset] failed:", err.message);
+      });
+    }
+    payload.profileCompletion = profileCompletion;
+
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -453,8 +495,6 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
-// Maximum number of interests a user can have (must match frontend limit)
-const MAX_INTERESTS = 10;
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
@@ -471,9 +511,11 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       interestedIn,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    const currentUser = await User.findById(req.userId).select(
+      "avatar profilePhotos birthdate location gender interestedIn interests"
+    );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
-    const updates = { onboardingComplete: true };
+    const updates = {};
 
     if (avatar !== undefined || profilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, profilePhotos, avatar, currentUser);
@@ -502,12 +544,19 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
     }
 
+    // Determine whether the merged profile state meets minimum requirements
+    // and only mark onboardingComplete: true when it does.
+    const mergedUser = { ...currentUser.toObject(), ...updates };
+    const profileCompletion = getMinProfileCompletion(mergedUser);
+    updates.onboardingComplete = profileCompletion.complete;
+
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
+    payload.profileCompletion = getMinProfileCompletion(payload);
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });

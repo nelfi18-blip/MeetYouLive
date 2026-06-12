@@ -13,7 +13,7 @@ const {
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
-const { serializeUserPhotoFields, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { hasSerializableUserPhoto, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
@@ -22,7 +22,7 @@ const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
-const STUB_PHOTO_CHECK_REQUEST = { protocol: "https", get: () => "" };
+const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -42,7 +42,7 @@ const parseExcludedProfileIds = (exclude) => {
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
 
 const hasFeedPhoto = (user = {}) =>
-  serializeUserPhotoFields(STUB_PHOTO_CHECK_REQUEST, user).profilePhotos.length > 0;
+  hasSerializableUserPhoto(PHOTO_VALIDATION_STUB_REQUEST, user);
 
 const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];

@@ -1,4 +1,5 @@
 const {
+  hasSerializableUserPhoto,
   normalizePhotoUrl,
   withSerializedUserPhotoFields,
 } = require("../photoFields.js");
@@ -37,6 +38,13 @@ describe("photoFields", () => {
     expect(user.photo).toBe(user.avatar);
     expect(user.photos).toEqual([user.avatar]);
     expect(user.profilePhotos).toEqual([user.avatar]);
+  });
+
+  test("detects serializable legacy photo aliases without requiring canonical fields", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+
+    expect(hasSerializableUserPhoto(req, { imageUrl: "https://example.com/real.jpg" })).toBe(true);
+    expect(hasSerializableUserPhoto(req, { imageUrl: "javascript:alert(1)" })).toBe(false);
   });
 
   test("keeps canonical profile photos before aliases and removes duplicates", () => {

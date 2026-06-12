@@ -120,6 +120,37 @@ const normalizePhotoUrl = (req, value) => {
 };
 
 /**
+ * Collect photo candidates in primary-photo priority order.
+ * Canonical persisted fields come first, then legacy/provider aliases.
+ *
+ * @param {object} userLike User-like object with photo aliases.
+ * @returns {unknown[]} Raw photo field values.
+ */
+const getRawUserPhotoValues = (userLike) => [
+  ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
+  ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
+  ...(Array.isArray(userLike?.images) ? userLike.images : []),
+  userLike?.avatar,
+  userLike?.profileImage,
+  userLike?.photo,
+  userLike?.photoURL,
+  userLike?.photoUrl,
+  userLike?.image,
+  userLike?.imageUrl,
+  userLike?.picture,
+];
+
+/**
+ * Check whether any photo field can be normalized into a renderable URL.
+ *
+ * @param {import("express").Request} req Express request used for upload origins.
+ * @param {object} userLike User-like object with photo aliases.
+ * @returns {boolean}
+ */
+const hasSerializableUserPhoto = (req, userLike) =>
+  getRawUserPhotoValues(userLike).some((value) => Boolean(normalizePhotoUrl(req, value)));
+
+/**
  * Aggregate all user photo aliases into a consistent serialized shape.
  *
  * @param {import("express").Request} req Express request used for upload origins.
@@ -127,19 +158,7 @@ const normalizePhotoUrl = (req, value) => {
  * @returns {{avatar: string, profileImage: string, photo: string, photos: string[], profilePhotos: string[]}}
  */
 const serializeUserPhotoFields = (req, userLike) => {
-  const rawPhotos = [
-    ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
-    ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
-    ...(Array.isArray(userLike?.images) ? userLike.images : []),
-    userLike?.avatar,
-    userLike?.profileImage,
-    userLike?.photo,
-    userLike?.photoURL,
-    userLike?.photoUrl,
-    userLike?.image,
-    userLike?.imageUrl,
-    userLike?.picture,
-  ];
+  const rawPhotos = getRawUserPhotoValues(userLike);
   const normalizedPhotos = [];
   const seenPhotos = new Set();
 
@@ -178,6 +197,7 @@ const withSerializedUserPhotoFields = (req, userLike) => {
 };
 
 module.exports = {
+  hasSerializableUserPhoto,
   normalizePhotoUrl,
   serializeUserPhotoFields,
   withSerializedUserPhotoFields,

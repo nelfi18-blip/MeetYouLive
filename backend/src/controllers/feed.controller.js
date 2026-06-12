@@ -62,7 +62,8 @@ const getFeedProfileMissingFields = (user = {}) => {
 const getFeedProfileStatus = (user) => {
   if (!user) return null;
   const missingFields = getFeedProfileMissingFields(user);
-  const needsGenderPreference = !isNonEmptyString(user.gender);
+  const normalizedDiscovery = normalizeDiscoveryCompatibility(user);
+  const needsGenderPreference = !isNonEmptyString(normalizedDiscovery.gender);
   const isRegularActiveUser =
     user.role === "user" &&
     user.isBlocked !== true &&
@@ -74,8 +75,8 @@ const getFeedProfileStatus = (user) => {
     missingFields,
     preferenceCompletionNeeded: needsGenderPreference,
     missingPreferenceFields: needsGenderPreference ? ["gender"] : [],
-    interestedIn: isNonEmptyString(user.interestedIn) ? user.interestedIn : "both",
-    gender: user.gender || null,
+    interestedIn: normalizedDiscovery.interestedIn,
+    gender: normalizedDiscovery.gender,
   };
 };
 

@@ -394,10 +394,11 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
     if (gender !== undefined) {
-      if (ALLOWED_GENDERS.includes(gender)) updates.gender = gender || null;
+      if (ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     }
     if (interestedIn !== undefined) {
-      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn || "both";
+      if (interestedIn === "") updates.interestedIn = "both";
+      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
@@ -473,7 +474,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.avatar = normalizedPhotoState.avatar;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
     }
-    if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender || null;
+    if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
     if (location !== undefined) updates.location = location.trim();
@@ -487,7 +488,8 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (allowedIntents.includes(intent)) updates.intent = intent;
     }
     if (interestedIn !== undefined) {
-      if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn || "both";
+      if (interestedIn === "") updates.interestedIn = "both";
+      else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);

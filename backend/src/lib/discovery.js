@@ -11,7 +11,8 @@ const DISCOVERY_GENDER_MATCH = {
   both: ["woman", "man"],
 };
 
-const isUnsetInterestedIn = (interestedIn) => interestedIn == null || interestedIn === "";
+const isUnsetInterestedIn = (interestedIn) =>
+  interestedIn === null || interestedIn === undefined || interestedIn === "";
 const normalizeInterestedIn = (interestedIn) =>
   isUnsetInterestedIn(interestedIn) || !DISCOVERY_GENDER_MATCH[interestedIn] ? "both" : interestedIn;
 

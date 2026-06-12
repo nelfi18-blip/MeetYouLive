@@ -103,7 +103,10 @@ const normalizeDiscoveryForm = (user = {}) => {
   const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
-    interestedIn: user.interestedIn === "" || user.interestedIn == null ? "both" : user.interestedIn,
+    interestedIn:
+      user.interestedIn === "" || user.interestedIn === null || user.interestedIn === undefined
+        ? "both"
+        : user.interestedIn,
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
     discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
@@ -129,7 +132,7 @@ const buildDiscoveryPayloadFromForm = (form) => {
   const sortedMax = min !== null && max !== null ? Math.max(min, max) : max;
 
   return {
-    gender: form.gender || null,
+    gender: form.gender === "" ? null : form.gender,
     interestedIn: form.interestedIn || "both",
     discoveryPreferences: {
       ageRange: { min: sortedMin, max: sortedMax },

@@ -28,12 +28,12 @@ const normalizeDiscoveryScope = (user = {}) => {
   return ALLOWED_DISCOVERY_SCOPES.has(value) ? value : "global";
 };
 
-const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB) => {
+const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB, now = new Date()) => {
   const normalizedInterestedIn = normalizeInterestedIn(user.interestedIn);
   const checks = {
     name: isNonEmptyString(user.name),
     photo: hasSerializableUserPhoto(req, user),
-    birthdate: calculateAge(user.birthdate) !== null,
+    birthdate: calculateAge(user.birthdate, now) !== null,
     location: getLocationLabel(user.location, user.locationLabel).length > 0,
     gender: isNonEmptyString(user.gender),
     interestedIn: Boolean(normalizedInterestedIn),
@@ -44,7 +44,7 @@ const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB) => {
 };
 
 const getMissingProfileFields = (user = {}, options = {}) => {
-  const checks = getProfileCompletionChecks(user, options.req);
+  const checks = getProfileCompletionChecks(user, options.req, options.now || new Date());
   return PROFILE_REQUIRED_FIELDS.filter((field) => !checks[field]);
 };
 
@@ -68,7 +68,8 @@ const getProfileCompatibilityUpdates = (user = {}) => {
 };
 
 const getProfileCompletionStatus = (user = {}, options = {}) => {
-  const missingFields = getMissingProfileFields(user, options);
+  const now = options.now || new Date();
+  const missingFields = getMissingProfileFields(user, { ...options, now });
   const completedFields = PROFILE_REQUIRED_FIELDS.length - missingFields.length;
   const complete = missingFields.length === 0;
   const missingPreferenceFields = missingFields.filter((field) => PREFERENCE_FIELDS.has(field));
@@ -80,7 +81,7 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
     percent: Math.round((completedFields / PROFILE_REQUIRED_FIELDS.length) * 100),
     missing: missingFields,
     missingFields,
-    age: calculateAge(user.birthdate),
+    age: calculateAge(user.birthdate, now),
     interestedIn: normalizeInterestedIn(user.interestedIn),
     discoveryScope: normalizeDiscoveryScope(user),
     gender: isNonEmptyString(user.gender) ? user.gender : null,

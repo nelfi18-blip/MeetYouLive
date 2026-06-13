@@ -280,7 +280,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.virtual("age").get(function getAge() {
-  return calculateAge(this.birthdate);
+  return calculateAge(this.birthdate, new Date());
 });
 
 userSchema

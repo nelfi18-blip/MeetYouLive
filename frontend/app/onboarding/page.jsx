@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -127,6 +128,7 @@ const PATHS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -374,6 +376,19 @@ export default function OnboardingPage() {
       return { ok: true, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
     };
 
+    const mergeProfilePhotos = (currentPhotos, nextPhotos) => {
+      const merged = [];
+      const seen = new Set();
+      for (const photo of [...currentPhotos, ...nextPhotos]) {
+        if (photo && !seen.has(photo)) {
+          seen.add(photo);
+          merged.push(photo);
+        }
+        if (merged.length >= MAX_PROFILE_PHOTOS) break;
+      }
+      return merged;
+    };
+
     let workingMainFile = mainPhotoFile;
     let workingExtraFiles = [...extraPhotoFiles];
     if (!workingMainFile && workingExtraFiles.length > 0) {
@@ -384,7 +399,7 @@ export default function OnboardingPage() {
     }
 
     let finalAvatarUrl = "";
-    const finalProfilePhotos = [];
+    let finalProfilePhotos = [];
 
     try {
       if (workingMainFile) {
@@ -396,7 +411,10 @@ export default function OnboardingPage() {
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
-        if (finalAvatarUrl) finalProfilePhotos.push(finalAvatarUrl);
+        finalProfilePhotos = mergeProfilePhotos(
+          finalProfilePhotos,
+          mainUpload.profilePhotos.length ? mainUpload.profilePhotos : [finalAvatarUrl]
+        );
       }
 
       for (const extra of workingExtraFiles) {
@@ -411,9 +429,7 @@ export default function OnboardingPage() {
           setLoading(false);
           return;
         }
-        if (extraUpload.avatar && !finalProfilePhotos.includes(extraUpload.avatar)) {
-          finalProfilePhotos.push(extraUpload.avatar);
-        }
+        finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
       }
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
@@ -447,13 +463,32 @@ export default function OnboardingPage() {
           interestedIn: interestedIn || undefined,
         }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      const destination = PATHS.find((p) => p.id === selectedPath)?.route || "/feed";
-      router.replace(destination);
+      if (data.onboardingComplete !== true) {
+        const missing = data.profileCompletion?.missing;
+        const missingMessage = Array.isArray(missing) && missing.length
+          ? `Faltan datos obligatorios: ${missing.join(", ")}`
+          : "Faltan datos obligatorios del perfil.";
+        setError(missingMessage);
+        return;
+      }
+      const profileRes = await fetch(`${API_URL}/api/user/me`, {
+        method: "GET",
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+      });
+      if (!profileRes.ok) {
+        setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
+        return;
+      }
+      // Force the backend profile to refresh before leaving onboarding; the body is not needed here.
+      await profileRes.json().catch(() => null);
+      await updateSession?.();
+      router.replace("/feed");
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

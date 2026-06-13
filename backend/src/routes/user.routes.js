@@ -524,6 +524,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
+    // profilePhotos/avatar are canonical; aliases keep older clients from losing photos.
     const incomingAvatar = avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = profilePhotos !== undefined ? profilePhotos : photos;
 
@@ -564,7 +565,11 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
-    Object.assign(payload, photoFields);
+    payload.avatar = photoFields.avatar;
+    payload.profileImage = photoFields.profileImage;
+    payload.photo = photoFields.photo;
+    payload.photos = photoFields.photos;
+    payload.profilePhotos = photoFields.profilePhotos;
     payload.profileCompletion = getMinProfileCompletion(payload);
     res.json(payload);
   } catch (err) {

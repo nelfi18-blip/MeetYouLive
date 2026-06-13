@@ -367,14 +367,22 @@ export default function OnboardingPage() {
         };
       }
       const normalizedAvatar = normalizeAvatarUrl(uploadData?.avatar || uploadData?.mainPhoto);
-      const normalizedAdditionalPhoto = normalizeAvatarUrl(uploadData?.photo || uploadData?.avatarPath);
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
       const normalizedPhotos = Array.isArray(uploadData?.profilePhotos)
         ? uploadData.profilePhotos.map((photo) => normalizeAvatarUrl(photo)).filter(Boolean).slice(0, MAX_PROFILE_PHOTOS)
         : [];
-      return { ok: true, avatar: normalizedAvatar, additionalPhoto: normalizedAdditionalPhoto, profilePhotos: normalizedPhotos };
+      return { ok: true, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+    };
+
+    const mergeProfilePhotos = (currentPhotos, nextPhotos) => {
+      const merged = [];
+      for (const photo of [...currentPhotos, ...nextPhotos]) {
+        if (photo && !merged.includes(photo)) merged.push(photo);
+        if (merged.length >= MAX_PROFILE_PHOTOS) break;
+      }
+      return merged;
     };
 
     let workingMainFile = mainPhotoFile;
@@ -399,9 +407,10 @@ export default function OnboardingPage() {
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
-        finalProfilePhotos = mainUpload.profilePhotos.length
-          ? mainUpload.profilePhotos.slice(0, MAX_PROFILE_PHOTOS)
-          : [finalAvatarUrl];
+        finalProfilePhotos = mergeProfilePhotos(
+          finalProfilePhotos,
+          mainUpload.profilePhotos.length ? mainUpload.profilePhotos : [finalAvatarUrl]
+        );
       }
 
       for (const extra of workingExtraFiles) {
@@ -416,11 +425,7 @@ export default function OnboardingPage() {
           setLoading(false);
           return;
         }
-        if (extraUpload.profilePhotos.length) {
-          finalProfilePhotos = extraUpload.profilePhotos.slice(0, MAX_PROFILE_PHOTOS);
-        } else if (extraUpload.additionalPhoto && !finalProfilePhotos.includes(extraUpload.additionalPhoto)) {
-          finalProfilePhotos.push(extraUpload.additionalPhoto);
-        }
+        finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
       }
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
@@ -467,11 +472,16 @@ export default function OnboardingPage() {
         setError(missingMessage);
         return;
       }
-      await fetch(`${API_URL}/api/user/me`, {
+      const profileRes = await fetch(`${API_URL}/api/user/me`, {
         method: "GET",
         headers: { Authorization: "Bearer " + token },
         cache: "no-store",
-      }).catch(() => null);
+      });
+      if (!profileRes.ok) {
+        setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
+        return;
+      }
+      await profileRes.json().catch(() => null);
       await updateSession?.();
       router.replace("/feed");
     } catch {

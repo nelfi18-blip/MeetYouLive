@@ -22,25 +22,29 @@ const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
+// Query extra candidates because final URL normalization can reject empty/unsafe photo values.
 const RECOMMENDED_PROFILE_QUERY_LIMIT = 36;
+// Match/top helper counts are derived from MAX_FEED_SIZE, so 2x keeps queries bounded while backfilling photo rejects.
 const PHOTO_FILTER_FETCH_MULTIPLIER = 2;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
-const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
+const FEED_PHOTO_ARRAY_FIELDS = ["profilePhotos", "photos", "images"];
+const FEED_PHOTO_SCALAR_FIELDS = [
+  "avatar",
+  "profileImage",
+  "photo",
+  "photoURL",
+  "photoUrl",
+  "image",
+  "imageUrl",
+  "picture",
+];
+const FEED_PHOTO_FIELDS = [...FEED_PHOTO_ARRAY_FIELDS, ...FEED_PHOTO_SCALAR_FIELDS].join(" ");
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
 const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
 const FEED_PHOTO_CANDIDATE_MATCH = {
   $or: [
-    { "profilePhotos.0": { $exists: true } },
-    { "photos.0": { $exists: true } },
-    { "images.0": { $exists: true } },
-    { avatar: { $type: "string", $ne: "" } },
-    { profileImage: { $type: "string", $ne: "" } },
-    { photo: { $type: "string", $ne: "" } },
-    { photoURL: { $type: "string", $ne: "" } },
-    { photoUrl: { $type: "string", $ne: "" } },
-    { image: { $type: "string", $ne: "" } },
-    { imageUrl: { $type: "string", $ne: "" } },
-    { picture: { $type: "string", $ne: "" } },
+    ...FEED_PHOTO_ARRAY_FIELDS.map((field) => ({ [`${field}.0`]: { $exists: true } })),
+    ...FEED_PHOTO_SCALAR_FIELDS.map((field) => ({ [field]: { $type: "string", $ne: "" } })),
   ],
 };
 
@@ -664,13 +668,15 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       ],
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
-      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER) // feedSize is capped before deriving this match count.
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER)
       .lean();
 
+    const serializedUsersWithPhotos = users
+      .map((user) => serializeFeedImageFields(req, user))
+      .filter((user) => Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
+
     // Calculate priority for each user
-    const enrichedUsers = users.map((user) => {
-      const serializedUser = serializeFeedImageFields(req, user);
-      if (!Array.isArray(serializedUser.profilePhotos) || serializedUser.profilePhotos.length === 0) return null;
+    const enrichedUsers = serializedUsersWithPhotos.map((user) => {
       const isNew = user.createdAt ? (Date.now() - new Date(user.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000 : false; // New = less than 7 days
       const hasCompleteProfile = user.bio && user.location && user.interests && user.interests.length > 0;
 
@@ -682,12 +688,12 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       priority += Math.random() * 100; // Add randomness for variety
 
       return {
-        ...serializedUser,
+        ...user,
         priority,
         type: "match",
         tags: generateTags(user, isNew),
       };
-    }).filter(Boolean);
+    });
 
     // Sort by priority
     enrichedUsers.sort((a, b) => b.priority - a.priority);

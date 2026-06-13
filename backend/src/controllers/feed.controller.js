@@ -8,7 +8,9 @@ const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
 const { hasLiveHost } = require("../lib/socket.js");
 const {
+  applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
+  buildDiscoveryLocationMatch,
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
@@ -402,7 +404,7 @@ const getFeed = async (req, res) => {
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
           .select(
-            `name ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences`
+            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope`
           )
           .lean()
       : Promise.resolve(null);
@@ -431,9 +433,13 @@ const getFeed = async (req, res) => {
     }
 
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
-    const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, discoveryMatch);
+    const locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
+    const combinedDiscoveryMatch = locationMatch
+      ? { $and: [discoveryMatch, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
+      : discoveryMatch;
+    const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
     const recommendedProfilesPrimary = await User.aggregate(
-      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER)
+      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER * 3)
     );
 
     // Apply active live filter FIRST to ensure only truly active streams
@@ -459,7 +465,8 @@ const getFeed = async (req, res) => {
       ...live,
       user: serializeFeedImageFields(req, live.user),
     }));
-    const serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, recommendedProfilesPrimary, 12);
+    const locationFilteredProfiles = applyDiscoveryLocationFilter(currentUserProfile, recommendedProfilesPrimary);
+    const serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, locationFilteredProfiles, 12);
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
@@ -642,7 +649,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
   try {
     // Fetch current user's data for filtering
     const currentUser = await User.findById(currentUserId)
-      .select("gender birthdate location blockedUsers interestedIn discoveryPreferences")
+      .select("gender birthdate location locationLabel blockedUsers interestedIn discoveryPreferences maxDistanceKm discoveryScope")
       .lean();
 
     if (!currentUser) return [];
@@ -654,6 +661,10 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       currentUserId.toString(),
     ];
     const discoveryMatch = buildDiscoveryMatch(currentUser);
+    const locationMatch = buildDiscoveryLocationMatch(currentUser);
+    const combinedDiscoveryMatch = locationMatch
+      ? { $and: [discoveryMatch, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
+      : discoveryMatch;
 
     // Find potential matches (regular users, not creators)
     const users = await User.find({
@@ -665,16 +676,17 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
           isBlocked: false,
           isSuspended: false,
           username: { $ne: null },
-          ...discoveryMatch,
+          ...combinedDiscoveryMatch,
         },
         FEED_PHOTO_CANDIDATE_MATCH,
       ],
     })
-      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
-      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER)
+      .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location locationLabel interests intent isVerifiedCreator createdAt`)
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER * 3)
       .lean();
 
-    const serializedUsersWithPhotos = users
+    const locationFilteredUsers = applyDiscoveryLocationFilter(currentUser, users);
+    const serializedUsersWithPhotos = locationFilteredUsers
       .map((user) => serializeFeedImageFields(req, user))
       .filter((user) => Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
 

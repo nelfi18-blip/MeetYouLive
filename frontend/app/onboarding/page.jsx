@@ -13,6 +13,7 @@ const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
@@ -144,7 +145,12 @@ export default function OnboardingPage() {
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
   const [birthdate, setBirthdate] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationCountry, setLocationCountry] = useState("");
+  const [locationCity, setLocationCity] = useState("");
+  const [locationRegion, setLocationRegion] = useState("");
+  const [locationCoordinates, setLocationCoordinates] = useState({ lat: null, lng: null });
+  const [discoveryScope, setDiscoveryScope] = useState("global");
+  const [maxDistanceKm, setMaxDistanceKm] = useState("");
   const [interestedIn, setInterestedIn] = useState("both");
 
   // Step 3 fields (interests)
@@ -160,7 +166,8 @@ export default function OnboardingPage() {
     const checks = [
       Boolean(mainPhotoPreview),
       Boolean(birthdate),
-      Boolean(location.trim()),
+      Boolean(locationCity.trim() && locationCountry.trim()) ||
+        (Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng)),
       Boolean(gender),
       Boolean(interestedIn),
       interests.length >= MIN_INTERESTS,
@@ -194,6 +201,30 @@ export default function OnboardingPage() {
         : prev.length < MAX_INTERESTS
         ? [...prev, interest]
         : prev
+    );
+  };
+
+  const handleUseCurrentLocation = () => {
+    setError("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("Tu navegador no permite usar ubicación automática. Puedes ingresar tu ciudad y país manualmente.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setDiscoveryScope("nearby");
+        setMaxDistanceKm((current) => current || "25");
+        setLocationCity((current) => current || "Ubicación automática");
+      },
+      () => {
+        setError("No pudimos obtener tu ubicación. Ingresa tu ciudad y país manualmente.");
+        setDiscoveryScope("country");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
@@ -311,7 +342,10 @@ export default function OnboardingPage() {
         setError("La fecha de nacimiento es obligatoria");
         return;
       }
-      if (!location.trim()) {
+      if (
+        !(locationCity.trim() && locationCountry.trim()) &&
+        !(Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng))
+      ) {
         setError("La ubicación es obligatoria");
         return;
       }
@@ -442,6 +476,7 @@ export default function OnboardingPage() {
     // Map selected path to intent
     const intentMap = { crush: "dating", live: "live", creator: "creator" };
     const intent = intentMap[selectedPath] || "";
+    const locationLabel = [locationCity, locationRegion, locationCountry].filter(Boolean).join(", ");
 
     try {
       const res = await fetch(`${API_URL}/api/user/me/onboarding`, {
@@ -456,7 +491,19 @@ export default function OnboardingPage() {
           gender: gender || undefined,
           birthdate: birthdate || undefined,
           interests,
-          location: location.trim() || undefined,
+          location: {
+            country: locationCountry.trim(),
+            city: locationCity.trim(),
+            region: locationRegion.trim(),
+            coordinates: locationCoordinates,
+          },
+          locationLabel: locationLabel || undefined,
+          maxDistanceKm: maxDistanceKm || undefined,
+          discoveryScope,
+          discoveryPreferences: {
+            maxDistanceKm: maxDistanceKm || null,
+            discoveryScope,
+          },
           avatar: finalAvatarUrl || undefined,
           profilePhotos: finalProfilePhotos.length ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS) : undefined,
           intent: intent || undefined,
@@ -663,12 +710,12 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Ciudad / País *</label>
+                  <label className="ob-label">País *</label>
                   <input
                     className="input"
-                    placeholder="Ej: Madrid, España"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Ej: España"
+                    value={locationCountry}
+                    onChange={(e) => { setLocationCountry(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                 </div>
@@ -684,6 +731,56 @@ export default function OnboardingPage() {
                     <option value="women">Mujeres</option>
                     <option value="men">Hombres</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="ob-row">
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Ciudad *</label>
+                  <input
+                    className="input"
+                    placeholder="Ej: Madrid"
+                    value={locationCity}
+                    onChange={(e) => { setLocationCity(e.target.value); setDiscoveryScope("country"); }}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">Estado / provincia</label>
+                  <input
+                    className="input"
+                    placeholder="Opcional"
+                    value={locationRegion}
+                    onChange={(e) => { setLocationRegion(e.target.value); setDiscoveryScope("country"); }}
+                    maxLength={80}
+                  />
+                </div>
+              </div>
+
+              <div className="ob-field">
+                <label className="ob-label">Descubrimiento por ubicación</label>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation}>
+                    Usar mi ubicación
+                  </button>
+                  <button type="button" className={`btn${discoveryScope === "country" ? " btn-primary" : ""}`} onClick={() => setDiscoveryScope("country")}>
+                    Manual
+                  </button>
+                  <button type="button" className={`btn${discoveryScope === "global" ? " btn-primary" : ""}`} onClick={() => { setDiscoveryScope("global"); setMaxDistanceKm(""); }}>
+                    Global
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                  {DISTANCE_OPTIONS.map((distance) => (
+                    <button
+                      key={distance}
+                      type="button"
+                      className={`btn${String(maxDistanceKm) === String(distance) && discoveryScope === "nearby" ? " btn-primary" : ""}`}
+                      onClick={() => { setDiscoveryScope("nearby"); setMaxDistanceKm(String(distance)); }}
+                    >
+                      {distance} km
+                    </button>
+                  ))}
                 </div>
               </div>
 

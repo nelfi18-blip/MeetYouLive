@@ -524,7 +524,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
-    const incomingAvatar = avatar !== undefined ? avatar : profileImage !== undefined ? profileImage : photo;
+    const incomingAvatar = avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = profilePhotos !== undefined ? profilePhotos : photos;
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {

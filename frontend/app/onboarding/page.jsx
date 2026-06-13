@@ -367,14 +367,14 @@ export default function OnboardingPage() {
         };
       }
       const normalizedAvatar = normalizeAvatarUrl(uploadData?.avatar || uploadData?.mainPhoto);
-      const normalizedUploadedPhoto = normalizeAvatarUrl(uploadData?.photo || uploadData?.avatarPath);
+      const normalizedAdditionalPhoto = normalizeAvatarUrl(uploadData?.photo || uploadData?.avatarPath);
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
       const normalizedPhotos = Array.isArray(uploadData?.profilePhotos)
         ? uploadData.profilePhotos.map((photo) => normalizeAvatarUrl(photo)).filter(Boolean).slice(0, MAX_PROFILE_PHOTOS)
         : [];
-      return { ok: true, avatar: normalizedAvatar, uploadedPhoto: normalizedUploadedPhoto, profilePhotos: normalizedPhotos };
+      return { ok: true, avatar: normalizedAvatar, additionalPhoto: normalizedAdditionalPhoto, profilePhotos: normalizedPhotos };
     };
 
     let workingMainFile = mainPhotoFile;
@@ -418,8 +418,8 @@ export default function OnboardingPage() {
         }
         if (extraUpload.profilePhotos.length) {
           finalProfilePhotos = extraUpload.profilePhotos.slice(0, MAX_PROFILE_PHOTOS);
-        } else if (extraUpload.uploadedPhoto && !finalProfilePhotos.includes(extraUpload.uploadedPhoto)) {
-          finalProfilePhotos.push(extraUpload.uploadedPhoto);
+        } else if (extraUpload.additionalPhoto && !finalProfilePhotos.includes(extraUpload.additionalPhoto)) {
+          finalProfilePhotos.push(extraUpload.additionalPhoto);
         }
       }
     } catch (err) {
@@ -469,7 +469,7 @@ export default function OnboardingPage() {
       }
       await fetch(`${API_URL}/api/user/me`, {
         method: "GET",
-        headers: { Authorization: ["Bearer", token].join(" ") },
+        headers: { Authorization: "Bearer " + token },
         cache: "no-store",
       }).catch(() => null);
       await updateSession?.();

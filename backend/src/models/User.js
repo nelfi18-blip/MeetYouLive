@@ -80,6 +80,33 @@ const discoveryPreferencesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const locationPointSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: {
+      type: [Number],
+      default: undefined,
+      validate: {
+        validator(value) {
+          if (value === undefined || value === null) return true;
+          if (!Array.isArray(value) || value.length !== 2) return false;
+          const [lng, lat] = value;
+          return (
+            Number.isFinite(lng) &&
+            Number.isFinite(lat) &&
+            lng >= -180 &&
+            lng <= 180 &&
+            lat >= -90 &&
+            lat <= 90
+          );
+        },
+        message: "locationPoint.coordinates must be [lng, lat]",
+      },
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -101,6 +128,7 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: () => ({ country: "", city: "", region: "", coordinates: { lat: null, lng: null } }),
     },
+    locationPoint: { type: locationPointSchema, default: null },
     locationLabel: { type: String, default: "" },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
     discoveryScope: { type: String, enum: ["nearby", "country", "global"], default: "global" },
@@ -250,6 +278,46 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.virtual("age").get(function getAge() {
+  if (!this.birthdate) return null;
+  const birthdate = this.birthdate instanceof Date ? this.birthdate : new Date(this.birthdate);
+  if (Number.isNaN(birthdate.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birthdate.getFullYear();
+  const monthDelta = now.getMonth() - birthdate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birthdate.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+});
+
+userSchema
+  .virtual("displayName")
+  .get(function getDisplayName() {
+    return this.name || "";
+  })
+  .set(function setDisplayName(value) {
+    if (typeof value === "string") this.name = value;
+  });
+
+userSchema
+  .virtual("genderPreference")
+  .get(function getGenderPreference() {
+    return this.interestedIn;
+  })
+  .set(function setGenderPreference(value) {
+    if (typeof value === "string") this.interestedIn = value;
+  });
+
+userSchema
+  .virtual("profileImage")
+  .get(function getProfileImage() {
+    return this.avatar || "";
+  })
+  .set(function setProfileImage(value) {
+    if (typeof value === "string") this.avatar = value;
+  });
+
 userSchema.index({
   role: 1,
   isBlocked: 1,
@@ -260,6 +328,7 @@ userSchema.index({
 });
 userSchema.index({ "location.country": 1, "location.city": 1, "location.region": 1 });
 userSchema.index({ "location.coordinates.lat": 1, "location.coordinates.lng": 1 });
+userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);
 

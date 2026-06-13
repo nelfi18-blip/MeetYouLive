@@ -20,6 +20,7 @@ const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
+const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
@@ -101,6 +102,10 @@ const normalizeDiscoveryForm = (user = {}) => {
   const ageRange = preferences.ageRange || {};
   const languages = Array.isArray(preferences.languages) ? preferences.languages : [];
   const goals = Array.isArray(preferences.goals) ? preferences.goals : [];
+  const location = user.location && typeof user.location === "object" ? user.location : {};
+  const legacyLocation = typeof user.location === "string" ? user.location : user.locationLabel || "";
+  const [legacyCity = "", legacyCountry = ""] = legacyLocation.split(",").map((part) => part.trim());
+  const coordinates = location.coordinates || {};
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
     interestedIn:
@@ -109,7 +114,13 @@ const normalizeDiscoveryForm = (user = {}) => {
         : user.interestedIn,
     discoveryAgeMin: ageRange.min ?? "",
     discoveryAgeMax: ageRange.max ?? "",
-    discoveryMaxDistanceKm: preferences.maxDistanceKm ?? "",
+    discoveryScope: user.discoveryScope || preferences.discoveryScope || "global",
+    discoveryMaxDistanceKm: user.maxDistanceKm ?? preferences.maxDistanceKm ?? "",
+    locationCountry: location.country || legacyCountry || "",
+    locationCity: location.city || legacyCity || "",
+    locationRegion: location.region || "",
+    locationLat: coordinates.lat ?? "",
+    locationLng: coordinates.lng ?? "",
     discoveryLanguages: languages.filter((lang) => ["es", "en", "pt"].includes(lang)),
     discoveryGoals: goals.filter((goal) => DISCOVERY_GOAL_OPTIONS.includes(goal)),
   };
@@ -134,9 +145,22 @@ const buildDiscoveryPayloadFromForm = (form) => {
   return {
     gender: form.gender === "" ? null : form.gender,
     interestedIn: form.interestedIn || "both",
+    location: {
+      country: (form.locationCountry || "").trim(),
+      city: (form.locationCity || "").trim(),
+      region: (form.locationRegion || "").trim(),
+      coordinates: {
+        lat: form.locationLat === "" ? null : Number(form.locationLat),
+        lng: form.locationLng === "" ? null : Number(form.locationLng),
+      },
+    },
+    locationLabel: [form.locationCity, form.locationRegion, form.locationCountry].filter(Boolean).join(", "),
+    maxDistanceKm,
+    discoveryScope: form.discoveryScope || "global",
     discoveryPreferences: {
       ageRange: { min: sortedMin, max: sortedMax },
       maxDistanceKm,
+      discoveryScope: form.discoveryScope || "global",
       languages: Array.isArray(form.discoveryLanguages) ? form.discoveryLanguages : [],
       goals: Array.isArray(form.discoveryGoals) ? form.discoveryGoals : [],
     },
@@ -225,7 +249,13 @@ export default function ProfilePage() {
     interestedIn: "",
     discoveryAgeMin: "",
     discoveryAgeMax: "",
+    discoveryScope: "global",
     discoveryMaxDistanceKm: "",
+    locationCountry: "",
+    locationCity: "",
+    locationRegion: "",
+    locationLat: "",
+    locationLng: "",
     discoveryLanguages: [],
     discoveryGoals: [],
   });
@@ -261,6 +291,16 @@ export default function ProfilePage() {
     dating: t("profile.goalDating"),
     networking: t("profile.goalNetworking"),
   };
+  const getScopeLabel = (scope = "global") => {
+    const normalizedScope = ["nearby", "country", "global"].includes(scope) ? scope : "global";
+    return {
+      nearby: t("profile.scopeNearby"),
+      country: t("profile.scopeCountry"),
+      global: t("profile.scopeGlobal"),
+    }[normalizedScope];
+  };
+  const isDistanceButtonActive = (distance) =>
+    Number(editForm.discoveryMaxDistanceKm) === distance && editForm.discoveryScope === "nearby";
 
   const refreshProfileSession = useCallback(async () => {
     try {
@@ -457,6 +497,27 @@ export default function ProfilePage() {
     });
     setPhotoUrlInput("");
     setSaveError(""); setSaveSuccess("");
+  };
+
+  const handleUseCurrentLocation = () => {
+    setSaveError("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setSaveError(t("profile.locationUnavailable"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setEditForm((f) => ({
+          ...f,
+          discoveryScope: "nearby",
+          locationLat: String(position.coords.latitude),
+          locationLng: String(position.coords.longitude),
+          locationCity: f.locationCity || t("profile.automaticLocationLabel"),
+        }));
+      },
+      () => setSaveError(t("profile.locationPermissionDenied")),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
   };
 
   const handleSave = async (e) => {
@@ -922,15 +983,73 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.maxDistanceLabel")}</label>
+                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+                    {DISTANCE_OPTIONS.map((distance) => (
+                      <button
+                        key={distance}
+                        type="button"
+                        className={`btn${isDistanceButtonActive(distance) ? " btn-primary" : " btn-secondary"}`}
+                        onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "nearby", discoveryMaxDistanceKm: String(distance) }))}
+                      >
+                        {distance} km
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className={`btn${editForm.discoveryScope === "global" ? " btn-primary" : " btn-secondary"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "global", discoveryMaxDistanceKm: "" }))}
+                    >
+                      {t("profile.globalDistance")}
+                    </button>
+                  </div>
                   <input
                     className="input"
                     type="number"
                     min={1}
                     max={10000}
                     value={editForm.discoveryMaxDistanceKm}
-                    onChange={(e) => setEditForm((f) => ({ ...f, discoveryMaxDistanceKm: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "nearby", discoveryMaxDistanceKm: e.target.value }))}
                     placeholder={t("profile.maxDistancePlaceholder")}
                   />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t("profile.locationControlsTitle")}</label>
+                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+                    <button
+                      type="button"
+                      className={`btn${editForm.discoveryScope === "nearby" ? " btn-primary" : " btn-secondary"}`}
+                      onClick={handleUseCurrentLocation}
+                    >
+                      {t("profile.useCurrentLocation")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn${editForm.discoveryScope === "country" ? " btn-primary" : " btn-secondary"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "country" }))}
+                    >
+                      {t("profile.manualLocation")}
+                    </button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.6rem" }}>
+                    <input
+                      className="input"
+                      value={editForm.locationCountry}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCountry: e.target.value }))}
+                      placeholder={t("profile.countryPlaceholder")}
+                    />
+                    <input
+                      className="input"
+                      value={editForm.locationCity}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationCity: e.target.value }))}
+                      placeholder={t("profile.cityPlaceholder")}
+                    />
+                    <input
+                      className="input"
+                      value={editForm.locationRegion}
+                      onChange={(e) => setEditForm((f) => ({ ...f, discoveryScope: "country", locationRegion: e.target.value }))}
+                      placeholder={t("profile.regionPlaceholder")}
+                    />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>
@@ -1148,6 +1267,8 @@ export default function ProfilePage() {
             user.discoveryPreferences?.ageRange?.min != null ||
             user.discoveryPreferences?.ageRange?.max != null ||
             user.discoveryPreferences?.maxDistanceKm != null ||
+            user.discoveryScope ||
+            user.discoveryPreferences?.discoveryScope ||
             (user.discoveryPreferences?.languages || []).length > 0 ||
             (user.discoveryPreferences?.goals || []).length > 0) && (
             <div className="form-card">
@@ -1170,6 +1291,12 @@ export default function ProfilePage() {
                 {user.discoveryPreferences?.maxDistanceKm != null && (
                   <div>
                     <strong>{t("profile.distanceSummaryLabel")}:</strong> {user.discoveryPreferences.maxDistanceKm} km
+                  </div>
+                )}
+                {(user.discoveryScope || user.discoveryPreferences?.discoveryScope) && (
+                  <div>
+                    <strong>{t("profile.scopeSummaryLabel")}:</strong>{" "}
+                    {getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}
                   </div>
                 )}
                 {(user.discoveryPreferences?.languages || []).length > 0 && (

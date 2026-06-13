@@ -13,8 +13,12 @@ const { getOnlineUsers } = require("../lib/socket.js");
 const {
   DISCOVERY_GOAL_INTENT_MAP,
   DISCOVERY_GENDER_MATCH,
+  applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
+  buildDiscoveryLocationMatch,
+  combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getLocationLabel,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
 
@@ -114,6 +118,63 @@ const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
 const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
+const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
+const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+// Nearby filters are applied after fetching candidates, so this buffer reduces empty pages
+// when many profiles fall outside the selected radius.
+const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
+
+const normalizeLocationString = (value, maxLength = 80) =>
+  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
+const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
+
+const parseCoordinatesInput = (input) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { lat: null, lng: null };
+  const lat = Number(input.lat ?? input.latitude);
+  const lng = Number(input.lng ?? input.longitude);
+  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };
+  return { lat, lng };
+};
+
+const parseLocationString = (value = "") => {
+  // Legacy manual input is interpreted as "city, region, country"; any middle
+  // comma-separated parts are preserved together as the optional region.
+  const parts = normalizeLocationString(value, 160)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    city: parts[0] || "",
+    country: parts.length > 1 ? parts[parts.length - 1] : "",
+    region: parts.length > 2 ? parts.slice(1, -1).join(", ") : "",
+  };
+};
+
+const parseLocationInput = (locationInput, locationLabelInput) => {
+  const base =
+    locationInput && typeof locationInput === "object" && !Array.isArray(locationInput)
+      ? locationInput
+      : parseLocationString(typeof locationInput === "string" ? locationInput : locationLabelInput);
+  const country = normalizeLocationString(base.country);
+  const city = normalizeLocationString(base.city);
+  const region = normalizeLocationString(base.region);
+  const coordinates = parseCoordinatesInput(base.coordinates || base);
+  const location = { country, city, region, coordinates };
+  const explicitLabel = normalizeLocationString(locationLabelInput, 160);
+  const locationLabel = explicitLabel || getLocationLabel(location);
+  return { location, locationLabel };
+};
+
+const parseMaxDistanceInput = (value) => {
+  if (value === null || value === "" || value === "global") return null;
+  const parsed = Number(value);
+  // undefined means "ignore this malformed input"; null intentionally clears distance.
+  if (!Number.isFinite(parsed)) return undefined;
+  const distance = Math.max(1, Math.min(10000, Math.floor(parsed)));
+  return ALLOWED_DISTANCE_OPTIONS.includes(distance) ? distance : Math.min(10000, distance);
+};
 
 /**
  * Check whether a user object meets the minimum profile requirements for
@@ -126,7 +187,7 @@ const getMinProfileCompletion = (user = {}) => {
   const hasPhoto = (typeof user.avatar === "string" && user.avatar.trim().length > 0) ||
     (Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
   const hasBirthdate = Boolean(user.birthdate);
-  const hasLocation = typeof user.location === "string" && user.location.trim().length > 0;
+  const hasLocation = getLocationLabel(user.location, user.locationLabel).length > 0;
   const hasGender = typeof user.gender === "string" && user.gender.trim().length > 0;
   const hasInterestedIn = typeof user.interestedIn === "string" && user.interestedIn.trim().length > 0;
   const hasIntent = typeof user.intent === "string" && user.intent.trim().length > 0;
@@ -284,14 +345,12 @@ const parseDiscoveryPreferencesInput = (input) => {
   }
 
   if (input.maxDistanceKm !== undefined) {
-    if (input.maxDistanceKm === null || input.maxDistanceKm === "") {
-      updates.maxDistanceKm = null;
-    } else {
-      const parsedDistance = Number(input.maxDistanceKm);
-      if (Number.isFinite(parsedDistance)) {
-        updates.maxDistanceKm = Math.max(1, Math.min(10000, Math.floor(parsedDistance)));
-      }
-    }
+    const parsedDistance = parseMaxDistanceInput(input.maxDistanceKm);
+    if (parsedDistance !== undefined) updates.maxDistanceKm = parsedDistance;
+  }
+
+  if (input.discoveryScope !== undefined) {
+    updates.discoveryScope = ALLOWED_DISCOVERY_SCOPES.includes(input.discoveryScope) ? input.discoveryScope : "global";
   }
 
   if (Array.isArray(input.languages)) {
@@ -417,6 +476,10 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       intent,
       gender,
       interestedIn,
+      location,
+      locationLabel,
+      maxDistanceKm,
+      discoveryScope,
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
@@ -453,9 +516,42 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (interestedIn === "") updates.interestedIn = "both";
       else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
+    if (location !== undefined || locationLabel !== undefined) {
+      const parsedLocation = parseLocationInput(location, locationLabel);
+      updates.location = parsedLocation.location;
+      updates.locationLabel = parsedLocation.locationLabel;
+    }
+    if (maxDistanceKm !== undefined) {
+      const parsedDistance = parseMaxDistanceInput(maxDistanceKm);
+      if (parsedDistance !== undefined) {
+        updates.maxDistanceKm = parsedDistance;
+        updates.discoveryPreferences = {
+          ...(updates.discoveryPreferences || {}),
+          maxDistanceKm: parsedDistance,
+        };
+      }
+    }
+    if (discoveryScope !== undefined && ALLOWED_DISCOVERY_SCOPES.includes(discoveryScope)) {
+      updates.discoveryScope = discoveryScope;
+      updates.discoveryPreferences = {
+        ...(updates.discoveryPreferences || {}),
+        discoveryScope,
+      };
+    }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
-      if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
+      if (parsedDiscoveryPreferences) {
+        updates.discoveryPreferences = {
+          ...(updates.discoveryPreferences || {}),
+          ...parsedDiscoveryPreferences,
+        };
+        if (parsedDiscoveryPreferences.maxDistanceKm !== undefined) {
+          updates.maxDistanceKm = parsedDiscoveryPreferences.maxDistanceKm;
+        }
+        if (parsedDiscoveryPreferences.discoveryScope !== undefined) {
+          updates.discoveryScope = parsedDiscoveryPreferences.discoveryScope;
+        }
+      }
     }
 
     if (updates.username) {
@@ -517,10 +613,13 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       bio,
       intent,
       interestedIn,
+      locationLabel,
+      maxDistanceKm,
+      discoveryScope,
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "name avatar profilePhotos birthdate location gender interestedIn interests intent"
+      "name avatar profilePhotos birthdate location locationLabel gender interestedIn interests intent"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -537,7 +636,11 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
-    if (location !== undefined) updates.location = location.trim();
+    if (location !== undefined || locationLabel !== undefined) {
+      const parsedLocation = parseLocationInput(location, locationLabel);
+      updates.location = parsedLocation.location;
+      updates.locationLabel = parsedLocation.locationLabel;
+    }
     if (name !== undefined) {
       const trimmed = name.trim();
       if (trimmed.length > 0) updates.name = trimmed;
@@ -551,9 +654,37 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       if (interestedIn === "") updates.interestedIn = "both";
       else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
+    if (maxDistanceKm !== undefined) {
+      const parsedDistance = parseMaxDistanceInput(maxDistanceKm);
+      if (parsedDistance !== undefined) {
+        updates.maxDistanceKm = parsedDistance;
+        updates.discoveryPreferences = {
+          ...(updates.discoveryPreferences || {}),
+          maxDistanceKm: parsedDistance,
+        };
+      }
+    }
+    if (discoveryScope !== undefined && ALLOWED_DISCOVERY_SCOPES.includes(discoveryScope)) {
+      updates.discoveryScope = discoveryScope;
+      updates.discoveryPreferences = {
+        ...(updates.discoveryPreferences || {}),
+        discoveryScope,
+      };
+    }
     if (discoveryPreferences !== undefined) {
       const parsedDiscoveryPreferences = parseDiscoveryPreferencesInput(discoveryPreferences);
-      if (parsedDiscoveryPreferences) updates.discoveryPreferences = parsedDiscoveryPreferences;
+      if (parsedDiscoveryPreferences) {
+        updates.discoveryPreferences = {
+          ...(updates.discoveryPreferences || {}),
+          ...parsedDiscoveryPreferences,
+        };
+        if (parsedDiscoveryPreferences.maxDistanceKm !== undefined) {
+          updates.maxDistanceKm = parsedDiscoveryPreferences.maxDistanceKm;
+        }
+        if (parsedDiscoveryPreferences.discoveryScope !== undefined) {
+          updates.discoveryScope = parsedDiscoveryPreferences.discoveryScope;
+        }
+      }
     }
 
     // Determine whether the merged profile state meets minimum requirements
@@ -611,24 +742,26 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
 
     // Fetch the current user's interests and intent for compatibility scoring
     const me = await User.findById(req.userId).select(
-      "interests intent gender interestedIn discoveryPreferences"
+      "interests intent gender interestedIn discoveryPreferences location locationLabel maxDistanceKm discoveryScope"
     );
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
     const discoveryFilters = buildDiscoveryMatch(me);
+    const locationMatch = buildDiscoveryLocationMatch(me);
+    const mergedDiscoveryFilters = combineDiscoveryFilters(discoveryFilters, locationMatch);
 
     const now = new Date();
 
     // Boosted users (active boost) appear first, then newest first.
     // Exclude all staff roles from public discovery
-    const users = await User.aggregate([
+    const fetchedUsers = await User.aggregate([
       {
         $match: {
           _id: { $ne: new mongoose.Types.ObjectId(req.userId) },
           isBlocked: false,
           onboardingComplete: true,
           role: { $nin: STAFF_ROLES },
-          ...discoveryFilters,
+          ...mergedDiscoveryFilters,
         },
       },
       {
@@ -639,19 +772,19 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         },
       },
       { $sort: { _boostRank: -1, createdAt: -1 } },
-      { $skip: skip },
-      { $limit: limit },
+      { $limit: Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250) },
       {
         $project: {
           username: 1, name: 1, avatar: 1, bio: 1, gender: 1,
           profilePhotos: 1, photos: 1, profileImage: 1, photo: 1,
-          interests: 1, intent: 1, location: 1, role: 1,
+          interests: 1, intent: 1, location: 1, locationLabel: 1, role: 1,
           creatorProfile: 1, birthdate: 1,
           followersCount: 1, isVerified: 1, isPremium: 1,
           isBoosted: { $gt: ["$crushBoostUntil", now] },
         },
       },
     ]);
+    const users = applyDiscoveryLocationFilter(me, fetchedUsers).slice(skip, skip + limit);
 
     // Enrich with live status for creator accounts
     const userIds = users.map((u) => u._id);

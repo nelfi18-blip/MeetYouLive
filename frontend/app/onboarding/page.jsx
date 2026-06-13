@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -13,6 +14,7 @@ const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
@@ -55,6 +57,10 @@ const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
   return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 };
+
+const hasValidLocation = (city, country, coordinates = {}) =>
+  Boolean(city.trim() && country.trim()) ||
+  (Number.isFinite(coordinates.lat) && Number.isFinite(coordinates.lng));
 
 const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   if (typeof API_URL !== "string" || !API_URL.trim()) {
@@ -129,6 +135,7 @@ const PATHS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const { update: updateSession } = useSession();
+  const { t } = useLanguage();
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -144,7 +151,12 @@ export default function OnboardingPage() {
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
   const [birthdate, setBirthdate] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationCountry, setLocationCountry] = useState("");
+  const [locationCity, setLocationCity] = useState("");
+  const [locationRegion, setLocationRegion] = useState("");
+  const [locationCoordinates, setLocationCoordinates] = useState({ lat: null, lng: null });
+  const [discoveryScope, setDiscoveryScope] = useState("global");
+  const [maxDistanceKm, setMaxDistanceKm] = useState("");
   const [interestedIn, setInterestedIn] = useState("both");
 
   // Step 3 fields (interests)
@@ -160,7 +172,7 @@ export default function OnboardingPage() {
     const checks = [
       Boolean(mainPhotoPreview),
       Boolean(birthdate),
-      Boolean(location.trim()),
+      hasValidLocation(locationCity, locationCountry, locationCoordinates),
       Boolean(gender),
       Boolean(interestedIn),
       interests.length >= MIN_INTERESTS,
@@ -194,6 +206,30 @@ export default function OnboardingPage() {
         : prev.length < MAX_INTERESTS
         ? [...prev, interest]
         : prev
+    );
+  };
+
+  const handleUseCurrentLocation = () => {
+    setError("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError(t("profile.locationUnavailable"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setDiscoveryScope("nearby");
+        setMaxDistanceKm((current) => current || "25");
+        setLocationCity((current) => current || t("profile.automaticLocationLabel"));
+      },
+      () => {
+        setError(t("profile.locationPermissionDenied"));
+        setDiscoveryScope("country");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
@@ -295,30 +331,32 @@ export default function OnboardingPage() {
   const handleNext = () => {
     setError("");
     if (step === 1 && !selectedPath) {
-      setError("Elige tu camino para continuar");
+      setError(t("onboarding.pathRequired"));
       return;
     }
     if (step === 2) {
       if (!name.trim()) {
-        setError("El nombre es obligatorio");
+        setError(t("onboarding.nameRequired"));
         return;
       }
       if (!gender) {
-        setError("Selecciona tu género para continuar");
+        setError(t("onboarding.genderRequired"));
         return;
       }
       if (!birthdate) {
-        setError("La fecha de nacimiento es obligatoria");
+        setError(t("onboarding.birthdateRequired"));
         return;
       }
-      if (!location.trim()) {
-        setError("La ubicación es obligatoria");
+      if (
+        !hasValidLocation(locationCity, locationCountry, locationCoordinates)
+      ) {
+        setError(t("onboarding.locationRequired"));
         return;
       }
     }
     if (step === 3) {
       if (interests.length < MIN_INTERESTS) {
-        setError(`Selecciona al menos ${MIN_INTERESTS} intereses para continuar`);
+        setError(t("onboarding.interestsRequired").replace("{count}", String(MIN_INTERESTS)));
         return;
       }
     }
@@ -442,6 +480,7 @@ export default function OnboardingPage() {
     // Map selected path to intent
     const intentMap = { crush: "dating", live: "live", creator: "creator" };
     const intent = intentMap[selectedPath] || "";
+    const locationLabel = [locationCity, locationRegion, locationCountry].filter(Boolean).join(", ");
 
     try {
       const res = await fetch(`${API_URL}/api/user/me/onboarding`, {
@@ -456,7 +495,19 @@ export default function OnboardingPage() {
           gender: gender || undefined,
           birthdate: birthdate || undefined,
           interests,
-          location: location.trim() || undefined,
+          location: {
+            country: locationCountry.trim(),
+            city: locationCity.trim(),
+            region: locationRegion.trim(),
+            coordinates: locationCoordinates,
+          },
+          locationLabel: locationLabel || undefined,
+          maxDistanceKm: maxDistanceKm || undefined,
+          discoveryScope,
+          discoveryPreferences: {
+            maxDistanceKm: maxDistanceKm || null,
+            discoveryScope,
+          },
           avatar: finalAvatarUrl || undefined,
           profilePhotos: finalProfilePhotos.length ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS) : undefined,
           intent: intent || undefined,
@@ -663,12 +714,12 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Ciudad / País *</label>
+                  <label className="ob-label">{t("onboarding.countryLabel")}</label>
                   <input
                     className="input"
-                    placeholder="Ej: Madrid, España"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder={t("profile.countryPlaceholder")}
+                    value={locationCountry}
+                    onChange={(e) => { setLocationCountry(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                 </div>
@@ -684,6 +735,56 @@ export default function OnboardingPage() {
                     <option value="women">Mujeres</option>
                     <option value="men">Hombres</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="ob-row">
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">{t("onboarding.cityLabel")}</label>
+                  <input
+                    className="input"
+                    placeholder={t("profile.cityPlaceholder")}
+                    value={locationCity}
+                    onChange={(e) => { setLocationCity(e.target.value); setDiscoveryScope("country"); }}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="ob-field ob-field-half">
+                  <label className="ob-label">{t("onboarding.regionLabel")}</label>
+                  <input
+                    className="input"
+                    placeholder={t("profile.regionPlaceholder")}
+                    value={locationRegion}
+                    onChange={(e) => { setLocationRegion(e.target.value); setDiscoveryScope("country"); }}
+                    maxLength={80}
+                  />
+                </div>
+              </div>
+
+              <div className="ob-field">
+                <label className="ob-label">{t("onboarding.discoveryLocationTitle")}</label>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                  <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation}>
+                    {t("profile.useCurrentLocation")}
+                  </button>
+                  <button type="button" className={`btn${discoveryScope === "country" ? " btn-primary" : ""}`} onClick={() => setDiscoveryScope("country")}>
+                    {t("profile.manualLocation")}
+                  </button>
+                  <button type="button" className={`btn${discoveryScope === "global" ? " btn-primary" : ""}`} onClick={() => { setDiscoveryScope("global"); setMaxDistanceKm(""); }}>
+                    {t("profile.globalDistance")}
+                  </button>
+                </div>
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                  {DISTANCE_OPTIONS.map((distance) => (
+                    <button
+                      key={distance}
+                      type="button"
+                      className={`btn${String(maxDistanceKm) === String(distance) && discoveryScope === "nearby" ? " btn-primary" : ""}`}
+                      onClick={() => { setDiscoveryScope("nearby"); setMaxDistanceKm(String(distance)); }}
+                    >
+                      {distance} km
+                    </button>
+                  ))}
                 </div>
               </div>
 

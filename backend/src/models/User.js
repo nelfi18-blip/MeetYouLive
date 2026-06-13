@@ -68,6 +68,7 @@ const discoveryPreferencesSchema = new mongoose.Schema(
   {
     ageRange: { type: discoveryAgeRangeSchema, default: () => ({}) },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
+    discoveryScope: { type: String, enum: ["nearby", "country", "global"], default: "global" },
     languages: { type: [String], default: [] },
     goals: {
       // Discovery goals are mapped to profile intent filters in backend/src/lib/discovery.js.
@@ -94,7 +95,15 @@ const userSchema = new mongoose.Schema(
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
     interestedIn: { type: String, enum: ["women", "men", "both", ""], default: "both" },
     discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
-    location: { type: String, default: "" },
+    location: {
+      // Mixed keeps legacy string locations readable while allowing the new
+      // structured shape: { country, city, region, coordinates: { lat, lng } }.
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ country: "", city: "", region: "", coordinates: { lat: null, lng: null } }),
+    },
+    locationLabel: { type: String, default: "" },
+    maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
+    discoveryScope: { type: String, enum: ["nearby", "country", "global"], default: "global" },
     onboardingComplete: { type: Boolean, default: false },
     role: { 
       type: String, 
@@ -249,6 +258,8 @@ userSchema.index({
   createdAt: -1,
   _id: -1,
 });
+userSchema.index({ "location.country": 1, "location.city": 1, "location.region": 1 });
+userSchema.index({ "location.coordinates.lat": 1, "location.coordinates.lng": 1 });
 
 const User = mongoose.model("User", userSchema);
 

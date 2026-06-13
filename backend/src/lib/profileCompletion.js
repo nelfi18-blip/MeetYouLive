@@ -15,7 +15,7 @@ const PROFILE_REQUIRED_FIELDS = [
   "interests",
 ];
 const PREFERENCE_FIELDS = new Set(["gender", "interestedIn"]);
-const ALLOWED_INTERESTED_IN = new Set(["women", "men", "both"]);
+const ALLOWED_INTERESTED_IN = new Set(["female", "male", "women", "men", "both"]);
 const ALLOWED_DISCOVERY_SCOPES = new Set(["nearby", "country", "global"]);
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;

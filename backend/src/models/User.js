@@ -81,6 +81,16 @@ const discoveryPreferencesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const userImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, default: "" },
+    publicId: { type: String, default: "" },
+    isPrimary: { type: Boolean, default: false },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const locationPointSchema = new mongoose.Schema(
   {
     type: { type: String, enum: ["Point"], default: "Point" },
@@ -108,6 +118,38 @@ const locationPointSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const locationSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: {
+      type: [Number],
+      default: undefined,
+      validate: {
+        validator(value) {
+          if (value === undefined || value === null) return true;
+          if (!Array.isArray(value) || value.length !== 2) return false;
+          const [lng, lat] = value;
+          return (
+            Number.isFinite(lng) &&
+            Number.isFinite(lat) &&
+            lng >= -180 &&
+            lng <= 180 &&
+            lat >= -90 &&
+            lat <= 90
+          );
+        },
+        message:
+          "location.coordinates must be [longitude, latitude] with longitude between -180 and 180 and latitude between -90 and 90",
+      },
+    },
+    country: { type: String, default: "" },
+    city: { type: String, default: "" },
+    region: { type: String, default: "" },
+    label: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -116,19 +158,19 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     bio: { type: String, default: "" },
     avatar: { type: String, default: "" },
+    images: { type: [userImageSchema], default: [] },
     profilePhotos: { type: [String], default: [] },
-    gender: { type: String, enum: ["man", "woman", "nonbinary", "other", "", null], default: null },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", "prefer_not_to_say", "man", "woman", "nonbinary", "", null],
+      default: null,
+    },
     birthdate: { type: Date, default: null },
     interests: { type: [String], default: [] },
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
-    interestedIn: { type: String, enum: ["women", "men", "both", ""], default: "both" },
+    interestedIn: { type: String, enum: ["male", "female", "men", "women", "both", ""], default: "both" },
     discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
-    location: {
-      // Mixed keeps legacy string locations readable while allowing the new
-      // structured shape: { country, city, region, coordinates: { lat, lng } }.
-      type: mongoose.Schema.Types.Mixed,
-      default: () => ({ country: "", city: "", region: "", coordinates: { lat: null, lng: null } }),
-    },
+    location: { type: locationSchema, default: () => ({}) },
     locationPoint: { type: locationPointSchema, default: null },
     locationLabel: { type: String, default: "" },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
@@ -319,7 +361,10 @@ userSchema.index({
   _id: -1,
 });
 userSchema.index({ "location.country": 1, "location.city": 1, "location.region": 1 });
-userSchema.index({ "location.coordinates.lat": 1, "location.coordinates.lng": 1 });
+userSchema.index(
+  { location: "2dsphere" },
+  { partialFilterExpression: { "location.coordinates": { $type: "array" } } }
+);
 userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);

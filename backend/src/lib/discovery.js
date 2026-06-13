@@ -6,9 +6,11 @@ const DISCOVERY_GOAL_INTENT_MAP = {
 };
 
 const DISCOVERY_GENDER_MATCH = {
-  women: ["woman"],
-  men: ["man"],
-  both: ["woman", "man"],
+  female: ["female", "woman"],
+  male: ["male", "man"],
+  women: ["female", "woman"],
+  men: ["male", "man"],
+  both: ["female", "male", "woman", "man"],
 };
 
 const isUnsetInterestedIn = (interestedIn) =>
@@ -38,13 +40,16 @@ const getLocationLabel = (location, fallback = "") => {
   const parts = [location.city, location.region, location.country]
     .map((part) => (typeof part === "string" ? part.trim() : ""))
     .filter(Boolean);
-  return parts.join(", ") || (typeof fallback === "string" ? fallback.trim() : "");
+  return parts.join(", ") || location.label || (typeof fallback === "string" ? fallback.trim() : "");
 };
 
 const getLocationCoordinates = (user = {}) => {
   const coordinates = user?.location?.coordinates;
-  const lat = Number(coordinates?.lat);
-  const lng = Number(coordinates?.lng);
+  const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
+  const pointCoordinates = user?.locationPoint?.coordinates;
+  const [pointLng, pointLat] = Array.isArray(pointCoordinates) ? pointCoordinates : [];
+  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? pointLat);
+  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? pointLng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
@@ -136,9 +141,10 @@ const buildDiscoveryMatch = (viewer = null) => {
     match.gender = { $in: DISCOVERY_GENDER_MATCH[viewer.interestedIn] };
   }
 
-  if (viewer.gender === "man" || viewer.gender === "woman") {
+  if (viewer.gender === "man" || viewer.gender === "male" || viewer.gender === "woman" || viewer.gender === "female") {
+    const viewerIsMale = viewer.gender === "man" || viewer.gender === "male";
     const reciprocalInterestedIn =
-      viewer.gender === "man" ? ["", null, "men", "both"] : ["", null, "women", "both"];
+      viewerIsMale ? ["", null, "men", "male", "both"] : ["", null, "women", "female", "both"];
     match.interestedIn = { $in: reciprocalInterestedIn };
   }
 

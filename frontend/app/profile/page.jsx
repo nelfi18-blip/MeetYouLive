@@ -106,6 +106,7 @@ const normalizeDiscoveryForm = (user = {}) => {
   const legacyLocation = typeof user.location === "string" ? user.location : user.locationLabel || "";
   const [legacyCity = "", legacyCountry = ""] = legacyLocation.split(",").map((part) => part.trim());
   const coordinates = location.coordinates || {};
+  const [coordinateLng, coordinateLat] = Array.isArray(coordinates) ? coordinates : [];
   return {
     gender: typeof user.gender === "string" ? user.gender : "",
     interestedIn:
@@ -119,8 +120,8 @@ const normalizeDiscoveryForm = (user = {}) => {
     locationCountry: location.country || legacyCountry || "",
     locationCity: location.city || legacyCity || "",
     locationRegion: location.region || "",
-    locationLat: coordinates.lat ?? "",
-    locationLng: coordinates.lng ?? "",
+    locationLat: coordinateLat ?? coordinates.lat ?? "",
+    locationLng: coordinateLng ?? coordinates.lng ?? "",
     discoveryLanguages: languages.filter((lang) => ["es", "en", "pt"].includes(lang)),
     discoveryGoals: goals.filter((goal) => DISCOVERY_GOAL_OPTIONS.includes(goal)),
   };

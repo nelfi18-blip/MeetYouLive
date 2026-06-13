@@ -481,10 +481,14 @@ export default function OnboardingPage() {
     const intentMap = { crush: "dating", live: "live", creator: "creator" };
     const intent = intentMap[selectedPath] || "";
     const locationLabel = [locationCity, locationRegion, locationCountry].filter(Boolean).join(", ");
+    const coordinates =
+      Number.isFinite(locationCoordinates.lng) && Number.isFinite(locationCoordinates.lat)
+        ? [locationCoordinates.lng, locationCoordinates.lat]
+        : undefined;
 
     try {
-      const res = await fetch(`${API_URL}/api/user/me/onboarding`, {
-        method: "PATCH",
+      const res = await fetch(`${API_URL}/api/onboarding`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -496,10 +500,12 @@ export default function OnboardingPage() {
           birthdate: birthdate || undefined,
           interests,
           location: {
+            type: "Point",
+            coordinates,
             country: locationCountry.trim(),
             city: locationCity.trim(),
             region: locationRegion.trim(),
-            coordinates: locationCoordinates,
+            label: locationLabel || undefined,
           },
           locationLabel: locationLabel || undefined,
           maxDistanceKm: maxDistanceKm || undefined,
@@ -508,6 +514,12 @@ export default function OnboardingPage() {
             maxDistanceKm: maxDistanceKm || null,
             discoveryScope,
           },
+          images: finalProfilePhotos.length
+            ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
+                url,
+                isPrimary: url === finalAvatarUrl || (!finalAvatarUrl && index === 0),
+              }))
+            : undefined,
           avatar: finalAvatarUrl || undefined,
           profilePhotos: finalProfilePhotos.length ? finalProfilePhotos.slice(0, MAX_PROFILE_PHOTOS) : undefined,
           intent: intent || undefined,
@@ -519,13 +531,27 @@ export default function OnboardingPage() {
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      if (data.onboardingComplete !== true) {
-        const missing = data.profileCompletion?.missing;
+      const updatedUser = data.user || data;
+      if (data.onboardingComplete !== true && updatedUser.onboardingComplete !== true) {
+        const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing;
         const missingMessage = Array.isArray(missing) && missing.length
           ? `Faltan datos obligatorios: ${missing.join(", ")}`
           : "Faltan datos obligatorios del perfil.";
         setError(missingMessage);
         return;
+      }
+      try {
+        localStorage.setItem(
+          "meetyoulive:user",
+          JSON.stringify({
+            id: updatedUser._id || updatedUser.id || "",
+            name: updatedUser.name || "",
+            avatar: updatedUser.avatar || "",
+            onboardingComplete: updatedUser.onboardingComplete === true,
+          })
+        );
+      } catch {
+        // Ignore storage failures; the freshly updated session/profile remains canonical.
       }
       const profileRes = await fetch(`${API_URL}/api/user/me`, {
         method: "GET",
@@ -693,10 +719,10 @@ export default function OnboardingPage() {
                     onChange={(e) => setGender(e.target.value)}
                   >
                     <option value="">Selecciona…</option>
-                    <option value="man">Hombre</option>
-                    <option value="woman">Mujer</option>
-                    <option value="nonbinary">No binario</option>
+                    <option value="male">Hombre</option>
+                    <option value="female">Mujer</option>
                     <option value="other">Otro</option>
+                    <option value="prefer_not_to_say">Prefiero no decirlo</option>
                   </select>
                 </div>
 
@@ -732,8 +758,8 @@ export default function OnboardingPage() {
                     onChange={(e) => setInterestedIn(e.target.value)}
                   >
                     <option value="both">Todos</option>
-                    <option value="women">Mujeres</option>
-                    <option value="men">Hombres</option>
+                    <option value="female">Mujeres</option>
+                    <option value="male">Hombres</option>
                   </select>
                 </div>
               </div>

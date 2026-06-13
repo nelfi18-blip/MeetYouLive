@@ -6,6 +6,7 @@ describe("User model profile fields", () => {
     expect(User.schema.path("birthdate")).toBeTruthy();
     expect(User.schema.path("interestedIn")).toBeTruthy();
     expect(User.schema.path("avatar")).toBeTruthy();
+    expect(User.schema.path("images")).toBeTruthy();
     expect(User.schema.path("profilePhotos")).toBeTruthy();
 
     expect(User.schema.path("displayName")).toBeUndefined();
@@ -58,6 +59,7 @@ describe("User model profile fields", () => {
     expect(User.schema.path("locationPoint")).toBeTruthy();
 
     const indexes = User.schema.indexes();
+    expect(indexes.some(([fields]) => fields.location === "2dsphere")).toBe(true);
     expect(indexes.some(([fields]) => fields.locationPoint === "2dsphere")).toBe(true);
 
     const validUser = new User({
@@ -73,5 +75,38 @@ describe("User model profile fields", () => {
       locationPoint: { type: "Point", coordinates: [-190, -33.45] },
     });
     expect(invalidUser.validateSync().errors["locationPoint.coordinates"]).toBeTruthy();
+  });
+
+  test("supports onboarding images and GeoJSON location", () => {
+    const user = new User({
+      email: "onboarding-schema@example.com",
+      password: "secret",
+      images: [
+        {
+          url: "https://example.com/photo.jpg",
+          publicId: "photo-public-id",
+          isPrimary: true,
+          uploadedAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ],
+      location: {
+        type: "Point",
+        coordinates: [-70.66, -33.45],
+        country: "Chile",
+        city: "Santiago",
+        region: "RM",
+        label: "Santiago, RM, Chile",
+      },
+      gender: "female",
+      interestedIn: "male",
+      birthdate: new Date("2000-01-01T00:00:00.000Z"),
+      interests: ["Música", "Viajes", "Cine"],
+      intent: "dating",
+      onboardingComplete: true,
+    });
+
+    expect(user.validateSync()).toBeUndefined();
+    expect(user.images[0].url).toBe("https://example.com/photo.jpg");
+    expect(user.location.coordinates).toEqual([-70.66, -33.45]);
   });
 });

@@ -524,7 +524,8 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
-    // profilePhotos/avatar are canonical; aliases keep older clients from losing photos.
+    // profilePhotos/avatar are canonical; photos/profileImage/photo are legacy aliases
+    // still emitted by profile/feed serializers and accepted here to avoid dropping photos.
     const incomingAvatar = avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = profilePhotos !== undefined ? profilePhotos : photos;
 

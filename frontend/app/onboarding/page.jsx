@@ -378,8 +378,12 @@ export default function OnboardingPage() {
 
     const mergeProfilePhotos = (currentPhotos, nextPhotos) => {
       const merged = [];
+      const seen = new Set();
       for (const photo of [...currentPhotos, ...nextPhotos]) {
-        if (photo && !merged.includes(photo)) merged.push(photo);
+        if (photo && !seen.has(photo)) {
+          seen.add(photo);
+          merged.push(photo);
+        }
         if (merged.length >= MAX_PROFILE_PHOTOS) break;
       }
       return merged;
@@ -481,6 +485,7 @@ export default function OnboardingPage() {
         setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
         return;
       }
+      // Force the backend profile to refresh before leaving onboarding; the body is not needed here.
       await profileRes.json().catch(() => null);
       await updateSession?.();
       router.replace("/feed");

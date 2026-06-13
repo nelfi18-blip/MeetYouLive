@@ -118,23 +118,28 @@ const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 /**
  * Check whether a user object meets the minimum profile requirements for
  * onboarding completion.
- * Required: photo, birthdate, location, gender, interestedIn, ≥ MIN_ONBOARDING_INTERESTS interests.
+ * Required: name, photo, birthdate, location, gender, interestedIn,
+ * intent, ≥ MIN_ONBOARDING_INTERESTS interests.
  */
 const getMinProfileCompletion = (user = {}) => {
+  const hasName = typeof user.name === "string" && user.name.trim().length > 0;
   const hasPhoto = (typeof user.avatar === "string" && user.avatar.trim().length > 0) ||
     (Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
   const hasBirthdate = Boolean(user.birthdate);
   const hasLocation = typeof user.location === "string" && user.location.trim().length > 0;
   const hasGender = typeof user.gender === "string" && user.gender.trim().length > 0;
   const hasInterestedIn = typeof user.interestedIn === "string" && user.interestedIn.trim().length > 0;
+  const hasIntent = typeof user.intent === "string" && user.intent.trim().length > 0;
   const hasInterests = Array.isArray(user.interests) && user.interests.length >= MIN_ONBOARDING_INTERESTS;
 
   const fields = [
+    { key: "name", done: hasName },
     { key: "photo", done: hasPhoto },
     { key: "birthdate", done: hasBirthdate },
     { key: "location", done: hasLocation },
     { key: "gender", done: hasGender },
     { key: "interestedIn", done: hasInterestedIn },
+    { key: "intent", done: hasIntent },
     { key: "interests", done: hasInterests },
   ];
   const missing = fields.filter((f) => !f.done).map((f) => f.key);
@@ -501,6 +506,9 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     const {
       avatar,
       profilePhotos,
+      photos,
+      profileImage,
+      photo,
       gender,
       birthdate,
       interests,
@@ -512,13 +520,15 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "avatar profilePhotos birthdate location gender interestedIn interests"
+      "name avatar profilePhotos birthdate location gender interestedIn interests intent"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
+    const incomingAvatar = avatar !== undefined ? avatar : profileImage !== undefined ? profileImage : photo;
+    const incomingProfilePhotos = profilePhotos !== undefined ? profilePhotos : photos;
 
-    if (avatar !== undefined || profilePhotos !== undefined) {
-      const normalizedPhotoState = normalizeProfilePhotos(req, profilePhotos, avatar, currentUser);
+    if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
+      const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
     }
@@ -554,8 +564,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
-    payload.avatar = photoFields.avatar;
-    payload.profilePhotos = photoFields.profilePhotos;
+    Object.assign(payload, photoFields);
     payload.profileCompletion = getMinProfileCompletion(payload);
     res.json(payload);
   } catch (err) {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -127,6 +128,7 @@ const PATHS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -365,13 +367,14 @@ export default function OnboardingPage() {
         };
       }
       const normalizedAvatar = normalizeAvatarUrl(uploadData?.avatar || uploadData?.mainPhoto);
+      const normalizedUploadedPhoto = normalizeAvatarUrl(uploadData?.photo || uploadData?.avatarPath);
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
       const normalizedPhotos = Array.isArray(uploadData?.profilePhotos)
         ? uploadData.profilePhotos.map((photo) => normalizeAvatarUrl(photo)).filter(Boolean).slice(0, MAX_PROFILE_PHOTOS)
         : [];
-      return { ok: true, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+      return { ok: true, avatar: normalizedAvatar, uploadedPhoto: normalizedUploadedPhoto, profilePhotos: normalizedPhotos };
     };
 
     let workingMainFile = mainPhotoFile;
@@ -384,7 +387,7 @@ export default function OnboardingPage() {
     }
 
     let finalAvatarUrl = "";
-    const finalProfilePhotos = [];
+    let finalProfilePhotos = [];
 
     try {
       if (workingMainFile) {
@@ -396,7 +399,9 @@ export default function OnboardingPage() {
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
-        if (finalAvatarUrl) finalProfilePhotos.push(finalAvatarUrl);
+        finalProfilePhotos = mainUpload.profilePhotos.length
+          ? mainUpload.profilePhotos.slice(0, MAX_PROFILE_PHOTOS)
+          : [finalAvatarUrl];
       }
 
       for (const extra of workingExtraFiles) {
@@ -411,8 +416,10 @@ export default function OnboardingPage() {
           setLoading(false);
           return;
         }
-        if (extraUpload.avatar && !finalProfilePhotos.includes(extraUpload.avatar)) {
-          finalProfilePhotos.push(extraUpload.avatar);
+        if (extraUpload.profilePhotos.length) {
+          finalProfilePhotos = extraUpload.profilePhotos.slice(0, MAX_PROFILE_PHOTOS);
+        } else if (extraUpload.uploadedPhoto && !finalProfilePhotos.includes(extraUpload.uploadedPhoto)) {
+          finalProfilePhotos.push(extraUpload.uploadedPhoto);
         }
       }
     } catch (err) {
@@ -447,13 +454,26 @@ export default function OnboardingPage() {
           interestedIn: interestedIn || undefined,
         }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setError(data.message || "Error al guardar el perfil");
         return;
       }
-      const destination = PATHS.find((p) => p.id === selectedPath)?.route || "/feed";
-      router.replace(destination);
+      if (data.onboardingComplete !== true) {
+        const missing = data.profileCompletion?.missing;
+        const missingMessage = Array.isArray(missing) && missing.length
+          ? `Faltan datos obligatorios: ${missing.join(", ")}`
+          : "Faltan datos obligatorios del perfil.";
+        setError(missingMessage);
+        return;
+      }
+      await fetch(`${API_URL}/api/user/me`, {
+        method: "GET",
+        headers: { Authorization: ["Bearer", token].join(" ") },
+        cache: "no-store",
+      }).catch(() => null);
+      await updateSession?.();
+      router.replace("/feed");
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

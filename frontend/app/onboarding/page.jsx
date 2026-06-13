@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -130,6 +131,7 @@ const PATHS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const { update: updateSession } = useSession();
+  const { t } = useLanguage();
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -207,7 +209,7 @@ export default function OnboardingPage() {
   const handleUseCurrentLocation = () => {
     setError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setError("Tu navegador no permite usar ubicación automática. Puedes ingresar tu ciudad y país manualmente.");
+      setError(t("profile.locationUnavailable"));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -218,10 +220,10 @@ export default function OnboardingPage() {
         });
         setDiscoveryScope("nearby");
         setMaxDistanceKm((current) => current || "25");
-        setLocationCity((current) => current || "Ubicación automática");
+        setLocationCity((current) => current || t("profile.automaticLocationLabel"));
       },
       () => {
-        setError("No pudimos obtener tu ubicación. Ingresa tu ciudad y país manualmente.");
+        setError(t("profile.locationPermissionDenied"));
         setDiscoveryScope("country");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }

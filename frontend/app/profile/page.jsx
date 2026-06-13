@@ -291,6 +291,14 @@ export default function ProfilePage() {
     dating: t("profile.goalDating"),
     networking: t("profile.goalNetworking"),
   };
+  const getScopeLabel = (scope = "global") => {
+    const normalizedScope = ["nearby", "country", "global"].includes(scope) ? scope : "global";
+    return {
+      nearby: t("profile.scopeNearby"),
+      country: t("profile.scopeCountry"),
+      global: t("profile.scopeGlobal"),
+    }[normalizedScope];
+  };
 
   const refreshProfileSession = useCallback(async () => {
     try {
@@ -1286,7 +1294,7 @@ export default function ProfilePage() {
                 {(user.discoveryScope || user.discoveryPreferences?.discoveryScope) && (
                   <div>
                     <strong>{t("profile.scopeSummaryLabel")}:</strong>{" "}
-                    {t(`profile.scope${(user.discoveryScope || user.discoveryPreferences?.discoveryScope || "global")[0].toUpperCase()}${(user.discoveryScope || user.discoveryPreferences?.discoveryScope || "global").slice(1)}`)}
+                    {getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}
                   </div>
                 )}
                 {(user.discoveryPreferences?.languages || []).length > 0 && (

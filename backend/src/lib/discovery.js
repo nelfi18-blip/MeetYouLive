@@ -23,6 +23,7 @@ const normalizeDiscoveryCompatibility = (viewer = null) => {
     gender: viewer.gender || null,
     interestedIn: normalizeInterestedIn(viewer.interestedIn),
   };
+};
 
   const EARTH_RADIUS_KM = 6371;
 
@@ -109,7 +110,6 @@ const normalizeDiscoveryCompatibility = (viewer = null) => {
     }
     return candidates;
   };
-};
 
 const getDiscoveryCompatibilityUpdates = (user = {}) => {
   const updates = {};

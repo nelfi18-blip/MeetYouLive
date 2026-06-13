@@ -48,6 +48,47 @@ export function normalizeImageUrl(value) {
   return null;
 }
 
+function getPhotoCandidates(user) {
+  if (!user) return [];
+  return [
+    ...(Array.isArray(user.profilePhotos)
+      ? user.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
+      : []),
+    ...(Array.isArray(user.photos) ? user.photos.map((value) => ({ field: "photos", value })) : []),
+    ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
+    { field: "avatar", value: user.avatar },
+    { field: "profileImage", value: user.profileImage },
+    { field: "photo", value: user.photo },
+    { field: "photoURL", value: user.photoURL },
+    { field: "photoUrl", value: user.photoUrl },
+    { field: "image", value: user.image },
+    { field: "imageUrl", value: user.imageUrl },
+    { field: "picture", value: user.picture },
+  ];
+}
+
+export function getUserPhotoSelection(user) {
+  const photos = [];
+  const seenPhotos = new Set();
+  let fieldUsed = null;
+
+  for (const { field, value } of getPhotoCandidates(user)) {
+    const normalized = normalizeImageUrl(value);
+    if (normalized && !seenPhotos.has(normalized)) {
+      seenPhotos.add(normalized);
+      photos.push(normalized);
+      if (!fieldUsed) fieldUsed = field;
+    }
+  }
+
+  return {
+    primaryPhoto: photos[0] || null,
+    photos,
+    fieldUsed,
+    photoCount: photos.length,
+  };
+}
+
 /**
  * Get the best available user image
  * Priority: profilePhotos/photos > avatar/profileImage/photo > common OAuth/image fields > null
@@ -58,33 +99,7 @@ export function normalizeImageUrl(value) {
 export function getUserImage(user) {
   if (!user) return null;
 
-  const rawPhotos = [
-    ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
-    ...(Array.isArray(user.photos) ? user.photos : []),
-    user.profileImage,
-    user.avatar,
-    user.photo,
-    user.photoURL,
-    user.photoUrl,
-    user.image,
-    user.imageUrl,
-    user.picture,
-  ];
-
-  const selectedImage = rawPhotos.map(normalizeImageUrl).find(Boolean) || null;
-
-  // TODO: Remove this temporary photo diagnostic after Matches/Crush image rollout is verified.
-  console.debug("[image-selection]", {
-    userId: user._id,
-    profilePhotos: user.profilePhotos,
-    photos: user.photos,
-    profileImage: user.profileImage,
-    avatar: user.avatar,
-    photo: user.photo,
-    selectedImage,
-  });
-
-  return selectedImage;
+  return getUserPhotoSelection(user).primaryPhoto;
 }
 
 /**

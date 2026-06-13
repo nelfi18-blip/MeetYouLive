@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserImage, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
+import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -118,7 +118,7 @@ export default function SwipeCard({
     }
   };
 
-  const userImage = getUserImage(profile);
+  const photoSelection = getUserPhotoSelection(profile);
   const displayName = getDisplayName(profile);
   const profileId = profile?._id ? String(profile._id) : "";
   const age = profile.age || "";
@@ -128,17 +128,18 @@ export default function SwipeCard({
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
-  const rawPhotos = [
-    ...(Array.isArray(profile.profilePhotos) ? profile.profilePhotos : []),
-    ...(Array.isArray(profile.photos) ? profile.photos : []),
-    profile.profileImage,
-    profile.avatar,
-    profile.photo,
-    userImage,
-  ];
-  const photos = Array.from(new Set(rawPhotos.map(normalizeImageUrl).filter(Boolean)))
-    .filter((photo) => !brokenPhotoUrls.has(photo));
+  const photos = photoSelection.photos.filter((photo) => !brokenPhotoUrls.has(photo));
   const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
+
+  useEffect(() => {
+    // TODO: Remove this temporary diagnostic after feed photo storage is verified.
+    console.debug("[feed-photo-diagnostic]", {
+      userId: profileId,
+      username: profile?.username || null,
+      photoCount: photoSelection.photoCount,
+      fieldUsed: photoSelection.fieldUsed,
+    });
+  }, [photoSelection.fieldUsed, photoSelection.photoCount, profile?.username, profileId]);
   
   // Online status
   const isOnline = profile.isOnline || profile.lastSeen;

@@ -6,19 +6,23 @@ const UserVisit = require("../models/UserVisit.js");
 const Greeting = require("../models/Greeting.js");
 const Gift = require("../models/Gift.js");
 const { isLiveActuallyActive, filterActiveLives } = require("../services/live.service.js");
-const { isApprovedCreator } = require("../lib/creatorUtils.js");
 const { hasLiveHost } = require("../lib/socket.js");
 const {
   buildDiscoveryMatch,
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
-const { hasSerializableUserPhoto, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const {
+  getUserPhotoSelection,
+  hasSerializableUserPhoto,
+  withSerializedUserPhotoFields,
+} = require("../lib/photoFields.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
+const RECOMMENDED_PROFILE_QUERY_LIMIT = 36;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
@@ -43,6 +47,19 @@ const isNonEmptyString = (value) => typeof value === "string" && value.trim().le
 
 const hasFeedPhoto = (user = {}) =>
   hasSerializableUserPhoto(PHOTO_VALIDATION_STUB_REQUEST, user);
+
+const getFeedPhotoSelection = (user = {}) =>
+  getUserPhotoSelection(PHOTO_VALIDATION_STUB_REQUEST, user);
+
+const getFeedPhotoDiagnostic = (user = {}) => {
+  const selection = getFeedPhotoSelection(user);
+  return {
+    userId: String(user._id || ""),
+    username: user.username || null,
+    photoCount: selection.photoCount,
+    fieldUsed: selection.fieldUsed,
+  };
+};
 
 const getFeedProfileMissingFields = (user = {}) => {
   const missingFields = [];
@@ -89,6 +106,7 @@ const getFeedDiagnosticUserSummary = (user = {}) => ({
   isBlocked: user.isBlocked === true,
   isSuspended: user.isSuspended === true,
   lastActiveAt: user.lastActiveAt || null,
+  photoDiagnosis: getFeedPhotoDiagnostic(user),
 });
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
@@ -168,83 +186,15 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
   },
 ];
 
-const normalizeHttpProtocol = (value) => {
-  const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
-  return protocol === "http" || protocol === "https" ? protocol : "https";
-};
-
-const getRequestOrigin = (req) => {
-  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = normalizeHttpProtocol(forwardedProto || req.protocol);
-  const host = req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host");
-  if (!host || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return "";
-  return host ? `${protocol}://${host}` : "";
-};
-
-/**
- * Accept image fields stored as strings or common upload/provider objects.
- * Supports raw URL strings, Cloudinary-style url/secure_url, and file src/path values.
- */
-const getFeedImageValue = (value) => {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  return (
-    value.secure_url || // Cloudinary and similar hosted image providers.
-    value.url || // Generic persisted URL objects.
-    value.src || // Browser/file preview objects.
-    value.path || // Local upload metadata stored with a path.
-    ""
-  );
-};
-
-const normalizeFeedImageUrl = (req, value) => {
-  const rawValue = getFeedImageValue(value);
-  if (typeof rawValue !== "string") return "";
-  const trimmed = rawValue.trim();
-  if (!trimmed) return "";
-
-  const requestOrigin = getRequestOrigin(req);
-  if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      if (url.pathname.startsWith("/api/uploads/")) {
-        url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
-      }
-      if (requestOrigin) {
-        const requestUrl = new URL(requestOrigin);
-        if (
-          url.protocol === "http:" &&
-          requestUrl.protocol === "https:" &&
-          url.hostname === requestUrl.hostname &&
-          url.pathname.startsWith("/uploads/")
-        ) {
-          url.protocol = "https:";
-        }
-      }
-      return url.toString();
-    } catch {
-      return "";
-    }
-  }
-
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-
-  const normalizedPath = trimmed
-    .replace(/^\/?api\/uploads\//i, "uploads/")
-    .replace(/^\/?uploads\//i, "uploads/");
-  if (/^uploads\//.test(normalizedPath)) {
-    const uploadPath = `/${normalizedPath.replace(/^\/+/, "")}`;
-    return requestOrigin ? `${requestOrigin}${uploadPath}` : uploadPath;
-  }
-
-  return "";
-};
-
 const serializeFeedImageFields = (req, item) => {
   return withSerializedUserPhotoFields(req, item);
 };
+
+const serializeFeedProfilesWithPhotos = (req, profiles, limit) =>
+  profiles
+    .map((profile) => serializeFeedImageFields(req, profile))
+    .filter((profile) => hasFeedPhoto(profile))
+    .slice(0, limit);
 
 // Simple in-memory cache for featured creators (they change infrequently)
 let featuredCreatorsCache = null;
@@ -376,13 +326,7 @@ const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedP
   };
 
   // Resolve the best available avatar URL using the same fallback order as the feed serialiser.
-  const normalizedFromAvatar = normalizeFeedImageUrl(req, diagnoseTarget.avatar);
-  const normalizedFromProfileImage = normalizeFeedImageUrl(req, diagnoseTarget.profileImage);
-  const firstProfilePhoto =
-    Array.isArray(diagnoseTarget.profilePhotos) && diagnoseTarget.profilePhotos.length > 0
-      ? normalizeFeedImageUrl(req, diagnoseTarget.profilePhotos[0])
-      : "";
-  const normalizedAvatar = normalizedFromAvatar || normalizedFromProfileImage || firstProfilePhoto;
+  const photoSelection = getUserPhotoSelection(req, diagnoseTarget);
 
   return {
     userId: targetIdStr,
@@ -396,7 +340,9 @@ const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedP
     missingProfileFields: missingFields,
     photoDiagnosis: {
       hasPhoto: !missingFields.includes("photo"),
-      normalizedAvatarUrl: normalizedAvatar || null,
+      normalizedAvatarUrl: photoSelection.primaryPhoto || null,
+      photoCount: photoSelection.photoCount,
+      fieldUsed: photoSelection.fieldUsed,
       rawPhotoFields: photoFields,
     },
     profileSummary: getFeedDiagnosticUserSummary(diagnoseTarget),
@@ -442,7 +388,7 @@ const getFeed = async (req, res) => {
       })
         .sort({ viewerCount: -1 })
         .limit(30) // Fetch more to ensure we get 12 after filtering
-        .populate("user", "name avatar role creatorStatus")
+        .populate("user", `username name ${FEED_PHOTO_FIELDS} role creatorStatus`)
         .lean(),
       // ⭐ Featured creators - use cached function (data changes infrequently)
       getFeaturedCreatorsWithCache(),
@@ -459,7 +405,7 @@ const getFeed = async (req, res) => {
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
     const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, discoveryMatch);
     const recommendedProfilesPrimary = await User.aggregate(
-      buildRecommendedProfilesPipeline(recommendedProfilesMatch, 12)
+      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_QUERY_LIMIT)
     );
 
     // Apply active live filter FIRST to ensure only truly active streams
@@ -485,12 +431,11 @@ const getFeed = async (req, res) => {
       ...live,
       user: serializeFeedImageFields(req, live.user),
     }));
-    const serializedRecommendedProfiles = recommendedProfilesPrimary.map((profile) =>
-      serializeFeedImageFields(req, profile)
-    );
+    const serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, recommendedProfilesPrimary, 12);
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
+    console.log("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
 
     // Build optional admin-only diagnosis
     let diagnosis = undefined;
@@ -499,7 +444,7 @@ const getFeed = async (req, res) => {
         diagnosis = { message: "Only admins can use the diagnose parameter" };
       } else {
         const diagnoseTarget = await User.findById(diagnoseUserId).select(FEED_DIAGNOSTIC_USER_FIELDS).lean();
-        const returnedProfileIdSet = new Set(recommendedProfiles.map((p) => String(p._id)));
+        const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((p) => String(p._id)));
         const excludedProfileIdSet = new Set(excludedProfileIdsById.keys());
         diagnosis = diagnoseTarget
           ? buildFeedDiagnosis(req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet)
@@ -690,29 +635,30 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       ...discoveryMatch,
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
-      .limit(count * 3) // Fetch more to allow for filtering
+      .limit(count * 4) // Fetch more to allow for photo/profile filtering
       .lean();
 
     // Calculate priority for each user
     const enrichedUsers = users.map((user) => {
+      const serializedUser = serializeFeedImageFields(req, user);
+      if (!hasFeedPhoto(serializedUser)) return null;
       const isNew = user.createdAt ? (Date.now() - new Date(user.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000 : false; // New = less than 7 days
-      const hasProfilePhoto = (user.profilePhotos && user.profilePhotos.length > 0) || user.avatar;
       const hasCompleteProfile = user.bio && user.location && user.interests && user.interests.length > 0;
 
       // Priority score
       let priority = 0;
       if (isNew) priority += 800; // New users boosted
       if (hasCompleteProfile) priority += 300; // Complete profiles boosted
-      if (hasProfilePhoto) priority += 200; // Users with photos boosted
+      priority += 200; // Users with photos are required for the feed and still get the existing boost
       priority += Math.random() * 100; // Add randomness for variety
 
       return {
-        ...serializeFeedImageFields(req, user),
+        ...serializedUser,
         priority,
         type: "match",
         tags: generateTags(user, isNew),
       };
-    });
+    }).filter(Boolean);
 
     // Sort by priority
     enrichedUsers.sort((a, b) => b.priority - a.priority);
@@ -920,14 +866,18 @@ const getTopMatchProfiles = async (req, count, currentUserId) => {
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
       .sort({ followersCount: -1, _id: 1 })
-      .limit(count)
+      .limit(count * 4)
       .lean();
 
-    return users.map((user) => ({
-      ...serializeFeedImageFields(req, user),
-      type: "match",
-      tags: generateTags(user, false),
-    }));
+    return users
+      .map((user) => serializeFeedImageFields(req, user))
+      .filter((user) => hasFeedPhoto(user))
+      .slice(0, count)
+      .map((user) => ({
+        ...user,
+        type: "match",
+        tags: generateTags(user, false),
+      }));
   } catch (err) {
     console.error("Error fetching top users:", err);
     return [];
@@ -942,6 +892,7 @@ const getFeedExclusionReasons = (user, context) => {
   if (user.isBlocked === true) reasons.push("blocked");
   if (user.isSuspended === true) reasons.push("suspended");
   if (user.onboardingComplete !== true) reasons.push("onboarding_incomplete");
+  if (!hasFeedPhoto(user)) reasons.push("missing_profile_photo");
   if (context.viewerId && userId === context.viewerId) reasons.push("viewer_self");
   if (context.likedProfileIds.has(userId)) reasons.push("liked_by_viewer");
   if (context.clientExcludedProfileIds.has(userId)) reasons.push("client_excluded");
@@ -993,12 +944,7 @@ const getFeedDiagnostics = async (req, res) => {
       await Promise.all([
         User.countDocuments({ role: "user" }),
         User.countDocuments(feedMatch),
-        User.aggregate([
-          { $match: feedMatch },
-          { $sort: { createdAt: -1, _id: -1 } },
-          { $limit: 12 },
-          { $project: { _id: 1 } },
-        ]),
+        User.aggregate(buildRecommendedProfilesPipeline(feedMatch, RECOMMENDED_PROFILE_QUERY_LIMIT)),
         // Intentionally samples users before feed filters so excluded users can include
         // the actual blocking reason instead of disappearing from diagnostics.
         User.find({ role: "user" })
@@ -1017,7 +963,8 @@ const getFeedDiagnostics = async (req, res) => {
           : Promise.resolve(null),
       ]);
 
-    const returnedProfileIds = new Set(returnedProfiles.map((profile) => String(profile._id)));
+    const serializedReturnedProfiles = serializeFeedProfilesWithPhotos(req, returnedProfiles, 12);
+    const returnedProfileIds = new Set(serializedReturnedProfiles.map((profile) => String(profile._id)));
     const context = {
       viewerId: viewerId ? viewerId.toString() : "",
       likedProfileIds,
@@ -1052,6 +999,7 @@ const getFeedDiagnostics = async (req, res) => {
         clientExcluded: clientExcludedProfileIds.size,
       },
       returnedProfileIds: Array.from(returnedProfileIds),
+      returnedProfilePhotoDiagnostics: serializedReturnedProfiles.map(getFeedPhotoDiagnostic),
       target: targetDiagnostics,
       excludedUsers,
       excludedUsersLimit: diagnosticLimit,
@@ -1060,6 +1008,7 @@ const getFeedDiagnostics = async (req, res) => {
         onboardingComplete: true,
         isBlocked: false,
         isSuspended: false,
+        photoRequired: true,
         excludeViewerSelf: Boolean(viewerId),
         excludeLikedByViewer: Boolean(viewerId),
         excludeClientProvidedIds: clientExcludedProfileIds.size > 0,

@@ -300,7 +300,7 @@ export default function ProfilePage() {
     }[normalizedScope];
   };
   const isDistanceButtonActive = (distance) =>
-    String(editForm.discoveryMaxDistanceKm) === String(distance) && editForm.discoveryScope === "nearby";
+    Number(editForm.discoveryMaxDistanceKm) === distance && editForm.discoveryScope === "nearby";
 
   const refreshProfileSession = useCallback(async () => {
     try {

@@ -58,6 +58,10 @@ const hasAllowedAvatarExtension = (filename = "") => {
   return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 };
 
+const hasValidLocation = (city, country, coordinates = {}) =>
+  Boolean(city.trim() && country.trim()) ||
+  (Number.isFinite(coordinates.lat) && Number.isFinite(coordinates.lng));
+
 const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   if (typeof API_URL !== "string" || !API_URL.trim()) {
     console.error("[avatar-upload] NEXT_PUBLIC_API_URL no está configurado");
@@ -168,8 +172,7 @@ export default function OnboardingPage() {
     const checks = [
       Boolean(mainPhotoPreview),
       Boolean(birthdate),
-      Boolean(locationCity.trim() && locationCountry.trim()) ||
-        (Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng)),
+      hasValidLocation(locationCity, locationCountry, locationCoordinates),
       Boolean(gender),
       Boolean(interestedIn),
       interests.length >= MIN_INTERESTS,
@@ -345,8 +348,7 @@ export default function OnboardingPage() {
         return;
       }
       if (
-        !(locationCity.trim() && locationCountry.trim()) &&
-        !(Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng))
+        !hasValidLocation(locationCity, locationCountry, locationCoordinates)
       ) {
         setError(t("onboarding.locationRequired"));
         return;
@@ -712,10 +714,10 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">País *</label>
+                  <label className="ob-label">{t("onboarding.countryLabel")}</label>
                   <input
                     className="input"
-                    placeholder="Ej: España"
+                    placeholder={t("profile.countryPlaceholder")}
                     value={locationCountry}
                     onChange={(e) => { setLocationCountry(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
@@ -738,20 +740,20 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Ciudad *</label>
+                  <label className="ob-label">{t("onboarding.cityLabel")}</label>
                   <input
                     className="input"
-                    placeholder="Ej: Madrid"
+                    placeholder={t("profile.cityPlaceholder")}
                     value={locationCity}
                     onChange={(e) => { setLocationCity(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
                   />
                 </div>
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Estado / provincia</label>
+                  <label className="ob-label">{t("onboarding.regionLabel")}</label>
                   <input
                     className="input"
-                    placeholder="Opcional"
+                    placeholder={t("profile.regionPlaceholder")}
                     value={locationRegion}
                     onChange={(e) => { setLocationRegion(e.target.value); setDiscoveryScope("country"); }}
                     maxLength={80}
@@ -760,16 +762,16 @@ export default function OnboardingPage() {
               </div>
 
               <div className="ob-field">
-                <label className="ob-label">Descubrimiento por ubicación</label>
+                <label className="ob-label">{t("onboarding.discoveryLocationTitle")}</label>
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
                   <button type="button" className={`btn${discoveryScope === "nearby" ? " btn-primary" : ""}`} onClick={handleUseCurrentLocation}>
-                    Usar mi ubicación
+                    {t("profile.useCurrentLocation")}
                   </button>
                   <button type="button" className={`btn${discoveryScope === "country" ? " btn-primary" : ""}`} onClick={() => setDiscoveryScope("country")}>
-                    Manual
+                    {t("profile.manualLocation")}
                   </button>
                   <button type="button" className={`btn${discoveryScope === "global" ? " btn-primary" : ""}`} onClick={() => { setDiscoveryScope("global"); setMaxDistanceKm(""); }}>
-                    Global
+                    {t("profile.globalDistance")}
                   </button>
                 </div>
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>

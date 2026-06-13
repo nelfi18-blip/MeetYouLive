@@ -61,7 +61,11 @@
     "genderRequired": "Selecciona tu género para continuar",
     "birthdateRequired": "La fecha de nacimiento es obligatoria",
     "locationRequired": "La ubicación es obligatoria",
-    "interestsRequired": "Selecciona al menos {count} intereses para continuar"
+    "interestsRequired": "Selecciona al menos {count} intereses para continuar",
+    "countryLabel": "País *",
+    "cityLabel": "Ciudad *",
+    "regionLabel": "Estado / provincia",
+    "discoveryLocationTitle": "Descubrimiento por ubicación"
   },
   "matchesPage": {
     "chatOpenError": "No se pudo abrir el chat",

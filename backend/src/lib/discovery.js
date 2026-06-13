@@ -52,6 +52,7 @@ const getLocationCoordinates = (user = {}) => {
 
 const calculateDistanceKm = (from, to) => {
   if (!from || !to) return null;
+  // Haversine formula: computes great-circle distance between two latitude/longitude points.
   const toRadians = (degrees) => (degrees * Math.PI) / 180;
   const dLat = toRadians(to.lat - from.lat);
   const dLng = toRadians(to.lng - from.lng);
@@ -106,12 +107,18 @@ const applyDiscoveryLocationFilter = (viewer = {}, candidates = []) => {
       .map((candidate) => {
         const distanceKm = calculateDistanceKm(origin, getLocationCoordinates(candidate));
         if (distanceKm === null || distanceKm > maxDistanceKm) return null;
-        return { ...candidate, distanceKm: Math.round(distanceKm * 10) / 10 };
+        candidate.distanceKm = Math.round(distanceKm * 10) / 10;
+        return candidate;
       })
       .filter(Boolean);
   }
   return candidates;
 };
+
+const combineDiscoveryFilters = (discoveryMatch = {}, locationMatch = null) =>
+  locationMatch
+    ? { $and: [discoveryMatch, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
+    : discoveryMatch;
 
 const getDiscoveryCompatibilityUpdates = (user = {}) => {
   const updates = {};
@@ -182,5 +189,6 @@ module.exports = {
   getMaxDistanceKm,
   buildDiscoveryLocationMatch,
   applyDiscoveryLocationFilter,
+  combineDiscoveryFilters,
   buildDiscoveryMatch,
 };

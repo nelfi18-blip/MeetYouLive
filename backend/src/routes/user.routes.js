@@ -16,6 +16,7 @@ const {
   applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
   buildDiscoveryLocationMatch,
+  combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
   getLocationLabel,
   normalizeDiscoveryCompatibility,
@@ -119,6 +120,8 @@ const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
 const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+// Nearby filters are applied after fetching candidates, so this buffer reduces empty pages
+// when many profiles fall outside the selected radius.
 const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
 
 const normalizeLocationString = (value, maxLength = 80) =>
@@ -136,6 +139,8 @@ const parseCoordinatesInput = (input) => {
 };
 
 const parseLocationString = (value = "") => {
+  // Legacy manual input is interpreted as "city, region, country"; any middle
+  // comma-separated parts are preserved together as the optional region.
   const parts = normalizeLocationString(value, 160)
     .split(",")
     .map((part) => part.trim())
@@ -165,6 +170,7 @@ const parseLocationInput = (locationInput, locationLabelInput) => {
 const parseMaxDistanceInput = (value) => {
   if (value === null || value === "" || value === "global") return null;
   const parsed = Number(value);
+  // undefined means "ignore this malformed input"; null intentionally clears distance.
   if (!Number.isFinite(parsed)) return undefined;
   const distance = Math.max(1, Math.min(10000, Math.floor(parsed)));
   return ALLOWED_DISTANCE_OPTIONS.includes(distance) ? distance : Math.min(10000, distance);
@@ -742,9 +748,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
     const myIntent = me?.intent || "";
     const discoveryFilters = buildDiscoveryMatch(me);
     const locationMatch = buildDiscoveryLocationMatch(me);
-    const mergedDiscoveryFilters = locationMatch
-      ? { $and: [discoveryFilters, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
-      : discoveryFilters;
+    const mergedDiscoveryFilters = combineDiscoveryFilters(discoveryFilters, locationMatch);
 
     const now = new Date();
 

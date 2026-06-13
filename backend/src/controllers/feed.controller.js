@@ -11,6 +11,7 @@ const {
   applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
   buildDiscoveryLocationMatch,
+  combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
@@ -436,9 +437,7 @@ const getFeed = async (req, res) => {
 
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
     const locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
-    const combinedDiscoveryMatch = locationMatch
-      ? { $and: [discoveryMatch, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
-      : discoveryMatch;
+    const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
     const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
     const recommendedProfilesPrimary = await User.aggregate(
       buildRecommendedProfilesPipeline(
@@ -667,9 +666,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
     ];
     const discoveryMatch = buildDiscoveryMatch(currentUser);
     const locationMatch = buildDiscoveryLocationMatch(currentUser);
-    const combinedDiscoveryMatch = locationMatch
-      ? { $and: [discoveryMatch, locationMatch].filter((filter) => Object.keys(filter).length > 0) }
-      : discoveryMatch;
+    const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
 
     // Find potential matches (regular users, not creators)
     const users = await User.find({

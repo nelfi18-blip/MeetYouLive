@@ -361,7 +361,10 @@ userSchema.index({
   _id: -1,
 });
 userSchema.index({ "location.country": 1, "location.city": 1, "location.region": 1 });
-userSchema.index({ location: "2dsphere" });
+userSchema.index(
+  { location: "2dsphere" },
+  { partialFilterExpression: { "location.coordinates": { $type: "array" } } }
+);
 userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);

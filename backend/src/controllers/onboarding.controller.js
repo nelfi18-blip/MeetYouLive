@@ -32,6 +32,11 @@ const parseBirthdate = (value) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const parseDateOrNow = (value) => {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
 const normalizeCoordinates = (location = {}) => {
   const coordinates = location.coordinates;
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
@@ -88,7 +93,7 @@ const normalizeImages = (req, body, currentUser = {}) => {
       url,
       publicId: normalizeText(source?.publicId, 160),
       isPrimary: source?.isPrimary === true || images.length === 0,
-      uploadedAt: source?.uploadedAt ? new Date(source.uploadedAt) : new Date(),
+      uploadedAt: parseDateOrNow(source?.uploadedAt),
     });
     if (images.length >= MAX_IMAGES) break;
   }
@@ -119,7 +124,8 @@ const getMissingFields = (profile = {}) => {
   if (!parseBirthdate(profile.birthdate)) missingFields.push("birthdate");
   if (!ALLOWED_GENDERS.has(profile.gender)) missingFields.push("gender");
   if (!ALLOWED_INTERESTED_IN.has(profile.interestedIn)) missingFields.push("interestedIn");
-  if (!Array.isArray(profile.location?.coordinates) || profile.location.coordinates.length !== 2) {
+  const [lng, lat] = Array.isArray(profile.location?.coordinates) ? profile.location.coordinates : [];
+  if (!isValidLongitude(lng) || !isValidLatitude(lat)) {
     missingFields.push("location");
   }
   if (!Array.isArray(profile.interests) || profile.interests.length < MIN_INTERESTS) missingFields.push("interests");
@@ -182,9 +188,18 @@ const updateOnboarding = async (req, res) => {
       updates.discoveryScope = req.body.discoveryScope;
     }
     if (req.body.discoveryPreferences && typeof req.body.discoveryPreferences === "object") {
+      const incomingPreferences = req.body.discoveryPreferences;
+      const sanitizedPreferences = {};
+      const maxDistanceKm = Number(incomingPreferences.maxDistanceKm);
+      if (Number.isFinite(maxDistanceKm) && maxDistanceKm > 0) {
+        sanitizedPreferences.maxDistanceKm = Math.floor(maxDistanceKm);
+      }
+      if (["nearby", "country", "global"].includes(incomingPreferences.discoveryScope)) {
+        sanitizedPreferences.discoveryScope = incomingPreferences.discoveryScope;
+      }
       updates.discoveryPreferences = {
         ...(currentUser.discoveryPreferences?.toObject?.() || currentUser.discoveryPreferences || {}),
-        ...req.body.discoveryPreferences,
+        ...sanitizedPreferences,
       };
     }
 

@@ -541,7 +541,15 @@ export default function OnboardingPage() {
         return;
       }
       try {
-        localStorage.setItem("meetyoulive:user", JSON.stringify(updatedUser));
+        localStorage.setItem(
+          "meetyoulive:user",
+          JSON.stringify({
+            id: updatedUser._id || updatedUser.id || "",
+            name: updatedUser.name || "",
+            avatar: updatedUser.avatar || "",
+            onboardingComplete: updatedUser.onboardingComplete === true,
+          })
+        );
       } catch {
         // Ignore storage failures; the freshly updated session/profile remains canonical.
       }

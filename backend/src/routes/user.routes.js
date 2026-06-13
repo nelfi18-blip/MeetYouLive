@@ -137,7 +137,7 @@ const parseCoordinatesInput = (input) => {
     if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };
     return { lat, lng };
   }
-  if (!input || typeof input !== "object" || Array.isArray(input)) return { lat: null, lng: null };
+  if (!input || typeof input !== "object") return { lat: null, lng: null };
   const lat = Number(input.lat ?? input.latitude);
   const lng = Number(input.lng ?? input.longitude);
   if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };

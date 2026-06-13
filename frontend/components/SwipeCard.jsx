@@ -140,7 +140,7 @@ export default function SwipeCard({
       photoCount: photoSelection.photoCount,
       fieldUsed: photoSelection.fieldUsed,
     });
-  }, [profileId]);
+  }, [photoSelection.fieldUsed, photoSelection.photoCount, profile?.username, profileId]);
   
   // Online status
   const isOnline = profile.isOnline || profile.lastSeen;

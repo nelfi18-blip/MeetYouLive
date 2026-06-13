@@ -44,6 +44,8 @@ const FEED_PHOTO_CANDIDATE_MATCH = {
   ],
 };
 
+const isFeedPhotoDiagnosticsEnabled = () => process.env.ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
+
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
 
@@ -109,21 +111,24 @@ const getFeedProfileStatus = (user) => {
   };
 };
 
-const getFeedDiagnosticUserSummary = (user = {}) => ({
-  id: String(user._id),
-  role: user.role || null,
-  onboardingComplete: user.onboardingComplete === true,
-  profileComplete: getFeedProfileMissingFields(user).length === 0,
-  missingFields: getFeedProfileMissingFields(user),
-  hasAge: Boolean(user.birthdate),
-  hasLocation: isNonEmptyString(user.location),
-  hasName: isNonEmptyString(user.name),
-  hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
-  isBlocked: user.isBlocked === true,
-  isSuspended: user.isSuspended === true,
-  lastActiveAt: user.lastActiveAt || null,
-  photoDiagnosis: getFeedPhotoDiagnostic(user),
-});
+const getFeedDiagnosticUserSummary = (user = {}) => {
+  const summary = {
+    id: String(user._id),
+    role: user.role || null,
+    onboardingComplete: user.onboardingComplete === true,
+    profileComplete: getFeedProfileMissingFields(user).length === 0,
+    missingFields: getFeedProfileMissingFields(user),
+    hasAge: Boolean(user.birthdate),
+    hasLocation: isNonEmptyString(user.location),
+    hasName: isNonEmptyString(user.name),
+    hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
+    isBlocked: user.isBlocked === true,
+    isSuspended: user.isSuspended === true,
+    lastActiveAt: user.lastActiveAt || null,
+  };
+  if (isFeedPhotoDiagnosticsEnabled()) summary.photoDiagnosis = getFeedPhotoDiagnostic(user);
+  return summary;
+};
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
   `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
@@ -209,7 +214,7 @@ const serializeFeedImageFields = (req, item) => {
 const serializeFeedProfilesWithPhotos = (req, profiles, limit) =>
   profiles
     .map((profile) => serializeFeedImageFields(req, profile))
-    .filter((profile) => hasFeedPhoto(profile))
+    .filter((profile) => Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
     .slice(0, limit);
 
 // Simple in-memory cache for featured creators (they change infrequently)
@@ -451,7 +456,7 @@ const getFeed = async (req, res) => {
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
-    if (process.env.ENABLE_FEED_PHOTO_DIAGNOSTICS === "true") {
+    if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.
       console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
     }
@@ -665,7 +670,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
     // Calculate priority for each user
     const enrichedUsers = users.map((user) => {
       const serializedUser = serializeFeedImageFields(req, user);
-      if (!hasFeedPhoto(serializedUser)) return null;
+      if (!Array.isArray(serializedUser.profilePhotos) || serializedUser.profilePhotos.length === 0) return null;
       const isNew = user.createdAt ? (Date.now() - new Date(user.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000 : false; // New = less than 7 days
       const hasCompleteProfile = user.bio && user.location && user.interests && user.interests.length > 0;
 
@@ -900,7 +905,7 @@ const getTopMatchProfiles = async (req, count, currentUserId) => {
 
     return users
       .map((user) => serializeFeedImageFields(req, user))
-      .filter((user) => hasFeedPhoto(user))
+      .filter((user) => Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0)
       .slice(0, count)
       .map((user) => ({
         ...user,

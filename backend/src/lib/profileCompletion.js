@@ -1,7 +1,8 @@
 const { getLocationLabel } = require("./discovery.js");
 const { hasSerializableUserPhoto } = require("./photoFields.js");
+const { calculateAge } = require("./age.js");
 
-const PROFILE_PHOTO_VALIDATION_REQUEST = { protocol: "https", get: () => "" };
+const HTTPS_REQUEST_STUB = { protocol: "https", get: () => "" };
 const MIN_PROFILE_INTERESTS = 3;
 const PROFILE_REQUIRED_FIELDS = [
   "name",
@@ -13,6 +14,7 @@ const PROFILE_REQUIRED_FIELDS = [
   "intent",
   "interests",
 ];
+const PREFERENCE_FIELDS = new Set(["gender", "interestedIn"]);
 const ALLOWED_INTERESTED_IN = new Set(["women", "men", "both"]);
 const ALLOWED_DISCOVERY_SCOPES = new Set(["nearby", "country", "global"]);
 
@@ -26,20 +28,7 @@ const normalizeDiscoveryScope = (user = {}) => {
   return ALLOWED_DISCOVERY_SCOPES.has(value) ? value : "global";
 };
 
-const calculateAge = (birthdate) => {
-  if (!birthdate) return null;
-  const date = birthdate instanceof Date ? birthdate : new Date(birthdate);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - date.getFullYear();
-  const monthDelta = now.getMonth() - date.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) {
-    age -= 1;
-  }
-  return age >= 0 ? age : null;
-};
-
-const getProfileCompletionChecks = (user = {}, req = PROFILE_PHOTO_VALIDATION_REQUEST) => {
+const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB) => {
   const normalizedInterestedIn = normalizeInterestedIn(user.interestedIn);
   const checks = {
     name: isNonEmptyString(user.name),
@@ -82,7 +71,7 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
   const missingFields = getMissingProfileFields(user, options);
   const completedFields = PROFILE_REQUIRED_FIELDS.length - missingFields.length;
   const complete = missingFields.length === 0;
-  const missingPreferenceFields = missingFields.filter((field) => field === "gender" || field === "interestedIn");
+  const missingPreferenceFields = missingFields.filter((field) => PREFERENCE_FIELDS.has(field));
 
   return {
     onboardingComplete: user.onboardingComplete === true,

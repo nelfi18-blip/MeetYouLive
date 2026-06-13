@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { calculateAge } = require("../lib/age.js");
 
 const agencyProfileSchema = new mongoose.Schema(
   {
@@ -85,7 +86,6 @@ const locationPointSchema = new mongoose.Schema(
     type: { type: String, enum: ["Point"], default: "Point" },
     coordinates: {
       type: [Number],
-      default: undefined,
       validate: {
         validator(value) {
           if (value === undefined || value === null) return true;
@@ -279,16 +279,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.virtual("age").get(function getAge() {
-  if (!this.birthdate) return null;
-  const birthdate = this.birthdate instanceof Date ? this.birthdate : new Date(this.birthdate);
-  if (Number.isNaN(birthdate.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - birthdate.getFullYear();
-  const monthDelta = now.getMonth() - birthdate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birthdate.getDate())) {
-    age -= 1;
-  }
-  return age >= 0 ? age : null;
+  return calculateAge(this.birthdate);
 });
 
 userSchema

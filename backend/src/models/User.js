@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { calculateAge } = require("../lib/age.js");
 
 const agencyProfileSchema = new mongoose.Schema(
   {
@@ -80,6 +81,33 @@ const discoveryPreferencesSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const locationPointSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: {
+      type: [Number],
+      validate: {
+        validator(value) {
+          if (value === undefined || value === null) return true;
+          if (!Array.isArray(value) || value.length !== 2) return false;
+          const [lng, lat] = value;
+          return (
+            Number.isFinite(lng) &&
+            Number.isFinite(lat) &&
+            lng >= -180 &&
+            lng <= 180 &&
+            lat >= -90 &&
+            lat <= 90
+          );
+        },
+        message:
+          "locationPoint.coordinates must be [longitude, latitude] with longitude between -180 and 180 and latitude between -90 and 90",
+      },
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -101,6 +129,7 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: () => ({ country: "", city: "", region: "", coordinates: { lat: null, lng: null } }),
     },
+    locationPoint: { type: locationPointSchema, default: null },
     locationLabel: { type: String, default: "" },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
     discoveryScope: { type: String, enum: ["nearby", "country", "global"], default: "global" },
@@ -250,6 +279,37 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.virtual("age").get(function getAge() {
+  return calculateAge(this.birthdate, new Date());
+});
+
+userSchema
+  .virtual("displayName")
+  .get(function getDisplayName() {
+    return this.name || "";
+  })
+  .set(function setDisplayName(value) {
+    if (typeof value === "string") this.name = value;
+  });
+
+userSchema
+  .virtual("genderPreference")
+  .get(function getGenderPreference() {
+    return this.interestedIn;
+  })
+  .set(function setGenderPreference(value) {
+    if (typeof value === "string") this.interestedIn = value;
+  });
+
+userSchema
+  .virtual("profileImage")
+  .get(function getProfileImage() {
+    return this.avatar || "";
+  })
+  .set(function setProfileImage(value) {
+    if (typeof value === "string") this.avatar = value;
+  });
+
 userSchema.index({
   role: 1,
   isBlocked: 1,
@@ -260,6 +320,7 @@ userSchema.index({
 });
 userSchema.index({ "location.country": 1, "location.city": 1, "location.region": 1 });
 userSchema.index({ "location.coordinates.lat": 1, "location.coordinates.lng": 1 });
+userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);
 

@@ -115,7 +115,7 @@ const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const MAX_INTERESTS = 10;
 const MIN_ONBOARDING_INTERESTS = 3;
 const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
-const ALLOWED_GENDERS = ["man", "woman", "nonbinary", "other", "", null];
+const ALLOWED_GENDERS = ["male", "female", "other", "prefer_not_to_say", "man", "woman", "nonbinary", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
@@ -131,6 +131,12 @@ const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && val
 const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
 
 const parseCoordinatesInput = (input) => {
+  if (Array.isArray(input)) {
+    const lng = Number(input[0]);
+    const lat = Number(input[1]);
+    if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };
+    return { lat, lng };
+  }
   if (!input || typeof input !== "object" || Array.isArray(input)) return { lat: null, lng: null };
   const lat = Number(input.lat ?? input.latitude);
   const lng = Number(input.lng ?? input.longitude);
@@ -161,9 +167,19 @@ const parseLocationInput = (locationInput, locationLabelInput) => {
   const city = normalizeLocationString(base.city);
   const region = normalizeLocationString(base.region);
   const coordinates = parseCoordinatesInput(base.coordinates || base);
-  const location = { country, city, region, coordinates };
   const explicitLabel = normalizeLocationString(locationLabelInput, 160);
-  const locationLabel = explicitLabel || getLocationLabel(location);
+  const locationLabel = explicitLabel || [city, region, country].filter(Boolean).join(", ");
+  const location = {
+    type: "Point",
+    coordinates:
+      isValidLatitude(coordinates.lat) && isValidLongitude(coordinates.lng)
+        ? [coordinates.lng, coordinates.lat]
+        : undefined,
+    country,
+    city,
+    region,
+    label: locationLabel,
+  };
   return { location, locationLabel };
 };
 

@@ -23,7 +23,7 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 // Query extra candidates because final URL normalization can reject empty/unsafe photo values.
-const RECOMMENDED_PROFILE_QUERY_LIMIT = 36;
+const RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER = 36;
 // Match/top helper counts are derived from MAX_FEED_SIZE, so 2x keeps queries bounded while backfilling photo rejects.
 const PHOTO_FILTER_FETCH_MULTIPLIER = 2;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
@@ -153,7 +153,10 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch =
   if (discoveryMatch && Object.keys(discoveryMatch).length > 0) {
     Object.assign(match, discoveryMatch);
   }
-  return { $and: [match, FEED_PHOTO_CANDIDATE_MATCH] };
+  return {
+    ...match,
+    $and: [...(Array.isArray(match.$and) ? match.$and : []), FEED_PHOTO_CANDIDATE_MATCH],
+  };
 };
 
 const buildRecommendedProfilesPipeline = (match, limit) => [
@@ -430,7 +433,7 @@ const getFeed = async (req, res) => {
     const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
     const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, discoveryMatch);
     const recommendedProfilesPrimary = await User.aggregate(
-      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_QUERY_LIMIT)
+      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER)
     );
 
     // Apply active live filter FIRST to ensure only truly active streams
@@ -684,7 +687,6 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       let priority = 0;
       if (isNew) priority += 800; // New users boosted
       if (hasCompleteProfile) priority += 300; // Complete profiles boosted
-      priority += 200; // All users here have photos; keep the existing photo boost.
       priority += Math.random() * 100; // Add randomness for variety
 
       return {
@@ -984,7 +986,7 @@ const getFeedDiagnostics = async (req, res) => {
       await Promise.all([
         User.countDocuments({ role: "user" }),
         User.countDocuments(feedMatch),
-        User.aggregate(buildRecommendedProfilesPipeline(feedMatch, RECOMMENDED_PROFILE_QUERY_LIMIT)),
+        User.aggregate(buildRecommendedProfilesPipeline(feedMatch, RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER)),
         // Intentionally samples users before feed filters so excluded users can include
         // the actual blocking reason instead of disappearing from diagnostics.
         User.find({ role: "user" })
@@ -1039,7 +1041,7 @@ const getFeedDiagnostics = async (req, res) => {
         clientExcluded: clientExcludedProfileIds.size,
       },
       returnedProfileIds: Array.from(returnedProfileIds),
-      returnedProfilePhotoDiagnostics: serializedReturnedProfiles.map(getFeedPhotoDiagnostic),
+      profilePhotoDiagnostics: serializedReturnedProfiles.map(getFeedPhotoDiagnostic),
       target: targetDiagnostics,
       excludedUsers,
       excludedUsersLimit: diagnosticLimit,

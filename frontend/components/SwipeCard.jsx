@@ -11,6 +11,7 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
+const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
@@ -132,7 +133,7 @@ export default function SwipeCard({
   const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS !== "true") return;
+    if (!ENABLE_FEED_PHOTO_DIAGNOSTICS) return;
     // TODO: Remove this temporary diagnostic after feed photo storage is verified.
     console.debug("[feed-photo-diagnostic]", {
       userId: profileId,

@@ -11,6 +11,7 @@ const onboardingLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.put("/", verifyToken, onboardingLimiter, updateOnboarding);
+router.use(onboardingLimiter);
+router.put("/", verifyToken, updateOnboarding);
 
 module.exports = router;

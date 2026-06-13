@@ -203,7 +203,8 @@ const updateOnboarding = async (req, res) => {
       };
     }
 
-    const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true, runValidators: true }).select("-password");
+    currentUser.set(updates);
+    const user = await currentUser.save();
     const payload = withSerializedUserPhotoFields(req, user);
     payload.missingFields = missingFields;
     payload.onboardingComplete = onboardingComplete;

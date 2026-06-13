@@ -328,33 +328,33 @@ export default function OnboardingPage() {
   const handleNext = () => {
     setError("");
     if (step === 1 && !selectedPath) {
-      setError("Elige tu camino para continuar");
+      setError(t("onboarding.pathRequired"));
       return;
     }
     if (step === 2) {
       if (!name.trim()) {
-        setError("El nombre es obligatorio");
+        setError(t("onboarding.nameRequired"));
         return;
       }
       if (!gender) {
-        setError("Selecciona tu género para continuar");
+        setError(t("onboarding.genderRequired"));
         return;
       }
       if (!birthdate) {
-        setError("La fecha de nacimiento es obligatoria");
+        setError(t("onboarding.birthdateRequired"));
         return;
       }
       if (
         !(locationCity.trim() && locationCountry.trim()) &&
         !(Number.isFinite(locationCoordinates.lat) && Number.isFinite(locationCoordinates.lng))
       ) {
-        setError("La ubicación es obligatoria");
+        setError(t("onboarding.locationRequired"));
         return;
       }
     }
     if (step === 3) {
       if (interests.length < MIN_INTERESTS) {
-        setError(`Selecciona al menos ${MIN_INTERESTS} intereses para continuar`);
+        setError(t("onboarding.interestsRequired").replace("{count}", String(MIN_INTERESTS)));
         return;
       }
     }

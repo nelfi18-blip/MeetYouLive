@@ -55,6 +55,14 @@
     "en": "English",
     "pt": "Português"
   },
+  "onboarding": {
+    "pathRequired": "Escolha seu caminho para continuar",
+    "nameRequired": "O nome é obrigatório",
+    "genderRequired": "Selecione seu gênero para continuar",
+    "birthdateRequired": "A data de nascimento é obrigatória",
+    "locationRequired": "A localização é obrigatória",
+    "interestsRequired": "Selecione pelo menos {count} interesses para continuar"
+  },
   "matchesPage": {
     "chatOpenError": "Não foi possível abrir o chat",
     "connectionError": "Erro de conexão"

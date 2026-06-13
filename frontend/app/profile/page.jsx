@@ -299,6 +299,8 @@ export default function ProfilePage() {
       global: t("profile.scopeGlobal"),
     }[normalizedScope];
   };
+  const isDistanceButtonActive = (distance) =>
+    String(editForm.discoveryMaxDistanceKm) === String(distance) && editForm.discoveryScope === "nearby";
 
   const refreshProfileSession = useCallback(async () => {
     try {
@@ -986,7 +988,7 @@ export default function ProfilePage() {
                       <button
                         key={distance}
                         type="button"
-                        className={`btn${String(editForm.discoveryMaxDistanceKm) === String(distance) && editForm.discoveryScope === "nearby" ? " btn-primary" : " btn-secondary"}`}
+                        className={`btn${isDistanceButtonActive(distance) ? " btn-primary" : " btn-secondary"}`}
                         onClick={() => setEditForm((f) => ({ ...f, discoveryScope: "nearby", discoveryMaxDistanceKm: String(distance) }))}
                       >
                         {distance} km

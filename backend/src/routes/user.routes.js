@@ -119,8 +119,9 @@ const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
 const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
 
-const trimLocationPart = (value, maxLength = 80) =>
+const normalizeLocationString = (value, maxLength = 80) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
 const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
@@ -135,7 +136,7 @@ const parseCoordinatesInput = (input) => {
 };
 
 const parseLocationString = (value = "") => {
-  const parts = trimLocationPart(value, 160)
+  const parts = normalizeLocationString(value, 160)
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
@@ -151,12 +152,12 @@ const parseLocationInput = (locationInput, locationLabelInput) => {
     locationInput && typeof locationInput === "object" && !Array.isArray(locationInput)
       ? locationInput
       : parseLocationString(typeof locationInput === "string" ? locationInput : locationLabelInput);
-  const country = trimLocationPart(base.country);
-  const city = trimLocationPart(base.city);
-  const region = trimLocationPart(base.region);
+  const country = normalizeLocationString(base.country);
+  const city = normalizeLocationString(base.city);
+  const region = normalizeLocationString(base.region);
   const coordinates = parseCoordinatesInput(base.coordinates || base);
   const location = { country, city, region, coordinates };
-  const explicitLabel = trimLocationPart(locationLabelInput, 160);
+  const explicitLabel = normalizeLocationString(locationLabelInput, 160);
   const locationLabel = explicitLabel || getLocationLabel(location);
   return { location, locationLabel };
 };
@@ -767,7 +768,7 @@ router.get("/discover", userLimiter, verifyToken, async (req, res) => {
         },
       },
       { $sort: { _boostRank: -1, createdAt: -1 } },
-      { $limit: Math.min(skip + limit * 5, 250) },
+      { $limit: Math.min(skip + limit * LOCATION_FILTER_FETCH_MULTIPLIER, 250) },
       {
         $project: {
           username: 1, name: 1, avatar: 1, bio: 1, gender: 1,

@@ -28,6 +28,8 @@ const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER = 36;
 // Match/top helper counts are derived from MAX_FEED_SIZE, so 2x keeps queries bounded while backfilling photo rejects.
 const PHOTO_FILTER_FETCH_MULTIPLIER = 2;
+// Fetch additional candidates before applying in-memory distance filtering.
+const LOCATION_FILTER_FETCH_MULTIPLIER = 3;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_ARRAY_FIELDS = ["profilePhotos", "photos", "images"];
 const FEED_PHOTO_SCALAR_FIELDS = [
@@ -439,7 +441,10 @@ const getFeed = async (req, res) => {
       : discoveryMatch;
     const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
     const recommendedProfilesPrimary = await User.aggregate(
-      buildRecommendedProfilesPipeline(recommendedProfilesMatch, RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER * 3)
+      buildRecommendedProfilesPipeline(
+        recommendedProfilesMatch,
+        RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER * LOCATION_FILTER_FETCH_MULTIPLIER
+      )
     );
 
     // Apply active live filter FIRST to ensure only truly active streams
@@ -682,7 +687,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       ],
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location locationLabel interests intent isVerifiedCreator createdAt`)
-      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER * 3)
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER * LOCATION_FILTER_FETCH_MULTIPLIER)
       .lean();
 
     const locationFilteredUsers = applyDiscoveryLocationFilter(currentUser, users);

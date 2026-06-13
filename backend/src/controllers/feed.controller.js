@@ -23,10 +23,26 @@ const DEFAULT_FEED_SIZE = 20;
 const MAX_FEED_SIZE = 50;
 const MAX_CLIENT_EXCLUDED_PROFILE_IDS = 200;
 const RECOMMENDED_PROFILE_QUERY_LIMIT = 36;
+const PHOTO_FILTER_FETCH_MULTIPLIER = 2;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_FIELDS = "avatar profilePhotos photos images profileImage photo image imageUrl photoUrl photoURL picture";
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
 const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
+const FEED_PHOTO_CANDIDATE_MATCH = {
+  $or: [
+    { "profilePhotos.0": { $exists: true } },
+    { "photos.0": { $exists: true } },
+    { "images.0": { $exists: true } },
+    { avatar: { $type: "string", $ne: "" } },
+    { profileImage: { $type: "string", $ne: "" } },
+    { photo: { $type: "string", $ne: "" } },
+    { photoURL: { $type: "string", $ne: "" } },
+    { photoUrl: { $type: "string", $ne: "" } },
+    { image: { $type: "string", $ne: "" } },
+    { imageUrl: { $type: "string", $ne: "" } },
+    { picture: { $type: "string", $ne: "" } },
+  ],
+};
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -128,7 +144,7 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch =
   if (discoveryMatch && Object.keys(discoveryMatch).length > 0) {
     Object.assign(match, discoveryMatch);
   }
-  return match;
+  return { $and: [match, FEED_PHOTO_CANDIDATE_MATCH] };
 };
 
 const buildRecommendedProfilesPipeline = (match, limit) => [
@@ -435,8 +451,10 @@ const getFeed = async (req, res) => {
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
-    // TODO: Remove after feed photo storage is verified in production.
-    console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
+    if (process.env.ENABLE_FEED_PHOTO_DIAGNOSTICS === "true") {
+      // TODO: Remove after feed photo storage is verified in production.
+      console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
+    }
 
     // Build optional admin-only diagnosis
     let diagnosis = undefined;
@@ -627,16 +645,21 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
 
     // Find potential matches (regular users, not creators)
     const users = await User.find({
-      _id: { $nin: excludeIds },
-      role: "user", // Only regular users in match feed
-      onboardingComplete: true,
-      isBlocked: false,
-      isSuspended: false,
-      username: { $ne: null },
-      ...discoveryMatch,
+      $and: [
+        {
+          _id: { $nin: excludeIds },
+          role: "user", // Only regular users in match feed
+          onboardingComplete: true,
+          isBlocked: false,
+          isSuspended: false,
+          username: { $ne: null },
+          ...discoveryMatch,
+        },
+        FEED_PHOTO_CANDIDATE_MATCH,
+      ],
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
-      .limit(count * 4) // Fetch more to allow for photo/profile filtering
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER) // count is bounded by MAX_FEED_SIZE before this helper is called.
       .lean();
 
     // Calculate priority for each user
@@ -857,17 +880,22 @@ const getTopMatchProfiles = async (req, count, currentUserId) => {
 
     // Top match profiles = verified or popular users
     const users = await User.find({
-      _id: { $ne: currentUserId },
-      role: "user",
-      onboardingComplete: true,
-      isBlocked: false,
-      isSuspended: false,
-      username: { $ne: null },
-      ...discoveryMatch,
+      $and: [
+        {
+          _id: { $ne: currentUserId },
+          role: "user",
+          onboardingComplete: true,
+          isBlocked: false,
+          isSuspended: false,
+          username: { $ne: null },
+          ...discoveryMatch,
+        },
+        FEED_PHOTO_CANDIDATE_MATCH,
+      ],
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests isVerifiedCreator followersCount`)
       .sort({ followersCount: -1, _id: 1 })
-      .limit(count * 4)
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER)
       .lean();
 
     return users

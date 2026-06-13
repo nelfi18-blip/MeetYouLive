@@ -41,7 +41,6 @@ export default function SwipeCard({
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const swipeTimeoutRef = useRef(null);
-  const diagnosticLoggedKeysRef = useRef(new Set());
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
@@ -133,10 +132,7 @@ export default function SwipeCard({
   const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
 
   useEffect(() => {
-    const diagnosticKey = `${profileId}:${profile?.username || ""}:${photoSelection.photoCount}:${photoSelection.fieldUsed || ""}`;
-    if (diagnosticLoggedKeysRef.current.has(diagnosticKey)) return;
-    diagnosticLoggedKeysRef.current.add(diagnosticKey);
-
+    if (process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS !== "true") return;
     // TODO: Remove this temporary diagnostic after feed photo storage is verified.
     console.debug("[feed-photo-diagnostic]", {
       userId: profileId,
@@ -144,7 +140,7 @@ export default function SwipeCard({
       photoCount: photoSelection.photoCount,
       fieldUsed: photoSelection.fieldUsed,
     });
-  }, [photoSelection.fieldUsed, photoSelection.photoCount, profile?.username, profileId]);
+  }, [profileId]);
   
   // Online status
   const isOnline = profile.isOnline || profile.lastSeen;

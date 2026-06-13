@@ -1,4 +1,5 @@
 const {
+  getUserPhotoSelection,
   hasSerializableUserPhoto,
   normalizePhotoUrl,
   withSerializedUserPhotoFields,
@@ -60,6 +61,27 @@ describe("photoFields", () => {
       "https://api.meetyoulive.net/uploads/avatar-user-1.webp",
       "https://example.com/picture.jpg",
     ]);
+  });
+
+  test("reports photo count and primary field used for diagnostics", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+    const selection = getUserPhotoSelection(req, {
+      username: "photo-user",
+      profilePhotos: ["", "/uploads/first.webp"],
+      avatar: "/uploads/avatar.webp",
+      image: "https://example.com/image.jpg",
+    });
+
+    expect(selection).toEqual({
+      primaryPhoto: "https://api.meetyoulive.net/uploads/first.webp",
+      photos: [
+        "https://api.meetyoulive.net/uploads/first.webp",
+        "https://api.meetyoulive.net/uploads/avatar.webp",
+        "https://example.com/image.jpg",
+      ],
+      fieldUsed: "profilePhotos",
+      photoCount: 3,
+    });
   });
 
   test("rejects non-renderable unsafe photo values", () => {

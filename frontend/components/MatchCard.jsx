@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import FeedMonetizationActions from "./FeedMonetizationActions";
+import { getUserPhotoSelection } from "@/lib/imageHelpers";
 
 /**
  * MatchCard component - Tinder-style card for dating profiles
@@ -38,9 +39,7 @@ export default function MatchCard({
   const displayName = user.username || user.name || "Usuario";
   const age = user.birthdate ? calculateAge(user.birthdate) : null;
   const tags = user.tags || [];
-  const photos = user.profilePhotos && user.profilePhotos.length > 0
-    ? user.profilePhotos
-    : user.avatar ? [user.avatar] : [];
+  const photos = getUserPhotoSelection(user).photos;
 
   const currentPhoto = photos[imageIndex] || null;
   const hasMultiplePhotos = photos.length > 1;

@@ -126,19 +126,50 @@ const normalizePhotoUrl = (req, value) => {
  * @param {object} userLike User-like object with photo aliases.
  * @returns {unknown[]} Raw photo field values.
  */
-const getRawUserPhotoValues = (userLike) => [
-  ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
-  ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
-  ...(Array.isArray(userLike?.images) ? userLike.images : []),
-  userLike?.avatar,
-  userLike?.profileImage,
-  userLike?.photo,
-  userLike?.photoURL,
-  userLike?.photoUrl,
-  userLike?.image,
-  userLike?.imageUrl,
-  userLike?.picture,
+const getRawUserPhotoCandidates = (userLike) => [
+  ...(Array.isArray(userLike?.profilePhotos)
+    ? userLike.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
+    : []),
+  ...(Array.isArray(userLike?.photos) ? userLike.photos.map((value) => ({ field: "photos", value })) : []),
+  ...(Array.isArray(userLike?.images) ? userLike.images.map((value) => ({ field: "images", value })) : []),
+  { field: "avatar", value: userLike?.avatar },
+  { field: "profileImage", value: userLike?.profileImage },
+  { field: "photo", value: userLike?.photo },
+  { field: "photoURL", value: userLike?.photoURL },
+  { field: "photoUrl", value: userLike?.photoUrl },
+  { field: "image", value: userLike?.image },
+  { field: "imageUrl", value: userLike?.imageUrl },
+  { field: "picture", value: userLike?.picture },
 ];
+
+/**
+ * Select normalized user photos and report which persisted field supplied the primary photo.
+ *
+ * @param {import("express").Request} req Express request used for upload origins.
+ * @param {object} userLike User-like object with photo aliases.
+ * @returns {{primaryPhoto: string, photos: string[], fieldUsed: string|null, photoCount: number}}
+ */
+const getUserPhotoSelection = (req, userLike) => {
+  const photos = [];
+  const seenPhotos = new Set();
+  let fieldUsed = null;
+
+  for (const { field, value } of getRawUserPhotoCandidates(userLike)) {
+    const normalized = normalizePhotoUrl(req, value);
+    if (normalized && !seenPhotos.has(normalized)) {
+      seenPhotos.add(normalized);
+      photos.push(normalized);
+      if (!fieldUsed) fieldUsed = field;
+    }
+  }
+
+  return {
+    primaryPhoto: photos[0] || "",
+    photos,
+    fieldUsed,
+    photoCount: photos.length,
+  };
+};
 
 /**
  * Check whether any photo field can be normalized into a renderable URL.
@@ -147,8 +178,7 @@ const getRawUserPhotoValues = (userLike) => [
  * @param {object} userLike User-like object with photo aliases.
  * @returns {boolean}
  */
-const hasSerializableUserPhoto = (req, userLike) =>
-  getRawUserPhotoValues(userLike).some((value) => Boolean(normalizePhotoUrl(req, value)));
+const hasSerializableUserPhoto = (req, userLike) => Boolean(getUserPhotoSelection(req, userLike).primaryPhoto);
 
 /**
  * Aggregate all user photo aliases into a consistent serialized shape.
@@ -158,19 +188,7 @@ const hasSerializableUserPhoto = (req, userLike) =>
  * @returns {{avatar: string, profileImage: string, photo: string, photos: string[], profilePhotos: string[]}}
  */
 const serializeUserPhotoFields = (req, userLike) => {
-  const rawPhotos = getRawUserPhotoValues(userLike);
-  const normalizedPhotos = [];
-  const seenPhotos = new Set();
-
-  for (const value of rawPhotos) {
-    const normalized = normalizePhotoUrl(req, value);
-    if (normalized && !seenPhotos.has(normalized)) {
-      seenPhotos.add(normalized);
-      normalizedPhotos.push(normalized);
-    }
-  }
-
-  const avatar = normalizedPhotos[0] || "";
+  const { primaryPhoto: avatar, photos: normalizedPhotos } = getUserPhotoSelection(req, userLike);
   return {
     avatar,
     profileImage: avatar,
@@ -197,6 +215,7 @@ const withSerializedUserPhotoFields = (req, userLike) => {
 };
 
 module.exports = {
+  getUserPhotoSelection,
   hasSerializableUserPhoto,
   normalizePhotoUrl,
   serializeUserPhotoFields,

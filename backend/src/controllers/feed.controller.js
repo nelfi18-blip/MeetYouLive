@@ -664,7 +664,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       ],
     })
       .select(`username name ${FEED_PHOTO_FIELDS} bio gender birthdate location interests intent isVerifiedCreator createdAt`)
-      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER) // count is bounded by MAX_FEED_SIZE before this helper is called.
+      .limit(count * PHOTO_FILTER_FETCH_MULTIPLIER) // feedSize is capped before deriving this match count.
       .lean();
 
     // Calculate priority for each user
@@ -678,7 +678,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       let priority = 0;
       if (isNew) priority += 800; // New users boosted
       if (hasCompleteProfile) priority += 300; // Complete profiles boosted
-      priority += 200; // Users with photos are required for the feed and still get the existing boost
+      priority += 200; // All users here have photos; keep the existing photo boost.
       priority += Math.random() * 100; // Add randomness for variety
 
       return {

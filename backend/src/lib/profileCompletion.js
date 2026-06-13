@@ -93,7 +93,6 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
 module.exports = {
   MIN_PROFILE_INTERESTS,
   PROFILE_REQUIRED_FIELDS,
-  calculateAge,
   canAppearInFeed,
   getMissingProfileFields,
   getProfileCompatibilityUpdates,

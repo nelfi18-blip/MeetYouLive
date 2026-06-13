@@ -100,7 +100,8 @@ const locationPointSchema = new mongoose.Schema(
             lat <= 90
           );
         },
-        message: "locationPoint.coordinates must be [lng, lat]",
+        message:
+          "locationPoint.coordinates must be [longitude, latitude] with longitude between -180 and 180 and latitude between -90 and 90",
       },
     },
   },

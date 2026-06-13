@@ -435,6 +435,7 @@ const getFeed = async (req, res) => {
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
+    // TODO: Remove after feed photo storage is verified in production.
     console.log("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
 
     // Build optional admin-only diagnosis

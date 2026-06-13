@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
 import Link from "next/link";
@@ -118,7 +118,7 @@ export default function SwipeCard({
     }
   };
 
-  const photoSelection = getUserPhotoSelection(profile);
+  const photoSelection = useMemo(() => getUserPhotoSelection(profile), [profile]);
   const displayName = getDisplayName(profile);
   const profileId = profile?._id ? String(profile._id) : "";
   const age = profile.age || "";

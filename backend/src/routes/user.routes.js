@@ -335,7 +335,7 @@ const serializeUserPhotoFields = (req, userLike) => {
     normalizedPhotos[0],
     userLike
   );
-  // profilePhotos is the canonical persisted field; aliases keep feed/public clients in sync.
+  // images[0] is canonical; aliases keep feed/public clients in sync.
   return {
     avatar,
     profileImage: avatar,
@@ -658,7 +658,6 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     // images[0] is canonical; aliases are accepted to avoid dropping photos.
-    // still emitted by profile/feed serializers and accepted here to avoid dropping photos.
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
     const incomingProfilePhotos = images !== undefined ? images : profilePhotos !== undefined ? profilePhotos : photos;
 

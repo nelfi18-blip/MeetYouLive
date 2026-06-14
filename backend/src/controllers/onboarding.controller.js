@@ -152,11 +152,13 @@ const updateOnboarding = async (req, res) => {
       ? req.body.interests.map((interest) => normalizeText(interest, 40)).filter(Boolean).slice(0, MAX_INTERESTS)
       : currentUser.interests || [];
     const intent = normalizeText(req.body.intent ?? currentUser.intent, 40);
+    const name = normalizeText(req.body.name ?? currentUser.name, 80);
     const images = normalizeImages(req, req.body, currentUser);
     const primaryImage = images.find((image) => image.isPrimary) || images[0] || null;
 
     const mergedProfile = {
       ...currentUser.toObject(),
+      name,
       images,
       birthdate,
       gender,
@@ -184,7 +186,6 @@ const updateOnboarding = async (req, res) => {
       onboardingComplete,
     };
 
-    const name = normalizeText(req.body.name, 80);
     if (name) updates.name = name;
     if (req.body.bio !== undefined) updates.bio = normalizeText(req.body.bio, 500);
     if (req.body.maxDistanceKm !== undefined) {

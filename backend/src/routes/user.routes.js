@@ -1060,9 +1060,11 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     const savedUser = await User.findByIdAndUpdate(
       user._id,
       {
-        avatar: nextAvatar,
-        profilePhotos: nextProfilePhotos,
-        images: nextImages,
+        $set: {
+          avatar: nextAvatar,
+          profilePhotos: nextProfilePhotos,
+          images: nextImages,
+        },
       },
       { new: true }
     ).select("-password");
@@ -1086,6 +1088,13 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     });
 
     const photoFields = serializeUserPhotoFields(req, savedUser.toObject());
+    const serializedUser = {
+      ...savedUser.toObject(),
+      avatar: photoFields.avatar,
+      profileImage: photoFields.profileImage,
+      profilePhotos: photoFields.profilePhotos,
+      photos: photoFields.photos,
+    };
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
@@ -1094,16 +1103,14 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       profileImage: photoFields.profileImage,
       avatarPath,
       photo: photoUrl,
+      photoUrl,
+      url: photoFields.avatar,
       mainPhoto: photoFields.avatar,
       photos: photoFields.photos,
       profilePhotos: photoFields.profilePhotos,
+      images: serializedUser.images || [],
       maxExtraPhotos: photoFields.maxExtraPhotos,
-      user: {
-        ...savedUser.toObject(),
-        avatar: photoFields.avatar,
-        profileImage: photoFields.profileImage,
-        profilePhotos: photoFields.profilePhotos,
-      },
+      user: serializedUser,
     });
   } catch (err) {
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.

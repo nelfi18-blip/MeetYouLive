@@ -91,14 +91,16 @@ describe("POST /api/user/me/avatar-upload", () => {
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
       existingUser._id,
       expect.objectContaining({
-        avatar: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
-        profilePhotos: [expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/)],
-        images: [
-          expect.objectContaining({
-            url: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
-            isPrimary: true,
-          }),
-        ],
+        $set: expect.objectContaining({
+          avatar: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+          profilePhotos: [expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/)],
+          images: [
+            expect.objectContaining({
+              url: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+              isPrimary: true,
+            }),
+          ],
+        }),
       }),
       { new: true }
     );
@@ -108,10 +110,20 @@ describe("POST /api/user/me/avatar-upload", () => {
       avatar: savedUser.avatar,
       profileImage: savedUser.avatar,
       profilePhotos: savedUser.profilePhotos,
+      photoUrl: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+      url: savedUser.avatar,
+      images: [
+        expect.objectContaining({
+          url: savedUser.avatar,
+          isPrimary: true,
+          uploadedAt: expect.any(String),
+        }),
+      ],
       user: {
         avatar: savedUser.avatar,
         profileImage: savedUser.avatar,
         profilePhotos: savedUser.profilePhotos,
+        photos: savedUser.profilePhotos,
       },
     });
     expect(res.body.user.images[0]).toMatchObject({

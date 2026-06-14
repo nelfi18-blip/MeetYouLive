@@ -133,7 +133,9 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("returns diagnostic JSON when no avatar file is sent", async () => {
-    const res = await request(app).post("/api/user/me/avatar-upload");
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******");
 
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({
@@ -148,6 +150,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   test("returns diagnostic JSON when multipart field is not avatar", async () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
       .attach("photo", Buffer.from("image"), {
         filename: "avatar.png",
         contentType: "image/png",
@@ -166,6 +169,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   test("returns diagnostic JSON for unsupported MIME types", async () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
       .attach("avatar", Buffer.from("not-image"), {
         filename: "avatar.txt",
         contentType: "text/plain",
@@ -184,6 +188,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   test("returns diagnostic JSON when avatar file is too large", async () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
       .attach("avatar", Buffer.alloc((5 * 1024 * 1024) + 1), {
         filename: "avatar.png",
         contentType: "image/png",

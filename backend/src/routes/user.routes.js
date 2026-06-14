@@ -102,6 +102,8 @@ const sendAvatarUploadJsonError = (res, status, code, message, error = code) => 
   return res.status(status).json(uploadErrorPayload(status, code, message, error));
 };
 
+// Request structured auth errors for avatar uploads so frontend can display
+// status/error/message/code instead of a generic upload failure.
 const enableAvatarUploadDiagnostics = (req, _res, next) => {
   req.structuredErrors = true;
   next();

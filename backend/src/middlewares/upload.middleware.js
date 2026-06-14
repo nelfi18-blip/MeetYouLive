@@ -6,14 +6,20 @@ const uploadDir = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+let uploadDirReady = fs.existsSync(uploadDir);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
+    if (uploadDirReady) {
+      return cb(null, uploadDir);
+    }
+
     fs.mkdir(uploadDir, { recursive: true }, (err) => {
       if (err) {
         err.code = err.code || "UPLOAD_DIR_UNAVAILABLE";
         return cb(err);
       }
+      uploadDirReady = true;
       cb(null, uploadDir);
     });
   },

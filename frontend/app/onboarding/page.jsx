@@ -5,11 +5,16 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  AVATAR_TOO_LARGE_MESSAGE,
+  AVATAR_UPLOAD_MAX_BYTES,
+  AVATAR_UPLOAD_MAX_LABEL,
+  compressAvatarImage,
+} from "@/lib/avatarUpload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
 const MIN_INTERESTS = 3;
-const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -34,9 +39,28 @@ const getUploadErrorMessage = (status, payload, fallback = "Error al subir la fo
   const payloadMessage = getUploadMessageFromPayload(payload);
   if (payloadMessage) return payloadMessage;
   if (status === 401) return "Tu sesión expiró. Inicia sesión de nuevo.";
-  if (status === 413) return "La imagen es demasiado grande. El máximo permitido es 5 MB.";
+  if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
   if (status === 415) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
   return fallback;
+};
+
+const getUploadDiagnostic = (status, payload, fallback = "Error al subir la foto") => {
+  const message = getUploadErrorMessage(status, payload, fallback);
+  const code = payload?.code || (status === 0 ? "NETWORK_ERROR" : `HTTP_${status || "UNKNOWN"}`);
+  const error = typeof payload?.error === "string" && payload.error.trim()
+    ? payload.error
+    : (payload?.raw ? "Non-JSON response" : code);
+  return { status, error, message, code };
+};
+
+const formatUploadDiagnostic = ({ status, error, message, code }) => {
+  const details = [
+    `status: ${status || "sin respuesta"}`,
+    `error: ${error || "desconocido"}`,
+    `message: ${message || "sin mensaje"}`,
+    `code: ${code || "UNKNOWN"}`,
+  ].join(" · ");
+  return `${message || "No se pudo subir/procesar la foto"} (${details})`;
 };
 
 const parseUploadResponseBody = async (res) => {
@@ -287,7 +311,6 @@ export default function OnboardingPage() {
     if (!file) return "Selecciona una imagen válida.";
     if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
     if (!hasAllowedAvatarExtension(file.name)) return "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.";
-    if (file.size > MAX_AVATAR_FILE_SIZE) return "La imagen es demasiado grande. El máximo permitido es 5 MB.";
     return "";
   };
 
@@ -427,26 +450,43 @@ export default function OnboardingPage() {
     const uploadPhotoFile = async (file, { setAsMain = false } = {}) => {
       const uploadEndpoint = buildUploadEndpoint({ setAsMain });
       if (!uploadEndpoint) return { ok: false, message: "No se pudo iniciar la subida. Falta la configuración del servidor." };
+      const uploadFile = await compressAvatarImage(file);
+      if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
+        const diagnostic = getUploadDiagnostic(413, {
+          error: "File too large",
+          message: AVATAR_TOO_LARGE_MESSAGE,
+          code: "FILE_TOO_LARGE",
+        });
+        return { ok: false, message: formatUploadDiagnostic(diagnostic), diagnostic };
+      }
 
       const formData = new FormData();
-      formData.append("avatar", file);
+      formData.append("avatar", uploadFile);
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] request start", { url: uploadEndpoint });
-      const uploadRes = await fetch(uploadEndpoint, {
+      let uploadRes;
+      try {
+        uploadRes = await fetch(uploadEndpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
-      });
+        });
+      } catch (err) {
+        const diagnostic = getUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
+        return { ok: false, message: formatUploadDiagnostic(diagnostic), diagnostic };
+      }
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] response status", uploadRes.status);
       const uploadData = await parseUploadResponseBody(uploadRes);
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] response body", uploadData);
       if (!uploadRes.ok) {
+        const diagnostic = getUploadDiagnostic(uploadRes.status, uploadData, "Error al subir la foto");
         return {
           ok: false,
           unauthorized: uploadRes.status === 401,
-          message: getUploadErrorMessage(uploadRes.status, uploadData, "Error al subir la foto"),
+          message: formatUploadDiagnostic(diagnostic),
+          diagnostic,
         };
       }
       const uploadPhotos = collectUploadPhotoUrls(uploadData);
@@ -912,7 +952,7 @@ export default function OnboardingPage() {
           {step === 4 && (
             <div className="ob-section">
               <h2 className="ob-title">Arma tu perfil de fotos</h2>
-              <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra</p>
+              <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Optimizamos fotos grandes antes de subirlas.</p>
 
               <div className="ob-avatar-preview">
                 {mainPhotoPreview ? (
@@ -972,7 +1012,7 @@ export default function OnboardingPage() {
                     }}
                   />
                 </label>
-                <span className="ob-hint">Máximo {MAX_PROFILE_PHOTOS} fotos en total.</span>
+                <span className="ob-hint">Máximo {MAX_PROFILE_PHOTOS} fotos en total. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>
               </div>
 
               {/* Coin / Creator destination hook */}

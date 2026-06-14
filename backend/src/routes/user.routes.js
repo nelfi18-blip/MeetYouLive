@@ -61,7 +61,7 @@ const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen")
     if (err.code === "LIMIT_FILE_SIZE") {
       return res
         .status(413)
-        .json(uploadErrorPayload(413, "FILE_TOO_LARGE", "Imagen demasiado grande. El máximo permitido es 5 MB.", "File too large"));
+        .json(uploadErrorPayload(413, "FILE_TOO_LARGE", "La imagen es demasiado grande. Intenta con una foto más pequeña.", "File too large"));
     }
 
     if (err.code === "LIMIT_UNEXPECTED_FILE") {
@@ -106,6 +106,10 @@ const verifyTokenForAvatarUpload = (req, res, next) => {
   const originalStatus = res.status.bind(res);
   const originalJson = res.json.bind(res);
   let responseStatus = res.statusCode;
+  const restoreResponseMethods = () => {
+    res.status = originalStatus;
+    res.json = originalJson;
+  };
 
   res.status = (statusCode) => {
     responseStatus = statusCode;
@@ -117,15 +121,18 @@ const verifyTokenForAvatarUpload = (req, res, next) => {
       const message = payload?.message || (responseStatus === 401 ? "Sesión expirada." : "No se pudo autorizar la subida.");
       const code = responseStatus === 401 ? "SESSION_EXPIRED" : "AUTH_FAILED";
       const error = responseStatus === 401 ? "Unauthorized" : "Forbidden";
-      res.json = originalJson;
+      restoreResponseMethods();
       return originalJson(uploadErrorPayload(responseStatus, code, message, error));
     }
 
-    res.json = originalJson;
+    restoreResponseMethods();
     return originalJson(payload);
   };
 
-  return verifyToken(req, res, next);
+  return verifyToken(req, res, (err) => {
+    restoreResponseMethods();
+    next(err);
+  });
 };
 
 const normalizeHttpProtocol = (value) => {

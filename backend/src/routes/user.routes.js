@@ -1097,6 +1097,8 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       avatar: photoFields.avatar,
       profileImage: photoFields.profileImage,
       avatarPath,
+      // Keep legacy aliases for existing onboarding/profile clients while
+      // avatar/profilePhotos/images remain the canonical saved fields.
       photo: photoUrl,
       photoUrl,
       url: photoFields.avatar,

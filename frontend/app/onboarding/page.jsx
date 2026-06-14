@@ -94,6 +94,8 @@ const getUploadPhotoUrlValue = (value) => {
   return value.url || value.secure_url || "";
 };
 
+// Accept the canonical avatar/profilePhotos payload plus legacy/provider URL objects
+// so a successful backend upload cannot be discarded before the onboarding save.
 const collectUploadPhotoUrls = (payload) => {
   const candidates = [
     payload?.avatar,

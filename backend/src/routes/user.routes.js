@@ -524,7 +524,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     }
     if (bio !== undefined) updates.bio = bio.trim();
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
-    const incomingProfilePhotos = images !== undefined ? images : profilePhotos !== undefined ? profilePhotos : photos;
+    const incomingProfilePhotos = images ?? profilePhotos ?? photos;
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
@@ -659,7 +659,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     const updates = {};
     // images[0] is canonical; aliases are accepted to avoid dropping photos.
     const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
-    const incomingProfilePhotos = images !== undefined ? images : profilePhotos !== undefined ? profilePhotos : photos;
+    const incomingProfilePhotos = images ?? profilePhotos ?? photos;
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);

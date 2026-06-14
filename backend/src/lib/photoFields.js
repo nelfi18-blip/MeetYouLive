@@ -10,6 +10,8 @@ const validateHttpProtocol = (value) => {
   return allowedProtocols.has(protocol) ? protocol : "";
 };
 
+const REQUESTLESS_PHOTO_REQ = { protocol: "https", get: () => "" };
+
 /**
  * Build a safe request origin for absolute upload URLs.
  *
@@ -172,7 +174,7 @@ const getUserPhotoSelection = (req, userLike) => {
 };
 
 const makePrimaryUserPhotoFields = (photoUrl, source = "") => {
-  const url = normalizePhotoUrl({ protocol: "https", get: () => "" }, photoUrl);
+  const url = normalizePhotoUrl(REQUESTLESS_PHOTO_REQ, photoUrl);
   if (!url) return {};
   return {
     avatar: url,

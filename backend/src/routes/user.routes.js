@@ -991,11 +991,8 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       userId: req.userId,
       hasFile: Boolean(req.file),
       fieldname: req.file?.fieldname,
-      originalname: req.file?.originalname,
       mimetype: req.file?.mimetype,
       size: req.file?.size,
-      filename: req.file?.filename,
-      path: req.file?.path,
     });
     next();
   });
@@ -1013,7 +1010,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       userId: req.userId,
       avatarPath,
       avatarUrl,
-      physicalPath: safeUploadedFilePath,
+      physicalPathValidated: Boolean(safeUploadedFilePath),
       physicalFileExists,
       setAsMain: req.query?.setAsMain,
     });
@@ -1074,8 +1071,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       userId: req.userId,
       name: err?.name,
       message: err?.message,
-      avatarFilename: req.file?.filename,
-      avatarPath: req.file?.path,
+      hasFile: Boolean(req.file),
     });
     res.status(500).json({
       ok: false,

@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
-const fs = require("fs");
+const fs = require("fs/promises");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const path = require("path");
@@ -30,7 +30,7 @@ const {
 } = require("../lib/profileCompletion.js");
 
 const router = Router();
-const uploadDir = path.resolve(__dirname, "../../uploads");
+const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -361,6 +361,16 @@ const getSafeUploadedFilePath = (file) => {
   if (!file?.filename) return "";
   const resolvedPath = path.resolve(uploadDir, path.basename(file.filename));
   return resolvedPath.startsWith(`${uploadDir}${path.sep}`) ? resolvedPath : "";
+};
+
+const doesFileExist = async (filePath) => {
+  if (!filePath) return false;
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const parseDiscoveryPreferencesInput = (input) => {
@@ -1004,7 +1014,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     const avatarPath = `/uploads/${req.file.filename}`;
     const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
     const safeUploadedFilePath = getSafeUploadedFilePath(req.file);
-    const physicalFileExists = Boolean(safeUploadedFilePath && fs.existsSync(safeUploadedFilePath));
+    const physicalFileExists = await doesFileExist(safeUploadedFilePath);
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.log("[avatar-upload] generated URL and disk state", {
       userId: req.userId,

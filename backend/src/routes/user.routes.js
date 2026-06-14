@@ -102,37 +102,9 @@ const sendAvatarUploadJsonError = (res, status, code, message, error = code) => 
   return res.status(status).json(uploadErrorPayload(status, code, message, error));
 };
 
-const verifyTokenForAvatarUpload = (req, res, next) => {
-  const originalStatus = res.status.bind(res);
-  const originalJson = res.json.bind(res);
-  let responseStatus = res.statusCode;
-  const restoreResponseMethods = () => {
-    res.status = originalStatus;
-    res.json = originalJson;
-  };
-
-  res.status = (statusCode) => {
-    responseStatus = statusCode;
-    return originalStatus(statusCode);
-  };
-
-  res.json = (payload) => {
-    if (!res.headersSent && responseStatus >= 400) {
-      const message = payload?.message || (responseStatus === 401 ? "Sesión expirada." : "No se pudo autorizar la subida.");
-      const code = responseStatus === 401 ? "SESSION_EXPIRED" : "AUTH_FAILED";
-      const error = responseStatus === 401 ? "Unauthorized" : "Forbidden";
-      restoreResponseMethods();
-      return originalJson(uploadErrorPayload(responseStatus, code, message, error));
-    }
-
-    restoreResponseMethods();
-    return originalJson(payload);
-  };
-
-  return verifyToken(req, res, (err) => {
-    restoreResponseMethods();
-    next(err);
-  });
+const enableAvatarUploadDiagnostics = (req, _res, next) => {
+  req.avatarUploadDiagnostics = true;
+  next();
 };
 
 const normalizeHttpProtocol = (value) => {
@@ -1042,7 +1014,7 @@ router.patch("/me/creator-profile", userLimiter, verifyToken, async (req, res) =
 });
 
 // Upload profile photo (multipart/form-data, field "avatar")
-router.post("/me/avatar-upload", userLimiter, verifyTokenForAvatarUpload, (req, res, next) => {
+router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, verifyToken, (req, res, next) => {
   upload.single("avatar")(req, res, (err) => {
     if (err) {
       return sendUploadError(res, err, "Error al subir la imagen");

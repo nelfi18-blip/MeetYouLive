@@ -344,6 +344,12 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
   return { avatar: "", profilePhotos: [], images: [] };
 };
 
+const getExistingPhotoCandidates = (user) => [
+  ...(Array.isArray(user?.images) ? user.images : []),
+  ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
+  user?.avatar,
+];
+
 const serializeUserPhotoFields = (req, userLike) => {
   const rawPhotos = [
     ...(Array.isArray(userLike?.images) ? userLike.images : []),
@@ -1064,11 +1070,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
     const shouldSetAsMain = parseSetAsMainParam(req.query);
-    const existingPhotoCandidates = [
-      ...(Array.isArray(user.images) ? user.images : []),
-      ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
-      user.avatar,
-    ];
+    const existingPhotoCandidates = getExistingPhotoCandidates(user);
     const candidateProfilePhotos = shouldSetAsMain
       ? [photoUrl, ...existingPhotoCandidates]
       : [...existingPhotoCandidates, photoUrl];

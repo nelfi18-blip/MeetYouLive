@@ -778,7 +778,7 @@ export default function ProfilePage() {
       return;
     }
 
-    let committedPhotos = currentPhotos;
+    let persistedPhotos = currentPhotos;
     applyLocalPhotoPreviewList([
       ...currentPhotos,
       ...localSelections.map((selection) => selection.previewUrl),
@@ -796,20 +796,20 @@ export default function ProfilePage() {
           }
           setSaveError(uploadResult.error || "Una foto no se pudo subir.");
           applyLocalPhotoPreviewList([
-            ...committedPhotos,
+            ...persistedPhotos,
             ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
           ]);
           continue;
         }
         uploadedCount += 1;
-        committedPhotos = normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
+        persistedPhotos = normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
         applyLocalPhotoPreviewList([
-          ...committedPhotos,
+          ...persistedPhotos,
           ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
         ]);
       }
       if (uploadedCount > 0) {
-        applyLocalPhotoPreviewList(committedPhotos);
+        applyLocalPhotoPreviewList(persistedPhotos);
         await refreshProfileSession();
         setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
       } else {
@@ -819,7 +819,7 @@ export default function ProfilePage() {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[avatar-upload] caught frontend error", err);
       setSaveError("No se pudo subir una o más imágenes.");
-      applyLocalPhotoPreviewList(uploadedCount > 0 ? committedPhotos : currentPhotos);
+      applyLocalPhotoPreviewList(uploadedCount > 0 ? persistedPhotos : currentPhotos);
     } finally {
       localSelections.forEach((selection) => URL.revokeObjectURL(selection.previewUrl));
       setAvatarUploading(false);

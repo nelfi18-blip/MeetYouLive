@@ -997,6 +997,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       return sendUploadError(res, err, "Error al subir la imagen");
     }
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("FILE RECEIVED", req.file);
     console.log("[avatar-upload] request file received", {
       userId: req.userId,
       hasFile: Boolean(req.file),
@@ -1012,14 +1013,15 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
     }
     const avatarPath = `/uploads/${req.file.filename}`;
-    const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
+    const photoUrl = toAbsoluteUploadUrl(req, avatarPath);
     const safeUploadedFilePath = getSafeUploadedFilePath(req.file);
     const physicalFileExists = await doesFileExist(safeUploadedFilePath);
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("PHOTO URL", photoUrl);
     console.log("[avatar-upload] generated URL and disk state", {
       userId: req.userId,
       avatarPath,
-      avatarUrl,
+      photoUrl,
       physicalPathValidated: Boolean(safeUploadedFilePath),
       physicalFileExists,
       setAsMain: req.query?.setAsMain,
@@ -1034,46 +1036,74 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       });
     }
     const candidateProfilePhotos = [
-      avatarUrl,
+      photoUrl,
       ...(Array.isArray(user.images) ? user.images : []),
       ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
     ];
     const normalizedPhotoState = normalizeProfilePhotos(
       req,
       candidateProfilePhotos,
-      shouldSetAsMain ? avatarUrl : undefined,
+      shouldSetAsMain ? photoUrl : undefined,
       user
     );
     const nextAvatar = normalizedPhotoState.avatar;
     const nextProfilePhotos = normalizedPhotoState.profilePhotos;
     const nextImages = normalizedPhotoState.images;
 
-    user.avatar = nextAvatar;
-    user.profilePhotos = nextProfilePhotos;
-    user.images = nextImages;
-    await user.save();
+    const uploadResult = {
+      avatar: nextAvatar,
+      profilePhotos: nextProfilePhotos,
+      images: nextImages,
+    };
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("UPLOAD RESULT", uploadResult);
+    const savedUser = await User.findByIdAndUpdate(
+      user._id,
+      {
+        avatar: nextAvatar,
+        profilePhotos: nextProfilePhotos,
+        images: nextImages,
+      },
+      { new: true }
+    ).select("-password");
+    if (!savedUser) {
+      return res.status(404).json({
+        ok: false,
+        code: "USER_NOT_FOUND",
+        message: "Usuario no encontrado",
+      });
+    }
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("USER SAVED", savedUser._id);
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.log("[avatar-upload] MongoDB photo fields saved", {
       userId: req.userId,
-      avatar: user.avatar,
-      profilePhotos: user.profilePhotos,
-      imagesCount: Array.isArray(user.images) ? user.images.length : 0,
-      images0Url: user.images?.[0]?.url || "",
-      images0IsPrimary: user.images?.[0]?.isPrimary,
+      avatar: savedUser.avatar,
+      profilePhotos: savedUser.profilePhotos,
+      imagesCount: Array.isArray(savedUser.images) ? savedUser.images.length : 0,
+      images0Url: savedUser.images?.[0]?.url || "",
+      images0IsPrimary: savedUser.images?.[0]?.isPrimary,
     });
 
-    const photoFields = serializeUserPhotoFields(req, user.toObject());
+    const photoFields = serializeUserPhotoFields(req, savedUser.toObject());
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
       message: "Imagen subida correctamente",
       avatar: photoFields.avatar,
+      profileImage: photoFields.profileImage,
       avatarPath,
-      photo: avatarUrl,
+      photo: photoUrl,
       mainPhoto: photoFields.avatar,
+      photos: photoFields.photos,
       profilePhotos: photoFields.profilePhotos,
       maxExtraPhotos: photoFields.maxExtraPhotos,
-      user: { ...user.toObject(), avatar: photoFields.avatar, profilePhotos: photoFields.profilePhotos },
+      user: {
+        ...savedUser.toObject(),
+        avatar: photoFields.avatar,
+        profileImage: photoFields.profileImage,
+        profilePhotos: photoFields.profilePhotos,
+      },
     });
   } catch (err) {
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.

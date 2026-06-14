@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const multer = require("multer");
+const path = require("path");
 const rateLimit = require("express-rate-limit");
 const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
@@ -29,6 +30,7 @@ const {
 } = require("../lib/profileCompletion.js");
 
 const router = Router();
+const uploadDir = path.resolve(__dirname, "../../uploads");
 
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -354,6 +356,12 @@ const serializeUserPhotoFields = (req, userLike) => {
 };
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
+
+const getSafeUploadedFilePath = (file) => {
+  if (!file?.filename) return "";
+  const resolvedPath = path.resolve(uploadDir, path.basename(file.filename));
+  return resolvedPath.startsWith(`${uploadDir}${path.sep}`) ? resolvedPath : "";
+};
 
 const parseDiscoveryPreferencesInput = (input) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
@@ -998,13 +1006,14 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     }
     const avatarPath = `/uploads/${req.file.filename}`;
     const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
-    const physicalFileExists = Boolean(req.file.path && fs.existsSync(req.file.path));
+    const safeUploadedFilePath = getSafeUploadedFilePath(req.file);
+    const physicalFileExists = Boolean(safeUploadedFilePath && fs.existsSync(safeUploadedFilePath));
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.log("[avatar-upload] generated URL and disk state", {
       userId: req.userId,
       avatarPath,
       avatarUrl,
-      physicalPath: req.file.path,
+      physicalPath: safeUploadedFilePath,
       physicalFileExists,
       setAsMain: req.query?.setAsMain,
     });

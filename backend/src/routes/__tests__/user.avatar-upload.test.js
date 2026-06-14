@@ -131,4 +131,76 @@ describe("POST /api/user/me/avatar-upload", () => {
       isPrimary: true,
     });
   });
+
+  test("returns diagnostic JSON when no avatar file is sent", async () => {
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******");
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 400,
+      error: "File required",
+      message: "No se recibió archivo.",
+      code: "FILE_REQUIRED",
+    });
+  });
+
+  test("returns diagnostic JSON when multipart field is not avatar", async () => {
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .attach("photo", Buffer.from("image"), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 400,
+      error: "Unexpected file field",
+      message: 'El campo multipart debe llamarse "avatar".',
+      code: "INVALID_FILE_FIELD",
+    });
+  });
+
+  test("returns diagnostic JSON for unsupported MIME types", async () => {
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .attach("avatar", Buffer.from("not-image"), {
+        filename: "avatar.txt",
+        contentType: "text/plain",
+      });
+
+    expect(res.status).toBe(415);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 415,
+      error: "Unsupported media type",
+      message: "Formato no permitido. Usa JPG, PNG, WebP o GIF.",
+      code: "UNSUPPORTED_MEDIA_TYPE",
+    });
+  });
+
+  test("returns diagnostic JSON when avatar file is too large", async () => {
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .attach("avatar", Buffer.alloc((5 * 1024 * 1024) + 1), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 413,
+      error: "File too large",
+      message: "La imagen es demasiado grande. Intenta con una foto más pequeña.",
+      code: "FILE_TOO_LARGE",
+    });
+  });
 });

@@ -38,6 +38,14 @@ const userLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
+const uploadErrorPayload = (status, code, message, error = code) => ({
+  ok: false,
+  status,
+  error,
+  message,
+  code,
+});
+
 const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen") => {
   // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
   console.error("[avatar-upload] multer error", {
@@ -46,42 +54,59 @@ const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen")
     message: err?.message,
   });
   if (!err) {
-    return res.status(500).json({
-      ok: false,
-      code: "UPLOAD_FAILED",
-      message: fallbackMessage,
-    });
+    return res.status(500).json(uploadErrorPayload(500, "UPLOAD_FAILED", fallbackMessage, "Upload failed"));
   }
 
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({
-        ok: false,
-        code: "FILE_TOO_LARGE",
-        message: "La imagen es demasiado grande. El máximo permitido es 5 MB.",
-      });
+      return res
+        .status(413)
+        .json(uploadErrorPayload(413, "FILE_TOO_LARGE", "La imagen es demasiado grande. Intenta con una foto más pequeña.", "File too large"));
+    }
+
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res
+        .status(400)
+        .json(uploadErrorPayload(400, "INVALID_FILE_FIELD", 'El campo multipart debe llamarse "avatar".', "Unexpected file field"));
     }
 
     return res.status(400).json({
-      ok: false,
-      code: "UPLOAD_INVALID_REQUEST",
-      message: err.message || fallbackMessage,
+      ...uploadErrorPayload(400, "UPLOAD_INVALID_REQUEST", err.message || fallbackMessage, err.code || "Invalid upload request"),
+    });
+  }
+
+  if (err.code === "UNSUPPORTED_MEDIA_TYPE" || err.status === 415) {
+    return res.status(415).json({
+      ...uploadErrorPayload(415, "UNSUPPORTED_MEDIA_TYPE", "Formato no permitido. Usa JPG, PNG, WebP o GIF.", "Unsupported media type"),
+    });
+  }
+
+  if (err.code === "UPLOAD_DIR_UNAVAILABLE" || err.code === "EACCES" || err.code === "ENOENT") {
+    return res.status(500).json({
+      ...uploadErrorPayload(500, "FILE_SAVE_FAILED", "Error guardando archivo.", err.code || "File save failed"),
     });
   }
 
   if (typeof err.message === "string" && err.message.includes("Solo se permiten imágenes")) {
     return res.status(415).json({
-      ok: false,
-      code: "UNSUPPORTED_MEDIA_TYPE",
-      message: "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.",
+      ...uploadErrorPayload(415, "UNSUPPORTED_MEDIA_TYPE", "Formato no permitido. Usa JPG, PNG, WebP o GIF.", "Unsupported media type"),
     });
   }
 
   return res.status(500).json({
-    ok: false,
-    code: "UPLOAD_FAILED",
-    message: fallbackMessage,
+    ...uploadErrorPayload(500, "UPLOAD_FAILED", fallbackMessage, err.code || err.message || "Upload failed"),
   });
+};
+
+const sendAvatarUploadJsonError = (res, status, code, message, error = code) => {
+  return res.status(status).json(uploadErrorPayload(status, code, message, error));
+};
+
+// Request structured auth errors for avatar uploads so frontend can display
+// status/error/message/code instead of a generic upload failure.
+const enableAvatarUploadDiagnostics = (req, _res, next) => {
+  req.structuredErrors = true;
+  next();
 };
 
 const normalizeHttpProtocol = (value) => {
@@ -991,7 +1016,7 @@ router.patch("/me/creator-profile", userLimiter, verifyToken, async (req, res) =
 });
 
 // Upload profile photo (multipart/form-data, field "avatar")
-router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
+router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, verifyToken, (req, res, next) => {
   upload.single("avatar")(req, res, (err) => {
     if (err) {
       return sendUploadError(res, err, "Error al subir la imagen");
@@ -1010,7 +1035,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
 }, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ ok: false, code: "FILE_REQUIRED", message: "No se recibió ningún archivo" });
+      return sendAvatarUploadJsonError(res, 400, "FILE_REQUIRED", "No se recibió archivo.", "File required");
     }
     const avatarPath = `/uploads/${req.file.filename}`;
     const photoUrl = toAbsoluteUploadUrl(req, avatarPath);
@@ -1026,14 +1051,18 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       physicalFileExists,
       setAsMain: req.query?.setAsMain,
     });
+    if (!physicalFileExists) {
+      console.error("[avatar-upload] uploaded file missing from disk", {
+        userId: req.userId,
+        filename: req.file.filename,
+        path: safeUploadedFilePath,
+      });
+      return sendAvatarUploadJsonError(res, 500, "FILE_SAVE_FAILED", "Error guardando archivo.", "File not found after upload");
+    }
     const shouldSetAsMain = parseSetAsMainParam(req.query);
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
-      return res.status(404).json({
-        ok: false,
-        code: "USER_NOT_FOUND",
-        message: "Usuario no encontrado",
-      });
+      return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
     const candidateProfilePhotos = [
       photoUrl,
@@ -1069,11 +1098,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       { new: true }
     ).select("-password");
     if (!savedUser) {
-      return res.status(404).json({
-        ok: false,
-        code: "USER_NOT_FOUND",
-        message: "Usuario no encontrado",
-      });
+      return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.log("USER SAVED", savedUser._id);
@@ -1117,11 +1142,9 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       message: err?.message,
       hasFile: Boolean(req.file),
     });
-    res.status(500).json({
-      ok: false,
-      code: "UPLOAD_FAILED",
-      message: "No se pudo procesar la subida de la imagen",
-    });
+    res
+      .status(500)
+      .json(uploadErrorPayload(500, "UPLOAD_FAILED", "No se pudo procesar la subida de la imagen.", err?.message || "Upload failed"));
   }
 });
 

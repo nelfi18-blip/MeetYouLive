@@ -6,9 +6,23 @@ const uploadDir = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+let uploadDirReady = fs.existsSync(uploadDir);
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
+  destination: (_req, _file, cb) => {
+    if (uploadDirReady) {
+      return cb(null, uploadDir);
+    }
+
+    fs.mkdir(uploadDir, { recursive: true }, (err) => {
+      if (err) {
+        err.code = err.code || "UPLOAD_DIR_UNAVAILABLE";
+        return cb(err);
+      }
+      uploadDirReady = true;
+      cb(null, uploadDir);
+    });
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, "");
     const safeName = `${file.fieldname}-${req.userId}-${Date.now()}${ext || ".bin"}`;
@@ -22,7 +36,10 @@ const fileFilter = (_req, file, cb) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Solo se permiten imágenes (JPEG, PNG, WebP, GIF)"), false);
+    const err = new Error("Solo se permiten imágenes (JPEG, PNG, WebP, GIF)");
+    err.code = "UNSUPPORTED_MEDIA_TYPE";
+    err.status = 415;
+    cb(err, false);
   }
 };
 

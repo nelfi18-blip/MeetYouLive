@@ -86,6 +86,7 @@ const userImageSchema = new mongoose.Schema(
     url: { type: String, default: "" },
     publicId: { type: String, default: "" },
     isPrimary: { type: Boolean, default: false },
+    source: { type: String, default: "" },
     uploadedAt: { type: Date, default: Date.now },
   },
   { _id: false }

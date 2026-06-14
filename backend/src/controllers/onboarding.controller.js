@@ -1,5 +1,10 @@
 const User = require("../models/User.js");
 const { normalizePhotoUrl, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const {
+  canAppearInFeed,
+  getMissingProfileFields,
+  getProfileCompletionStatus,
+} = require("../lib/profileCompletion.js");
 
 const MAX_IMAGES = 6;
 const MAX_INTERESTS = 10;
@@ -75,7 +80,7 @@ const normalizeImages = (req, body, currentUser = {}) => {
   if (Array.isArray(body.images)) sources.push(...body.images);
   if (Array.isArray(body.profilePhotos)) sources.push(...body.profilePhotos);
   if (Array.isArray(body.photos)) sources.push(...body.photos);
-  sources.push(body.avatar, body.profileImage, body.photo);
+  sources.push(body.photoUrl, body.avatar, body.profileImage, body.photo);
 
   if (sources.every((source) => source === undefined)) {
     if (Array.isArray(currentUser.images) && currentUser.images.length > 0) return currentUser.images;
@@ -93,6 +98,7 @@ const normalizeImages = (req, body, currentUser = {}) => {
       url,
       publicId: normalizeText(source?.publicId, 160),
       isPrimary: source?.isPrimary === true || images.length === 0,
+      source: normalizeText(source?.source, 40),
       uploadedAt: parseDateOrNow(source?.uploadedAt),
     });
     if (images.length >= MAX_IMAGES) break;
@@ -159,8 +165,9 @@ const updateOnboarding = async (req, res) => {
       interests,
       intent,
     };
-    const missingFields = getMissingFields(mergedProfile);
-    const onboardingComplete = missingFields.length === 0;
+    const missingFields = getMissingProfileFields(mergedProfile, { req });
+    const canAppearInFeedValue = canAppearInFeed(mergedProfile, { req, missingFields });
+    const onboardingComplete = canAppearInFeedValue;
 
     const updates = {
       images,
@@ -206,20 +213,18 @@ const updateOnboarding = async (req, res) => {
     currentUser.set(updates);
     const user = await currentUser.save();
     const payload = withSerializedUserPhotoFields(req, user);
-    payload.missingFields = missingFields;
+    const profileCompletion = getProfileCompletionStatus(payload, { req });
+    payload.missingFields = profileCompletion.missingFields;
     payload.onboardingComplete = onboardingComplete;
-    payload.profileCompletion = {
-      complete: onboardingComplete,
-      missing: missingFields,
-      missingFields,
-      percent: Math.round(((7 - missingFields.length) / 7) * 100),
-    };
+    payload.canAppearInFeed = canAppearInFeedValue;
+    payload.profileCompletion = { ...profileCompletion, onboardingComplete, canAppearInFeed: canAppearInFeedValue };
 
     return res.json({
       ok: true,
       user: payload,
-      missingFields,
+      missingFields: payload.missingFields,
       onboardingComplete,
+      canAppearInFeed: canAppearInFeedValue,
       profileCompletion: payload.profileCompletion,
     });
   } catch (err) {
@@ -227,4 +232,4 @@ const updateOnboarding = async (req, res) => {
   }
 };
 
-module.exports = { updateOnboarding };
+module.exports = { updateOnboarding, normalizeImages };

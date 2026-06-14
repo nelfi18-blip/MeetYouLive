@@ -112,6 +112,7 @@ export const authOptions = {
               body: JSON.stringify({
                 email: token.googleEmail,
                 name: token.googleName,
+                photoUrl: token.picture,
               }),
               signal: controller.signal,
             });

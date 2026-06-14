@@ -21,6 +21,11 @@ const {
   getLocationLabel,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
+const {
+  canAppearInFeed,
+  getMissingProfileFields,
+  getProfileCompletionStatus,
+} = require("../lib/profileCompletion.js");
 
 const router = Router();
 
@@ -198,30 +203,19 @@ const parseMaxDistanceInput = (value) => {
  * Required: name, photo, birthdate, location, gender, interestedIn,
  * intent, ≥ MIN_ONBOARDING_INTERESTS interests.
  */
-const getMinProfileCompletion = (user = {}) => {
-  const hasName = typeof user.name === "string" && user.name.trim().length > 0;
-  const hasPhoto = (typeof user.avatar === "string" && user.avatar.trim().length > 0) ||
-    (Array.isArray(user.profilePhotos) && user.profilePhotos.length > 0);
-  const hasBirthdate = Boolean(user.birthdate);
-  const hasLocation = getLocationLabel(user.location, user.locationLabel).length > 0;
-  const hasGender = typeof user.gender === "string" && user.gender.trim().length > 0;
-  const hasInterestedIn = typeof user.interestedIn === "string" && user.interestedIn.trim().length > 0;
-  const hasIntent = typeof user.intent === "string" && user.intent.trim().length > 0;
-  const hasInterests = Array.isArray(user.interests) && user.interests.length >= MIN_ONBOARDING_INTERESTS;
-
-  const fields = [
-    { key: "name", done: hasName },
-    { key: "photo", done: hasPhoto },
-    { key: "birthdate", done: hasBirthdate },
-    { key: "location", done: hasLocation },
-    { key: "gender", done: hasGender },
-    { key: "interestedIn", done: hasInterestedIn },
-    { key: "intent", done: hasIntent },
-    { key: "interests", done: hasInterests },
-  ];
-  const missing = fields.filter((f) => !f.done).map((f) => f.key);
-  const percent = Math.round(((fields.length - missing.length) / fields.length) * 100);
-  return { complete: missing.length === 0, percent, missing };
+const getMinProfileCompletion = (user = {}, req) => {
+  const missingFields = getMissingProfileFields(user, { req });
+  const feedEligible = canAppearInFeed(user, { req, missingFields });
+  const status = getProfileCompletionStatus(user, { req });
+  return {
+    ...status,
+    complete: feedEligible,
+    profileComplete: status.complete,
+    onboardingComplete: feedEligible,
+    canAppearInFeed: feedEligible,
+    missing: missingFields,
+    missingFields,
+  };
 };
 
 const getPhotoUrlValue = (value) => {
@@ -266,11 +260,13 @@ const sanitizePhotoUrl = (req, value) => {
 };
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
+  const currentImages = Array.isArray(currentUser?.images) ? currentUser.images : [];
+  const currentProfilePhotos = Array.isArray(currentUser?.profilePhotos) ? currentUser.profilePhotos : [];
   const basePhotos = Array.isArray(profilePhotosInput)
     ? profilePhotosInput
-    : Array.isArray(currentUser?.profilePhotos)
-    ? currentUser.profilePhotos
-    : [];
+    : currentImages.length > 0
+    ? currentImages
+    : currentProfilePhotos;
 
   const normalizedPhotos = [];
   for (const value of basePhotos) {
@@ -289,6 +285,12 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
     return {
       avatar: mainPhoto,
       profilePhotos: deduped.slice(0, MAX_PROFILE_PHOTOS),
+      images: deduped.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
+        url,
+        isPrimary: index === 0,
+        source: "",
+        uploadedAt: new Date(),
+      })),
     };
   }
 
@@ -296,17 +298,23 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
     return {
       avatar: normalizedPhotos[0],
       profilePhotos: normalizedPhotos.slice(0, MAX_PROFILE_PHOTOS),
+      images: normalizedPhotos.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
+        url,
+        isPrimary: index === 0,
+        source: "",
+        uploadedAt: new Date(),
+      })),
     };
   }
 
-  return { avatar: "", profilePhotos: [] };
+  return { avatar: "", profilePhotos: [], images: [] };
 };
 
 const serializeUserPhotoFields = (req, userLike) => {
   const rawPhotos = [
+    ...(Array.isArray(userLike?.images) ? userLike.images : []),
     ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
     ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
-    ...(Array.isArray(userLike?.images) ? userLike.images : []),
     userLike?.avatar,
     userLike?.profileImage,
     userLike?.photo,
@@ -455,7 +463,7 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     // Compute profile completion and lazily reset onboardingComplete when a
     // previously-marked-complete user is now missing required fields (e.g. from
     // a stricter requirement rollout).
-    const profileCompletion = getMinProfileCompletion(payload);
+    const profileCompletion = getMinProfileCompletion(payload, req);
     if (payload.onboardingComplete === true && !profileCompletion.complete) {
       payload.onboardingComplete = false;
       User.updateOne({ _id: user._id }, { $set: { onboardingComplete: false } }).catch((err) => {
@@ -487,7 +495,12 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       name,
       bio,
       avatar,
+      images,
       profilePhotos,
+      photos,
+      profileImage,
+      photo,
+      photoUrl,
       preferredLanguage,
       intent,
       gender,
@@ -498,7 +511,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -510,10 +523,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       if (trimmed.length > 0) updates.name = trimmed;
     }
     if (bio !== undefined) updates.bio = bio.trim();
-    if (avatar !== undefined || profilePhotos !== undefined) {
-      const normalizedPhotoState = normalizeProfilePhotos(req, profilePhotos, avatar, currentUser);
+    const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
+    const incomingProfilePhotos = images !== undefined ? images : profilePhotos !== undefined ? profilePhotos : photos;
+    if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
+      const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
+      updates.images = normalizedPhotoState.images;
     }
     if (preferredLanguage !== undefined) {
       const allowedLangs = ["es", "en", "pt"];
@@ -619,8 +635,10 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       avatar,
       profilePhotos,
       photos,
+      images,
       profileImage,
       photo,
+      photoUrl,
       gender,
       birthdate,
       interests,
@@ -635,19 +653,20 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "name avatar profilePhotos birthdate location locationLabel gender interestedIn interests intent"
+      "name avatar profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
-    // profilePhotos/avatar are canonical; photos/profileImage/photo are legacy aliases
+    // images[0] is canonical; aliases are accepted to avoid dropping photos.
     // still emitted by profile/feed serializers and accepted here to avoid dropping photos.
-    const incomingAvatar = avatar ?? profileImage ?? photo;
-    const incomingProfilePhotos = profilePhotos !== undefined ? profilePhotos : photos;
+    const incomingAvatar = photoUrl ?? avatar ?? profileImage ?? photo;
+    const incomingProfilePhotos = images !== undefined ? images : profilePhotos !== undefined ? profilePhotos : photos;
 
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
+      updates.images = normalizedPhotoState.images;
     }
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
@@ -706,8 +725,8 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     // Determine whether the merged profile state meets minimum requirements
     // and only mark onboardingComplete: true when it does.
     const mergedUser = { ...currentUser.toObject(), ...updates };
-    const profileCompletion = getMinProfileCompletion(mergedUser);
-    updates.onboardingComplete = profileCompletion.complete;
+    const profileCompletion = getMinProfileCompletion(mergedUser, req);
+    updates.onboardingComplete = profileCompletion.canAppearInFeed;
 
     const user = await User.findByIdAndUpdate(currentUser._id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -718,8 +737,17 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     payload.photo = photoFields.photo;
     payload.photos = photoFields.photos;
     payload.profilePhotos = photoFields.profilePhotos;
-    payload.profileCompletion = getMinProfileCompletion(payload);
-    res.json(payload);
+    payload.profileCompletion = getMinProfileCompletion(payload, req);
+    payload.onboardingComplete = payload.profileCompletion.canAppearInFeed;
+    payload.canAppearInFeed = payload.profileCompletion.canAppearInFeed;
+    payload.missingFields = payload.profileCompletion.missingFields;
+    res.json({
+      user: payload,
+      onboardingComplete: payload.onboardingComplete,
+      canAppearInFeed: payload.canAppearInFeed,
+      missingFields: payload.missingFields,
+      profileCompletion: payload.profileCompletion,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -731,12 +759,16 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     if (!avatar || typeof avatar !== "string") {
       return res.status(400).json({ message: "avatar (URL) es requerido" });
     }
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos");
+    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const normalizedPhotoState = normalizeProfilePhotos(req, undefined, avatar, currentUser);
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { avatar: normalizedPhotoState.avatar, profilePhotos: normalizedPhotoState.profilePhotos },
+      {
+        avatar: normalizedPhotoState.avatar,
+        profilePhotos: normalizedPhotoState.profilePhotos,
+        images: normalizedPhotoState.images,
+      },
       { new: true }
     ).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
@@ -958,7 +990,11 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
         message: "Usuario no encontrado",
       });
     }
-    const candidateProfilePhotos = [avatarUrl, ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : [])];
+    const candidateProfilePhotos = [
+      avatarUrl,
+      ...(Array.isArray(user.images) ? user.images : []),
+      ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
+    ];
     const normalizedPhotoState = normalizeProfilePhotos(
       req,
       candidateProfilePhotos,
@@ -967,9 +1003,11 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     );
     const nextAvatar = normalizedPhotoState.avatar;
     const nextProfilePhotos = normalizedPhotoState.profilePhotos;
+    const nextImages = normalizedPhotoState.images;
 
     user.avatar = nextAvatar;
     user.profilePhotos = nextProfilePhotos;
+    user.images = nextImages;
     await user.save();
 
     const photoFields = serializeUserPhotoFields(req, user.toObject());

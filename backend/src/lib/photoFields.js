@@ -127,11 +127,11 @@ const normalizePhotoUrl = (req, value) => {
  * @returns {unknown[]} Raw photo field values.
  */
 const getRawUserPhotoCandidates = (userLike) => [
+  ...(Array.isArray(userLike?.images) ? userLike.images.map((value) => ({ field: "images", value })) : []),
   ...(Array.isArray(userLike?.profilePhotos)
     ? userLike.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
     : []),
   ...(Array.isArray(userLike?.photos) ? userLike.photos.map((value) => ({ field: "photos", value })) : []),
-  ...(Array.isArray(userLike?.images) ? userLike.images.map((value) => ({ field: "images", value })) : []),
   { field: "avatar", value: userLike?.avatar },
   { field: "profileImage", value: userLike?.profileImage },
   { field: "photo", value: userLike?.photo },
@@ -168,6 +168,23 @@ const getUserPhotoSelection = (req, userLike) => {
     photos,
     fieldUsed,
     photoCount: photos.length,
+  };
+};
+
+const makePrimaryUserPhotoFields = (photoUrl, source = "") => {
+  const url = normalizePhotoUrl({ protocol: "https", get: () => "" }, photoUrl);
+  if (!url) return {};
+  return {
+    avatar: url,
+    profilePhotos: [url],
+    images: [
+      {
+        url,
+        isPrimary: true,
+        source,
+        uploadedAt: new Date(),
+      },
+    ],
   };
 };
 
@@ -217,6 +234,7 @@ const withSerializedUserPhotoFields = (req, userLike) => {
 module.exports = {
   getUserPhotoSelection,
   hasSerializableUserPhoto,
+  makePrimaryUserPhotoFields,
   normalizePhotoUrl,
   serializeUserPhotoFields,
   withSerializedUserPhotoFields,

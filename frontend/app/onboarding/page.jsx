@@ -77,7 +77,7 @@ const normalizeAvatarUrl = (avatarValue) => {
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
-  const normalizedUploadPath = trimmed.replace(/^\/?uploads\//i, "uploads/");
+  const normalizedUploadPath = trimmed.replace(/^\/?uploads\//, "uploads/");
   if (
     /^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedUploadPath) &&
     typeof API_URL === "string" &&
@@ -91,7 +91,7 @@ const normalizeAvatarUrl = (avatarValue) => {
 const getUploadPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
-  return value.url || value.secure_url || value.src || value.path || "";
+  return value.url || value.secure_url || "";
 };
 
 const collectUploadPhotoUrls = (payload) => {

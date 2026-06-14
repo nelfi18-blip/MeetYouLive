@@ -1087,14 +1087,9 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       images0IsPrimary: savedUser.images?.[0]?.isPrimary,
     });
 
-    const photoFields = serializeUserPhotoFields(req, savedUser.toObject());
-    const serializedUser = {
-      ...savedUser.toObject(),
-      avatar: photoFields.avatar,
-      profileImage: photoFields.profileImage,
-      profilePhotos: photoFields.profilePhotos,
-      photos: photoFields.photos,
-    };
+    const savedUserObject = savedUser.toObject();
+    const photoFields = serializeUserPhotoFields(req, savedUserObject);
+    const serializedUser = { ...savedUserObject, ...photoFields };
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
@@ -1108,7 +1103,7 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       mainPhoto: photoFields.avatar,
       photos: photoFields.photos,
       profilePhotos: photoFields.profilePhotos,
-      images: serializedUser.images || [],
+      images: serializedUser.images,
       maxExtraPhotos: photoFields.maxExtraPhotos,
       user: serializedUser,
     });

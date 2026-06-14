@@ -345,7 +345,7 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
 };
 
 const getExistingPhotoCandidates = (user) => [
-  ...(Array.isArray(user?.images) ? user.images : []),
+  ...(Array.isArray(user?.images) ? user.images.map(getPhotoUrlValue) : []),
   ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
   user?.avatar,
 ];

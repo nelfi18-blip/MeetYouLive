@@ -761,11 +761,12 @@ export default function ProfilePage() {
     let uploadedCount = 0;
     const selectedFiles = files.slice(0, availableSlots);
     const localSelections = [];
+    const validationErrors = [];
 
     for (const file of selectedFiles) {
       const fileError = validateAvatarFile(file);
       if (fileError) {
-        setSaveError(fileError);
+        if (!validationErrors.includes(fileError)) validationErrors.push(fileError);
         continue;
       }
       const previewUrl = URL.createObjectURL(file);
@@ -774,11 +775,20 @@ export default function ProfilePage() {
 
     if (!localSelections.length) {
       setAvatarUploading(false);
-      setSaveError((current) => current || "Selecciona una imagen válida.");
+      setSaveError(validationErrors.join(" ") || "Selecciona una imagen válida.");
       return;
+    }
+    if (validationErrors.length > 0) {
+      setSaveError(`Algunas fotos se omitieron: ${validationErrors.join(" ")}`);
     }
 
     let persistedPhotos = currentPhotos;
+    const applyPersistedWithPendingPreviews = (nextPendingIndex) => {
+      applyLocalPhotoPreviewList([
+        ...persistedPhotos,
+        ...localSelections.slice(nextPendingIndex).map((selection) => selection.previewUrl),
+      ]);
+    };
     applyLocalPhotoPreviewList([
       ...currentPhotos,
       ...localSelections.map((selection) => selection.previewUrl),
@@ -790,23 +800,18 @@ export default function ProfilePage() {
         const uploadResult = await uploadProfilePhotoFile(file, { setAsMain: false });
         if (!uploadResult.ok) {
           if (uploadResult.unauthorized) {
+            applyLocalPhotoPreviewList(uploadedCount > 0 ? persistedPhotos : currentPhotos);
             clearToken();
             router.replace("/login");
             return;
           }
           setSaveError(uploadResult.error || "Una foto no se pudo subir.");
-          applyLocalPhotoPreviewList([
-            ...persistedPhotos,
-            ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
-          ]);
+          applyPersistedWithPendingPreviews(index + 1);
           continue;
         }
         uploadedCount += 1;
         persistedPhotos = normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
-        applyLocalPhotoPreviewList([
-          ...persistedPhotos,
-          ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
-        ]);
+        applyPersistedWithPendingPreviews(index + 1);
       }
       if (uploadedCount > 0) {
         applyLocalPhotoPreviewList(persistedPhotos);

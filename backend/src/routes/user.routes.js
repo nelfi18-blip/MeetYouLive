@@ -103,7 +103,7 @@ const sendAvatarUploadJsonError = (res, status, code, message, error = code) => 
 };
 
 const enableAvatarUploadDiagnostics = (req, _res, next) => {
-  req.avatarUploadDiagnostics = true;
+  req.structuredErrors = true;
   next();
 };
 
@@ -1050,6 +1050,11 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       setAsMain: req.query?.setAsMain,
     });
     if (!physicalFileExists) {
+      console.error("[avatar-upload] uploaded file missing from disk", {
+        userId: req.userId,
+        filename: req.file.filename,
+        path: safeUploadedFilePath,
+      });
       return sendAvatarUploadJsonError(res, 500, "FILE_SAVE_FAILED", "Error guardando archivo.", "File not found after upload");
     }
     const shouldSetAsMain = parseSetAsMainParam(req.query);

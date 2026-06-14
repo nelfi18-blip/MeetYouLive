@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User.js");
 
 const sendAuthError = (req, res, status, message, code, error) => {
-  if (req.avatarUploadDiagnostics) {
+  if (req.structuredErrors) {
     return res.status(status).json({
       ok: false,
       status,

@@ -17,6 +17,8 @@ import {
   AVATAR_UPLOAD_MAX_BYTES,
   AVATAR_UPLOAD_MAX_LABEL,
   compressAvatarImage,
+  formatAvatarUploadDiagnostic,
+  getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -30,45 +32,6 @@ const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
   return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
-};
-
-const getUploadMessageFromPayload = (payload) => {
-  if (!payload || typeof payload !== "object") return "";
-  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
-  if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
-  if (payload.error && typeof payload.error.message === "string" && payload.error.message.trim()) {
-    return payload.error.message;
-  }
-  return "";
-};
-
-const getUploadErrorMessage = (status, payload, fallback = "Error al subir la imagen") => {
-  const payloadMessage = getUploadMessageFromPayload(payload);
-  if (payloadMessage) return payloadMessage;
-  if (status === 401) return "Tu sesión expiró. Inicia sesión de nuevo.";
-  if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
-  if (status === 415) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
-  if (status === 500) return "Error interno al subir la imagen. Inténtalo de nuevo.";
-  return fallback;
-};
-
-const getUploadDiagnostic = (status, payload, fallback = "Error al subir la imagen") => {
-  const message = getUploadErrorMessage(status, payload, fallback);
-  const code = payload?.code || (status === 0 ? "NETWORK_ERROR" : `HTTP_${status || "UNKNOWN"}`);
-  const error = typeof payload?.error === "string" && payload.error.trim()
-    ? payload.error
-    : (payload?.raw ? "Non-JSON response" : code);
-  return { status, error, message, code };
-};
-
-const formatUploadDiagnostic = ({ status, error, message, code }) => {
-  const details = [
-    `status: ${status || "sin respuesta"}`,
-    `error: ${error || "desconocido"}`,
-    `message: ${message || "sin mensaje"}`,
-    `code: ${code || "UNKNOWN"}`,
-  ].join(" · ");
-  return `${message || "No se pudo subir/procesar la foto"} (${details})`;
 };
 
 const parseUploadResponseBody = async (res) => {
@@ -673,12 +636,12 @@ export default function ProfilePage() {
     if (!uploadEndpoint) return { ok: false, error: "No se pudo iniciar la subida. Falta la configuración del servidor." };
     const uploadFile = await compressAvatarImage(file);
     if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
-      const diagnostic = getUploadDiagnostic(413, {
+      const diagnostic = getAvatarUploadDiagnostic(413, {
         error: "File too large",
         message: AVATAR_TOO_LARGE_MESSAGE,
         code: "FILE_TOO_LARGE",
       });
-      return { ok: false, error: formatUploadDiagnostic(diagnostic), diagnostic };
+      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
     }
 
     const formData = new FormData();
@@ -695,8 +658,8 @@ export default function ProfilePage() {
       cache: "no-store",
       });
     } catch (err) {
-      const diagnostic = getUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
-      return { ok: false, error: formatUploadDiagnostic(diagnostic), diagnostic };
+      const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
+      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
     }
     // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
     console.log("[avatar-upload] response status", res.status);
@@ -705,11 +668,11 @@ export default function ProfilePage() {
     console.log("[avatar-upload] response body", data);
 
     if (!res.ok) {
-      const diagnostic = getUploadDiagnostic(res.status, data, "Error al subir la imagen");
+      const diagnostic = getAvatarUploadDiagnostic(res.status, data, "Error al subir la imagen");
       return {
         ok: false,
         unauthorized: res.status === 401,
-        error: formatUploadDiagnostic(diagnostic),
+        error: formatAvatarUploadDiagnostic(diagnostic),
         diagnostic,
       };
     }

@@ -2,7 +2,11 @@ const passport = require("passport");
 const { Strategy: GoogleStrategy } = require("passport-google-oauth20");
 const crypto = require("crypto");
 const User = require("../models/User.js");
+const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
+
+const getGoogleUserPhotoFields = (profile = {}) =>
+  makePrimaryUserPhotoFields(profile.photos?.[0]?.value, "google");
 
 passport.use(
   new GoogleStrategy(
@@ -27,6 +31,7 @@ passport.use(
             username,
             email,
             password: crypto.randomBytes(32).toString("hex"),
+            ...getGoogleUserPhotoFields(profile),
           });
         } else if (!user.username) {
           user.username = await generateUniqueUsername(email, user._id);
@@ -42,3 +47,4 @@ passport.use(
 );
 
 module.exports = passport;
+module.exports.getGoogleUserPhotoFields = getGoogleUserPhotoFields;

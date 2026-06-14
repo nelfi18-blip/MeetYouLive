@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
+const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
@@ -452,6 +453,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
     console.warn("[google-session] Missing email in request body");
@@ -483,6 +485,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
         password: crypto.randomBytes(32).toString("hex"),
         referralCode,
         referredBy,
+        ...makePrimaryUserPhotoFields(googlePhotoUrl, "google"),
       });
     } else {
       console.log(`[google-session] Existing user found for email: ${email}`);

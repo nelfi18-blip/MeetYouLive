@@ -1059,16 +1059,19 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       });
       return sendAvatarUploadJsonError(res, 500, "FILE_SAVE_FAILED", "Error guardando archivo.", "File not found after upload");
     }
-    const shouldSetAsMain = parseSetAsMainParam(req.query);
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
-    const candidateProfilePhotos = [
-      photoUrl,
+    const shouldSetAsMain = parseSetAsMainParam(req.query);
+    const existingPhotoCandidates = [
       ...(Array.isArray(user.images) ? user.images : []),
       ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
+      user.avatar,
     ];
+    const candidateProfilePhotos = shouldSetAsMain
+      ? [photoUrl, ...existingPhotoCandidates]
+      : [...existingPhotoCandidates, photoUrl];
     const normalizedPhotoState = normalizeProfilePhotos(
       req,
       candidateProfilePhotos,

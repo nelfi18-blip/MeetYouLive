@@ -611,6 +611,13 @@ export default function ProfilePage() {
     if (successMessage) setSaveSuccess(successMessage);
   };
 
+  const applyLocalPhotoPreviewList = (photos) => {
+    const nextPhotos = photos.slice(0, MAX_PROFILE_PHOTOS);
+    const nextAvatar = nextPhotos[0] || "";
+    setUser((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos } : prev));
+    setEditForm((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos } : prev));
+  };
+
   const validateAvatarFile = (file) => {
     if (!file) return "Selecciona una imagen válida.";
     if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
@@ -752,10 +759,34 @@ export default function ProfilePage() {
     setAvatarUploading(true);
     setSaveError(""); setSaveSuccess("");
     let uploadedCount = 0;
-    const maxFiles = files.slice(0, availableSlots);
+    const selectedFiles = files.slice(0, availableSlots);
+    const localSelections = [];
+
+    for (const file of selectedFiles) {
+      const fileError = validateAvatarFile(file);
+      if (fileError) {
+        setSaveError(fileError);
+        continue;
+      }
+      const previewUrl = URL.createObjectURL(file);
+      localSelections.push({ file, previewUrl });
+    }
+
+    if (!localSelections.length) {
+      setAvatarUploading(false);
+      setSaveError((current) => current || "Selecciona una imagen válida.");
+      return;
+    }
+
+    let committedPhotos = currentPhotos;
+    applyLocalPhotoPreviewList([
+      ...currentPhotos,
+      ...localSelections.map((selection) => selection.previewUrl),
+    ]);
 
     try {
-      for (const file of maxFiles) {
+      for (let index = 0; index < localSelections.length; index += 1) {
+        const { file } = localSelections[index];
         const uploadResult = await uploadProfilePhotoFile(file, { setAsMain: false });
         if (!uploadResult.ok) {
           if (uploadResult.unauthorized) {
@@ -764,20 +795,33 @@ export default function ProfilePage() {
             return;
           }
           setSaveError(uploadResult.error || "Una foto no se pudo subir.");
+          applyLocalPhotoPreviewList([
+            ...committedPhotos,
+            ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
+          ]);
           continue;
         }
         uploadedCount += 1;
-        applyPhotoPayload(uploadResult.data);
-        await refreshProfileSession();
+        committedPhotos = normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
+        applyLocalPhotoPreviewList([
+          ...committedPhotos,
+          ...localSelections.slice(index + 1).map((selection) => selection.previewUrl),
+        ]);
       }
       if (uploadedCount > 0) {
+        applyLocalPhotoPreviewList(committedPhotos);
+        await refreshProfileSession();
         setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
+      } else {
+        applyLocalPhotoPreviewList(currentPhotos);
       }
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[avatar-upload] caught frontend error", err);
       setSaveError("No se pudo subir una o más imágenes.");
+      applyLocalPhotoPreviewList(uploadedCount > 0 ? committedPhotos : currentPhotos);
     } finally {
+      localSelections.forEach((selection) => URL.revokeObjectURL(selection.previewUrl));
       setAvatarUploading(false);
     }
   };

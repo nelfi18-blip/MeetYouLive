@@ -1,5 +1,6 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
+const fs = require("fs");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
@@ -36,6 +37,12 @@ const userLimiter = rateLimit({
 });
 
 const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen") => {
+  // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+  console.error("[avatar-upload] multer error", {
+    name: err?.name,
+    code: err?.code,
+    message: err?.message,
+  });
   if (!err) {
     return res.status(500).json({
       ok: false,
@@ -971,6 +978,17 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     if (err) {
       return sendUploadError(res, err, "Error al subir la imagen");
     }
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("[avatar-upload] request file received", {
+      userId: req.userId,
+      hasFile: Boolean(req.file),
+      fieldname: req.file?.fieldname,
+      originalname: req.file?.originalname,
+      mimetype: req.file?.mimetype,
+      size: req.file?.size,
+      filename: req.file?.filename,
+      path: req.file?.path,
+    });
     next();
   });
 }, async (req, res) => {
@@ -980,6 +998,16 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     }
     const avatarPath = `/uploads/${req.file.filename}`;
     const avatarUrl = toAbsoluteUploadUrl(req, avatarPath);
+    const physicalFileExists = Boolean(req.file.path && fs.existsSync(req.file.path));
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("[avatar-upload] generated URL and disk state", {
+      userId: req.userId,
+      avatarPath,
+      avatarUrl,
+      physicalPath: req.file.path,
+      physicalFileExists,
+      setAsMain: req.query?.setAsMain,
+    });
     const shouldSetAsMain = parseSetAsMainParam(req.query);
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
@@ -1008,6 +1036,15 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     user.profilePhotos = nextProfilePhotos;
     user.images = nextImages;
     await user.save();
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.log("[avatar-upload] MongoDB photo fields saved", {
+      userId: req.userId,
+      avatar: user.avatar,
+      profilePhotos: user.profilePhotos,
+      imagesCount: Array.isArray(user.images) ? user.images.length : 0,
+      images0Url: user.images?.[0]?.url || "",
+      images0IsPrimary: user.images?.[0]?.isPrimary,
+    });
 
     const photoFields = serializeUserPhotoFields(req, user.toObject());
     res.json({
@@ -1023,6 +1060,14 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       user: { ...user.toObject(), avatar: photoFields.avatar, profilePhotos: photoFields.profilePhotos },
     });
   } catch (err) {
+    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
+    console.error("[avatar-upload] failed after multer", {
+      userId: req.userId,
+      name: err?.name,
+      message: err?.message,
+      avatarFilename: req.file?.filename,
+      avatarPath: req.file?.path,
+    });
     res.status(500).json({
       ok: false,
       code: "UPLOAD_FAILED",

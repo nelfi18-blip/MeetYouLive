@@ -76,10 +76,55 @@ const normalizeAvatarUrl = (avatarValue) => {
   const trimmed = avatarValue.trim();
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(trimmed) && typeof API_URL === "string" && API_URL.trim()) {
-    return `${API_URL.replace(/\/+$/, "")}${trimmed}`;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  const normalizedUploadPath = trimmed.replace(/^\/?uploads\//, "uploads/");
+  if (
+    /^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedUploadPath) &&
+    typeof API_URL === "string" &&
+    API_URL.trim()
+  ) {
+    return `${API_URL.replace(/\/+$/, "")}/${normalizedUploadPath}`;
   }
   return "";
+};
+
+const getUploadPhotoUrlValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return value.url || value.secure_url || "";
+};
+
+// Accept the canonical avatar/profilePhotos payload plus legacy/provider URL objects
+// so a successful backend upload cannot be discarded before the onboarding save.
+const collectUploadPhotoUrls = (payload) => {
+  const candidates = [
+    payload?.avatar,
+    payload?.mainPhoto,
+    payload?.photoUrl,
+    payload?.avatarPath,
+    payload?.user?.avatar,
+  ];
+
+  const photoCollections = [
+    payload?.profilePhotos,
+    payload?.images,
+    payload?.user?.profilePhotos,
+    payload?.user?.images,
+  ];
+  for (const collection of photoCollections) {
+    if (Array.isArray(collection)) candidates.push(...collection);
+  }
+
+  const photos = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(candidate));
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    photos.push(normalized);
+    if (photos.length >= MAX_PROFILE_PHOTOS) break;
+  }
+  return photos;
 };
 
 const INTERESTS = [
@@ -404,14 +449,12 @@ export default function OnboardingPage() {
           message: getUploadErrorMessage(uploadRes.status, uploadData, "Error al subir la foto"),
         };
       }
-      const normalizedAvatar = normalizeAvatarUrl(uploadData?.avatar || uploadData?.mainPhoto);
+      const uploadPhotos = collectUploadPhotoUrls(uploadData);
+      const normalizedAvatar = uploadPhotos[0] || "";
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
-      const normalizedPhotos = Array.isArray(uploadData?.profilePhotos)
-        ? uploadData.profilePhotos.map((photo) => normalizeAvatarUrl(photo)).filter(Boolean).slice(0, MAX_PROFILE_PHOTOS)
-        : [];
-      return { ok: true, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+      return { ok: true, avatar: normalizedAvatar, profilePhotos: uploadPhotos };
     };
 
     const mergeProfilePhotos = (currentPhotos, nextPhotos) => {

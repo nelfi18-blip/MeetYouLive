@@ -1060,9 +1060,11 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
     const savedUser = await User.findByIdAndUpdate(
       user._id,
       {
-        avatar: nextAvatar,
-        profilePhotos: nextProfilePhotos,
-        images: nextImages,
+        $set: {
+          avatar: nextAvatar,
+          profilePhotos: nextProfilePhotos,
+          images: nextImages,
+        },
       },
       { new: true }
     ).select("-password");
@@ -1085,7 +1087,9 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       images0IsPrimary: savedUser.images?.[0]?.isPrimary,
     });
 
-    const photoFields = serializeUserPhotoFields(req, savedUser.toObject());
+    const savedUserObject = savedUser.toObject();
+    const photoFields = serializeUserPhotoFields(req, savedUserObject);
+    const serializedUser = { ...savedUserObject, ...photoFields };
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
@@ -1093,17 +1097,17 @@ router.post("/me/avatar-upload", userLimiter, verifyToken, (req, res, next) => {
       avatar: photoFields.avatar,
       profileImage: photoFields.profileImage,
       avatarPath,
+      // Keep legacy aliases for existing onboarding/profile clients while
+      // avatar/profilePhotos/images remain the canonical saved fields.
       photo: photoUrl,
+      photoUrl,
+      url: photoFields.avatar,
       mainPhoto: photoFields.avatar,
       photos: photoFields.photos,
       profilePhotos: photoFields.profilePhotos,
+      images: serializedUser.images,
       maxExtraPhotos: photoFields.maxExtraPhotos,
-      user: {
-        ...savedUser.toObject(),
-        avatar: photoFields.avatar,
-        profileImage: photoFields.profileImage,
-        profilePhotos: photoFields.profilePhotos,
-      },
+      user: serializedUser,
     });
   } catch (err) {
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.

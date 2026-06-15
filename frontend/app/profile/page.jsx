@@ -60,6 +60,7 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
 
 const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
 
+// Accept canonical upload strings plus provider/legacy image object shapes.
 const extractPhotoUrl = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
@@ -90,6 +91,7 @@ const reorderWithMain = (photos, mainPhoto) => {
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
 
+// Normalize /avatar-upload and /me responses, including legacy aliases, into gallery order.
 const extractPhotosFromPayload = (payload) => {
   const candidates = [
     payload?.avatar,

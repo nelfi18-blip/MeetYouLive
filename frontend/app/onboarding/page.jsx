@@ -175,6 +175,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const animTimerRef = useRef(null);
   const photoIdCounterRef = useRef(0);
+  const addPhotosInputRef = useRef(null);
 
   // Step 1: chosen path
   const [selectedPath, setSelectedPath] = useState(null);
@@ -199,6 +200,7 @@ export default function OnboardingPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState(null);
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
+  const selectedPhotoCount = (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length;
 
   // Completion percentage (computed from required fields filled so far)
   const completionPercent = (() => {
@@ -962,20 +964,26 @@ export default function OnboardingPage() {
 
               <div className="ob-field">
                 <label className="ob-label">Agregar fotos</label>
-                <label className="ob-upload-btn">
-                  ➕ Agregar fotos
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    style={{ display: "none" }}
-                    disabled={loading}
-                    onChange={(e) => {
-                      handleAddPhotoFiles(e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+                <button
+                  type="button"
+                  className="ob-upload-btn"
+                  onClick={() => addPhotosInputRef.current?.click()}
+                  disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
+                >
+                  {t("onboarding.addPhotos")}
+                </button>
+                <input
+                  ref={addPhotosInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  style={{ display: "none" }}
+                  disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
+                  onChange={(e) => {
+                    handleAddPhotoFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
                 <span className="ob-hint">Máximo {MAX_PROFILE_PHOTOS} fotos en total. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>
               </div>
 
@@ -1538,6 +1546,15 @@ export default function OnboardingPage() {
           border-color: rgba(224,64,251,0.7);
           color: var(--text);
           background: rgba(224,64,251,0.1);
+        }
+        .ob-upload-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .ob-upload-btn:disabled:hover {
+          border-color: rgba(224,64,251,0.4);
+          color: var(--text-muted);
+          background: rgba(224,64,251,0.06);
         }
 
         .divider-text {

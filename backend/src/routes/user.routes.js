@@ -369,7 +369,7 @@ const serializeUserPhotoFields = (req, userLike) => {
     const normalized = sanitizePhotoUrl(req, value);
     if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
   }
-  const { avatar, profilePhotos } = normalizeProfilePhotos(
+  const { avatar, profilePhotos, images } = normalizeProfilePhotos(
     req,
     normalizedPhotos,
     normalizedPhotos[0],
@@ -382,6 +382,7 @@ const serializeUserPhotoFields = (req, userLike) => {
     photo: avatar,
     photos: profilePhotos,
     profilePhotos,
+    images,
     maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS,
   };
 };
@@ -511,6 +512,7 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
+    payload.images = photoFields.images;
     // Defensive fallbacks: guarantee role and creatorStatus are always present
     // even for documents created before these fields were added to the schema.
     if (payload.role == null) payload.role = "user";
@@ -655,6 +657,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
+    payload.images = photoFields.images;
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -792,6 +795,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     payload.photo = photoFields.photo;
     payload.photos = photoFields.photos;
     payload.profilePhotos = photoFields.profilePhotos;
+    payload.images = photoFields.images;
     payload.profileCompletion = getMinProfileCompletion(payload, req);
     payload.onboardingComplete = payload.profileCompletion.canAppearInFeed;
     payload.canAppearInFeed = payload.profileCompletion.canAppearInFeed;
@@ -831,6 +835,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const photoFields = serializeUserPhotoFields(req, payload);
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
+    payload.images = photoFields.images;
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -200,7 +200,9 @@ export default function OnboardingPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState(null);
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
-  const selectedPhotoCount = (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length;
+  const visibleExtraPhotoFiles = extraPhotoFiles.filter((photo) => photo?.preview);
+  const selectedPhotoCount = (mainPhotoFile || mainPhotoPreview ? 1 : 0) + visibleExtraPhotoFiles.length;
+  const emptyExtraPhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - visibleExtraPhotoFiles.length);
 
   // Completion percentage (computed from required fields filled so far)
   const completionPercent = (() => {
@@ -944,9 +946,8 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {extraPhotoFiles.length > 0 && (
-                <div className="ob-photo-grid">
-                  {extraPhotoFiles.map((photo) => (
+              <div className="ob-photo-grid" aria-label="Fotos secundarias">
+                  {visibleExtraPhotoFiles.map((photo) => (
                     <div key={photo.id} className="ob-photo-item">
                       <img src={photo.preview} alt="Foto adicional" className="ob-photo-item-img" />
                       <div className="ob-photo-item-actions">
@@ -959,8 +960,19 @@ export default function OnboardingPage() {
                       </div>
                     </div>
                   ))}
+                  {Array.from({ length: emptyExtraPhotoSlots }).map((_, index) => (
+                    <button
+                      key={`empty-photo-slot-${index}`}
+                      type="button"
+                      className="ob-photo-item ob-photo-empty-slot"
+                      onClick={() => addPhotosInputRef.current?.click()}
+                      disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
+                      aria-label="Agregar foto"
+                    >
+                      <span>+</span>
+                    </button>
+                  ))}
                 </div>
-              )}
 
               <div className="ob-field">
                 <label className="ob-label">Agregar fotos</label>
@@ -1471,6 +1483,20 @@ export default function OnboardingPage() {
           display: flex;
           flex-direction: column;
           gap: 0.3rem;
+        }
+        .ob-photo-empty-slot {
+          min-height: 126px;
+          border-style: dashed;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+        }
+        .ob-photo-empty-slot:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
         .ob-btn-photo {
           padding: 0.45rem 0.5rem !important;

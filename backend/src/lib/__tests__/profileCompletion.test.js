@@ -29,4 +29,20 @@ describe("profileCompletion", () => {
     expect(canAppearInFeed(missingPhotoUser)).toBe(false);
     expect(canAppearInFeed(completeUser)).toBe(true);
   });
+
+  test("accepts structured location objects and reports exact missing fields", () => {
+    const incompleteUser = {
+      ...completeUser,
+      location: { type: "Point", coordinates: [-70.66, -33.45], city: "Santiago", country: "Chile" },
+      intent: "",
+      interests: ["music"],
+    };
+
+    expect(getMissingProfileFields(incompleteUser)).toEqual(["intent", "interests"]);
+    expect(getProfileCompletionStatus(incompleteUser)).toMatchObject({
+      complete: false,
+      missingFields: ["intent", "interests"],
+      canAppearInFeed: false,
+    });
+  });
 });

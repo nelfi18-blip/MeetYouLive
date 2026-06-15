@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
+import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -52,6 +53,15 @@ function normalizeSeenProfileIds(profileIds) {
 function isRecommendedProfile(profile, currentUserId) {
   const profileId = getProfileId(profile);
   return profileId && currentUserId && profileId !== currentUserId;
+}
+
+function shouldLogProfileCompletionDiagnostics() {
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    return localStorage.getItem("meetyoulive:debug:profileCompletion") === "true";
+  } catch {
+    return false;
+  }
 }
 
 function getCurrentProfileId(profiles, currentIndex) {
@@ -764,6 +774,13 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       setViewerProfileStatus(data?.viewerProfileStatus || null);
+      if (data?.viewerProfileStatus?.canAppearInFeed === false && shouldLogProfileCompletionDiagnostics()) {
+        console.log("[feed-profile-completion]", {
+          missingFields: data.viewerProfileStatus.missingFields || data.missingFields || [],
+          currentValues: data.viewerProfileStatus.currentValues || null,
+          profileCompletionStatus: data.profileCompletionStatus || null,
+        });
+      }
       const currentUserId = currentUserIdRef.current;
       const profileEntries = (data?.recommendedProfiles || [])
         .filter((profile) => isRecommendedProfile(profile, currentUserId))
@@ -857,13 +874,6 @@ export default function FeedPage() {
       window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
   }, [handleProfileUpdated]);
-
-  // Redirect to onboarding when the feed confirms the profile is incomplete.
-  useEffect(() => {
-    if (viewerProfileStatus && viewerProfileStatus.onboardingComplete === false && !loading) {
-      router.replace("/onboarding");
-    }
-  }, [viewerProfileStatus, loading, router]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.
@@ -1097,6 +1107,10 @@ export default function FeedPage() {
   const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
   const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
+  const missingProfileLabels = getMissingProfileLabels(viewerProfileStatus?.missingFields);
+  const profileIncompleteDescription = missingProfileLabels.length
+    ? `Te falta: ${missingProfileLabels.join(" / ")}`
+    : t("feed.profileIncompleteDescription");
 
   return (
     <div ref={pageRef} className="feed-page">
@@ -1203,7 +1217,7 @@ export default function FeedPage() {
         ) : (
           <div className="feed-empty">
             <h3>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteTitle") : t("feed.emptyTitle")}</h3>
-            <p>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteDescription") : t("feed.emptyDescription")}</p>
+            <p>{shouldShowProfileIncompleteState ? profileIncompleteDescription : t("feed.emptyDescription")}</p>
             <div className="feed-empty-actions">
               {shouldShowProfileIncompleteState ? (
                 <Link href={profileCompletionHref} className="feed-empty-btn feed-empty-btn--secondary">

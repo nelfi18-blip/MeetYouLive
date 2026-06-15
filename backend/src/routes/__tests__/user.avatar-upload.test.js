@@ -132,6 +132,83 @@ describe("POST /api/user/me/avatar-upload", () => {
     });
   });
 
+  test("keeps the current primary photo when uploading an extra photo", async () => {
+    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-primary.png";
+    const existingUser = {
+      _id: "507f1f77bcf86cd799439011",
+      avatar: primaryPhoto,
+      profilePhotos: [primaryPhoto],
+      images: [{ url: primaryPhoto, isPrimary: true }],
+    };
+    const savedUser = {
+      _id: existingUser._id,
+      avatar: primaryPhoto,
+      profilePhotos: [
+        primaryPhoto,
+        "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+      ],
+      images: [
+        {
+          url: primaryPhoto,
+          isPrimary: true,
+          source: "",
+          uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
+        },
+        {
+          url: "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+          isPrimary: false,
+          source: "",
+          uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
+        },
+      ],
+      toObject() {
+        return {
+          _id: this._id,
+          avatar: this.avatar,
+          profilePhotos: this.profilePhotos,
+          images: this.images,
+        };
+      },
+    };
+
+    User.findById.mockReturnValueOnce(makeQuery(existingUser));
+    User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
+
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload?setAsMain=0")
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https")
+      .attach("avatar", Buffer.from("not-a-real-png-but-valid-for-multer"), {
+        filename: "extra.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(200);
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      existingUser._id,
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          avatar: primaryPhoto,
+          profilePhotos: [
+            primaryPhoto,
+            expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+          ],
+          images: [
+            expect.objectContaining({ url: primaryPhoto, isPrimary: true }),
+            expect.objectContaining({
+              url: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+              isPrimary: false,
+            }),
+          ],
+        }),
+      }),
+      { new: true }
+    );
+    expect(res.body.avatar).toBe(primaryPhoto);
+    expect(res.body.images[0]).toMatchObject({ url: primaryPhoto, isPrimary: true });
+  });
+
   test("returns diagnostic JSON when no avatar file is sent", async () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")

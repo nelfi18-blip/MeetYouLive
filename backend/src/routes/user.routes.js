@@ -344,6 +344,12 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
   return { avatar: "", profilePhotos: [], images: [] };
 };
 
+const getExistingPhotoCandidates = (user) => [
+  ...(Array.isArray(user?.images) ? user.images.map(getPhotoUrlValue) : []),
+  ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
+  user?.avatar,
+];
+
 const serializeUserPhotoFields = (req, userLike) => {
   const rawPhotos = [
     ...(Array.isArray(userLike?.images) ? userLike.images : []),
@@ -1059,16 +1065,15 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       });
       return sendAvatarUploadJsonError(res, 500, "FILE_SAVE_FAILED", "Error guardando archivo.", "File not found after upload");
     }
-    const shouldSetAsMain = parseSetAsMainParam(req.query);
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
-    const candidateProfilePhotos = [
-      photoUrl,
-      ...(Array.isArray(user.images) ? user.images : []),
-      ...(Array.isArray(user.profilePhotos) ? user.profilePhotos : []),
-    ];
+    const shouldSetAsMain = parseSetAsMainParam(req.query);
+    const existingPhotoCandidates = getExistingPhotoCandidates(user);
+    const candidateProfilePhotos = shouldSetAsMain
+      ? [photoUrl, ...existingPhotoCandidates]
+      : [...existingPhotoCandidates, photoUrl];
     const normalizedPhotoState = normalizeProfilePhotos(
       req,
       candidateProfilePhotos,

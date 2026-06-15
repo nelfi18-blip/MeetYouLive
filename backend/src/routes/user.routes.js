@@ -351,13 +351,15 @@ const getExistingPhotoCandidates = (user) => [
 ];
 
 const serializeUserPhotoFields = (req, userLike) => {
+  // Keep this priority aligned with the public frontend/lib/imageHelpers.js::getPrimaryProfileImage():
+  // images[0] > avatar > profileImage > profilePhotos[0] > photo.
   const rawPhotos = [
     ...(Array.isArray(userLike?.images) ? userLike.images : []),
-    ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
-    ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
     userLike?.avatar,
     userLike?.profileImage,
+    ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
     userLike?.photo,
+    ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
     userLike?.photoURL,
     userLike?.photoUrl,
     userLike?.image,
@@ -470,11 +472,7 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
 
     const profile = { ...user };
     const photoFields = serializeUserPhotoFields(req, profile);
-    profile.avatar = photoFields.avatar;
-    profile.profileImage = photoFields.profileImage;
-    profile.photo = photoFields.photo;
-    profile.photos = photoFields.photos;
-    profile.profilePhotos = photoFields.profilePhotos;
+    Object.assign(profile, photoFields);
     const activeLive = await Live.findOne({ user: profile._id, isLive: true }).select("_id");
     profile.isLive = !!activeLive;
     profile.liveId = activeLive ? String(activeLive._id) : null;
@@ -510,9 +508,7 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     }
     Object.assign(payload, normalizeDiscoveryCompatibility(payload));
     const photoFields = serializeUserPhotoFields(req, payload);
-    payload.avatar = photoFields.avatar;
-    payload.profilePhotos = photoFields.profilePhotos;
-    payload.images = photoFields.images;
+    Object.assign(payload, photoFields);
     const persistedImageUrls = Array.isArray(user.images)
       ? user.images.map(getPhotoUrlValue).filter((url) => sanitizePhotoUrl(req, url))
       : [];
@@ -673,9 +669,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
-    payload.avatar = photoFields.avatar;
-    payload.profilePhotos = photoFields.profilePhotos;
-    payload.images = photoFields.images;
+    Object.assign(payload, photoFields);
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -808,12 +802,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
-    payload.avatar = photoFields.avatar;
-    payload.profileImage = photoFields.profileImage;
-    payload.photo = photoFields.photo;
-    payload.photos = photoFields.photos;
-    payload.profilePhotos = photoFields.profilePhotos;
-    payload.images = photoFields.images;
+    Object.assign(payload, photoFields);
     payload.profileCompletion = getMinProfileCompletion(payload, req);
     payload.onboardingComplete = payload.profileCompletion.canAppearInFeed;
     payload.canAppearInFeed = payload.profileCompletion.canAppearInFeed;
@@ -852,9 +841,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
-    payload.avatar = photoFields.avatar;
-    payload.profilePhotos = photoFields.profilePhotos;
-    payload.images = photoFields.images;
+    Object.assign(payload, photoFields);
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });

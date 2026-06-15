@@ -130,13 +130,13 @@ const normalizePhotoUrl = (req, value) => {
  */
 const getRawUserPhotoCandidates = (userLike) => [
   ...(Array.isArray(userLike?.images) ? userLike.images.map((value) => ({ field: "images", value })) : []),
+  { field: "avatar", value: userLike?.avatar },
+  { field: "profileImage", value: userLike?.profileImage },
   ...(Array.isArray(userLike?.profilePhotos)
     ? userLike.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
     : []),
-  ...(Array.isArray(userLike?.photos) ? userLike.photos.map((value) => ({ field: "photos", value })) : []),
-  { field: "avatar", value: userLike?.avatar },
-  { field: "profileImage", value: userLike?.profileImage },
   { field: "photo", value: userLike?.photo },
+  ...(Array.isArray(userLike?.photos) ? userLike.photos.map((value) => ({ field: "photos", value })) : []),
   { field: "photoURL", value: userLike?.photoURL },
   { field: "photoUrl", value: userLike?.photoUrl },
   { field: "image", value: userLike?.image },

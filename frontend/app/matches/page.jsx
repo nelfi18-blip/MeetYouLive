@@ -11,7 +11,7 @@ import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -232,7 +232,7 @@ export default function MatchesPage() {
             const compatibilityScore = user.compatibilityScore ?? null;
             const sharedInterests = user.sharedInterests || [];
             const statusBadges = computeStatusBadges(user);
-            const userImage = getUserImage(user);
+            const userImage = getPrimaryProfileImage(user);
             return (
               <div key={user._id} className="match-card">
                 <div className="match-avatar-wrap">

@@ -39,6 +39,7 @@ describe("photoFields", () => {
     expect(user.photo).toBe(user.avatar);
     expect(user.photos).toEqual([user.avatar]);
     expect(user.profilePhotos).toEqual([user.avatar]);
+    expect(user.images[0]).toMatchObject({ url: user.avatar, isPrimary: true });
   });
 
   test("detects serializable legacy photo aliases without requiring canonical fields", () => {
@@ -73,13 +74,13 @@ describe("photoFields", () => {
     });
 
     expect(selection).toEqual({
-      primaryPhoto: "https://api.meetyoulive.net/uploads/first.webp",
+      primaryPhoto: "https://api.meetyoulive.net/uploads/avatar.webp",
       photos: [
-        "https://api.meetyoulive.net/uploads/first.webp",
         "https://api.meetyoulive.net/uploads/avatar.webp",
+        "https://api.meetyoulive.net/uploads/first.webp",
         "https://example.com/image.jpg",
       ],
-      fieldUsed: "profilePhotos",
+      fieldUsed: "avatar",
       photoCount: 3,
     });
   });

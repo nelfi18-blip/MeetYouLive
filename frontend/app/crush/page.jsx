@@ -10,7 +10,7 @@ import HiddenLikesSection from "@/components/HiddenLikesSection";
 import ActivityBar from "@/components/ActivityBar";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -1291,7 +1291,7 @@ function FeaturedCreatorsStrip({ creators }) {
       <div className="fcs-scroll">
         {creators.map((c) => {
           const displayName = getDisplayName(c);
-          const image = getUserImage(c);
+          const image = getPrimaryProfileImage(c);
           return (
             <Link
               key={c._id || c.userId}
@@ -1462,7 +1462,7 @@ function PremiumProfileCard({
   if (!user || typeof user !== "object") return null;
 
   const displayName = getDisplayName(user);
-  const image = getUserImage(user);
+  const image = getPrimaryProfileImage(user);
   const age = calcAge(user?.birthdate);
   const isCreator = user?.role === "creator";
   const isLive = isCreator && !!user?.isLive && !!user?.liveId;

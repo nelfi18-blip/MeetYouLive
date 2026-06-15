@@ -85,12 +85,19 @@ function getPrimaryProfileImageCandidate(user) {
   return null;
 }
 
+/**
+ * Collect user photo fields for gallery rendering.
+ *
+ * @param {Object} user - User object with image fields.
+ * @param {Object|null} primaryCandidate - Result from
+ * getPrimaryProfileImageCandidate(); when provided, it is returned first so
+ * galleries start with the same primary photo as avatar/card surfaces.
+ * Duplicate entries are removed by URL in getUserPhotoSelection().
+ * @returns {{field: string, value: unknown, normalized?: string}[]} Photo candidates.
+ */
 function getPhotoCandidates(user, primaryCandidate = null) {
   if (!user) return [];
   return [
-    // Add the selected primary first so photo galleries never start with a
-    // lower-priority alias. primaryCandidate must come from
-    // getPrimaryProfileImageCandidate(); duplicate entries are removed by URL.
     ...(primaryCandidate ? [primaryCandidate] : []),
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
     { field: "avatar", value: user.avatar },

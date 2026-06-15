@@ -351,7 +351,7 @@ const getExistingPhotoCandidates = (user) => [
 ];
 
 const serializeUserPhotoFields = (req, userLike) => {
-  // Keep this priority aligned with frontend getPrimaryProfileImage():
+  // Keep this priority aligned with frontend/lib/imageHelpers.js::getPrimaryProfileImage():
   // images[0] > avatar > profileImage > profilePhotos[0] > photo.
   const rawPhotos = [
     ...(Array.isArray(userLike?.images) ? userLike.images : []),

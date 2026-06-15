@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken, getToken, setToken } from "@/lib/token";
@@ -58,8 +59,10 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
+const isBlobUrl = (value) => typeof value === "string" && value.startsWith("blob:");
+
 const normalizeAvatarUrl = (avatarValue) => {
-  if (typeof avatarValue === "string" && avatarValue.startsWith("blob:")) return avatarValue;
+  if (isBlobUrl(avatarValue)) return avatarValue;
   return normalizeImageUrl(avatarValue) || "";
 };
 
@@ -82,6 +85,7 @@ const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue) => {
     }
   };
 
+  // images[] is canonical; profilePhotos is only a legacy fallback when images has no usable URLs.
   collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
   if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
 
@@ -97,7 +101,7 @@ const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue) => {
 const getSafeGalleryImageSrc = (value) => {
   const normalized = normalizeAvatarUrl(value);
   if (!normalized) return "";
-  if (normalized.startsWith("blob:")) return normalized;
+  if (isBlobUrl(normalized)) return normalized;
   if (/^https?:\/\//i.test(normalized)) return normalized;
   if (normalized.startsWith("/")) return normalized;
   return "";
@@ -1250,17 +1254,33 @@ export default function ProfilePage() {
                   <div className="profile-photo-manager">
                     <div className="profile-main-photo-card">
                       {safeMainProfilePhoto ? (
-                        <img src={safeMainProfilePhoto} alt="Foto principal" className="profile-main-photo-image" onError={(e) => { e.target.style.display = "none"; }} />
+                        <Image
+                          src={safeMainProfilePhoto}
+                          alt="Foto principal"
+                          width={250}
+                          height={250}
+                          className="profile-main-photo-image"
+                          unoptimized
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
                       ) : (
                         <div className="profile-main-photo-placeholder">{initial}</div>
                       )}
                       <div className="profile-main-photo-label">Foto principal</div>
                     </div>
 
-                    <div className="profile-photo-grid" aria-label="Fotos secundarias">
+                    <div className="profile-photo-grid" role="region" aria-label="Fotos secundarias">
                       {safeExtraProfilePhotos.map(({ photo, src }) => (
                         <div key={photo} className="profile-photo-thumb">
-                          <img src={src} alt="Foto adicional" className="profile-photo-thumb-img" onError={(e) => { e.target.style.display = "none"; }} />
+                          <Image
+                            src={src}
+                            alt="Foto adicional"
+                            width={120}
+                            height={120}
+                            className="profile-photo-thumb-img"
+                            unoptimized
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          />
                           <div className="profile-photo-thumb-actions">
                             <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMainPhoto(photo)} disabled={avatarUploading}>
                               Hacer principal

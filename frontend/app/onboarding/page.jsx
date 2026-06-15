@@ -201,7 +201,7 @@ export default function OnboardingPage() {
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
   const visibleExtraPhotoFiles = extraPhotoFiles.filter((photo) => photo?.preview);
-  const selectedPhotoCount = (mainPhotoFile || mainPhotoPreview ? 1 : 0) + visibleExtraPhotoFiles.length;
+  const selectedPhotoCount = (mainPhotoFile ? 1 : 0) + visibleExtraPhotoFiles.length;
   const emptyExtraPhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - visibleExtraPhotoFiles.length);
 
   // Completion percentage (computed from required fields filled so far)
@@ -946,7 +946,7 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              <div className="ob-photo-grid" aria-label="Fotos secundarias">
+              <div className="ob-photo-grid" role="region" aria-label="Fotos secundarias">
                   {visibleExtraPhotoFiles.map((photo) => (
                     <div key={photo.id} className="ob-photo-item">
                       <img src={photo.preview} alt="Foto adicional" className="ob-photo-item-img" />

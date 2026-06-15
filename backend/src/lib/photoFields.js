@@ -212,7 +212,6 @@ const serializeUserPhotoFields = (req, userLike) => {
     url,
     isPrimary: index === 0,
     source: "",
-    uploadedAt: new Date(),
   }));
   return {
     avatar,

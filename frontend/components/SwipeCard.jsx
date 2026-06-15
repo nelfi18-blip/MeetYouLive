@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
+import { getPrimaryProfileImage, getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -120,6 +120,7 @@ export default function SwipeCard({
   };
 
   const photoSelection = useMemo(() => getUserPhotoSelection(profile), [profile]);
+  const primaryPhoto = useMemo(() => getPrimaryProfileImage(profile), [profile]);
   const displayName = getDisplayName(profile);
   const profileId = profile?._id ? String(profile._id) : "";
   const age = profile.age || "";
@@ -129,7 +130,10 @@ export default function SwipeCard({
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
   // Multiple photos support with URL normalization to avoid broken/empty cards.
-  const photos = photoSelection.photos.filter((photo) => !brokenPhotoUrls.has(photo));
+  const photos = [
+    primaryPhoto,
+    ...photoSelection.photos.filter((photo) => photo !== primaryPhoto),
+  ].filter((photo) => photo && !brokenPhotoUrls.has(photo));
   const currentPhoto = photos[currentPhotoIndex] || photos[0] || null;
 
   useEffect(() => {

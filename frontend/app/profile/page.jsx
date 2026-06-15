@@ -11,7 +11,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { normalizeImageUrl } from "@/lib/imageHelpers";
+import { getPrimaryProfileImage, normalizeImageUrl } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
@@ -73,29 +73,39 @@ const extractPhotoUrl = (value) => {
   return value.url || value.secure_url || value.src || value.path || "";
 };
 
-const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue) => {
+const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, aliases = {}) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
+  const primaryPhoto =
+    (isBlobUrl(avatarValue) ? normalizedAvatar : "") ||
+    getPrimaryProfileImage({
+      images: imagesValue,
+      avatar: avatarValue,
+      profileImage: aliases.profileImage,
+      profilePhotos: profilePhotosValue,
+      photo: aliases.photo,
+    }) ||
+    "";
   const unique = [];
+  const addPhoto = (value) => {
+    const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
+    if (!normalized || unique.includes(normalized)) return;
+    unique.push(normalized);
+  };
+  addPhoto(primaryPhoto);
   const collectPhotos = (values) => {
     for (const value of values) {
-      const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
-      if (!normalized || unique.includes(normalized)) continue;
-      unique.push(normalized);
+      addPhoto(value);
       if (unique.length >= MAX_PROFILE_PHOTOS) break;
     }
   };
 
-  // images[] is canonical; profilePhotos is only a legacy fallback when images has no usable URLs.
   collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
-  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
-
+  addPhoto(avatarValue);
+  addPhoto(aliases.profileImage);
   collectPhotos(Array.isArray(profilePhotosValue) ? profilePhotosValue : []);
-  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
+  addPhoto(aliases.photo);
 
-  if (normalizedAvatar) {
-    return [normalizedAvatar, ...unique.filter((url) => url !== normalizedAvatar)].slice(0, MAX_PROFILE_PHOTOS);
-  }
-  return [];
+  return unique.slice(0, MAX_PROFILE_PHOTOS);
 };
 
 const getSafeGalleryImageSrc = (value) => {
@@ -121,7 +131,7 @@ const toProfileImageObjects = (photos) =>
   }));
 
 const normalizeUserPhotoState = (userLike = {}) => {
-  const normalizedPhotos = normalizePhotoList(userLike.avatar, userLike.profilePhotos, userLike.images);
+  const normalizedPhotos = normalizePhotoList(userLike.avatar, userLike.profilePhotos, userLike.images, userLike);
   const normalizedImages = toProfileImageObjects(normalizedPhotos);
   return {
     normalizedPhotos,

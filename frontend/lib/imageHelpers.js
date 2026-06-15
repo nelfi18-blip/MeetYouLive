@@ -48,17 +48,37 @@ export function normalizeImageUrl(value) {
   return null;
 }
 
-function getPhotoCandidates(user) {
+function getPrimaryProfileImageCandidate(user) {
+  if (!user) return null;
+
+  const candidates = [
+    { field: "images", value: Array.isArray(user.images) ? user.images[0] : undefined },
+    { field: "avatar", value: user.avatar },
+    { field: "profileImage", value: user.profileImage },
+    { field: "profilePhotos", value: Array.isArray(user.profilePhotos) ? user.profilePhotos[0] : undefined },
+    { field: "photo", value: user.photo },
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeImageUrl(candidate.value);
+    if (normalized) return { ...candidate, normalized };
+  }
+
+  return null;
+}
+
+function getPhotoCandidates(user, primaryCandidate = null) {
   if (!user) return [];
   return [
-    ...(Array.isArray(user.profilePhotos)
-      ? user.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
-      : []),
-    ...(Array.isArray(user.photos) ? user.photos.map((value) => ({ field: "photos", value })) : []),
+    ...(primaryCandidate ? [primaryCandidate] : []),
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
     { field: "avatar", value: user.avatar },
     { field: "profileImage", value: user.profileImage },
+    ...(Array.isArray(user.profilePhotos)
+      ? user.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
+      : []),
     { field: "photo", value: user.photo },
+    ...(Array.isArray(user.photos) ? user.photos.map((value) => ({ field: "photos", value })) : []),
     { field: "photoURL", value: user.photoURL },
     { field: "photoUrl", value: user.photoUrl },
     { field: "image", value: user.image },
@@ -71,9 +91,10 @@ export function getUserPhotoSelection(user) {
   const photos = [];
   const seenPhotos = new Set();
   let fieldUsed = null;
+  const primaryCandidate = getPrimaryProfileImageCandidate(user);
 
-  for (const { field, value } of getPhotoCandidates(user)) {
-    const normalized = normalizeImageUrl(value);
+  for (const { field, value, normalized: alreadyNormalized } of getPhotoCandidates(user, primaryCandidate)) {
+    const normalized = alreadyNormalized || normalizeImageUrl(value);
     if (normalized && !seenPhotos.has(normalized)) {
       seenPhotos.add(normalized);
       photos.push(normalized);
@@ -90,16 +111,28 @@ export function getUserPhotoSelection(user) {
 }
 
 /**
+ * Get the primary profile image using the canonical priority expected by
+ * profile/feed surfaces.
+ *
+ * Priority: images[0].url (or images[0] string) > avatar > profileImage >
+ * profilePhotos[0] > photo.
+ *
+ * @param {Object} user - User object with image fields
+ * @returns {string|null} - Image URL or null for fallback
+ */
+export function getPrimaryProfileImage(user) {
+  return getPrimaryProfileImageCandidate(user)?.normalized || null;
+}
+
+/**
  * Get the best available user image
- * Priority: profilePhotos/photos > avatar/profileImage/photo > common OAuth/image fields > null
+ * Priority: images[0] > avatar > profileImage > profilePhotos[0] > photo > null
  * 
  * @param {Object} user - User object with image fields
  * @returns {string|null} - Image URL or null for fallback
  */
 export function getUserImage(user) {
-  if (!user) return null;
-
-  return getUserPhotoSelection(user).primaryPhoto;
+  return getPrimaryProfileImage(user);
 }
 
 /**

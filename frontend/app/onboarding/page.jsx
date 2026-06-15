@@ -13,7 +13,7 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
-import { normalizeImageUrl } from "@/lib/imageHelpers";
+import { getPrimaryProfileImage, normalizeImageUrl } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -91,19 +91,31 @@ const getUploadPhotoUrlValue = (value) => {
 // Accept the canonical avatar/profilePhotos payload plus legacy/provider URL objects
 // so a successful backend upload cannot be discarded before the onboarding save.
 const collectUploadPhotoUrls = (payload) => {
+  const primaryPhoto = getPrimaryProfileImage({
+    images: payload?.images || payload?.user?.images,
+    avatar: payload?.avatar || payload?.user?.avatar,
+    profileImage: payload?.profileImage || payload?.user?.profileImage,
+    profilePhotos: payload?.profilePhotos || payload?.user?.profilePhotos,
+    photo: payload?.photo || payload?.user?.photo || payload?.photoUrl || payload?.mainPhoto || payload?.avatarPath,
+  });
   const candidates = [
+    primaryPhoto,
+    ...(Array.isArray(payload?.images) ? payload.images : []),
+    ...(Array.isArray(payload?.user?.images) ? payload.user.images : []),
     payload?.avatar,
+    payload?.profileImage,
     payload?.mainPhoto,
+    payload?.photo,
     payload?.photoUrl,
     payload?.avatarPath,
     payload?.user?.avatar,
+    payload?.user?.profileImage,
+    payload?.user?.photo,
   ];
 
   const photoCollections = [
     payload?.profilePhotos,
-    payload?.images,
     payload?.user?.profilePhotos,
-    payload?.user?.images,
   ];
   for (const collection of photoCollections) {
     if (Array.isArray(collection)) candidates.push(...collection);

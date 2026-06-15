@@ -75,8 +75,9 @@ const extractPhotoUrl = (value) => {
 
 const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFields = {}) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
+  const blobPhoto = isBlobUrl(avatarValue) ? normalizedAvatar : "";
   const primaryPhoto =
-    (isBlobUrl(avatarValue) ? normalizedAvatar : "") ||
+    blobPhoto ||
     getPrimaryProfileImage({
       images: imagesValue,
       avatar: avatarValue,

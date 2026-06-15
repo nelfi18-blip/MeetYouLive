@@ -142,7 +142,7 @@ export function getUserPhotoSelection(user) {
  * Get the primary profile image using the canonical priority expected by
  * profile/feed surfaces.
  *
- * Priority: images[0].url (or images[0] string) > avatar > profileImage >
+ * Priority: images[0] (as object.url or string) > avatar > profileImage >
  * profilePhotos[0] > photo.
  *
  * @param {Object} user - User object with image fields

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -60,12 +60,18 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
 
 const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
 
+const getUploadPhotoUrlValue = (value) => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  return value.url || value.secure_url || value.src || value.path || "";
+};
+
 const normalizePhotoList = (avatarValue, profilePhotosValue) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
   const normalizedPhotos = Array.isArray(profilePhotosValue) ? profilePhotosValue : [];
   const unique = [];
   for (const value of normalizedPhotos) {
-    const normalized = normalizeAvatarUrl(value);
+    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(value));
     if (!normalized || unique.includes(normalized)) continue;
     unique.push(normalized);
     if (unique.length >= MAX_PROFILE_PHOTOS) break;
@@ -82,6 +88,38 @@ const reorderWithMain = (photos, mainPhoto) => {
   const normalized = normalizePhotoList(normalizedMain, photos);
   if (!normalizedMain) return normalized;
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
+};
+
+const collectUploadPhotoUrls = (payload) => {
+  const candidates = [
+    payload?.avatar,
+    payload?.mainPhoto,
+    payload?.photoUrl,
+    payload?.avatarPath,
+    payload?.user?.avatar,
+  ];
+  const photoCollections = [
+    payload?.profilePhotos,
+    payload?.photos,
+    payload?.images,
+    payload?.user?.profilePhotos,
+    payload?.user?.photos,
+    payload?.user?.images,
+  ];
+  for (const collection of photoCollections) {
+    if (Array.isArray(collection)) candidates.push(...collection);
+  }
+
+  const photos = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(candidate));
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    photos.push(normalized);
+    if (photos.length >= MAX_PROFILE_PHOTOS) break;
+  }
+  return photos;
 };
 
 const normalizeDiscoveryForm = (user = {}) => {
@@ -223,6 +261,8 @@ export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
+  const replaceMainPhotoInputRef = useRef(null);
+  const addProfilePhotosInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -600,7 +640,10 @@ export default function ProfilePage() {
   };
 
   const applyPhotoPayload = (payload, successMessage = "") => {
-    const normalizedPhotos = normalizePhotoList(payload?.avatar, payload?.profilePhotos);
+    const uploadPhotos = collectUploadPhotoUrls(payload);
+    const normalizedPhotos = uploadPhotos.length
+      ? uploadPhotos
+      : normalizePhotoList(payload?.avatar, payload?.profilePhotos);
     const normalizedAvatar = normalizedPhotos[0] || "";
     updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos });
     setEditForm((prev) => (
@@ -810,7 +853,10 @@ export default function ProfilePage() {
           continue;
         }
         uploadedCount += 1;
-        persistedPhotos = normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
+        const uploadPhotos = collectUploadPhotoUrls(uploadResult.data);
+        persistedPhotos = uploadPhotos.length
+          ? uploadPhotos
+          : normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
         applyPersistedWithPendingPreviews(index + 1);
       }
       if (uploadedCount > 0) {
@@ -866,6 +912,8 @@ export default function ProfilePage() {
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
   const mainProfilePhoto = profilePhotoList[0] || "";
   const extraProfilePhotos = profilePhotoList.slice(1);
+  const canAddProfilePhotos = !avatarUploading && profilePhotoList.length < MAX_PROFILE_PHOTOS;
+  const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos);
   const userExtraPhotos = userPhotoList.slice(1);
   
@@ -1193,34 +1241,46 @@ export default function ProfilePage() {
                     )}
 
                     <div className="profile-photo-actions">
-                      <label className="profile-upload-btn">
+                      <button
+                        type="button"
+                        className="profile-upload-btn"
+                        onClick={() => replaceMainPhotoInputRef.current?.click()}
+                        disabled={!canReplaceMainPhoto}
+                      >
                         {avatarUploading ? "Subiendo…" : "📷 Reemplazar principal"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
-                          style={{ display: "none" }}
-                          disabled={avatarUploading}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleReplaceMainPhoto(file);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                      <label className="profile-upload-btn">
+                      </button>
+                      <input
+                        ref={replaceMainPhotoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        style={{ display: "none" }}
+                        disabled={!canReplaceMainPhoto}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleReplaceMainPhoto(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="profile-upload-btn"
+                        onClick={() => addProfilePhotosInputRef.current?.click()}
+                        disabled={!canAddProfilePhotos}
+                      >
                         {avatarUploading ? "Subiendo…" : "➕ Agregar fotos"}
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/jpeg,image/png,image/webp,image/gif"
-                          style={{ display: "none" }}
-                          disabled={avatarUploading || profilePhotoList.length >= MAX_PROFILE_PHOTOS}
-                          onChange={(e) => {
-                            handleAddExtraPhotos(e.target.files);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
+                      </button>
+                      <input
+                        ref={addProfilePhotosInputRef}
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        style={{ display: "none" }}
+                        disabled={!canAddProfilePhotos}
+                        onChange={(e) => {
+                          handleAddExtraPhotos(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
                     </div>
 
                     <div className="profile-photo-url-row">
@@ -1866,10 +1926,21 @@ export default function ProfilePage() {
           transition: all 0.18s;
         }
 
+        .profile-upload-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
         .profile-upload-btn:hover {
           border-color: rgba(224,64,251,0.7);
           color: var(--text);
           background: rgba(224,64,251,0.1);
+        }
+
+        .profile-upload-btn:disabled:hover {
+          border-color: rgba(224,64,251,0.4);
+          color: var(--text-muted);
+          background: rgba(224,64,251,0.06);
         }
 
         .profile-photo-url-row {

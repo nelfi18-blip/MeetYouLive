@@ -31,6 +31,16 @@ const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
+const PROFILE_MISSING_FIELD_LABELS = {
+  photo: "foto",
+  birthdate: "fecha de nacimiento",
+  location: "ubicación",
+  interests: "intereses",
+  intent: "intención",
+  interestedIn: "preferencia",
+  gender: "preferencia",
+  name: "nombre",
+};
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -52,6 +62,16 @@ function normalizeSeenProfileIds(profileIds) {
 function isRecommendedProfile(profile, currentUserId) {
   const profileId = getProfileId(profile);
   return profileId && currentUserId && profileId !== currentUserId;
+}
+
+function getMissingProfileLabels(missingFields = []) {
+  return Array.from(
+    new Set(
+      missingFields
+        .map((field) => PROFILE_MISSING_FIELD_LABELS[field] || field)
+        .filter(Boolean)
+    )
+  );
 }
 
 function getCurrentProfileId(profiles, currentIndex) {
@@ -764,6 +784,13 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       setViewerProfileStatus(data?.viewerProfileStatus || null);
+      if (data?.viewerProfileStatus?.canAppearInFeed === false) {
+        console.log("[feed-profile-completion]", {
+          missingFields: data.viewerProfileStatus.missingFields || data.missingFields || [],
+          currentValues: data.viewerProfileStatus.currentValues || null,
+          profileCompletionStatus: data.profileCompletionStatus || data.viewerProfileStatus.profileCompletionStatus || null,
+        });
+      }
       const currentUserId = currentUserIdRef.current;
       const profileEntries = (data?.recommendedProfiles || [])
         .filter((profile) => isRecommendedProfile(profile, currentUserId))
@@ -857,13 +884,6 @@ export default function FeedPage() {
       window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
     };
   }, [handleProfileUpdated]);
-
-  // Redirect to onboarding when the feed confirms the profile is incomplete.
-  useEffect(() => {
-    if (viewerProfileStatus && viewerProfileStatus.onboardingComplete === false && !loading) {
-      router.replace("/onboarding");
-    }
-  }, [viewerProfileStatus, loading, router]);
 
   // Fetch feed data once a backend token is ready. Do not depend on
   // hasVisualCache: re-running here would reset the visible profile on mobile refresh.
@@ -1097,6 +1117,10 @@ export default function FeedPage() {
   const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
   const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
+  const missingProfileLabels = getMissingProfileLabels(viewerProfileStatus?.missingFields);
+  const profileIncompleteDescription = missingProfileLabels.length
+    ? `Te falta: ${missingProfileLabels.join(" / ")}`
+    : t("feed.profileIncompleteDescription");
 
   return (
     <div ref={pageRef} className="feed-page">
@@ -1203,7 +1227,7 @@ export default function FeedPage() {
         ) : (
           <div className="feed-empty">
             <h3>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteTitle") : t("feed.emptyTitle")}</h3>
-            <p>{shouldShowProfileIncompleteState ? t("feed.profileIncompleteDescription") : t("feed.emptyDescription")}</p>
+            <p>{shouldShowProfileIncompleteState ? profileIncompleteDescription : t("feed.emptyDescription")}</p>
             <div className="feed-empty-actions">
               {shouldShowProfileIncompleteState ? (
                 <Link href={profileCompletionHref} className="feed-empty-btn feed-empty-btn--secondary">

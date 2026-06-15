@@ -219,6 +219,7 @@ const updateOnboarding = async (req, res) => {
     payload.onboardingComplete = onboardingComplete;
     payload.canAppearInFeed = canAppearInFeedValue;
     payload.profileCompletion = { ...profileCompletion, onboardingComplete, canAppearInFeed: canAppearInFeedValue };
+    payload.profileCompletionStatus = payload.profileCompletion;
 
     return res.json({
       ok: true,
@@ -227,6 +228,7 @@ const updateOnboarding = async (req, res) => {
       onboardingComplete,
       canAppearInFeed: canAppearInFeedValue,
       profileCompletion: payload.profileCompletion,
+      profileCompletionStatus: payload.profileCompletionStatus,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });

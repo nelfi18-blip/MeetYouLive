@@ -518,17 +518,19 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     if (payload.role == null) payload.role = "user";
     if (payload.creatorStatus == null) payload.creatorStatus = "none";
 
-    // Compute profile completion and lazily reset onboardingComplete when a
-    // previously-marked-complete user is now missing required fields (e.g. from
-    // a stricter requirement rollout).
+    // Keep persisted onboardingComplete aligned with the canonical feed
+    // eligibility helper so legacy profiles do not get stuck incomplete.
     const profileCompletion = getMinProfileCompletion(payload, req);
-    if (payload.onboardingComplete === true && !profileCompletion.complete) {
-      payload.onboardingComplete = false;
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: false } }).catch((err) => {
-        console.error("[lazy-onboarding-reset] failed:", err.message);
+    if (payload.onboardingComplete !== profileCompletion.canAppearInFeed) {
+      payload.onboardingComplete = profileCompletion.canAppearInFeed;
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: profileCompletion.canAppearInFeed } }).catch((err) => {
+        console.error("[lazy-onboarding-sync] failed:", err.message);
       });
     }
     payload.profileCompletion = profileCompletion;
+    payload.profileCompletionStatus = profileCompletion;
+    payload.canAppearInFeed = profileCompletion.canAppearInFeed;
+    payload.missingFields = profileCompletion.missingFields;
 
     res.json(payload);
   } catch (err) {
@@ -806,6 +808,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       canAppearInFeed: payload.canAppearInFeed,
       missingFields: payload.missingFields,
       profileCompletion: payload.profileCompletion,
+      profileCompletionStatus: payload.profileCompletion,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

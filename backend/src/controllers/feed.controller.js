@@ -20,6 +20,11 @@ const {
   hasSerializableUserPhoto,
   withSerializedUserPhotoFields,
 } = require("../lib/photoFields.js");
+const {
+  canAppearInFeed,
+  getMissingProfileFields,
+  getProfileCompletionStatus,
+} = require("../lib/profileCompletion.js");
 
 const FEED_MIX_RATIO = { live: 0.6, match: 0.4 }; // 60% live, 40% match
 const DEFAULT_FEED_SIZE = 20;
@@ -88,33 +93,46 @@ const getFeedPhotoDiagnostic = (user = {}) => {
   };
 };
 
-const getFeedProfileMissingFields = (user = {}) => {
-  const missingFields = [];
-  if (!isNonEmptyString(user.name)) missingFields.push("name");
-  if (!hasFeedPhoto(user)) missingFields.push("photo");
-  if (!user.birthdate) missingFields.push("birthdate");
-  if (!isNonEmptyString(user.location)) missingFields.push("location");
-  if (!Array.isArray(user.interests) || user.interests.length === 0) missingFields.push("interests");
-  if (!isNonEmptyString(user.intent)) missingFields.push("intent");
-  return missingFields;
-};
+const getFeedProfileMissingFields = (user = {}, req = PHOTO_VALIDATION_STUB_REQUEST) =>
+  getMissingProfileFields(user, { req });
+
+const getProfileCompletionDebugValues = (user = {}, status = {}) => ({
+  name: user.name || "",
+  birthdate: user.birthdate || null,
+  age: status.age ?? null,
+  gender: user.gender || null,
+  interestedIn: user.interestedIn || null,
+  location: user.location || null,
+  locationPoint: user.locationPoint || null,
+  interests: Array.isArray(user.interests) ? user.interests : [],
+  intent: user.intent || "",
+  avatar: user.avatar || "",
+  images: Array.isArray(user.images) ? user.images : [],
+  profilePhotos: Array.isArray(user.profilePhotos) ? user.profilePhotos : [],
+});
 
 const getFeedProfileStatus = (user) => {
   if (!user) return null;
-  const missingFields = getFeedProfileMissingFields(user);
+  const status = getProfileCompletionStatus(user, { req: PHOTO_VALIDATION_STUB_REQUEST });
+  const missingFields = status.missingFields;
   const normalizedDiscovery = normalizeDiscoveryCompatibility(user);
-  const needsGenderPreference = !isNonEmptyString(normalizedDiscovery.gender);
-  const isRegularActiveUser =
-    user.role === "user" &&
-    user.isBlocked !== true &&
-    user.isSuspended !== true;
-  return {
-    onboardingComplete: user.onboardingComplete === true,
-    profileComplete: missingFields.length === 0,
-    canAppearInFeed: isRegularActiveUser && user.onboardingComplete === true && missingFields.length === 0,
+  const canAppearInFeedValue = canAppearInFeed(user, {
+    req: PHOTO_VALIDATION_STUB_REQUEST,
     missingFields,
-    preferenceCompletionNeeded: needsGenderPreference,
-    missingPreferenceFields: needsGenderPreference ? ["gender"] : [],
+  });
+  const profileCompletionStatus = {
+    ...status,
+    onboardingComplete: canAppearInFeedValue,
+    canAppearInFeed: canAppearInFeedValue,
+  };
+  return {
+    ...profileCompletionStatus,
+    onboardingComplete: canAppearInFeedValue,
+    profileComplete: status.complete,
+    canAppearInFeed: canAppearInFeedValue,
+    missingFields,
+    profileCompletionStatus,
+    currentValues: getProfileCompletionDebugValues(user, profileCompletionStatus),
     interestedIn: normalizedDiscovery.interestedIn,
     gender: normalizedDiscovery.gender,
   };
@@ -128,7 +146,7 @@ const getFeedDiagnosticUserSummary = (user = {}) => {
     profileComplete: getFeedProfileMissingFields(user).length === 0,
     missingFields: getFeedProfileMissingFields(user),
     hasAge: Boolean(user.birthdate),
-    hasLocation: isNonEmptyString(user.location),
+    hasLocation: getFeedProfileMissingFields(user).includes("location") === false,
     hasName: isNonEmptyString(user.name),
     hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
     isBlocked: user.isBlocked === true,
@@ -407,7 +425,7 @@ const getFeed = async (req, res) => {
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
           .select(
-            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope`
+            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope`
           )
           .lean()
       : Promise.resolve(null);
@@ -432,6 +450,11 @@ const getFeed = async (req, res) => {
       currentUserProfile = normalizeDiscoveryCompatibility(currentUserProfile);
       if (Object.keys(compatibilityUpdates).length > 0) {
         User.updateOne({ _id: currentUserProfile._id }, { $set: compatibilityUpdates }).catch(() => {});
+      }
+      const profileCompletion = getFeedProfileStatus(currentUserProfile);
+      if (profileCompletion?.canAppearInFeed === true && currentUserProfile.onboardingComplete !== true) {
+        currentUserProfile.onboardingComplete = true;
+        User.updateOne({ _id: currentUserProfile._id }, { $set: { onboardingComplete: true } }).catch(() => {});
       }
     }
 
@@ -502,11 +525,16 @@ const getFeed = async (req, res) => {
     });
 
     res.set("Cache-Control", "no-store");
+    const viewerProfileStatus = getFeedProfileStatus(currentUserProfile);
     const responseBody = {
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       featuredCreators: serializedFeaturedCreators,
-      viewerProfileStatus: getFeedProfileStatus(currentUserProfile),
+      viewerProfileStatus,
+      canAppearInFeed: viewerProfileStatus?.canAppearInFeed ?? null,
+      onboardingComplete: viewerProfileStatus?.onboardingComplete ?? null,
+      missingFields: viewerProfileStatus?.missingFields || [],
+      profileCompletionStatus: viewerProfileStatus?.profileCompletionStatus || viewerProfileStatus,
     };
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);

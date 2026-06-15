@@ -18,6 +18,27 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
 const MIN_INTERESTS = 3;
 const MAX_PROFILE_PHOTOS = 6;
+const PROFILE_MISSING_FIELD_LABELS = {
+  photo: "foto",
+  images: "foto",
+  birthdate: "fecha de nacimiento",
+  location: "ubicación",
+  interests: "intereses",
+  intent: "intención",
+  interestedIn: "preferencia",
+  gender: "preferencia",
+  name: "nombre",
+};
+
+function getMissingProfileLabels(missingFields = []) {
+  return Array.from(
+    new Set(
+      missingFields
+        .map((field) => PROFILE_MISSING_FIELD_LABELS[field] || field)
+        .filter(Boolean)
+    )
+  );
+}
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -584,9 +605,28 @@ export default function OnboardingPage() {
       }
       const updatedUser = data.user || data;
       if (data.onboardingComplete !== true && updatedUser.onboardingComplete !== true) {
-        const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing;
-        const missingMessage = Array.isArray(missing) && missing.length
-          ? `Faltan datos obligatorios: ${missing.join(", ")}`
+        const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
+        const missingLabels = getMissingProfileLabels(missing);
+        console.log("[onboarding-profile-completion]", {
+          missingFields: missing,
+          profileCompletionStatus: data.profileCompletionStatus || data.profileCompletion || updatedUser.profileCompletionStatus || null,
+          currentValues: {
+            name: updatedUser.name || name,
+            birthdate: updatedUser.birthdate || birthdate,
+            age: data.profileCompletionStatus?.age ?? data.profileCompletion?.age ?? null,
+            gender: updatedUser.gender || gender,
+            interestedIn: updatedUser.interestedIn || interestedIn,
+            location: updatedUser.location || null,
+            locationPoint: updatedUser.locationPoint || null,
+            interests: updatedUser.interests || interests,
+            intent: updatedUser.intent || intent,
+            avatar: updatedUser.avatar || finalAvatarUrl,
+            images: updatedUser.images || [],
+            profilePhotos: updatedUser.profilePhotos || finalProfilePhotos,
+          },
+        });
+        const missingMessage = missingLabels.length
+          ? `Te falta: ${missingLabels.join(" / ")}`
           : "Faltan datos obligatorios del perfil.";
         setError(missingMessage);
         return;

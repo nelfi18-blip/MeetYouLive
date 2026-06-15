@@ -87,6 +87,7 @@
     "uploadAvatar": "Upload photo",
     "replaceMainPhoto": "📷 Replace main photo",
     "addPhotos": "➕ Add photos",
+    "addPhotoByUrl": "Add photo by URL",
     "uploadingPhotos": "Uploading…",
     "changePassword": "Change password",
     "currentPassword": "Current password",

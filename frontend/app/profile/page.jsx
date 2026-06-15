@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken, getToken, setToken } from "@/lib/token";
@@ -58,7 +59,12 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
-const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
+const isBlobUrl = (value) => typeof value === "string" && value.startsWith("blob:");
+
+const normalizeAvatarUrl = (avatarValue) => {
+  if (isBlobUrl(avatarValue)) return avatarValue;
+  return normalizeImageUrl(avatarValue) || "";
+};
 
 // Accept canonical upload strings plus provider/legacy image object shapes.
 const extractPhotoUrl = (value) => {
@@ -67,21 +73,38 @@ const extractPhotoUrl = (value) => {
   return value.url || value.secure_url || value.src || value.path || "";
 };
 
-const normalizePhotoList = (avatarValue, profilePhotosValue) => {
+const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
-  const normalizedPhotos = Array.isArray(profilePhotosValue) ? profilePhotosValue : [];
   const unique = [];
-  for (const value of normalizedPhotos) {
-    const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
-    if (!normalized || unique.includes(normalized)) continue;
-    unique.push(normalized);
-    if (unique.length >= MAX_PROFILE_PHOTOS) break;
-  }
+  const collectPhotos = (values) => {
+    for (const value of values) {
+      const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
+      if (!normalized || unique.includes(normalized)) continue;
+      unique.push(normalized);
+      if (unique.length >= MAX_PROFILE_PHOTOS) break;
+    }
+  };
+
+  // images[] is canonical; profilePhotos is only a legacy fallback when images has no usable URLs.
+  collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
+  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
+
+  collectPhotos(Array.isArray(profilePhotosValue) ? profilePhotosValue : []);
+  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
 
   if (normalizedAvatar) {
     return [normalizedAvatar, ...unique.filter((url) => url !== normalizedAvatar)].slice(0, MAX_PROFILE_PHOTOS);
   }
-  return unique.slice(0, MAX_PROFILE_PHOTOS);
+  return [];
+};
+
+const getSafeGalleryImageSrc = (value) => {
+  const normalized = normalizeAvatarUrl(value);
+  if (!normalized) return "";
+  if (isBlobUrl(normalized)) return normalized;
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (normalized.startsWith("/")) return normalized;
+  return "";
 };
 
 const reorderWithMain = (photos, mainPhoto) => {
@@ -91,26 +114,33 @@ const reorderWithMain = (photos, mainPhoto) => {
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
 
+const toProfileImageObjects = (photos) =>
+  photos.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
+    url,
+    isPrimary: index === 0,
+  }));
+
 // Normalize /avatar-upload and /me responses, including legacy aliases, into gallery order.
 const extractPhotosFromPayload = (payload) => {
-  const candidates = [
+  const candidates = [];
+  const photoCollections = [
+    payload?.images,
+    payload?.user?.images,
+    payload?.profilePhotos,
+    payload?.user?.profilePhotos,
+    payload?.photos,
+    payload?.user?.photos,
+  ];
+  for (const collection of photoCollections) {
+    if (Array.isArray(collection)) candidates.push(...collection);
+  }
+  candidates.push(
     payload?.avatar,
     payload?.mainPhoto,
     payload?.photoUrl,
     payload?.avatarPath,
     payload?.user?.avatar,
-  ];
-  const photoCollections = [
-    payload?.profilePhotos,
-    payload?.photos,
-    payload?.images,
-    payload?.user?.profilePhotos,
-    payload?.user?.photos,
-    payload?.user?.images,
-  ];
-  for (const collection of photoCollections) {
-    if (Array.isArray(collection)) candidates.push(...collection);
-  }
+  );
 
   const photos = [];
   const seen = new Set();
@@ -275,6 +305,7 @@ export default function ProfilePage() {
     bio: "",
     avatar: "",
     profilePhotos: [],
+    images: [],
     gender: "",
     interestedIn: "",
     discoveryAgeMin: "",
@@ -351,9 +382,10 @@ export default function ProfilePage() {
   }, [publishProfileUpdated, user]);
 
   const applyLoadedProfile = useCallback((profile) => {
-    const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos);
+    const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos, profile.images);
     const normalizedAvatar = normalizedPhotos[0] || "";
-    const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+    const normalizedImages = toProfileImageObjects(normalizedPhotos);
+    const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
     const discoveryDefaults = normalizeDiscoveryForm(normalizedUser);
     setUser(normalizedUser);
     setEditForm({
@@ -362,6 +394,7 @@ export default function ProfilePage() {
       bio: normalizedUser.bio || "",
       avatar: normalizedUser.avatar || "",
       profilePhotos: normalizedUser.profilePhotos || [],
+      images: normalizedImages,
       ...discoveryDefaults,
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
@@ -515,7 +548,7 @@ export default function ProfilePage() {
 
   const handleCancelEdit = () => {
     setEditing(false);
-    const normalizedPhotos = normalizePhotoList(user.avatar, user.profilePhotos);
+    const normalizedPhotos = normalizePhotoList(user.avatar, user.profilePhotos, user.images);
     const normalizedAvatar = normalizedPhotos[0] || "";
     setEditForm({
       username: user.username || "",
@@ -523,6 +556,7 @@ export default function ProfilePage() {
       bio: user.bio || "",
       avatar: normalizedAvatar,
       profilePhotos: normalizedPhotos,
+      images: toProfileImageObjects(normalizedPhotos),
       ...normalizeDiscoveryForm(user),
     });
     setPhotoUrlInput("");
@@ -573,15 +607,17 @@ export default function ProfilePage() {
           bio: editForm.bio,
           avatar: editForm.avatar,
           profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos),
+          images: toProfileImageObjects(normalizePhotoList(editForm.avatar, editForm.profilePhotos)),
           ...discoveryPayload,
         }),
         cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
-      const normalizedPhotos = normalizePhotoList(data.avatar, data.profilePhotos);
+      const normalizedPhotos = normalizePhotoList(data.avatar, data.profilePhotos, data.images);
       const normalizedAvatar = normalizedPhotos[0] || "";
-      const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos };
+      const normalizedImages = toProfileImageObjects(normalizedPhotos);
+      const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
       setUser(normalizedUser);
       setEditForm({
         username: normalizedUser.username || "",
@@ -589,6 +625,7 @@ export default function ProfilePage() {
         bio: normalizedUser.bio || "",
         avatar: normalizedUser.avatar || "",
         profilePhotos: normalizedUser.profilePhotos || [],
+        images: normalizedImages,
         ...normalizeDiscoveryForm(normalizedUser),
       });
       setPhotoUrlInput("");
@@ -645,12 +682,13 @@ export default function ProfilePage() {
     const uploadPhotos = extractPhotosFromPayload(payload);
     const normalizedPhotos = uploadPhotos.length
       ? uploadPhotos
-      : normalizePhotoList(payload?.avatar, payload?.profilePhotos);
+      : normalizePhotoList(payload?.avatar, payload?.profilePhotos, payload?.images || payload?.user?.images);
     const normalizedAvatar = normalizedPhotos[0] || "";
-    updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos });
+    const normalizedImages = toProfileImageObjects(normalizedPhotos);
+    updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages });
     setEditForm((prev) => (
       prev
-        ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos }
+        ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages }
         : prev
     ));
     if (successMessage) setSaveSuccess(successMessage);
@@ -659,8 +697,9 @@ export default function ProfilePage() {
   const applyLocalPhotoPreviewList = (photos) => {
     const nextPhotos = photos.slice(0, MAX_PROFILE_PHOTOS);
     const nextAvatar = nextPhotos[0] || "";
-    setUser((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos } : prev));
-    setEditForm((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos } : prev));
+    const nextImages = toProfileImageObjects(nextPhotos);
+    setUser((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos, images: nextImages } : prev));
+    setEditForm((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos, images: nextImages } : prev));
   };
 
   const validateAvatarFile = (file) => {
@@ -746,6 +785,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           avatar: normalized[0] || "",
           profilePhotos: normalized,
+          images: toProfileImageObjects(normalized),
         }),
         cache: "no-store",
       });
@@ -911,12 +951,17 @@ export default function ProfilePage() {
 
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
-  const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
+  const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
   const mainProfilePhoto = profilePhotoList[0] || "";
+  const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
   const extraProfilePhotos = profilePhotoList.slice(1);
+  const safeExtraProfilePhotos = extraProfilePhotos
+    .map((photo) => ({ photo, src: getSafeGalleryImageSrc(photo) }))
+    .filter(({ src }) => Boolean(src));
+  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - safeExtraProfilePhotos.length);
   const canAddProfilePhotos = !avatarUploading && profilePhotoList.length < MAX_PROFILE_PHOTOS;
   const canReplaceMainPhoto = !avatarUploading;
-  const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos);
+  const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
   const userExtraPhotos = userPhotoList.slice(1);
   
   // Check if user should see standard user/creator features (i.e., not an admin)
@@ -1208,31 +1253,57 @@ export default function ProfilePage() {
                   <label className="form-label">Foto de perfil</label>
                   <div className="profile-photo-manager">
                     <div className="profile-main-photo-card">
-                      {mainProfilePhoto ? (
-                        <img src={mainProfilePhoto} alt="Foto principal" className="profile-main-photo-image" onError={(e) => { e.target.style.display = "none"; }} />
+                      {safeMainProfilePhoto ? (
+                        <Image
+                          src={safeMainProfilePhoto}
+                          alt="Foto principal"
+                          width={250}
+                          height={250}
+                          className="profile-main-photo-image"
+                          unoptimized
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
                       ) : (
                         <div className="profile-main-photo-placeholder">{initial}</div>
                       )}
                       <div className="profile-main-photo-label">Foto principal</div>
                     </div>
 
-                    {extraProfilePhotos.length > 0 && (
-                      <div className="profile-photo-grid">
-                        {extraProfilePhotos.map((photo) => (
-                          <div key={photo} className="profile-photo-thumb">
-                            <img src={photo} alt="Foto adicional" className="profile-photo-thumb-img" onError={(e) => { e.target.style.display = "none"; }} />
-                            <div className="profile-photo-thumb-actions">
-                              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMainPhoto(photo)} disabled={avatarUploading}>
-                                Hacer principal
-                              </button>
-                              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDeletePhoto(photo)} disabled={avatarUploading}>
-                                Eliminar
-                              </button>
-                            </div>
+                    <div className="profile-photo-grid" role="region" aria-label="Fotos secundarias">
+                      {safeExtraProfilePhotos.map(({ photo, src }) => (
+                        <div key={photo} className="profile-photo-thumb">
+                          <Image
+                            src={src}
+                            alt="Foto adicional"
+                            width={120}
+                            height={120}
+                            className="profile-photo-thumb-img"
+                            unoptimized
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          />
+                          <div className="profile-photo-thumb-actions">
+                            <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMainPhoto(photo)} disabled={avatarUploading}>
+                              Hacer principal
+                            </button>
+                            <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDeletePhoto(photo)} disabled={avatarUploading}>
+                              Eliminar
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                      {Array.from({ length: emptyProfilePhotoSlots }).map((_, index) => (
+                        <button
+                          key={`empty-slot-${index}`}
+                          type="button"
+                          className="profile-photo-thumb profile-photo-empty-slot"
+                          onClick={() => addProfilePhotosInputRef.current?.click()}
+                          disabled={!canAddProfilePhotos}
+                          aria-label="Agregar foto"
+                        >
+                          <span>+</span>
+                        </button>
+                      ))}
+                    </div>
 
                     {mainProfilePhoto && (
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -1300,14 +1371,14 @@ export default function ProfilePage() {
                         onClick={handleAddPhotoFromUrl}
                         disabled={avatarUploading || !photoUrlInput.trim() || profilePhotoList.length >= MAX_PROFILE_PHOTOS}
                       >
-                        Agregar URL
+                        {t("profile.addPhotoByUrl")}
                       </button>
                     </div>
                     <span className="profile-photo-hint">1 foto principal + hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>
                   </div>
                 </div>
                 <div className="form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <button type="submit" className="btn btn-primary" disabled={saving || avatarUploading}>
                     {saving ? "Guardando…" : "Guardar cambios"}
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={handleCancelEdit} disabled={saving}>
@@ -1905,6 +1976,21 @@ export default function ProfilePage() {
           display: flex;
           flex-direction: column;
           gap: 0.3rem;
+        }
+
+        .profile-photo-empty-slot {
+          min-height: 130px;
+          align-items: center;
+          justify-content: center;
+          border-style: dashed;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 1.5rem;
+        }
+
+        .profile-photo-empty-slot:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
         }
 
         .profile-photo-actions {

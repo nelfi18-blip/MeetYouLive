@@ -208,12 +208,19 @@ const hasSerializableUserPhoto = (req, userLike) => Boolean(getUserPhotoSelectio
  */
 const serializeUserPhotoFields = (req, userLike) => {
   const { primaryPhoto: avatar, photos: normalizedPhotos } = getUserPhotoSelection(req, userLike);
+  const images = normalizedPhotos.map((url, index) => ({
+    url,
+    isPrimary: index === 0,
+    source: "",
+    uploadedAt: new Date(),
+  }));
   return {
     avatar,
     profileImage: avatar,
     photo: avatar,
     photos: normalizedPhotos,
     profilePhotos: normalizedPhotos,
+    images,
   };
 };
 

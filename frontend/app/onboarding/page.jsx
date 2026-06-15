@@ -13,6 +13,7 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
+import { normalizeImageUrl } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -70,26 +71,21 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
 };
 
 const normalizeAvatarUrl = (avatarValue) => {
-  if (typeof avatarValue !== "string") return "";
-  const trimmed = avatarValue.trim();
+  return normalizeImageUrl(avatarValue) || "";
+};
+
+const getSafePreviewSrc = (value) => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
   if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (trimmed.startsWith("//")) return `https:${trimmed}`;
-  const normalizedUploadPath = trimmed.replace(/^\/?uploads\//, "uploads/");
-  if (
-    /^uploads\/[a-zA-Z0-9._-]+$/.test(normalizedUploadPath) &&
-    typeof API_URL === "string" &&
-    API_URL.trim()
-  ) {
-    return `${API_URL.replace(/\/+$/, "")}/${normalizedUploadPath}`;
-  }
-  return "";
+  if (/^(blob:|data:image\/(?:jpeg|png|webp|gif);base64,)/i.test(trimmed)) return trimmed;
+  return normalizeAvatarUrl(trimmed);
 };
 
 const getUploadPhotoUrlValue = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
-  return value.url || value.secure_url || "";
+  return value.url || value.secure_url || value.src || value.path || "";
 };
 
 // Accept the canonical avatar/profilePhotos payload plus legacy/provider URL objects
@@ -210,8 +206,11 @@ export default function OnboardingPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState(null);
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
-  const visibleExtraPhotoFiles = extraPhotoFiles.filter((photo) => photo?.preview);
-  const selectedPhotoCount = (mainPhotoFile ? 1 : 0) + visibleExtraPhotoFiles.length;
+  const safeMainPhotoPreview = getSafePreviewSrc(mainPhotoPreview);
+  const visibleExtraPhotoFiles = extraPhotoFiles
+    .map((photo) => ({ ...photo, safePreview: getSafePreviewSrc(photo?.preview) }))
+    .filter((photo) => photo.safePreview);
+  const selectedPhotoCount = (safeMainPhotoPreview ? 1 : 0) + visibleExtraPhotoFiles.length;
   const emptyExtraPhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - visibleExtraPhotoFiles.length);
 
   // Completion percentage (computed from required fields filled so far)
@@ -411,7 +410,7 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     setError("");
-    if (!mainPhotoFile && !mainPhotoPreview && extraPhotoFiles.length === 0) {
+    if (!safeMainPhotoPreview && visibleExtraPhotoFiles.length === 0) {
       setError("Sube al menos una foto para continuar");
       return;
     }
@@ -593,6 +592,13 @@ export default function OnboardingPage() {
         return;
       }
       const updatedUser = data.user || data;
+      const normalizedImages = Array.isArray(updatedUser.images)
+        ? updatedUser.images.filter((image) => normalizeAvatarUrl(getUploadPhotoUrlValue(image)))
+        : [];
+      console.log("raw user images", updatedUser.images);
+      console.log("raw user avatar", updatedUser.avatar);
+      console.log("raw user profilePhotos", updatedUser.profilePhotos);
+      console.log("normalized images", normalizedImages);
       if (data.onboardingComplete !== true && updatedUser.onboardingComplete !== true) {
         const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
         const missingLabels = getMissingProfileLabels(missing);
@@ -954,9 +960,9 @@ export default function OnboardingPage() {
               <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Optimizamos fotos grandes antes de subirlas.</p>
 
               <div className="ob-avatar-preview">
-                {mainPhotoPreview ? (
+                {safeMainPhotoPreview ? (
                   <img
-                    src={mainPhotoPreview}
+                    src={safeMainPhotoPreview}
                     alt="Foto principal"
                     className="ob-avatar-img"
                     onError={() => { setMainPhotoFile(null); setMainPhotoPreview(""); }}
@@ -969,7 +975,7 @@ export default function OnboardingPage() {
               </div>
               <div className="ob-main-label">Foto principal</div>
 
-              {mainPhotoFile && (
+              {safeMainPhotoPreview && (
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
                   <button type="button" className="btn ob-btn-back" onClick={handleRemoveMainPhoto} disabled={loading}>
                     Eliminar principal
@@ -980,7 +986,7 @@ export default function OnboardingPage() {
               <div className="ob-photo-grid" role="region" aria-label="Fotos secundarias">
                   {visibleExtraPhotoFiles.map((photo) => (
                     <div key={photo.id} className="ob-photo-item">
-                      <img src={photo.preview} alt="Foto adicional" className="ob-photo-item-img" />
+                      <img src={photo.safePreview} alt="Foto adicional" className="ob-photo-item-img" />
                       <div className="ob-photo-item-actions">
                         <button type="button" className="btn ob-btn-back ob-btn-photo" onClick={() => handleMakeMainPhoto(photo.id)} disabled={loading}>
                           Hacer principal

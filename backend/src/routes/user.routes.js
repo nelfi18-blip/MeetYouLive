@@ -513,6 +513,23 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     payload.avatar = photoFields.avatar;
     payload.profilePhotos = photoFields.profilePhotos;
     payload.images = photoFields.images;
+    const persistedImageUrls = Array.isArray(user.images)
+      ? user.images.map(getPhotoUrlValue).filter((url) => sanitizePhotoUrl(req, url))
+      : [];
+    if (persistedImageUrls.length === 0 && photoFields.images.length > 0) {
+      User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            avatar: photoFields.avatar,
+            profilePhotos: photoFields.profilePhotos,
+            images: photoFields.images,
+          },
+        }
+      ).catch((err) => {
+        console.error("[/me] Failed to normalize legacy photo fields for user", user._id, err.message);
+      });
+    }
     // Defensive fallbacks: guarantee role and creatorStatus are always present
     // even for documents created before these fields were added to the schema.
     if (payload.role == null) payload.role = "user";

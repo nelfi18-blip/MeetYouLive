@@ -1247,7 +1247,7 @@ export default function ProfilePage() {
                         onClick={() => replaceMainPhotoInputRef.current?.click()}
                         disabled={!canReplaceMainPhoto}
                       >
-                        {avatarUploading ? "Subiendo…" : "📷 Reemplazar principal"}
+                        {avatarUploading ? t("profile.uploadingPhotos") : t("profile.replaceMainPhoto")}
                       </button>
                       <input
                         ref={replaceMainPhotoInputRef}
@@ -1267,7 +1267,7 @@ export default function ProfilePage() {
                         onClick={() => addProfilePhotosInputRef.current?.click()}
                         disabled={!canAddProfilePhotos}
                       >
-                        {avatarUploading ? "Subiendo…" : "➕ Agregar fotos"}
+                        {avatarUploading ? t("profile.uploadingPhotos") : t("profile.addPhotos")}
                       </button>
                       <input
                         ref={addProfilePhotosInputRef}

@@ -65,7 +65,8 @@
     "countryLabel": "País *",
     "cityLabel": "Ciudad *",
     "regionLabel": "Estado / provincia",
-    "discoveryLocationTitle": "Descubrimiento por ubicación"
+    "discoveryLocationTitle": "Descubrimiento por ubicación",
+    "addPhotos": "➕ Agregar fotos"
   },
   "matchesPage": {
     "chatOpenError": "No se pudo abrir el chat",
@@ -84,6 +85,9 @@
     "bio": "Biografía",
     "avatarUrl": "URL del avatar",
     "uploadAvatar": "Subir foto",
+    "replaceMainPhoto": "📷 Reemplazar principal",
+    "addPhotos": "➕ Agregar fotos",
+    "uploadingPhotos": "Subiendo…",
     "changePassword": "Cambiar contraseña",
     "currentPassword": "Contraseña actual",
     "newPassword": "Nueva contraseña",

@@ -200,6 +200,7 @@ export default function OnboardingPage() {
   const [mainPhotoFile, setMainPhotoFile] = useState(null);
   const [mainPhotoPreview, setMainPhotoPreview] = useState("");
   const [extraPhotoFiles, setExtraPhotoFiles] = useState([]);
+  const selectedPhotoCount = (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length;
 
   // Completion percentage (computed from required fields filled so far)
   const completionPercent = (() => {
@@ -967,9 +968,9 @@ export default function OnboardingPage() {
                   type="button"
                   className="ob-upload-btn"
                   onClick={() => addPhotosInputRef.current?.click()}
-                  disabled={loading || (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length >= MAX_PROFILE_PHOTOS}
+                  disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
                 >
-                  ➕ Agregar fotos
+                  {t("onboarding.addPhotos")}
                 </button>
                 <input
                   ref={addPhotosInputRef}
@@ -977,7 +978,7 @@ export default function OnboardingPage() {
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   style={{ display: "none" }}
-                  disabled={loading || (mainPhotoFile ? 1 : 0) + extraPhotoFiles.length >= MAX_PROFILE_PHOTOS}
+                  disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
                   onChange={(e) => {
                     handleAddPhotoFiles(e.target.files);
                     e.target.value = "";

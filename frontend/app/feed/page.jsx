@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
+import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -31,16 +32,6 @@ const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
-const PROFILE_MISSING_FIELD_LABELS = {
-  photo: "foto",
-  birthdate: "fecha de nacimiento",
-  location: "ubicación",
-  interests: "intereses",
-  intent: "intención",
-  interestedIn: "preferencia",
-  gender: "preferencia",
-  name: "nombre",
-};
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -62,16 +53,6 @@ function normalizeSeenProfileIds(profileIds) {
 function isRecommendedProfile(profile, currentUserId) {
   const profileId = getProfileId(profile);
   return profileId && currentUserId && profileId !== currentUserId;
-}
-
-function getMissingProfileLabels(missingFields = []) {
-  return Array.from(
-    new Set(
-      missingFields
-        .map((field) => PROFILE_MISSING_FIELD_LABELS[field] || field)
-        .filter(Boolean)
-    )
-  );
 }
 
 function getCurrentProfileId(profiles, currentIndex) {

@@ -13,32 +13,12 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
+import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
 const MIN_INTERESTS = 3;
 const MAX_PROFILE_PHOTOS = 6;
-const PROFILE_MISSING_FIELD_LABELS = {
-  photo: "foto",
-  images: "foto",
-  birthdate: "fecha de nacimiento",
-  location: "ubicación",
-  interests: "intereses",
-  intent: "intención",
-  interestedIn: "preferencia",
-  gender: "preferencia",
-  name: "nombre",
-};
-
-function getMissingProfileLabels(missingFields = []) {
-  return Array.from(
-    new Set(
-      missingFields
-        .map((field) => PROFILE_MISSING_FIELD_LABELS[field] || field)
-        .filter(Boolean)
-    )
-  );
-}
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];

@@ -521,15 +521,16 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     // Keep persisted onboardingComplete aligned with the canonical feed
     // eligibility helper so legacy profiles do not get stuck incomplete.
     const profileCompletion = getMinProfileCompletion(payload, req);
-    if (payload.onboardingComplete !== profileCompletion.canAppearInFeed) {
-      payload.onboardingComplete = profileCompletion.canAppearInFeed;
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: profileCompletion.canAppearInFeed } }).catch((err) => {
+    const feedEligible = profileCompletion.canAppearInFeed;
+    if (payload.onboardingComplete !== feedEligible) {
+      payload.onboardingComplete = feedEligible;
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: feedEligible } }).catch((err) => {
         console.error("[lazy-onboarding-sync] failed:", err.message);
       });
     }
     payload.profileCompletion = profileCompletion;
     payload.profileCompletionStatus = profileCompletion;
-    payload.canAppearInFeed = profileCompletion.canAppearInFeed;
+    payload.canAppearInFeed = feedEligible;
     payload.missingFields = profileCompletion.missingFields;
 
     res.json(payload);

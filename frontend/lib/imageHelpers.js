@@ -88,6 +88,8 @@ function getPrimaryProfileImageCandidate(user) {
 function getPhotoCandidates(user, primaryCandidate = null) {
   if (!user) return [];
   return [
+    // Add the selected primary first so photo galleries never start with a
+    // lower-priority alias; duplicate entries are removed by URL below.
     ...(primaryCandidate ? [primaryCandidate] : []),
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
     { field: "avatar", value: user.avatar },
@@ -144,7 +146,7 @@ export function getPrimaryProfileImage(user) {
 
 /**
  * Get the best available user image
- * Priority: images[0] > avatar > profileImage > profilePhotos[0] > photo > null
+ * Backward-compatible alias for getPrimaryProfileImage().
  * 
  * @param {Object} user - User object with image fields
  * @returns {string|null} - Image URL or null for fallback

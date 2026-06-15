@@ -96,7 +96,7 @@ const collectUploadPhotoUrls = (payload) => {
     avatar: payload?.avatar || payload?.user?.avatar,
     profileImage: payload?.profileImage || payload?.user?.profileImage,
     profilePhotos: payload?.profilePhotos || payload?.user?.profilePhotos,
-    photo: payload?.photo || payload?.user?.photo || payload?.photoUrl || payload?.mainPhoto || payload?.avatarPath,
+    photo: payload?.photo || payload?.user?.photo,
   });
   const candidates = [
     primaryPhoto,
@@ -104,13 +104,16 @@ const collectUploadPhotoUrls = (payload) => {
     ...(Array.isArray(payload?.user?.images) ? payload.user.images : []),
     payload?.avatar,
     payload?.profileImage,
-    payload?.mainPhoto,
     payload?.photo,
+    payload?.mainPhoto,
     payload?.photoUrl,
     payload?.avatarPath,
     payload?.user?.avatar,
     payload?.user?.profileImage,
     payload?.user?.photo,
+    payload?.user?.mainPhoto,
+    payload?.user?.photoUrl,
+    payload?.user?.avatarPath,
   ];
 
   const photoCollections = [

@@ -73,16 +73,16 @@ const extractPhotoUrl = (value) => {
   return value.url || value.secure_url || value.src || value.path || "";
 };
 
-const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, aliases = {}) => {
+const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFields = {}) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
   const primaryPhoto =
     (isBlobUrl(avatarValue) ? normalizedAvatar : "") ||
     getPrimaryProfileImage({
       images: imagesValue,
       avatar: avatarValue,
-      profileImage: aliases.profileImage,
+      profileImage: userFields.profileImage,
       profilePhotos: profilePhotosValue,
-      photo: aliases.photo,
+      photo: userFields.photo,
     }) ||
     "";
   const unique = [];
@@ -101,9 +101,9 @@ const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, aliase
 
   collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
   addPhoto(avatarValue);
-  addPhoto(aliases.profileImage);
+  addPhoto(userFields.profileImage);
   collectPhotos(Array.isArray(profilePhotosValue) ? profilePhotosValue : []);
-  addPhoto(aliases.photo);
+  addPhoto(userFields.photo);
 
   return unique.slice(0, MAX_PROFILE_PHOTOS);
 };

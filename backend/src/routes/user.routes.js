@@ -526,9 +526,7 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
             images: photoFields.images,
           },
         }
-      ).catch((err) => {
-        console.error("[/me] Failed to normalize legacy photo fields for user", user._id, err.message);
-      });
+      ).catch(() => {});
     }
     // Defensive fallbacks: guarantee role and creatorStatus are always present
     // even for documents created before these fields were added to the schema.

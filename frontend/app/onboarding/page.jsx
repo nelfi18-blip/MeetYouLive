@@ -1495,7 +1495,7 @@ export default function OnboardingPage() {
           font-size: 1.5rem;
         }
         .ob-photo-empty-slot:disabled {
-          opacity: 0.55;
+          opacity: 0.45;
           cursor: not-allowed;
         }
         .ob-btn-photo {

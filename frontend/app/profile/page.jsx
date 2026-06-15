@@ -72,26 +72,35 @@ const extractPhotoUrl = (value) => {
 
 const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue) => {
   const normalizedAvatar = normalizeAvatarUrl(avatarValue);
-  const normalizedPhotos = [
-    ...(Array.isArray(imagesValue) ? imagesValue : []),
-    ...(Array.isArray(profilePhotosValue) ? profilePhotosValue : []),
-  ];
   const unique = [];
-  for (const value of normalizedPhotos) {
-    const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
-    if (!normalized || unique.includes(normalized)) continue;
-    unique.push(normalized);
-    if (unique.length >= MAX_PROFILE_PHOTOS) break;
-  }
+  const collectPhotos = (values) => {
+    for (const value of values) {
+      const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
+      if (!normalized || unique.includes(normalized)) continue;
+      unique.push(normalized);
+      if (unique.length >= MAX_PROFILE_PHOTOS) break;
+    }
+  };
 
-  if (unique.length > 0) {
-    return unique.slice(0, MAX_PROFILE_PHOTOS);
-  }
+  collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
+  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
+
+  collectPhotos(Array.isArray(profilePhotosValue) ? profilePhotosValue : []);
+  if (unique.length > 0) return unique.slice(0, MAX_PROFILE_PHOTOS);
 
   if (normalizedAvatar) {
     return [normalizedAvatar, ...unique.filter((url) => url !== normalizedAvatar)].slice(0, MAX_PROFILE_PHOTOS);
   }
   return [];
+};
+
+const getSafeGalleryImageSrc = (value) => {
+  const normalized = normalizeAvatarUrl(value);
+  if (!normalized) return "";
+  if (normalized.startsWith("blob:")) return normalized;
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (normalized.startsWith("/")) return normalized;
+  return "";
 };
 
 const reorderWithMain = (photos, mainPhoto) => {
@@ -940,8 +949,12 @@ export default function ProfilePage() {
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
   const mainProfilePhoto = profilePhotoList[0] || "";
+  const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
   const extraProfilePhotos = profilePhotoList.slice(1);
-  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - extraProfilePhotos.length);
+  const safeExtraProfilePhotos = extraProfilePhotos
+    .map((photo) => ({ photo, src: getSafeGalleryImageSrc(photo) }))
+    .filter(({ src }) => Boolean(src));
+  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - safeExtraProfilePhotos.length);
   const canAddProfilePhotos = !avatarUploading && profilePhotoList.length < MAX_PROFILE_PHOTOS;
   const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
@@ -1236,8 +1249,8 @@ export default function ProfilePage() {
                   <label className="form-label">Foto de perfil</label>
                   <div className="profile-photo-manager">
                     <div className="profile-main-photo-card">
-                      {mainProfilePhoto ? (
-                        <img src={mainProfilePhoto} alt="Foto principal" className="profile-main-photo-image" onError={(e) => { e.target.style.display = "none"; }} />
+                      {safeMainProfilePhoto ? (
+                        <img src={safeMainProfilePhoto} alt="Foto principal" className="profile-main-photo-image" onError={(e) => { e.target.style.display = "none"; }} />
                       ) : (
                         <div className="profile-main-photo-placeholder">{initial}</div>
                       )}
@@ -1245,9 +1258,9 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="profile-photo-grid" aria-label="Fotos secundarias">
-                      {extraProfilePhotos.map((photo) => (
+                      {safeExtraProfilePhotos.map(({ photo, src }) => (
                         <div key={photo} className="profile-photo-thumb">
-                          <img src={photo} alt="Foto adicional" className="profile-photo-thumb-img" onError={(e) => { e.target.style.display = "none"; }} />
+                          <img src={src} alt="Foto adicional" className="profile-photo-thumb-img" onError={(e) => { e.target.style.display = "none"; }} />
                           <div className="profile-photo-thumb-actions">
                             <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMainPhoto(photo)} disabled={avatarUploading}>
                               Hacer principal

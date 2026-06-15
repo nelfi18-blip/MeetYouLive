@@ -60,7 +60,7 @@ const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
 
 const normalizeAvatarUrl = (avatarValue) => normalizeImageUrl(avatarValue) || "";
 
-const getUploadPhotoUrlValue = (value) => {
+const extractPhotoUrl = (value) => {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
   return value.url || value.secure_url || value.src || value.path || "";
@@ -71,7 +71,7 @@ const normalizePhotoList = (avatarValue, profilePhotosValue) => {
   const normalizedPhotos = Array.isArray(profilePhotosValue) ? profilePhotosValue : [];
   const unique = [];
   for (const value of normalizedPhotos) {
-    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(value));
+    const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
     if (!normalized || unique.includes(normalized)) continue;
     unique.push(normalized);
     if (unique.length >= MAX_PROFILE_PHOTOS) break;
@@ -90,7 +90,7 @@ const reorderWithMain = (photos, mainPhoto) => {
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
 
-const collectUploadPhotoUrls = (payload) => {
+const extractPhotosFromPayload = (payload) => {
   const candidates = [
     payload?.avatar,
     payload?.mainPhoto,
@@ -113,7 +113,7 @@ const collectUploadPhotoUrls = (payload) => {
   const photos = [];
   const seen = new Set();
   for (const candidate of candidates) {
-    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(candidate));
+    const normalized = normalizeAvatarUrl(extractPhotoUrl(candidate));
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
     photos.push(normalized);
@@ -640,7 +640,7 @@ export default function ProfilePage() {
   };
 
   const applyPhotoPayload = (payload, successMessage = "") => {
-    const uploadPhotos = collectUploadPhotoUrls(payload);
+    const uploadPhotos = extractPhotosFromPayload(payload);
     const normalizedPhotos = uploadPhotos.length
       ? uploadPhotos
       : normalizePhotoList(payload?.avatar, payload?.profilePhotos);
@@ -853,7 +853,7 @@ export default function ProfilePage() {
           continue;
         }
         uploadedCount += 1;
-        const uploadPhotos = collectUploadPhotoUrls(uploadResult.data);
+        const uploadPhotos = extractPhotosFromPayload(uploadResult.data);
         persistedPhotos = uploadPhotos.length
           ? uploadPhotos
           : normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);

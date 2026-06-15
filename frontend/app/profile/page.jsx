@@ -120,6 +120,23 @@ const toProfileImageObjects = (photos) =>
     isPrimary: index === 0,
   }));
 
+const normalizeUserPhotoState = (userLike = {}) => {
+  const normalizedPhotos = normalizePhotoList(userLike.avatar, userLike.profilePhotos, userLike.images);
+  const normalizedImages = toProfileImageObjects(normalizedPhotos);
+  return {
+    normalizedPhotos,
+    normalizedAvatar: normalizedImages[0]?.url || "",
+    normalizedImages,
+  };
+};
+
+const logPhotoNormalizationDiagnostics = (userLike = {}, normalizedImages = []) => {
+  console.log("raw user images", userLike?.images);
+  console.log("raw user avatar", userLike?.avatar);
+  console.log("raw user profilePhotos", userLike?.profilePhotos);
+  console.log("normalized images", normalizedImages);
+};
+
 // Normalize /avatar-upload and /me responses, including legacy aliases, into gallery order.
 const extractPhotosFromPayload = (payload) => {
   const candidates = [];
@@ -382,9 +399,8 @@ export default function ProfilePage() {
   }, [publishProfileUpdated, user]);
 
   const applyLoadedProfile = useCallback((profile) => {
-    const normalizedPhotos = normalizePhotoList(profile.avatar, profile.profilePhotos, profile.images);
-    const normalizedAvatar = normalizedPhotos[0] || "";
-    const normalizedImages = toProfileImageObjects(normalizedPhotos);
+    const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(profile);
+    logPhotoNormalizationDiagnostics(profile, normalizedImages);
     const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
     const discoveryDefaults = normalizeDiscoveryForm(normalizedUser);
     setUser(normalizedUser);
@@ -614,9 +630,8 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
-      const normalizedPhotos = normalizePhotoList(data.avatar, data.profilePhotos, data.images);
-      const normalizedAvatar = normalizedPhotos[0] || "";
-      const normalizedImages = toProfileImageObjects(normalizedPhotos);
+      const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(data);
+      logPhotoNormalizationDiagnostics(data, normalizedImages);
       const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
       setUser(normalizedUser);
       setEditForm({
@@ -685,6 +700,7 @@ export default function ProfilePage() {
       : normalizePhotoList(payload?.avatar, payload?.profilePhotos, payload?.images || payload?.user?.images);
     const normalizedAvatar = normalizedPhotos[0] || "";
     const normalizedImages = toProfileImageObjects(normalizedPhotos);
+    logPhotoNormalizationDiagnostics(payload?.user || payload, normalizedImages);
     updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages });
     setEditForm((prev) => (
       prev
@@ -952,14 +968,15 @@ export default function ProfilePage() {
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-  const mainProfilePhoto = profilePhotoList[0] || "";
+  const galleryImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
+  const mainProfilePhoto = galleryImages[0]?.url || "";
   const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
-  const extraProfilePhotos = profilePhotoList.slice(1);
+  const extraProfilePhotos = galleryImages.slice(1).map((image) => image.url);
   const safeExtraProfilePhotos = extraProfilePhotos
     .map((photo) => ({ photo, src: getSafeGalleryImageSrc(photo) }))
     .filter(({ src }) => Boolean(src));
   const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - safeExtraProfilePhotos.length);
-  const canAddProfilePhotos = !avatarUploading && profilePhotoList.length < MAX_PROFILE_PHOTOS;
+  const canAddProfilePhotos = !avatarUploading && galleryImages.length < MAX_PROFILE_PHOTOS;
   const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
   const userExtraPhotos = userPhotoList.slice(1);
@@ -1305,7 +1322,7 @@ export default function ProfilePage() {
                       ))}
                     </div>
 
-                    {mainProfilePhoto && (
+                    {safeMainProfilePhoto && (
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDeletePhoto(mainProfilePhoto)} disabled={avatarUploading}>
                           Eliminar principal

@@ -28,6 +28,15 @@ const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60
   .toISOString()
   .split("T")[0];
 
+function shouldLogProfileCompletionDiagnostics() {
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    return localStorage.getItem("meetyoulive:debug:profileCompletion") === "true";
+  } catch {
+    return false;
+  }
+}
+
 const parseUploadResponseBody = async (res) => {
   try {
     const text = await res.text();
@@ -587,24 +596,26 @@ export default function OnboardingPage() {
       if (data.onboardingComplete !== true && updatedUser.onboardingComplete !== true) {
         const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
         const missingLabels = getMissingProfileLabels(missing);
-        console.log("[onboarding-profile-completion]", {
-          missingFields: missing,
-          profileCompletionStatus: data.profileCompletionStatus || data.profileCompletion || updatedUser.profileCompletionStatus || null,
-          currentValues: {
-            name: updatedUser.name || name,
-            birthdate: updatedUser.birthdate || birthdate,
-            age: data.profileCompletionStatus?.age ?? data.profileCompletion?.age ?? null,
-            gender: updatedUser.gender || gender,
-            interestedIn: updatedUser.interestedIn || interestedIn,
-            location: updatedUser.location || null,
-            locationPoint: updatedUser.locationPoint || null,
-            interests: updatedUser.interests || interests,
-            intent: updatedUser.intent || intent,
-            avatar: updatedUser.avatar || finalAvatarUrl,
-            images: updatedUser.images || [],
-            profilePhotos: updatedUser.profilePhotos || finalProfilePhotos,
-          },
-        });
+        if (shouldLogProfileCompletionDiagnostics()) {
+          console.log("[onboarding-profile-completion]", {
+            missingFields: missing,
+            profileCompletionStatus: data.profileCompletionStatus || data.profileCompletion || updatedUser.profileCompletionStatus || null,
+            currentValues: {
+              name: updatedUser.name || name,
+              birthdate: updatedUser.birthdate || birthdate,
+              age: data.profileCompletionStatus?.age ?? data.profileCompletion?.age ?? null,
+              gender: updatedUser.gender || gender,
+              interestedIn: updatedUser.interestedIn || interestedIn,
+              location: updatedUser.location || null,
+              locationPoint: updatedUser.locationPoint || null,
+              interests: updatedUser.interests || interests,
+              intent: updatedUser.intent || intent,
+              avatar: updatedUser.avatar || finalAvatarUrl,
+              images: updatedUser.images || [],
+              profilePhotos: updatedUser.profilePhotos || finalProfilePhotos,
+            },
+          });
+        }
         const missingMessage = missingLabels.length
           ? `Te falta: ${missingLabels.join(" / ")}`
           : "Faltan datos obligatorios del perfil.";

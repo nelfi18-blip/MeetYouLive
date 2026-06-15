@@ -93,9 +93,6 @@ const getFeedPhotoDiagnostic = (user = {}) => {
   };
 };
 
-const getFeedProfileMissingFields = (user = {}, req = PHOTO_VALIDATION_STUB_REQUEST) =>
-  getMissingProfileFields(user, { req });
-
 const getProfileCompletionDebugValues = (user = {}, status = {}) => ({
   name: user.name || "",
   birthdate: user.birthdate || null,
@@ -131,7 +128,6 @@ const getFeedProfileStatus = (user) => {
     profileComplete: status.complete,
     canAppearInFeed: canAppearInFeedValue,
     missingFields,
-    profileCompletionStatus,
     currentValues: getProfileCompletionDebugValues(user, profileCompletionStatus),
     interestedIn: normalizedDiscovery.interestedIn,
     gender: normalizedDiscovery.gender,
@@ -139,14 +135,15 @@ const getFeedProfileStatus = (user) => {
 };
 
 const getFeedDiagnosticUserSummary = (user = {}) => {
+  const missingFields = getMissingProfileFields(user, { req: PHOTO_VALIDATION_STUB_REQUEST });
   const summary = {
     id: String(user._id),
     role: user.role || null,
     onboardingComplete: user.onboardingComplete === true,
-    profileComplete: getFeedProfileMissingFields(user).length === 0,
-    missingFields: getFeedProfileMissingFields(user),
+    profileComplete: missingFields.length === 0,
+    missingFields,
     hasAge: Boolean(user.birthdate),
-    hasLocation: getFeedProfileMissingFields(user).includes("location") === false,
+    hasLocation: missingFields.includes("location") === false,
     hasName: isNonEmptyString(user.name),
     hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
     isBlocked: user.isBlocked === true,
@@ -321,7 +318,7 @@ async function getFeaturedCreatorsWithCache() {
  *   7. "passes_filters"       – user passes all base feed filters
  *
  * @param {object} user         – Lean Mongoose user document.
- * @param {string[]} missingFields – Result of getFeedProfileMissingFields(user).
+ * @param {string[]} missingFields – Result of getMissingProfileFields(user).
  * @returns {string} Reason code.
  */
 const computeFeedExclusionReason = (user, missingFields) => {
@@ -348,7 +345,7 @@ const computeFeedExclusionReason = (user, missingFields) => {
 const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet) => {
   if (!diagnoseTarget) return null;
 
-  const missingFields = getFeedProfileMissingFields(diagnoseTarget);
+  const missingFields = getMissingProfileFields(diagnoseTarget, { req });
   const passesBaseFilters =
     diagnoseTarget.role === "user" &&
     diagnoseTarget.isBlocked !== true &&
@@ -534,7 +531,7 @@ const getFeed = async (req, res) => {
       canAppearInFeed: viewerProfileStatus?.canAppearInFeed ?? null,
       onboardingComplete: viewerProfileStatus?.onboardingComplete ?? null,
       missingFields: viewerProfileStatus?.missingFields || [],
-      profileCompletionStatus: viewerProfileStatus?.profileCompletionStatus || viewerProfileStatus,
+      profileCompletionStatus: viewerProfileStatus,
     };
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);

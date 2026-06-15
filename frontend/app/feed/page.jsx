@@ -55,6 +55,15 @@ function isRecommendedProfile(profile, currentUserId) {
   return profileId && currentUserId && profileId !== currentUserId;
 }
 
+function shouldLogProfileCompletionDiagnostics() {
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    return localStorage.getItem("meetyoulive:debug:profileCompletion") === "true";
+  } catch {
+    return false;
+  }
+}
+
 function getCurrentProfileId(profiles, currentIndex) {
   return getProfileId(profiles[currentIndex]);
 }
@@ -765,11 +774,11 @@ export default function FeedPage() {
 
       const data = await feedRes.json();
       setViewerProfileStatus(data?.viewerProfileStatus || null);
-      if (data?.viewerProfileStatus?.canAppearInFeed === false) {
+      if (data?.viewerProfileStatus?.canAppearInFeed === false && shouldLogProfileCompletionDiagnostics()) {
         console.log("[feed-profile-completion]", {
           missingFields: data.viewerProfileStatus.missingFields || data.missingFields || [],
           currentValues: data.viewerProfileStatus.currentValues || null,
-          profileCompletionStatus: data.profileCompletionStatus || data.viewerProfileStatus.profileCompletionStatus || null,
+          profileCompletionStatus: data.profileCompletionStatus || null,
         });
       }
       const currentUserId = currentUserIdRef.current;

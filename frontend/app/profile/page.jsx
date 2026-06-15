@@ -1371,7 +1371,7 @@ export default function ProfilePage() {
                         onClick={handleAddPhotoFromUrl}
                         disabled={avatarUploading || !photoUrlInput.trim() || profilePhotoList.length >= MAX_PROFILE_PHOTOS}
                       >
-                        Agregar foto por URL
+                        {t("profile.addPhotoByUrl")}
                       </button>
                     </div>
                     <span className="profile-photo-hint">1 foto principal + hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>

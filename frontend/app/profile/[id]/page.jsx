@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { getDisplayName, getPrimaryProfileImage, getUserPhotoSelection } from "@/lib/imageHelpers";
+import { getDisplayName, getUserPhotoSelection } from "@/lib/imageHelpers";
 import { getToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,12 +17,7 @@ function isPaidCreatorCallProfile(profile) {
 }
 
 function getProfilePhotos(profile) {
-  const primaryPhoto = getPrimaryProfileImage(profile);
-  const photos = getUserPhotoSelection(profile).photos;
-  return [
-    primaryPhoto,
-    ...photos.filter((photo) => photo !== primaryPhoto),
-  ].filter(Boolean);
+  return getUserPhotoSelection(profile).photos;
 }
 
 export default function PublicProfilePage() {

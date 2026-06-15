@@ -89,7 +89,8 @@ function getPhotoCandidates(user, primaryCandidate = null) {
   if (!user) return [];
   return [
     // Add the selected primary first so photo galleries never start with a
-    // lower-priority alias; duplicate entries are removed by URL below.
+    // lower-priority alias. primaryCandidate must come from
+    // getPrimaryProfileImageCandidate(); duplicate entries are removed by URL.
     ...(primaryCandidate ? [primaryCandidate] : []),
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
     { field: "avatar", value: user.avatar },

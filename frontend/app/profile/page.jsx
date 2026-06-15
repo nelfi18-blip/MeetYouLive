@@ -86,9 +86,11 @@ const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFi
     }) ||
     "";
   const unique = [];
+  const seenPhotos = new Set();
   const addPhoto = (value) => {
     const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
-    if (!normalized || unique.includes(normalized)) return;
+    if (!normalized || seenPhotos.has(normalized)) return;
+    seenPhotos.add(normalized);
     unique.push(normalized);
   };
   addPhoto(primaryPhoto);

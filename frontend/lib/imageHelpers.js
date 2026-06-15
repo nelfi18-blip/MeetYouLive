@@ -64,6 +64,24 @@ function getPrimaryProfileImageCandidate(user) {
     if (normalized) return { ...candidate, normalized };
   }
 
+  const fallbackCandidates = [
+    ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
+    ...(Array.isArray(user.profilePhotos)
+      ? user.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
+      : []),
+    ...(Array.isArray(user.photos) ? user.photos.map((value) => ({ field: "photos", value })) : []),
+    { field: "photoURL", value: user.photoURL },
+    { field: "photoUrl", value: user.photoUrl },
+    { field: "image", value: user.image },
+    { field: "imageUrl", value: user.imageUrl },
+    { field: "picture", value: user.picture },
+  ];
+
+  for (const candidate of fallbackCandidates) {
+    const normalized = normalizeImageUrl(candidate.value);
+    if (normalized) return { ...candidate, normalized };
+  }
+
   return null;
 }
 

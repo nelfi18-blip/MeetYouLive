@@ -269,22 +269,22 @@ const hasValidBirthdate = (value) => {
 };
 
 const buildProfileStatusPayload = (req, user) => {
-  const storedUser = typeof user.toObject === "function" ? user.toObject() : { ...user };
-  const serializedPhotos = serializeUserPhotoFields(req, storedUser);
+  const plainUser = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  const serializedPhotos = serializeUserPhotoFields(req, plainUser);
   const serializedImages = Array.isArray(serializedPhotos.images) ? serializedPhotos.images : [];
-  const profileCompletion = getMinProfileCompletion({ ...storedUser, ...serializedPhotos }, req);
+  const profileCompletion = getMinProfileCompletion({ ...plainUser, ...serializedPhotos }, req);
   return {
     onboardingComplete: profileCompletion.onboardingComplete,
     canAppearInFeed: profileCompletion.canAppearInFeed,
     missingFields: profileCompletion.missingFields,
     imagesCount: serializedImages.length,
     hasPrimaryPhoto: serializedImages.some((image) => image?.isPrimary === true && hasNonEmptyProfileString(image.url)),
-    hasLocationPoint: Boolean(getLocationCoordinates(storedUser)),
-    hasGender: hasNonEmptyProfileString(storedUser.gender),
-    hasInterestedIn: hasNonEmptyProfileString(storedUser.interestedIn),
-    hasBirthdate: hasValidBirthdate(storedUser.birthdate),
-    hasIntent: hasNonEmptyProfileString(storedUser.intent),
-    hasInterests: Array.isArray(storedUser.interests) && storedUser.interests.length >= MIN_ONBOARDING_INTERESTS,
+    hasLocationPoint: Boolean(getLocationCoordinates(plainUser)),
+    hasGender: hasNonEmptyProfileString(plainUser.gender),
+    hasInterestedIn: hasNonEmptyProfileString(plainUser.interestedIn),
+    hasBirthdate: hasValidBirthdate(plainUser.birthdate),
+    hasIntent: hasNonEmptyProfileString(plainUser.intent),
+    hasInterests: Array.isArray(plainUser.interests) && plainUser.interests.length >= MIN_ONBOARDING_INTERESTS,
   };
 };
 

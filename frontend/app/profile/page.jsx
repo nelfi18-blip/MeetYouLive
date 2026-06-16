@@ -349,7 +349,7 @@ function ProfileDiagnosticsCard({ status, error }) {
           {PROFILE_STATUS_FIELDS.map((field) => (
             <div key={field} className="profile-diagnostics-row">
               <dt>{field}</dt>
-              <dd>{Array.isArray(status[field]) ? status[field].join(", ") || "[]" : String(status[field])}</dd>
+              <dd>{Array.isArray(status[field]) ? (status[field].length > 0 ? status[field].join(", ") : "[]") : String(status[field])}</dd>
             </div>
           ))}
         </dl>

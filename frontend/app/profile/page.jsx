@@ -984,7 +984,7 @@ export default function ProfilePage() {
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
   const galleryImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
-  const mainProfilePhoto = getPrimaryImage(profilePhotoList);
+  const mainProfilePhoto = profilePhotoList[0] || "";
   const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
   const extraProfilePhotos = galleryImages.slice(1).map((image) => image.url);
   const safeExtraProfilePhotos = extraProfilePhotos

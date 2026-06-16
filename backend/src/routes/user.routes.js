@@ -466,6 +466,7 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// TODO(2026-06-16): Remove this temporary endpoint after profile feed diagnostics are no longer needed.
 router.get("/me/profile-status", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select(

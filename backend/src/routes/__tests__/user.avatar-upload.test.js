@@ -85,7 +85,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     });
   });
 
-  test("returns profile status diagnostics for the current user", async () => {
+  test("returns complete profile status diagnostics when all required fields are present", async () => {
     const debugUser = {
       _id: "507f1f77bcf86cd799439011",
       name: "Complete User",

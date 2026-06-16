@@ -45,6 +45,11 @@ const PROFILE_STATUS_FIELDS = [
 
 const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV === "development" || profile?.role === "admin";
 
+const formatProfileStatusValue = (value) => {
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
+  return String(value);
+};
+
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
   return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
@@ -349,7 +354,7 @@ function ProfileDiagnosticsCard({ status, error }) {
           {PROFILE_STATUS_FIELDS.map((field) => (
             <div key={field} className="profile-diagnostics-row">
               <dt>{field}</dt>
-              <dd>{Array.isArray(status[field]) ? (status[field].length > 0 ? status[field].join(", ") : "[]") : String(status[field])}</dd>
+              <dd>{formatProfileStatusValue(status[field])}</dd>
             </div>
           ))}
         </dl>
@@ -532,9 +537,9 @@ export default function ProfilePage() {
       if (!profileRes.ok) throw new Error("Error al cargar perfil");
 
       const d = await profileRes.json();
-      const loadedProfile = applyLoadedProfile(d);
+      applyLoadedProfile(d);
 
-      if (shouldShowProfileDiagnostics(loadedProfile)) {
+      if (shouldShowProfileDiagnostics(d)) {
         setProfileStatusError("");
         setProfileStatus(null);
         try {

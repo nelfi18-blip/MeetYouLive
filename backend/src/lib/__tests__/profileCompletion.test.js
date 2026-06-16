@@ -30,6 +30,39 @@ describe("profileCompletion", () => {
     expect(canAppearInFeed(completeUser)).toBe(true);
   });
 
+  test("rejects empty canonical image slots without a valid URL", () => {
+    const missingPhotoUser = {
+      ...completeUser,
+      images: [{ url: "", isPrimary: true }, { publicId: "legacy-without-url" }],
+      avatar: "",
+      profilePhotos: [""],
+    };
+
+    expect(getMissingProfileFields(missingPhotoUser)).toContain("photo");
+    expect(getProfileCompletionStatus(missingPhotoUser)).toMatchObject({
+      complete: false,
+      missingFields: ["photo"],
+      canAppearInFeed: false,
+    });
+  });
+
+  test("allows feed appearance with locationPoint and a normalized primary photo", () => {
+    const locationPointUser = {
+      ...completeUser,
+      location: {},
+      locationLabel: "",
+      locationPoint: { type: "Point", coordinates: [-70.66, -33.45] },
+      images: [{ url: "https://example.com/primary.jpg", isPrimary: true }],
+      onboardingComplete: true,
+    };
+
+    expect(getProfileCompletionStatus(locationPointUser)).toMatchObject({
+      complete: true,
+      missingFields: [],
+      canAppearInFeed: true,
+    });
+  });
+
   test("accepts structured location objects and reports exact missing fields", () => {
     const incompleteUser = {
       ...completeUser,

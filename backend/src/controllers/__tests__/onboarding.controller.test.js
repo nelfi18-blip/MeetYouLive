@@ -18,5 +18,18 @@ describe("onboarding photo normalization", () => {
       url: "https://example.com/onboarding-photo.jpg",
       isPrimary: true,
     });
+
+    test("stores profilePhotos[0] as canonical primary image when images are empty", () => {
+      const images = normalizeImages(req, {
+        images: [],
+        profilePhotos: [{ url: "/uploads/profile-photo.webp" }],
+      });
+
+      expect(images).toHaveLength(1);
+      expect(images[0]).toMatchObject({
+        url: "https://api.meetyoulive.net/uploads/profile-photo.webp",
+        isPrimary: true,
+      });
+    });
   });
 });

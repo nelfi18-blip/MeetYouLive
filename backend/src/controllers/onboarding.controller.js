@@ -1,5 +1,9 @@
 const User = require("../models/User.js");
-const { normalizePhotoUrl, withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const {
+  normalizePhotoUrl,
+  syncCanonicalPhotoFields,
+  withSerializedUserPhotoFields,
+} = require("../lib/photoFields.js");
 const {
   canAppearInFeed,
   getMissingProfileFields,
@@ -160,6 +164,8 @@ const updateOnboarding = async (req, res) => {
       ...currentUser.toObject(),
       name,
       images,
+      avatar: primaryImage?.url || currentUser.avatar || "",
+      profilePhotos: images.map((image) => image.url),
       birthdate,
       gender,
       interestedIn,
@@ -167,14 +173,15 @@ const updateOnboarding = async (req, res) => {
       interests,
       intent,
     };
+    syncCanonicalPhotoFields(mergedProfile, req);
     const missingFields = getMissingProfileFields(mergedProfile, { req });
     const canAppearInFeedValue = canAppearInFeed(mergedProfile, { req, missingFields });
     const onboardingComplete = canAppearInFeedValue;
 
     const updates = {
-      images,
-      avatar: primaryImage?.url || "",
-      profilePhotos: images.map((image) => image.url),
+      images: mergedProfile.images,
+      avatar: mergedProfile.avatar,
+      profilePhotos: mergedProfile.profilePhotos,
       birthdate,
       gender: ALLOWED_GENDERS.has(gender) ? gender : currentUser.gender,
       interestedIn: ALLOWED_INTERESTED_IN.has(interestedIn) ? interestedIn : currentUser.interestedIn || "both",
@@ -213,20 +220,22 @@ const updateOnboarding = async (req, res) => {
 
     currentUser.set(updates);
     const user = await currentUser.save();
+    syncCanonicalPhotoFields(user, req);
     const payload = withSerializedUserPhotoFields(req, user);
     const profileCompletion = getProfileCompletionStatus(payload, { req });
+    const finalOnboardingComplete = profileCompletion.canAppearInFeed;
     payload.missingFields = profileCompletion.missingFields;
-    payload.onboardingComplete = onboardingComplete;
-    payload.canAppearInFeed = canAppearInFeedValue;
-    payload.profileCompletion = { ...profileCompletion, onboardingComplete, canAppearInFeed: canAppearInFeedValue };
+    payload.onboardingComplete = finalOnboardingComplete;
+    payload.canAppearInFeed = profileCompletion.canAppearInFeed;
+    payload.profileCompletion = { ...profileCompletion, onboardingComplete: finalOnboardingComplete };
     payload.profileCompletionStatus = payload.profileCompletion;
 
     return res.json({
       ok: true,
       user: payload,
       missingFields: payload.missingFields,
-      onboardingComplete,
-      canAppearInFeed: canAppearInFeedValue,
+      onboardingComplete: finalOnboardingComplete,
+      canAppearInFeed: profileCompletion.canAppearInFeed,
       profileCompletion: payload.profileCompletion,
       profileCompletionStatus: payload.profileCompletionStatus,
     });

@@ -1,7 +1,10 @@
 const {
   getUserPhotoSelection,
+  getPrimaryPhotoUrl,
   hasSerializableUserPhoto,
   normalizePhotoUrl,
+  normalizeUserImages,
+  syncCanonicalPhotoFields,
   withSerializedUserPhotoFields,
 } = require("../photoFields.js");
 
@@ -47,6 +50,41 @@ describe("photoFields", () => {
 
     expect(hasSerializableUserPhoto(req, { imageUrl: "https://example.com/real.jpg" })).toBe(true);
     expect(hasSerializableUserPhoto(req, { imageUrl: "javascript:alert(1)" })).toBe(false);
+  });
+
+  test("normalizes legacy avatar into canonical images[0]", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+    const user = { avatar: "/uploads/avatar.webp", images: [], profilePhotos: [] };
+
+    const state = syncCanonicalPhotoFields(user, req);
+
+    expect(state.avatar).toBe("https://api.meetyoulive.net/uploads/avatar.webp");
+    expect(state.images[0]).toMatchObject({ url: state.avatar, isPrimary: true });
+    expect(state.profilePhotos).toEqual([state.avatar]);
+    expect(user.avatar).toBe(state.avatar);
+  });
+
+  test("normalizes profilePhotos[0] into canonical images[0]", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+    const images = normalizeUserImages({
+      images: [],
+      avatar: "",
+      profilePhotos: ["", { url: "/uploads/profile.webp" }],
+    }, req);
+
+    expect(images[0]).toMatchObject({
+      url: "https://api.meetyoulive.net/uploads/profile.webp",
+      isPrimary: true,
+    });
+  });
+
+  test("returns the primary normalized photo URL only from valid photo values", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+
+    expect(getPrimaryPhotoUrl({ images: [{ url: "" }, { url: "/uploads/second.webp" }] }, req)).toBe(
+      "https://api.meetyoulive.net/uploads/second.webp"
+    );
+    expect(getPrimaryPhotoUrl({ images: [{ publicId: "missing-url" }], avatar: "" }, req)).toBe("");
   });
 
   test("keeps canonical profile photos before aliases and removes duplicates", () => {

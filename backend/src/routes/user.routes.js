@@ -271,13 +271,14 @@ const hasValidBirthdate = (value) => {
 const buildProfileStatusPayload = (req, user) => {
   const storedUser = typeof user.toObject === "function" ? user.toObject() : { ...user };
   const serializedPhotos = serializeUserPhotoFields(req, storedUser);
+  const serializedImages = Array.isArray(serializedPhotos.images) ? serializedPhotos.images : [];
   const profileCompletion = getMinProfileCompletion({ ...storedUser, ...serializedPhotos }, req);
   return {
     onboardingComplete: profileCompletion.onboardingComplete,
     canAppearInFeed: profileCompletion.canAppearInFeed,
     missingFields: profileCompletion.missingFields,
-    imagesCount: Array.isArray(serializedPhotos.images) ? serializedPhotos.images.length : 0,
-    hasPrimaryPhoto: Boolean(serializedPhotos.avatar),
+    imagesCount: serializedImages.length,
+    hasPrimaryPhoto: serializedImages.some((image) => image?.isPrimary === true && hasNonEmptyProfileString(image.url)),
     hasLocationPoint: Boolean(getLocationCoordinates(storedUser)),
     hasGender: hasNonEmptyProfileString(storedUser.gender),
     hasInterestedIn: hasNonEmptyProfileString(storedUser.interestedIn),

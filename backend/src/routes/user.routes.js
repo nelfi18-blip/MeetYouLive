@@ -414,6 +414,29 @@ router.get("/:id/public", userLimiter, optionalVerifyToken, async (req, res) => 
   }
 });
 
+// TODO(2026-06-16): Remove this temporary endpoint after confirming where uploaded profile photos persist.
+router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select(
+      "avatar profilePhotos images onboardingComplete name birthdate location locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const storedUser = typeof user.toObject === "function" ? user.toObject() : user;
+    const profileCompletion = getProfileCompletionStatus(storedUser, { req });
+    res.json({
+      avatar: storedUser.avatar,
+      profilePhotos: storedUser.profilePhotos,
+      images: storedUser.images,
+      onboardingComplete: storedUser.onboardingComplete,
+      canAppearInFeed: profileCompletion.canAppearInFeed,
+      missingFields: profileCompletion.missingFields,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.get("/me", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");

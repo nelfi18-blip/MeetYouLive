@@ -188,70 +188,7 @@ describe("POST /api/user/me/avatar-upload", () => {
         contentType: "image/png",
       });
 
-      test("sets onboardingComplete true after upload when the merged profile is complete", async () => {
-        const photoUrl = "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-789.png";
-        const existingUser = {
-          _id: "507f1f77bcf86cd799439011",
-          name: "Complete User",
-          avatar: "",
-          profilePhotos: [],
-          images: [],
-          birthdate: new Date("2000-01-01T00:00:00.000Z"),
-          location: { country: "Chile", city: "Santiago", label: "Santiago, Chile" },
-          gender: "female",
-          interestedIn: "male",
-          intent: "dating",
-          interests: ["music", "travel", "movies"],
-          role: "user",
-          isBlocked: false,
-          isSuspended: false,
-          toObject() {
-            return { ...this };
-          },
-        };
-        const savedUser = {
-          ...existingUser,
-          avatar: photoUrl,
-          profilePhotos: [photoUrl],
-          images: [{ url: photoUrl, isPrimary: true, source: "", uploadedAt: new Date("2026-06-14T00:00:00.000Z") }],
-          onboardingComplete: true,
-          toObject() {
-            return { ...this };
-          },
-        };
 
-        User.findById.mockReturnValueOnce(makeQuery(existingUser));
-        User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
-
-        const res = await request(app)
-          .post("/api/user/me/avatar-upload")
-          .set("Authorization", "******")
-          .set("Host", "api.meetyoulive.net")
-          .set("X-Forwarded-Proto", "https")
-          .attach("avatar", Buffer.from("image"), {
-            filename: "avatar.png",
-            contentType: "image/png",
-          });
-
-        expect(res.status).toBe(200);
-        expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
-          existingUser._id,
-          expect.objectContaining({
-            $set: expect.objectContaining({ onboardingComplete: true }),
-          }),
-          { new: true }
-        );
-        expect(res.body).toMatchObject({
-          onboardingComplete: true,
-          canAppearInFeed: true,
-          missingFields: [],
-          user: {
-            onboardingComplete: true,
-            canAppearInFeed: true,
-            missingFields: [],
-          },
-        });
-      });
 
     expect(res.status).toBe(200);
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
@@ -276,6 +213,71 @@ describe("POST /api/user/me/avatar-upload", () => {
     );
     expect(res.body.avatar).toBe(primaryPhoto);
     expect(res.body.images[0]).toMatchObject({ url: primaryPhoto, isPrimary: true });
+  });
+
+  test("sets onboardingComplete true after upload when the merged profile is complete", async () => {
+    const photoUrl = "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-789.png";
+    const existingUser = {
+      _id: "507f1f77bcf86cd799439011",
+      name: "Complete User",
+      avatar: "",
+      profilePhotos: [],
+      images: [],
+      birthdate: new Date("2000-01-01T00:00:00.000Z"),
+      location: { country: "Chile", city: "Santiago", label: "Santiago, Chile" },
+      gender: "female",
+      interestedIn: "male",
+      intent: "dating",
+      interests: ["music", "travel", "movies"],
+      role: "user",
+      isBlocked: false,
+      isSuspended: false,
+      toObject() {
+        return { ...this };
+      },
+    };
+    const savedUser = {
+      ...existingUser,
+      avatar: photoUrl,
+      profilePhotos: [photoUrl],
+      images: [{ url: photoUrl, isPrimary: true, source: "", uploadedAt: new Date("2026-06-14T00:00:00.000Z") }],
+      onboardingComplete: true,
+      toObject() {
+        return { ...this };
+      },
+    };
+
+    User.findById.mockReturnValueOnce(makeQuery(existingUser));
+    User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
+
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https")
+      .attach("avatar", Buffer.from("image"), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(200);
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      existingUser._id,
+      expect.objectContaining({
+        $set: expect.objectContaining({ onboardingComplete: true }),
+      }),
+      { new: true }
+    );
+    expect(res.body).toMatchObject({
+      onboardingComplete: true,
+      canAppearInFeed: true,
+      missingFields: [],
+      user: {
+        onboardingComplete: true,
+        canAppearInFeed: true,
+        missingFields: [],
+      },
+    });
   });
 
   test("returns diagnostic JSON when no avatar file is sent", async () => {

@@ -29,6 +29,26 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+const PROFILE_STATUS_FIELDS = [
+  "onboardingComplete",
+  "canAppearInFeed",
+  "missingFields",
+  "imagesCount",
+  "hasPrimaryPhoto",
+  "hasLocationPoint",
+  "hasGender",
+  "hasInterestedIn",
+  "hasBirthdate",
+  "hasIntent",
+  "hasInterests",
+];
+
+const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV === "development" || profile?.role === "admin";
+
+const formatProfileStatusValue = (value) => {
+  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
+  return String(value);
+};
 
 const hasAllowedAvatarExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
@@ -321,6 +341,30 @@ function BoostCard({ isBoosted, boostUntil, boostPrice, coins, loading, error, s
   );
 }
 
+function ProfileDiagnosticsCard({ status, error }) {
+  return (
+    <div className="profile-diagnostics-card">
+      <div className="profile-diagnostics-header">
+        <strong>Diagnóstico temporal de perfil</strong>
+        <span>GET /api/user/me/profile-status</span>
+      </div>
+      {error && <p className="profile-diagnostics-error">{error}</p>}
+      {status ? (
+        <dl className="profile-diagnostics-list">
+          {PROFILE_STATUS_FIELDS.map((field) => (
+            <div key={field} className="profile-diagnostics-row">
+              <dt>{field}</dt>
+              <dd>{formatProfileStatusValue(status[field])}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="profile-diagnostics-muted">Cargando diagnóstico…</p>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
@@ -378,6 +422,8 @@ export default function ProfilePage() {
   const [boostLoading, setBoostLoading] = useState(false);
   const [boostError, setBoostError] = useState("");
   const [boostSuccess, setBoostSuccess] = useState("");
+  const [profileStatus, setProfileStatus] = useState(null);
+  const [profileStatusError, setProfileStatusError] = useState("");
   const goalLabelByValue = {
     serious_relationship: t("profile.goalSeriousRelationship"),
     friendship: t("profile.goalFriendship"),
@@ -492,6 +538,24 @@ export default function ProfilePage() {
 
       const d = await profileRes.json();
       applyLoadedProfile(d);
+
+      if (shouldShowProfileDiagnostics(d)) {
+        setProfileStatusError("");
+        setProfileStatus(null);
+        try {
+          const statusRes = await fetch(`${API_URL}/api/user/me/profile-status`, { headers, cache: "no-store", signal });
+          if (!statusRes.ok) throw new Error(`No se pudo cargar diagnóstico (${statusRes.status})`);
+          setProfileStatus(await statusRes.json());
+        } catch (statusErr) {
+          if (!signal?.aborted) {
+            console.error("[profile] failed to load profile status:", statusErr);
+            setProfileStatusError(statusErr.message || "No se pudo cargar diagnóstico");
+          }
+        }
+      } else {
+        setProfileStatus(null);
+        setProfileStatusError("");
+      }
 
       if (boostRes?.ok) {
         const boostData = await boostRes.json();
@@ -998,6 +1062,7 @@ export default function ProfilePage() {
   
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
+  const showProfileDiagnostics = user ? shouldShowProfileDiagnostics(user) : false;
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
@@ -1022,6 +1087,7 @@ export default function ProfilePage() {
         <>
           {saveSuccess && <div className="banner-success">{saveSuccess}</div>}
           {pwdSuccess && <div className="banner-success">{pwdSuccess}</div>}
+          {showProfileDiagnostics && <ProfileDiagnosticsCard status={profileStatus} error={profileStatusError} />}
 
           {/* Profile card */}
           <div className="profile-card">
@@ -1748,6 +1814,58 @@ export default function ProfilePage() {
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
+        }
+
+        .profile-diagnostics-card {
+          border: 1px solid rgba(251,191,36,0.45);
+          border-radius: var(--radius-sm);
+          background: rgba(251,191,36,0.08);
+          color: var(--text);
+          padding: 1rem;
+          text-align: left;
+        }
+
+        .profile-diagnostics-header {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .profile-diagnostics-header span,
+        .profile-diagnostics-muted {
+          color: var(--text-muted);
+          font-size: 0.82rem;
+        }
+
+        .profile-diagnostics-error {
+          color: var(--error);
+          font-size: 0.875rem;
+          margin: 0 0 0.75rem;
+        }
+
+        .profile-diagnostics-list {
+          display: grid;
+          gap: 0.4rem;
+          margin: 0;
+        }
+
+        .profile-diagnostics-row {
+          display: grid;
+          grid-template-columns: minmax(150px, 1fr) 2fr;
+          gap: 0.75rem;
+          font-size: 0.875rem;
+        }
+
+        .profile-diagnostics-row dt {
+          color: var(--text-muted);
+        }
+
+        .profile-diagnostics-row dd {
+          margin: 0;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          overflow-wrap: anywhere;
         }
 
         /* Profile card */

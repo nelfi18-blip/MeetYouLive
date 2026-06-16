@@ -20,6 +20,7 @@ const {
   buildDiscoveryLocationMatch,
   combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getLocationCoordinates,
   getLocationLabel,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
@@ -257,27 +258,35 @@ const getMinProfileCompletion = (user = {}, req) => {
   };
 };
 
-const getProfileStatusDiagnostics = (user = {}, req) => {
-  const profileCompletion = getProfileCompletionStatus(user, { req });
-  const missingFields = profileCompletion.missingFields;
-  const hasCompletedField = (field) => !missingFields.includes(field);
+const getPhotoUrlValue = (value) => getPhotoUrl(value);
 
+const hasNonEmptyProfileString = (value) => typeof value === "string" && value.trim().length > 0;
+
+const hasValidBirthdate = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+};
+
+const buildProfileStatusPayload = (req, user) => {
+  const plainUser = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  const serializedPhotos = serializeUserPhotoFields(req, plainUser);
+  const serializedImages = Array.isArray(serializedPhotos.images) ? serializedPhotos.images : [];
+  const profileCompletion = getMinProfileCompletion({ ...plainUser, ...serializedPhotos }, req);
   return {
     onboardingComplete: profileCompletion.onboardingComplete,
     canAppearInFeed: profileCompletion.canAppearInFeed,
-    missingFields,
-    imagesCount: Array.isArray(user.images) ? user.images.length : 0,
-    hasPrimaryPhoto: hasCompletedField("photo"),
-    hasLocationPoint: hasCompletedField("location"),
-    hasGender: hasCompletedField("gender"),
-    hasInterestedIn: hasCompletedField("interestedIn"),
-    hasBirthdate: hasCompletedField("birthdate"),
-    hasIntent: hasCompletedField("intent"),
-    hasInterests: hasCompletedField("interests"),
+    missingFields: profileCompletion.missingFields,
+    imagesCount: serializedImages.length,
+    hasPrimaryPhoto: serializedImages.some((image) => image?.isPrimary === true && hasNonEmptyProfileString(image.url)),
+    hasLocationPoint: Boolean(getLocationCoordinates(plainUser)),
+    hasGender: hasNonEmptyProfileString(plainUser.gender),
+    hasInterestedIn: hasNonEmptyProfileString(plainUser.interestedIn),
+    hasBirthdate: hasValidBirthdate(plainUser.birthdate),
+    hasIntent: hasNonEmptyProfileString(plainUser.intent),
+    hasInterests: Array.isArray(plainUser.interests) && plainUser.interests.length >= MIN_ONBOARDING_INTERESTS,
   };
 };
-
-const getPhotoUrlValue = (value) => getPhotoUrl(value);
 
 const sanitizePhotoUrl = (req, value) => {
   const rawValue = getPhotoUrlValue(value);
@@ -461,11 +470,11 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
 router.get("/me/profile-status", userLimiter, verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select(
-      "images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+      "avatar profilePhotos images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended"
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
-    res.json(getProfileStatusDiagnostics(user.toObject(), req));
+    res.json(buildProfileStatusPayload(req, user));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

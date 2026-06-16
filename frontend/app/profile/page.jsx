@@ -11,7 +11,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { getPrimaryProfileImage, normalizeImageUrl } from "@/lib/imageHelpers";
+import { normalizeImageUrl } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
@@ -73,42 +73,44 @@ const extractPhotoUrl = (value) => {
   return value.url || value.secure_url || value.src || value.path || "";
 };
 
-const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFields = {}) => {
-  const normalizedAvatar = normalizeAvatarUrl(avatarValue);
-  const blobPhoto = isBlobUrl(avatarValue) ? normalizedAvatar : "";
-  const primaryPhoto =
-    blobPhoto ||
-    getPrimaryProfileImage({
-      images: imagesValue,
-      avatar: avatarValue,
-      profileImage: userFields.profileImage,
-      profilePhotos: profilePhotosValue,
-      photo: userFields.photo,
-    }) ||
-    "";
-  const unique = [];
+const getPhotoUrl = (photo) => normalizeAvatarUrl(extractPhotoUrl(photo));
+
+const normalizeImages = (userOrImages = {}) => {
+  const candidates = [];
+  if (Array.isArray(userOrImages)) {
+    candidates.push(...userOrImages);
+  } else if (userOrImages && typeof userOrImages === "object") {
+    candidates.push(
+      ...(Array.isArray(userOrImages.images) ? userOrImages.images : []),
+      userOrImages.avatar,
+      userOrImages.profileImage,
+      ...(Array.isArray(userOrImages.profilePhotos) ? userOrImages.profilePhotos : []),
+      userOrImages.photo,
+      ...(Array.isArray(userOrImages.photos) ? userOrImages.photos : [])
+    );
+  }
+
+  const photos = [];
   const seenPhotos = new Set();
-  const addPhoto = (value) => {
-    const normalized = normalizeAvatarUrl(extractPhotoUrl(value));
-    if (!normalized || seenPhotos.has(normalized)) return;
-    seenPhotos.add(normalized);
-    unique.push(normalized);
-  };
-  addPhoto(primaryPhoto);
-  const collectPhotos = (values) => {
-    for (const value of values) {
-      addPhoto(value);
-      if (unique.length >= MAX_PROFILE_PHOTOS) break;
-    }
-  };
+  for (const candidate of candidates) {
+    const photoUrl = getPhotoUrl(candidate);
+    if (!photoUrl || seenPhotos.has(photoUrl)) continue;
+    seenPhotos.add(photoUrl);
+    photos.push(photoUrl);
+    if (photos.length >= MAX_PROFILE_PHOTOS) break;
+  }
+  return photos;
+};
 
-  collectPhotos(Array.isArray(imagesValue) ? imagesValue : []);
-  addPhoto(avatarValue);
-  addPhoto(userFields.profileImage);
-  collectPhotos(Array.isArray(profilePhotosValue) ? profilePhotosValue : []);
-  addPhoto(userFields.photo);
+const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
 
-  return unique.slice(0, MAX_PROFILE_PHOTOS);
+const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFields = {}) => {
+  return normalizeImages({
+    ...userFields,
+    images: imagesValue,
+    avatar: avatarValue,
+    profilePhotos: profilePhotosValue,
+  });
 };
 
 const getSafeGalleryImageSrc = (value) => {
@@ -122,7 +124,7 @@ const getSafeGalleryImageSrc = (value) => {
 
 const reorderWithMain = (photos, mainPhoto) => {
   const normalizedMain = normalizeAvatarUrl(mainPhoto);
-  const normalized = normalizePhotoList(normalizedMain, photos);
+  const normalized = normalizeImages(photos);
   if (!normalizedMain) return normalized;
   return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
@@ -635,8 +637,8 @@ export default function ProfilePage() {
           name: editForm.name,
           bio: editForm.bio,
           avatar: editForm.avatar,
-          profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos),
-          images: toProfileImageObjects(normalizePhotoList(editForm.avatar, editForm.profilePhotos)),
+          profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images),
+          images: toProfileImageObjects(normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images)),
           ...discoveryPayload,
         }),
         cache: "no-store",
@@ -863,7 +865,7 @@ export default function ProfilePage() {
   const handleAddExtraPhotos = async (filesList) => {
     const files = Array.from(filesList || []);
     if (!files.length) return;
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
+    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
     const availableSlots = Math.max(0, MAX_PROFILE_PHOTOS - currentPhotos.length);
     if (!availableSlots) {
       setSaveError(`Ya alcanzaste el máximo de ${MAX_PROFILE_PHOTOS} fotos.`);
@@ -949,13 +951,13 @@ export default function ProfilePage() {
   };
 
   const handleMakeMainPhoto = async (photoUrl) => {
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
+    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
     if (!currentPhotos.includes(photoUrl)) return;
     await persistProfilePhotos(currentPhotos, photoUrl, "Foto principal actualizada correctamente");
   };
 
   const handleDeletePhoto = async (photoUrl) => {
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
+    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
     const nextPhotos = currentPhotos.filter((photo) => photo !== photoUrl);
     const nextMain = nextPhotos[0] || "";
     await persistProfilePhotos(nextPhotos, nextMain, "Foto eliminada correctamente");
@@ -967,7 +969,7 @@ export default function ProfilePage() {
       setSaveError("Ingresa una URL válida (http o https).");
       return;
     }
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos);
+    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
     if (currentPhotos.length >= MAX_PROFILE_PHOTOS) {
       setSaveError(`Ya alcanzaste el máximo de ${MAX_PROFILE_PHOTOS} fotos.`);
       return;
@@ -982,7 +984,7 @@ export default function ProfilePage() {
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
   const galleryImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
-  const mainProfilePhoto = galleryImages[0]?.url || "";
+  const mainProfilePhoto = profilePhotoList[0] || "";
   const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
   const extraProfilePhotos = galleryImages.slice(1).map((image) => image.url);
   const safeExtraProfilePhotos = extraProfilePhotos

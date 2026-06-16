@@ -13,7 +13,7 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
-import { getPrimaryProfileImage, normalizeImageUrl } from "@/lib/imageHelpers";
+import { normalizeImageUrl } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -88,17 +88,45 @@ const getUploadPhotoUrlValue = (value) => {
   return value.url || value.secure_url || value.src || value.path || "";
 };
 
+const getPhotoUrl = (photo) => normalizeAvatarUrl(getUploadPhotoUrlValue(photo));
+
+const normalizeImages = (userOrImages = {}) => {
+  const candidates = [];
+  if (Array.isArray(userOrImages)) {
+    candidates.push(...userOrImages);
+  } else if (userOrImages && typeof userOrImages === "object") {
+    candidates.push(
+      ...(Array.isArray(userOrImages.images) ? userOrImages.images : []),
+      userOrImages.avatar,
+      userOrImages.profileImage,
+      ...(Array.isArray(userOrImages.profilePhotos) ? userOrImages.profilePhotos : []),
+      userOrImages.photo,
+      userOrImages.mainPhoto,
+      userOrImages.photoUrl,
+      userOrImages.avatarPath,
+      ...(Array.isArray(userOrImages.photos) ? userOrImages.photos : [])
+    );
+  }
+
+  const photos = [];
+  const seenPhotos = new Set();
+  for (const candidate of candidates) {
+    const photoUrl = getPhotoUrl(candidate);
+    if (!photoUrl || seenPhotos.has(photoUrl)) continue;
+    seenPhotos.add(photoUrl);
+    photos.push(photoUrl);
+    if (photos.length >= MAX_PROFILE_PHOTOS) break;
+  }
+  return photos;
+};
+
+const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
+
 // Accept the canonical avatar/profilePhotos payload plus legacy/provider URL objects
 // so a successful backend upload cannot be discarded before the onboarding save.
 const collectUploadPhotoUrls = (payload) => {
-  const primaryPhoto = getPrimaryProfileImage({
-    images: payload?.images || payload?.user?.images,
-    avatar: payload?.avatar || payload?.user?.avatar,
-    profileImage: payload?.profileImage || payload?.user?.profileImage,
-    profilePhotos: payload?.profilePhotos || payload?.user?.profilePhotos,
-    photo: payload?.photo || payload?.user?.photo,
-  });
-  const candidates = [
+  const primaryPhoto = getPrimaryImage(payload?.user || payload);
+  return normalizeImages([
     primaryPhoto,
     ...(Array.isArray(payload?.images) ? payload.images : []),
     ...(Array.isArray(payload?.user?.images) ? payload.user.images : []),
@@ -114,26 +142,9 @@ const collectUploadPhotoUrls = (payload) => {
     payload?.user?.mainPhoto,
     payload?.user?.photoUrl,
     payload?.user?.avatarPath,
-  ];
-
-  const photoCollections = [
-    payload?.profilePhotos,
-    payload?.user?.profilePhotos,
-  ];
-  for (const collection of photoCollections) {
-    if (Array.isArray(collection)) candidates.push(...collection);
-  }
-
-  const photos = [];
-  const seen = new Set();
-  for (const candidate of candidates) {
-    const normalized = normalizeAvatarUrl(getUploadPhotoUrlValue(candidate));
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    photos.push(normalized);
-    if (photos.length >= MAX_PROFILE_PHOTOS) break;
-  }
-  return photos;
+    ...(Array.isArray(payload?.profilePhotos) ? payload.profilePhotos : []),
+    ...(Array.isArray(payload?.user?.profilePhotos) ? payload.user.profilePhotos : []),
+  ]);
 };
 
 const INTERESTS = [
@@ -486,6 +497,11 @@ export default function OnboardingPage() {
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
+      try {
+        await updateSession?.();
+      } catch (err) {
+        console.error("[onboarding-avatar-upload] failed to refresh session", err);
+      }
       return { ok: true, avatar: normalizedAvatar, profilePhotos: uploadPhotos };
     };
 
@@ -607,14 +623,14 @@ export default function OnboardingPage() {
         return;
       }
       const updatedUser = data.user || data;
-      const normalizedImages = Array.isArray(updatedUser.images)
-        ? updatedUser.images.filter((image) => normalizeAvatarUrl(getUploadPhotoUrlValue(image)))
-        : [];
+      const normalizedImages = normalizeImages(updatedUser).map((url, index) => ({ url, isPrimary: index === 0 }));
       console.log("raw user images", updatedUser.images);
       console.log("raw user avatar", updatedUser.avatar);
       console.log("raw user profilePhotos", updatedUser.profilePhotos);
       console.log("normalized images", normalizedImages);
-      if (data.onboardingComplete !== true && updatedUser.onboardingComplete !== true) {
+      const canAppearInFeed = data.canAppearInFeed === true || updatedUser.canAppearInFeed === true;
+      const onboardingComplete = data.onboardingComplete === true || updatedUser.onboardingComplete === true;
+      if (!canAppearInFeed && !onboardingComplete) {
         const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
         const missingLabels = getMissingProfileLabels(missing);
         if (shouldLogProfileCompletionDiagnostics()) {
@@ -637,9 +653,7 @@ export default function OnboardingPage() {
             },
           });
         }
-        const missingMessage = missingLabels.length
-          ? `Te falta: ${missingLabels.join(" / ")}`
-          : "Faltan datos obligatorios del perfil.";
+        const missingMessage = missingLabels.length ? `Te falta: ${missingLabels.join(" / ")}` : "El backend aún reporta el perfil incompleto.";
         setError(missingMessage);
         return;
       }

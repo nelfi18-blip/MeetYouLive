@@ -11,6 +11,7 @@ const validateHttpProtocol = (value) => {
 };
 
 const REQUESTLESS_PHOTO_REQ = { protocol: "https", get: () => "" };
+const MAX_USER_IMAGES = 6;
 
 /**
  * Build a safe request origin for absolute upload URLs.
@@ -121,6 +122,75 @@ const normalizePhotoUrl = (req, value) => {
   return "";
 };
 
+const getPhotoUrl = (photo, req = REQUESTLESS_PHOTO_REQ) => normalizePhotoUrl(req, photo);
+
+const toPlainUser = (userLike) =>
+  userLike && typeof userLike.toObject === "function" ? userLike.toObject() : userLike || {};
+
+const makeUserImage = (photo, index) => {
+  const source = photo && typeof photo === "object" && !Array.isArray(photo) ? photo : {};
+  return {
+    url: photo,
+    publicId: typeof source.publicId === "string" ? source.publicId : "",
+    isPrimary: index === 0,
+    source: typeof source.source === "string" ? source.source : "",
+    uploadedAt: source.uploadedAt ? new Date(source.uploadedAt) : new Date(),
+  };
+};
+
+const addNormalizedPhoto = (photos, seenPhotos, req, value) => {
+  const normalized = getPhotoUrl(value, req);
+  if (!normalized || seenPhotos.has(normalized)) return;
+  seenPhotos.add(normalized);
+  photos.push(normalized);
+};
+
+const getRawCanonicalPhotoCandidates = (userLike = {}) => [
+  ...(Array.isArray(userLike.images) ? userLike.images : []),
+  userLike.avatar,
+  userLike.profileImage,
+  userLike.photo,
+  ...(Array.isArray(userLike.profilePhotos) ? userLike.profilePhotos : []),
+  ...(Array.isArray(userLike.photos) ? userLike.photos : []),
+  userLike.photoURL,
+  userLike.photoUrl,
+  userLike.image,
+  userLike.imageUrl,
+  userLike.picture,
+];
+
+const normalizeUserImages = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) => {
+  const user = toPlainUser(userLike);
+  const photos = [];
+  const seenPhotos = new Set();
+
+  for (const value of getRawCanonicalPhotoCandidates(user)) {
+    addNormalizedPhoto(photos, seenPhotos, req, value);
+    if (photos.length >= MAX_USER_IMAGES) break;
+  }
+
+  return photos.slice(0, MAX_USER_IMAGES).map(makeUserImage);
+};
+
+const syncCanonicalPhotoFields = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) => {
+  const images = normalizeUserImages(userLike, req);
+  const primaryPhoto = images[0]?.url || "";
+  const profilePhotos = images.map((image) => image.url);
+
+  if (userLike && typeof userLike.set === "function") {
+    userLike.set({ images, avatar: primaryPhoto, profilePhotos });
+  } else if (userLike && typeof userLike === "object") {
+    userLike.images = images;
+    userLike.avatar = primaryPhoto;
+    userLike.profilePhotos = profilePhotos;
+  }
+
+  return { images, avatar: primaryPhoto, profilePhotos };
+};
+
+const getPrimaryPhotoUrl = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) =>
+  normalizeUserImages(userLike, req)[0]?.url || "";
+
 /**
  * Collect photo candidates in primary-photo priority order.
  * Canonical persisted fields come first, then legacy/provider aliases.
@@ -152,16 +222,15 @@ const getRawUserPhotoCandidates = (userLike) => [
  * @returns {{primaryPhoto: string, photos: string[], fieldUsed: string|null, photoCount: number}}
  */
 const getUserPhotoSelection = (req, userLike) => {
-  const photos = [];
-  const seenPhotos = new Set();
+  const images = normalizeUserImages(userLike, req);
+  const photos = images.map((image) => image.url);
   let fieldUsed = null;
 
   for (const { field, value } of getRawUserPhotoCandidates(userLike)) {
     const normalized = normalizePhotoUrl(req, value);
-    if (normalized && !seenPhotos.has(normalized)) {
-      seenPhotos.add(normalized);
-      photos.push(normalized);
-      if (!fieldUsed) fieldUsed = field;
+    if (normalized && photos.length > 0 && normalized === photos[0]) {
+      fieldUsed = field;
+      break;
     }
   }
 
@@ -207,12 +276,9 @@ const hasSerializableUserPhoto = (req, userLike) => Boolean(getUserPhotoSelectio
  * @returns {{avatar: string, profileImage: string, photo: string, photos: string[], profilePhotos: string[]}}
  */
 const serializeUserPhotoFields = (req, userLike) => {
-  const { primaryPhoto: avatar, photos: normalizedPhotos } = getUserPhotoSelection(req, userLike);
-  const images = normalizedPhotos.map((url, index) => ({
-    url,
-    isPrimary: index === 0,
-    source: "",
-  }));
+  const images = normalizeUserImages(userLike, req);
+  const normalizedPhotos = images.map((image) => image.url);
+  const avatar = normalizedPhotos[0] || "";
   return {
     avatar,
     profileImage: avatar,
@@ -240,10 +306,14 @@ const withSerializedUserPhotoFields = (req, userLike) => {
 };
 
 module.exports = {
+  getPhotoUrl,
+  getPrimaryPhotoUrl,
   getUserPhotoSelection,
   hasSerializableUserPhoto,
   makePrimaryUserPhotoFields,
+  normalizeUserImages,
   normalizePhotoUrl,
   serializeUserPhotoFields,
+  syncCanonicalPhotoFields,
   withSerializedUserPhotoFields,
 };

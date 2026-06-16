@@ -28,6 +28,11 @@ const {
   getMissingProfileFields,
   getProfileCompletionStatus,
 } = require("../lib/profileCompletion.js");
+const {
+  getPhotoUrl,
+  serializeUserPhotoFields: serializeCanonicalUserPhotoFields,
+  syncCanonicalPhotoFields,
+} = require("../lib/photoFields.js");
 
 const router = Router();
 const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
@@ -252,11 +257,7 @@ const getMinProfileCompletion = (user = {}, req) => {
   };
 };
 
-const getPhotoUrlValue = (value) => {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  return value.secure_url || value.url || value.src || value.path || "";
-};
+const getPhotoUrlValue = (value) => getPhotoUrl(value);
 
 const sanitizePhotoUrl = (req, value) => {
   const rawValue = getPhotoUrlValue(value);
@@ -294,54 +295,16 @@ const sanitizePhotoUrl = (req, value) => {
 };
 
 const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUser) => {
-  const currentImages = Array.isArray(currentUser?.images) ? currentUser.images : [];
-  const currentProfilePhotos = Array.isArray(currentUser?.profilePhotos) ? currentUser.profilePhotos : [];
-  const basePhotos = Array.isArray(profilePhotosInput)
-    ? profilePhotosInput
-    : currentImages.length > 0
-    ? currentImages
-    : currentProfilePhotos;
-
-  const normalizedPhotos = [];
-  for (const value of basePhotos) {
-    const normalized = sanitizePhotoUrl(req, value);
-    if (!normalized || normalizedPhotos.includes(normalized)) continue;
-    normalizedPhotos.push(normalized);
-    if (normalizedPhotos.length >= MAX_PROFILE_PHOTOS) break;
+  const current = currentUser && typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser || {};
+  const photoState = { ...current };
+  if (Array.isArray(profilePhotosInput)) {
+    photoState.images = profilePhotosInput;
+    photoState.profilePhotos = profilePhotosInput;
   }
-
-  const currentAvatar = sanitizePhotoUrl(req, currentUser?.avatar || "");
-  const nextAvatarExplicit = avatarInput !== undefined ? sanitizePhotoUrl(req, avatarInput) : null;
-  let mainPhoto = nextAvatarExplicit !== null ? nextAvatarExplicit : currentAvatar;
-
-  if (mainPhoto) {
-    const deduped = [mainPhoto, ...normalizedPhotos.filter((url) => url !== mainPhoto)];
-    return {
-      avatar: mainPhoto,
-      profilePhotos: deduped.slice(0, MAX_PROFILE_PHOTOS),
-      images: deduped.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
-        url,
-        isPrimary: index === 0,
-        source: "",
-        uploadedAt: new Date(),
-      })),
-    };
+  if (avatarInput !== undefined) {
+    photoState.avatar = avatarInput;
   }
-
-  if (normalizedPhotos.length > 0) {
-    return {
-      avatar: normalizedPhotos[0],
-      profilePhotos: normalizedPhotos.slice(0, MAX_PROFILE_PHOTOS),
-      images: normalizedPhotos.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
-        url,
-        isPrimary: index === 0,
-        source: "",
-        uploadedAt: new Date(),
-      })),
-    };
-  }
-
-  return { avatar: "", profilePhotos: [], images: [] };
+  return syncCanonicalPhotoFields(photoState, req);
 };
 
 const getExistingPhotoCandidates = (user) => [
@@ -351,40 +314,8 @@ const getExistingPhotoCandidates = (user) => [
 ];
 
 const serializeUserPhotoFields = (req, userLike) => {
-  // Keep this priority aligned with the public frontend/lib/imageHelpers.js::getPrimaryProfileImage():
-  // images[0] > avatar > profileImage > profilePhotos[0] > photo.
-  const rawPhotos = [
-    ...(Array.isArray(userLike?.images) ? userLike.images : []),
-    userLike?.avatar,
-    userLike?.profileImage,
-    ...(Array.isArray(userLike?.profilePhotos) ? userLike.profilePhotos : []),
-    userLike?.photo,
-    ...(Array.isArray(userLike?.photos) ? userLike.photos : []),
-    userLike?.photoURL,
-    userLike?.photoUrl,
-    userLike?.image,
-    userLike?.imageUrl,
-    userLike?.picture,
-  ];
-  const normalizedPhotos = [];
-  for (const value of rawPhotos) {
-    const normalized = sanitizePhotoUrl(req, value);
-    if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
-  }
-  const { avatar, profilePhotos, images } = normalizeProfilePhotos(
-    req,
-    normalizedPhotos,
-    normalizedPhotos[0],
-    userLike
-  );
-  // images[0] is canonical; aliases keep feed/public clients in sync.
   return {
-    avatar,
-    profileImage: avatar,
-    photo: avatar,
-    photos: profilePhotos,
-    profilePhotos,
-    images,
+    ...serializeCanonicalUserPhotoFields(req, userLike),
     maxExtraPhotos: MAX_EXTRA_PROFILE_PHOTOS,
   };
 };
@@ -1094,6 +1025,16 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const nextAvatar = normalizedPhotoState.avatar;
     const nextProfilePhotos = normalizedPhotoState.profilePhotos;
     const nextImages = normalizedPhotoState.images;
+    const mergedUserForCompletion = {
+      ...(typeof user.toObject === "function" ? user.toObject() : user),
+      avatar: nextAvatar,
+      profilePhotos: nextProfilePhotos,
+      images: nextImages,
+    };
+    const syncedCompletionPhotoFields = syncCanonicalPhotoFields(mergedUserForCompletion, req);
+    Object.assign(mergedUserForCompletion, syncedCompletionPhotoFields);
+    const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
+    const nextOnboardingComplete = uploadProfileCompletion.canAppearInFeed;
 
     const uploadResult = {
       avatar: nextAvatar,
@@ -1109,6 +1050,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
           avatar: nextAvatar,
           profilePhotos: nextProfilePhotos,
           images: nextImages,
+          onboardingComplete: nextOnboardingComplete,
         },
       },
       { new: true }
@@ -1131,6 +1073,15 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const savedUserObject = savedUser.toObject();
     const photoFields = serializeUserPhotoFields(req, savedUserObject);
     const serializedUser = { ...savedUserObject, ...photoFields };
+    const profileCompletion = getProfileCompletionStatus(serializedUser, { req });
+    serializedUser.onboardingComplete = profileCompletion.canAppearInFeed;
+    serializedUser.canAppearInFeed = profileCompletion.canAppearInFeed;
+    serializedUser.missingFields = profileCompletion.missingFields;
+    serializedUser.profileCompletion = {
+      ...profileCompletion,
+      onboardingComplete: profileCompletion.canAppearInFeed,
+    };
+    serializedUser.profileCompletionStatus = serializedUser.profileCompletion;
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
@@ -1148,6 +1099,11 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       profilePhotos: photoFields.profilePhotos,
       images: serializedUser.images,
       maxExtraPhotos: photoFields.maxExtraPhotos,
+      onboardingComplete: serializedUser.onboardingComplete,
+      canAppearInFeed: serializedUser.canAppearInFeed,
+      missingFields: serializedUser.missingFields,
+      profileCompletion: serializedUser.profileCompletion,
+      profileCompletionStatus: serializedUser.profileCompletionStatus,
       user: serializedUser,
     });
   } catch (err) {

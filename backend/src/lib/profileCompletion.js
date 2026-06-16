@@ -1,5 +1,5 @@
-const { getLocationLabel } = require("./discovery.js");
-const { hasSerializableUserPhoto } = require("./photoFields.js");
+const { getLocationCoordinates, getLocationLabel } = require("./discovery.js");
+const { getPrimaryPhotoUrl } = require("./photoFields.js");
 const { calculateAge } = require("./age.js");
 
 const HTTPS_REQUEST_STUB = { protocol: "https", get: () => "" };
@@ -28,13 +28,16 @@ const normalizeDiscoveryScope = (user = {}) => {
   return ALLOWED_DISCOVERY_SCOPES.has(value) ? value : "global";
 };
 
+const hasProfileLocation = (user = {}) =>
+  getLocationLabel(user.location, user.locationLabel).length > 0 || Boolean(getLocationCoordinates(user));
+
 const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB, now = new Date()) => {
   const normalizedInterestedIn = normalizeInterestedIn(user.interestedIn);
   const checks = {
     name: isNonEmptyString(user.name),
-    photo: hasSerializableUserPhoto(req, user),
+    photo: Boolean(getPrimaryPhotoUrl(user, req)),
     birthdate: calculateAge(user.birthdate, now) !== null,
-    location: getLocationLabel(user.location, user.locationLabel).length > 0,
+    location: hasProfileLocation(user),
     gender: isNonEmptyString(user.gender),
     interestedIn: Boolean(normalizedInterestedIn),
     intent: isNonEmptyString(user.intent),

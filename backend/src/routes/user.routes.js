@@ -1031,6 +1031,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       profilePhotos: nextProfilePhotos,
       images: nextImages,
     };
+    syncCanonicalPhotoFields(mergedUserForCompletion, req);
     const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
     const nextOnboardingComplete = uploadProfileCompletion.canAppearInFeed;
 

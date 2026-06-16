@@ -228,7 +228,7 @@ const getUserPhotoSelection = (req, userLike) => {
 
   for (const { field, value } of getRawUserPhotoCandidates(userLike)) {
     const normalized = normalizePhotoUrl(req, value);
-    if (normalized && normalized === photos[0]) {
+    if (normalized && photos.length > 0 && normalized === photos[0]) {
       fieldUsed = field;
       break;
     }

@@ -497,7 +497,11 @@ export default function OnboardingPage() {
       if (!normalizedAvatar) {
         return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
       }
-      await updateSession?.();
+      try {
+        await updateSession?.();
+      } catch (err) {
+        console.error("[onboarding-avatar-upload] failed to refresh session", err);
+      }
       return { ok: true, avatar: normalizedAvatar, profilePhotos: uploadPhotos };
     };
 

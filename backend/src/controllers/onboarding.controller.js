@@ -173,15 +173,15 @@ const updateOnboarding = async (req, res) => {
       interests,
       intent,
     };
-    syncCanonicalPhotoFields(mergedProfile, req);
+    const syncedPhotoFields = syncCanonicalPhotoFields(mergedProfile, req);
     const missingFields = getMissingProfileFields(mergedProfile, { req });
     const canAppearInFeedValue = canAppearInFeed(mergedProfile, { req, missingFields });
     const onboardingComplete = canAppearInFeedValue;
 
     const updates = {
-      images: mergedProfile.images,
-      avatar: mergedProfile.avatar,
-      profilePhotos: mergedProfile.profilePhotos,
+      images: syncedPhotoFields.images,
+      avatar: syncedPhotoFields.avatar,
+      profilePhotos: syncedPhotoFields.profilePhotos,
       birthdate,
       gender: ALLOWED_GENDERS.has(gender) ? gender : currentUser.gender,
       interestedIn: ALLOWED_INTERESTED_IN.has(interestedIn) ? interestedIn : currentUser.interestedIn || "both",

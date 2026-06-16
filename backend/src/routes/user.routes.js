@@ -20,6 +20,7 @@ const {
   buildDiscoveryLocationMatch,
   combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getLocationCoordinates,
   getLocationLabel,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
@@ -259,6 +260,33 @@ const getMinProfileCompletion = (user = {}, req) => {
 
 const getPhotoUrlValue = (value) => getPhotoUrl(value);
 
+const hasNonEmptyProfileString = (value) => typeof value === "string" && value.trim().length > 0;
+
+const hasValidBirthdate = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+};
+
+const buildProfileStatusPayload = (req, user) => {
+  const storedUser = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  const serializedPhotos = serializeUserPhotoFields(req, storedUser);
+  const profileCompletion = getMinProfileCompletion({ ...storedUser, ...serializedPhotos }, req);
+  return {
+    onboardingComplete: profileCompletion.onboardingComplete,
+    canAppearInFeed: profileCompletion.canAppearInFeed,
+    missingFields: profileCompletion.missingFields,
+    imagesCount: Array.isArray(serializedPhotos.images) ? serializedPhotos.images.length : 0,
+    hasPrimaryPhoto: Boolean(serializedPhotos.avatar),
+    hasLocationPoint: Boolean(getLocationCoordinates(storedUser)),
+    hasGender: hasNonEmptyProfileString(storedUser.gender),
+    hasInterestedIn: hasNonEmptyProfileString(storedUser.interestedIn),
+    hasBirthdate: hasValidBirthdate(storedUser.birthdate),
+    hasIntent: hasNonEmptyProfileString(storedUser.intent),
+    hasInterests: Array.isArray(storedUser.interests) && storedUser.interests.length >= MIN_ONBOARDING_INTERESTS,
+  };
+};
+
 const sanitizePhotoUrl = (req, value) => {
   const rawValue = getPhotoUrlValue(value);
   if (typeof rawValue !== "string") return "";
@@ -432,6 +460,19 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
       canAppearInFeed: profileCompletion.canAppearInFeed,
       missingFields: profileCompletion.missingFields,
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get("/me/profile-status", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select(
+      "avatar profilePhotos images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.json(buildProfileStatusPayload(req, user));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

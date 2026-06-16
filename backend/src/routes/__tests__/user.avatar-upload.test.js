@@ -85,6 +85,53 @@ describe("POST /api/user/me/avatar-upload", () => {
     });
   });
 
+  test("returns profile status diagnostics for the current user", async () => {
+    const debugUser = {
+      _id: "507f1f77bcf86cd799439011",
+      name: "Complete User",
+      avatar: "/uploads/avatar-raw.png",
+      profilePhotos: ["/uploads/avatar-raw.png"],
+      images: [{ url: "/uploads/avatar-raw.png", isPrimary: true }],
+      onboardingComplete: true,
+      birthdate: new Date("2000-01-01T00:00:00.000Z"),
+      location: { type: "Point", coordinates: [-70.6693, -33.4489], country: "Chile", city: "Santiago" },
+      locationPoint: { type: "Point", coordinates: [-70.6693, -33.4489] },
+      gender: "female",
+      interestedIn: "male",
+      intent: "dating",
+      interests: ["music", "travel", "movies"],
+      role: "user",
+      isBlocked: false,
+      isSuspended: false,
+      toObject() {
+        return { ...this };
+      },
+    };
+
+    User.findById.mockReturnValueOnce(makeQuery(debugUser));
+
+    const res = await request(app)
+      .get("/api/user/me/profile-status")
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      onboardingComplete: true,
+      canAppearInFeed: true,
+      missingFields: [],
+      imagesCount: 1,
+      hasPrimaryPhoto: true,
+      hasLocationPoint: true,
+      hasGender: true,
+      hasInterestedIn: true,
+      hasBirthdate: true,
+      hasIntent: true,
+      hasInterests: true,
+    });
+  });
+
   test("stores uploaded photo in canonical image fields without saving the full user document", async () => {
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",

@@ -257,6 +257,26 @@ const getMinProfileCompletion = (user = {}, req) => {
   };
 };
 
+const getProfileStatusDiagnostics = (user = {}, req) => {
+  const profileCompletion = getProfileCompletionStatus(user, { req });
+  const missingFields = profileCompletion.missingFields;
+  const hasCompletedField = (field) => !missingFields.includes(field);
+
+  return {
+    onboardingComplete: profileCompletion.onboardingComplete,
+    canAppearInFeed: profileCompletion.canAppearInFeed,
+    missingFields,
+    imagesCount: Array.isArray(user.images) ? user.images.length : 0,
+    hasPrimaryPhoto: hasCompletedField("photo"),
+    hasLocationPoint: hasCompletedField("location"),
+    hasGender: hasCompletedField("gender"),
+    hasInterestedIn: hasCompletedField("interestedIn"),
+    hasBirthdate: hasCompletedField("birthdate"),
+    hasIntent: hasCompletedField("intent"),
+    hasInterests: hasCompletedField("interests"),
+  };
+};
+
 const getPhotoUrlValue = (value) => getPhotoUrl(value);
 
 const sanitizePhotoUrl = (req, value) => {
@@ -432,6 +452,20 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
       canAppearInFeed: profileCompletion.canAppearInFeed,
       missingFields: profileCompletion.missingFields,
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// TODO(2026-06-16): Remove this temporary endpoint after profile feed diagnostics are no longer needed.
+router.get("/me/profile-status", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select(
+      "images onboardingComplete name birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended"
+    );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.json(getProfileStatusDiagnostics(user.toObject(), req));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -85,6 +85,52 @@ describe("POST /api/user/me/avatar-upload", () => {
     });
   });
 
+  test("returns temporary profile status diagnostics for the current user", async () => {
+    const diagnosticUser = {
+      _id: "507f1f77bcf86cd799439011",
+      name: "Incomplete User",
+      images: [{ url: "https://api.meetyoulive.net/uploads/avatar-primary.png", isPrimary: true }],
+      onboardingComplete: false,
+      birthdate: new Date("2000-01-01T00:00:00.000Z"),
+      location: {},
+      locationPoint: { type: "Point", coordinates: [-70.66, -33.45] },
+      locationLabel: "",
+      gender: "female",
+      interestedIn: "male",
+      intent: "",
+      interests: ["music"],
+      role: "user",
+      isBlocked: false,
+      isSuspended: false,
+      toObject() {
+        return { ...this };
+      },
+    };
+
+    User.findById.mockReturnValueOnce(makeQuery(diagnosticUser));
+
+    const res = await request(app)
+      .get("/api/user/me/profile-status")
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      onboardingComplete: false,
+      canAppearInFeed: false,
+      missingFields: ["intent", "interests"],
+      imagesCount: 1,
+      hasPrimaryPhoto: true,
+      hasLocationPoint: true,
+      hasGender: true,
+      hasInterestedIn: true,
+      hasBirthdate: true,
+      hasIntent: false,
+      hasInterests: false,
+    });
+  });
+
   test("stores uploaded photo in canonical image fields without saving the full user document", async () => {
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",

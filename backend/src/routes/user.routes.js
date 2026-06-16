@@ -422,7 +422,7 @@ router.get("/me/photo-debug", userLimiter, verifyToken, async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
-    const storedUser = typeof user.toObject === "function" ? user.toObject() : user;
+    const storedUser = user.toObject();
     const profileCompletion = getProfileCompletionStatus(storedUser, { req });
     res.json({
       avatar: storedUser.avatar,

@@ -349,6 +349,9 @@ const serializeUserPhotoFields = (req, userLike) => {
   };
 };
 
+/**
+ * Mutate a serialized user payload with canonical profile completion metadata.
+ */
 const attachProfileCompletionPayload = (req, payload) => {
   const profileCompletion = getMinProfileCompletion(payload, req);
   payload.profileCompletion = profileCompletion;
@@ -537,12 +540,12 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     if (payload.role == null) payload.role = "user";
     if (payload.creatorStatus == null) payload.creatorStatus = "none";
 
-    const dbOnboardingComplete = payload.onboardingComplete === true;
+    const originalOnboardingComplete = payload.onboardingComplete === true;
     attachProfileCompletionPayload(req, payload);
     // Keep persisted onboardingComplete aligned with the canonical feed
     // eligibility helper so legacy profiles do not get stuck incomplete.
     const feedEligible = payload.canAppearInFeed;
-    if (dbOnboardingComplete !== feedEligible) {
+    if (originalOnboardingComplete !== feedEligible) {
       User.updateOne({ _id: user._id }, { $set: { onboardingComplete: feedEligible } }).catch((err) => {
         console.error("[lazy-onboarding-sync] failed:", err.message);
       });

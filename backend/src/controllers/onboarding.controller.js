@@ -144,6 +144,9 @@ const getMissingFields = (profile = {}) => {
   return missingFields;
 };
 
+/**
+ * Build the temporary profileStatus payload used to verify photo/profile alignment.
+ */
 const buildProfileStatusPayload = (req, user, profileCompletion) => ({
   imagesCount: Array.isArray(user.images) ? user.images.filter((image) => normalizePhotoUrl(req, image)).length : 0,
   hasPrimaryPhoto: Boolean(getPrimaryPhotoUrl(user, req)),

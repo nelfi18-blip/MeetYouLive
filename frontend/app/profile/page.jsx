@@ -183,6 +183,9 @@ const extractPhotosFromPayload = (payload) => {
   return photos;
 };
 
+const getPhotoPayloadValue = (payload, field, fallback) =>
+  payload?.user?.[field] ?? payload?.[field] ?? fallback;
+
 const normalizeDiscoveryForm = (user = {}) => {
   const preferences = user.discoveryPreferences || {};
   const ageRange = preferences.ageRange || {};
@@ -776,9 +779,9 @@ export default function ProfilePage() {
       avatar: normalizedAvatar,
       profilePhotos: normalizedPhotos,
       images: normalizedImages,
-      onboardingComplete: payload?.user?.onboardingComplete ?? payload?.onboardingComplete ?? prev.onboardingComplete,
-      canAppearInFeed: payload?.user?.canAppearInFeed ?? payload?.canAppearInFeed ?? prev.canAppearInFeed,
-      profileStatus: payload?.user?.profileStatus ?? payload?.profileStatus ?? prev.profileStatus,
+      onboardingComplete: getPhotoPayloadValue(payload, "onboardingComplete", prev.onboardingComplete),
+      canAppearInFeed: getPhotoPayloadValue(payload, "canAppearInFeed", prev.canAppearInFeed),
+      profileStatus: getPhotoPayloadValue(payload, "profileStatus", prev.profileStatus),
     }));
     setEditForm((prev) => (
       prev

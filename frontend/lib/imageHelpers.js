@@ -147,6 +147,12 @@ export function getUserPhotoSelection(user) {
   };
 }
 
+/**
+ * Normalize supported user photo aliases into canonical image objects.
+ *
+ * @param {Object|Array} userOrImages - User-like object or raw photo array.
+ * @returns {{url: string, isPrimary: boolean}[]} Up to six valid images.
+ */
 export function normalizeUserImages(userOrImages = {}) {
   return getUserPhotoSelection(userOrImages).photos.slice(0, MAX_USER_IMAGES).map((url, index) => ({
     url,

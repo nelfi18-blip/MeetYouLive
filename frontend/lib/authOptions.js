@@ -46,6 +46,8 @@ function normalizeRedirectUrl(url, baseUrl) {
   }
 }
 
+const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
 /**
  * Shared NextAuth configuration.
  * Kept in a plain module (not inside a route handler file) so it can be
@@ -87,7 +89,7 @@ export const authOptions = {
         if (typeof nextUser.image === "string") token.picture = nextUser.image;
         if (typeof session.onboardingComplete === "boolean") token.onboardingComplete = session.onboardingComplete;
         if (typeof session.canAppearInFeed === "boolean") token.canAppearInFeed = session.canAppearInFeed;
-        if (session.profileStatus && typeof session.profileStatus === "object" && !Array.isArray(session.profileStatus)) {
+        if (isPlainObject(session.profileStatus)) {
           token.profileStatus = session.profileStatus;
         }
       }
@@ -195,7 +197,7 @@ export const authOptions = {
       if (typeof token.canAppearInFeed === "boolean") {
         session.canAppearInFeed = token.canAppearInFeed;
       }
-      if (token.profileStatus) {
+      if (isPlainObject(token.profileStatus)) {
         session.profileStatus = token.profileStatus;
       }
       if (process.env.NODE_ENV !== "production") {

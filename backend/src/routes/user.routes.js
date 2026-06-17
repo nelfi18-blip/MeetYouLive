@@ -360,7 +360,6 @@ const attachProfileCompletionPayload = (req, payload) => {
   payload.canAppearInFeed = profileCompletion.canAppearInFeed;
   payload.missingFields = profileCompletion.missingFields;
   payload.profileStatus = buildProfileStatusPayload(req, payload);
-  return payload;
 };
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");

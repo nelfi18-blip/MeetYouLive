@@ -422,8 +422,10 @@ const birthdateMatchesMongoRange = (birthdate, filter) => {
 };
 
 const hasLocationPoint = (user = {}) => {
-  const [lng, lat] = Array.isArray(user.locationPoint?.coordinates) ? user.locationPoint.coordinates : [];
-  return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+  const coordinates = Array.isArray(user.locationPoint?.coordinates) ? user.locationPoint.coordinates : [];
+  const lng = Number(coordinates[0]);
+  const lat = Number(coordinates[1]);
+  return Number.isFinite(lng) && Number.isFinite(lat);
 };
 
 const isExcludedByNearbyLocation = (viewer, user) => {
@@ -431,7 +433,11 @@ const isExcludedByNearbyLocation = (viewer, user) => {
   if (getDiscoveryScope(viewer) !== "nearby") return false;
   const viewerCoordinates = getLocationCoordinates(viewer);
   const candidateCoordinates = getLocationCoordinates(user);
-  const maxDistanceKm = Number(viewer?.maxDistanceKm ?? viewer?.discoveryPreferences?.maxDistanceKm);
+  const rawMaxDistanceKm =
+    viewer.maxDistanceKm !== undefined && viewer.maxDistanceKm !== null
+      ? viewer.maxDistanceKm
+      : viewer.discoveryPreferences?.maxDistanceKm;
+  const maxDistanceKm = Number(rawMaxDistanceKm);
   if (!viewerCoordinates || !candidateCoordinates || !Number.isFinite(maxDistanceKm) || maxDistanceKm <= 0) {
     return false;
   }
@@ -640,12 +646,16 @@ const getFeed = async (req, res) => {
       console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
     }
     if (isFeedCandidateDiagnosticsEnabled(req)) {
+      const diagnosticLimit = Math.min(
+        Math.max(parseInt(req.query.debugFeedCandidatesLimit, 10) || FEED_DIAGNOSTIC_DEFAULT_LIMIT, 1),
+        FEED_DIAGNOSTIC_MAX_LIMIT
+      );
       const [totalUsers, diagnosticUsers] = await Promise.all([
         User.countDocuments({}),
         User.find({})
           .select(FEED_DIAGNOSTIC_USER_FIELDS)
           .sort({ createdAt: -1, _id: -1 })
-          .limit(FEED_DIAGNOSTIC_MAX_LIMIT)
+          .limit(diagnosticLimit)
           .lean(),
       ]);
       const feedCandidateDiagnostics = buildFeedCandidateDiagnostics(req, diagnosticUsers, {
@@ -657,7 +667,8 @@ const getFeed = async (req, res) => {
         returnedProfileIds: returnedProfileIdSet,
         discoveryMatch,
       });
-      console.debug("[Feed Candidate Diagnostics]", JSON.stringify(feedCandidateDiagnostics, null, 2));
+      feedCandidateDiagnostics.diagnosticUsersLimit = diagnosticLimit;
+      console.debug("[Feed Candidate Diagnostics]", JSON.stringify(feedCandidateDiagnostics));
     }
 
     // Build optional admin-only diagnosis

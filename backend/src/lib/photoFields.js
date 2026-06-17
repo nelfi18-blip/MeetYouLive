@@ -188,6 +188,8 @@ const syncCanonicalPhotoFields = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) =>
   return { images, avatar: primaryPhoto, profilePhotos };
 };
 
+const syncPhotoAliases = syncCanonicalPhotoFields;
+
 const getPrimaryPhotoUrl = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) =>
   normalizeUserImages(userLike, req)[0]?.url || "";
 
@@ -315,5 +317,6 @@ module.exports = {
   normalizePhotoUrl,
   serializeUserPhotoFields,
   syncCanonicalPhotoFields,
+  syncPhotoAliases,
   withSerializedUserPhotoFields,
 };

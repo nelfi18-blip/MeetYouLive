@@ -11,7 +11,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { normalizeImageUrl } from "@/lib/imageHelpers";
+import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
@@ -96,30 +96,7 @@ const extractPhotoUrl = (value) => {
 const getPhotoUrl = (photo) => normalizeAvatarUrl(extractPhotoUrl(photo));
 
 const normalizeImages = (userOrImages = {}) => {
-  const candidates = [];
-  if (Array.isArray(userOrImages)) {
-    candidates.push(...userOrImages);
-  } else if (userOrImages && typeof userOrImages === "object") {
-    candidates.push(
-      ...(Array.isArray(userOrImages.images) ? userOrImages.images : []),
-      userOrImages.avatar,
-      userOrImages.profileImage,
-      ...(Array.isArray(userOrImages.profilePhotos) ? userOrImages.profilePhotos : []),
-      userOrImages.photo,
-      ...(Array.isArray(userOrImages.photos) ? userOrImages.photos : [])
-    );
-  }
-
-  const photos = [];
-  const seenPhotos = new Set();
-  for (const candidate of candidates) {
-    const photoUrl = getPhotoUrl(candidate);
-    if (!photoUrl || seenPhotos.has(photoUrl)) continue;
-    seenPhotos.add(photoUrl);
-    photos.push(photoUrl);
-    if (photos.length >= MAX_PROFILE_PHOTOS) break;
-  }
-  return photos;
+  return normalizeSharedUserImages(userOrImages).map((image) => image.url);
 };
 
 const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
@@ -205,6 +182,9 @@ const extractPhotosFromPayload = (payload) => {
   }
   return photos;
 };
+
+const getPhotoPayloadValue = (payload, field, fallback) =>
+  payload?.user?.[field] ?? payload?.[field] ?? fallback;
 
 const normalizeDiscoveryForm = (user = {}) => {
   const preferences = user.discoveryPreferences || {};
@@ -441,15 +421,28 @@ export default function ProfilePage() {
   const isDistanceButtonActive = (distance) =>
     Number(editForm.discoveryMaxDistanceKm) === distance && editForm.discoveryScope === "nearby";
 
-  const refreshProfileSession = useCallback(async () => {
+  const refreshProfileSession = useCallback(async (profile = null) => {
     try {
       if (typeof updateSession === "function") {
-        await updateSession();
+        await updateSession(
+          profile
+            ? {
+                user: {
+                  name: profile.name || profile.username || session?.user?.name || "",
+                  image: getPrimaryImage(profile) || session?.user?.image || "",
+                },
+                onboardingComplete: profile.onboardingComplete === true,
+                canAppearInFeed: profile.canAppearInFeed === true,
+                profileStatus: profile.profileStatus || null,
+              }
+            : undefined
+        );
       }
+      router.refresh();
     } catch (err) {
       console.error("[profile] failed to refresh session:", err);
     }
-  }, [updateSession]);
+  }, [router, session?.user?.image, session?.user?.name, updateSession]);
 
   const updateAndPublishUser = useCallback((updates) => {
     if (!user) return null;
@@ -594,7 +587,7 @@ export default function ProfilePage() {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
         updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
-        await refreshProfileSession();
+        await refreshProfileSession(normalizedUser);
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);
       } else {
@@ -627,7 +620,7 @@ export default function ProfilePage() {
         });
       }
       updateAndPublishUser({ preferredLanguage: newLang });
-      await refreshProfileSession();
+      await refreshProfileSession(normalizedUser);
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
     } catch {
@@ -780,13 +773,23 @@ export default function ProfilePage() {
     const normalizedAvatar = normalizedPhotos[0] || "";
     const normalizedImages = toProfileImageObjects(normalizedPhotos);
     logPhotoNormalizationDiagnostics(payload?.user || payload, normalizedImages);
-    updateAndPublishUser({ avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages });
+    const nextUser = updateAndPublishUser((prev) => ({
+      ...prev,
+      ...(payload?.user || {}),
+      avatar: normalizedAvatar,
+      profilePhotos: normalizedPhotos,
+      images: normalizedImages,
+      onboardingComplete: getPhotoPayloadValue(payload, "onboardingComplete", prev.onboardingComplete),
+      canAppearInFeed: getPhotoPayloadValue(payload, "canAppearInFeed", prev.canAppearInFeed),
+      profileStatus: getPhotoPayloadValue(payload, "profileStatus", prev.profileStatus),
+    }));
     setEditForm((prev) => (
       prev
         ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages }
         : prev
     ));
     if (successMessage) setSaveSuccess(successMessage);
+    return nextUser;
   };
 
   const applyLocalPhotoPreviewList = (photos) => {
@@ -893,8 +896,8 @@ export default function ProfilePage() {
         setSaveError(data?.message || "No se pudieron guardar las fotos.");
         return false;
       }
-      applyPhotoPayload(data, successMessage);
-      await refreshProfileSession();
+      const nextUser = applyPhotoPayload(data, successMessage);
+      await refreshProfileSession(nextUser);
       return true;
     } catch {
       setSaveError("No se pudo conectar con el servidor.");
@@ -915,8 +918,8 @@ export default function ProfilePage() {
         setSaveError(uploadResult.error || "No se pudo subir la foto principal.");
         return;
       }
-      applyPhotoPayload(uploadResult.data, "Foto principal actualizada correctamente");
-      await refreshProfileSession();
+      const nextUser = applyPhotoPayload(uploadResult.data, "Foto principal actualizada correctamente");
+      await refreshProfileSession(nextUser);
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[avatar-upload] caught frontend error", err);
@@ -998,7 +1001,13 @@ export default function ProfilePage() {
       }
       if (uploadedCount > 0) {
         applyLocalPhotoPreviewList(persistedPhotos);
-        await refreshProfileSession();
+        const nextPhotoProfile = {
+          ...(user || {}),
+          avatar: persistedPhotos[0] || "",
+          profilePhotos: persistedPhotos,
+          images: toProfileImageObjects(persistedPhotos),
+        };
+        await refreshProfileSession(nextPhotoProfile);
         setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
       } else {
         applyLocalPhotoPreviewList(currentPhotos);

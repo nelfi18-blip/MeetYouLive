@@ -5,6 +5,7 @@ const {
   normalizePhotoUrl,
   normalizeUserImages,
   syncCanonicalPhotoFields,
+  syncPhotoAliases,
   withSerializedUserPhotoFields,
 } = require("../photoFields.js");
 
@@ -62,6 +63,17 @@ describe("photoFields", () => {
     expect(state.images[0]).toMatchObject({ url: state.avatar, isPrimary: true });
     expect(state.profilePhotos).toEqual([state.avatar]);
     expect(user.avatar).toBe(state.avatar);
+  });
+
+  test("syncPhotoAliases is an alias for canonical image/avatar/profilePhotos sync", () => {
+    const req = makeReq({ host: "api.meetyoulive.net" });
+    const user = { avatar: "/uploads/avatar.webp", images: [], profilePhotos: [] };
+
+    expect(syncPhotoAliases(user, req)).toMatchObject({
+      avatar: "https://api.meetyoulive.net/uploads/avatar.webp",
+      profilePhotos: ["https://api.meetyoulive.net/uploads/avatar.webp"],
+      images: [expect.objectContaining({ url: "https://api.meetyoulive.net/uploads/avatar.webp", isPrimary: true })],
+    });
   });
 
   test("normalizes profilePhotos[0] into canonical images[0]", () => {

@@ -451,7 +451,9 @@ const getFeedCandidateExcludedReason = (user, context) => {
   if (user.onboardingComplete !== true) return "onboarding_incomplete";
   if (!canAppear) return "canAppearInFeed_false";
   if (!valueMatchesMongoIn(user.gender, discoveryMatch.gender)) return "excludedByGenderPreference";
-  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) return "excludedByGenderPreference";
+  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) {
+    return "excludedByInterestedInPreference";
+  }
   if (!birthdateMatchesMongoRange(user.birthdate, discoveryMatch.birthdate)) return "excludedByAgeRange";
   if (context.likedProfileIds.has(userId)) return "excludedAlreadyLiked";
   if (context.clientExcludedProfileIds.has(userId)) return "excludedAlreadyDisliked";
@@ -461,6 +463,19 @@ const getFeedCandidateExcludedReason = (user, context) => {
 };
 
 const buildFeedCandidateDiagnostics = (req, users, context) => {
+  const summaryCounterByReason = {
+    role_not_user: "excludedIncomplete",
+    user_blocked: "excludedIncomplete",
+    user_suspended: "excludedIncomplete",
+    onboarding_incomplete: "excludedIncomplete",
+    canAppearInFeed_false: "excludedIncomplete",
+    excludedByGenderPreference: "excludedByGenderPreference",
+    excludedByInterestedInPreference: "excludedByGenderPreference",
+    excludedByAgeRange: "excludedByAgeRange",
+    excludedAlreadyLiked: "excludedAlreadyLiked",
+    excludedAlreadyDisliked: "excludedAlreadyDisliked",
+    excludedSelf: "excludedSelf",
+  };
   const summary = {
     totalUsers: context.totalUsers,
     totalEligibleBeforeViewerFilters: 0,
@@ -493,27 +508,8 @@ const buildFeedCandidateDiagnostics = (req, users, context) => {
     });
 
     if (excludedReason === "included_in_feed") return;
-    if (
-      [
-        "role_not_user",
-        "user_blocked",
-        "user_suspended",
-        "onboarding_incomplete",
-        "canAppearInFeed_false",
-      ].includes(excludedReason)
-    ) {
-      summary.excludedIncomplete += 1;
-    } else if (excludedReason === "excludedByGenderPreference") {
-      summary.excludedByGenderPreference += 1;
-    } else if (excludedReason === "excludedByAgeRange") {
-      summary.excludedByAgeRange += 1;
-    } else if (excludedReason === "excludedAlreadyLiked") {
-      summary.excludedAlreadyLiked += 1;
-    } else if (excludedReason === "excludedAlreadyDisliked") {
-      summary.excludedAlreadyDisliked += 1;
-    } else if (excludedReason === "excludedSelf") {
-      summary.excludedSelf += 1;
-    }
+    const summaryCounter = summaryCounterByReason[excludedReason];
+    if (summaryCounter) summary[summaryCounter] += 1;
 
     excludedCandidates.push({
       userId: String(user._id),

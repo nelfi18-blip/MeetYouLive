@@ -998,7 +998,13 @@ export default function ProfilePage() {
       }
       if (uploadedCount > 0) {
         applyLocalPhotoPreviewList(persistedPhotos);
-        await refreshProfileSession({ ...(user || {}), avatar: persistedPhotos[0] || "", profilePhotos: persistedPhotos, images: toProfileImageObjects(persistedPhotos) });
+        const nextPhotoProfile = {
+          ...(user || {}),
+          avatar: persistedPhotos[0] || "",
+          profilePhotos: persistedPhotos,
+          images: toProfileImageObjects(persistedPhotos),
+        };
+        await refreshProfileSession(nextPhotoProfile);
         setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
       } else {
         applyLocalPhotoPreviewList(currentPhotos);

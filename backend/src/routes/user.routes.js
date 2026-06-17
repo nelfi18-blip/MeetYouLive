@@ -537,12 +537,12 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     if (payload.role == null) payload.role = "user";
     if (payload.creatorStatus == null) payload.creatorStatus = "none";
 
-    const storedOnboardingComplete = payload.onboardingComplete === true;
+    const dbOnboardingComplete = payload.onboardingComplete === true;
     attachProfileCompletionPayload(req, payload);
     // Keep persisted onboardingComplete aligned with the canonical feed
     // eligibility helper so legacy profiles do not get stuck incomplete.
     const feedEligible = payload.canAppearInFeed;
-    if (storedOnboardingComplete !== feedEligible) {
+    if (dbOnboardingComplete !== feedEligible) {
       User.updateOne({ _id: user._id }, { $set: { onboardingComplete: feedEligible } }).catch((err) => {
         console.error("[lazy-onboarding-sync] failed:", err.message);
       });

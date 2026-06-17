@@ -43,7 +43,7 @@ const PROFILE_STATUS_FIELDS = [
   "hasInterests",
 ];
 
-const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV === "development" || profile?.role === "admin";
+const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV !== "production" || profile?.role === "admin";
 
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
@@ -345,7 +345,7 @@ function ProfileDiagnosticsCard({ status, error }) {
   return (
     <div className="profile-diagnostics-card">
       <div className="profile-diagnostics-header">
-        <strong>Diagnóstico temporal de perfil</strong>
+        <strong>Estado del Perfil</strong>
         <span>GET /api/user/me/profile-status</span>
       </div>
       {error && <p className="profile-diagnostics-error">{error}</p>}

@@ -154,7 +154,7 @@ export function getUserPhotoSelection(user) {
  * @returns {{url: string, isPrimary: boolean}[]} Up to six valid images.
  */
 export function normalizeUserImages(userOrImages = {}) {
-  return getUserPhotoSelection(userOrImages).photos.slice(0, MAX_USER_IMAGES).map((url, index) => ({
+  return getUserPhotoSelection(userOrImages).photos.map((url, index) => ({
     url,
     isPrimary: index === 0,
   }));

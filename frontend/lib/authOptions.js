@@ -87,7 +87,7 @@ export const authOptions = {
         if (typeof nextUser.image === "string") token.picture = nextUser.image;
         if (typeof session.onboardingComplete === "boolean") token.onboardingComplete = session.onboardingComplete;
         if (typeof session.canAppearInFeed === "boolean") token.canAppearInFeed = session.canAppearInFeed;
-        if (session.profileStatus && typeof session.profileStatus === "object") {
+        if (session.profileStatus && typeof session.profileStatus === "object" && !Array.isArray(session.profileStatus)) {
           token.profileStatus = session.profileStatus;
         }
       }

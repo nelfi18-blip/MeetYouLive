@@ -679,7 +679,9 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     Object.assign(payload, photoFields);
     attachProfileCompletionPayload(req, payload);
     if (user.onboardingComplete !== payload.onboardingComplete) {
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch(() => {});
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch((err) => {
+        console.error("[onboarding-sync] DB write failed:", err.message);
+      });
     }
     res.json(payload);
   } catch (err) {
@@ -853,7 +855,9 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     Object.assign(payload, photoFields);
     attachProfileCompletionPayload(req, payload);
     if (user.onboardingComplete !== payload.onboardingComplete) {
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch(() => {});
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch((err) => {
+        console.error("[onboarding-sync] DB write failed:", err.message);
+      });
     }
     res.json(payload);
   } catch (err) {

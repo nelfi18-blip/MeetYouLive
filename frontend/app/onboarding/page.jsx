@@ -13,7 +13,7 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
-import { normalizeImageUrl } from "@/lib/imageHelpers";
+import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -91,33 +91,7 @@ const getUploadPhotoUrlValue = (value) => {
 const getPhotoUrl = (photo) => normalizeAvatarUrl(getUploadPhotoUrlValue(photo));
 
 const normalizeImages = (userOrImages = {}) => {
-  const candidates = [];
-  if (Array.isArray(userOrImages)) {
-    candidates.push(...userOrImages);
-  } else if (userOrImages && typeof userOrImages === "object") {
-    candidates.push(
-      ...(Array.isArray(userOrImages.images) ? userOrImages.images : []),
-      userOrImages.avatar,
-      userOrImages.profileImage,
-      ...(Array.isArray(userOrImages.profilePhotos) ? userOrImages.profilePhotos : []),
-      userOrImages.photo,
-      userOrImages.mainPhoto,
-      userOrImages.photoUrl,
-      userOrImages.avatarPath,
-      ...(Array.isArray(userOrImages.photos) ? userOrImages.photos : [])
-    );
-  }
-
-  const photos = [];
-  const seenPhotos = new Set();
-  for (const candidate of candidates) {
-    const photoUrl = getPhotoUrl(candidate);
-    if (!photoUrl || seenPhotos.has(photoUrl)) continue;
-    seenPhotos.add(photoUrl);
-    photos.push(photoUrl);
-    if (photos.length >= MAX_PROFILE_PHOTOS) break;
-  }
-  return photos;
+  return normalizeSharedUserImages(userOrImages).map((image) => image.url);
 };
 
 const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
@@ -679,9 +653,19 @@ export default function OnboardingPage() {
         setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
         return;
       }
-      // Force the backend profile to refresh before leaving onboarding; the body is not needed here.
-      await profileRes.json().catch(() => null);
-      await updateSession?.();
+      // Force the backend profile to refresh before leaving onboarding.
+      const refreshedProfile = await profileRes.json().catch(() => null);
+      const sessionProfile = refreshedProfile || updatedUser;
+      await updateSession?.({
+        user: {
+          name: sessionProfile?.name || name.trim() || "",
+          image: getPrimaryImage(sessionProfile) || finalAvatarUrl || "",
+        },
+        onboardingComplete: sessionProfile?.onboardingComplete === true,
+        canAppearInFeed: sessionProfile?.canAppearInFeed === true,
+        profileStatus: sessionProfile?.profileStatus || data.profileStatus || null,
+      });
+      router.refresh();
       router.replace("/feed");
     } catch {
       setError("No se pudo conectar con el servidor");

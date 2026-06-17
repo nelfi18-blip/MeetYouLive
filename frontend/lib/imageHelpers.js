@@ -3,6 +3,8 @@
  * These ensure we never show broken images or empty placeholders
  */
 
+const MAX_USER_IMAGES = 6;
+
 /**
  * Normalize user-provided image values into renderable client URLs.
  *
@@ -97,6 +99,12 @@ function getPrimaryProfileImageCandidate(user) {
  */
 function getPhotoCandidates(user, primaryCandidate = null) {
   if (!user) return [];
+  if (Array.isArray(user)) {
+    return [
+      ...(primaryCandidate ? [primaryCandidate] : []),
+      ...user.map((value) => ({ field: "images", value })),
+    ];
+  }
   return [
     ...(primaryCandidate ? [primaryCandidate] : []),
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
@@ -127,6 +135,7 @@ export function getUserPhotoSelection(user) {
       seenPhotos.add(normalized);
       photos.push(normalized);
       if (!fieldUsed) fieldUsed = field;
+      if (photos.length >= MAX_USER_IMAGES) break;
     }
   }
 
@@ -136,6 +145,13 @@ export function getUserPhotoSelection(user) {
     fieldUsed,
     photoCount: photos.length,
   };
+}
+
+export function normalizeUserImages(userOrImages = {}) {
+  return getUserPhotoSelection(userOrImages).photos.slice(0, MAX_USER_IMAGES).map((url, index) => ({
+    url,
+    isPrimary: index === 0,
+  }));
 }
 
 /**

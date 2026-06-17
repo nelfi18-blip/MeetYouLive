@@ -349,6 +349,17 @@ const serializeUserPhotoFields = (req, userLike) => {
   };
 };
 
+const attachProfileCompletionPayload = (req, payload) => {
+  const profileCompletion = getMinProfileCompletion(payload, req);
+  payload.profileCompletion = profileCompletion;
+  payload.profileCompletionStatus = profileCompletion;
+  payload.onboardingComplete = profileCompletion.canAppearInFeed;
+  payload.canAppearInFeed = profileCompletion.canAppearInFeed;
+  payload.missingFields = profileCompletion.missingFields;
+  payload.profileStatus = buildProfileStatusPayload(req, payload);
+  return payload;
+};
+
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
 const getSafeUploadedFilePath = (file) => {
@@ -526,20 +537,16 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     if (payload.role == null) payload.role = "user";
     if (payload.creatorStatus == null) payload.creatorStatus = "none";
 
+    const storedOnboardingComplete = payload.onboardingComplete === true;
+    attachProfileCompletionPayload(req, payload);
     // Keep persisted onboardingComplete aligned with the canonical feed
     // eligibility helper so legacy profiles do not get stuck incomplete.
-    const profileCompletion = getMinProfileCompletion(payload, req);
-    const feedEligible = profileCompletion.canAppearInFeed;
-    if (payload.onboardingComplete !== feedEligible) {
-      payload.onboardingComplete = feedEligible;
+    const feedEligible = payload.canAppearInFeed;
+    if (storedOnboardingComplete !== feedEligible) {
       User.updateOne({ _id: user._id }, { $set: { onboardingComplete: feedEligible } }).catch((err) => {
         console.error("[lazy-onboarding-sync] failed:", err.message);
       });
     }
-    payload.profileCompletion = profileCompletion;
-    payload.profileCompletionStatus = profileCompletion;
-    payload.canAppearInFeed = feedEligible;
-    payload.missingFields = profileCompletion.missingFields;
 
     res.json(payload);
   } catch (err) {
@@ -667,6 +674,10 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
+    attachProfileCompletionPayload(req, payload);
+    if (user.onboardingComplete !== payload.onboardingComplete) {
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch(() => {});
+    }
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -800,10 +811,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
-    payload.profileCompletion = getMinProfileCompletion(payload, req);
-    payload.onboardingComplete = payload.profileCompletion.canAppearInFeed;
-    payload.canAppearInFeed = payload.profileCompletion.canAppearInFeed;
-    payload.missingFields = payload.profileCompletion.missingFields;
+    attachProfileCompletionPayload(req, payload);
     res.json({
       user: payload,
       onboardingComplete: payload.onboardingComplete,
@@ -811,6 +819,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       missingFields: payload.missingFields,
       profileCompletion: payload.profileCompletion,
       profileCompletionStatus: payload.profileCompletion,
+      profileStatus: payload.profileStatus,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -839,6 +848,10 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
     const payload = user.toObject();
     const photoFields = serializeUserPhotoFields(req, payload);
     Object.assign(payload, photoFields);
+    attachProfileCompletionPayload(req, payload);
+    if (user.onboardingComplete !== payload.onboardingComplete) {
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch(() => {});
+    }
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1139,15 +1152,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const savedUserObject = savedUser.toObject();
     const photoFields = serializeUserPhotoFields(req, savedUserObject);
     const serializedUser = { ...savedUserObject, ...photoFields };
-    const profileCompletion = getProfileCompletionStatus(serializedUser, { req });
-    serializedUser.onboardingComplete = profileCompletion.canAppearInFeed;
-    serializedUser.canAppearInFeed = profileCompletion.canAppearInFeed;
-    serializedUser.missingFields = profileCompletion.missingFields;
-    serializedUser.profileCompletion = {
-      ...profileCompletion,
-      onboardingComplete: profileCompletion.canAppearInFeed,
-    };
-    serializedUser.profileCompletionStatus = serializedUser.profileCompletion;
+    attachProfileCompletionPayload(req, serializedUser);
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",
@@ -1170,6 +1175,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       missingFields: serializedUser.missingFields,
       profileCompletion: serializedUser.profileCompletion,
       profileCompletionStatus: serializedUser.profileCompletionStatus,
+      profileStatus: serializedUser.profileStatus,
       user: serializedUser,
     });
   } catch (err) {

@@ -80,7 +80,17 @@ export const authOptions = {
       return normalizeRedirectUrl(url, baseUrl);
     },
 
-    async jwt({ token, profile }) {
+    async jwt({ token, profile, trigger, session }) {
+      if (trigger === "update" && session) {
+        const nextUser = session.user || {};
+        if (typeof nextUser.name === "string") token.name = nextUser.name;
+        if (typeof nextUser.image === "string") token.picture = nextUser.image;
+        if (typeof session.onboardingComplete === "boolean") token.onboardingComplete = session.onboardingComplete;
+        if (typeof session.canAppearInFeed === "boolean") token.canAppearInFeed = session.canAppearInFeed;
+        if (session.profileStatus && typeof session.profileStatus === "object") {
+          token.profileStatus = session.profileStatus;
+        }
+      }
       if (profile) {
         token.googleEmail = profile.email || token.email || "";
         token.googleName = profile.name || token.name || "";
@@ -178,6 +188,15 @@ export const authOptions = {
       if (token.googleEmail) {
         session.googleEmail = token.googleEmail;
         session.googleName = token.googleName || "";
+      }
+      if (typeof token.onboardingComplete === "boolean") {
+        session.onboardingComplete = token.onboardingComplete;
+      }
+      if (typeof token.canAppearInFeed === "boolean") {
+        session.canAppearInFeed = token.canAppearInFeed;
+      }
+      if (token.profileStatus) {
+        session.profileStatus = token.profileStatus;
       }
       if (process.env.NODE_ENV !== "production") {
         console.log("[NextAuth] Session data:", {

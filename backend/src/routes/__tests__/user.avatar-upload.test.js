@@ -17,6 +17,7 @@ jest.mock("../../models/User.js", () => ({
   exists: jest.fn(),
   bulkWrite: jest.fn(),
   find: jest.fn(),
+  updateOne: jest.fn(),
 }));
 
 const userRoutes = require("../user.routes.js");
@@ -32,6 +33,7 @@ describe("POST /api/user/me/avatar-upload", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    User.updateOne.mockReturnValue(Promise.resolve({}));
     app = express();
     app.set("trust proxy", 1);
     app.use("/api/user", userRoutes);
@@ -129,6 +131,55 @@ describe("POST /api/user/me/avatar-upload", () => {
       hasBirthdate: true,
       hasIntent: true,
       hasInterests: true,
+    });
+
+    test("GET /me returns normalized photos and embedded profileStatus", async () => {
+      const meUser = {
+        _id: "507f1f77bcf86cd799439011",
+        name: "Complete User",
+        email: "complete@example.com",
+        avatar: "/uploads/avatar-raw.png",
+        profilePhotos: ["/uploads/avatar-raw.png"],
+        images: [{ url: "/uploads/avatar-raw.png", isPrimary: true }],
+        onboardingComplete: true,
+        birthdate: new Date("2000-01-01T00:00:00.000Z"),
+        location: { type: "Point", coordinates: [-70.6693, -33.4489], country: "Chile", city: "Santiago" },
+        locationPoint: { type: "Point", coordinates: [-70.6693, -33.4489] },
+        gender: "female",
+        interestedIn: "male",
+        intent: "dating",
+        interests: ["music", "travel", "movies"],
+        role: "user",
+        creatorStatus: "none",
+        isBlocked: false,
+        isSuspended: false,
+        toObject() {
+          return { ...this };
+        },
+      };
+
+      User.findById.mockReturnValueOnce(makeQuery(meUser));
+
+      const res = await request(app)
+        .get("/api/user/me")
+        .set("Authorization", "******")
+        .set("Host", "api.meetyoulive.net")
+        .set("X-Forwarded-Proto", "https");
+
+      expect(res.status).toBe(200);
+      expect(res.body.avatar).toBe("https://api.meetyoulive.net/uploads/avatar-raw.png");
+      expect(res.body.profilePhotos).toEqual(["https://api.meetyoulive.net/uploads/avatar-raw.png"]);
+      expect(res.body.images[0]).toMatchObject({
+        url: "https://api.meetyoulive.net/uploads/avatar-raw.png",
+        isPrimary: true,
+      });
+      expect(res.body.profileStatus).toMatchObject({
+        imagesCount: 1,
+        hasPrimaryPhoto: true,
+        onboardingComplete: true,
+        canAppearInFeed: true,
+        missingFields: [],
+      });
     });
   });
 

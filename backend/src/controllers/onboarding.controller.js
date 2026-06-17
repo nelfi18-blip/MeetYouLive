@@ -1,5 +1,6 @@
 const User = require("../models/User.js");
 const {
+  getPrimaryPhotoUrl,
   normalizePhotoUrl,
   syncCanonicalPhotoFields,
   withSerializedUserPhotoFields,
@@ -143,6 +144,14 @@ const getMissingFields = (profile = {}) => {
   return missingFields;
 };
 
+const buildProfileStatusPayload = (req, user, profileCompletion) => ({
+  imagesCount: Array.isArray(user.images) ? user.images.filter((image) => normalizePhotoUrl(req, image)).length : 0,
+  hasPrimaryPhoto: Boolean(getPrimaryPhotoUrl(user, req)),
+  onboardingComplete: profileCompletion.canAppearInFeed,
+  canAppearInFeed: profileCompletion.canAppearInFeed,
+  missingFields: profileCompletion.missingFields,
+});
+
 const updateOnboarding = async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId).select("-password");
@@ -229,6 +238,7 @@ const updateOnboarding = async (req, res) => {
     payload.canAppearInFeed = profileCompletion.canAppearInFeed;
     payload.profileCompletion = { ...profileCompletion, onboardingComplete: finalOnboardingComplete };
     payload.profileCompletionStatus = payload.profileCompletion;
+    payload.profileStatus = buildProfileStatusPayload(req, payload, payload.profileCompletion);
 
     return res.json({
       ok: true,
@@ -238,6 +248,7 @@ const updateOnboarding = async (req, res) => {
       canAppearInFeed: profileCompletion.canAppearInFeed,
       profileCompletion: payload.profileCompletion,
       profileCompletionStatus: payload.profileCompletionStatus,
+      profileStatus: payload.profileStatus,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });

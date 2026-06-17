@@ -470,21 +470,24 @@ const buildFeedCandidateDiagnostics = (req, users, context) => {
     onboarding_incomplete: "excludedIncomplete",
     canAppearInFeed_false: "excludedIncomplete",
     excludedByGenderPreference: "excludedByGenderPreference",
-    excludedByInterestedInPreference: "excludedByGenderPreference",
+    excludedByInterestedInPreference: "excludedByInterestedInPreference",
     excludedByAgeRange: "excludedByAgeRange",
     excludedAlreadyLiked: "excludedAlreadyLiked",
     excludedAlreadyDisliked: "excludedAlreadyDisliked",
     excludedSelf: "excludedSelf",
+    excludedByLocationDistance: "excludedByLocationDistance",
   };
   const summary = {
     totalUsers: context.totalUsers,
     totalEligibleBeforeViewerFilters: 0,
     excludedIncomplete: 0,
     excludedByGenderPreference: 0,
+    excludedByInterestedInPreference: 0,
     excludedByAgeRange: 0,
     excludedAlreadyLiked: 0,
     excludedAlreadyDisliked: 0,
     excludedSelf: 0,
+    excludedByLocationDistance: 0,
     finalCandidatesCount: context.returnedProfileIds.size,
   };
 

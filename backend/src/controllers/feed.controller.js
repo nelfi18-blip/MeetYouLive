@@ -528,7 +528,7 @@ const buildZeroCandidateDiagnostics = async (req, context) => {
       ...context,
       req,
     });
-    if (excludedReason === "includedInFeed") return;
+    if (excludedReason === "includedInFeed") continue;
     if (Object.hasOwn(debug, excludedReason)) {
       debug[excludedReason] += 1;
     }
@@ -764,9 +764,7 @@ const getFeed = async (req, res) => {
       });
       const { discardedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
       console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
-      discardedUsers.forEach((discardedUser) => {
-        console.log("[Feed Zero Candidate Discarded User]", JSON.stringify(discardedUser));
-      });
+      console.log("[Feed Zero Candidate Discarded Users]", JSON.stringify(discardedUsers));
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.

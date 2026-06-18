@@ -485,9 +485,11 @@ const getZeroCandidateExcludedReason = (user, context) => {
   return "eligibleNotReturned";
 };
 
-const buildZeroCandidateFeedDebug = (req, users, context) => {
+const buildZeroCandidateDiagnostics = async (req, context) => {
+  const discardedUsersLimit = FEED_DIAGNOSTIC_MAX_LIMIT;
+  const totalUsers = await User.countDocuments({});
   const debug = {
-    totalUsers: context.totalUsers,
+    totalUsers,
     eligibleUsers: 0,
     excludedSelf: 0,
     excludedIncomplete: 0,
@@ -502,7 +504,14 @@ const buildZeroCandidateFeedDebug = (req, users, context) => {
   };
 
   const discardedUsers = [];
-  users.forEach((user) => {
+  let discardedUsersCount = 0;
+  const diagnosticUsers = User.find({})
+    .select(FEED_DIAGNOSTIC_USER_FIELDS)
+    .sort({ createdAt: -1, _id: -1 })
+    .lean()
+    .cursor();
+
+  for await (const user of diagnosticUsers) {
     const missingFields = getMissingProfileFields(user, { req });
     const canAppearInFeedValue = canAppearInFeed(user, { req, missingFields });
     if (
@@ -524,16 +533,26 @@ const buildZeroCandidateFeedDebug = (req, users, context) => {
       debug[excludedReason] += 1;
     }
 
-    discardedUsers.push({
+    const discardedUser = {
       username: user.username || null,
       onboardingComplete: user.onboardingComplete === true,
       canAppearInFeed: canAppearInFeedValue,
       missingFields,
       excludedReason,
-    });
-  });
+    };
+    discardedUsersCount += 1;
+    if (discardedUsers.length < discardedUsersLimit) {
+      discardedUsers.push(discardedUser);
+    }
+  }
 
-  return { ...debug, discardedUsers };
+  return {
+    ...debug,
+    discardedUsers,
+    discardedUsersCount,
+    discardedUsersLimit,
+    discardedUsersTruncated: discardedUsersCount > discardedUsersLimit,
+  };
 };
 
 const getFeedCandidateExcludedReason = (user, context) => {
@@ -734,12 +753,7 @@ const getFeed = async (req, res) => {
     const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
     let zeroCandidateDebug = null;
     if (returnedProfileIdSet.size === 0) {
-      const [totalUsers, diagnosticUsers] = await Promise.all([
-        User.countDocuments({}),
-        User.find({}).select(FEED_DIAGNOSTIC_USER_FIELDS).sort({ createdAt: -1, _id: -1 }).lean(),
-      ]);
-      zeroCandidateDebug = buildZeroCandidateFeedDebug(req, diagnosticUsers, {
-        totalUsers,
+      zeroCandidateDebug = await buildZeroCandidateDiagnostics(req, {
         viewer: currentUserProfile,
         viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
         likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
@@ -748,7 +762,11 @@ const getFeed = async (req, res) => {
         returnedProfileIds: returnedProfileIdSet,
         discoveryMatch,
       });
-      console.debug("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateDebug));
+      const { discardedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
+      console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
+      discardedUsers.forEach((discardedUser) => {
+        console.log("[Feed Zero Candidate Discarded User]", JSON.stringify(discardedUser));
+      });
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.

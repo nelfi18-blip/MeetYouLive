@@ -13,6 +13,11 @@ const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
+function getProfileId(profile) {
+  const profileId = profile?._id || profile?.id;
+  return profileId ? String(profileId) : "";
+}
+
 function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
   if (direction === "right") return SWIPE_EXIT_DISTANCE_X;
@@ -70,7 +75,7 @@ export default function SwipeCard({
   const completeSwipe = useCallback(async (direction, { force = false } = {}) => {
     if (!isActive || hasSwiped || (!force && disabled) || isSubmitting) return;
 
-    const swipeProfileId = profile?._id || profile?.id ? String(profile?._id || profile?.id) : "";
+    const swipeProfileId = getProfileId(profile);
     if (!swipeProfileId) return;
 
     setIsSubmitting(true);
@@ -124,7 +129,7 @@ export default function SwipeCard({
 
   const photoSelection = useMemo(() => getUserPhotoSelection(profile), [profile]);
   const displayName = getDisplayName(profile);
-  const profileId = profile?._id || profile?.id ? String(profile?._id || profile?.id) : "";
+  const profileId = getProfileId(profile);
   const age = profile?.age || "";
   const location = typeof profile?.location === "string" ? profile.location : "";
   const numericDistance = Number(profile?.distance);

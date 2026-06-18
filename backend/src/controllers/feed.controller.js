@@ -260,9 +260,14 @@ const serializeFeedImageFields = (req, item) => {
     : name;
   const photos = Array.isArray(serialized.profilePhotos) ? serialized.profilePhotos.filter(Boolean) : [];
   const images = Array.isArray(serialized.images) ? serialized.images : [];
-  const interests = (Array.isArray(serialized.interests) ? serialized.interests : serialized.tags)
-    ?.filter((interest) => typeof interest === "string" && interest.trim())
-    .map((interest) => interest.trim()) || [];
+  const interestSource = Array.isArray(serialized.interests)
+    ? serialized.interests
+    : Array.isArray(serialized.tags)
+      ? serialized.tags
+      : [];
+  const interests = interestSource
+    .filter((interest) => typeof interest === "string" && interest.trim())
+    .map((interest) => interest.trim());
   const location = typeof serialized.location === "string"
     ? serialized.location.trim()
     : [

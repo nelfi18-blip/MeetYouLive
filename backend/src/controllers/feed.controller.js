@@ -445,6 +445,95 @@ const isExcludedByNearbyLocation = (viewer, user) => {
   return distanceKm !== null && distanceKm > maxDistanceKm;
 };
 
+const isExcludedByDiscoveryLocation = (viewer, user) => {
+  if (!viewer) return false;
+  const scope = getDiscoveryScope(viewer);
+  if (scope === "nearby") return isExcludedByNearbyLocation(viewer, user);
+  if (scope !== "country") return false;
+
+  const filteredCandidates = applyDiscoveryLocationFilter(viewer, [user]);
+  return filteredCandidates.length === 0;
+};
+
+const getZeroCandidateExcludedReason = (user, context) => {
+  const userId = String(user._id);
+  const discoveryMatch = context.discoveryMatch || {};
+  const missingFields = getMissingProfileFields(user, { req: context.req });
+  const canAppearInFeedValue = canAppearInFeed(user, {
+    req: context.req,
+    missingFields,
+  });
+
+  if (context.returnedProfileIds.has(userId)) return "includedInFeed";
+  if (
+    user.role !== "user" ||
+    user.isBlocked === true ||
+    user.isSuspended === true ||
+    user.onboardingComplete !== true ||
+    canAppearInFeedValue !== true
+  ) {
+    return "excludedIncomplete";
+  }
+  if (context.viewerId && userId === context.viewerId) return "excludedSelf";
+  if (!valueMatchesMongoIn(user.gender, discoveryMatch.gender)) return "excludedByGender";
+  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) return "excludedByGender";
+  if (!birthdateMatchesMongoRange(user.birthdate, discoveryMatch.birthdate)) return "excludedByAge";
+  if (isExcludedByDiscoveryLocation(context.viewer, user)) return "excludedByDistance";
+  if (context.clientExcludedProfileIds.has(userId)) return "excludedAlreadySeen";
+  if (context.likedProfileIds.has(userId)) return "excludedAlreadyLiked";
+  return "eligibleNotReturned";
+};
+
+const buildZeroCandidateFeedDebug = (req, users, context) => {
+  const debug = {
+    totalUsers: context.totalUsers,
+    eligibleUsers: 0,
+    excludedSelf: 0,
+    excludedIncomplete: 0,
+    excludedByGender: 0,
+    excludedByAge: 0,
+    excludedByDistance: 0,
+    excludedAlreadySeen: 0,
+    excludedAlreadyLiked: 0,
+    excludedAlreadyDisliked: 0,
+    finalCandidatesCount: context.returnedProfileIds.size,
+  };
+
+  const discardedUsers = [];
+  users.forEach((user) => {
+    const missingFields = getMissingProfileFields(user, { req });
+    const canAppearInFeedValue = canAppearInFeed(user, { req, missingFields });
+    if (
+      user.role === "user" &&
+      user.isBlocked !== true &&
+      user.isSuspended !== true &&
+      user.onboardingComplete === true &&
+      canAppearInFeedValue === true
+    ) {
+      debug.eligibleUsers += 1;
+    }
+
+    const excludedReason = getZeroCandidateExcludedReason(user, {
+      ...context,
+      req,
+    });
+    if (excludedReason === "includedInFeed") return;
+    if (Object.prototype.hasOwnProperty.call(debug, excludedReason)) {
+      debug[excludedReason] += 1;
+    }
+
+    discardedUsers.push({
+      username: user.username || null,
+      onboardingComplete: user.onboardingComplete === true,
+      canAppearInFeed: canAppearInFeedValue,
+      missingFields,
+      excludedReason,
+    });
+  });
+
+  return { ...debug, discardedUsers };
+};
+
 const getFeedCandidateExcludedReason = (user, context) => {
   const userId = String(user._id);
   const canAppear = context.canAppearInFeed;
@@ -641,6 +730,23 @@ const getFeed = async (req, res) => {
       serializeFeedImageFields(req, creator)
     );
     const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
+    let zeroCandidateDebug = null;
+    if (returnedProfileIdSet.size === 0) {
+      const [totalUsers, diagnosticUsers] = await Promise.all([
+        User.countDocuments({}),
+        User.find({}).select(FEED_DIAGNOSTIC_USER_FIELDS).sort({ createdAt: -1, _id: -1 }).lean(),
+      ]);
+      zeroCandidateDebug = buildZeroCandidateFeedDebug(req, diagnosticUsers, {
+        totalUsers,
+        viewer: currentUserProfile,
+        viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
+        likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
+        clientExcludedProfileIds,
+        returnedProfileIds: returnedProfileIdSet,
+        discoveryMatch,
+      });
+      console.debug("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateDebug));
+    }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.
       console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
@@ -704,6 +810,7 @@ const getFeed = async (req, res) => {
       missingFields: viewerProfileStatus?.missingFields || [],
       profileCompletionStatus: viewerProfileStatus,
     };
+    if (zeroCandidateDebug) responseBody.debug = zeroCandidateDebug;
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);
   } catch (error) {

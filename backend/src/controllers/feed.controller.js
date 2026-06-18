@@ -486,7 +486,7 @@ const getZeroCandidateExcludedReason = (user, context) => {
 };
 
 const buildZeroCandidateDiagnostics = async (req, context) => {
-  const discardedUsersLimit = FEED_DIAGNOSTIC_MAX_LIMIT;
+  const excludedUsersLimit = FEED_DIAGNOSTIC_MAX_LIMIT;
   const totalUsers = await User.countDocuments({});
   const debug = {
     totalUsers,
@@ -503,8 +503,8 @@ const buildZeroCandidateDiagnostics = async (req, context) => {
     finalCandidatesCount: context.returnedProfileIds.size,
   };
 
-  const discardedUsers = [];
-  let discardedUsersCount = 0;
+  const excludedUsers = [];
+  let excludedUsersCount = 0;
   const diagnosticUsers = User.find({})
     .select(FEED_DIAGNOSTIC_USER_FIELDS)
     .sort({ createdAt: -1, _id: -1 })
@@ -533,25 +533,25 @@ const buildZeroCandidateDiagnostics = async (req, context) => {
       debug[excludedReason] += 1;
     }
 
-    const discardedUser = {
+    const excludedUser = {
       username: user.username || null,
-      onboardingComplete: user.onboardingComplete === true,
       canAppearInFeed: canAppearInFeedValue,
+      onboardingComplete: user.onboardingComplete === true,
       missingFields,
       excludedReason,
     };
-    discardedUsersCount += 1;
-    if (discardedUsers.length < discardedUsersLimit) {
-      discardedUsers.push(discardedUser);
+    excludedUsersCount += 1;
+    if (excludedUsers.length < excludedUsersLimit) {
+      excludedUsers.push(excludedUser);
     }
   }
 
   return {
     ...debug,
-    discardedUsers,
-    discardedUsersCount,
-    discardedUsersLimit,
-    discardedUsersTruncated: discardedUsersCount > discardedUsersLimit,
+    excludedUsers,
+    excludedUsersCount,
+    excludedUsersLimit,
+    excludedUsersTruncated: excludedUsersCount > excludedUsersLimit,
   };
 };
 
@@ -762,9 +762,9 @@ const getFeed = async (req, res) => {
         returnedProfileIds: returnedProfileIdSet,
         discoveryMatch,
       });
-      const { discardedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
+      const { excludedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
       console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
-      console.log("[Feed Zero Candidate Discarded Users]", JSON.stringify(discardedUsers));
+      console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.

@@ -254,6 +254,41 @@ const serializeFeedProfilesWithPhotos = (req, profiles, limit) =>
     .filter((profile) => Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
     .slice(0, limit);
 
+const parseFeedLimit = (value) => {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_FEED_SIZE;
+  return Math.min(parsed, MAX_FEED_SIZE);
+};
+
+const serializeFeedProfilesAllowingMissingPhotos = (req, profiles, limit) =>
+  profiles.map((profile) => serializeFeedImageFields(req, profile)).slice(0, limit);
+
+const getBetaFallbackProfiles = async (req, currentUserId) => {
+  const limit = parseFeedLimit(req.query.limit);
+  const match = {
+    role: { $in: ["user", "User"] },
+    isBlocked: { $ne: true },
+    isSuspended: { $ne: true },
+    $or: [
+      { name: { $exists: true, $type: "string", $ne: "" } },
+      { username: { $exists: true, $type: "string", $ne: "" } },
+    ],
+  };
+  if (currentUserId) {
+    match._id = { $ne: currentUserId };
+  }
+
+  const profiles = await User.find(match)
+    .select(
+      `name displayName firstName lastName username ${FEED_PHOTO_FIELDS} bio tags gender birthdate location interests intent isOnline isVerified isPremium followersCount lastActiveAt createdAt`
+    )
+    .sort({ isOnline: -1, lastActiveAt: -1, createdAt: -1, _id: -1 })
+    .limit(limit)
+    .lean();
+
+  return serializeFeedProfilesAllowingMissingPhotos(req, profiles, limit);
+};
+
 // Simple in-memory cache for featured creators (they change infrequently)
 let featuredCreatorsCache = null;
 let featuredCreatorsCacheTime = 0;
@@ -746,13 +781,16 @@ const getFeed = async (req, res) => {
       user: serializeFeedImageFields(req, live.user),
     }));
     const locationFilteredProfiles = applyDiscoveryLocationFilter(currentUserProfile, recommendedProfilesPrimary);
-    const serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, locationFilteredProfiles, 12);
+    let serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, locationFilteredProfiles, 12);
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
-    const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
+    const strictProfileCount = serializedRecommendedProfiles.length;
+    let feedMode = "strict";
+    let fallbackDebug = null;
+    let returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
     let zeroCandidateDebug = null;
-    if (returnedProfileIdSet.size === 0) {
+    if (strictProfileCount === 0) {
       zeroCandidateDebug = await buildZeroCandidateDiagnostics(req, {
         viewer: currentUserProfile,
         viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
@@ -765,6 +803,14 @@ const getFeed = async (req, res) => {
       const { excludedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
       console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
       console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
+
+      serializedRecommendedProfiles = await getBetaFallbackProfiles(req, authenticatedUserId);
+      feedMode = "betaFallback";
+      returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
+      fallbackDebug = {
+        strictCount: strictProfileCount,
+        fallbackCount: serializedRecommendedProfiles.length,
+      };
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.
@@ -820,8 +866,11 @@ const getFeed = async (req, res) => {
     res.set("Cache-Control", "no-store");
     const viewerProfileStatus = getFeedProfileStatus(currentUserProfile);
     const responseBody = {
+      success: true,
+      feedMode,
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
+      profiles: serializedRecommendedProfiles,
       featuredCreators: serializedFeaturedCreators,
       viewerProfileStatus,
       canAppearInFeed: viewerProfileStatus?.canAppearInFeed ?? null,
@@ -829,7 +878,12 @@ const getFeed = async (req, res) => {
       missingFields: viewerProfileStatus?.missingFields || [],
       profileCompletionStatus: viewerProfileStatus,
     };
-    if (zeroCandidateDebug) responseBody.debug = zeroCandidateDebug;
+    if (feedMode === "betaFallback") {
+      responseBody.reason = "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta.";
+    }
+    if (zeroCandidateDebug || fallbackDebug) {
+      responseBody.debug = { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) };
+    }
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);
   } catch (error) {

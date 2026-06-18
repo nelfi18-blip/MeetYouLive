@@ -245,13 +245,53 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
 ];
 
 const serializeFeedImageFields = (req, item) => {
-  return withSerializedUserPhotoFields(req, item);
+  const serialized = withSerializedUserPhotoFields(req, item) || {};
+  const id = serialized._id || serialized.id;
+  const idString = id ? String(id) : "";
+  const fullName = [serialized.firstName, serialized.lastName]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
+  const name = [serialized.displayName, serialized.name, fullName, serialized.username]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .find(Boolean) || "Usuario";
+  const username = typeof serialized.username === "string" && serialized.username.trim()
+    ? serialized.username.trim()
+    : name;
+  const photos = Array.isArray(serialized.profilePhotos) ? serialized.profilePhotos.filter(Boolean) : [];
+  const images = Array.isArray(serialized.images) ? serialized.images : [];
+  const interests = (Array.isArray(serialized.interests) ? serialized.interests : serialized.tags)
+    ?.filter((interest) => typeof interest === "string" && interest.trim())
+    .map((interest) => interest.trim()) || [];
+  const location = typeof serialized.location === "string"
+    ? serialized.location.trim()
+    : [
+        serialized.locationLabel,
+        serialized.location?.label,
+        serialized.location?.city,
+        serialized.location?.country,
+      ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+
+  return {
+    ...serialized,
+    _id: idString,
+    id: idString,
+    name,
+    username,
+    avatar: typeof serialized.avatar === "string" ? serialized.avatar : photos[0] || "",
+    images,
+    profilePhotos: photos,
+    age: serialized.age ?? null,
+    location,
+    interests,
+    bio: typeof serialized.bio === "string" ? serialized.bio : "",
+  };
 };
 
 const serializeFeedProfilesWithPhotos = (req, profiles, limit) =>
   profiles
     .map((profile) => serializeFeedImageFields(req, profile))
-    .filter((profile) => Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
+    .filter((profile) => profile._id && Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
     .slice(0, limit);
 
 const parseFeedLimit = (value) => {
@@ -261,7 +301,10 @@ const parseFeedLimit = (value) => {
 };
 
 const serializeFeedProfilesAllowingMissingPhotos = (req, profiles, limit) =>
-  profiles.map((profile) => serializeFeedImageFields(req, profile)).slice(0, limit);
+  profiles
+    .map((profile) => serializeFeedImageFields(req, profile))
+    .filter((profile) => profile._id)
+    .slice(0, limit);
 
 const getBetaFallbackProfiles = async (req, currentUserId) => {
   const limit = parseFeedLimit(req.query.limit);

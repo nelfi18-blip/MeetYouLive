@@ -445,6 +445,116 @@ const isExcludedByNearbyLocation = (viewer, user) => {
   return distanceKm !== null && distanceKm > maxDistanceKm;
 };
 
+const isExcludedByDiscoveryLocation = (viewer, user) => {
+  if (!viewer) return false;
+  const scope = getDiscoveryScope(viewer);
+  if (scope === "nearby") return isExcludedByNearbyLocation(viewer, user);
+  if (scope !== "country") return false;
+
+  const filteredCandidates = applyDiscoveryLocationFilter(viewer, [user]);
+  return filteredCandidates.length === 0;
+};
+
+const getZeroCandidateExcludedReason = (user, context) => {
+  const userId = String(user._id);
+  const discoveryMatch = context.discoveryMatch || {};
+  const missingFields = getMissingProfileFields(user, { req: context.req });
+  const canAppearInFeedValue = canAppearInFeed(user, {
+    req: context.req,
+    missingFields,
+  });
+
+  if (context.returnedProfileIds.has(userId)) return "includedInFeed";
+  if (
+    user.role !== "user" ||
+    user.isBlocked === true ||
+    user.isSuspended === true ||
+    user.onboardingComplete !== true ||
+    canAppearInFeedValue !== true
+  ) {
+    return "excludedIncomplete";
+  }
+  if (context.viewerId && userId === context.viewerId) return "excludedSelf";
+  if (!valueMatchesMongoIn(user.gender, discoveryMatch.gender)) return "excludedByGender";
+  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) return "excludedByInterestedIn";
+  if (!birthdateMatchesMongoRange(user.birthdate, discoveryMatch.birthdate)) return "excludedByAge";
+  if (isExcludedByDiscoveryLocation(context.viewer, user)) return "excludedByDistance";
+  if (context.clientExcludedProfileIds.has(userId)) return "excludedAlreadySeen";
+  if (context.likedProfileIds.has(userId)) return "excludedAlreadyLiked";
+  if (context.dislikedProfileIds?.has(userId)) return "excludedAlreadyDisliked";
+  return "eligibleNotReturned";
+};
+
+const buildZeroCandidateDiagnostics = async (req, context) => {
+  const discardedUsersLimit = FEED_DIAGNOSTIC_MAX_LIMIT;
+  const totalUsers = await User.countDocuments({});
+  const debug = {
+    totalUsers,
+    eligibleUsers: 0,
+    excludedSelf: 0,
+    excludedIncomplete: 0,
+    excludedByGender: 0,
+    excludedByInterestedIn: 0,
+    excludedByAge: 0,
+    excludedByDistance: 0,
+    excludedAlreadySeen: 0,
+    excludedAlreadyLiked: 0,
+    excludedAlreadyDisliked: 0,
+    finalCandidatesCount: context.returnedProfileIds.size,
+  };
+
+  const discardedUsers = [];
+  let discardedUsersCount = 0;
+  const diagnosticUsers = User.find({})
+    .select(FEED_DIAGNOSTIC_USER_FIELDS)
+    .sort({ createdAt: -1, _id: -1 })
+    .lean()
+    .cursor();
+
+  for await (const user of diagnosticUsers) {
+    const missingFields = getMissingProfileFields(user, { req });
+    const canAppearInFeedValue = canAppearInFeed(user, { req, missingFields });
+    if (
+      user.role === "user" &&
+      user.isBlocked !== true &&
+      user.isSuspended !== true &&
+      user.onboardingComplete === true &&
+      canAppearInFeedValue === true
+    ) {
+      debug.eligibleUsers += 1;
+    }
+
+    const excludedReason = getZeroCandidateExcludedReason(user, {
+      ...context,
+      req,
+    });
+    if (excludedReason === "includedInFeed") continue;
+    if (Object.hasOwn(debug, excludedReason)) {
+      debug[excludedReason] += 1;
+    }
+
+    const discardedUser = {
+      username: user.username || null,
+      onboardingComplete: user.onboardingComplete === true,
+      canAppearInFeed: canAppearInFeedValue,
+      missingFields,
+      excludedReason,
+    };
+    discardedUsersCount += 1;
+    if (discardedUsers.length < discardedUsersLimit) {
+      discardedUsers.push(discardedUser);
+    }
+  }
+
+  return {
+    ...debug,
+    discardedUsers,
+    discardedUsersCount,
+    discardedUsersLimit,
+    discardedUsersTruncated: discardedUsersCount > discardedUsersLimit,
+  };
+};
+
 const getFeedCandidateExcludedReason = (user, context) => {
   const userId = String(user._id);
   const canAppear = context.canAppearInFeed;
@@ -641,6 +751,21 @@ const getFeed = async (req, res) => {
       serializeFeedImageFields(req, creator)
     );
     const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
+    let zeroCandidateDebug = null;
+    if (returnedProfileIdSet.size === 0) {
+      zeroCandidateDebug = await buildZeroCandidateDiagnostics(req, {
+        viewer: currentUserProfile,
+        viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
+        likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
+        dislikedProfileIds: new Set(),
+        clientExcludedProfileIds,
+        returnedProfileIds: returnedProfileIdSet,
+        discoveryMatch,
+      });
+      const { discardedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
+      console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
+      console.log("[Feed Zero Candidate Discarded Users]", JSON.stringify(discardedUsers));
+    }
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.
       console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
@@ -704,6 +829,7 @@ const getFeed = async (req, res) => {
       missingFields: viewerProfileStatus?.missingFields || [],
       profileCompletionStatus: viewerProfileStatus,
     };
+    if (zeroCandidateDebug) responseBody.debug = zeroCandidateDebug;
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);
   } catch (error) {

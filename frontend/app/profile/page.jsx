@@ -11,7 +11,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
+import { normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
@@ -96,8 +96,10 @@ const extractPhotoUrl = (value) => {
 const getPhotoUrl = (photo) => normalizeAvatarUrl(extractPhotoUrl(photo));
 
 const normalizeImages = (userOrImages = {}) => {
-  return normalizeSharedUserImages(userOrImages).map((image) => image.url);
+  return normalizeUserImages(userOrImages).map((image) => image.url);
 };
+
+const getRealImageUrl = (image) => (typeof image === "string" ? image : image?.url || "");
 
 const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
 
@@ -1055,16 +1057,19 @@ export default function ProfilePage() {
 
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
-  const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-  const normalizedImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
-  const mainProfilePhoto = normalizedImages[0]?.url || "";
+  const realImages = normalizeUserImages(editForm).filter((img) => img?.url || typeof img === "string");
+  const primaryImage = realImages[0];
+  const secondaryImages = realImages.slice(1, 6);
+  const mainProfilePhoto = getRealImageUrl(primaryImage);
   const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
-  const safeExtraProfilePhotos = normalizedImages
-    .slice(1, MAX_PROFILE_PHOTOS)
-    .map((image) => ({ photo: image.url, src: getSafeGalleryImageSrc(image.url) }))
+  const safeExtraProfilePhotos = secondaryImages
+    .map((image) => {
+      const photo = getRealImageUrl(image);
+      return { photo, src: getSafeGalleryImageSrc(photo) };
+    })
     .filter(({ src }) => Boolean(src));
-  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - safeExtraProfilePhotos.length);
-  const canAddProfilePhotos = !avatarUploading && normalizedImages.length < MAX_PROFILE_PHOTOS;
+  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - secondaryImages.length);
+  const canAddProfilePhotos = !avatarUploading && realImages.length < MAX_PROFILE_PHOTOS;
   const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
   const userExtraPhotos = userPhotoList.slice(1);
@@ -1399,16 +1404,12 @@ export default function ProfilePage() {
                         </div>
                       ))}
                       {Array.from({ length: emptyProfilePhotoSlots }).map((_, index) => (
-                        <button
+                        <div
                           key={`empty-slot-${index}`}
-                          type="button"
                           className="profile-photo-thumb profile-photo-empty-slot"
-                          onClick={() => addProfilePhotosInputRef.current?.click()}
-                          disabled={!canAddProfilePhotos}
-                          aria-label="Agregar foto"
                         >
                           <span>+</span>
-                        </button>
+                        </div>
                       ))}
                     </div>
 
@@ -1445,7 +1446,7 @@ export default function ProfilePage() {
                         type="button"
                         className="profile-upload-btn"
                         onClick={() => addProfilePhotosInputRef.current?.click()}
-                        disabled={!canAddProfilePhotos}
+                        disabled={realImages.length >= 6}
                       >
                         {avatarUploading ? t("profile.uploadingPhotos") : t("profile.addPhotos")}
                       </button>
@@ -1476,7 +1477,7 @@ export default function ProfilePage() {
                         type="button"
                         className="btn btn-secondary btn-xs"
                         onClick={handleAddPhotoFromUrl}
-                        disabled={avatarUploading || !photoUrlInput.trim() || profilePhotoList.length >= MAX_PROFILE_PHOTOS}
+                        disabled={avatarUploading || !photoUrlInput.trim() || realImages.length >= 6}
                       >
                         {t("profile.addPhotoByUrl")}
                       </button>

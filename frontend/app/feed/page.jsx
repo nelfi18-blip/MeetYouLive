@@ -330,8 +330,10 @@ export default function FeedPage() {
   const [hasVisualCache, setHasVisualCache] = useState(false);
   const [error, setError] = useState(null);
   const [authToken, setAuthToken] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   const [profileSyncVersion, setProfileSyncVersion] = useState(0);
   const [viewerProfileStatus, setViewerProfileStatus] = useState(null);
+  const [feedDebug, setFeedDebug] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
@@ -548,19 +550,19 @@ export default function FeedPage() {
     lastActionRef.current = lastAction;
   }, [lastAction]);
 
-  // Admins shouldn't see the consumer feed.
+  // Temporarily keep admins on /feed so they can inspect backend feed diagnostics.
   useEffect(() => {
     if (!authToken) return;
     let mounted = true;
     fetchUserRole(authToken)
       .then((u) => {
-        if (mounted && u?.role === "admin") router.replace("/admin");
+        if (mounted) setCurrentUserRole(u?.role || null);
       })
       .catch(() => {});
     return () => {
       mounted = false;
     };
-  }, [authToken, router]);
+  }, [authToken]);
 
   // Resolve a usable backend JWT for refresh and SPA navigation paths. On hard
   // refresh, NextAuth can be authenticated before session.backendToken is
@@ -773,6 +775,7 @@ export default function FeedPage() {
       }
 
       const data = await feedRes.json();
+      setFeedDebug(data?.debug || null);
       setViewerProfileStatus(data?.viewerProfileStatus || null);
       if (data?.viewerProfileStatus?.canAppearInFeed === false && shouldLogProfileCompletionDiagnostics()) {
         console.log("[feed-profile-completion]", {
@@ -857,6 +860,7 @@ export default function FeedPage() {
       } else {
         setError(err.message || t("feed.genericError"));
       }
+      setFeedDebug(null);
     } finally {
       clearTimeout(timeoutId);
       signal?.removeEventListener("abort", abortFromParent);
@@ -1107,6 +1111,8 @@ export default function FeedPage() {
   const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
   const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
+  const shouldShowFeedDebugPanel =
+    feedDebug && (currentUserRole === "admin" || process.env.NODE_ENV !== "production");
   const missingProfileLabels = getMissingProfileLabels(viewerProfileStatus?.missingFields);
   const profileIncompleteDescription = missingProfileLabels.length
     ? `Te falta: ${missingProfileLabels.join(" / ")}`
@@ -1241,6 +1247,16 @@ export default function FeedPage() {
         )}
       </section>
 
+      {shouldShowFeedDebugPanel && (
+        <section className="feed-debug-panel" aria-label="Diagnóstico del feed">
+          <div className="feed-debug-panel-header">
+            <strong>Diagnóstico /api/feed</strong>
+            <span>Visible solo admin/dev</span>
+          </div>
+          <pre>{JSON.stringify(feedDebug, null, 2)}</pre>
+        </section>
+      )}
+
       {/* 3. Bottom nav is rendered by the root layout's BottomNavWrapper. */}
 
       <style jsx>{`
@@ -1316,6 +1332,38 @@ export default function FeedPage() {
 
         .feed-section {
           padding: 0;
+        }
+        .feed-debug-panel {
+          width: min(92vw, 720px);
+          margin: 0 auto 1rem;
+          padding: 0.85rem;
+          border: 1px solid rgba(224, 64, 251, 0.24);
+          border-radius: 16px;
+          background: rgba(20, 12, 46, 0.92);
+          color: #fff;
+          box-sizing: border-box;
+        }
+        .feed-debug-panel-header {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-bottom: 0.6rem;
+          color: #fff;
+          font-size: 0.86rem;
+        }
+        .feed-debug-panel-header span {
+          color: var(--text-muted, #c9c2e6);
+          font-size: 0.76rem;
+        }
+        .feed-debug-panel pre {
+          margin: 0;
+          max-height: 360px;
+          overflow: auto;
+          white-space: pre-wrap;
+          word-break: break-word;
+          font-size: 0.72rem;
+          line-height: 1.45;
+          color: #e9ddff;
         }
         .feed-match-section {
           position: relative;

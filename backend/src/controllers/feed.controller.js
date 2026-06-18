@@ -476,11 +476,12 @@ const getZeroCandidateExcludedReason = (user, context) => {
   }
   if (context.viewerId && userId === context.viewerId) return "excludedSelf";
   if (!valueMatchesMongoIn(user.gender, discoveryMatch.gender)) return "excludedByGender";
-  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) return "excludedByGender";
+  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) return "excludedByInterestedIn";
   if (!birthdateMatchesMongoRange(user.birthdate, discoveryMatch.birthdate)) return "excludedByAge";
   if (isExcludedByDiscoveryLocation(context.viewer, user)) return "excludedByDistance";
   if (context.clientExcludedProfileIds.has(userId)) return "excludedAlreadySeen";
   if (context.likedProfileIds.has(userId)) return "excludedAlreadyLiked";
+  if (context.dislikedProfileIds?.has(userId)) return "excludedAlreadyDisliked";
   return "eligibleNotReturned";
 };
 
@@ -491,6 +492,7 @@ const buildZeroCandidateFeedDebug = (req, users, context) => {
     excludedSelf: 0,
     excludedIncomplete: 0,
     excludedByGender: 0,
+    excludedByInterestedIn: 0,
     excludedByAge: 0,
     excludedByDistance: 0,
     excludedAlreadySeen: 0,
@@ -518,7 +520,7 @@ const buildZeroCandidateFeedDebug = (req, users, context) => {
       req,
     });
     if (excludedReason === "includedInFeed") return;
-    if (Object.prototype.hasOwnProperty.call(debug, excludedReason)) {
+    if (Object.hasOwn(debug, excludedReason)) {
       debug[excludedReason] += 1;
     }
 
@@ -741,6 +743,7 @@ const getFeed = async (req, res) => {
         viewer: currentUserProfile,
         viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
         likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
+        dislikedProfileIds: new Set(),
         clientExcludedProfileIds,
         returnedProfileIds: returnedProfileIdSet,
         discoveryMatch,

@@ -1056,15 +1056,15 @@ export default function ProfilePage() {
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const profilePhotoList = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-  const galleryImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
-  const mainProfilePhoto = profilePhotoList[0] || "";
+  const normalizedImages = toProfileImageObjects(profilePhotoList).filter((image) => getSafeGalleryImageSrc(image.url));
+  const mainProfilePhoto = normalizedImages[0]?.url || "";
   const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
-  const extraProfilePhotos = galleryImages.slice(1).map((image) => image.url);
-  const safeExtraProfilePhotos = extraProfilePhotos
-    .map((photo) => ({ photo, src: getSafeGalleryImageSrc(photo) }))
+  const safeExtraProfilePhotos = normalizedImages
+    .slice(1, MAX_PROFILE_PHOTOS)
+    .map((image) => ({ photo: image.url, src: getSafeGalleryImageSrc(image.url) }))
     .filter(({ src }) => Boolean(src));
   const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - safeExtraProfilePhotos.length);
-  const canAddProfilePhotos = !avatarUploading && galleryImages.length < MAX_PROFILE_PHOTOS;
+  const canAddProfilePhotos = !avatarUploading && normalizedImages.length < MAX_PROFILE_PHOTOS;
   const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
   const userExtraPhotos = userPhotoList.slice(1);

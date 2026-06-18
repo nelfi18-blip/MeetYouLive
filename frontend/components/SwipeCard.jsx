@@ -39,6 +39,7 @@ export default function SwipeCard({
   bioMoreLabel = "See more",
   bioLessLabel = "See less",
 }) {
+  const profileId = getProfileId(profile);
   const [exitX, setExitX] = useState(0);
   const [exitY, setExitY] = useState(0);
   const [hasSwiped, setHasSwiped] = useState(false);
@@ -62,7 +63,7 @@ export default function SwipeCard({
     setCurrentPhotoIndex(0);
     setBrokenPhotoUrls(new Set());
     setIsBioExpanded(false);
-  }, [profile?._id]);
+  }, [profileId]);
 
   useEffect(() => {
     return () => {
@@ -75,13 +76,12 @@ export default function SwipeCard({
   const completeSwipe = useCallback(async (direction, { force = false } = {}) => {
     if (!isActive || hasSwiped || (!force && disabled) || isSubmitting) return;
 
-    const swipeProfileId = getProfileId(profile);
-    if (!swipeProfileId) return;
+    if (!profileId) return;
 
     setIsSubmitting(true);
     let shouldExit = true;
     try {
-      shouldExit = (await onSwipe?.(swipeProfileId, direction)) !== false;
+      shouldExit = (await onSwipe?.(profileId, direction)) !== false;
     } catch {
       shouldExit = false;
     } finally {
@@ -100,9 +100,9 @@ export default function SwipeCard({
     }
 
     swipeTimeoutRef.current = setTimeout(() => {
-      onExitComplete?.(swipeProfileId, direction);
+      onExitComplete?.(profileId, direction);
     }, SWIPE_EXIT_DELAY_MS);
-  }, [disabled, hasSwiped, isActive, isSubmitting, onExitComplete, onSwipe, profile?._id, profile?.id]);
+  }, [disabled, hasSwiped, isActive, isSubmitting, onExitComplete, onSwipe, profileId]);
 
   useEffect(() => {
     const actionProfileId = actionSignal?.profileId ? String(actionSignal.profileId) : "";
@@ -129,7 +129,6 @@ export default function SwipeCard({
 
   const photoSelection = useMemo(() => getUserPhotoSelection(profile), [profile]);
   const displayName = getDisplayName(profile);
-  const profileId = getProfileId(profile);
   const age = profile?.age || "";
   const location = typeof profile?.location === "string" ? profile.location : "";
   const numericDistance = Number(profile?.distance);

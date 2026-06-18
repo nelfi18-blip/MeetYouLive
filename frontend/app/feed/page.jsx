@@ -33,6 +33,7 @@ const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
+const DEFAULT_FEED_PROFILE_NAME = "Usuario";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -91,7 +92,7 @@ function sanitizeFeedProfile(profile) {
     profile.name,
     fullName,
     profile.username,
-  ].map(getSafeProfileText).find(Boolean) || "Usuario";
+  ].map(getSafeProfileText).find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
   const username = getSafeProfileText(profile.username) || name;
   const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
 
@@ -228,6 +229,7 @@ function writeCachedFeed(profiles, currentIndex) {
 
   try {
     const cachedProfiles = sanitizeFeedProfiles(profiles);
+    // Preserve currentIndex === length as the exhausted-feed sentinel.
     const safeCurrentIndex = Math.min(Math.max(currentIndex, 0), cachedProfiles.length);
     const currentProfileId = getCurrentProfileId(cachedProfiles, safeCurrentIndex);
     writeStoredCurrentProfileId(currentProfileId);

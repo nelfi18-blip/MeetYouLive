@@ -54,6 +54,7 @@ const FEED_PHOTO_SCALAR_FIELDS = [
 const FEED_PHOTO_FIELDS = [...FEED_PHOTO_ARRAY_FIELDS, ...FEED_PHOTO_SCALAR_FIELDS].join(" ");
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
 const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
+const DEFAULT_FEED_PROFILE_NAME = "Usuario";
 const FEED_PHOTO_CANDIDATE_MATCH = {
   $or: [
     ...FEED_PHOTO_ARRAY_FIELDS.map((field) => ({ [`${field}.0`]: { $exists: true } })),
@@ -254,7 +255,7 @@ const serializeFeedImageFields = (req, item) => {
     .join(" ");
   const name = [serialized.displayName, serialized.name, fullName, serialized.username]
     .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .find(Boolean) || "Usuario";
+    .find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
   const username = typeof serialized.username === "string" && serialized.username.trim()
     ? serialized.username.trim()
     : name;

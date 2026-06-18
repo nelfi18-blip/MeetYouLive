@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
+import { normalizeUserImages } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -52,7 +53,70 @@ function normalizeSeenProfileIds(profileIds) {
 
 function isRecommendedProfile(profile, currentUserId) {
   const profileId = getProfileId(profile);
-  return profileId && currentUserId && profileId !== currentUserId;
+  return profileId && (!currentUserId || profileId !== currentUserId);
+}
+
+function getSafeProfileText(value) {
+  if (typeof value === "string") return value.trim();
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function normalizeTextList(value) {
+  return (Array.isArray(value) ? value : [])
+    .map(getSafeProfileText)
+    .filter(Boolean);
+}
+
+function getSafeLocation(profile) {
+  if (typeof profile?.location === "string") return profile.location.trim();
+  return [
+    profile?.locationLabel,
+    profile?.location?.label,
+    profile?.location?.city,
+    profile?.location?.country,
+  ].map(getSafeProfileText).find(Boolean) || "";
+}
+
+function sanitizeFeedProfile(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
+  const profileId = getProfileId(profile);
+  if (!profileId) return null;
+
+  const images = normalizeUserImages(profile);
+  const photos = images.map((image) => image.url).filter(Boolean);
+  const fullName = [profile.firstName, profile.lastName].map(getSafeProfileText).filter(Boolean).join(" ");
+  const name = [
+    profile.displayName,
+    profile.name,
+    fullName,
+    profile.username,
+  ].map(getSafeProfileText).find(Boolean) || "Usuario";
+  const username = getSafeProfileText(profile.username) || name;
+  const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
+
+  return {
+    ...profile,
+    _id: profileId,
+    id: profileId,
+    name,
+    username,
+    avatar: photos[0] || "",
+    images,
+    profilePhotos: photos,
+    age: profile.age ?? "",
+    location: getSafeLocation(profile),
+    interests,
+    bio: getSafeProfileText(profile.bio),
+  };
+}
+
+function sanitizeFeedProfiles(profiles, currentUserId = "") {
+  const entries = (Array.isArray(profiles) ? profiles : [])
+    .map(sanitizeFeedProfile)
+    .filter((profile) => profile && isRecommendedProfile(profile, currentUserId))
+    .map((profile) => [getProfileId(profile), profile]);
+  return Array.from(new Map(entries).values());
 }
 
 function shouldLogProfileCompletionDiagnostics() {
@@ -106,7 +170,7 @@ function readCachedFeed() {
     if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
-    const cachedProfiles = Array.isArray(parsed?.profiles) ? parsed.profiles : [];
+    const cachedProfiles = sanitizeFeedProfiles(parsed?.profiles);
     const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
     const cachedCurrentProfileId = getNullableIdString(parsed?.currentProfileId);
     const timestamp = Number(parsed?.timestamp) || 0;
@@ -163,17 +227,19 @@ function writeCachedFeed(profiles, currentIndex) {
   if (typeof window === "undefined") return;
 
   try {
-    const currentProfileId = getCurrentProfileId(profiles, currentIndex);
+    const cachedProfiles = sanitizeFeedProfiles(profiles);
+    const safeCurrentIndex = Math.min(Math.max(currentIndex, 0), cachedProfiles.length);
+    const currentProfileId = getCurrentProfileId(cachedProfiles, safeCurrentIndex);
     writeStoredCurrentProfileId(currentProfileId);
 
-    if (!profiles.length) {
+    if (!cachedProfiles.length) {
       window.sessionStorage.removeItem(FEED_CACHE_KEY);
       return;
     }
 
     window.sessionStorage.setItem(
       FEED_CACHE_KEY,
-      JSON.stringify({ profiles, currentIndex, currentProfileId, timestamp: Date.now() })
+      JSON.stringify({ profiles: cachedProfiles, currentIndex: safeCurrentIndex, currentProfileId, timestamp: Date.now() })
     );
   } catch (err) {
   }
@@ -785,12 +851,12 @@ export default function FeedPage() {
         });
       }
       const currentUserId = currentUserIdRef.current;
-      const profileEntries = (data?.recommendedProfiles || [])
-        .filter((profile) => isRecommendedProfile(profile, currentUserId))
-        .map((profile) => [getProfileId(profile), profile]);
-      const uniqueProfiles = Array.from(
-        new Map(profileEntries).values()
-      );
+      const feedProfiles = Array.isArray(data?.recommendedProfiles)
+        ? data.recommendedProfiles
+        : Array.isArray(data?.profiles)
+          ? data.profiles
+          : [];
+      const uniqueProfiles = sanitizeFeedProfiles(feedProfiles, currentUserId);
       const profileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
       const previousCurrentProfile = profileIdBeforeRefresh
         ? profilesBeforeRefresh.find((profile) => getProfileId(profile) === profileIdBeforeRefresh)
@@ -1164,7 +1230,7 @@ export default function FeedPage() {
               const isTopCard = stackIndex === 0;
               return (
                 <SwipeCard
-                  key={profile._id}
+                  key={getProfileId(profile)}
                   profile={profile}
                   isActive={isTopCard}
                   onSwipe={isTopCard ? handleSwipe : undefined}

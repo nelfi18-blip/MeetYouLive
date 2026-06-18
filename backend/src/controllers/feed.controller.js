@@ -911,6 +911,10 @@ const getFeed = async (req, res) => {
     const responseBody = {
       success: true,
       feedMode,
+      reason: feedMode === "betaFallback"
+        ? "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta."
+        : "",
+      debug: { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) },
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       profiles: serializedRecommendedProfiles,
@@ -921,12 +925,6 @@ const getFeed = async (req, res) => {
       missingFields: viewerProfileStatus?.missingFields || [],
       profileCompletionStatus: viewerProfileStatus,
     };
-    if (feedMode === "betaFallback") {
-      responseBody.reason = "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta.";
-    }
-    if (zeroCandidateDebug || fallbackDebug) {
-      responseBody.debug = { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) };
-    }
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);
   } catch (error) {
@@ -938,11 +936,19 @@ const getFeed = async (req, res) => {
       console.error("[Feed API] Error stack:", error.stack);
     }
     
-    // Use consistent error response format as per project guidelines
-    res.status(500).json({ 
-      message: process.env.NODE_ENV === 'production' 
-        ? "Error al cargar el feed" 
-        : `Error al cargar el feed: ${error.message}`
+    const message = process.env.NODE_ENV === 'production'
+      ? "Error al cargar el feed"
+      : `Error al cargar el feed: ${error.message}`;
+    res.status(500).json({
+      success: false,
+      message,
+      feedMode: "strict",
+      reason: message,
+      debug: {},
+      recommendedProfiles: [],
+      profiles: [],
+      activeLives: [],
+      featuredCreators: [],
     });
   }
 };

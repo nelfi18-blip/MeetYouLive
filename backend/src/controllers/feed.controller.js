@@ -11,8 +11,11 @@ const {
   applyDiscoveryLocationFilter,
   buildDiscoveryMatch,
   buildDiscoveryLocationMatch,
+  calculateDistanceKm,
   combineDiscoveryFilters,
   getDiscoveryCompatibilityUpdates,
+  getDiscoveryScope,
+  getLocationCoordinates,
   normalizeDiscoveryCompatibility,
 } = require("../lib/discovery.js");
 const {
@@ -59,6 +62,13 @@ const FEED_PHOTO_CANDIDATE_MATCH = {
 };
 
 const isFeedPhotoDiagnosticsEnabled = () => process.env.ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
+const isFeedCandidateDiagnosticsEnabled = (req) => {
+  if (process.env.ENABLE_FEED_CANDIDATE_DIAGNOSTICS === "true") return true;
+  const value = String(
+    req.query.debugFeedCandidates || req.query.feedDebugCandidates || req.query.diagnoseCandidates || ""
+  ).toLowerCase();
+  return ["1", "true", "yes"].includes(value);
+};
 
 const toObjectIdOrNull = (id) =>
   id && mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
@@ -155,7 +165,7 @@ const getFeedDiagnosticUserSummary = (user = {}) => {
 };
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
-  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location interests intent onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
+  `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent interestedIn discoveryPreferences maxDistanceKm discoveryScope onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {
@@ -397,6 +407,139 @@ const buildFeedDiagnosis = (req, diagnoseTarget, returnedProfileIdSet, excludedP
   };
 };
 
+const valueMatchesMongoIn = (value, filter) => {
+  if (!filter?.$in) return true;
+  return filter.$in.includes(value);
+};
+
+const birthdateMatchesMongoRange = (birthdate, filter) => {
+  if (!filter) return true;
+  const candidateBirthdate = birthdate ? new Date(birthdate) : null;
+  if (!candidateBirthdate || Number.isNaN(candidateBirthdate.getTime())) return false;
+  if (filter.$lte && candidateBirthdate > filter.$lte) return false;
+  if (filter.$gte && candidateBirthdate < filter.$gte) return false;
+  return true;
+};
+
+const hasLocationPoint = (user = {}) => {
+  const coordinates = Array.isArray(user.locationPoint?.coordinates) ? user.locationPoint.coordinates : [];
+  const lng = Number(coordinates[0]);
+  const lat = Number(coordinates[1]);
+  return Number.isFinite(lng) && Number.isFinite(lat);
+};
+
+const isExcludedByNearbyLocation = (viewer, user) => {
+  if (!viewer) return false;
+  if (getDiscoveryScope(viewer) !== "nearby") return false;
+  const viewerCoordinates = getLocationCoordinates(viewer);
+  const candidateCoordinates = getLocationCoordinates(user);
+  const rawMaxDistanceKm =
+    viewer.maxDistanceKm !== undefined && viewer.maxDistanceKm !== null
+      ? viewer.maxDistanceKm
+      : viewer.discoveryPreferences?.maxDistanceKm;
+  const maxDistanceKm = Number(rawMaxDistanceKm);
+  if (!viewerCoordinates || !candidateCoordinates || !Number.isFinite(maxDistanceKm) || maxDistanceKm <= 0) {
+    return false;
+  }
+  const distanceKm = calculateDistanceKm(viewerCoordinates, candidateCoordinates);
+  return distanceKm !== null && distanceKm > maxDistanceKm;
+};
+
+const getFeedCandidateExcludedReason = (user, context) => {
+  const userId = String(user._id);
+  const canAppear = context.canAppearInFeed;
+  const discoveryMatch = context.discoveryMatch || {};
+
+  if (context.returnedProfileIds.has(userId)) return "included_in_feed";
+  if (user.role !== "user") return "role_not_user";
+  if (user.isBlocked === true) return "user_blocked";
+  if (user.isSuspended === true) return "user_suspended";
+  if (user.onboardingComplete !== true) return "onboarding_incomplete";
+  if (!canAppear) return "canAppearInFeed_false";
+  if (!valueMatchesMongoIn(user.gender, discoveryMatch.gender)) return "excludedByGenderPreference";
+  if (!valueMatchesMongoIn(user.interestedIn, discoveryMatch.interestedIn)) {
+    return "excludedByInterestedInPreference";
+  }
+  if (!birthdateMatchesMongoRange(user.birthdate, discoveryMatch.birthdate)) return "excludedByAgeRange";
+  if (context.likedProfileIds.has(userId)) return "excludedAlreadyLiked";
+  if (context.clientExcludedProfileIds.has(userId)) return "excludedAlreadyDisliked";
+  if (context.viewerId && userId === context.viewerId) return "excludedSelf";
+  if (isExcludedByNearbyLocation(context.viewer, user)) return "excludedByLocationDistance";
+  return "eligible_not_returned";
+};
+
+const buildFeedCandidateDiagnostics = (req, users, context) => {
+  const summaryCounterByReason = {
+    role_not_user: "excludedIncomplete",
+    user_blocked: "excludedIncomplete",
+    user_suspended: "excludedIncomplete",
+    onboarding_incomplete: "excludedIncomplete",
+    canAppearInFeed_false: "excludedIncomplete",
+    excludedByGenderPreference: "excludedByGenderPreference",
+    excludedByInterestedInPreference: "excludedByInterestedInPreference",
+    excludedByAgeRange: "excludedByAgeRange",
+    excludedAlreadyLiked: "excludedAlreadyLiked",
+    excludedAlreadyDisliked: "excludedAlreadyDisliked",
+    excludedSelf: "excludedSelf",
+    excludedByLocationDistance: "excludedByLocationDistance",
+  };
+  const summary = {
+    totalUsers: context.totalUsers,
+    totalEligibleBeforeViewerFilters: 0,
+    excludedIncomplete: 0,
+    excludedByGenderPreference: 0,
+    excludedByInterestedInPreference: 0,
+    excludedByAgeRange: 0,
+    excludedAlreadyLiked: 0,
+    excludedAlreadyDisliked: 0,
+    excludedSelf: 0,
+    excludedByLocationDistance: 0,
+    finalCandidatesCount: context.returnedProfileIds.size,
+  };
+
+  const excludedCandidates = [];
+
+  users.forEach((user) => {
+    const missingFields = getMissingProfileFields(user, { req });
+    const canAppearInFeedValue = canAppearInFeed(user, { req, missingFields });
+    const eligibleBeforeViewerFilters =
+      user.role === "user" &&
+      user.isBlocked !== true &&
+      user.isSuspended !== true &&
+      user.onboardingComplete === true &&
+      canAppearInFeedValue === true;
+
+    if (eligibleBeforeViewerFilters) summary.totalEligibleBeforeViewerFilters += 1;
+
+    const excludedReason = getFeedCandidateExcludedReason(user, {
+      ...context,
+      canAppearInFeed: canAppearInFeedValue,
+    });
+
+    if (excludedReason === "included_in_feed") return;
+    const summaryCounter = summaryCounterByReason[excludedReason];
+    if (summaryCounter) summary[summaryCounter] += 1;
+
+    excludedCandidates.push({
+      userId: String(user._id),
+      username: user.username || null,
+      onboardingComplete: user.onboardingComplete === true,
+      canAppearInFeed: canAppearInFeedValue,
+      missingFields,
+      hasPrimaryPhoto: hasFeedPhoto(user),
+      hasLocationPoint: hasLocationPoint(user),
+      hasGender: isNonEmptyString(user.gender),
+      hasInterestedIn: isNonEmptyString(user.interestedIn),
+      hasBirthdate: Boolean(user.birthdate),
+      hasIntent: isNonEmptyString(user.intent),
+      hasInterests: Array.isArray(user.interests) && user.interests.length > 0,
+      excludedReason,
+    });
+  });
+
+  return { summary, excludedCandidates };
+};
+
 const getFeed = async (req, res) => {
   const startTime = Date.now();
   try {
@@ -405,17 +548,20 @@ const getFeed = async (req, res) => {
     const authenticatedUserId = toObjectIdOrNull(req.userId);
     const diagnoseUserId = toObjectIdOrNull(req.query.diagnose);
 
+    const clientExcludedObjectIds = parseExcludedProfileIds(req.query.exclude);
+    const clientExcludedProfileIds = new Set(clientExcludedObjectIds.map((profileId) => profileId.toString()));
     const excludedProfileIdsById = new Map(
-      parseExcludedProfileIds(req.query.exclude).map((profileId) => [profileId.toString(), profileId])
+      clientExcludedObjectIds.map((profileId) => [profileId.toString(), profileId])
     );
     const addExcludedProfileId = (profileId) => {
       const objectId = toObjectIdOrNull(profileId);
       if (objectId) excludedProfileIdsById.set(objectId.toString(), objectId);
     };
+    let likedProfileIdsRaw = [];
     if (authenticatedUserId) {
       addExcludedProfileId(authenticatedUserId);
-      const likedProfileIds = await Like.distinct("to", { from: authenticatedUserId });
-      likedProfileIds.forEach(addExcludedProfileId);
+      likedProfileIdsRaw = await Like.distinct("to", { from: authenticatedUserId });
+      likedProfileIdsRaw.forEach(addExcludedProfileId);
     }
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     
@@ -494,9 +640,35 @@ const getFeed = async (req, res) => {
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
     );
+    const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
     if (isFeedPhotoDiagnosticsEnabled()) {
       // TODO: Remove after feed photo storage is verified in production.
       console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
+    }
+    if (isFeedCandidateDiagnosticsEnabled(req)) {
+      const diagnosticLimit = Math.min(
+        Math.max(parseInt(req.query.debugFeedCandidatesLimit, 10) || FEED_DIAGNOSTIC_DEFAULT_LIMIT, 1),
+        FEED_DIAGNOSTIC_MAX_LIMIT
+      );
+      const [totalUsers, diagnosticUsers] = await Promise.all([
+        User.countDocuments({}),
+        User.find({})
+          .select(FEED_DIAGNOSTIC_USER_FIELDS)
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(diagnosticLimit)
+          .lean(),
+      ]);
+      const feedCandidateDiagnostics = buildFeedCandidateDiagnostics(req, diagnosticUsers, {
+        totalUsers,
+        viewer: currentUserProfile,
+        viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
+        likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
+        clientExcludedProfileIds,
+        returnedProfileIds: returnedProfileIdSet,
+        discoveryMatch,
+      });
+      feedCandidateDiagnostics.diagnosticUsersLimit = diagnosticLimit;
+      console.debug("[Feed Candidate Diagnostics]", JSON.stringify(feedCandidateDiagnostics));
     }
 
     // Build optional admin-only diagnosis
@@ -506,7 +678,6 @@ const getFeed = async (req, res) => {
         diagnosis = { message: "Only admins can use the diagnose parameter" };
       } else {
         const diagnoseTarget = await User.findById(diagnoseUserId).select(FEED_DIAGNOSTIC_USER_FIELDS).lean();
-        const returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((p) => String(p._id)));
         const excludedProfileIdSet = new Set(excludedProfileIdsById.keys());
         diagnosis = diagnoseTarget
           ? buildFeedDiagnosis(req, diagnoseTarget, returnedProfileIdSet, excludedProfileIdSet)

@@ -95,6 +95,8 @@ function sanitizeFeedProfile(profile) {
   ].map(getSafeProfileText).find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
   const username = getSafeProfileText(profile.username) || name;
   const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
+  const numericAge = Number(profile.age);
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
 
   return {
     ...profile,
@@ -105,7 +107,7 @@ function sanitizeFeedProfile(profile) {
     avatar: photos[0] || "",
     images,
     profilePhotos: photos,
-    age: profile.age ?? "",
+    age,
     location: getSafeLocation(profile),
     interests,
     bio: getSafeProfileText(profile.bio),

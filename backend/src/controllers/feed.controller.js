@@ -277,6 +277,8 @@ const serializeFeedImageFields = (req, item) => {
         serialized.location?.city,
         serialized.location?.country,
       ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const numericAge = Number(serialized.age);
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
 
   return {
     ...serialized,
@@ -287,7 +289,7 @@ const serializeFeedImageFields = (req, item) => {
     avatar: typeof serialized.avatar === "string" ? serialized.avatar : photos[0] || "",
     images,
     profilePhotos: photos,
-    age: serialized.age ?? null,
+    age,
     location,
     interests,
     bio: typeof serialized.bio === "string" ? serialized.bio : "",

@@ -129,7 +129,8 @@ export default function SwipeCard({
 
   const photoSelection = useMemo(() => getUserPhotoSelection(profile), [profile]);
   const displayName = getDisplayName(profile);
-  const age = profile?.age || "";
+  const numericAge = Number(profile?.age);
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
   const location = typeof profile?.location === "string" ? profile.location : "";
   const numericDistance = Number(profile?.distance);
   const distance = Number.isFinite(numericDistance) && numericDistance > 0 ? `${Math.round(numericDistance)}km away` : "";

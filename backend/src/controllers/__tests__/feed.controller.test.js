@@ -25,8 +25,10 @@ const makeQueryChain = (value) => {
   chain.sort = jest.fn(() => chain);
   chain.limit = jest.fn(() => chain);
   chain.populate = jest.fn(() => chain);
-  chain.lean = jest.fn().mockResolvedValue(value);
+  chain.lean = jest.fn(() => chain);
   chain.cursor = jest.fn(() => value);
+  chain.then = (resolve, reject) => Promise.resolve(value).then(resolve, reject);
+  chain.catch = (reject) => Promise.resolve(value).catch(reject);
   return chain;
 };
 

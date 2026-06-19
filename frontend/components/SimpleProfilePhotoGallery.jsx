@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -63,17 +63,16 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const userPhotos = normalizePhotos(user);
+  const userPhotoSignature = userPhotos.join("\u0000");
 
   useEffect(() => {
-    setImages(normalizePhotos(user));
-  }, [user?.avatar, user?.profilePhotos, user?.images]);
+    setImages(userPhotos);
+  }, [userPhotoSignature]);
 
   const primaryImage = images[0] || "";
   const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
-  const emptySlots = useMemo(
-    () => Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) }),
-    [secondaryImages.length]
-  );
+  const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) });
   const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
 
   const getAndCacheAuthToken = () => {
@@ -183,13 +182,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
     setSuccess("");
     let currentImages = images;
     let uploadedCount = 0;
+    let firstUploadError = "";
 
     try {
       for (const file of selectedFiles) {
+        // Only the first photo in an empty gallery should become primary.
         const result = await uploadPhoto(file, currentImages.length === 0);
         if (!result.ok) {
-          setError(result.error || t("profile.photoUploadOneError"));
-          break;
+          firstUploadError ||= result.error || t("profile.photoUploadOneError");
+          continue;
         }
 
         uploadedCount += 1;
@@ -200,6 +201,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       if (uploadedCount > 0) {
         setSuccess(uploadedCount === 1 ? t("profile.photoAdded") : t("profile.photosAdded"));
       }
+      if (firstUploadError) setError(firstUploadError);
     } catch {
       setError(t("profile.photoUploadMultipleError"));
     } finally {
@@ -330,7 +332,12 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           </div>
         ))}
         {emptySlots.map((_, index) => (
-          <div key={`empty-slot-${index}`} className="profile-photo-thumb profile-photo-empty-slot" aria-label={t("profile.emptyPhotoSlot")}>
+          <div
+            key={`empty-slot-${index}`}
+            className="profile-photo-thumb profile-photo-empty-slot"
+            role="img"
+            aria-label={t("profile.emptyPhotoSlot")}
+          >
             <span>+</span>
           </div>
         ))}

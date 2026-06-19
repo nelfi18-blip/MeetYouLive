@@ -1,32 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
+import ProfilePhotoGallery from "@/components/ProfilePhotoGallery";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
+import { normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
-import {
-  AVATAR_TOO_LARGE_MESSAGE,
-  AVATAR_UPLOAD_MAX_BYTES,
-  AVATAR_UPLOAD_MAX_LABEL,
-  compressAvatarImage,
-  formatAvatarUploadDiagnostic,
-  getAvatarUploadDiagnostic,
-} from "@/lib/avatarUpload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
-const MAX_EXTRA_PROFILE_PHOTOS = 5;
-const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const PROFILE_STATUS_FIELDS = [
@@ -50,56 +39,9 @@ const formatProfileStatusValue = (value) => {
   return String(value);
 };
 
-const hasAllowedAvatarExtension = (filename = "") => {
-  const normalized = filename.trim().toLowerCase();
-  return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
-};
-
-const parseUploadResponseBody = async (res) => {
-  try {
-    const text = await res.text();
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { raw: text };
-    }
-  } catch (err) {
-    console.error("[profile] backend-token recovery failed:", err);
-    return null;
-  }
-};
-
-const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
-  if (typeof API_URL !== "string" || !API_URL.trim()) {
-    console.error("[avatar-upload] NEXT_PUBLIC_API_URL no está configurado");
-    return "";
-  }
-  const base = `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;
-  return setAsMain ? base : `${base}?setAsMain=0`;
-};
-
-const isBlobUrl = (value) => typeof value === "string" && value.startsWith("blob:");
-
-const normalizeAvatarUrl = (avatarValue) => {
-  if (isBlobUrl(avatarValue)) return avatarValue;
-  return normalizeImageUrl(avatarValue) || "";
-};
-
-// Accept canonical upload strings plus provider/legacy image object shapes.
-const extractPhotoUrl = (value) => {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return "";
-  return value.url || value.secure_url || value.src || value.path || "";
-};
-
-const getPhotoUrl = (photo) => normalizeAvatarUrl(extractPhotoUrl(photo));
-
 const normalizeImages = (userOrImages = {}) => {
   return normalizeUserImages(userOrImages).map((image) => image.url);
 };
-
-const getRealImageUrl = (image) => (typeof image === "string" ? image : image?.url || "");
 
 const getPrimaryImage = (userOrImages = {}) => normalizeImages(userOrImages)[0] || "";
 
@@ -110,22 +52,6 @@ const normalizePhotoList = (avatarValue, profilePhotosValue, imagesValue, userFi
     avatar: avatarValue,
     profilePhotos: profilePhotosValue,
   });
-};
-
-const getSafeGalleryImageSrc = (value) => {
-  const normalized = normalizeAvatarUrl(value);
-  if (!normalized) return "";
-  if (isBlobUrl(normalized)) return normalized;
-  if (/^https?:\/\//i.test(normalized)) return normalized;
-  if (normalized.startsWith("/")) return normalized;
-  return "";
-};
-
-const reorderWithMain = (photos, mainPhoto) => {
-  const normalizedMain = normalizeAvatarUrl(mainPhoto);
-  const normalized = normalizeImages(photos);
-  if (!normalizedMain) return normalized;
-  return [normalizedMain, ...normalized.filter((url) => url !== normalizedMain)].slice(0, MAX_PROFILE_PHOTOS);
 };
 
 const toProfileImageObjects = (photos) =>
@@ -150,43 +76,6 @@ const logPhotoNormalizationDiagnostics = (userLike = {}, normalizedImages = []) 
   console.log("raw user profilePhotos", userLike?.profilePhotos);
   console.log("normalized images", normalizedImages);
 };
-
-// Normalize /avatar-upload and /me responses, including legacy aliases, into gallery order.
-const extractPhotosFromPayload = (payload) => {
-  const candidates = [];
-  const photoCollections = [
-    payload?.images,
-    payload?.user?.images,
-    payload?.profilePhotos,
-    payload?.user?.profilePhotos,
-    payload?.photos,
-    payload?.user?.photos,
-  ];
-  for (const collection of photoCollections) {
-    if (Array.isArray(collection)) candidates.push(...collection);
-  }
-  candidates.push(
-    payload?.avatar,
-    payload?.mainPhoto,
-    payload?.photoUrl,
-    payload?.avatarPath,
-    payload?.user?.avatar,
-  );
-
-  const photos = [];
-  const seen = new Set();
-  for (const candidate of candidates) {
-    const normalized = normalizeAvatarUrl(extractPhotoUrl(candidate));
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    photos.push(normalized);
-    if (photos.length >= MAX_PROFILE_PHOTOS) break;
-  }
-  return photos;
-};
-
-const getPhotoPayloadValue = (payload, field, fallback) =>
-  payload?.user?.[field] ?? payload?.[field] ?? fallback;
 
 const normalizeDiscoveryForm = (user = {}) => {
   const preferences = user.discoveryPreferences || {};
@@ -351,8 +240,6 @@ export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
-  const replaceMainPhotoInputRef = useRef(null);
-  const addProfilePhotosInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -394,9 +281,6 @@ export default function ProfilePage() {
   const [requestingCreator, setRequestingCreator] = useState(false);
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
-
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState("");
 
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
@@ -453,6 +337,21 @@ export default function ProfilePage() {
     publishProfileUpdated(nextUser);
     return nextUser;
   }, [publishProfileUpdated, user]);
+
+  const handlePhotoGalleryUserChange = useCallback((nextUser) => {
+    setUser(nextUser);
+    publishProfileUpdated(nextUser);
+    setEditForm((prev) => (
+      prev
+        ? {
+            ...prev,
+            avatar: nextUser.avatar || "",
+            profilePhotos: nextUser.profilePhotos || [],
+            images: nextUser.images || [],
+          }
+        : prev
+    ));
+  }, [publishProfileUpdated]);
 
   const applyLoadedProfile = useCallback((profile) => {
     const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(profile);
@@ -767,310 +666,8 @@ export default function ProfilePage() {
     finally { setRequestingCreator(false); }
   };
 
-  const applyPhotoPayload = (payload, successMessage = "") => {
-    const uploadPhotos = extractPhotosFromPayload(payload);
-    const normalizedPhotos = uploadPhotos.length
-      ? uploadPhotos
-      : normalizePhotoList(payload?.avatar, payload?.profilePhotos, payload?.images || payload?.user?.images);
-    const normalizedAvatar = normalizedPhotos[0] || "";
-    const normalizedImages = toProfileImageObjects(normalizedPhotos);
-    logPhotoNormalizationDiagnostics(payload?.user || payload, normalizedImages);
-    const nextUser = updateAndPublishUser((prev) => ({
-      ...prev,
-      ...(payload?.user || {}),
-      avatar: normalizedAvatar,
-      profilePhotos: normalizedPhotos,
-      images: normalizedImages,
-      onboardingComplete: getPhotoPayloadValue(payload, "onboardingComplete", prev.onboardingComplete),
-      canAppearInFeed: getPhotoPayloadValue(payload, "canAppearInFeed", prev.canAppearInFeed),
-      profileStatus: getPhotoPayloadValue(payload, "profileStatus", prev.profileStatus),
-    }));
-    setEditForm((prev) => (
-      prev
-        ? { ...prev, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages }
-        : prev
-    ));
-    if (successMessage) setSaveSuccess(successMessage);
-    return nextUser;
-  };
-
-  const applyLocalPhotoPreviewList = (photos) => {
-    const nextPhotos = photos.slice(0, MAX_PROFILE_PHOTOS);
-    const nextAvatar = nextPhotos[0] || "";
-    const nextImages = toProfileImageObjects(nextPhotos);
-    setUser((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos, images: nextImages } : prev));
-    setEditForm((prev) => (prev ? { ...prev, avatar: nextAvatar, profilePhotos: nextPhotos, images: nextImages } : prev));
-  };
-
-  const validateAvatarFile = (file) => {
-    if (!file) return "Selecciona una imagen válida.";
-    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
-    if (!hasAllowedAvatarExtension(file.name)) return "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.";
-    return "";
-  };
-
-  const uploadProfilePhotoFile = async (file, { setAsMain = false } = {}) => {
-    const fileError = validateAvatarFile(file);
-    if (fileError) return { ok: false, error: fileError };
-
-    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-    console.log("[avatar-upload] selected file metadata", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      lastModified: file.lastModified,
-    });
-
-    const token = localStorage.getItem("token");
-    if (!token) return { ok: false, error: "Tu sesión expiró. Inicia sesión de nuevo.", unauthorized: true };
-    const uploadEndpoint = buildUploadEndpoint({ setAsMain });
-    if (!uploadEndpoint) return { ok: false, error: "No se pudo iniciar la subida. Falta la configuración del servidor." };
-    const uploadFile = await compressAvatarImage(file);
-    if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
-      const diagnostic = getAvatarUploadDiagnostic(413, {
-        error: "File too large",
-        message: AVATAR_TOO_LARGE_MESSAGE,
-        code: "FILE_TOO_LARGE",
-      });
-      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
-    }
-
-    const formData = new FormData();
-    formData.append("avatar", uploadFile);
-
-    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-    console.log("[avatar-upload] request start", { url: uploadEndpoint });
-    let res;
-    try {
-      res = await fetch(uploadEndpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-      cache: "no-store",
-      });
-    } catch (err) {
-      const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
-      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
-    }
-    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-    console.log("[avatar-upload] response status", res.status);
-    const data = await parseUploadResponseBody(res);
-    // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-    console.log("[avatar-upload] response body", data);
-
-    if (!res.ok) {
-      const diagnostic = getAvatarUploadDiagnostic(res.status, data, "Error al subir la imagen");
-      return {
-        ok: false,
-        unauthorized: res.status === 401,
-        error: formatAvatarUploadDiagnostic(diagnostic),
-        diagnostic,
-      };
-    }
-    return { ok: true, data };
-  };
-
-  const persistProfilePhotos = async (photos, mainPhoto, successMessage) => {
-    setSaveError(""); setSaveSuccess("");
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setSaveError("Tu sesión expiró. Inicia sesión de nuevo.");
-      return false;
-    }
-    try {
-      const normalized = reorderWithMain(photos, mainPhoto);
-      const res = await fetch(`${API_URL}/api/user/me`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          avatar: normalized[0] || "",
-          profilePhotos: normalized,
-          images: toProfileImageObjects(normalized),
-        }),
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 401) {
-          clearToken();
-          router.replace("/login");
-        }
-        setSaveError(data?.message || "No se pudieron guardar las fotos.");
-        return false;
-      }
-      const nextUser = applyPhotoPayload(data, successMessage);
-      await refreshProfileSession(nextUser);
-      return true;
-    } catch {
-      setSaveError("No se pudo conectar con el servidor.");
-      return false;
-    }
-  };
-
-  const handleReplaceMainPhoto = async (file) => {
-    setAvatarUploading(true);
-    setSaveError(""); setSaveSuccess("");
-    try {
-      const uploadResult = await uploadProfilePhotoFile(file, { setAsMain: true });
-      if (!uploadResult.ok) {
-        if (uploadResult.unauthorized) {
-          clearToken();
-          router.replace("/login");
-        }
-        setSaveError(uploadResult.error || "No se pudo subir la foto principal.");
-        return;
-      }
-      const nextUser = applyPhotoPayload(uploadResult.data, "Foto principal actualizada correctamente");
-      await refreshProfileSession(nextUser);
-    } catch (err) {
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.error("[avatar-upload] caught frontend error", err);
-      setSaveError("No se pudo subir la imagen");
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
-
-  const handleAddExtraPhotos = async (filesList) => {
-    const files = Array.from(filesList || []);
-    if (!files.length) return;
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-    const availableSlots = Math.max(0, MAX_PROFILE_PHOTOS - currentPhotos.length);
-    if (!availableSlots) {
-      setSaveError(`Ya alcanzaste el máximo de ${MAX_PROFILE_PHOTOS} fotos.`);
-      return;
-    }
-
-    setAvatarUploading(true);
-    setSaveError(""); setSaveSuccess("");
-    let uploadedCount = 0;
-    const selectedFiles = files.slice(0, availableSlots);
-    const localSelections = [];
-    const validationErrors = [];
-
-    for (const file of selectedFiles) {
-      const fileError = validateAvatarFile(file);
-      if (fileError) {
-        if (!validationErrors.includes(fileError)) validationErrors.push(fileError);
-        continue;
-      }
-      const previewUrl = URL.createObjectURL(file);
-      localSelections.push({ file, previewUrl });
-    }
-
-    if (!localSelections.length) {
-      setAvatarUploading(false);
-      setSaveError(validationErrors.join(" ") || "Selecciona una imagen válida.");
-      return;
-    }
-    if (validationErrors.length > 0) {
-      setSaveError(`Algunas fotos se omitieron: ${validationErrors.join(" ")}`);
-    }
-
-    let persistedPhotos = currentPhotos;
-    const applyPersistedWithPendingPreviews = (nextPendingIndex) => {
-      applyLocalPhotoPreviewList([
-        ...persistedPhotos,
-        ...localSelections.slice(nextPendingIndex).map((selection) => selection.previewUrl),
-      ]);
-    };
-    applyLocalPhotoPreviewList([
-      ...currentPhotos,
-      ...localSelections.map((selection) => selection.previewUrl),
-    ]);
-
-    try {
-      for (let index = 0; index < localSelections.length; index += 1) {
-        const { file } = localSelections[index];
-        const uploadResult = await uploadProfilePhotoFile(file, { setAsMain: false });
-        if (!uploadResult.ok) {
-          if (uploadResult.unauthorized) {
-            applyLocalPhotoPreviewList(uploadedCount > 0 ? persistedPhotos : currentPhotos);
-            clearToken();
-            router.replace("/login");
-            return;
-          }
-          setSaveError(uploadResult.error || "Una foto no se pudo subir.");
-          applyPersistedWithPendingPreviews(index + 1);
-          continue;
-        }
-        uploadedCount += 1;
-        const uploadPhotos = extractPhotosFromPayload(uploadResult.data);
-        persistedPhotos = uploadPhotos.length
-          ? uploadPhotos
-          : normalizePhotoList(uploadResult.data?.avatar, uploadResult.data?.profilePhotos);
-        applyPersistedWithPendingPreviews(index + 1);
-      }
-      if (uploadedCount > 0) {
-        applyLocalPhotoPreviewList(persistedPhotos);
-        const nextPhotoProfile = {
-          ...(user || {}),
-          avatar: persistedPhotos[0] || "",
-          profilePhotos: persistedPhotos,
-          images: toProfileImageObjects(persistedPhotos),
-        };
-        await refreshProfileSession(nextPhotoProfile);
-        setSaveSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
-      } else {
-        applyLocalPhotoPreviewList(currentPhotos);
-      }
-    } catch (err) {
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.error("[avatar-upload] caught frontend error", err);
-      setSaveError("No se pudo subir una o más imágenes.");
-      applyLocalPhotoPreviewList(uploadedCount > 0 ? persistedPhotos : currentPhotos);
-    } finally {
-      localSelections.forEach((selection) => URL.revokeObjectURL(selection.previewUrl));
-      setAvatarUploading(false);
-    }
-  };
-
-  const handleMakeMainPhoto = async (photoUrl) => {
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-    if (!currentPhotos.includes(photoUrl)) return;
-    await persistProfilePhotos(currentPhotos, photoUrl, "Foto principal actualizada correctamente");
-  };
-
-  const handleDeletePhoto = async (photoUrl) => {
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-    const nextPhotos = currentPhotos.filter((photo) => photo !== photoUrl);
-    const nextMain = nextPhotos[0] || "";
-    await persistProfilePhotos(nextPhotos, nextMain, "Foto eliminada correctamente");
-  };
-
-  const handleAddPhotoFromUrl = async () => {
-    const normalizedUrl = normalizeAvatarUrl(photoUrlInput);
-    if (!normalizedUrl) {
-      setSaveError("Ingresa una URL válida (http o https).");
-      return;
-    }
-    const currentPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
-    if (currentPhotos.length >= MAX_PROFILE_PHOTOS) {
-      setSaveError(`Ya alcanzaste el máximo de ${MAX_PROFILE_PHOTOS} fotos.`);
-      return;
-    }
-    const nextPhotos = [...currentPhotos, normalizedUrl];
-    const nextMain = currentPhotos[0] || normalizedUrl;
-    const saved = await persistProfilePhotos(nextPhotos, nextMain, "Foto agregada correctamente");
-    if (saved) setPhotoUrlInput("");
-  };
-
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
-  const realImages = normalizeUserImages(editForm).filter((img) => img?.url || typeof img === "string");
-  const primaryImage = realImages[0];
-  const secondaryImages = realImages.slice(1, 6);
-  const mainProfilePhoto = getRealImageUrl(primaryImage);
-  const safeMainProfilePhoto = getSafeGalleryImageSrc(mainProfilePhoto);
-  const safeExtraProfilePhotos = secondaryImages
-    .map((image) => {
-      const photo = getRealImageUrl(image);
-      return { photo, src: getSafeGalleryImageSrc(photo) };
-    })
-    .filter(({ src }) => Boolean(src));
-  const emptyProfilePhotoSlots = Math.max(0, MAX_EXTRA_PROFILE_PHOTOS - secondaryImages.length);
-  const canAddProfilePhotos = !avatarUploading && realImages.length < MAX_PROFILE_PHOTOS;
-  const canReplaceMainPhoto = !avatarUploading;
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
   const userExtraPhotos = userPhotoList.slice(1);
   
@@ -1363,130 +960,16 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Foto de perfil</label>
-                  <div className="profile-photo-manager">
-                    <div className="profile-main-photo-card">
-                      {safeMainProfilePhoto ? (
-                        <Image
-                          src={safeMainProfilePhoto}
-                          alt="Foto principal"
-                          width={250}
-                          height={250}
-                          className="profile-main-photo-image"
-                          unoptimized
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
-                        />
-                      ) : (
-                        <div className="profile-main-photo-placeholder">{initial}</div>
-                      )}
-                      <div className="profile-main-photo-label">Foto principal</div>
-                    </div>
-
-                    <div className="profile-photo-grid" role="region" aria-label="Fotos secundarias">
-                      {safeExtraProfilePhotos.map(({ photo, src }) => (
-                        <div key={photo} className="profile-photo-thumb">
-                          <Image
-                            src={src}
-                            alt="Foto adicional"
-                            width={120}
-                            height={120}
-                            className="profile-photo-thumb-img"
-                            unoptimized
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                          />
-                          <div className="profile-photo-thumb-actions">
-                            <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMainPhoto(photo)} disabled={avatarUploading}>
-                              Hacer principal
-                            </button>
-                            <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDeletePhoto(photo)} disabled={avatarUploading}>
-                              Eliminar
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {Array.from({ length: emptyProfilePhotoSlots }).map((_, index) => (
-                        <div
-                          key={`empty-slot-${index}`}
-                          className="profile-photo-thumb profile-photo-empty-slot"
-                        >
-                          <span>+</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {safeMainProfilePhoto && (
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDeletePhoto(mainProfilePhoto)} disabled={avatarUploading}>
-                          Eliminar principal
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="profile-photo-actions">
-                      <button
-                        type="button"
-                        className="profile-upload-btn"
-                        onClick={() => replaceMainPhotoInputRef.current?.click()}
-                        disabled={!canReplaceMainPhoto}
-                      >
-                        {avatarUploading ? t("profile.uploadingPhotos") : t("profile.replaceMainPhoto")}
-                      </button>
-                      <input
-                        ref={replaceMainPhotoInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        style={{ display: "none" }}
-                        disabled={!canReplaceMainPhoto}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleReplaceMainPhoto(file);
-                          e.target.value = "";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="profile-upload-btn"
-                        onClick={() => addProfilePhotosInputRef.current?.click()}
-                        disabled={realImages.length >= 6}
-                      >
-                        {avatarUploading ? t("profile.uploadingPhotos") : t("profile.addPhotos")}
-                      </button>
-                      <input
-                        ref={addProfilePhotosInputRef}
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        style={{ display: "none" }}
-                        disabled={!canAddProfilePhotos}
-                        onChange={(e) => {
-                          handleAddExtraPhotos(e.target.files);
-                          e.target.value = "";
-                        }}
-                      />
-                    </div>
-
-                    <div className="profile-photo-url-row">
-                      <input
-                        className="input"
-                        type="url"
-                        value={photoUrlInput}
-                        onChange={(e) => setPhotoUrlInput(e.target.value)}
-                        placeholder="https://ejemplo.com/tu-foto.jpg"
-                        disabled={avatarUploading}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-xs"
-                        onClick={handleAddPhotoFromUrl}
-                        disabled={avatarUploading || !photoUrlInput.trim() || realImages.length >= 6}
-                      >
-                        {t("profile.addPhotoByUrl")}
-                      </button>
-                    </div>
-                    <span className="profile-photo-hint">1 foto principal + hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>
-                  </div>
+                  <ProfilePhotoGallery
+                    user={user}
+                    draft={editForm}
+                    initial={initial}
+                    t={t}
+                    onUserChange={handlePhotoGalleryUserChange}
+                  />
                 </div>
                 <div className="form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={saving || avatarUploading}>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
                     {saving ? "Guardando…" : "Guardar cambios"}
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={handleCancelEdit} disabled={saving}>
@@ -2061,148 +1544,6 @@ export default function ProfilePage() {
           font-weight: 700;
         }
 
-        .profile-photo-manager {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .profile-main-photo-card {
-          width: 100%;
-          padding: 0.8rem;
-          border-radius: var(--radius-sm);
-          border: 1px solid rgba(224,64,251,0.28);
-          background: rgba(224,64,251,0.06);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .profile-main-photo-image,
-        .profile-main-photo-placeholder {
-          width: min(100%, 250px);
-          aspect-ratio: 1 / 1;
-          border-radius: 14px;
-        }
-
-        .profile-main-photo-image {
-          object-fit: cover;
-          border: 2px solid rgba(224,64,251,0.34);
-        }
-
-        .profile-main-photo-placeholder {
-          background: var(--grad-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-          font-size: 3rem;
-          font-weight: 800;
-        }
-
-        .profile-main-photo-label {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .profile-photo-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-          gap: 0.65rem;
-        }
-
-        .profile-photo-thumb {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 12px;
-          padding: 0.4rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-
-        .profile-photo-thumb-img {
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          border-radius: 10px;
-          object-fit: cover;
-        }
-
-        .profile-photo-thumb-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-
-        .profile-photo-empty-slot {
-          min-height: 130px;
-          align-items: center;
-          justify-content: center;
-          border-style: dashed;
-          color: var(--text-muted);
-          cursor: pointer;
-          font-size: 1.5rem;
-        }
-
-        .profile-photo-empty-slot:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-
-        .profile-photo-actions {
-          display: flex;
-          gap: 0.55rem;
-          flex-wrap: wrap;
-        }
-
-        .profile-upload-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.5rem 0.95rem;
-          border-radius: var(--radius-sm);
-          border: 1px dashed rgba(224,64,251,0.4);
-          background: rgba(224,64,251,0.06);
-          color: var(--text-muted);
-          font-size: 0.8rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.18s;
-        }
-
-        .profile-upload-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .profile-upload-btn:hover {
-          border-color: rgba(224,64,251,0.7);
-          color: var(--text);
-          background: rgba(224,64,251,0.1);
-        }
-
-        .profile-upload-btn:disabled:hover {
-          border-color: rgba(224,64,251,0.4);
-          color: var(--text-muted);
-          background: rgba(224,64,251,0.06);
-        }
-
-        .profile-photo-url-row {
-          display: grid;
-          gap: 0.55rem;
-          grid-template-columns: 1fr auto;
-          align-items: center;
-        }
-
-        .profile-photo-hint {
-          font-size: 0.72rem;
-          color: var(--text-dim);
-        }
-
         .bio-textarea { resize: vertical; min-height: 76px; }
 
         .form-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.25rem; }
@@ -2598,7 +1939,6 @@ export default function ProfilePage() {
           }
 
           .profile-extra-strip { padding: 0 1.25rem 1rem; }
-          .profile-photo-url-row { grid-template-columns: 1fr; }
           .profile-photo-thumb-actions { flex-direction: row; flex-wrap: wrap; }
           .profile-main-photo-image,
           .profile-main-photo-placeholder { width: 100%; }

@@ -36,6 +36,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     User.updateOne.mockReturnValue(Promise.resolve({}));
     app = express();
     app.set("trust proxy", 1);
+    app.use(express.json());
     app.use("/api/user", userRoutes);
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -44,6 +45,25 @@ describe("POST /api/user/me/avatar-upload", () => {
   afterEach(() => {
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
+  });
+
+  const makeCompleteUser = (overrides = {}) => ({
+    _id: "507f1f77bcf86cd799439011",
+    name: "Complete User",
+    birthdate: new Date("2000-01-01T00:00:00.000Z"),
+    location: { type: "Point", coordinates: [-70.6693, -33.4489], country: "Chile", city: "Santiago" },
+    locationPoint: { type: "Point", coordinates: [-70.6693, -33.4489] },
+    gender: "female",
+    interestedIn: "male",
+    intent: "dating",
+    interests: ["music", "travel", "movies"],
+    role: "user",
+    isBlocked: false,
+    isSuspended: false,
+    toObject() {
+      return { ...this };
+    },
+    ...overrides,
   });
 
   test("returns raw stored photo debug fields for the current user", async () => {
@@ -132,6 +152,92 @@ describe("POST /api/user/me/avatar-upload", () => {
       hasIntent: true,
       hasInterests: true,
     });
+  });
+
+  test("reorders current user photos through the focused photos endpoint", async () => {
+    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-a.png";
+    const secondaryPhoto = "https://api.meetyoulive.net/uploads/avatar-b.png";
+    const reorderedPhotos = [secondaryPhoto, primaryPhoto];
+    const currentUser = makeCompleteUser({
+      avatar: primaryPhoto,
+      profilePhotos: [primaryPhoto, secondaryPhoto],
+      images: [
+        { url: primaryPhoto, isPrimary: true },
+        { url: secondaryPhoto, isPrimary: false },
+      ],
+    });
+    const savedUser = makeCompleteUser({
+      avatar: secondaryPhoto,
+      profilePhotos: reorderedPhotos,
+      images: [
+        { url: secondaryPhoto, isPrimary: true },
+        { url: primaryPhoto, isPrimary: false },
+      ],
+    });
+
+    User.findById.mockReturnValueOnce(makeQuery(currentUser));
+    User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
+
+    const res = await request(app)
+      .patch("/api/user/me/photos/reorder")
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https")
+      .send({ images: reorderedPhotos });
+
+    expect(res.status).toBe(200);
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      "507f1f77bcf86cd799439011",
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          avatar: secondaryPhoto,
+          profilePhotos: reorderedPhotos,
+        }),
+      }),
+      { new: true }
+    );
+    expect(res.body.profilePhotos).toEqual(reorderedPhotos);
+    expect(res.body.user.avatar).toBe(secondaryPhoto);
+  });
+
+  test("deletes a current user photo through the focused photos endpoint", async () => {
+    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-a.png";
+    const secondaryPhoto = "https://api.meetyoulive.net/uploads/avatar-b.png";
+    const currentUser = makeCompleteUser({
+      avatar: primaryPhoto,
+      profilePhotos: [primaryPhoto, secondaryPhoto],
+      images: [
+        { url: primaryPhoto, isPrimary: true },
+        { url: secondaryPhoto, isPrimary: false },
+      ],
+    });
+    const savedUser = makeCompleteUser({
+      avatar: primaryPhoto,
+      profilePhotos: [primaryPhoto],
+      images: [{ url: primaryPhoto, isPrimary: true }],
+    });
+
+    User.findById.mockReturnValueOnce(makeQuery(currentUser));
+    User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
+
+    const res = await request(app)
+      .delete(`/api/user/me/photos/${encodeURIComponent(secondaryPhoto)}`)
+      .set("Authorization", "******")
+      .set("Host", "api.meetyoulive.net")
+      .set("X-Forwarded-Proto", "https");
+
+    expect(res.status).toBe(200);
+    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+      "507f1f77bcf86cd799439011",
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          avatar: primaryPhoto,
+          profilePhotos: [primaryPhoto],
+        }),
+      }),
+      { new: true }
+    );
+    expect(res.body.profilePhotos).toEqual([primaryPhoto]);
   });
 
   test("GET /me returns normalized photos and embedded profileStatus", async () => {

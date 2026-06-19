@@ -37,6 +37,7 @@ const {
 
 const router = Router();
 const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
+const USER_PHOTO_STATE_FIELDS = "avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -334,6 +335,37 @@ const normalizeProfilePhotos = (req, profilePhotosInput, avatarInput, currentUse
     photoState.avatar = avatarInput;
   }
   return syncCanonicalPhotoFields(photoState, req);
+};
+
+const saveUserPhotoState = async (req, currentUser, photosInput) => {
+  const normalizedPhotoState = normalizeProfilePhotos(req, photosInput, photosInput[0] || "", currentUser);
+  const mergedUserForCompletion = {
+    ...(typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser),
+    avatar: normalizedPhotoState.avatar,
+    profilePhotos: normalizedPhotoState.profilePhotos,
+    images: normalizedPhotoState.images,
+  };
+  const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
+  const savedUser = await User.findByIdAndUpdate(
+    currentUser._id,
+    {
+      $set: {
+        avatar: normalizedPhotoState.avatar,
+        profilePhotos: normalizedPhotoState.profilePhotos,
+        images: normalizedPhotoState.images,
+        onboardingComplete: uploadProfileCompletion.canAppearInFeed,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  if (!savedUser) return null;
+
+  const payload = savedUser.toObject();
+  const photoFields = serializeUserPhotoFields(req, payload);
+  Object.assign(payload, photoFields);
+  attachProfileCompletionPayload(req, payload);
+  return payload;
 };
 
 const getExistingPhotoCandidates = (user) => [
@@ -859,6 +891,82 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
       });
     }
     res.json(payload);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Focused profile photo endpoints used by the /profile gallery.
+router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const photos = req.body?.images ?? req.body?.profilePhotos ?? req.body?.photos;
+    if (!Array.isArray(photos)) {
+      return res.status(400).json({ message: "images debe ser una lista de fotos" });
+    }
+
+    const currentUser = await User.findById(req.userId).select(USER_PHOTO_STATE_FIELDS);
+    if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const savedPayload = await saveUserPhotoState(req, currentUser, photos);
+    if (!savedPayload) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.json({
+      ok: true,
+      message: "Fotos actualizadas correctamente",
+      avatar: savedPayload.avatar,
+      profilePhotos: savedPayload.profilePhotos,
+      photos: savedPayload.photos,
+      images: savedPayload.images,
+      maxExtraPhotos: savedPayload.maxExtraPhotos,
+      onboardingComplete: savedPayload.onboardingComplete,
+      canAppearInFeed: savedPayload.canAppearInFeed,
+      missingFields: savedPayload.missingFields,
+      profileCompletion: savedPayload.profileCompletion,
+      profileCompletionStatus: savedPayload.profileCompletionStatus,
+      profileStatus: savedPayload.profileStatus,
+      user: savedPayload,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.delete("/me/photos/:photoId", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId).select(USER_PHOTO_STATE_FIELDS);
+    if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const currentPhotos = normalizeProfilePhotos(req, undefined, undefined, currentUser).profilePhotos;
+    const decodedPhotoId = decodeURIComponent(req.params.photoId || "");
+    const targetPhoto = getPhotoUrl(decodedPhotoId, req);
+    if (!targetPhoto) {
+      return res.status(400).json({ message: "Foto inválida" });
+    }
+
+    const nextPhotos = currentPhotos.filter((photo) => photo !== targetPhoto);
+    if (nextPhotos.length === currentPhotos.length) {
+      return res.status(404).json({ message: "Foto no encontrada" });
+    }
+
+    const savedPayload = await saveUserPhotoState(req, currentUser, nextPhotos);
+    if (!savedPayload) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    res.json({
+      ok: true,
+      message: "Foto eliminada correctamente",
+      avatar: savedPayload.avatar,
+      profilePhotos: savedPayload.profilePhotos,
+      photos: savedPayload.photos,
+      images: savedPayload.images,
+      maxExtraPhotos: savedPayload.maxExtraPhotos,
+      onboardingComplete: savedPayload.onboardingComplete,
+      canAppearInFeed: savedPayload.canAppearInFeed,
+      missingFields: savedPayload.missingFields,
+      profileCompletion: savedPayload.profileCompletion,
+      profileCompletionStatus: savedPayload.profileCompletionStatus,
+      profileStatus: savedPayload.profileStatus,
+      user: savedPayload,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -74,7 +74,12 @@ const logPhotoNormalizationDiagnostics = (userLike = {}, normalizedImages = []) 
   console.log("raw user images", userLike?.images);
   console.log("raw user avatar", userLike?.avatar);
   console.log("raw user profilePhotos", userLike?.profilePhotos);
-  console.log("normalized images", normalizedImages);
+  console.log("normalizedImages", normalizedImages);
+  console.log("primaryImage", normalizedImages[0]?.url || "");
+  console.log("secondaryImages", normalizedImages.slice(1).map((image) => image.url));
+  normalizedImages.forEach((image, index) => {
+    console.log(`final img src [${index}]`, image.url);
+  });
 };
 
 const normalizeDiscoveryForm = (user = {}) => {
@@ -667,7 +672,20 @@ export default function ProfilePage() {
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
+  const normalizedImages = toProfileImageObjects(userPhotoList);
+  const primaryImage = userPhotoList[0] || "";
   const userExtraPhotos = userPhotoList.slice(1);
+  const secondaryImages = userExtraPhotos;
+
+  useEffect(() => {
+    if (!user) return;
+    console.log("normalizedImages", normalizedImages);
+    console.log("primaryImage", primaryImage);
+    console.log("secondaryImages", secondaryImages);
+    [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
+      console.log(`final img src [${index}]`, src);
+    });
+  }, [user, primaryImage, secondaryImages.join("|")]);
   
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
@@ -963,6 +981,7 @@ export default function ProfilePage() {
                     initial={initial}
                     t={t}
                     onUserChange={handlePhotoGalleryUserChange}
+                    showSrcDebug
                   />
                 </div>
                 <div className="form-actions">

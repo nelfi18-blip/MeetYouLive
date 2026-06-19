@@ -20,25 +20,38 @@ export function normalizeImageUrl(value) {
   const trimmed = typeof raw === 'string' ? raw.trim() : "";
 
   if (!trimmed) return null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const toBackendUploadUrl = (path) => {
+    const normalizedPath = path.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
+    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
+  };
+
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
       if (url.pathname.startsWith("/api/uploads/")) {
         url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
       }
+      if (
+        url.pathname.startsWith("/uploads/") &&
+        /^(www\.)?meetyoulive\.net$/i.test(url.hostname) &&
+        apiOrigin
+      ) {
+        return toBackendUploadUrl(url.pathname);
+      }
       return url.toString();
     } catch {
       return null;
     }
   }
-  if (trimmed.startsWith("//")) return `https:${trimmed}`;
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  if (trimmed.startsWith("//")) return normalizeImageUrl(`https:${trimmed}`);
 
   if (trimmed.startsWith("/")) {
-    const withoutApiPrefix = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
-    const relativePath = withoutApiPrefix.startsWith("/") ? withoutApiPrefix.slice(1) : withoutApiPrefix;
+    if (/^\/?(?:api\/)?uploads\//i.test(trimmed)) {
+      return toBackendUploadUrl(trimmed);
+    }
+    const relativePath = trimmed.slice(1);
     return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
   }
 

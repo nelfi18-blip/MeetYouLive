@@ -676,7 +676,7 @@ export default function ProfilePage() {
   const primaryImage = userPhotoList[0] || "";
   const userExtraPhotos = userPhotoList.slice(1);
   const secondaryImages = userExtraPhotos;
-  const photoDebugSignature = userPhotoList.join("|");
+  const photoSignature = userPhotoList.join("|");
 
   useEffect(() => {
     if (!user) return;
@@ -687,7 +687,7 @@ export default function ProfilePage() {
     [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
       console.log(`final img src [${index}]`, src);
     });
-  }, [user, photoDebugSignature]);
+  }, [photoSignature]);
   
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";

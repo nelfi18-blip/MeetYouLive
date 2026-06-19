@@ -10,6 +10,8 @@ const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 const toBackendUploadUrl = (path) => {
   const normalizedPath = path.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
+  // Uploaded user files live on the backend. Without an API origin, do not
+  // fall back to the frontend host because that creates broken /uploads URLs.
   return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : null;
 };
 
@@ -70,7 +72,10 @@ export function normalizeImageUrl(value) {
 
   const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
   if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
-    return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : null;
+    if (/^uploads\//i.test(normalizedPath)) {
+      return toBackendUploadUrl(normalizedPath);
+    }
+    return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : `/${normalizedPath}`;
   }
 
   return null;

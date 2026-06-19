@@ -137,6 +137,41 @@ describe("getFeed", () => {
     expect(User.find).toHaveBeenCalledTimes(1);
   });
 
+  test("ignoreExclude ignores client and liked exclusions but keeps self excluded", async () => {
+    const { getFeed, User, Live, Like } = setupController();
+    const strictProfile = {
+      _id: otherUserId,
+      name: "Strict Candidate",
+      username: "strict_candidate",
+      avatar: "https://example.com/strict.jpg",
+      profilePhotos: ["https://example.com/strict.jpg"],
+      images: [{ url: "https://example.com/strict.jpg", isPrimary: true }],
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(currentUser));
+    User.aggregate.mockResolvedValue([strictProfile]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([otherUserId]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ exclude: otherUserId, ignoreExclude: "true" }), res);
+
+    const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
+    expect(strictMatch._id.$nin.map(String)).toEqual([currentUserId]);
+    expect(Like.distinct).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        feedMode: "strict",
+        debug: expect.objectContaining({ ignoreExclude: true }),
+        profiles: [expect.objectContaining({ _id: otherUserId })],
+        recommendedProfiles: [expect.objectContaining({ _id: otherUserId })],
+      })
+    );
+  });
+
   test("returns betaFallback feedMode when strict feed has no candidates", async () => {
     const { getFeed, User, Live, Like } = setupController();
     const fallbackProfile = {
@@ -178,6 +213,47 @@ describe("getFeed", () => {
         role: { $in: ["user", "User"] },
         isBlocked: { $ne: true },
         isSuspended: { $ne: true },
+      })
+    );
+  });
+
+  test("ignoreExclude also ignores client and liked exclusions in betaFallback", async () => {
+    const { getFeed, User, Live, Like } = setupController();
+    const fallbackProfile = {
+      _id: otherUserId,
+      name: "Fallback Candidate",
+      username: "fallback_candidate",
+      role: "User",
+      isBlocked: false,
+      isSuspended: false,
+      avatar: "/uploads/fallback.jpg",
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(currentUser));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([fallbackProfile]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([otherUserId]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ exclude: otherUserId, ignoreExclude: "true" }), res);
+
+    const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
+    const fallbackMatch = User.find.mock.calls[2][0];
+    expect(strictMatch._id.$nin.map(String)).toEqual([currentUserId]);
+    expect(String(fallbackMatch._id.$ne)).toBe(currentUserId);
+    expect(Like.distinct).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        feedMode: "betaFallback",
+        debug: expect.objectContaining({ ignoreExclude: true, fallbackCount: 1 }),
+        profiles: [expect.objectContaining({ _id: otherUserId })],
+        recommendedProfiles: [expect.objectContaining({ _id: otherUserId })],
       })
     );
   });

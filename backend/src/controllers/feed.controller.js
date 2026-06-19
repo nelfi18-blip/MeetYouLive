@@ -743,8 +743,9 @@ const getFeed = async (req, res) => {
 
     const authenticatedUserId = toObjectIdOrNull(req.userId);
     const diagnoseUserId = toObjectIdOrNull(req.query.diagnose);
+    const ignoreExclude = req.query.ignoreExclude === "true";
 
-    const clientExcludedObjectIds = parseExcludedProfileIds(req.query.exclude);
+    const clientExcludedObjectIds = ignoreExclude ? [] : parseExcludedProfileIds(req.query.exclude);
     const clientExcludedProfileIds = new Set(clientExcludedObjectIds.map((profileId) => profileId.toString()));
     const excludedProfileIdsById = new Map(
       clientExcludedObjectIds.map((profileId) => [profileId.toString(), profileId])
@@ -756,8 +757,10 @@ const getFeed = async (req, res) => {
     let likedProfileIdsRaw = [];
     if (authenticatedUserId) {
       addExcludedProfileId(authenticatedUserId);
-      likedProfileIdsRaw = await Like.distinct("to", { from: authenticatedUserId });
-      likedProfileIdsRaw.forEach(addExcludedProfileId);
+      if (!ignoreExclude) {
+        likedProfileIdsRaw = await Like.distinct("to", { from: authenticatedUserId });
+        likedProfileIdsRaw.forEach(addExcludedProfileId);
+      }
     }
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     
@@ -861,6 +864,7 @@ const getFeed = async (req, res) => {
       fallbackDebug = {
         strictCount: strictProfileCount,
         fallbackCount: serializedRecommendedProfiles.length,
+        ignoreExclude,
       };
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
@@ -922,7 +926,7 @@ const getFeed = async (req, res) => {
       reason: feedMode === "betaFallback"
         ? "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta."
         : "",
-      debug: { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) },
+      debug: { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}), ignoreExclude },
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       profiles: serializedRecommendedProfiles,

@@ -259,6 +259,16 @@ function clearCachedFeed() {
   }
 }
 
+function clearFeedExcludedStorage() {
+  clearCachedFeed();
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(FEED_SEEN_PROFILE_IDS_KEY);
+  } catch {
+  }
+}
+
 function readSeenProfileIds() {
   if (typeof window === "undefined") return [];
 
@@ -296,9 +306,12 @@ function removeSeenProfileId(profileId) {
   writeSeenProfileIds(readSeenProfileIds().filter((storedProfileId) => storedProfileId !== profileId));
 }
 
-function buildFeedUrl({ excludeSeen = false } = {}) {
+function buildFeedUrl({ excludeSeen = false, ignoreExclude = false } = {}) {
   const url = new URL(`${API_URL}/api/feed`);
-  if (excludeSeen) {
+  if (ignoreExclude) {
+    url.searchParams.set("ignoreExclude", "true");
+    url.searchParams.set("cacheBust", String(Date.now()));
+  } else if (excludeSeen) {
     const seenProfileIds = readSeenProfileIds();
     if (seenProfileIds.length) {
       url.searchParams.set("exclude", seenProfileIds.join(","));
@@ -757,7 +770,7 @@ export default function FeedPage() {
     return () => clearTimeout(timer);
   }, [status, authToken, t]);
 
-  const loadFeed = useCallback(async ({ signal, silent = false, fresh = false } = {}) => {
+  const loadFeed = useCallback(async ({ signal, silent = false, fresh = false, ignoreExclude = false } = {}) => {
     let mutationVersionAtStart = feedMutationVersionRef.current;
     const profilesBeforeRefresh = fresh ? [] : profilesRef.current;
     const indexBeforeRefresh = fresh ? 0 : currentIndexRef.current;
@@ -779,7 +792,11 @@ export default function FeedPage() {
     if (fresh) {
       feedMutationVersionRef.current += 1;
       mutationVersionAtStart = feedMutationVersionRef.current;
-      clearCachedFeed();
+      if (ignoreExclude) {
+        clearFeedExcludedStorage();
+      } else {
+        clearCachedFeed();
+      }
       currentProfileIdRef.current = "";
       currentIndexRef.current = 0;
       profilesRef.current = [];
@@ -806,7 +823,7 @@ export default function FeedPage() {
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
-      const feedRes = await fetch(buildFeedUrl({ excludeSeen: fresh }), {
+      const feedRes = await fetch(buildFeedUrl({ excludeSeen: fresh, ignoreExclude }), {
         headers: { Authorization: `Bearer ${authToken}` },
         signal: requestSignal,
         cache: "no-store",
@@ -1309,7 +1326,7 @@ export default function FeedPage() {
                   {t("feed.undoLabel")}
                 </button>
               )}
-              <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true })}>
+              <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true, ignoreExclude: true })}>
                 {t("feed.reloadProfiles")}
               </button>
             </div>

@@ -76,14 +76,16 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
   const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) });
   const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
+  const imageDebugSignature = images.join(PHOTO_SIGNATURE_SEPARATOR);
 
   useEffect(() => {
+    // TODO(2026-06-19): Remove after production profile image URLs are verified.
     console.log("primaryImage", primaryImage);
     console.log("secondaryImages", secondaryImages);
     [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
       console.log(`final img src [${index}]`, src);
     });
-  }, [primaryImage, secondaryImages.join("|")]);
+  }, [imageDebugSignature]);
 
   const getAndCacheAuthToken = () => {
     const storedToken = getToken();

@@ -45,7 +45,21 @@ export function normalizeImageUrl(value) {
       return null;
     }
   }
-  if (trimmed.startsWith("//")) return normalizeImageUrl(`https:${trimmed}`);
+  if (trimmed.startsWith("//")) {
+    try {
+      const url = new URL(`https:${trimmed}`);
+      if (
+        url.pathname.startsWith("/uploads/") &&
+        /^(www\.)?meetyoulive\.net$/i.test(url.hostname) &&
+        apiOrigin
+      ) {
+        return toBackendUploadUrl(url.pathname);
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
 
   if (trimmed.startsWith("/")) {
     if (/^\/?(?:api\/)?uploads\//i.test(trimmed)) {

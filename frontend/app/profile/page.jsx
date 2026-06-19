@@ -676,16 +676,18 @@ export default function ProfilePage() {
   const primaryImage = userPhotoList[0] || "";
   const userExtraPhotos = userPhotoList.slice(1);
   const secondaryImages = userExtraPhotos;
+  const photoDebugSignature = userPhotoList.join("|");
 
   useEffect(() => {
     if (!user) return;
+    // TODO(2026-06-19): Remove after production profile image URLs are verified.
     console.log("normalizedImages", normalizedImages);
     console.log("primaryImage", primaryImage);
     console.log("secondaryImages", secondaryImages);
     [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
       console.log(`final img src [${index}]`, src);
     });
-  }, [user, primaryImage, secondaryImages.join("|")]);
+  }, [user, photoDebugSignature]);
   
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";

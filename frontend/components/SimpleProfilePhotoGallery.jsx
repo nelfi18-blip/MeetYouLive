@@ -19,6 +19,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_BASE_URL = typeof API_URL === "string" ? API_URL.replace(/\/+$/, "") : "";
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_SECONDARY_PHOTOS = 5;
+const PRIMARY_PHOTO_SIZE = 360;
+const PHOTO_SIGNATURE_SEPARATOR = "\u0000";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
@@ -64,10 +66,10 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const userPhotos = normalizePhotos(user);
-  const userPhotoSignature = userPhotos.join("\u0000");
+  const userPhotoSignature = userPhotos.join(PHOTO_SIGNATURE_SEPARATOR);
 
   useEffect(() => {
-    setImages(userPhotos);
+    setImages(userPhotoSignature ? userPhotoSignature.split(PHOTO_SIGNATURE_SEPARATOR) : []);
   }, [userPhotoSignature]);
 
   const primaryImage = images[0] || "";
@@ -189,7 +191,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         // Only the first photo in an empty gallery should become primary.
         const result = await uploadPhoto(file, currentImages.length === 0);
         if (!result.ok) {
-          firstUploadError ||= result.error || t("profile.photoUploadOneError");
+          if (!firstUploadError) firstUploadError = result.error || t("profile.photoUploadOneError");
           continue;
         }
 
@@ -294,8 +296,8 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           <Image
             src={primaryImage}
             alt={t("profile.primaryPhotoAlt")}
-            width={420}
-            height={420}
+            width={PRIMARY_PHOTO_SIZE}
+            height={PRIMARY_PHOTO_SIZE}
             className="profile-main-photo-image"
             unoptimized
           />
@@ -411,7 +413,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
         .profile-main-photo-image,
         .profile-main-photo-placeholder {
-          width: min(100%, 420px);
+          width: min(100%, 360px);
           aspect-ratio: 1 / 1;
           border-radius: 14px;
         }

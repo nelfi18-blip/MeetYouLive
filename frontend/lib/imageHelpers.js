@@ -4,6 +4,16 @@
  */
 
 const MAX_USER_IMAGES = 6;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
+const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
+
+const toBackendUploadUrl = (path) => {
+  const normalizedPath = path.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
+  // Uploaded user files live on the backend. Without an API origin, do not
+  // fall back to the frontend host because that creates broken /uploads URLs.
+  return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : null;
+};
 
 /**
  * Normalize user-provided image values into renderable client URLs.
@@ -26,25 +36,46 @@ export function normalizeImageUrl(value) {
       if (url.pathname.startsWith("/api/uploads/")) {
         url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
       }
+      if (
+        url.pathname.startsWith("/uploads/") &&
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
+      ) {
+        return toBackendUploadUrl(url.pathname);
+      }
       return url.toString();
     } catch {
       return null;
     }
   }
-  if (trimmed.startsWith("//")) return `https:${trimmed}`;
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  if (trimmed.startsWith("//")) {
+    try {
+      const url = new URL(`https:${trimmed}`);
+      if (
+        url.pathname.startsWith("/uploads/") &&
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
+      ) {
+        return toBackendUploadUrl(url.pathname);
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
 
   if (trimmed.startsWith("/")) {
-    const withoutApiPrefix = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
-    const relativePath = withoutApiPrefix.startsWith("/") ? withoutApiPrefix.slice(1) : withoutApiPrefix;
-    return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
+    if (/^\/?(?:api\/)?uploads\//i.test(trimmed)) {
+      return toBackendUploadUrl(trimmed);
+    }
+    const relativePath = trimmed.slice(1);
+    return API_ORIGIN ? `${API_ORIGIN}/${relativePath}` : `/${relativePath}`;
   }
 
   const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
   if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
-    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
+    if (/^uploads\//i.test(normalizedPath)) {
+      return toBackendUploadUrl(normalizedPath);
+    }
+    return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : `/${normalizedPath}`;
   }
 
   return null;

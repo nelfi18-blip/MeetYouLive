@@ -57,7 +57,7 @@ const buildUploadEndpoint = (setAsMain) => {
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
-export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChange }) {
+export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChange, showSrcDebug = false }) {
   const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const fileInputRef = useRef(null);
@@ -76,6 +76,16 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
   const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) });
   const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
+  const imageSignature = images.join(PHOTO_SIGNATURE_SEPARATOR);
+
+  useEffect(() => {
+    // TODO(2026-06-19): Remove after production profile image URLs are verified.
+    console.log("primaryImage", primaryImage);
+    console.log("secondaryImages", secondaryImages);
+    [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
+      console.log(`final img src [${index}]`, src);
+    });
+  }, [imageSignature]);
 
   const getAndCacheAuthToken = () => {
     const storedToken = getToken();
@@ -310,6 +320,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
             {t("profile.deletePhoto")}
           </button>
         )}
+        {showSrcDebug && primaryImage && <code className="profile-photo-src-debug">{primaryImage}</code>}
       </div>
 
       <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
@@ -323,6 +334,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
               className="profile-photo-thumb-img"
               unoptimized
             />
+            {showSrcDebug && <code className="profile-photo-src-debug">{photo}</code>}
             <div className="profile-photo-thumb-actions">
               <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakePrimary(photo)} disabled={working}>
                 {t("profile.makePrimary")}
@@ -457,6 +469,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           aspect-ratio: 1 / 1;
           border-radius: 10px;
           object-fit: cover;
+        }
+
+        .profile-photo-src-debug {
+          width: 100%;
+          display: block;
+          overflow-wrap: anywhere;
+          color: var(--text-muted);
+          font-size: 0.65rem;
+          line-height: 1.35;
         }
 
         .profile-photo-thumb-actions {

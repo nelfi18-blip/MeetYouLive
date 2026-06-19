@@ -66,7 +66,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
   useEffect(() => {
     setImages(normalizePhotos(user));
-  }, [user]);
+  }, [user?.avatar, user?.profilePhotos, user?.images]);
 
   const primaryImage = images[0] || "";
   const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
@@ -76,7 +76,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   );
   const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
 
-  const getAuthToken = () => {
+  const getAndCacheAuthToken = () => {
     const storedToken = getToken();
     if (storedToken) return storedToken;
     if (session?.backendToken) {
@@ -141,7 +141,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
     const fileError = validateFile(file);
     if (fileError) return { ok: false, error: fileError };
 
-    const token = getAuthToken();
+    const token = getAndCacheAuthToken();
     if (!token) return { ok: false, error: t("profile.photoSessionExpired") };
 
     const endpoint = buildUploadEndpoint(setAsMain);
@@ -189,7 +189,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         const result = await uploadPhoto(file, currentImages.length === 0);
         if (!result.ok) {
           setError(result.error || t("profile.photoUploadOneError"));
-          continue;
+          break;
         }
 
         uploadedCount += 1;
@@ -208,7 +208,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   };
 
   const persistImages = async (nextImages, message) => {
-    const token = getAuthToken();
+    const token = getAndCacheAuthToken();
     if (!token) {
       setError(t("profile.photoSessionExpired"));
       return;
@@ -248,7 +248,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   };
 
   const handleDelete = async (photoUrl) => {
-    const token = getAuthToken();
+    const token = getAndCacheAuthToken();
     if (!token) {
       setError(t("profile.photoSessionExpired"));
       return;

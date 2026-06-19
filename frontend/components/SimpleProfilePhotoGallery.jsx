@@ -61,11 +61,11 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  const [images, setImages] = useState(() => normalizePhotos(user));
+  const userPhotos = normalizePhotos(user);
+  const [images, setImages] = useState(userPhotos);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const userPhotos = normalizePhotos(user);
   const userPhotoSignature = userPhotos.join(PHOTO_SIGNATURE_SEPARATOR);
 
   useEffect(() => {
@@ -188,7 +188,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
     try {
       for (const file of selectedFiles) {
-        // Only the first photo in an empty gallery should become primary.
+        // currentImages tracks this batch, so only the first upload into an empty gallery becomes primary.
         const result = await uploadPhoto(file, currentImages.length === 0);
         if (!result.ok) {
           if (!firstUploadError) firstUploadError = result.error || t("profile.photoUploadOneError");
@@ -334,12 +334,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           </div>
         ))}
         {emptySlots.map((_, index) => (
-          <div
-            key={`empty-slot-${index}`}
-            className="profile-photo-thumb profile-photo-empty-slot"
-            role="img"
-            aria-label={t("profile.emptyPhotoSlot")}
-          >
+          <div key={`empty-slot-${index}`} className="profile-photo-thumb profile-photo-empty-slot">
             <span>+</span>
           </div>
         ))}

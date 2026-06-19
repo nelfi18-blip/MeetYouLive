@@ -54,6 +54,7 @@ const FEED_PHOTO_SCALAR_FIELDS = [
 const FEED_PHOTO_FIELDS = [...FEED_PHOTO_ARRAY_FIELDS, ...FEED_PHOTO_SCALAR_FIELDS].join(" ");
 const FEED_PHOTO_FIELD_NAMES = FEED_PHOTO_FIELDS.split(" ");
 const PHOTO_VALIDATION_STUB_REQUEST = { protocol: "https", get: () => "" };
+const DEFAULT_FEED_PROFILE_NAME = "Usuario";
 const FEED_PHOTO_CANDIDATE_MATCH = {
   $or: [
     ...FEED_PHOTO_ARRAY_FIELDS.map((field) => ({ [`${field}.0`]: { $exists: true } })),
@@ -245,13 +246,60 @@ const buildRecommendedProfilesPipeline = (match, limit) => [
 ];
 
 const serializeFeedImageFields = (req, item) => {
-  return withSerializedUserPhotoFields(req, item);
+  const serialized = withSerializedUserPhotoFields(req, item) || {};
+  const id = serialized._id || serialized.id;
+  const idString = id ? String(id) : "";
+  const fullName = [serialized.firstName, serialized.lastName]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
+  const name = [serialized.displayName, serialized.name, fullName, serialized.username]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .find(Boolean) || DEFAULT_FEED_PROFILE_NAME;
+  const username = typeof serialized.username === "string" && serialized.username.trim()
+    ? serialized.username.trim()
+    : name;
+  const photos = Array.isArray(serialized.profilePhotos) ? serialized.profilePhotos.filter(Boolean) : [];
+  const images = Array.isArray(serialized.images) ? serialized.images : [];
+  const interestSource = Array.isArray(serialized.interests)
+    ? serialized.interests
+    : Array.isArray(serialized.tags)
+      ? serialized.tags
+      : [];
+  const interests = interestSource
+    .filter((interest) => typeof interest === "string" && interest.trim())
+    .map((interest) => interest.trim());
+  const location = typeof serialized.location === "string"
+    ? serialized.location.trim()
+    : [
+        serialized.locationLabel,
+        serialized.location?.label,
+        serialized.location?.city,
+        serialized.location?.country,
+      ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
+  const numericAge = Number(serialized.age);
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
+
+  return {
+    ...serialized,
+    _id: idString,
+    id: idString,
+    name,
+    username,
+    avatar: typeof serialized.avatar === "string" ? serialized.avatar : photos[0] || "",
+    images,
+    profilePhotos: photos,
+    age,
+    location,
+    interests,
+    bio: typeof serialized.bio === "string" ? serialized.bio : "",
+  };
 };
 
 const serializeFeedProfilesWithPhotos = (req, profiles, limit) =>
   profiles
     .map((profile) => serializeFeedImageFields(req, profile))
-    .filter((profile) => Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
+    .filter((profile) => profile._id && Array.isArray(profile.profilePhotos) && profile.profilePhotos.length > 0)
     .slice(0, limit);
 
 const parseFeedLimit = (value) => {
@@ -261,7 +309,10 @@ const parseFeedLimit = (value) => {
 };
 
 const serializeFeedProfilesAllowingMissingPhotos = (req, profiles, limit) =>
-  profiles.map((profile) => serializeFeedImageFields(req, profile)).slice(0, limit);
+  profiles
+    .map((profile) => serializeFeedImageFields(req, profile))
+    .filter((profile) => profile._id)
+    .slice(0, limit);
 
 const getBetaFallbackProfiles = async (req, currentUserId) => {
   const limit = parseFeedLimit(req.query.limit);
@@ -868,6 +919,10 @@ const getFeed = async (req, res) => {
     const responseBody = {
       success: true,
       feedMode,
+      reason: feedMode === "betaFallback"
+        ? "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta."
+        : "",
+      debug: { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) },
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       profiles: serializedRecommendedProfiles,
@@ -878,12 +933,6 @@ const getFeed = async (req, res) => {
       missingFields: viewerProfileStatus?.missingFields || [],
       profileCompletionStatus: viewerProfileStatus,
     };
-    if (feedMode === "betaFallback") {
-      responseBody.reason = "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta.";
-    }
-    if (zeroCandidateDebug || fallbackDebug) {
-      responseBody.debug = { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}) };
-    }
     if (diagnosis !== undefined) responseBody.diagnosis = diagnosis;
     res.json(responseBody);
   } catch (error) {
@@ -895,11 +944,19 @@ const getFeed = async (req, res) => {
       console.error("[Feed API] Error stack:", error.stack);
     }
     
-    // Use consistent error response format as per project guidelines
-    res.status(500).json({ 
-      message: process.env.NODE_ENV === 'production' 
-        ? "Error al cargar el feed" 
-        : `Error al cargar el feed: ${error.message}`
+    const message = process.env.NODE_ENV === 'production'
+      ? "Error al cargar el feed"
+      : `Error al cargar el feed: ${error.message}`;
+    res.status(500).json({
+      success: false,
+      message,
+      feedMode: "strict",
+      reason: message,
+      debug: {},
+      recommendedProfiles: [],
+      profiles: [],
+      activeLives: [],
+      featuredCreators: [],
     });
   }
 };

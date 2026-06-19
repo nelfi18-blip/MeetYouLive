@@ -37,6 +37,7 @@ const {
 
 const router = Router();
 const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
+const USER_PHOTO_STATE_FIELDS = "avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -895,6 +896,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+// Focused profile photo endpoints used by the /profile gallery.
 router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) => {
   try {
     const photos = req.body?.images ?? req.body?.profilePhotos ?? req.body?.photos;
@@ -902,7 +904,7 @@ router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) =>
       return res.status(400).json({ message: "images debe ser una lista de fotos" });
     }
 
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended");
+    const currentUser = await User.findById(req.userId).select(USER_PHOTO_STATE_FIELDS);
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const savedPayload = await saveUserPhotoState(req, currentUser, photos);
@@ -931,7 +933,7 @@ router.patch("/me/photos/reorder", userLimiter, verifyToken, async (req, res) =>
 
 router.delete("/me/photos/:photoId", userLimiter, verifyToken, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended");
+    const currentUser = await User.findById(req.userId).select(USER_PHOTO_STATE_FIELDS);
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const currentPhotos = normalizeProfilePhotos(req, undefined, undefined, currentUser).profilePhotos;

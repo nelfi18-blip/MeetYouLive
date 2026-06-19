@@ -16,6 +16,7 @@ import {
 } from "@/lib/avatarUpload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = typeof API_URL === "string" ? API_URL.replace(/\/+$/, "") : "";
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_SECONDARY_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -39,8 +40,11 @@ const normalizePhotoUrls = (userOrImages = {}) =>
     .slice(0, MAX_PROFILE_PHOTOS);
 
 const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
-  if (typeof API_URL !== "string" || !API_URL.trim()) return "";
-  const base = `${API_URL.replace(/\/+$/, "")}/api/user/me/avatar-upload`;
+  if (!API_BASE_URL) {
+    console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
+    return "";
+  }
+  const base = `${API_BASE_URL}/api/user/me/avatar-upload`;
   return setAsMain ? base : `${base}?setAsMain=0`;
 };
 
@@ -175,12 +179,17 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       setError(t("profile.photoSessionExpired"));
       return;
     }
+    if (!API_BASE_URL) {
+      console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
+      setError(t("profile.photoUploadConfigMissing"));
+      return;
+    }
 
     setWorking(true);
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${API_URL}/api/user/me/photos/reorder`, {
+      const res = await fetch(`${API_BASE_URL}/api/user/me/photos/reorder`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({ images: nextPhotos }),
@@ -246,12 +255,17 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       setError(t("profile.photoSessionExpired"));
       return;
     }
+    if (!API_BASE_URL) {
+      console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
+      setError(t("profile.photoUploadConfigMissing"));
+      return;
+    }
 
     setWorking(true);
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${API_URL}/api/user/me/photos/${encodeURIComponent(photoUrl)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/user/me/photos/${encodeURIComponent(photoUrl)}`, {
         method: "DELETE",
         headers: { Authorization: "Bearer " + token },
         cache: "no-store",

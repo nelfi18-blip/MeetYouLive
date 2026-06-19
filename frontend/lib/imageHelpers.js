@@ -4,6 +4,14 @@
  */
 
 const MAX_USER_IMAGES = 6;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
+const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
+
+const toBackendUploadUrl = (path) => {
+  const normalizedPath = path.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
+  return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : null;
+};
 
 /**
  * Normalize user-provided image values into renderable client URLs.
@@ -20,13 +28,6 @@ export function normalizeImageUrl(value) {
   const trimmed = typeof raw === 'string' ? raw.trim() : "";
 
   if (!trimmed) return null;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const apiOrigin = apiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
-  const toBackendUploadUrl = (path) => {
-    const normalizedPath = path.replace(/^\/?(?:api\/)?uploads\//i, "uploads/");
-    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
-  };
-
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
@@ -35,8 +36,7 @@ export function normalizeImageUrl(value) {
       }
       if (
         url.pathname.startsWith("/uploads/") &&
-        /^(www\.)?meetyoulive\.net$/i.test(url.hostname) &&
-        apiOrigin
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
       ) {
         return toBackendUploadUrl(url.pathname);
       }
@@ -50,8 +50,7 @@ export function normalizeImageUrl(value) {
       const url = new URL(`https:${trimmed}`);
       if (
         url.pathname.startsWith("/uploads/") &&
-        /^(www\.)?meetyoulive\.net$/i.test(url.hostname) &&
-        apiOrigin
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
       ) {
         return toBackendUploadUrl(url.pathname);
       }
@@ -66,12 +65,12 @@ export function normalizeImageUrl(value) {
       return toBackendUploadUrl(trimmed);
     }
     const relativePath = trimmed.slice(1);
-    return apiOrigin ? `${apiOrigin}/${relativePath}` : `/${relativePath}`;
+    return API_ORIGIN ? `${API_ORIGIN}/${relativePath}` : `/${relativePath}`;
   }
 
   const normalizedPath = trimmed.replace(/^\/?api\/uploads\//i, "uploads/");
   if (/^(uploads|images|media|avatars|profile-photos)\//i.test(normalizedPath)) {
-    return apiOrigin ? `${apiOrigin}/${normalizedPath}` : `/${normalizedPath}`;
+    return API_ORIGIN ? `${API_ORIGIN}/${normalizedPath}` : null;
   }
 
   return null;

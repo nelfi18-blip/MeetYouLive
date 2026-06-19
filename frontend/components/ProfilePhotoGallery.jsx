@@ -124,9 +124,9 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
   };
 
   const validateAvatarFile = (file) => {
-    if (!file) return "Selecciona una imagen válida.";
-    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
-    if (!hasAllowedAvatarExtension(file.name)) return "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.";
+    if (!file) return t("profile.photoSelectValid");
+    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return t("profile.photoInvalidType");
+    if (!hasAllowedAvatarExtension(file.name)) return t("profile.photoInvalidName");
     return "";
   };
 
@@ -135,10 +135,10 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     if (fileError) return { ok: false, error: fileError };
 
     const token = getAuthToken();
-    if (!token) return { ok: false, unauthorized: true, error: "Tu sesión expiró. Inicia sesión de nuevo." };
+    if (!token) return { ok: false, unauthorized: true, error: t("profile.photoSessionExpired") };
 
     const uploadEndpoint = buildUploadEndpoint({ setAsMain });
-    if (!uploadEndpoint) return { ok: false, error: "No se pudo iniciar la subida. Falta la configuración del servidor." };
+    if (!uploadEndpoint) return { ok: false, error: t("profile.photoUploadConfigMissing") };
 
     const uploadFile = await compressAvatarImage(file);
     if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
@@ -162,7 +162,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     const data = await parseJsonBody(res);
 
     if (!res.ok) {
-      const diagnostic = getAvatarUploadDiagnostic(res.status, data, "Error al subir la imagen");
+      const diagnostic = getAvatarUploadDiagnostic(res.status, data, t("profile.photoUploadError"));
       return { ok: false, unauthorized: res.status === 401, error: formatAvatarUploadDiagnostic(diagnostic) };
     }
 
@@ -172,7 +172,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
   const persistReorder = async (nextPhotos, message) => {
     const token = getAuthToken();
     if (!token) {
-      setError("Tu sesión expiró. Inicia sesión de nuevo.");
+      setError(t("profile.photoSessionExpired"));
       return;
     }
 
@@ -189,12 +189,12 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       const data = await parseJsonBody(res);
       if (!res.ok) {
         if (res.status === 401) handleUnauthorized();
-        setError(data?.message || "No se pudieron guardar las fotos.");
+        setError(data?.message || t("profile.photoSaveError"));
         return;
       }
       await applyPhotoPayload(data, message);
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      setError(t("profile.photoNetworkError"));
     } finally {
       setWorking(false);
     }
@@ -218,7 +218,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
             handleUnauthorized();
             return;
           }
-          setError(uploadResult.error || "Una foto no se pudo subir.");
+          setError(uploadResult.error || t("profile.photoUploadOneError"));
           continue;
         }
         uploadedCount += 1;
@@ -226,10 +226,10 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
         currentPhotos = normalizePhotoUrls(nextUser);
       }
       if (uploadedCount > 0) {
-        setSuccess(uploadedCount === 1 ? "Foto agregada correctamente" : `${uploadedCount} fotos agregadas correctamente`);
+        setSuccess(uploadedCount === 1 ? t("profile.photoAdded") : t("profile.photosAdded"));
       }
     } catch {
-      setError("No se pudo subir una o más imágenes.");
+      setError(t("profile.photoUploadMultipleError"));
     } finally {
       setWorking(false);
     }
@@ -237,13 +237,13 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
 
   const handleMakeMain = (photoUrl) => {
     if (!photos.includes(photoUrl) || photoUrl === primaryPhoto) return;
-    persistReorder([photoUrl, ...photos.filter((photo) => photo !== photoUrl)], "Foto principal actualizada correctamente");
+    persistReorder([photoUrl, ...photos.filter((photo) => photo !== photoUrl)], t("profile.mainPhotoUpdated"));
   };
 
   const handleDelete = async (photoUrl) => {
     const token = getAuthToken();
     if (!token) {
-      setError("Tu sesión expiró. Inicia sesión de nuevo.");
+      setError(t("profile.photoSessionExpired"));
       return;
     }
 
@@ -259,12 +259,12 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       const data = await parseJsonBody(res);
       if (!res.ok) {
         if (res.status === 401) handleUnauthorized();
-        setError(data?.message || "No se pudo eliminar la foto.");
+        setError(data?.message || t("profile.photoDeleteError"));
         return;
       }
-      await applyPhotoPayload(data, "Foto eliminada correctamente");
+      await applyPhotoPayload(data, t("profile.photoDeleted"));
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      setError(t("profile.photoNetworkError"));
     } finally {
       setWorking(false);
     }
@@ -279,7 +279,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
         {primaryPhoto ? (
           <Image
             src={primaryPhoto}
-            alt="Foto principal"
+            alt={t("profile.primaryPhotoAlt")}
             width={360}
             height={360}
             className="profile-main-photo-image"
@@ -288,20 +288,20 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
         ) : (
           <div className="profile-main-photo-placeholder">{initial}</div>
         )}
-        <div className="profile-main-photo-label">Foto principal</div>
+        <div className="profile-main-photo-label">{t("profile.primaryPhotoLabel")}</div>
         {primaryPhoto && (
           <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryPhoto)} disabled={working}>
-            Eliminar
+            {t("profile.deletePhoto")}
           </button>
         )}
       </div>
 
-      <div className="profile-photo-grid" role="region" aria-label="Fotos secundarias">
+      <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
         {secondaryPhotos.map((photo) => (
           <div key={photo} className="profile-photo-thumb">
             <Image
               src={photo}
-              alt="Foto adicional"
+              alt={t("profile.secondaryPhotoAlt")}
               width={140}
               height={140}
               className="profile-photo-thumb-img"
@@ -309,10 +309,10 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
             />
             <div className="profile-photo-thumb-actions">
               <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMain(photo)} disabled={working}>
-                Hacer principal
+                {t("profile.makePrimary")}
               </button>
               <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(photo)} disabled={working}>
-                Eliminar
+                {t("profile.deletePhoto")}
               </button>
             </div>
           </div>
@@ -348,7 +348,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       </div>
 
       <span className="profile-photo-hint">
-        1 foto principal + hasta {MAX_SECONDARY_PHOTOS} fotos extra. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.
+        {t("profile.photoHint")} {AVATAR_UPLOAD_MAX_LABEL}
       </span>
 
       <style jsx>{`

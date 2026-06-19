@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { clearToken, getToken, setToken } from "@/lib/token";
+import { getToken, setToken } from "@/lib/token";
 import { normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
@@ -19,34 +19,27 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_BASE_URL = typeof API_URL === "string" ? API_URL.replace(/\/+$/, "") : "";
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_SECONDARY_PHOTOS = 5;
-const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const PRIMARY_PHOTO_SIZE = 360;
+const PHOTO_SIGNATURE_SEPARATOR = "\u0000";
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
-const hasAllowedAvatarExtension = (filename = "") => {
+const hasAllowedImageExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
-  return ALLOWED_AVATAR_EXTENSIONS.some((ext) => normalized.endsWith(ext));
+  return ALLOWED_IMAGE_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 };
 
-const toProfileImageObjects = (photos) =>
+const toImageObjects = (photos) =>
   photos.slice(0, MAX_PROFILE_PHOTOS).map((url, index) => ({
     url,
     isPrimary: index === 0,
   }));
 
-const normalizePhotoUrls = (userOrImages = {}) =>
+const normalizePhotos = (userOrImages = {}) =>
   normalizeUserImages(userOrImages)
     .map((image) => normalizeImageUrl(image?.url || image))
     .filter(Boolean)
     .slice(0, MAX_PROFILE_PHOTOS);
-
-const buildUploadEndpoint = ({ setAsMain = true } = {}) => {
-  if (!API_BASE_URL) {
-    console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
-    return "";
-  }
-  const base = `${API_BASE_URL}/api/user/me/avatar-upload`;
-  return setAsMain ? base : `${base}?setAsMain=0`;
-};
 
 const parseJsonBody = async (res) => {
   const text = await res.text();
@@ -58,21 +51,33 @@ const parseJsonBody = async (res) => {
   }
 };
 
-export default function ProfilePhotoGallery({ user, draft, initial, t, onUserChange }) {
+const buildUploadEndpoint = (setAsMain) => {
+  if (!API_BASE_URL) return "";
+  const base = `${API_BASE_URL}/api/user/me/avatar-upload`;
+  return setAsMain ? base : `${base}?setAsMain=0`;
+};
+
+export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChange }) {
   const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const userPhotos = normalizePhotos(user);
+  const [images, setImages] = useState(userPhotos);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const userPhotoSignature = userPhotos.join(PHOTO_SIGNATURE_SEPARATOR);
 
-  const photos = useMemo(() => normalizePhotoUrls(draft || user), [draft, user]);
-  const primaryPhoto = photos[0] || "";
-  const secondaryPhotos = photos.slice(1, MAX_PROFILE_PHOTOS);
-  const emptySlots = Math.max(0, MAX_SECONDARY_PHOTOS - secondaryPhotos.length);
-  const canAddPhotos = !working && photos.length < MAX_PROFILE_PHOTOS;
+  useEffect(() => {
+    setImages(userPhotoSignature ? userPhotoSignature.split(PHOTO_SIGNATURE_SEPARATOR) : []);
+  }, [userPhotoSignature]);
 
-  const getAuthToken = () => {
+  const primaryImage = images[0] || "";
+  const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
+  const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) });
+  const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
+
+  const getAndCacheAuthToken = () => {
     const storedToken = getToken();
     if (storedToken) return storedToken;
     if (session?.backendToken) {
@@ -82,13 +87,35 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     return "";
   };
 
-  const refreshProfileSession = async (nextUser) => {
+  const updateProfileState = async (payload, fallbackPhotos, message) => {
+    const payloadUser = payload?.user || payload || {};
+    const payloadUserImages = normalizePhotos(payloadUser);
+    const payloadImages = normalizePhotos(payload);
+    const nextImages = payloadUserImages.length
+      ? payloadUserImages
+      : payloadImages.length
+        ? payloadImages
+        : fallbackPhotos.slice(0, MAX_PROFILE_PHOTOS);
+    const nextUser = {
+      ...(user || {}),
+      ...payloadUser,
+      avatar: nextImages[0] || "",
+      profilePhotos: nextImages,
+      images: toImageObjects(nextImages),
+      onboardingComplete: payloadUser.onboardingComplete ?? payload?.onboardingComplete ?? user?.onboardingComplete,
+      canAppearInFeed: payloadUser.canAppearInFeed ?? payload?.canAppearInFeed ?? user?.canAppearInFeed,
+      profileStatus: payloadUser.profileStatus ?? payload?.profileStatus ?? user?.profileStatus,
+    };
+
+    setImages(nextImages);
+    onUserChange?.(nextUser);
+
     try {
       if (typeof updateSession === "function") {
         await updateSession({
           user: {
             name: nextUser.name || nextUser.username || session?.user?.name || "",
-            image: nextUser.avatar || session?.user?.image || "",
+            image: nextImages[0] || session?.user?.image || "",
           },
           onboardingComplete: nextUser.onboardingComplete === true,
           canAppearInFeed: nextUser.canAppearInFeed === true,
@@ -99,50 +126,27 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     } catch (err) {
       console.error("[profile-gallery] failed to refresh session:", err);
     }
-  };
 
-  const applyPhotoPayload = async (payload, message) => {
-    const payloadUser = payload?.user || payload || {};
-    const nextPhotos = normalizePhotoUrls(payloadUser).length
-      ? normalizePhotoUrls(payloadUser)
-      : normalizePhotoUrls(payload);
-    const nextUser = {
-      ...(user || {}),
-      ...payloadUser,
-      avatar: nextPhotos[0] || "",
-      profilePhotos: nextPhotos,
-      images: toProfileImageObjects(nextPhotos),
-      onboardingComplete: payloadUser.onboardingComplete ?? payload?.onboardingComplete ?? user?.onboardingComplete,
-      canAppearInFeed: payloadUser.canAppearInFeed ?? payload?.canAppearInFeed ?? user?.canAppearInFeed,
-      profileStatus: payloadUser.profileStatus ?? payload?.profileStatus ?? user?.profileStatus,
-    };
-    onUserChange(nextUser);
-    await refreshProfileSession(nextUser);
-    setSuccess(message);
+    if (message) setSuccess(message);
     return nextUser;
   };
 
-  const handleUnauthorized = () => {
-    clearToken();
-    router.replace("/login?callbackUrl=/profile");
-  };
-
-  const validateAvatarFile = (file) => {
+  const validateFile = (file) => {
     if (!file) return t("profile.photoSelectValid");
-    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return t("profile.photoInvalidType");
-    if (!hasAllowedAvatarExtension(file.name)) return t("profile.photoInvalidName");
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return t("profile.photoInvalidType");
+    if (!hasAllowedImageExtension(file.name)) return t("profile.photoInvalidName");
     return "";
   };
 
-  const uploadPhotoFile = async (file, { setAsMain }) => {
-    const fileError = validateAvatarFile(file);
+  const uploadPhoto = async (file, setAsMain) => {
+    const fileError = validateFile(file);
     if (fileError) return { ok: false, error: fileError };
 
-    const token = getAuthToken();
-    if (!token) return { ok: false, unauthorized: true, error: t("profile.photoSessionExpired") };
+    const token = getAndCacheAuthToken();
+    if (!token) return { ok: false, error: t("profile.photoSessionExpired") };
 
-    const uploadEndpoint = buildUploadEndpoint({ setAsMain });
-    if (!uploadEndpoint) return { ok: false, error: t("profile.photoUploadConfigMissing") };
+    const endpoint = buildUploadEndpoint(setAsMain);
+    if (!endpoint) return { ok: false, error: t("profile.photoUploadConfigMissing") };
 
     const uploadFile = await compressAvatarImage(file);
     if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
@@ -157,86 +161,49 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     const formData = new FormData();
     formData.append("avatar", uploadFile);
 
-    const res = await fetch(uploadEndpoint, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { Authorization: "Bearer " + token },
       body: formData,
       cache: "no-store",
     });
     const data = await parseJsonBody(res);
-
     if (!res.ok) {
       const diagnostic = getAvatarUploadDiagnostic(res.status, data, t("profile.photoUploadError"));
-      return { ok: false, unauthorized: res.status === 401, error: formatAvatarUploadDiagnostic(diagnostic) };
+      return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic) };
     }
-
     return { ok: true, data };
   };
 
-  const persistReorder = async (nextPhotos, message) => {
-    const token = getAuthToken();
-    if (!token) {
-      setError(t("profile.photoSessionExpired"));
-      return;
-    }
-    if (!API_BASE_URL) {
-      console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
-      setError(t("profile.photoUploadConfigMissing"));
-      return;
-    }
-
-    setWorking(true);
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/user/me/photos/reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-        body: JSON.stringify({ images: nextPhotos }),
-        cache: "no-store",
-      });
-      const data = await parseJsonBody(res);
-      if (!res.ok) {
-        if (res.status === 401) handleUnauthorized();
-        setError(data?.message || t("profile.photoSaveError"));
-        return;
-      }
-      await applyPhotoPayload(data, message);
-    } catch {
-      setError(t("profile.photoNetworkError"));
-    } finally {
-      setWorking(false);
-    }
-  };
-
   const handleAddPhotos = async (filesList) => {
-    const selectedFiles = Array.from(filesList || []).slice(0, MAX_PROFILE_PHOTOS - photos.length);
+    const selectedFiles = Array.from(filesList || []).slice(0, MAX_PROFILE_PHOTOS - images.length);
     if (!selectedFiles.length) return;
 
     setWorking(true);
     setError("");
     setSuccess("");
+    let currentImages = images;
     let uploadedCount = 0;
-    let currentPhotos = photos;
+    let firstUploadError = "";
 
     try {
       for (const file of selectedFiles) {
-        const uploadResult = await uploadPhotoFile(file, { setAsMain: currentPhotos.length === 0 });
-        if (!uploadResult.ok) {
-          if (uploadResult.unauthorized) {
-            handleUnauthorized();
-            return;
-          }
-          setError(uploadResult.error || t("profile.photoUploadOneError"));
+        // currentImages tracks this batch, so only the first upload into an empty gallery becomes primary.
+        const result = await uploadPhoto(file, currentImages.length === 0);
+        if (!result.ok) {
+          if (!firstUploadError) firstUploadError = result.error || t("profile.photoUploadOneError");
           continue;
         }
+
         uploadedCount += 1;
-        const nextUser = await applyPhotoPayload(uploadResult.data, "");
-        currentPhotos = normalizePhotoUrls(nextUser);
+        const nextUser = await updateProfileState(result.data, currentImages, "");
+        currentImages = normalizePhotos(nextUser);
       }
+
       if (uploadedCount > 0) {
         setSuccess(uploadedCount === 1 ? t("profile.photoAdded") : t("profile.photosAdded"));
       }
+      if (firstUploadError) setError(firstUploadError);
     } catch {
       setError(t("profile.photoUploadMultipleError"));
     } finally {
@@ -244,19 +211,13 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     }
   };
 
-  const handleMakeMain = (photoUrl) => {
-    if (!photos.includes(photoUrl) || photoUrl === primaryPhoto) return;
-    persistReorder([photoUrl, ...photos.filter((photo) => photo !== photoUrl)], t("profile.mainPhotoUpdated"));
-  };
-
-  const handleDelete = async (photoUrl) => {
-    const token = getAuthToken();
+  const persistImages = async (nextImages, message) => {
+    const token = getAndCacheAuthToken();
     if (!token) {
       setError(t("profile.photoSessionExpired"));
       return;
     }
     if (!API_BASE_URL) {
-      console.error("[profile-gallery] NEXT_PUBLIC_API_URL is not configured");
       setError(t("profile.photoUploadConfigMissing"));
       return;
     }
@@ -264,6 +225,48 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
     setWorking(true);
     setError("");
     setSuccess("");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/user/me/photos/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ images: nextImages }),
+        cache: "no-store",
+      });
+      const data = await parseJsonBody(res);
+      if (!res.ok) {
+        setError(data?.message || t("profile.photoSaveError"));
+        return;
+      }
+      await updateProfileState(data, nextImages, message);
+    } catch {
+      setError(t("profile.photoNetworkError"));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleMakePrimary = (photoUrl) => {
+    if (!photoUrl || photoUrl === primaryImage) return;
+    persistImages([photoUrl, ...images.filter((image) => image !== photoUrl)], t("profile.mainPhotoUpdated"));
+  };
+
+  const handleDelete = async (photoUrl) => {
+    const token = getAndCacheAuthToken();
+    if (!token) {
+      setError(t("profile.photoSessionExpired"));
+      return;
+    }
+    if (!API_BASE_URL) {
+      setError(t("profile.photoUploadConfigMissing"));
+      return;
+    }
+
+    const fallbackImages = images.filter((image) => image !== photoUrl);
+    setWorking(true);
+    setError("");
+    setSuccess("");
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/user/me/photos/${encodeURIComponent(photoUrl)}`, {
         method: "DELETE",
@@ -272,11 +275,10 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       });
       const data = await parseJsonBody(res);
       if (!res.ok) {
-        if (res.status === 401) handleUnauthorized();
         setError(data?.message || t("profile.photoDeleteError"));
         return;
       }
-      await applyPhotoPayload(data, t("profile.photoDeleted"));
+      await updateProfileState(data, fallbackImages, t("profile.photoDeleted"));
     } catch {
       setError(t("profile.photoNetworkError"));
     } finally {
@@ -290,12 +292,12 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
       {success && <div className="profile-gallery-success">{success}</div>}
 
       <div className="profile-main-photo-card">
-        {primaryPhoto ? (
+        {primaryImage ? (
           <Image
-            src={primaryPhoto}
+            src={primaryImage}
             alt={t("profile.primaryPhotoAlt")}
-            width={360}
-            height={360}
+            width={PRIMARY_PHOTO_SIZE}
+            height={PRIMARY_PHOTO_SIZE}
             className="profile-main-photo-image"
             unoptimized
           />
@@ -303,15 +305,15 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
           <div className="profile-main-photo-placeholder">{initial}</div>
         )}
         <div className="profile-main-photo-label">{t("profile.primaryPhotoLabel")}</div>
-        {primaryPhoto && (
-          <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryPhoto)} disabled={working}>
+        {primaryImage && (
+          <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryImage)} disabled={working}>
             {t("profile.deletePhoto")}
           </button>
         )}
       </div>
 
       <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
-        {secondaryPhotos.map((photo) => (
+        {secondaryImages.map((photo) => (
           <div key={photo} className="profile-photo-thumb">
             <Image
               src={photo}
@@ -322,7 +324,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
               unoptimized
             />
             <div className="profile-photo-thumb-actions">
-              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakeMain(photo)} disabled={working}>
+              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakePrimary(photo)} disabled={working}>
                 {t("profile.makePrimary")}
               </button>
               <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(photo)} disabled={working}>
@@ -331,7 +333,7 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
             </div>
           </div>
         ))}
-        {Array.from({ length: emptySlots }).map((_, index) => (
+        {emptySlots.map((_, index) => (
           <div key={`empty-slot-${index}`} className="profile-photo-thumb profile-photo-empty-slot">
             <span>+</span>
           </div>
@@ -352,11 +354,11 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
           type="file"
           multiple
           accept="image/jpeg,image/png,image/webp,image/gif"
-          style={{ display: "none" }}
+          hidden
           disabled={!canAddPhotos}
-          onChange={(e) => {
-            handleAddPhotos(e.target.files);
-            e.target.value = "";
+          onChange={(event) => {
+            handleAddPhotos(event.target.files);
+            event.target.value = "";
           }}
         />
       </div>
@@ -372,25 +374,24 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
           gap: 0.75rem;
         }
 
-        .profile-gallery-error {
-          background: var(--error-bg);
-          border: 1px solid rgba(248,113,113,0.35);
-          color: var(--error);
+        .profile-gallery-error,
+        .profile-gallery-success {
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
-          text-align: center;
+        }
+
+        .profile-gallery-error {
+          background: var(--error-bg);
+          border: 1px solid rgba(248,113,113,0.35);
+          color: var(--error);
         }
 
         .profile-gallery-success {
           background: var(--success-bg);
           border: 1px solid rgba(52,211,153,0.35);
           color: var(--success);
-          border-radius: var(--radius-sm);
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          font-weight: 500;
         }
 
         .profile-main-photo-card {
@@ -494,15 +495,15 @@ export default function ProfilePhotoGallery({ user, draft, initial, t, onUserCha
           transition: all 0.18s;
         }
 
-        .profile-upload-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
         .profile-upload-btn:hover:not(:disabled) {
           border-color: rgba(224,64,251,0.7);
           color: var(--text);
           background: rgba(224,64,251,0.1);
+        }
+
+        .profile-upload-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
 
         .profile-photo-hint {

@@ -8,7 +8,7 @@ import { clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
-import ProfilePhotoGallery from "@/components/ProfilePhotoGallery";
+import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { normalizeUserImages } from "@/lib/imageHelpers";
@@ -548,7 +548,6 @@ export default function ProfilePage() {
       images: toProfileImageObjects(normalizedPhotos),
       ...normalizeDiscoveryForm(user),
     });
-    setPhotoUrlInput("");
     setSaveError(""); setSaveSuccess("");
   };
 
@@ -616,7 +615,6 @@ export default function ProfilePage() {
         images: normalizedImages,
         ...normalizeDiscoveryForm(normalizedUser),
       });
-      setPhotoUrlInput("");
       setSaveSuccess(t("profile.saveSuccess"));
       setEditing(false);
       publishProfileUpdated(normalizedUser);
@@ -960,9 +958,8 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Foto de perfil</label>
-                  <ProfilePhotoGallery
+                  <SimpleProfilePhotoGallery
                     user={user}
-                    draft={editForm}
                     initial={initial}
                     t={t}
                     onUserChange={handlePhotoGalleryUserChange}

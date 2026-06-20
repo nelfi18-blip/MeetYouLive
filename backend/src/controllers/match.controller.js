@@ -20,7 +20,7 @@ const BOOST_PRICE = 100; // coins to boost crush profile (single activation)
 const BOOST_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const UNLOCK_ALL_LIKES_PRICE = 50; // coins to reveal all hidden likers
 // Query every legacy photo alias so serializer can promote the first real photo.
-const MATCH_USER_FIELDS = "displayName name firstName lastName username avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
+const MATCH_USER_FIELDS = "displayName name firstName lastName username primaryPhoto avatar profilePhotos profileImage photo photos images photoURL photoUrl image imageUrl picture bio role isLive liveId creatorProfile interests intent followersCount isVerified isPremium";
 
 // Boost packs – bulk purchase with coin discount
 const BOOST_PACKS = [
@@ -85,9 +85,17 @@ const handleMatch = async (userId, matchedUserId, io) => {
 exports.likeUser = async (req, res) => {
   const { userId } = req.params;
   if (String(userId) === String(req.userId)) {
-    return res.status(400).json({ message: "No puedes dar like a ti mismo" });
+    return res.status(400).json({ success: false, message: "No puedes dar like a ti mismo" });
+  }
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ success: false, message: "Usuario inválido" });
   }
   try {
+    const targetUser = await User.findById(userId).select("_id isBlocked isSuspended").lean();
+    if (!targetUser || targetUser.isBlocked === true || targetUser.isSuspended === true) {
+      return res.status(404).json({ success: false, message: "Usuario no disponible" });
+    }
+
     // Upsert the like (idempotent) – standard like only
     await Like.findOneAndUpdate(
       { from: req.userId, to: userId },
@@ -131,7 +139,11 @@ exports.likeUser = async (req, res) => {
       ).catch(() => {});
     }
 
-    res.json({ match: !!mutual });
+    res.json({
+      success: true,
+      match: !!mutual,
+      message: mutual ? "Match creado" : "Like registrado",
+    });
 
     // Track swipe mission progress (fire-and-forget)
     trackEvent(req.userId, "swipe").catch(() => {});
@@ -139,9 +151,13 @@ exports.likeUser = async (req, res) => {
     if (err.code === 11000) {
       const mutual = await Like.findOne({ from: userId, to: req.userId });
       trackEvent(req.userId, "swipe").catch(() => {});
-      return res.json({ match: !!mutual });
+      return res.json({
+        success: true,
+        match: !!mutual,
+        message: mutual ? "Match creado" : "Like registrado",
+      });
     }
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message || "No se pudo registrar el like" });
   }
 };
 

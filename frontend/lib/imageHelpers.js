@@ -85,10 +85,11 @@ function getPrimaryProfileImageCandidate(user) {
   if (!user) return null;
 
   const candidates = [
+    { field: "primaryPhoto", value: user.primaryPhoto },
     { field: "images", value: Array.isArray(user.images) ? user.images[0] : undefined },
     { field: "avatar", value: user.avatar },
-    { field: "profileImage", value: user.profileImage },
     { field: "profilePhotos", value: Array.isArray(user.profilePhotos) ? user.profilePhotos[0] : undefined },
+    { field: "profileImage", value: user.profileImage },
     { field: "photo", value: user.photo },
   ];
 
@@ -138,12 +139,13 @@ function getPhotoCandidates(user, primaryCandidate = null) {
   }
   return [
     ...(primaryCandidate ? [primaryCandidate] : []),
+    { field: "primaryPhoto", value: user.primaryPhoto },
     ...(Array.isArray(user.images) ? user.images.map((value) => ({ field: "images", value })) : []),
     { field: "avatar", value: user.avatar },
-    { field: "profileImage", value: user.profileImage },
     ...(Array.isArray(user.profilePhotos)
       ? user.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
       : []),
+    { field: "profileImage", value: user.profileImage },
     { field: "photo", value: user.photo },
     ...(Array.isArray(user.photos) ? user.photos.map((value) => ({ field: "photos", value })) : []),
     { field: "photoURL", value: user.photoURL },
@@ -195,8 +197,8 @@ export function normalizeUserImages(userOrImages = {}) {
  * Get the primary profile image using the canonical priority expected by
  * profile/feed surfaces.
  *
- * Priority: images[0] (as object.url or string) > avatar > profileImage >
- * profilePhotos[0] > photo.
+ * Priority: primaryPhoto > images[0] (as object.url or string) > avatar >
+ * profilePhotos[0] > profileImage > photo.
  *
  * @param {Object} user - User object with image fields
  * @returns {string|null} - Image URL or null for fallback

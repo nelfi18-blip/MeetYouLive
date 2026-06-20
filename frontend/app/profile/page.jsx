@@ -70,18 +70,6 @@ const normalizeUserPhotoState = (userLike = {}) => {
   };
 };
 
-const logPhotoNormalizationDiagnostics = (userLike = {}, normalizedImages = []) => {
-  console.log("raw user images", userLike?.images);
-  console.log("raw user avatar", userLike?.avatar);
-  console.log("raw user profilePhotos", userLike?.profilePhotos);
-  console.log("normalizedImages", normalizedImages);
-  console.log("primaryImage", normalizedImages[0]?.url || "");
-  console.log("secondaryImages", normalizedImages.slice(1).map((image) => image.url));
-  normalizedImages.forEach((image, index) => {
-    console.log(`final img src [${index}]`, image.url);
-  });
-};
-
 const normalizeDiscoveryForm = (user = {}) => {
   const preferences = user.discoveryPreferences || {};
   const ageRange = preferences.ageRange || {};
@@ -360,7 +348,6 @@ export default function ProfilePage() {
 
   const applyLoadedProfile = useCallback((profile) => {
     const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(profile);
-    logPhotoNormalizationDiagnostics(profile, normalizedImages);
     const normalizedUser = { ...profile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
     const discoveryDefaults = normalizeDiscoveryForm(normalizedUser);
     setUser(normalizedUser);
@@ -608,7 +595,6 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
       const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(data);
-      logPhotoNormalizationDiagnostics(data, normalizedImages);
       const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
       setUser(normalizedUser);
       setEditForm({
@@ -671,24 +657,6 @@ export default function ProfilePage() {
 
   const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
-  const userPhotoList = normalizePhotoList(user?.avatar, user?.profilePhotos, user?.images);
-  const normalizedImages = toProfileImageObjects(userPhotoList);
-  const primaryImage = userPhotoList[0] || "";
-  const userExtraPhotos = userPhotoList.slice(1);
-  const secondaryImages = userExtraPhotos;
-  const photoSignature = userPhotoList.join("|");
-
-  useEffect(() => {
-    if (!user) return;
-    // TODO(2026-06-19): Remove after production profile image URLs are verified.
-    console.log("normalizedImages", normalizedImages);
-    console.log("primaryImage", primaryImage);
-    console.log("secondaryImages", secondaryImages);
-    [primaryImage, ...secondaryImages].filter(Boolean).forEach((src, index) => {
-      console.log(`final img src [${index}]`, src);
-    });
-  }, [photoSignature]);
-  
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
   const showProfileDiagnostics = user ? shouldShowProfileDiagnostics(user) : false;
@@ -983,7 +951,6 @@ export default function ProfilePage() {
                     initial={initial}
                     t={t}
                     onUserChange={handlePhotoGalleryUserChange}
-                    showSrcDebug
                   />
                 </div>
                 <div className="form-actions">

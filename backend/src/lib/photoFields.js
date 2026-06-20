@@ -146,11 +146,12 @@ const addNormalizedPhoto = (photos, seenPhotos, req, value) => {
 };
 
 const getRawCanonicalPhotoCandidates = (userLike = {}) => [
+  userLike.primaryPhoto,
   ...(Array.isArray(userLike.images) ? userLike.images : []),
   userLike.avatar,
+  ...(Array.isArray(userLike.profilePhotos) ? userLike.profilePhotos : []),
   userLike.profileImage,
   userLike.photo,
-  ...(Array.isArray(userLike.profilePhotos) ? userLike.profilePhotos : []),
   ...(Array.isArray(userLike.photos) ? userLike.photos : []),
   userLike.photoURL,
   userLike.photoUrl,
@@ -201,12 +202,13 @@ const getPrimaryPhotoUrl = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) =>
  * @returns {unknown[]} Raw photo field values.
  */
 const getRawUserPhotoCandidates = (userLike) => [
+  { field: "primaryPhoto", value: userLike?.primaryPhoto },
   ...(Array.isArray(userLike?.images) ? userLike.images.map((value) => ({ field: "images", value })) : []),
   { field: "avatar", value: userLike?.avatar },
-  { field: "profileImage", value: userLike?.profileImage },
   ...(Array.isArray(userLike?.profilePhotos)
     ? userLike.profilePhotos.map((value) => ({ field: "profilePhotos", value }))
     : []),
+  { field: "profileImage", value: userLike?.profileImage },
   { field: "photo", value: userLike?.photo },
   ...(Array.isArray(userLike?.photos) ? userLike.photos.map((value) => ({ field: "photos", value })) : []),
   { field: "photoURL", value: userLike?.photoURL },
@@ -283,6 +285,7 @@ const serializeUserPhotoFields = (req, userLike) => {
   const avatar = normalizedPhotos[0] || "";
   return {
     avatar,
+    primaryPhoto: avatar,
     profileImage: avatar,
     photo: avatar,
     photos: normalizedPhotos,

@@ -42,6 +42,7 @@ const LOCATION_FILTER_FETCH_MULTIPLIER = 3;
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 const FEED_PHOTO_ARRAY_FIELDS = ["profilePhotos", "photos", "images"];
 const FEED_PHOTO_SCALAR_FIELDS = [
+  "primaryPhoto",
   "avatar",
   "profileImage",
   "photo",
@@ -87,6 +88,11 @@ const parseExcludedProfileIds = (exclude) => {
 };
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+const cleanString = (value) => (typeof value === "string" ? value.trim() : "");
+const cleanStringList = (value) =>
+  (Array.isArray(value) ? value : [])
+    .map(cleanString)
+    .filter(Boolean);
 
 const hasFeedPhoto = (user = {}) =>
   hasSerializableUserPhoto(PHOTO_VALIDATION_STUB_REQUEST, user);
@@ -278,21 +284,38 @@ const serializeFeedImageFields = (req, item) => {
         serialized.location?.country,
       ].find((value) => typeof value === "string" && value.trim())?.trim() || "";
   const numericAge = Number(serialized.age);
-  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : null;
+  const normalizedImages = images
+    .map((image, index) => {
+      const url = cleanString(image?.url || image);
+      if (!url) return null;
+      return {
+        url,
+        publicId: cleanString(image?.publicId),
+        isPrimary: index === 0,
+        source: cleanString(image?.source),
+      };
+    })
+    .filter(Boolean);
+  const primaryPhoto = cleanString(serialized.primaryPhoto) || photos[0] || normalizedImages[0]?.url || "";
 
   return {
-    ...serialized,
     _id: idString,
     id: idString,
     name,
     username,
-    avatar: typeof serialized.avatar === "string" ? serialized.avatar : photos[0] || "",
-    images,
+    avatar: cleanString(serialized.avatar) || primaryPhoto,
+    images: normalizedImages,
     profilePhotos: photos,
+    primaryPhoto,
     age,
     location,
     interests,
-    bio: typeof serialized.bio === "string" ? serialized.bio : "",
+    bio: cleanString(serialized.bio),
+    isOnline: serialized.isOnline === true,
+    isVerified: serialized.isVerified === true,
+    isPremium: serialized.isPremium === true,
+    lastActiveAt: serialized.lastActiveAt || null,
   };
 };
 
@@ -334,10 +357,14 @@ const getBetaFallbackProfiles = async (req, currentUserId) => {
       `name displayName firstName lastName username ${FEED_PHOTO_FIELDS} bio tags gender birthdate location interests intent isOnline isVerified isPremium followersCount lastActiveAt createdAt`
     )
     .sort({ isOnline: -1, lastActiveAt: -1, createdAt: -1, _id: -1 })
-    .limit(limit)
+    .limit(Math.min(limit * 3, MAX_FEED_SIZE * 3))
     .lean();
 
-  return serializeFeedProfilesAllowingMissingPhotos(req, profiles, limit);
+  return serializeFeedProfilesAllowingMissingPhotos(
+    req,
+    profiles.filter((profile) => cleanString(profile.name) || cleanString(profile.username)),
+    limit
+  );
 };
 
 // Simple in-memory cache for featured creators (they change infrequently)
@@ -800,16 +827,24 @@ const getFeed = async (req, res) => {
       }
     }
 
-    const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
-    const locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
-    const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-    const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
-    const recommendedProfilesPrimary = await User.aggregate(
-      buildRecommendedProfilesPipeline(
-        recommendedProfilesMatch,
-        RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER * LOCATION_FILTER_FETCH_MULTIPLIER
-      )
-    );
+    let discoveryMatch = {};
+    let strictFeedError = null;
+    let recommendedProfilesPrimary = [];
+    try {
+      discoveryMatch = buildDiscoveryMatch(currentUserProfile);
+      const locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
+      const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
+      recommendedProfilesPrimary = await User.aggregate(
+        buildRecommendedProfilesPipeline(
+          recommendedProfilesMatch,
+          RECOMMENDED_PROFILE_FETCH_LIMIT_WITH_PHOTO_BUFFER * LOCATION_FILTER_FETCH_MULTIPLIER
+        )
+      );
+    } catch (error) {
+      strictFeedError = error;
+      console.error("[Feed API] Strict feed failed, using beta fallback:", error.message);
+    }
 
     // Apply active live filter FIRST to ensure only truly active streams
     const activeLives = filterActiveLives(allLives);
@@ -834,7 +869,9 @@ const getFeed = async (req, res) => {
       ...live,
       user: serializeFeedImageFields(req, live.user),
     }));
-    const locationFilteredProfiles = applyDiscoveryLocationFilter(currentUserProfile, recommendedProfilesPrimary);
+    const locationFilteredProfiles = strictFeedError
+      ? []
+      : applyDiscoveryLocationFilter(currentUserProfile, recommendedProfilesPrimary);
     let serializedRecommendedProfiles = serializeFeedProfilesWithPhotos(req, locationFilteredProfiles, 12);
     const serializedFeaturedCreators = featuredCreators.map((creator) =>
       serializeFeedImageFields(req, creator)
@@ -844,19 +881,26 @@ const getFeed = async (req, res) => {
     let fallbackDebug = null;
     let returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
     let zeroCandidateDebug = null;
-    if (strictProfileCount === 0) {
-      zeroCandidateDebug = await buildZeroCandidateDiagnostics(req, {
-        viewer: currentUserProfile,
-        viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
-        likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
-        dislikedProfileIds: new Set(),
-        clientExcludedProfileIds,
-        returnedProfileIds: returnedProfileIdSet,
-        discoveryMatch,
-      });
-      const { excludedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
-      console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
-      console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
+    if (strictFeedError || strictProfileCount === 0) {
+      if (strictFeedError) {
+        zeroCandidateDebug = {
+          reason: "strict_feed_failed",
+          message: strictFeedError.message,
+        };
+      } else {
+        zeroCandidateDebug = await buildZeroCandidateDiagnostics(req, {
+          viewer: currentUserProfile,
+          viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
+          likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
+          dislikedProfileIds: new Set(),
+          clientExcludedProfileIds,
+          returnedProfileIds: returnedProfileIdSet,
+          discoveryMatch,
+        });
+        const { excludedUsers, ...zeroCandidateSummary } = zeroCandidateDebug;
+        console.log("[Feed Zero Candidate Diagnostics]", JSON.stringify(zeroCandidateSummary));
+        console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
+      }
 
       serializedRecommendedProfiles = await getBetaFallbackProfiles(req, authenticatedUserId);
       feedMode = "betaFallback";
@@ -865,6 +909,7 @@ const getFeed = async (req, res) => {
         strictCount: strictProfileCount,
         fallbackCount: serializedRecommendedProfiles.length,
         ignoreExclude,
+        strictError: strictFeedError ? strictFeedError.message : "",
       };
     }
     if (isFeedPhotoDiagnosticsEnabled()) {
@@ -944,19 +989,40 @@ const getFeed = async (req, res) => {
     console.error(`[Feed API] Error loading feed after ${errorTime}ms:`, error.message);
     
     // Only log stack trace in development to prevent information disclosure
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== "production") {
       console.error("[Feed API] Error stack:", error.stack);
     }
     
-    const message = process.env.NODE_ENV === 'production'
+    const message = process.env.NODE_ENV === "production"
       ? "Error al cargar el feed"
       : `Error al cargar el feed: ${error.message}`;
+    try {
+      const authenticatedUserId = toObjectIdOrNull(req.userId);
+      const fallbackProfiles = await getBetaFallbackProfiles(req, authenticatedUserId);
+      res.set("Cache-Control", "no-store");
+      return res.json({
+        success: true,
+        feedMode: "betaFallback",
+        reason: "El feed estricto falló. Mostrando usuarios de prueba en modo Beta.",
+        debug: {
+          strictError: error.message,
+          fallbackCount: fallbackProfiles.length,
+          ignoreExclude: req.query.ignoreExclude === "true",
+        },
+        recommendedProfiles: fallbackProfiles,
+        profiles: fallbackProfiles,
+        activeLives: [],
+        featuredCreators: [],
+      });
+    } catch (fallbackError) {
+      console.error("[Feed API] Beta fallback failed:", fallbackError.message);
+    }
     res.status(500).json({
       success: false,
       message,
-      feedMode: "strict",
+      feedMode: "betaFallback",
       reason: message,
-      debug: {},
+      debug: { strictError: error.message },
       recommendedProfiles: [],
       profiles: [],
       activeLives: [],

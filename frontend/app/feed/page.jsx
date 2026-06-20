@@ -9,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
-import { normalizeUserImages } from "@/lib/imageHelpers";
+import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -86,6 +86,7 @@ function sanitizeFeedProfile(profile) {
 
   const images = normalizeUserImages(profile);
   const photos = images.map((image) => image.url).filter(Boolean);
+  const primaryPhoto = getPrimaryProfileImage(profile) || photos[0] || "";
   const fullName = [profile.firstName, profile.lastName].map(getSafeProfileText).filter(Boolean).join(" ");
   const name = [
     profile.displayName,
@@ -96,7 +97,7 @@ function sanitizeFeedProfile(profile) {
   const username = getSafeProfileText(profile.username) || name;
   const interests = normalizeTextList(Array.isArray(profile.interests) ? profile.interests : profile.tags);
   const numericAge = Number(profile.age);
-  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
+  const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : null;
 
   return {
     ...profile,
@@ -104,9 +105,10 @@ function sanitizeFeedProfile(profile) {
     id: profileId,
     name,
     username,
-    avatar: photos[0] || "",
+    avatar: getSafeProfileText(profile.avatar) || primaryPhoto,
     images,
     profilePhotos: photos,
+    primaryPhoto,
     age,
     location: getSafeLocation(profile),
     interests,
@@ -1035,13 +1037,16 @@ export default function FeedPage() {
     const isLike = direction === "right" || direction === "up";
     const activeProfiles = profilesRef.current;
     const activeIndex = currentIndexRef.current;
-    const activeProfileId = getCurrentProfileId(activeProfiles, activeIndex);
+    const activeProfile = activeProfiles[activeIndex];
+    const activeProfileId = getProfileId(activeProfile);
+    const targetProfileId = activeProfile?._id || activeProfile?.id || profileId;
+    const targetProfileIdString = targetProfileId ? String(targetProfileId) : "";
 
     if (activeActionRef.current || likeInFlightRef.current) {
       return false;
     }
 
-    if (!profileId || activeProfileId !== profileId) {
+    if (!targetProfileIdString || activeProfileId !== profileId) {
       unlockSwipe();
       return false;
     }
@@ -1065,7 +1070,7 @@ export default function FeedPage() {
     setSwipeLocked(true);
     feedMutationVersionRef.current += 1;
 
-    if (currentUserIdRef.current && profileId === currentUserIdRef.current) {
+    if (currentUserIdRef.current && targetProfileIdString === currentUserIdRef.current) {
       return true;
     }
 
@@ -1081,26 +1086,30 @@ export default function FeedPage() {
         throw new Error(t("feed.sessionExpired"));
       }
 
-      const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(profileId)}`, {
+      const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`, {
         method: isLike ? "POST" : "DELETE",
         headers: { Authorization: "Bearer " + authToken },
         cache: "no-store",
       });
+      const data = await res.json().catch((parseError) => {
+        console.error("Swipe action response parse error:", parseError);
+        return {};
+      });
 
-      if (!res.ok) {
-        throw new Error(isLike ? t("feed.likeError") : t("feed.passError"));
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       }
 
-      addSeenProfileId(profileId);
-      setLastAction({ profileId, actionType: isLike ? "like" : "dislike" });
-      likeInFlightRef.current = false;
+      addSeenProfileId(targetProfileIdString);
+      setLastAction({ profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
       return true;
     } catch (err) {
       console.error("Swipe action error:", err);
-      likeInFlightRef.current = false;
       unlockSwipe();
       setError(err.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       return false;
+    } finally {
+      likeInFlightRef.current = false;
     }
   };
 

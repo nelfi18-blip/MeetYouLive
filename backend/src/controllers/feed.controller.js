@@ -344,8 +344,8 @@ const getBetaFallbackProfiles = async (req, currentUserId) => {
     isBlocked: { $ne: true },
     isSuspended: { $ne: true },
     $or: [
-      { name: { $exists: true, $type: "string", $regex: /\S/ } },
-      { username: { $exists: true, $type: "string", $regex: /\S/ } },
+      { name: { $exists: true, $type: "string", $ne: "" } },
+      { username: { $exists: true, $type: "string", $ne: "" } },
     ],
   };
   if (currentUserId) {
@@ -357,10 +357,14 @@ const getBetaFallbackProfiles = async (req, currentUserId) => {
       `name displayName firstName lastName username ${FEED_PHOTO_FIELDS} bio tags gender birthdate location interests intent isOnline isVerified isPremium followersCount lastActiveAt createdAt`
     )
     .sort({ isOnline: -1, lastActiveAt: -1, createdAt: -1, _id: -1 })
-    .limit(limit)
+    .limit(Math.min(limit * 3, MAX_FEED_SIZE * 3))
     .lean();
 
-  return serializeFeedProfilesAllowingMissingPhotos(req, profiles, limit);
+  return serializeFeedProfilesAllowingMissingPhotos(
+    req,
+    profiles.filter((profile) => cleanString(profile.name) || cleanString(profile.username)),
+    limit
+  );
 };
 
 // Simple in-memory cache for featured creators (they change infrequently)

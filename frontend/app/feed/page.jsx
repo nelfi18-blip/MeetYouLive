@@ -1091,7 +1091,10 @@ export default function FeedPage() {
         headers: { Authorization: "Bearer " + authToken },
         cache: "no-store",
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch((parseError) => {
+        console.error("Swipe action response parse error:", parseError);
+        return {};
+      });
 
       if (!res.ok || data?.success === false) {
         throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));

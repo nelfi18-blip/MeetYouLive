@@ -989,11 +989,11 @@ const getFeed = async (req, res) => {
     console.error(`[Feed API] Error loading feed after ${errorTime}ms:`, error.message);
     
     // Only log stack trace in development to prevent information disclosure
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== "production") {
       console.error("[Feed API] Error stack:", error.stack);
     }
     
-    const message = process.env.NODE_ENV === 'production'
+    const message = process.env.NODE_ENV === "production"
       ? "Error al cargar el feed"
       : `Error al cargar el feed: ${error.message}`;
     try {

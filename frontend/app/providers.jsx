@@ -7,9 +7,11 @@ import socket from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
+import { getToken } from "@/lib/token";
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
+  if (typeof token !== "string") return null;
   try {
     const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(base64));
@@ -42,9 +44,9 @@ function SocketManager() {
   useEffect(() => {
     const backendToken =
       session?.backendToken ||
-      (typeof window !== "undefined" ? localStorage.getItem("token") : null);
+      getToken();
     if (!backendToken) return;
-    initPushNotifications(backendToken);
+    initPushNotifications(backendToken).catch(() => {});
   }, [session]);
 
   // Dispatch a window event when a new persisted notification arrives so the
@@ -60,7 +62,7 @@ function SocketManager() {
     // users store it in localStorage.
     const backendToken =
       session?.backendToken ||
-      (typeof window !== "undefined" ? localStorage.getItem("token") : null);
+      getToken();
 
     const payload = backendToken ? parseJwtPayload(backendToken) : null;
     const userId = payload?.id;

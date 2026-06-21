@@ -469,7 +469,7 @@ export default function ProfilePage() {
   const handleBoost = async () => {
     setBoostError(""); setBoostSuccess(""); setBoostLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       const res = await fetch(`${API_URL}/api/matches/boost`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -503,7 +503,7 @@ export default function ProfilePage() {
     setLangSuccess("");
     setLangSaving(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       if (token) {
         await fetch(`${API_URL}/api/user/me`, {
           method: "PATCH",
@@ -576,7 +576,7 @@ export default function ProfilePage() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
       const res = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
@@ -621,7 +621,7 @@ export default function ProfilePage() {
     if (pwdForm.newPassword.length < 6) { setPwdError("La nueva contraseña debe tener al menos 6 caracteres"); return; }
     setPwdSaving(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       const res = await fetch(`${API_URL}/api/user/me/password`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -640,7 +640,7 @@ export default function ProfilePage() {
   const handleCreatorRequest = async () => {
     setCreatorReqError(""); setCreatorReqSuccess(""); setRequestingCreator(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = getToken();
       const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },

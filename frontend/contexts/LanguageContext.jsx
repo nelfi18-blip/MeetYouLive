@@ -11,6 +11,28 @@ const STORAGE_KEY = "preferredLanguage";
 
 const messages = { es: esMessages, en: enMessages, pt: ptMessages };
 
+function readStoredLanguage() {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredLanguage(lang) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, lang);
+  } catch {
+  }
+}
+
+function syncDocumentLanguage(lang) {
+  try {
+    document.documentElement.lang = lang;
+  } catch {
+  }
+}
+
 /**
  * Detect the browser's preferred language, returning a supported lang code or the default.
  */
@@ -35,20 +57,20 @@ export function LanguageProvider({ children }) {
 
   useEffect(() => {
     // Priority: localStorage (cached user preference) > browser > default
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = readStoredLanguage();
     if (saved && SUPPORTED_LANGS.includes(saved)) {
       setLangState(saved);
-      document.documentElement.lang = saved;
+      syncDocumentLanguage(saved);
     } else {
       const detected = detectBrowserLang();
       setLangState(detected);
-      document.documentElement.lang = detected;
+      syncDocumentLanguage(detected);
     }
   }, []);
 
   // Keep the html[lang] attribute in sync whenever the language changes.
   useEffect(() => {
-    document.documentElement.lang = lang;
+    syncDocumentLanguage(lang);
   }, [lang]);
 
   /**
@@ -58,7 +80,7 @@ export function LanguageProvider({ children }) {
   const setLang = useCallback((newLang) => {
     if (!SUPPORTED_LANGS.includes(newLang)) return;
     setLangState(newLang);
-    localStorage.setItem(STORAGE_KEY, newLang);
+    writeStoredLanguage(newLang);
   }, []);
 
   /**
@@ -69,7 +91,7 @@ export function LanguageProvider({ children }) {
   const syncFromUser = useCallback((preferredLanguage) => {
     if (preferredLanguage && SUPPORTED_LANGS.includes(preferredLanguage)) {
       setLangState(preferredLanguage);
-      localStorage.setItem(STORAGE_KEY, preferredLanguage);
+      writeStoredLanguage(preferredLanguage);
     }
   }, []);
 

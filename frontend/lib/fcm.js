@@ -18,8 +18,6 @@
  *   NEXT_PUBLIC_FIREBASE_VAPID_KEY  (Web Push certificate public key)
  */
 
-import firebaseApp from "./firebase";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 /** Send the FCM token to our backend so targeted pushes can be delivered. */
@@ -66,7 +64,10 @@ export async function initPushNotifications(backendToken) {
       { scope: "/" }
     );
 
-    const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
+    const [{ default: firebaseApp }, { getMessaging, getToken, onMessage }] = await Promise.all([
+      import("./firebase"),
+      import("firebase/messaging"),
+    ]);
     const messaging = getMessaging(firebaseApp);
 
     const token = await getToken(messaging, {

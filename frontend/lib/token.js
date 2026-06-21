@@ -19,6 +19,43 @@ const FETCH_USER_ROLE_RETRY_DELAY_MS = 750;
 export const SWITCHING_ACCOUNT_FLAG = "switching_account";
 export const SWITCHING_ACCOUNT_VALUE = "1";
 
+function safeLocalStorageGet(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+  }
+}
+
+function safeLocalStorageRemove(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+  }
+}
+
+function getSecureCookieAttribute() {
+  try {
+    return window.location.protocol === "https:" ? "; Secure" : "";
+  } catch {
+    return "";
+  }
+}
+
+function setCookie(value) {
+  try {
+    document.cookie = value;
+  } catch {
+  }
+}
+
 /**
  * Build the account switch URL with query parameters
  */
@@ -29,46 +66,46 @@ export function buildSwitchAccountUrl() {
 /** Store token in localStorage and set the middleware-visible session cookie. */
 export function setToken(token) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("token", token);
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
+  safeLocalStorageSet("token", token);
+  const secure = getSecureCookieAttribute();
+  setCookie(`${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
 }
 
 /** Remove token from localStorage and clear the session cookie. */
 export function clearToken() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("token");
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  safeLocalStorageRemove("token");
+  const secure = getSecureCookieAttribute();
+  setCookie(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
 }
 
 /** Read the token from localStorage. */
 export function getToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+  return safeLocalStorageGet("token");
 }
 
 /** Store admin token in localStorage and set the admin-session cookie. */
 export function setAdminToken(token) {
   if (typeof window === "undefined") return;
-  localStorage.setItem("admin_token", token);
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
+  safeLocalStorageSet("admin_token", token);
+  const secure = getSecureCookieAttribute();
+  setCookie(`${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
 }
 
 /** Remove admin token from localStorage and clear the admin-session cookie. */
 export function clearAdminToken() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("admin_token");
-  localStorage.removeItem("admin_user");
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  safeLocalStorageRemove("admin_token");
+  safeLocalStorageRemove("admin_user");
+  const secure = getSecureCookieAttribute();
+  setCookie(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
 }
 
 /** Read the admin token from localStorage. */
 export function getAdminToken() {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token");
+  return safeLocalStorageGet("admin_token");
 }
 
 /**
@@ -86,18 +123,22 @@ export function clearAllAuth() {
   }
   
   // Clear admin tokens
-  localStorage.removeItem("admin_token");
-  localStorage.removeItem("admin_user");
+  safeLocalStorageRemove("admin_token");
+  safeLocalStorageRemove("admin_user");
   
   // Clear user tokens
-  localStorage.removeItem("token");
+  safeLocalStorageRemove("token");
   
   // Clear NextAuth session storage (if any) from localStorage only
-  Object.keys(localStorage).forEach(key => {
-    if (key.startsWith("next-auth") || key.startsWith("__Secure-next-auth")) {
-      localStorage.removeItem(key);
-    }
-  });
+  try {
+    Object.keys(window.localStorage).forEach(key => {
+      if (key.startsWith("next-auth") || key.startsWith("__Secure-next-auth")) {
+        safeLocalStorageRemove(key);
+      }
+    });
+  } catch (e) {
+    console.warn("[clearAllAuth] Could not clear localStorage:", e);
+  }
   
   // Clear specific auth keys from sessionStorage while preserving switching flag
   // Using whitelist approach for better performance and clarity
@@ -122,9 +163,9 @@ export function clearAllAuth() {
   }
   
   // Clear all auth cookies
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
-  document.cookie = `${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  const secure = getSecureCookieAttribute();
+  setCookie(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
+  setCookie(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
   
   // Clear NextAuth cookies (multiple possible names)
   const authCookieNames = [
@@ -139,7 +180,7 @@ export function clearAllAuth() {
   ];
   
   authCookieNames.forEach(cookieName => {
-    document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`;
+    setCookie(`${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`);
   });
 }
 

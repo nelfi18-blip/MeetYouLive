@@ -49,7 +49,7 @@ function getSecureCookieAttribute() {
   }
 }
 
-function safeSetCookieString(value) {
+function safeSetCookie(value) {
   try {
     document.cookie = value;
   } catch {
@@ -68,7 +68,7 @@ export function setToken(token) {
   if (typeof window === "undefined") return;
   safeLocalStorageSet("token", token);
   const secure = getSecureCookieAttribute();
-  safeSetCookieString(`${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
+  safeSetCookie(`${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
 }
 
 /** Remove token from localStorage and clear the session cookie. */
@@ -76,7 +76,7 @@ export function clearToken() {
   if (typeof window === "undefined") return;
   safeLocalStorageRemove("token");
   const secure = getSecureCookieAttribute();
-  safeSetCookieString(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
+  safeSetCookie(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
 }
 
 /** Read the token from localStorage. */
@@ -90,7 +90,7 @@ export function setAdminToken(token) {
   if (typeof window === "undefined") return;
   safeLocalStorageSet("admin_token", token);
   const secure = getSecureCookieAttribute();
-  safeSetCookieString(`${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
+  safeSetCookie(`${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`);
 }
 
 /** Remove admin token from localStorage and clear the admin-session cookie. */
@@ -99,7 +99,7 @@ export function clearAdminToken() {
   safeLocalStorageRemove("admin_token");
   safeLocalStorageRemove("admin_user");
   const secure = getSecureCookieAttribute();
-  safeSetCookieString(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
+  safeSetCookie(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
 }
 
 /** Read the admin token from localStorage. */
@@ -164,8 +164,8 @@ export function clearAllAuth() {
   
   // Clear all auth cookies
   const secure = getSecureCookieAttribute();
-  safeSetCookieString(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
-  safeSetCookieString(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
+  safeSetCookie(`${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
+  safeSetCookie(`${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`);
   
   // Clear NextAuth cookies (multiple possible names)
   const authCookieNames = [
@@ -180,7 +180,7 @@ export function clearAllAuth() {
   ];
   
   authCookieNames.forEach(cookieName => {
-    safeSetCookieString(`${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`);
+    safeSetCookie(`${cookieName}=; path=/; max-age=0; SameSite=Lax${secure}`);
   });
 }
 

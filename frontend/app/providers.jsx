@@ -48,7 +48,9 @@ function SocketManager() {
       session?.backendToken ||
       getToken();
     if (!backendToken) return;
-    initPushNotifications(backendToken).catch(() => {});
+    initPushNotifications(backendToken).catch((err) => {
+      console.warn("[initPushNotifications] Failed:", err);
+    });
   }, [session]);
 
   // Dispatch a window event when a new persisted notification arrives so the

@@ -57,6 +57,7 @@ jobs:
     env:
       NEXT_PUBLIC_API_URL: https://meetyoulive.onrender.com
       NEXTAUTH_SECRET: test-secret-ci
+      # Production canonical frontend URL; local NextAuth tests should override this explicitly.
       NEXTAUTH_URL: https://meetyoulive.net
     steps:
       - uses: actions/checkout@v4

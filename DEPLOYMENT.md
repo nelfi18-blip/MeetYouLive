@@ -99,6 +99,7 @@ Redeploy the frontend after changing this value.
 | `STRIPE_WEBHOOK_SECRET`        | **Yes**  | Stripe webhook signing secret (`whsec_...`)                         |
 | `STRIPE_SUBSCRIPTION_PRICE_ID` | **Yes**  | Stripe Price ID for VIP subscription                                |
 | `INTERNAL_API_SECRET`          | **Yes**  | Shared secret for server-to-server calls (same value in Vercel)     |
+| `NEXTAUTH_SECRET`              | No       | Do not set on Render; only the frontend/NextAuth uses this secret    |
 | `ADMIN_NAME`                   | No       | Seed admin display name                                             |
 | `ADMIN_EMAIL`                  | No       | Seed admin email                                                    |
 | `ADMIN_PASSWORD`               | No       | Seed admin password (only used on first boot)                       |

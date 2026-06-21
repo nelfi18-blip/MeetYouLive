@@ -18,7 +18,7 @@ MeetYouLive is a live streaming and social platform with:
 ### Backend
 - Platform: Render
 - Directory: `backend`
-- URL: `https://api.meetyoulive.net`
+- URL: `https://meetyoulive.onrender.com`
 
 ### Database
 - MongoDB Atlas
@@ -98,7 +98,7 @@ Frontend runs on [http://localhost:3000](http://localhost:3000) (Next.js default
    NEXTAUTH_URL=https://meetyoulive.net
    NEXTAUTH_SECRET=your_nextauth_secret
    INTERNAL_API_SECRET=your_internal_api_secret
-   NEXT_PUBLIC_API_URL=https://api.meetyoulive.net
+   NEXT_PUBLIC_API_URL=https://meetyoulive.onrender.com
    NEXT_PUBLIC_AGORA_APP_ID=your_agora_app_id
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
@@ -123,7 +123,7 @@ A `render.yaml` is included so Render can auto-configure the service.
    FRONTEND_URL=https://meetyoulive.net
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
-   GOOGLE_CALLBACK_URL=https://api.meetyoulive.net/api/auth/google/callback
+   GOOGLE_CALLBACK_URL=https://meetyoulive.onrender.com/api/auth/google/callback
     AGORA_APP_ID=your_agora_app_id
     AGORA_APP_CERTIFICATE=your_agora_app_certificate
     STRIPE_SECRET_KEY=your_stripe_secret_key
@@ -135,8 +135,7 @@ A `render.yaml` is included so Render can auto-configure the service.
     SMTP_PASS=your_smtp_password
     SMTP_FROM=MeetYouLive <noreply@meetyoulive.net>
     ```
-3. In **Settings → Custom Domains** add `api.meetyoulive.net`.
-4. In GoDaddy DNS add a `CNAME` record: `api` → `<your-service>.onrender.com`.
+3. Use the Render service URL `https://meetyoulive.onrender.com` as the production backend URL.
 
 ### Google OAuth
 
@@ -169,7 +168,7 @@ In [Google Cloud Console](https://console.cloud.google.com) → **OAuth Client**
 | `INTERNAL_API_SECRET`         | Server-to-server secret for `/api/auth/google-session` (`x-internal-api-secret` header); must match frontend |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID                                  |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret                              |
-| `GOOGLE_CALLBACK_URL`         | `https://api.meetyoulive.net/api/auth/google/callback`  |
+| `GOOGLE_CALLBACK_URL`         | `https://meetyoulive.onrender.com/api/auth/google/callback`  |
 | `FRONTEND_URL`                | `https://meetyoulive.net`                           |
 | `AGORA_APP_ID`                | Agora App ID for RTC token generation                   |
 | `AGORA_APP_CERTIFICATE`       | Agora App Certificate for RTC token signing             |
@@ -230,7 +229,7 @@ To keep the backend always-on, set up a free uptime monitor that pings the backe
 2. Click **Add New Monitor**:
    - **Monitor Type**: HTTP(s)
    - **Friendly Name**: MeetYouLive API
-   - **URL**: `https://api.meetyoulive.net/api/health`
+   - **URL**: `https://meetyoulive.onrender.com/api/health`
    - **Monitoring Interval**: 5 minutes
 3. Save. UptimeRobot will ping the backend every 5 minutes, preventing Render from suspending it.
 
@@ -249,7 +248,7 @@ The backend exposes a lightweight health endpoint at `GET /api/health` that retu
 ## Notes
 
 - `INTERNAL_API_SECRET` must be the same value in both Vercel and Render.
-- `api.meetyoulive.net` must point to the Render backend hostname.
+- The production backend URL is `https://meetyoulive.onrender.com`.
 - The frontend uses NextAuth and requests a backend JWT from: `POST /api/auth/google-session`
 - Google OAuth redirect URI must be `https://meetyoulive.net/api/auth/callback/google` (NextAuth callback, not the legacy backend route).
 - The "Connecting…" delay after Google login is a Render cold-start artifact on the free tier. Set up UptimeRobot (see above) to eliminate it.

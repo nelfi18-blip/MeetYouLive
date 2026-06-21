@@ -3,7 +3,7 @@ const { normalizeImages } = require("../onboarding.controller.js");
 const req = {
   protocol: "https",
   get(name) {
-    return name.toLowerCase() === "host" ? "api.meetyoulive.net" : "";
+    return name.toLowerCase() === "host" ? "meetyoulive.onrender.com" : "";
   },
 };
 
@@ -28,7 +28,7 @@ describe("onboarding photo normalization", () => {
 
     expect(images).toHaveLength(1);
     expect(images[0]).toMatchObject({
-      url: "https://api.meetyoulive.net/uploads/profile-photo.webp",
+      url: "https://meetyoulive.onrender.com/uploads/profile-photo.webp",
       isPrimary: true,
     });
   });

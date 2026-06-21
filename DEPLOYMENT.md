@@ -21,7 +21,7 @@ If upgrading Render is not an option, use UptimeRobot to ping the health endpoin
 2. Click **Add New Monitor**
 3. Set type: **HTTP(s)**
 4. Set friendly name: `MeetYouLive API`
-5. Set URL: `https://api.meetyoulive.net/api/health`
+5. Set URL: `https://meetyoulive.onrender.com/api/health`
 6. Set monitoring interval: **5 minutes**
 7. Click **Create Monitor**
 
@@ -29,121 +29,54 @@ If upgrading Render is not an option, use UptimeRobot to ping the health endpoin
 
 ---
 
-## 3. SSL Checklist — `api.meetyoulive.net`
+## 3. Backend URL and SSL Checklist — `meetyoulive.onrender.com`
 
-A broken SSL certificate on the backend causes an `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` error in the browser and makes the entire frontend crash with "Application error". Use this checklist to diagnose and fix it.
+The official production backend URL is the direct Render URL:
 
----
+```text
+https://meetyoulive.onrender.com
+```
 
-### 3.1 Diagnose the Problem
+### 3.1 Diagnose the Backend URL
 
 **Check the API health endpoint in a browser or terminal:**
 ```bash
-curl -v https://api.meetyoulive.net/api/health
+curl -v https://meetyoulive.onrender.com/api/health
 ```
-- ✅ Returns `{"status":"ok","message":"Servidor de MeetYouLive activo"}` → SSL is fine.
-- ❌ Returns `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` or `SSL_ERROR_RX_RECORD_TOO_LONG` → certificate is broken or missing. Continue to 3.2.
+- ✅ Returns `{"status":"ok","message":"Servidor de MeetYouLive activo"}` → backend URL is healthy.
+- ❌ Connection, SSL, or 5xx errors → check the Render service status and environment variables.
 
 **Check the certificate from the command line:**
 ```bash
-openssl s_client -connect api.meetyoulive.net:443 -servername api.meetyoulive.net < /dev/null 2>&1 | grep -E "subject|issuer|Verify|error"
+openssl s_client -connect meetyoulive.onrender.com:443 -servername meetyoulive.onrender.com < /dev/null 2>&1 | grep -E "subject|issuer|Verify|error"
 ```
 - ✅ `Verify return code: 0 (ok)` → certificate is valid.
-- ❌ Any other verify code → certificate is invalid or expired.
+- ❌ Any other verify code → verify the Render service URL and service status.
 
----
+### 3.2 Vercel API URL
 
-### 3.2 Verify DNS Configuration (must be CNAME, not A record)
+In Vercel, set:
 
-Render uses a shared IP pool. An `A` record will break SSL because the certificate is issued to the `.onrender.com` hostname, not a raw IP.
-
-```bash
-dig api.meetyoulive.net
-# or, on Windows/mobile:
-nslookup api.meetyoulive.net
+```text
+NEXT_PUBLIC_API_URL=https://meetyoulive.onrender.com
 ```
 
-**Expected result (✅ correct):**
-```
-api.meetyoulive.net.  CNAME  <service-name>.onrender.com.
-```
+Redeploy the frontend after changing this value.
 
-**Wrong result (❌ fix required):**
-```
-api.meetyoulive.net.  A  <IP address>
-```
-
-**How to fix in GoDaddy:**
-1. Log in to [godaddy.com](https://godaddy.com) → **DNS** for `meetyoulive.net`.
-2. Find the `api` record.
-3. If it is type `A`, delete it.
-4. Add a new record:
-   - **Type:** `CNAME`
-   - **Name:** `api`
-   - **Value:** `<service-name>.onrender.com` (the `.onrender.com` URL of your backend service — visible in Render dashboard → Settings → Domains)
-   - **TTL:** 600 seconds (or lowest available)
-5. Save and wait up to 10 minutes for DNS propagation.
-
----
-
-### 3.3 Re-provision the SSL Certificate in Render
-
-After the DNS record is correct, force Render to re-issue the certificate:
-
-1. Log in to [dashboard.render.com](https://dashboard.render.com).
-2. Select your backend service (`meetyoulive-backend`).
-3. Go to **Settings → Custom Domains**.
-4. If `api.meetyoulive.net` shows **Certificate Failed** or **Pending**:
-   - Click **Delete** (remove the custom domain entry).
-   - Click **Add Custom Domain**.
-   - Enter `api.meetyoulive.net` again and confirm.
-5. Wait **2–5 minutes**. Render will call Let's Encrypt to issue a new certificate.
-6. The status should change to **Active** with a green checkmark.
-
-> **Tip:** Render provisions certificates via Let's Encrypt (ACME HTTP-01 challenge). The DNS `CNAME` must be correct *before* you add the domain back, otherwise the challenge will fail and you'll need to retry.
-
----
-
-### 3.4 Immediate Fallback (Use `.onrender.com` URL Directly)
-
-If the SSL fix takes more than a few minutes and you need the app running now:
-
-1. In [Vercel dashboard](https://vercel.com) → your project → **Settings → Environment Variables**.
-2. Change `NEXT_PUBLIC_API_URL` from `https://api.meetyoulive.net` to your direct Render URL:
-   ```
-   https://<service-name>.onrender.com
-   ```
-3. Click **Save**, then go to **Deployments → Redeploy** (or trigger a **Manual Deploy**).
-4. Verify the frontend loads by opening `https://meetyoulive.net`.
-
-> **Remember to revert** `NEXT_PUBLIC_API_URL` back to `https://api.meetyoulive.net` once the custom-domain certificate is active again.
-
----
-
-### 3.5 Post-Fix Verification
-
-Run all of these checks after fixing SSL:
+### 3.3 Post-Fix Verification
 
 | Check | Command / Action | Expected result |
 |-------|-----------------|-----------------|
-| Certificate valid | `curl -v https://api.meetyoulive.net/api/health` | HTTP 200, JSON body |
-| No SSL error in browser | Open `https://api.meetyoulive.net/api/health` in Chrome | No `ERR_SSL_*` warning |
+| Backend health | `curl -v https://meetyoulive.onrender.com/api/health` | HTTP 200, JSON body |
 | Frontend loads | Open `https://meetyoulive.net` | Home page renders without "Application error" |
-| WebSocket works | Log in → open a live stream → DevTools → Network → WS | `wss://api.meetyoulive.net` connection established |
+| WebSocket works | Log in → open a live stream → DevTools → Network → WS | `wss://meetyoulive.onrender.com` connection established |
 | OAuth flow works | Open incognito → click **Iniciar sesión con Google** | Redirects back and session is active |
 
----
+### 3.4 Prevention Checklist
 
-### 3.6 Prevention Checklist
-
-Do these things to avoid future SSL breakage:
-
-- [ ] **Use CNAME, never A record** for `api.meetyoulive.net` (see 3.2).
-- [ ] **Set up an UptimeRobot monitor** on `https://api.meetyoulive.net/api/health` (see Section 2) — it will alert you if the endpoint goes down, which can indicate a broken certificate.
-- [ ] **Check Render custom domain status** after any DNS change: go to Settings → Custom Domains and confirm the badge shows **Active**.
-- [ ] **Never change the DNS record type from CNAME to A** unless you move the backend off Render.
-- [ ] **Renewal is automatic** — Render auto-renews Let's Encrypt certificates every 60–90 days. No manual action is needed as long as the CNAME record stays correct.
-- [ ] **Bookmark the Render dashboard** to quickly access Settings → Custom Domains when issues arise.
+- [ ] Keep `NEXT_PUBLIC_API_URL` set to `https://meetyoulive.onrender.com` in Vercel.
+- [ ] Set up an UptimeRobot monitor on `https://meetyoulive.onrender.com/api/health` (see Section 2).
+- [ ] Check Render service health after environment variable changes.
 
 ---
 
@@ -158,15 +91,15 @@ Do these things to avoid future SSL breakage:
 | `JWT_SECRET`                   | **Yes**  | Secret for signing JWT tokens (use a long random string)            |
 | `GOOGLE_CLIENT_ID`             | **Yes**  | Google OAuth client ID                                              |
 | `GOOGLE_CLIENT_SECRET`         | **Yes**  | Google OAuth client secret                                          |
-| `GOOGLE_CALLBACK_URL`          | **Yes**  | `https://api.meetyoulive.net/api/auth/google/callback`              |
-| `FRONTEND_URL`                 | **Yes**  | `https://meetyoulive.net` (used for CORS)                       |
+| `GOOGLE_CALLBACK_URL`          | **Yes**  | `https://meetyoulive.onrender.com/api/auth/google/callback`         |
+| `FRONTEND_URL`                 | **Yes**  | `https://meetyoulive.net` (used for CORS)                          |
 | `AGORA_APP_ID`                 | **Yes**  | Agora App ID for live streaming                                     |
 | `AGORA_APP_CERTIFICATE`        | **Yes**  | Agora App Certificate for token generation                          |
 | `STRIPE_SECRET_KEY`            | **Yes**  | Stripe secret key (`sk_live_...` in production)                     |
 | `STRIPE_WEBHOOK_SECRET`        | **Yes**  | Stripe webhook signing secret (`whsec_...`)                         |
 | `STRIPE_SUBSCRIPTION_PRICE_ID` | **Yes**  | Stripe Price ID for VIP subscription                                |
 | `INTERNAL_API_SECRET`          | **Yes**  | Shared secret for server-to-server calls (same value in Vercel)     |
-| `NEXTAUTH_SECRET`              | **Yes**  | Shared with Vercel; used to verify `/api/auth/google-session`        |
+| `NEXTAUTH_SECRET`              | No       | Do not set on Render; only the frontend/NextAuth uses this secret    |
 | `ADMIN_NAME`                   | No       | Seed admin display name                                             |
 | `ADMIN_EMAIL`                  | No       | Seed admin email                                                    |
 | `ADMIN_PASSWORD`               | No       | Seed admin password (only used on first boot)                       |
@@ -184,11 +117,11 @@ Do these things to avoid future SSL breakage:
 
 | Variable                        | Required | Description                                           |
 |---------------------------------|----------|-------------------------------------------------------|
-| `NEXT_PUBLIC_API_URL`           | **Yes**  | Backend API base URL (`https://api.meetyoulive.net`)  |
-| `NEXT_PUBLIC_LIVE_PROVIDER_KEY` | **Yes**  | Agora App ID for frontend live streaming              |
+| `NEXT_PUBLIC_API_URL`           | **Yes**  | Backend API base URL (`https://meetyoulive.onrender.com`)          |
+| `NEXT_PUBLIC_AGORA_APP_ID`      | **Yes**  | Agora App ID for frontend live streaming                          |
 | `GOOGLE_CLIENT_ID`              | **Yes**  | Google OAuth client ID (same as backend)              |
 | `GOOGLE_CLIENT_SECRET`          | **Yes**  | Google OAuth client secret (same as backend)          |
-| `NEXTAUTH_SECRET`               | **Yes**  | NextAuth signing secret (same value as backend)       |
+| `NEXTAUTH_SECRET`               | **Yes**  | NextAuth signing secret (frontend only)                            |
 | `NEXTAUTH_URL`                  | **Yes**  | `https://meetyoulive.net`                         |
 | `INTERNAL_API_SECRET`           | **Yes**  | Same value as backend `INTERNAL_API_SECRET`           |
 
@@ -215,7 +148,7 @@ Run these checks after each production deployment:
 
 ### 6.1 Health Endpoint
 ```bash
-curl https://api.meetyoulive.net/api/health
+curl https://meetyoulive.onrender.com/api/health
 # Expected: {"status":"ok","message":"Servidor de MeetYouLive activo"}
 ```
 
@@ -235,5 +168,5 @@ curl https://api.meetyoulive.net/api/health
 ### 6.4 WebSocket Connection
 1. Log in and open `/live` or any live stream
 2. Open browser DevTools → Network → WS
-3. Verify a WebSocket connection is established to `wss://api.meetyoulive.net`
+3. Verify a WebSocket connection is established to `wss://meetyoulive.onrender.com`
 4. Send a chat message and verify it appears in real time

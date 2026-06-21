@@ -6,7 +6,7 @@ const makeReq = (query = {}) => ({
   query,
   protocol: "https",
   get(name) {
-    return name.toLowerCase() === "host" ? "api.meetyoulive.net" : "";
+    return name.toLowerCase() === "host" ? "meetyoulive.onrender.com" : "";
   },
 });
 

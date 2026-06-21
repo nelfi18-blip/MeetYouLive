@@ -26,10 +26,9 @@ App runs at [http://localhost:3000](http://localhost:3000).
 | Variable                      | Description                                             |
 |-------------------------------|---------------------------------------------------------|
 | `NEXTAUTH_URL`                | Canonical URL of the frontend (e.g. `http://localhost:3000`) |
-| `FRONTEND_URL`                | Canonical frontend URL for shared deployment configuration |
 | `NEXTAUTH_SECRET`             | Secret used by NextAuth to sign session cookies         |
 | `INTERNAL_API_SECRET`         | Shared secret for backend `/api/auth/google-session` call |
-| `NEXT_PUBLIC_API_URL`         | Backend API base URL (e.g. `https://api.meetyoulive.net`) |
+| `NEXT_PUBLIC_API_URL`         | Backend API base URL (`https://meetyoulive.onrender.com`) |
 | `NEXT_PUBLIC_AGORA_APP_ID`    | Agora App ID (exposed to browser for RTC SDK)           |
 | `GOOGLE_CLIENT_ID`            | Google OAuth client ID (used by NextAuth)               |
 | `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret (used by NextAuth)           |

@@ -93,7 +93,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .get("/api/user/me/photo-debug")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https");
 
     expect(res.status).toBe(200);
@@ -135,7 +135,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .get("/api/user/me/profile-status")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https");
 
     expect(res.status).toBe(200);
@@ -155,8 +155,8 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("reorders current user photos through the focused photos endpoint", async () => {
-    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-a.png";
-    const secondaryPhoto = "https://api.meetyoulive.net/uploads/avatar-b.png";
+    const primaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-a.png";
+    const secondaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-b.png";
     const reorderedPhotos = [secondaryPhoto, primaryPhoto];
     const currentUser = makeCompleteUser({
       avatar: primaryPhoto,
@@ -181,7 +181,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .patch("/api/user/me/photos/reorder")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https")
       .send({ images: reorderedPhotos });
 
@@ -201,8 +201,8 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("deletes a current user photo through the focused photos endpoint", async () => {
-    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-a.png";
-    const secondaryPhoto = "https://api.meetyoulive.net/uploads/avatar-b.png";
+    const primaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-a.png";
+    const secondaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-b.png";
     const currentUser = makeCompleteUser({
       avatar: primaryPhoto,
       profilePhotos: [primaryPhoto, secondaryPhoto],
@@ -223,7 +223,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .delete(`/api/user/me/photos/${encodeURIComponent(secondaryPhoto)}`)
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https");
 
     expect(res.status).toBe(200);
@@ -270,14 +270,14 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .get("/api/user/me")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https");
 
     expect(res.status).toBe(200);
-    expect(res.body.avatar).toBe("https://api.meetyoulive.net/uploads/avatar-raw.png");
-    expect(res.body.profilePhotos).toEqual(["https://api.meetyoulive.net/uploads/avatar-raw.png"]);
+    expect(res.body.avatar).toBe("https://meetyoulive.onrender.com/uploads/avatar-raw.png");
+    expect(res.body.profilePhotos).toEqual(["https://meetyoulive.onrender.com/uploads/avatar-raw.png"]);
     expect(res.body.images[0]).toMatchObject({
-      url: "https://api.meetyoulive.net/uploads/avatar-raw.png",
+      url: "https://meetyoulive.onrender.com/uploads/avatar-raw.png",
       isPrimary: true,
     });
     expect(res.body.profileStatus).toMatchObject({
@@ -293,7 +293,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const diagnosticUser = {
       _id: "507f1f77bcf86cd799439011",
       name: "Incomplete User",
-      images: [{ url: "https://api.meetyoulive.net/uploads/avatar-primary.png", isPrimary: true }],
+      images: [{ url: "https://meetyoulive.onrender.com/uploads/avatar-primary.png", isPrimary: true }],
       onboardingComplete: false,
       birthdate: new Date("2000-01-01T00:00:00.000Z"),
       location: {},
@@ -316,7 +316,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .get("/api/user/me/profile-status")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https");
 
     expect(res.status).toBe(200);
@@ -345,11 +345,11 @@ describe("POST /api/user/me/avatar-upload", () => {
     };
     const savedUser = {
       _id: existingUser._id,
-      avatar: "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-123.png",
-      profilePhotos: ["https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-123.png"],
+      avatar: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png",
+      profilePhotos: ["https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png"],
       images: [
         {
-          url: "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-123.png",
+          url: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png",
           isPrimary: true,
           source: "",
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
@@ -371,7 +371,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https")
       .attach("avatar", Buffer.from("not-a-real-png-but-valid-for-multer"), {
         filename: "avatar.png",
@@ -383,12 +383,12 @@ describe("POST /api/user/me/avatar-upload", () => {
       existingUser._id,
       expect.objectContaining({
         $set: expect.objectContaining({
-          avatar: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
-          profilePhotos: [expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/)],
+          avatar: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+          profilePhotos: [expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/)],
           onboardingComplete: false,
           images: [
             expect.objectContaining({
-              url: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+              url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
               isPrimary: true,
             }),
           ],
@@ -405,7 +405,7 @@ describe("POST /api/user/me/avatar-upload", () => {
       onboardingComplete: false,
       canAppearInFeed: false,
       missingFields: expect.arrayContaining(["name", "birthdate", "location", "gender", "intent", "interests"]),
-      photoUrl: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+      photoUrl: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
       url: savedUser.avatar,
       images: [
         expect.objectContaining({
@@ -428,7 +428,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("keeps the current primary photo when uploading an extra photo", async () => {
-    const primaryPhoto = "https://api.meetyoulive.net/uploads/avatar-primary.png";
+    const primaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-primary.png";
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",
       avatar: primaryPhoto,
@@ -440,7 +440,7 @@ describe("POST /api/user/me/avatar-upload", () => {
       avatar: primaryPhoto,
       profilePhotos: [
         primaryPhoto,
-        "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+        "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-456.png",
       ],
       images: [
         {
@@ -450,7 +450,7 @@ describe("POST /api/user/me/avatar-upload", () => {
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
         },
         {
-          url: "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+          url: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-456.png",
           isPrimary: false,
           source: "",
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
@@ -472,7 +472,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload?setAsMain=0")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https")
       .attach("avatar", Buffer.from("not-a-real-png-but-valid-for-multer"), {
         filename: "extra.png",
@@ -489,12 +489,12 @@ describe("POST /api/user/me/avatar-upload", () => {
           avatar: primaryPhoto,
           profilePhotos: [
             primaryPhoto,
-            expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+            expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
           ],
           images: [
             expect.objectContaining({ url: primaryPhoto, isPrimary: true }),
             expect.objectContaining({
-              url: expect.stringMatching(/^https:\/\/api\.meetyoulive\.net\/uploads\/avatar-/),
+              url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
               isPrimary: false,
             }),
           ],
@@ -507,7 +507,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("sets onboardingComplete true after upload when the merged profile is complete", async () => {
-    const photoUrl = "https://api.meetyoulive.net/uploads/avatar-507f1f77bcf86cd799439011-789.png";
+    const photoUrl = "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-789.png";
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",
       name: "Complete User",
@@ -544,7 +544,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")
       .set("Authorization", "******")
-      .set("Host", "api.meetyoulive.net")
+      .set("Host", "meetyoulive.onrender.com")
       .set("X-Forwarded-Proto", "https")
       .attach("avatar", Buffer.from("image"), {
         filename: "avatar.png",

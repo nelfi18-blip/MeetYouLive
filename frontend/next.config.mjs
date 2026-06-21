@@ -30,7 +30,7 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "api.meetyoulive.net",
+        hostname: "meetyoulive.onrender.com",
       },
       {
         protocol: "https",

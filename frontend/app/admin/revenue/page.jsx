@@ -226,7 +226,7 @@ export default function AdminRevenuePage() {
               </div>
               <div className="checklist-item">
                 <span className="check-icon">4.</span>
-                <span>Webhook en Stripe apuntando a <code>POST https://api.meetyoulive.net/api/webhooks/stripe</code></span>
+                <span>Webhook en Stripe apuntando a <code>POST https://meetyoulive.onrender.com/api/webhooks/stripe</code></span>
               </div>
               <div className="checklist-item">
                 <span className="check-icon">5.</span>

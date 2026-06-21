@@ -19,6 +19,10 @@ const FETCH_USER_ROLE_RETRY_DELAY_MS = 750;
 export const SWITCHING_ACCOUNT_FLAG = "switching_account";
 export const SWITCHING_ACCOUNT_VALUE = "1";
 
+/**
+ * Read from localStorage without allowing browser storage failures (for
+ * example SecurityError in restricted/private contexts) to crash the app.
+ */
 function safeLocalStorageGet(key) {
   try {
     return window.localStorage.getItem(key);
@@ -27,6 +31,7 @@ function safeLocalStorageGet(key) {
   }
 }
 
+/** Store in localStorage when available; ignore storage-denied failures. */
 function safeLocalStorageSet(key, value) {
   try {
     window.localStorage.setItem(key, value);
@@ -34,6 +39,7 @@ function safeLocalStorageSet(key, value) {
   }
 }
 
+/** Remove from localStorage when available; ignore storage-denied failures. */
 function safeLocalStorageRemove(key) {
   try {
     window.localStorage.removeItem(key);
@@ -41,6 +47,7 @@ function safeLocalStorageRemove(key) {
   }
 }
 
+/** Compute the Secure cookie attribute without assuming window.location works. */
 function getSecureCookieAttribute() {
   try {
     return window.location.protocol === "https:" ? "; Secure" : "";
@@ -49,6 +56,7 @@ function getSecureCookieAttribute() {
   }
 }
 
+/** Set a cookie string without allowing cookie write failures to crash auth UI. */
 function safeSetCookie(value) {
   try {
     document.cookie = value;

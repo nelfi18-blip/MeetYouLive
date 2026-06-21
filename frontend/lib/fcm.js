@@ -64,10 +64,11 @@ export async function initPushNotifications(backendToken) {
       { scope: "/" }
     );
 
-    const [{ default: firebaseApp }, { getMessaging, getToken, onMessage }] = await Promise.all([
+    const [firebaseModule, { getMessaging, getToken, onMessage }] = await Promise.all([
       import("./firebase"),
       import("firebase/messaging"),
     ]);
+    const firebaseApp = firebaseModule.default;
     const messaging = getMessaging(firebaseApp);
 
     const token = await getToken(messaging, {

@@ -13,7 +13,9 @@ import { getToken } from "@/lib/token";
 function parseJwtPayload(token) {
   if (typeof token !== "string") return null;
   try {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const parts = token.split(".");
+    if (parts.length < 2 || !parts[1]) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(base64));
   } catch {
     return null;

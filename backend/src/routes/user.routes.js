@@ -38,6 +38,7 @@ const {
 const router = Router();
 const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 const USER_PHOTO_STATE_FIELDS = "avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
+const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 const userLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -299,6 +300,15 @@ const sanitizePhotoUrl = (req, value) => {
     try {
       const url = new URL(trimmed);
       url.pathname = url.pathname.replace(/^\/api\/uploads\//, "/uploads/");
+      if (
+        requestOrigin &&
+        url.pathname.startsWith("/uploads/") &&
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
+      ) {
+        const requestUrl = new URL(requestOrigin);
+        url.protocol = requestUrl.protocol;
+        url.host = requestUrl.host;
+      }
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);
         if (
@@ -410,6 +420,58 @@ const doesFileExist = async (filePath) => {
   } catch {
     return false;
   }
+};
+
+const getSafeExistingUploadPath = (req, value) => {
+  const photoUrl = sanitizePhotoUrl(req, value);
+  if (!photoUrl) return "";
+
+  let pathname = "";
+  try {
+    const parsedUrl = new URL(photoUrl);
+    const requestOrigin = getRequestOrigin(req);
+    const requestHostname = requestOrigin ? new URL(requestOrigin).hostname : "";
+    if (
+      parsedUrl.hostname &&
+      parsedUrl.hostname !== requestHostname &&
+      !FRONTEND_UPLOAD_HOST_PATTERN.test(parsedUrl.hostname)
+    ) {
+      return "";
+    }
+    pathname = parsedUrl.pathname;
+  } catch {
+    pathname = photoUrl;
+  }
+
+  const match = pathname.match(/^\/uploads\/([^/\\]+)$/);
+  if (!match) return "";
+  const filename = match[1];
+  const absolutePath = path.normalize(path.resolve(uploadDir, filename));
+  return absolutePath.startsWith(`${uploadDir}${path.sep}`) ? absolutePath : "";
+};
+
+const filterExistingPhotoCandidates = async (req, candidates) => {
+  const filtered = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    const normalized = sanitizePhotoUrl(req, candidate);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+
+    const localUploadPath = getSafeExistingUploadPath(req, normalized);
+    if (localUploadPath && !(await doesFileExist(localUploadPath))) {
+      console.warn("[avatar-upload] dropping missing persisted upload", {
+        userId: req.userId,
+        photoUrl: normalized,
+      });
+      continue;
+    }
+
+    filtered.push(normalized);
+  }
+
+  return filtered;
 };
 
 const parseDiscoveryPreferencesInput = (input) => {
@@ -1205,7 +1267,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
     const shouldSetAsMain = parseSetAsMainParam(req.query);
-    const existingPhotoCandidates = getExistingPhotoCandidates(user);
+    const existingPhotoCandidates = await filterExistingPhotoCandidates(req, getExistingPhotoCandidates(user));
     const candidateProfilePhotos = shouldSetAsMain
       ? [photoUrl, ...existingPhotoCandidates]
       : [...existingPhotoCandidates, photoUrl];

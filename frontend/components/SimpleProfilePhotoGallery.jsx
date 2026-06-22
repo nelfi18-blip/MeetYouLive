@@ -53,7 +53,7 @@ const parseJsonBody = async (res) => {
  * Renders an image only after it loads; broken or pending images show the
  * provided placeholder, and action children only receive a valid loaded state.
  */
-function LoadablePhoto({ src, alt, className, placeholder, onBroken, children, showSrcDebug = false }) {
+function PhotoWithFallback({ src, alt, className, placeholder, onBroken, children, showSrcDebug = false }) {
   const [status, setStatus] = useState(src ? "loading" : "empty");
 
   useEffect(() => {
@@ -344,7 +344,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
       <div className="profile-main-photo-card">
         {primaryImage ? (
-          <LoadablePhoto
+          <PhotoWithFallback
             src={primaryImage}
             alt={t("profile.primaryPhotoAlt")}
             className="profile-main-photo-image"
@@ -359,7 +359,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
                 </button>
               )
             }
-          </LoadablePhoto>
+          </PhotoWithFallback>
         ) : (
           <div className="profile-main-photo-placeholder">{initial}</div>
         )}
@@ -369,7 +369,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
         {secondaryImages.map((photo) => (
           <div key={photo} className="profile-photo-thumb">
-            <LoadablePhoto
+            <PhotoWithFallback
               src={photo}
               alt={t("profile.secondaryPhotoAlt")}
               className="profile-photo-thumb-img"
@@ -389,7 +389,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
                   </div>
                 )
               }
-            </LoadablePhoto>
+            </PhotoWithFallback>
           </div>
         ))}
         {emptySlots.map((_, index) => (

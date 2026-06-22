@@ -426,7 +426,7 @@ const doesFileExist = async (filePath) => {
  * Resolve a persisted upload URL to a local file path only when it points to
  * this backend's /uploads directory (or the legacy frontend uploads host).
  */
-const getSafeExistingUploadPath = (req, value) => {
+const resolveLocalUploadPath = (req, value) => {
   const photoUrl = sanitizePhotoUrl(req, value);
   if (!photoUrl) return "";
 
@@ -467,7 +467,7 @@ const filterExistingPhotoCandidates = async (req, candidates) => {
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
 
-    const localUploadPath = getSafeExistingUploadPath(req, normalized);
+    const localUploadPath = resolveLocalUploadPath(req, normalized);
     if (localUploadPath && !(await doesFileExist(localUploadPath))) {
       console.warn("[avatar-upload] dropping missing persisted upload", {
         userId: req.userId,

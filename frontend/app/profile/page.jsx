@@ -283,6 +283,7 @@ export default function ProfilePage() {
   const [boostSuccess, setBoostSuccess] = useState("");
   const [profileStatus, setProfileStatus] = useState(null);
   const [profileStatusError, setProfileStatusError] = useState("");
+  const [showPhotoDebugParam, setShowPhotoDebugParam] = useState(false);
   const goalLabelByValue = {
     serious_relationship: t("profile.goalSeriousRelationship"),
     friendship: t("profile.goalFriendship"),
@@ -457,6 +458,10 @@ export default function ProfilePage() {
       if (!signal?.aborted) setLoading(false);
     }
   }, [applyLoadedProfile, resolveToken, router, status]);
+
+  useEffect(() => {
+    setShowPhotoDebugParam(new URLSearchParams(window.location.search).get("photoDebug") === "1");
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -660,6 +665,7 @@ export default function ProfilePage() {
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
   const showProfileDiagnostics = user ? shouldShowProfileDiagnostics(user) : false;
+  const showPhotoSrcDebug = showProfileDiagnostics || showPhotoDebugParam;
   const normalizedImages = user ? normalizeUserImages(user) : [];
   const primaryImage = normalizedImages[0] ?? null;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
@@ -954,6 +960,7 @@ export default function ProfilePage() {
                     initial={initial}
                     t={t}
                     onUserChange={handlePhotoGalleryUserChange}
+                    showSrcDebug={showPhotoSrcDebug}
                   />
                 </div>
                 <div className="form-actions">

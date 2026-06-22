@@ -1,4 +1,6 @@
 const express = require("express");
+const fs = require("fs/promises");
+const path = require("path");
 const request = require("supertest");
 const User = require("../../models/User.js");
 
@@ -21,6 +23,7 @@ jest.mock("../../models/User.js", () => ({
 }));
 
 const userRoutes = require("../user.routes.js");
+const uploadDir = path.normalize(path.resolve(__dirname, "../../../uploads"));
 
 const makeQuery = (value) => ({
   select: jest.fn().mockResolvedValue(value),
@@ -429,6 +432,9 @@ describe("POST /api/user/me/avatar-upload", () => {
 
   test("keeps the current primary photo when uploading an extra photo", async () => {
     const primaryPhoto = "https://meetyoulive.onrender.com/uploads/avatar-primary.png";
+    const primaryPhotoPath = path.join(uploadDir, "avatar-primary.png");
+    await fs.mkdir(uploadDir, { recursive: true });
+    await fs.writeFile(primaryPhotoPath, "existing-avatar");
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",
       avatar: primaryPhoto,
@@ -466,44 +472,46 @@ describe("POST /api/user/me/avatar-upload", () => {
       },
     };
 
-    User.findById.mockReturnValueOnce(makeQuery(existingUser));
-    User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
+    try {
+      User.findById.mockReturnValueOnce(makeQuery(existingUser));
+      User.findByIdAndUpdate.mockReturnValueOnce(makeQuery(savedUser));
 
-    const res = await request(app)
-      .post("/api/user/me/avatar-upload?setAsMain=0")
-      .set("Authorization", "******")
-      .set("Host", "meetyoulive.onrender.com")
-      .set("X-Forwarded-Proto", "https")
-      .attach("avatar", Buffer.from("not-a-real-png-but-valid-for-multer"), {
-        filename: "extra.png",
-        contentType: "image/png",
-      });
+      const res = await request(app)
+        .post("/api/user/me/avatar-upload?setAsMain=0")
+        .set("Authorization", "******")
+        .set("Host", "meetyoulive.onrender.com")
+        .set("X-Forwarded-Proto", "https")
+        .attach("avatar", Buffer.from("not-a-real-png-but-valid-for-multer"), {
+          filename: "extra.png",
+          contentType: "image/png",
+        });
 
-
-
-    expect(res.status).toBe(200);
-    expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
-      existingUser._id,
-      expect.objectContaining({
-        $set: expect.objectContaining({
-          avatar: primaryPhoto,
-          profilePhotos: [
-            primaryPhoto,
-            expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
-          ],
-          images: [
-            expect.objectContaining({ url: primaryPhoto, isPrimary: true }),
-            expect.objectContaining({
-              url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
-              isPrimary: false,
-            }),
-          ],
+      expect(res.status).toBe(200);
+      expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+        existingUser._id,
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            avatar: primaryPhoto,
+            profilePhotos: [
+              primaryPhoto,
+              expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+            ],
+            images: [
+              expect.objectContaining({ url: primaryPhoto, isPrimary: true }),
+              expect.objectContaining({
+                url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+                isPrimary: false,
+              }),
+            ],
+          }),
         }),
-      }),
-      { new: true }
-    );
-    expect(res.body.avatar).toBe(primaryPhoto);
-    expect(res.body.images[0]).toMatchObject({ url: primaryPhoto, isPrimary: true });
+        { new: true }
+      );
+      expect(res.body.avatar).toBe(primaryPhoto);
+      expect(res.body.images[0]).toMatchObject({ url: primaryPhoto, isPrimary: true });
+    } finally {
+      await fs.rm(primaryPhotoPath, { force: true });
+    }
   });
 
   test("sets onboardingComplete true after upload when the merged profile is complete", async () => {

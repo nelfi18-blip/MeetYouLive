@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getToken, setToken } from "@/lib/token";
@@ -19,7 +18,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_BASE_URL = typeof API_URL === "string" ? API_URL.replace(/\/+$/, "") : "";
 const MAX_PROFILE_PHOTOS = 6;
 const MAX_SECONDARY_PHOTOS = 5;
-const PRIMARY_PHOTO_SIZE = 360;
 const PHOTO_SIGNATURE_SEPARATOR = "\u0000";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -51,6 +49,42 @@ const parseJsonBody = async (res) => {
   }
 };
 
+/**
+ * Renders an image only after it loads; broken or pending images show the
+ * provided placeholder, and action children only receive a valid loaded state.
+ */
+function PhotoWithFallback({ src, alt, className, placeholder, onBroken, children, showSrcDebug = false }) {
+  const [status, setStatus] = useState(src ? "loading" : "empty");
+
+  useEffect(() => {
+    setStatus(src ? "loading" : "empty");
+  }, [src]);
+
+  const isLoaded = status === "loaded";
+  const isBroken = status === "broken";
+
+  return (
+    <>
+      {src && !isBroken && (
+        <img
+          src={src}
+          alt={alt}
+          className={className}
+          style={isLoaded ? undefined : { display: "none" }}
+          onLoad={() => setStatus("loaded")}
+          onError={() => {
+            setStatus("broken");
+            onBroken?.(src);
+          }}
+        />
+      )}
+      {(!src || !isLoaded || isBroken) && placeholder}
+      {showSrcDebug && src && <code className="profile-photo-src-debug">{src}</code>}
+      {typeof children === "function" ? children(isLoaded && !isBroken) : null}
+    </>
+  );
+}
+
 const buildUploadEndpoint = (setAsMain) => {
   if (!API_BASE_URL) return "";
   const base = `${API_BASE_URL}/api/user/me/avatar-upload`;
@@ -66,16 +100,30 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [brokenImages, setBrokenImages] = useState(() => new Set());
   const userPhotoSignature = userPhotos.join(PHOTO_SIGNATURE_SEPARATOR);
 
   useEffect(() => {
     setImages(userPhotoSignature ? userPhotoSignature.split(PHOTO_SIGNATURE_SEPARATOR) : []);
+    setBrokenImages(new Set());
   }, [userPhotoSignature]);
 
   const primaryImage = images[0] || "";
   const secondaryImages = images.slice(1, MAX_PROFILE_PHOTOS);
-  const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length) });
-  const canAddPhotos = !working && images.length < MAX_PROFILE_PHOTOS;
+  const visibleImageCount = images.filter((image) => !brokenImages.has(image)).length;
+  const brokenSecondaryCount = secondaryImages.filter((image) => brokenImages.has(image)).length;
+  const emptySlots = Array.from({ length: Math.max(0, MAX_SECONDARY_PHOTOS - secondaryImages.length + brokenSecondaryCount) });
+  const canAddPhotos = !working && visibleImageCount < MAX_PROFILE_PHOTOS;
+
+  const handleBrokenImage = (photoUrl) => {
+    if (!photoUrl) return;
+    setBrokenImages((current) => {
+      if (current.has(photoUrl)) return current;
+      const next = new Set(current);
+      next.add(photoUrl);
+      return next;
+    });
+  };
 
   const getAndCacheAuthToken = () => {
     const storedToken = getToken();
@@ -179,13 +227,13 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   };
 
   const handleAddPhotos = async (filesList) => {
-    const selectedFiles = Array.from(filesList || []).slice(0, MAX_PROFILE_PHOTOS - images.length);
+    const selectedFiles = Array.from(filesList || []).slice(0, MAX_PROFILE_PHOTOS - visibleImageCount);
     if (!selectedFiles.length) return;
 
     setWorking(true);
     setError("");
     setSuccess("");
-    let currentImages = images;
+    let currentImages = images.filter((image) => !brokenImages.has(image));
     let uploadedCount = 0;
     let firstUploadError = "";
 
@@ -296,46 +344,52 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
       <div className="profile-main-photo-card">
         {primaryImage ? (
-          <Image
+          <PhotoWithFallback
             src={primaryImage}
             alt={t("profile.primaryPhotoAlt")}
-            width={PRIMARY_PHOTO_SIZE}
-            height={PRIMARY_PHOTO_SIZE}
             className="profile-main-photo-image"
-            unoptimized
-          />
+            onBroken={handleBrokenImage}
+            showSrcDebug={showSrcDebug}
+            placeholder={<div className="profile-main-photo-placeholder">{initial}</div>}
+          >
+            {(isValidPhoto) =>
+              isValidPhoto && (
+                <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryImage)} disabled={working}>
+                  {t("profile.deletePhoto")}
+                </button>
+              )
+            }
+          </PhotoWithFallback>
         ) : (
           <div className="profile-main-photo-placeholder">{initial}</div>
         )}
         <div className="profile-main-photo-label">{t("profile.primaryPhotoLabel")}</div>
-        {primaryImage && (
-          <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryImage)} disabled={working}>
-            {t("profile.deletePhoto")}
-          </button>
-        )}
-        {showSrcDebug && primaryImage && <code className="profile-photo-src-debug">{primaryImage}</code>}
       </div>
 
       <div className="profile-photo-grid" role="region" aria-label={t("profile.secondaryPhotosAria")}>
         {secondaryImages.map((photo) => (
           <div key={photo} className="profile-photo-thumb">
-            <Image
+            <PhotoWithFallback
               src={photo}
               alt={t("profile.secondaryPhotoAlt")}
-              width={140}
-              height={140}
               className="profile-photo-thumb-img"
-              unoptimized
-            />
-            {showSrcDebug && <code className="profile-photo-src-debug">{photo}</code>}
-            <div className="profile-photo-thumb-actions">
-              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakePrimary(photo)} disabled={working}>
-                {t("profile.makePrimary")}
-              </button>
-              <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(photo)} disabled={working}>
-                {t("profile.deletePhoto")}
-              </button>
-            </div>
+              onBroken={handleBrokenImage}
+              showSrcDebug={showSrcDebug}
+              placeholder={<div className="profile-photo-thumb-placeholder">+</div>}
+            >
+              {(isValidPhoto) =>
+                isValidPhoto && (
+                  <div className="profile-photo-thumb-actions">
+                    <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleMakePrimary(photo)} disabled={working}>
+                      {t("profile.makePrimary")}
+                    </button>
+                    <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(photo)} disabled={working}>
+                      {t("profile.deletePhoto")}
+                    </button>
+                  </div>
+                )
+              }
+            </PhotoWithFallback>
           </div>
         ))}
         {emptySlots.map((_, index) => (
@@ -457,11 +511,24 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           gap: 0.35rem;
         }
 
-        .profile-photo-thumb-img {
+        .profile-photo-thumb-img,
+        .profile-photo-thumb-placeholder {
           width: 100%;
           aspect-ratio: 1 / 1;
           border-radius: 10px;
+        }
+
+        .profile-photo-thumb-img {
           object-fit: cover;
+        }
+
+        .profile-photo-thumb-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px dashed rgba(255,255,255,0.18);
+          color: var(--text-muted);
+          font-size: 1.5rem;
         }
 
         .profile-photo-src-debug {

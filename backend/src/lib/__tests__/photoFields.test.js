@@ -28,6 +28,20 @@ describe("photoFields", () => {
     );
   });
 
+  test("rewrites frontend-hosted upload URLs to the backend request origin", () => {
+    const req = makeReq({
+      host: "meetyoulive.onrender.com",
+      "x-forwarded-proto": "https",
+    });
+
+    expect(normalizePhotoUrl(req, "https://meetyoulive.net/uploads/avatar-user-123.jpg")).toBe(
+      "https://meetyoulive.onrender.com/uploads/avatar-user-123.jpg"
+    );
+    expect(normalizePhotoUrl(req, "https://www.meetyoulive.net/api/uploads/avatar-user-123.jpg")).toBe(
+      "https://meetyoulive.onrender.com/uploads/avatar-user-123.jpg"
+    );
+  });
+
   test("uses legacy real photo aliases when canonical fields are empty", () => {
     const req = makeReq({ host: "meetyoulive.onrender.com" });
     const user = withSerializedUserPhotoFields(req, {

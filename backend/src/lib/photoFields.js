@@ -12,6 +12,7 @@ const validateHttpProtocol = (value) => {
 
 const REQUESTLESS_PHOTO_REQ = { protocol: "https", get: () => "" };
 const MAX_USER_IMAGES = 6;
+const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 /**
  * Build a safe request origin for absolute upload URLs.
@@ -93,6 +94,15 @@ const normalizePhotoUrl = (req, value) => {
       if (hasUnsafePathSegment(url.pathname)) return "";
       if (url.pathname.startsWith("/api/uploads/")) {
         url.pathname = `/${normalizeUploadPath(url.pathname)}`;
+      }
+      if (
+        requestOrigin &&
+        url.pathname.startsWith("/uploads/") &&
+        FRONTEND_UPLOAD_HOST_PATTERN.test(url.hostname)
+      ) {
+        const requestUrl = new URL(requestOrigin);
+        url.protocol = requestUrl.protocol;
+        url.host = requestUrl.host;
       }
       if (requestOrigin) {
         const requestUrl = new URL(requestOrigin);

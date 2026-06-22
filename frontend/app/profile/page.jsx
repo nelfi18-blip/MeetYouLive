@@ -660,6 +660,9 @@ export default function ProfilePage() {
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";
   const showProfileDiagnostics = user ? shouldShowProfileDiagnostics(user) : false;
+  const normalizedImages = user ? normalizeUserImages(user) : [];
+  const primaryImage = normalizedImages[0] ?? null;
+  const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
@@ -691,8 +694,8 @@ export default function ProfilePage() {
             <div className="profile-card-bg" />
             <div className="profile-card-content">
               <div className="profile-avatar-wrap">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={displayName} className="profile-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
+                  {primaryImage?.url ? (
+                    <img src={primaryImage.url} alt={displayName} className="profile-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
                   ) : (
                     <div className="profile-avatar">{initial}</div>
                   )}
@@ -742,10 +745,10 @@ export default function ProfilePage() {
                 </button>
               </div>
             </div>
-            {userExtraPhotos.length > 0 && (
+            {secondaryImages.length > 0 && (
               <div className="profile-extra-strip">
-                {userExtraPhotos.map((photo) => (
-                  <img key={photo} src={photo} alt="Foto adicional" className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
+                {secondaryImages.map((photo) => (
+                  <img key={photo.url} src={photo.url} alt="Foto adicional" className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
                 ))}
               </div>
             )}

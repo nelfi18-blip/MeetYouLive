@@ -422,6 +422,10 @@ const doesFileExist = async (filePath) => {
   }
 };
 
+/**
+ * Resolve a persisted upload URL to a local file path only when it points to
+ * this backend's /uploads directory (or the legacy frontend uploads host).
+ */
 const getSafeExistingUploadPath = (req, value) => {
   const photoUrl = sanitizePhotoUrl(req, value);
   if (!photoUrl) return "";
@@ -450,6 +454,10 @@ const getSafeExistingUploadPath = (req, value) => {
   return absolutePath.startsWith(`${uploadDir}${path.sep}`) ? absolutePath : "";
 };
 
+/**
+ * Normalize and de-duplicate existing photos, dropping local /uploads entries
+ * whose files no longer exist so new uploads do not keep broken gallery slots.
+ */
 const filterExistingPhotoCandidates = async (req, candidates) => {
   const filtered = [];
   const seen = new Set();

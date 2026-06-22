@@ -49,6 +49,10 @@ const parseJsonBody = async (res) => {
   }
 };
 
+/**
+ * Renders an image only after it loads; broken or pending images show the
+ * provided placeholder, and action children only receive a valid loaded state.
+ */
 function LoadablePhoto({ src, alt, className, placeholder, onBroken, children, showSrcDebug = false }) {
   const [status, setStatus] = useState(src ? "loading" : "empty");
 

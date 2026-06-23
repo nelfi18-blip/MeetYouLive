@@ -189,14 +189,15 @@ const syncCanonicalPhotoFields = (userLike = {}, req = REQUESTLESS_PHOTO_REQ) =>
   const profilePhotos = images.map((image) => image.url);
 
   if (userLike && typeof userLike.set === "function") {
-    userLike.set({ images, avatar: primaryPhoto, profilePhotos });
+    userLike.set({ images, avatar: primaryPhoto, profilePhotos, primaryPhoto });
   } else if (userLike && typeof userLike === "object") {
     userLike.images = images;
     userLike.avatar = primaryPhoto;
     userLike.profilePhotos = profilePhotos;
+    userLike.primaryPhoto = primaryPhoto;
   }
 
-  return { images, avatar: primaryPhoto, profilePhotos };
+  return { images, avatar: primaryPhoto, profilePhotos, primaryPhoto };
 };
 
 const syncPhotoAliases = syncCanonicalPhotoFields;
@@ -261,6 +262,7 @@ const makePrimaryUserPhotoFields = (photoUrl, source = "") => {
   if (!url) return {};
   return {
     avatar: url,
+    primaryPhoto: url,
     profilePhotos: [url],
     images: [
       {

@@ -8,6 +8,7 @@ const rateLimit = require("express-rate-limit");
 const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const upload = require("../middlewares/upload.middleware.js");
+const { uploadProfilePhoto } = require("../lib/cloudinary.js");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const { calculateCompatibility } = require("../services/compatibility.service.js");
@@ -37,7 +38,7 @@ const {
 
 const router = Router();
 const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
-const USER_PHOTO_STATE_FIELDS = "avatar profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
+const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
 const userLimiter = rateLimit({
@@ -352,6 +353,7 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
   const mergedUserForCompletion = {
     ...(typeof currentUser.toObject === "function" ? currentUser.toObject() : currentUser),
     avatar: normalizedPhotoState.avatar,
+    primaryPhoto: normalizedPhotoState.primaryPhoto,
     profilePhotos: normalizedPhotoState.profilePhotos,
     images: normalizedPhotoState.images,
   };
@@ -361,6 +363,7 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
     {
       $set: {
         avatar: normalizedPhotoState.avatar,
+        primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
         onboardingComplete: uploadProfileCompletion.canAppearInFeed,
@@ -380,6 +383,7 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
 
 const getExistingPhotoCandidates = (user) => [
   ...(Array.isArray(user?.images) ? user.images.map(getPhotoUrlValue) : []),
+  user?.primaryPhoto,
   ...(Array.isArray(user?.profilePhotos) ? user.profilePhotos : []),
   user?.avatar,
 ];
@@ -405,12 +409,6 @@ const attachProfileCompletionPayload = (req, payload) => {
 };
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
-
-const getSafeUploadedFilePath = (file) => {
-  if (!file?.filename) return "";
-  const resolvedPath = path.resolve(uploadDir, path.basename(file.filename));
-  return resolvedPath.startsWith(`${uploadDir}${path.sep}`) ? resolvedPath : "";
-};
 
 const doesFileExist = async (filePath) => {
   if (!filePath) return false;
@@ -691,7 +689,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       discoveryScope,
       discoveryPreferences,
     } = req.body;
-    const currentUser = await User.findById(req.userId).select("avatar profilePhotos images");
+    const currentUser = await User.findById(req.userId).select("avatar primaryPhoto profilePhotos images");
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
     if (username !== undefined) {
@@ -708,6 +706,7 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
+      updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
     }
@@ -838,7 +837,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       discoveryPreferences,
     } = req.body;
     const currentUser = await User.findById(req.userId).select(
-      "name avatar profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended"
+      "name avatar primaryPhoto profilePhotos images birthdate location locationLabel gender interestedIn interests intent role isBlocked isSuspended"
     );
     if (!currentUser) return res.status(404).json({ message: "Usuario no encontrado" });
     const updates = {};
@@ -849,6 +848,7 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (incomingAvatar !== undefined || incomingProfilePhotos !== undefined) {
       const normalizedPhotoState = normalizeProfilePhotos(req, incomingProfilePhotos, incomingAvatar, currentUser);
       updates.avatar = normalizedPhotoState.avatar;
+      updates.primaryPhoto = normalizedPhotoState.primaryPhoto;
       updates.profilePhotos = normalizedPhotoState.profilePhotos;
       updates.images = normalizedPhotoState.images;
     }
@@ -945,6 +945,7 @@ router.patch("/me/avatar", userLimiter, verifyToken, async (req, res) => {
       req.userId,
       {
         avatar: normalizedPhotoState.avatar,
+        primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
       },
@@ -1248,28 +1249,18 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (!req.file) {
       return sendAvatarUploadJsonError(res, 400, "FILE_REQUIRED", "No se recibió archivo.", "File required");
     }
-    const avatarPath = `/uploads/${req.file.filename}`;
-    const photoUrl = toAbsoluteUploadUrl(req, avatarPath);
-    const safeUploadedFilePath = getSafeUploadedFilePath(req.file);
-    const physicalFileExists = await doesFileExist(safeUploadedFilePath);
+    const cloudinaryResult = await uploadProfilePhoto(req.file, req.userId);
+    const photoUrl = cloudinaryResult.secure_url;
+    const avatarPath = photoUrl;
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.log("PHOTO URL", photoUrl);
-    console.log("[avatar-upload] generated URL and disk state", {
+    console.log("[avatar-upload] generated Cloudinary URL", {
       userId: req.userId,
       avatarPath,
       photoUrl,
-      physicalPathValidated: Boolean(safeUploadedFilePath),
-      physicalFileExists,
+      cloudinaryPublicId: cloudinaryResult.public_id,
       setAsMain: req.query?.setAsMain,
     });
-    if (!physicalFileExists) {
-      console.error("[avatar-upload] uploaded file missing from disk", {
-        userId: req.userId,
-        filename: req.file.filename,
-        path: safeUploadedFilePath,
-      });
-      return sendAvatarUploadJsonError(res, 500, "FILE_SAVE_FAILED", "Error guardando archivo.", "File not found after upload");
-    }
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
@@ -1286,11 +1277,17 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       user
     );
     const nextAvatar = normalizedPhotoState.avatar;
+    const nextPrimaryPhoto = normalizedPhotoState.primaryPhoto;
     const nextProfilePhotos = normalizedPhotoState.profilePhotos;
-    const nextImages = normalizedPhotoState.images;
+    const nextImages = normalizedPhotoState.images.map((image) =>
+      image.url === photoUrl
+        ? { ...image, publicId: cloudinaryResult.public_id || "", source: "cloudinary" }
+        : image
+    );
     const mergedUserForCompletion = {
       ...(typeof user.toObject === "function" ? user.toObject() : user),
       avatar: nextAvatar,
+      primaryPhoto: nextPrimaryPhoto,
       profilePhotos: nextProfilePhotos,
       images: nextImages,
     };
@@ -1301,6 +1298,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
 
     const uploadResult = {
       avatar: nextAvatar,
+      primaryPhoto: nextPrimaryPhoto,
       profilePhotos: nextProfilePhotos,
       images: nextImages,
     };
@@ -1311,6 +1309,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       {
         $set: {
           avatar: nextAvatar,
+          primaryPhoto: nextPrimaryPhoto,
           profilePhotos: nextProfilePhotos,
           images: nextImages,
           onboardingComplete: nextOnboardingComplete,

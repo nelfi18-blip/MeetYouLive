@@ -37,6 +37,12 @@ const uploadProfilePhoto = (file, userId) =>
       reject(err);
       return;
     }
+    if (typeof userId !== "string" || !userId.trim()) {
+      const err = new Error("A valid userId is required to upload profile photos");
+      err.code = "CLOUDINARY_USER_ID_REQUIRED";
+      reject(err);
+      return;
+    }
 
     try {
       configureCloudinary();
@@ -48,7 +54,7 @@ const uploadProfilePhoto = (file, userId) =>
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: "meetyoulive/profile-photos",
-        public_id: `avatar-${userId}-${Date.now()}`,
+        public_id: `avatar-${userId.trim()}-${Date.now()}`,
         resource_type: "image",
         overwrite: false,
       },

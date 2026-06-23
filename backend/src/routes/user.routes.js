@@ -56,7 +56,6 @@ const uploadErrorPayload = (status, code, message, error = code) => ({
 });
 
 const sendUploadError = (res, err, fallbackMessage = "Error al subir la imagen") => {
-  // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
   console.error("[avatar-upload] multer error", {
     name: err?.name,
     code: err?.code,
@@ -1240,15 +1239,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (err) {
       return sendUploadError(res, err, "Error al subir la imagen");
     }
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
-    console.log("FILE RECEIVED", req.file);
-    console.log("[avatar-upload] request file received", {
-      userId: req.userId,
-      hasFile: Boolean(req.file),
-      fieldname: req.file?.fieldname,
-      mimetype: req.file?.mimetype,
-      size: req.file?.size,
-    });
     next();
   });
 }, async (req, res) => {
@@ -1275,15 +1265,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     }
     const photoUrl = cloudinaryResult.secure_url;
     const avatarPath = photoUrl;
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
-    console.log("PHOTO URL", photoUrl);
-    console.log("[avatar-upload] generated Cloudinary URL", {
-      userId: req.userId,
-      avatarPath,
-      photoUrl,
-      cloudinaryPublicId: cloudinaryResult.public_id,
-      setAsMain: req.query?.setAsMain,
-    });
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
@@ -1315,14 +1296,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
     const nextOnboardingComplete = uploadProfileCompletion.canAppearInFeed;
 
-    const uploadResult = {
-      avatar: nextAvatar,
-      primaryPhoto: nextPrimaryPhoto,
-      profilePhotos: nextProfilePhotos,
-      images: nextImages,
-    };
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
-    console.log("UPLOAD RESULT", uploadResult);
     const savedUser = await User.findByIdAndUpdate(
       user._id,
       {
@@ -1339,17 +1312,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (!savedUser) {
       return sendAvatarUploadJsonError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.", "User not found");
     }
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
-    console.log("USER SAVED", savedUser._id);
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
-    console.log("[avatar-upload] MongoDB photo fields saved", {
-      userId: req.userId,
-      avatar: savedUser.avatar,
-      profilePhotos: savedUser.profilePhotos,
-      imagesCount: Array.isArray(savedUser.images) ? savedUser.images.length : 0,
-      images0Url: savedUser.images?.[0]?.url || "",
-      images0IsPrimary: savedUser.images?.[0]?.isPrimary,
-    });
 
     const savedUserObject = savedUser.toObject();
     const photoFields = serializeUserPhotoFields(req, savedUserObject);
@@ -1381,7 +1343,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
       user: serializedUser,
     });
   } catch (err) {
-    // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
     console.error("[avatar-upload] failed after multer", {
       userId: req.userId,
       name: err?.name,

@@ -598,6 +598,31 @@ describe("POST /api/user/me/avatar-upload", () => {
     });
   });
 
+  test("returns diagnostic JSON when Cloudinary upload fails", async () => {
+    const uploadError = new Error("Cloudinary unavailable");
+    uploadError.code = "CLOUDINARY_UNAVAILABLE";
+    uploadProfilePhoto.mockRejectedValueOnce(uploadError);
+
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .attach("avatar", Buffer.from("image"), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 500,
+      error: "CLOUDINARY_UNAVAILABLE",
+      message: "Error subiendo imagen a Cloudinary.",
+      code: "FILE_SAVE_FAILED",
+    });
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
   test("returns diagnostic JSON when no avatar file is sent", async () => {
     const res = await request(app)
       .post("/api/user/me/avatar-upload")

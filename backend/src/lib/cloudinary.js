@@ -21,6 +21,14 @@ const configureCloudinary = () => {
   configured = true;
 };
 
+/**
+ * Upload a profile photo buffer to Cloudinary.
+ *
+ * @param {{buffer?: Buffer}} file Multer memory-storage file containing the image buffer.
+ * @param {string} userId Authenticated user ID used in the Cloudinary public ID.
+ * @returns {Promise<object>} Cloudinary upload result, including secure_url and public_id.
+ * @throws {Error} Missing file buffer, missing Cloudinary configuration, or Cloudinary API failure.
+ */
 const uploadProfilePhoto = (file, userId) =>
   new Promise((resolve, reject) => {
     if (!file?.buffer?.length) {

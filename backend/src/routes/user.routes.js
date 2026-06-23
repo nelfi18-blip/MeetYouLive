@@ -37,7 +37,7 @@ const {
 } = require("../lib/photoFields.js");
 
 const router = Router();
-const uploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
+const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
@@ -410,6 +410,13 @@ const attachProfileCompletionPayload = (req, payload) => {
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
+const enrichCloudinaryImageMetadata = (images, photoUrl, cloudinaryResult) =>
+  images.map((image) =>
+    image.url === photoUrl
+      ? { ...image, publicId: cloudinaryResult.public_id || "", source: "cloudinary" }
+      : image
+  );
+
 const doesFileExist = async (filePath) => {
   if (!filePath) return false;
   try {
@@ -448,8 +455,8 @@ const resolveLocalUploadPath = (req, value) => {
   const match = pathname.match(/^\/uploads\/([^/\\]+)$/);
   if (!match) return "";
   const filename = match[1];
-  const absolutePath = path.normalize(path.resolve(uploadDir, filename));
-  return absolutePath.startsWith(`${uploadDir}${path.sep}`) ? absolutePath : "";
+  const absolutePath = path.normalize(path.resolve(legacyUploadDir, filename));
+  return absolutePath.startsWith(`${legacyUploadDir}${path.sep}`) ? absolutePath : "";
 };
 
 /**
@@ -1249,7 +1256,23 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     if (!req.file) {
       return sendAvatarUploadJsonError(res, 400, "FILE_REQUIRED", "No se recibió archivo.", "File required");
     }
-    const cloudinaryResult = await uploadProfilePhoto(req.file, req.userId);
+    let cloudinaryResult;
+    try {
+      cloudinaryResult = await uploadProfilePhoto(req.file, req.userId);
+    } catch (err) {
+      console.error("[avatar-upload] Cloudinary upload failed", {
+        userId: req.userId,
+        code: err?.code,
+        message: err?.message,
+      });
+      return sendAvatarUploadJsonError(
+        res,
+        500,
+        "FILE_SAVE_FAILED",
+        "Error subiendo imagen a Cloudinary.",
+        err?.code || err?.message || "Cloudinary upload failed"
+      );
+    }
     const photoUrl = cloudinaryResult.secure_url;
     const avatarPath = photoUrl;
     // TODO(2026-06-14): Remove temporary upload diagnostics after onboarding photo issue is resolved.
@@ -1279,11 +1302,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const nextAvatar = normalizedPhotoState.avatar;
     const nextPrimaryPhoto = normalizedPhotoState.primaryPhoto;
     const nextProfilePhotos = normalizedPhotoState.profilePhotos;
-    const nextImages = normalizedPhotoState.images.map((image) =>
-      image.url === photoUrl
-        ? { ...image, publicId: cloudinaryResult.public_id || "", source: "cloudinary" }
-        : image
-    );
+    const nextImages = enrichCloudinaryImageMetadata(normalizedPhotoState.images, photoUrl, cloudinaryResult);
     const mergedUserForCompletion = {
       ...(typeof user.toObject === "function" ? user.toObject() : user),
       avatar: nextAvatar,

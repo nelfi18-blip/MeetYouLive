@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -33,6 +33,44 @@ const PROFILE_STATUS_FIELDS = [
 ];
 
 const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV !== "production" || profile?.role === "admin";
+const PROFILE_FLOW_DIAGNOSTIC_LABEL = "[profile-flow]";
+
+const getProfileFlowDiagnostics = () => {
+  if (typeof window === "undefined") return null;
+  window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ ||= {
+    renders: 0,
+    loads: 0,
+    loadResponses: 0,
+    saves: 0,
+    saveResponses: 0,
+    sessionRefreshes: 0,
+    clientErrors: 0,
+  };
+  return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
+};
+
+const logProfileFlowDiagnostic = (event, details = {}) => {
+  const diagnostics = getProfileFlowDiagnostics();
+  if (!diagnostics) return;
+  console.info(PROFILE_FLOW_DIAGNOSTIC_LABEL, {
+    event,
+    ...details,
+    counts: { ...diagnostics },
+    timestamp: new Date().toISOString(),
+  });
+};
+
+const extractProfilePayload = (payload) =>
+  payload?.user && typeof payload.user === "object" && !Array.isArray(payload.user)
+    ? {
+        ...payload.user,
+        onboardingComplete: payload.user.onboardingComplete ?? payload.onboardingComplete,
+        canAppearInFeed: payload.user.canAppearInFeed ?? payload.canAppearInFeed,
+        missingFields: payload.user.missingFields ?? payload.missingFields,
+        profileCompletion: payload.user.profileCompletion ?? payload.profileCompletion,
+        profileStatus: payload.user.profileStatus ?? payload.profileStatus,
+      }
+    : payload;
 
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
@@ -233,6 +271,10 @@ export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
+  const renderCountRef = useRef(0);
+  const saveInFlightRef = useRef(false);
+  const saveSequenceRef = useRef(0);
+  const loadSequenceRef = useRef(0);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -301,8 +343,16 @@ export default function ProfilePage() {
   const isDistanceButtonActive = (distance) =>
     Number(editForm.discoveryMaxDistanceKm) === distance && editForm.discoveryScope === "nearby";
 
+  renderCountRef.current += 1;
+
   const refreshProfileSession = useCallback(async (profile = null) => {
     try {
+      const diagnostics = getProfileFlowDiagnostics();
+      if (diagnostics) diagnostics.sessionRefreshes += 1;
+      logProfileFlowDiagnostic("session-refresh-start", {
+        hasProfile: Boolean(profile),
+        profileId: profile?._id || profile?.id || "",
+      });
       if (typeof updateSession === "function") {
         await updateSession(
           profile
@@ -318,11 +368,17 @@ export default function ProfilePage() {
             : undefined
         );
       }
-      router.refresh();
+      logProfileFlowDiagnostic("session-refresh-finished", {
+        hasProfile: Boolean(profile),
+        profileId: profile?._id || profile?.id || "",
+      });
     } catch (err) {
       console.error("[profile] failed to refresh session:", err);
+      logProfileFlowDiagnostic("session-refresh-error", {
+        message: err?.message || "unknown",
+      });
     }
-  }, [router, session?.user?.image, session?.user?.name, updateSession]);
+  }, [session?.user?.image, session?.user?.name, updateSession]);
 
   const updateAndPublishUser = useCallback((updates) => {
     if (!user) return null;
@@ -394,6 +450,10 @@ export default function ProfilePage() {
 
   const loadProfile = useCallback(async ({ signal, silent = false } = {}) => {
     if (status === "loading") return;
+    const loadId = ++loadSequenceRef.current;
+    const diagnostics = getProfileFlowDiagnostics();
+    if (diagnostics) diagnostics.loads += 1;
+    logProfileFlowDiagnostic("profile-load-start", { loadId, silent, status });
 
     const token = await resolveToken();
     if (signal?.aborted) return;
@@ -413,6 +473,13 @@ export default function ProfilePage() {
         fetch(`${API_URL}/api/user/me`, { headers, cache: "no-store", signal }),
         fetch(`${API_URL}/api/matches/boost-status`, { headers, cache: "no-store", signal }).catch(() => null),
       ]);
+      const responseDiagnostics = getProfileFlowDiagnostics();
+      if (responseDiagnostics) responseDiagnostics.loadResponses += 1;
+      logProfileFlowDiagnostic("profile-load-response", {
+        loadId,
+        profileStatus: profileRes.status,
+        boostStatus: boostRes?.status || null,
+      });
 
       if (signal?.aborted) return;
 
@@ -464,6 +531,48 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
+    const diagnostics = getProfileFlowDiagnostics();
+    if (diagnostics) diagnostics.renders = renderCountRef.current;
+    logProfileFlowDiagnostic("profile-render", {
+      renderCount: renderCountRef.current,
+      status,
+      hasUser: Boolean(user),
+      loading,
+      editing,
+      saving,
+    });
+  });
+
+  useEffect(() => {
+    const handleClientError = (event) => {
+      const diagnostics = getProfileFlowDiagnostics();
+      if (diagnostics) diagnostics.clientErrors += 1;
+      logProfileFlowDiagnostic("client-error", {
+        message: event?.message || event?.error?.message || "unknown",
+        source: event?.filename || "",
+        line: event?.lineno || null,
+        column: event?.colno || null,
+        stack: event?.error?.stack || "",
+      });
+    };
+    const handleUnhandledRejection = (event) => {
+      const diagnostics = getProfileFlowDiagnostics();
+      if (diagnostics) diagnostics.clientErrors += 1;
+      const reason = event?.reason;
+      logProfileFlowDiagnostic("client-unhandled-rejection", {
+        message: reason?.message || String(reason || "unknown"),
+        stack: reason?.stack || "",
+      });
+    };
+    window.addEventListener("error", handleClientError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => {
+      window.removeEventListener("error", handleClientError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+    };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadProfile({ signal: controller.signal });
     return () => {
@@ -484,8 +593,8 @@ export default function ProfilePage() {
       if (res.ok) {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
-        updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
-        await refreshProfileSession(normalizedUser);
+        const nextUser = updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
+        await refreshProfileSession(nextUser);
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);
       } else {
@@ -508,17 +617,17 @@ export default function ProfilePage() {
     setLangSuccess("");
     setLangSaving(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = await resolveToken();
       if (token) {
         await fetch(`${API_URL}/api/user/me`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
           body: JSON.stringify({ preferredLanguage: newLang }),
           cache: "no-store",
         });
       }
-      updateAndPublishUser({ preferredLanguage: newLang });
-      await refreshProfileSession(normalizedUser);
+      const nextUser = updateAndPublishUser({ preferredLanguage: newLang });
+      await refreshProfileSession(nextUser);
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
     } catch {
@@ -571,36 +680,67 @@ export default function ProfilePage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (saveInFlightRef.current) {
+      logProfileFlowDiagnostic("profile-save-ignored", { reason: "already-in-flight" });
+      return;
+    }
+    const saveId = ++saveSequenceRef.current;
+    saveInFlightRef.current = true;
+    const diagnostics = getProfileFlowDiagnostics();
+    if (diagnostics) diagnostics.saves += 1;
+    logProfileFlowDiagnostic("profile-save-start", { saveId });
     setSaveError(""); setSaveSuccess(""); setSaving(true);
 
     // Validate avatar URL to prevent XSS via javascript: URIs
     if (editForm.avatar && !/^https?:\/\//i.test(editForm.avatar.trim())) {
+      logProfileFlowDiagnostic("profile-save-validation-error", { saveId, field: "avatar" });
       setSaveError("La URL de la foto debe comenzar con http:// o https://");
       setSaving(false);
+      saveInFlightRef.current = false;
       return;
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = await resolveToken();
+      if (!token) {
+        setSaveError("Tu sesión expiró. Inicia sesión nuevamente.");
+        logProfileFlowDiagnostic("profile-save-error", { saveId, reason: "missing-token" });
+        return;
+      }
       const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
+      const nextPhotos = normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images);
+      logProfileFlowDiagnostic("profile-save-request", {
+        saveId,
+        photosCount: nextPhotos.length,
+        hasAvatar: Boolean(editForm.avatar),
+      });
       const res = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({
           username: editForm.username,
           name: editForm.name,
           bio: editForm.bio,
           avatar: editForm.avatar,
-          profilePhotos: normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images),
-          images: toProfileImageObjects(normalizePhotoList(editForm.avatar, editForm.profilePhotos, editForm.images)),
+          profilePhotos: nextPhotos,
+          images: toProfileImageObjects(nextPhotos),
           ...discoveryPayload,
         }),
         cache: "no-store",
       });
       const data = await res.json();
+      const responseDiagnostics = getProfileFlowDiagnostics();
+      if (responseDiagnostics) responseDiagnostics.saveResponses += 1;
+      logProfileFlowDiagnostic("profile-save-response", {
+        saveId,
+        status: res.status,
+        ok: res.ok,
+        hasUserWrapper: Boolean(data?.user),
+      });
       if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
-      const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(data);
-      const normalizedUser = { ...data, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
+      const savedProfile = extractProfilePayload(data);
+      const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(savedProfile);
+      const normalizedUser = { ...savedProfile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };
       setUser(normalizedUser);
       setEditForm({
         username: normalizedUser.username || "",
@@ -614,9 +754,17 @@ export default function ProfilePage() {
       setSaveSuccess(t("profile.saveSuccess"));
       setEditing(false);
       publishProfileUpdated(normalizedUser);
-      await refreshProfileSession();
-    } catch { setSaveError("No se pudo conectar con el servidor"); }
-    finally { setSaving(false); }
+      await refreshProfileSession(normalizedUser);
+      logProfileFlowDiagnostic("profile-save-success", { saveId, profileId: normalizedUser._id || normalizedUser.id || "" });
+    } catch (err) {
+      console.error("[profile] save failed:", err);
+      logProfileFlowDiagnostic("profile-save-error", { saveId, message: err?.message || "unknown" });
+      setSaveError("No se pudo conectar con el servidor");
+    }
+    finally {
+      saveInFlightRef.current = false;
+      setSaving(false);
+    }
   };
 
   const handleChangePwd = async (e) => {

@@ -167,6 +167,19 @@ const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
 const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+const profileFlowDiagnostics = {
+  profileSaveResponses: 0,
+  avatarUploadResponses: 0,
+};
+
+const logProfileFlowDiagnostic = (event, details = {}) => {
+  console.info("[profile-flow]", {
+    event,
+    ...details,
+    counts: { ...profileFlowDiagnostics },
+    timestamp: new Date().toISOString(),
+  });
+};
 // Nearby filters are applied after fetching candidates, so this buffer reduces empty pages
 // when many profiles fall outside the selected radius.
 const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
@@ -784,6 +797,13 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
         console.error("[onboarding-sync] DB write failed:", err.message);
       });
     }
+    profileFlowDiagnostics.profileSaveResponses += 1;
+    logProfileFlowDiagnostic("backend-profile-save-response", {
+      userId: String(user._id),
+      photosCount: Array.isArray(payload.profilePhotos) ? payload.profilePhotos.length : 0,
+      imagesCount: Array.isArray(payload.images) ? payload.images.length : 0,
+      canAppearInFeed: payload.canAppearInFeed === true,
+    });
     res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1337,6 +1357,13 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const photoFields = serializeUserPhotoFields(req, savedUserObject);
     const serializedUser = { ...savedUserObject, ...photoFields };
     attachProfileCompletionPayload(req, serializedUser);
+    profileFlowDiagnostics.avatarUploadResponses += 1;
+    logProfileFlowDiagnostic("backend-avatar-upload-response", {
+      userId: String(savedUser._id),
+      photosCount: Array.isArray(photoFields.profilePhotos) ? photoFields.profilePhotos.length : 0,
+      imagesCount: Array.isArray(serializedUser.images) ? serializedUser.images.length : 0,
+      canAppearInFeed: serializedUser.canAppearInFeed === true,
+    });
     res.json({
       ok: true,
       code: "UPLOAD_SUCCESS",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getToken, setToken } from "@/lib/token";
 import { normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
@@ -21,6 +20,40 @@ const MAX_SECONDARY_PHOTOS = 5;
 const PHOTO_SIGNATURE_SEPARATOR = "\u0000";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const PROFILE_FLOW_DIAGNOSTIC_LABEL = "[profile-flow]";
+
+const getProfileFlowDiagnostics = () => {
+  if (typeof window === "undefined") return null;
+  window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ ||= {
+    renders: 0,
+    loads: 0,
+    loadResponses: 0,
+    saves: 0,
+    saveResponses: 0,
+    sessionRefreshes: 0,
+    clientErrors: 0,
+    uploads: 0,
+    uploadResponses: 0,
+  };
+  if (window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploads == null) {
+    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploads = 0;
+  }
+  if (window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploadResponses == null) {
+    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploadResponses = 0;
+  }
+  return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
+};
+
+const logProfileFlowDiagnostic = (event, details = {}) => {
+  const diagnostics = getProfileFlowDiagnostics();
+  if (!diagnostics) return;
+  console.info(PROFILE_FLOW_DIAGNOSTIC_LABEL, {
+    event,
+    ...details,
+    counts: { ...diagnostics },
+    timestamp: new Date().toISOString(),
+  });
+};
 
 const hasAllowedImageExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
@@ -93,8 +126,8 @@ const buildUploadEndpoint = (setAsMain) => {
 
 export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChange, showSrcDebug = false }) {
   const { data: session, update: updateSession } = useSession();
-  const router = useRouter();
   const fileInputRef = useRef(null);
+  const uploadSequenceRef = useRef(0);
   const userPhotos = normalizePhotos(user);
   const [images, setImages] = useState(userPhotos);
   const [working, setWorking] = useState(false);
@@ -173,9 +206,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           profileStatus: nextUser.profileStatus || null,
         });
       }
-      router.refresh();
+      logProfileFlowDiagnostic("gallery-session-refresh-finished", {
+        profileId: nextUser._id || nextUser.id || "",
+        photosCount: nextImages.length,
+      });
     } catch (err) {
       console.error("[profile-gallery] failed to refresh session:", err);
+      logProfileFlowDiagnostic("gallery-session-refresh-error", {
+        message: err?.message || "unknown",
+      });
     }
 
     if (message) setSuccess(message);
@@ -190,8 +229,20 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
   };
 
   const uploadPhoto = async (file, setAsMain) => {
+    const uploadId = ++uploadSequenceRef.current;
+    const diagnostics = getProfileFlowDiagnostics();
+    if (diagnostics) diagnostics.uploads += 1;
+    logProfileFlowDiagnostic("photo-upload-start", {
+      uploadId,
+      setAsMain,
+      type: file?.type || "",
+      size: file?.size || 0,
+    });
     const fileError = validateFile(file);
-    if (fileError) return { ok: false, error: fileError };
+    if (fileError) {
+      logProfileFlowDiagnostic("photo-upload-validation-error", { uploadId, message: fileError });
+      return { ok: false, error: fileError };
+    }
 
     const token = getAndCacheAuthToken();
     if (!token) return { ok: false, error: t("profile.photoSessionExpired") };
@@ -219,6 +270,14 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       cache: "no-store",
     });
     const data = await parseJsonBody(res);
+    const responseDiagnostics = getProfileFlowDiagnostics();
+    if (responseDiagnostics) responseDiagnostics.uploadResponses += 1;
+    logProfileFlowDiagnostic("photo-upload-response", {
+      uploadId,
+      status: res.status,
+      ok: res.ok,
+      photosCount: Array.isArray(data?.profilePhotos) ? data.profilePhotos.length : null,
+    });
     if (!res.ok) {
       const diagnostic = getAvatarUploadDiagnostic(res.status, data, t("profile.photoUploadError"));
       return { ok: false, error: formatAvatarUploadDiagnostic(diagnostic) };

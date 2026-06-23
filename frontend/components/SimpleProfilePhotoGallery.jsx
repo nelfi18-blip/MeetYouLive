@@ -12,6 +12,7 @@ import {
   formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
+import { getProfileFlowDiagnostics, logProfileFlowDiagnostic } from "@/lib/profileDiagnostics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_BASE_URL = typeof API_URL === "string" ? API_URL.replace(/\/+$/, "") : "";
@@ -20,37 +21,6 @@ const MAX_SECONDARY_PHOTOS = 5;
 const PHOTO_SIGNATURE_SEPARATOR = "\u0000";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const PROFILE_FLOW_DIAGNOSTIC_LABEL = "[profile-flow]";
-
-const getProfileFlowDiagnostics = () => {
-  if (typeof window === "undefined") return null;
-  if (!window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__) {
-    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ = {
-      renders: 0,
-      loads: 0,
-      loadResponses: 0,
-      saves: 0,
-      saveResponses: 0,
-      sessionRefreshes: 0,
-      clientErrors: 0,
-      uploads: 0,
-      uploadResponses: 0,
-    };
-  }
-  return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
-};
-
-const logProfileFlowDiagnostic = (event, details = {}) => {
-  const diagnostics = getProfileFlowDiagnostics();
-  if (!diagnostics) return;
-  console.info(PROFILE_FLOW_DIAGNOSTIC_LABEL, {
-    event,
-    ...details,
-    counts: { ...diagnostics },
-    timestamp: new Date().toISOString(),
-  });
-};
-
 const hasAllowedImageExtension = (filename = "") => {
   const normalized = filename.trim().toLowerCase();
   return ALLOWED_IMAGE_EXTENSIONS.some((ext) => normalized.endsWith(ext));

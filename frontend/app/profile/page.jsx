@@ -13,6 +13,7 @@ import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
+import { getProfileFlowDiagnostics, logProfileFlowDiagnostic } from "@/lib/profileDiagnostics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
@@ -33,37 +34,6 @@ const PROFILE_STATUS_FIELDS = [
 ];
 
 const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV !== "production" || profile?.role === "admin";
-const PROFILE_FLOW_DIAGNOSTIC_LABEL = "[profile-flow]";
-
-const getProfileFlowDiagnostics = () => {
-  if (typeof window === "undefined") return null;
-  if (!window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__) {
-    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ = {
-      renders: 0,
-      loads: 0,
-      loadResponses: 0,
-      saves: 0,
-      saveResponses: 0,
-      sessionRefreshes: 0,
-      clientErrors: 0,
-      uploads: 0,
-      uploadResponses: 0,
-    };
-  }
-  return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
-};
-
-const logProfileFlowDiagnostic = (event, details = {}) => {
-  const diagnostics = getProfileFlowDiagnostics();
-  if (!diagnostics) return;
-  console.info(PROFILE_FLOW_DIAGNOSTIC_LABEL, {
-    event,
-    ...details,
-    counts: { ...diagnostics },
-    timestamp: new Date().toISOString(),
-  });
-};
-
 // /api/user/me returns the profile directly; photo/onboarding endpoints may wrap it as { user }.
 const extractProfilePayload = (payload) =>
   payload?.user && typeof payload.user === "object" && !Array.isArray(payload.user)
@@ -350,6 +320,7 @@ export default function ProfilePage() {
     Number(editForm.discoveryMaxDistanceKm) === distance && editForm.discoveryScope === "nearby";
 
   renderCountRef.current += 1;
+  const renderCount = renderCountRef.current;
 
   const refreshProfileSession = useCallback(async (profile = null) => {
     try {
@@ -540,14 +511,14 @@ export default function ProfilePage() {
     const diagnostics = getProfileFlowDiagnostics();
     if (diagnostics) diagnostics.renders = renderCountRef.current;
     logProfileFlowDiagnostic("profile-render", {
-      renderCount: renderCountRef.current,
+      renderCount,
       status,
       hasUser: Boolean(user),
       loading,
       editing,
       saving,
     });
-  });
+  }, [editing, loading, renderCount, saving, status, user]);
 
   useEffect(() => {
     const handleClientError = (event) => {

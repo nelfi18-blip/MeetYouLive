@@ -167,16 +167,10 @@ const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
 const ALLOWED_DISCOVERY_LANGUAGES = ["es", "en", "pt"];
 const ALLOWED_DISCOVERY_SCOPES = ["nearby", "country", "global"];
 const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
-const profileFlowDiagnostics = {
-  profileSaveResponses: 0,
-  avatarUploadResponses: 0,
-};
-
 const logProfileFlowDiagnostic = (event, details = {}) => {
   console.info("[profile-flow]", {
     event,
     ...details,
-    counts: { ...profileFlowDiagnostics },
     timestamp: new Date().toISOString(),
   });
 };
@@ -797,7 +791,6 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
         console.error("[onboarding-sync] DB write failed:", err.message);
       });
     }
-    profileFlowDiagnostics.profileSaveResponses += 1;
     logProfileFlowDiagnostic("backend-profile-save-response", {
       userId: String(user._id),
       photosCount: Array.isArray(payload.profilePhotos) ? payload.profilePhotos.length : 0,
@@ -1357,7 +1350,6 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const photoFields = serializeUserPhotoFields(req, savedUserObject);
     const serializedUser = { ...savedUserObject, ...photoFields };
     attachProfileCompletionPayload(req, serializedUser);
-    profileFlowDiagnostics.avatarUploadResponses += 1;
     logProfileFlowDiagnostic("backend-avatar-upload-response", {
       userId: String(savedUser._id),
       photosCount: Array.isArray(photoFields.profilePhotos) ? photoFields.profilePhotos.length : 0,

@@ -45,6 +45,8 @@ const getProfileFlowDiagnostics = () => {
     saveResponses: 0,
     sessionRefreshes: 0,
     clientErrors: 0,
+    uploads: 0,
+    uploadResponses: 0,
   };
   return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
 };
@@ -705,6 +707,8 @@ export default function ProfilePage() {
       if (!token) {
         setSaveError("Tu sesión expiró. Inicia sesión nuevamente.");
         logProfileFlowDiagnostic("profile-save-error", { saveId, reason: "missing-token" });
+        saveInFlightRef.current = false;
+        setSaving(false);
         return;
       }
       const discoveryPayload = buildDiscoveryPayloadFromForm(editForm);
@@ -737,7 +741,12 @@ export default function ProfilePage() {
         ok: res.ok,
         hasUserWrapper: Boolean(data?.user),
       });
-      if (!res.ok) { setSaveError(data.message || "Error al guardar los cambios"); return; }
+      if (!res.ok) {
+        setSaveError(data.message || "Error al guardar los cambios");
+        saveInFlightRef.current = false;
+        setSaving(false);
+        return;
+      }
       const savedProfile = extractProfilePayload(data);
       const { normalizedPhotos, normalizedAvatar, normalizedImages } = normalizeUserPhotoState(savedProfile);
       const normalizedUser = { ...savedProfile, avatar: normalizedAvatar, profilePhotos: normalizedPhotos, images: normalizedImages };

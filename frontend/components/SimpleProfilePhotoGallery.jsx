@@ -35,12 +35,6 @@ const getProfileFlowDiagnostics = () => {
     uploads: 0,
     uploadResponses: 0,
   };
-  if (window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploads == null) {
-    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploads = 0;
-  }
-  if (window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploadResponses == null) {
-    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__.uploadResponses = 0;
-  }
   return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
 };
 

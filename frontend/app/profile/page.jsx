@@ -37,17 +37,19 @@ const PROFILE_FLOW_DIAGNOSTIC_LABEL = "[profile-flow]";
 
 const getProfileFlowDiagnostics = () => {
   if (typeof window === "undefined") return null;
-  window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ ||= {
-    renders: 0,
-    loads: 0,
-    loadResponses: 0,
-    saves: 0,
-    saveResponses: 0,
-    sessionRefreshes: 0,
-    clientErrors: 0,
-    uploads: 0,
-    uploadResponses: 0,
-  };
+  if (!window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__) {
+    window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__ = {
+      renders: 0,
+      loads: 0,
+      loadResponses: 0,
+      saves: 0,
+      saveResponses: 0,
+      sessionRefreshes: 0,
+      clientErrors: 0,
+      uploads: 0,
+      uploadResponses: 0,
+    };
+  }
   return window.__MEETYOULIVE_PROFILE_FLOW_DIAGNOSTICS__;
 };
 
@@ -62,6 +64,7 @@ const logProfileFlowDiagnostic = (event, details = {}) => {
   });
 };
 
+// /api/user/me returns the profile directly; photo/onboarding endpoints may wrap it as { user }.
 const extractProfilePayload = (payload) =>
   payload?.user && typeof payload.user === "object" && !Array.isArray(payload.user)
     ? {
@@ -273,6 +276,7 @@ export default function ProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const { t, lang, setLang, syncFromUser } = useLanguage();
+  // Keep diagnostics and save/load race guards stable across renders without triggering re-renders.
   const renderCountRef = useRef(0);
   const saveInFlightRef = useRef(false);
   const saveSequenceRef = useRef(0);
@@ -623,7 +627,7 @@ export default function ProfilePage() {
       if (token) {
         await fetch(`${API_URL}/api/user/me`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ preferredLanguage: newLang }),
           cache: "no-store",
         });
@@ -720,7 +724,7 @@ export default function ProfilePage() {
       });
       const res = await fetch(`${API_URL}/api/user/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           username: editForm.username,
           name: editForm.name,

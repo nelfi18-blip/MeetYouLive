@@ -58,7 +58,9 @@ const uploadProfilePhoto = (file, userId) =>
           return;
         }
         if (!result?.secure_url) {
-          reject(new Error("Cloudinary did not return a secure_url"));
+          const missingUrlError = new Error("Cloudinary did not return a secure_url");
+          missingUrlError.code = "CLOUDINARY_MISSING_URL";
+          reject(missingUrlError);
           return;
         }
         resolve(result);

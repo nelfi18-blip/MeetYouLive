@@ -408,6 +408,8 @@ describe("POST /api/user/me/avatar-upload", () => {
             expect.objectContaining({
               url: CLOUDINARY_URL,
               isPrimary: true,
+              publicId: CLOUDINARY_PUBLIC_ID,
+              source: "cloudinary",
             }),
           ],
         }),
@@ -519,6 +521,8 @@ describe("POST /api/user/me/avatar-upload", () => {
               expect.objectContaining({
                 url: CLOUDINARY_URL,
                 isPrimary: false,
+                publicId: CLOUDINARY_PUBLIC_ID,
+                source: "cloudinary",
               }),
             ],
           }),

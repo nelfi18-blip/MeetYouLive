@@ -410,10 +410,10 @@ const attachProfileCompletionPayload = (req, payload) => {
 
 const parseSetAsMainParam = (query) => !(query?.setAsMain === "0" || query?.setAsMain === "false");
 
-const enrichCloudinaryImageMetadata = (images, photoUrl, cloudinaryResult) =>
+const enrichCloudinaryImageMetadata = (images, photoUrl, { public_id: publicId } = {}) =>
   images.map((image) =>
     image.url === photoUrl
-      ? { ...image, publicId: cloudinaryResult.public_id || "", source: "cloudinary" }
+      ? { ...image, publicId: publicId || "", source: "cloudinary" }
       : image
   );
 

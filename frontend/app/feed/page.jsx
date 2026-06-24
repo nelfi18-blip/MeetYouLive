@@ -21,6 +21,7 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 const SWIPE_LOCK_TIMEOUT_MS = 1400;
+const TOUCH_ACTION_SUPPRESSION_MS = 700;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -1205,7 +1206,7 @@ export default function FeedPage() {
   };
 
   const handleActionButtonClick = (direction) => {
-    if (Date.now() - lastTouchActionAtRef.current < 700) {
+    if (Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS) {
       return;
     }
     requestSwipe(direction);

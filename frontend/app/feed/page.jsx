@@ -1205,11 +1205,11 @@ export default function FeedPage() {
     requestSwipe(direction);
   };
 
-  const shouldSuppressClick = () =>
+  const shouldSuppressClickAfterTouch = () =>
     Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS;
 
   const handleActionButtonClick = (direction) => {
-    if (shouldSuppressClick()) {
+    if (shouldSuppressClickAfterTouch()) {
       return;
     }
     requestSwipe(direction);

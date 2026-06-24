@@ -1198,7 +1198,6 @@ export default function FeedPage() {
   const handleActionButtonPointerUp = (event, direction) => {
     if (event.pointerType === "mouse") return;
     if (swipeLockedRef.current) return;
-    event.preventDefault();
     requestSwipe(direction);
   };
 

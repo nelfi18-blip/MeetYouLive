@@ -77,8 +77,7 @@ function normalizePublicProfile(data, profileId) {
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
   const photos = normalizeUserImages(rawProfile)
-    .map((image) => (isPlainObject(image) ? image.url : ""))
-    .filter(Boolean);
+    .map((image) => (isPlainObject(image) ? image.url : ""));
   const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
 

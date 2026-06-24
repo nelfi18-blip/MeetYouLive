@@ -432,6 +432,7 @@ export default function FeedPage() {
   const requestedActionRef = useRef(false);
   const activeActionRef = useRef(false);
   const pendingActionProfileIdRef = useRef(null);
+  const ignoreNextActionClickRef = useRef(false);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
   const pageRef = useRef(null);
@@ -1198,6 +1199,16 @@ export default function FeedPage() {
   const handleActionButtonPointerUp = (event, direction) => {
     if (event.pointerType === "mouse") return;
     if (swipeLockedRef.current) return;
+    ignoreNextActionClickRef.current = true;
+    event.preventDefault();
+    requestSwipe(direction);
+  };
+
+  const handleActionButtonClick = (direction) => {
+    if (ignoreNextActionClickRef.current) {
+      ignoreNextActionClickRef.current = false;
+      return;
+    }
     requestSwipe(direction);
   };
 
@@ -1296,7 +1307,7 @@ export default function FeedPage() {
                 aria-label={t("feed.dislikeLabel")}
                 disabled={swipeLocked}
                 onPointerUp={(event) => handleActionButtonPointerUp(event, "left")}
-                onClick={() => requestSwipe("left")}
+                onClick={() => handleActionButtonClick("left")}
               >
                 <IconX />
                 <span>{t("feed.dislikeLabel")}</span>
@@ -1317,7 +1328,7 @@ export default function FeedPage() {
                 aria-label={t("feed.likeLabel")}
                 disabled={swipeLocked}
                 onPointerUp={(event) => handleActionButtonPointerUp(event, "right")}
-                onClick={() => requestSwipe("right")}
+                onClick={() => handleActionButtonClick("right")}
               >
                 <IconHeart />
                 <span>{t("feed.likeLabel")}</span>

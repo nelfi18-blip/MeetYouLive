@@ -73,7 +73,7 @@ function normalizePublicProfile(data, profileId) {
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
   const photos = normalizeUserImages(rawProfile)
-    .map((image) => (isPlainObject(image) ? getSafeText(image.url) : null));
+    .map((image) => (isPlainObject(image) ? getSafeText(image.url) : getSafeText(image)));
   const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
 
@@ -163,8 +163,8 @@ export default function PublicProfilePage() {
   const displayName = getDisplayName(profile);
   const username = profile?.username ? `@${profile.username}` : "";
   const age = formatAge(profile);
-  const gender = profile?.gender || "";
-  const interests = profile?.interests || [];
+  const gender = getSafeText(profile?.gender);
+  const interests = getSafeArray(profile?.interests);
   const isLive = profile?.isLive && profile?.liveId;
   const canChat = matchAccess.checked && matchAccess.match;
   const canVideo = isLive || (matchAccess.checked && matchAccess.match);

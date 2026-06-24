@@ -35,6 +35,10 @@ function getSafeTextList(value) {
   return getSafeArray(value).map(getSafeText).filter(Boolean);
 }
 
+function isPlainObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function getSafeLocation(profile) {
   if (typeof profile?.location === "string") return profile.location.trim();
   return [
@@ -50,11 +54,10 @@ function getSafeAge(profile) {
   if (Number.isInteger(directAge) && directAge > 0) return directAge;
 
   const birthdate = getSafeText(profile?.birthdate || profile?.dateOfBirth);
-  const timestamp = birthdate ? new Date(birthdate).getTime() : NaN;
-  if (!Number.isFinite(timestamp)) return null;
+  const born = birthdate ? new Date(birthdate) : null;
+  if (!born || !Number.isFinite(born.getTime())) return null;
 
   const today = new Date();
-  const born = new Date(timestamp);
   let age = today.getFullYear() - born.getFullYear();
   const monthDiff = today.getMonth() - born.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < born.getDate())) age -= 1;
@@ -62,9 +65,9 @@ function getSafeAge(profile) {
 }
 
 function unwrapProfileResponse(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  if (data.profile && typeof data.profile === "object" && !Array.isArray(data.profile)) return data.profile;
-  if (data.user && typeof data.user === "object" && !Array.isArray(data.user)) return data.user;
+  if (!isPlainObject(data)) return null;
+  if (isPlainObject(data.profile)) return data.profile;
+  if (isPlainObject(data.user)) return data.user;
   return data;
 }
 
@@ -73,7 +76,9 @@ function normalizePublicProfile(data, profileId) {
   if (!rawProfile) return null;
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
-  const photos = normalizeUserImages(rawProfile).map((image) => image.url).filter(Boolean);
+  const photos = normalizeUserImages(rawProfile)
+    .map((image) => (isPlainObject(image) ? image.url : ""))
+    .filter(Boolean);
   const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
 

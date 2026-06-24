@@ -194,7 +194,8 @@
     "video": "Video",
     "joinLive": "Join this profile's live stream",
     "retry": "Try again",
-    "bioPlaceholder": "No bio yet."
+    "bioPlaceholder": "No bio yet.",
+    "emptyBioLabel": "This profile has not added a bio yet."
   },
   "home": {
     "heroTitle": "Discover Amazing People",

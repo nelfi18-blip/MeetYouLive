@@ -58,9 +58,9 @@ function getSafeAge(profile) {
   if (!born || !Number.isFinite(born.getTime())) return null;
 
   const today = new Date();
-  let age = today.getFullYear() - born.getFullYear();
-  const monthDiff = today.getMonth() - born.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < born.getDate())) age -= 1;
+  let age = today.getUTCFullYear() - born.getUTCFullYear();
+  const monthDiff = today.getUTCMonth() - born.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < born.getUTCDate())) age -= 1;
   return Number.isInteger(age) && age > 0 ? age : null;
 }
 
@@ -361,7 +361,12 @@ export default function PublicProfilePage() {
               )}
             </div>
 
-            <p className="profile-bio">{profile.bio || t("publicProfile.bioPlaceholder")}</p>
+            <p
+              className="profile-bio"
+              aria-label={!profile.bio ? t("publicProfile.emptyBioLabel") : undefined}
+            >
+              {profile.bio || t("publicProfile.bioPlaceholder")}
+            </p>
 
             {interests.length > 0 && (
               <div className="profile-tags">

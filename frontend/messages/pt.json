@@ -194,7 +194,8 @@
     "video": "Video",
     "joinLive": "Entrar na transmissão ao vivo deste perfil",
     "retry": "Tentar novamente",
-    "bioPlaceholder": "Sem bio ainda."
+    "bioPlaceholder": "Sem bio ainda.",
+    "emptyBioLabel": "Este perfil ainda não adicionou uma bio."
   },
   "home": {
     "heroTitle": "Descubra Pessoas Incríveis",

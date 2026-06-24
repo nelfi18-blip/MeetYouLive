@@ -432,7 +432,7 @@ export default function FeedPage() {
   const requestedActionRef = useRef(false);
   const activeActionRef = useRef(false);
   const pendingActionProfileIdRef = useRef(null);
-  const ignoreNextActionClickRef = useRef(false);
+  const lastTouchActionAtRef = useRef(0);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
   const pageRef = useRef(null);
@@ -1199,14 +1199,13 @@ export default function FeedPage() {
   const handleActionButtonPointerUp = (event, direction) => {
     if (event.pointerType === "mouse") return;
     if (swipeLockedRef.current) return;
-    ignoreNextActionClickRef.current = true;
+    lastTouchActionAtRef.current = Date.now();
     event.preventDefault();
     requestSwipe(direction);
   };
 
   const handleActionButtonClick = (direction) => {
-    if (ignoreNextActionClickRef.current) {
-      ignoreNextActionClickRef.current = false;
+    if (Date.now() - lastTouchActionAtRef.current < 700) {
       return;
     }
     requestSwipe(direction);

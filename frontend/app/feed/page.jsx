@@ -1199,14 +1199,17 @@ export default function FeedPage() {
 
   const handleActionButtonPointerUp = (event, direction) => {
     if (event.pointerType === "mouse") return;
+    event.preventDefault();
     if (swipeLockedRef.current) return;
     lastTouchActionAtRef.current = Date.now();
-    event.preventDefault();
     requestSwipe(direction);
   };
 
+  const isWithinTouchActionSuppressionWindow = () =>
+    Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS;
+
   const handleActionButtonClick = (direction) => {
-    if (Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS) {
+    if (isWithinTouchActionSuppressionWindow()) {
       return;
     }
     requestSwipe(direction);

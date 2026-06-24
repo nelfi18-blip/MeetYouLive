@@ -1195,6 +1195,12 @@ export default function FeedPage() {
     setActionSignal((signal) => ({ id: signal.id + 1, direction, profileId: currentProfileId }));
   };
 
+  const handleActionButtonPointerUp = (event, direction) => {
+    if (event.pointerType === "mouse") return;
+    event.preventDefault();
+    requestSwipe(direction);
+  };
+
   /* --------------------------- Render --------------------------- */
   const currentProfile = profiles[currentIndex];
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
@@ -1289,6 +1295,7 @@ export default function FeedPage() {
                 className="feed-action-btn feed-action-btn--pass"
                 aria-label={t("feed.dislikeLabel")}
                 disabled={swipeLocked}
+                onPointerUp={(event) => handleActionButtonPointerUp(event, "left")}
                 onClick={() => requestSwipe("left")}
               >
                 <IconX />
@@ -1309,6 +1316,7 @@ export default function FeedPage() {
                 className="feed-action-btn feed-action-btn--like"
                 aria-label={t("feed.likeLabel")}
                 disabled={swipeLocked}
+                onPointerUp={(event) => handleActionButtonPointerUp(event, "right")}
                 onClick={() => requestSwipe("right")}
               >
                 <IconHeart />

@@ -591,6 +591,15 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           font-size: 0.72rem;
           color: var(--text-dim);
         }
+
+        @media (max-width: 640px) {
+          .profile-main-photo-image,
+          .profile-main-photo-placeholder {
+            width: min(100%, 300px);
+            aspect-ratio: 4 / 3;
+            max-height: 240px;
+          }
+        }
       `}</style>
     </div>
   );

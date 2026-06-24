@@ -52,16 +52,7 @@ function getSafeLocation(profile) {
 function getSafeAge(profile) {
   const directAge = Number(profile?.age);
   if (Number.isInteger(directAge) && directAge > 0) return directAge;
-
-  const birthdate = getSafeText(profile?.birthdate || profile?.dateOfBirth);
-  const born = birthdate ? new Date(birthdate) : null;
-  if (!born || !Number.isFinite(born.getTime())) return null;
-
-  const today = new Date();
-  let age = today.getUTCFullYear() - born.getUTCFullYear();
-  const monthDiff = today.getUTCMonth() - born.getUTCMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getUTCDate() < born.getUTCDate())) age -= 1;
-  return Number.isInteger(age) && age > 0 ? age : null;
+  return null;
 }
 
 function unwrapProfileResponse(data) {
@@ -77,7 +68,7 @@ function normalizePublicProfile(data, profileId) {
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
   const photos = normalizeUserImages(rawProfile)
-    .map((image) => (isPlainObject(image) ? image.url : ""));
+    .map((image) => (isPlainObject(image) ? image.url : null));
   const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
 

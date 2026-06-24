@@ -1200,16 +1200,17 @@ export default function FeedPage() {
   const handleActionButtonPointerUp = (event, direction) => {
     if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
     if (swipeLockedRef.current) return;
+    // Suppress the synthetic click after touch/pen pointer-up so one tap sends one action.
     event.preventDefault();
     lastTouchActionAtRef.current = Date.now();
     requestSwipe(direction);
   };
 
-  const shouldSuppressClickAfterTouch = () =>
+  const isClickSuppressed = () =>
     Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS;
 
   const handleActionButtonClick = (direction) => {
-    if (shouldSuppressClickAfterTouch()) {
+    if (isClickSuppressed()) {
       return;
     }
     requestSwipe(direction);

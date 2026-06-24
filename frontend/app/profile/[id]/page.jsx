@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { getDisplayName, getUserPhotoSelection } from "@/lib/imageHelpers";
+import {
+  getBioText,
+  getDisplayName,
+  getPrimaryProfileImage,
+  normalizeUserImages,
+} from "@/lib/imageHelpers";
 import { getToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -16,8 +21,78 @@ function isPaidCreatorCallProfile(profile) {
   return PAID_CREATOR_ROLES.has(profile?.role);
 }
 
-function getProfilePhotos(profile) {
-  return getUserPhotoSelection(profile).photos;
+function getSafeText(value) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+function getSafeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function getSafeTextList(value) {
+  return getSafeArray(value).map(getSafeText).filter(Boolean);
+}
+
+function getSafeLocation(profile) {
+  if (typeof profile?.location === "string") return profile.location.trim();
+  return [
+    profile?.locationLabel,
+    profile?.location?.label,
+    profile?.location?.city,
+    profile?.location?.country,
+  ].map(getSafeText).find(Boolean) || "";
+}
+
+function getSafeAge(profile) {
+  const directAge = Number(profile?.age);
+  if (Number.isInteger(directAge) && directAge > 0) return directAge;
+
+  const birthdate = getSafeText(profile?.birthdate || profile?.dateOfBirth);
+  const timestamp = birthdate ? new Date(birthdate).getTime() : NaN;
+  if (!Number.isFinite(timestamp)) return null;
+
+  const today = new Date();
+  const born = new Date(timestamp);
+  let age = today.getFullYear() - born.getFullYear();
+  const monthDiff = today.getMonth() - born.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < born.getDate())) age -= 1;
+  return Number.isInteger(age) && age > 0 ? age : null;
+}
+
+function unwrapProfileResponse(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  if (data.profile && typeof data.profile === "object" && !Array.isArray(data.profile)) return data.profile;
+  if (data.user && typeof data.user === "object" && !Array.isArray(data.user)) return data.user;
+  return data;
+}
+
+function normalizePublicProfile(data, profileId) {
+  const rawProfile = unwrapProfileResponse(data);
+  if (!rawProfile) return null;
+
+  const primaryPhoto = getPrimaryProfileImage(rawProfile);
+  const photos = normalizeUserImages(rawProfile).map((image) => image.url).filter(Boolean);
+  const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
+  const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
+
+  return {
+    ...rawProfile,
+    _id: safeId,
+    id: safeId,
+    username: getSafeText(rawProfile.username),
+    location: getSafeLocation(rawProfile),
+    bio: getBioText(rawProfile),
+    gender: getSafeText(rawProfile.gender),
+    age: getSafeAge(rawProfile),
+    interests: getSafeTextList(rawProfile.interests),
+    languages: getSafeTextList(rawProfile.languages),
+    intent: getSafeTextList(rawProfile.intent),
+    photos: allPhotos,
+    primaryPhoto: allPhotos[0] || null,
+    liveId: getSafeText(rawProfile.liveId),
+  };
 }
 
 export default function PublicProfilePage() {
@@ -60,7 +135,9 @@ export default function PublicProfilePage() {
         return response.json();
       })
       .then((data) => {
-        setProfile(data);
+        const normalizedProfile = normalizePublicProfile(data, profileId);
+        if (!normalizedProfile) throw new Error(t("publicProfile.loadError"));
+        setProfile(normalizedProfile);
         setBrokenPhotos(new Set());
       })
       .catch((err) => {
@@ -79,13 +156,15 @@ export default function PublicProfilePage() {
   }, [loadProfile]);
 
   const photos = useMemo(
-    () => getProfilePhotos(profile).filter((photo) => !brokenPhotos.has(photo)),
+    () => getSafeArray(profile?.photos).filter((photo) => !brokenPhotos.has(photo)),
     [brokenPhotos, profile]
   );
   const mainPhoto = photos[0] || null;
   const displayName = getDisplayName(profile);
   const username = profile?.username ? `@${profile.username}` : "";
-  const interests = Array.isArray(profile?.interests) ? profile.interests : [];
+  const age = Number.isInteger(profile?.age) && profile.age > 0 ? String(profile.age) : "";
+  const gender = getSafeText(profile?.gender);
+  const interests = getSafeTextList(profile?.interests);
   const isLive = profile?.isLive && profile?.liveId;
   const canChat = matchAccess.checked && matchAccess.match;
   const canVideo = isLive || (matchAccess.checked && matchAccess.match);
@@ -270,10 +349,14 @@ export default function PublicProfilePage() {
             <div className="profile-heading">
               <h1>{displayName}</h1>
               {username && <p>{username}</p>}
-              {profile.location && <span>{profile.location}</span>}
+              {(profile.location || age || gender) && (
+                <span>
+                  {[profile.location, age, gender].filter(Boolean).join(" • ")}
+                </span>
+              )}
             </div>
 
-            {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+            <p className="profile-bio">{profile.bio || t("publicProfile.bioPlaceholder")}</p>
 
             {interests.length > 0 && (
               <div className="profile-tags">

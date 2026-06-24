@@ -192,7 +192,9 @@
     "chat": "Chat",
     "calling": "Ligando…",
     "video": "Video",
-    "joinLive": "Entrar na transmissão ao vivo deste perfil"
+    "joinLive": "Entrar na transmissão ao vivo deste perfil",
+    "retry": "Tentar novamente",
+    "bioPlaceholder": "Sem bio ainda."
   },
   "home": {
     "heroTitle": "Descubra Pessoas Incríveis",

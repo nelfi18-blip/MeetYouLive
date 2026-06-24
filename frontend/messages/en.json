@@ -192,7 +192,9 @@
     "chat": "Chat",
     "calling": "Calling…",
     "video": "Video",
-    "joinLive": "Join this profile's live stream"
+    "joinLive": "Join this profile's live stream",
+    "retry": "Try again",
+    "bioPlaceholder": "No bio yet."
   },
   "home": {
     "heroTitle": "Discover Amazing People",

@@ -21,6 +21,7 @@ const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false }
 const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 const SWIPE_LOCK_TIMEOUT_MS = 1400;
+const TOUCH_ACTION_SUPPRESSION_MS = 1000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -432,6 +433,7 @@ export default function FeedPage() {
   const requestedActionRef = useRef(false);
   const activeActionRef = useRef(false);
   const pendingActionProfileIdRef = useRef(null);
+  const lastTouchActionAtRef = useRef(0);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
   const pageRef = useRef(null);
@@ -1195,6 +1197,25 @@ export default function FeedPage() {
     setActionSignal((signal) => ({ id: signal.id + 1, direction, profileId: currentProfileId }));
   };
 
+  const handleActionButtonPointerUp = (event, direction) => {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+    if (swipeLockedRef.current || requestedActionRef.current || activeActionRef.current || likeInFlightRef.current) return;
+    // Suppress the synthetic click after touch/pen pointer-up so one tap sends one action.
+    event.preventDefault();
+    lastTouchActionAtRef.current = Date.now();
+    requestSwipe(direction);
+  };
+
+  const isClickRecentlySuppressed = () =>
+    Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS;
+
+  const handleActionButtonClick = (direction) => {
+    if (isClickRecentlySuppressed()) {
+      return;
+    }
+    requestSwipe(direction);
+  };
+
   /* --------------------------- Render --------------------------- */
   const currentProfile = profiles[currentIndex];
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
@@ -1289,7 +1310,8 @@ export default function FeedPage() {
                 className="feed-action-btn feed-action-btn--pass"
                 aria-label={t("feed.dislikeLabel")}
                 disabled={swipeLocked}
-                onClick={() => requestSwipe("left")}
+                onPointerUp={(event) => handleActionButtonPointerUp(event, "left")}
+                onClick={() => handleActionButtonClick("left")}
               >
                 <IconX />
                 <span>{t("feed.dislikeLabel")}</span>
@@ -1309,7 +1331,8 @@ export default function FeedPage() {
                 className="feed-action-btn feed-action-btn--like"
                 aria-label={t("feed.likeLabel")}
                 disabled={swipeLocked}
-                onClick={() => requestSwipe("right")}
+                onPointerUp={(event) => handleActionButtonPointerUp(event, "right")}
+                onClick={() => handleActionButtonClick("right")}
               >
                 <IconHeart />
                 <span>{t("feed.likeLabel")}</span>

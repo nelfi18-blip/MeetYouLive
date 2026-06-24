@@ -175,6 +175,7 @@
     "invalidProfile": "Perfil inválido.",
     "notFound": "Perfil não encontrado.",
     "loadError": "Não foi possível carregar o perfil.",
+    "invalidData": "Os dados do perfil estão incompletos ou inválidos.",
     "likeError": "Não foi possível enviar o like.",
     "likeSent": "Like enviado.",
     "chatStartError": "Não foi possível iniciar o chat.",

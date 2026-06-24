@@ -60,6 +60,10 @@ function formatAge(profile) {
   return age ? String(age) : "";
 }
 
+function extractImageUrl(image) {
+  return isPlainObject(image) ? getSafeText(image.url) : getSafeText(image);
+}
+
 function unwrapProfileResponse(data) {
   if (!isPlainObject(data)) return null;
   if (isPlainObject(data.profile)) return data.profile;
@@ -73,9 +77,10 @@ function normalizePublicProfile(data, profileId) {
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
   const photos = normalizeUserImages(rawProfile)
-    .map((image) => (isPlainObject(image) ? getSafeText(image.url) : getSafeText(image)));
-  const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
+    .map(extractImageUrl);
+  const allPhotos = [primaryPhoto, ...photos.filter((photo) => photo && photo !== primaryPhoto)].filter(Boolean);
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
+  if (!safeId) return null;
 
   return {
     ...rawProfile,
@@ -136,7 +141,7 @@ export default function PublicProfilePage() {
       })
       .then((data) => {
         const normalizedProfile = normalizePublicProfile(data, profileId);
-        if (!normalizedProfile) throw new Error(t("publicProfile.loadError"));
+        if (!normalizedProfile) throw new Error(t("publicProfile.invalidData"));
         setProfile(normalizedProfile);
         setBrokenPhotos(new Set());
       })
@@ -165,6 +170,7 @@ export default function PublicProfilePage() {
   const age = formatAge(profile);
   const gender = getSafeText(profile?.gender);
   const interests = getSafeArray(profile?.interests);
+  const metadata = [profile?.location, age, gender].filter(Boolean);
   const isLive = profile?.isLive && profile?.liveId;
   const canChat = matchAccess.checked && matchAccess.match;
   const canVideo = isLive || (matchAccess.checked && matchAccess.match);
@@ -349,11 +355,7 @@ export default function PublicProfilePage() {
             <div className="profile-heading">
               <h1>{displayName}</h1>
               {username && <p>{username}</p>}
-              {(profile.location || age || gender) && (
-                <span>
-                  {[profile.location, age, gender].filter(Boolean).join(" • ")}
-                </span>
-              )}
+              {metadata.length > 0 && <span>{metadata.join(" • ")}</span>}
             </div>
 
             <p

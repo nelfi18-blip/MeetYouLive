@@ -22,8 +22,15 @@ jest.mock("../../models/User.js", () => ({
   updateOne: jest.fn(),
 }));
 
+jest.mock("../../lib/cloudinary.js", () => ({
+  uploadProfilePhoto: jest.fn(),
+}));
+
 const userRoutes = require("../user.routes.js");
+const { uploadProfilePhoto } = require("../../lib/cloudinary.js");
 const uploadDir = path.normalize(path.resolve(__dirname, "../../../uploads"));
+const CLOUDINARY_URL = "https://res.cloudinary.com/meetyoulive/image/upload/v123/avatar-test.png";
+const CLOUDINARY_PUBLIC_ID = "meetyoulive/profile-photos/avatar-test";
 
 const makeQuery = (value) => ({
   select: jest.fn().mockResolvedValue(value),
@@ -37,6 +44,10 @@ describe("POST /api/user/me/avatar-upload", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     User.updateOne.mockReturnValue(Promise.resolve({}));
+    uploadProfilePhoto.mockResolvedValue({
+      secure_url: CLOUDINARY_URL,
+      public_id: CLOUDINARY_PUBLIC_ID,
+    });
     app = express();
     app.set("trust proxy", 1);
     app.use(express.json());
@@ -348,11 +359,12 @@ describe("POST /api/user/me/avatar-upload", () => {
     };
     const savedUser = {
       _id: existingUser._id,
-      avatar: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png",
-      profilePhotos: ["https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png"],
+      avatar: CLOUDINARY_URL,
+      primaryPhoto: CLOUDINARY_URL,
+      profilePhotos: [CLOUDINARY_URL],
       images: [
         {
-          url: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-123.png",
+          url: CLOUDINARY_URL,
           isPrimary: true,
           source: "",
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
@@ -362,6 +374,7 @@ describe("POST /api/user/me/avatar-upload", () => {
         return {
           _id: this._id,
           avatar: this.avatar,
+          primaryPhoto: this.primaryPhoto,
           profilePhotos: this.profilePhotos,
           images: this.images,
         };
@@ -382,17 +395,21 @@ describe("POST /api/user/me/avatar-upload", () => {
       });
 
     expect(res.status).toBe(200);
+    expect(uploadProfilePhoto).toHaveBeenCalledWith(expect.objectContaining({ buffer: expect.any(Buffer) }), existingUser._id);
     expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
       existingUser._id,
       expect.objectContaining({
         $set: expect.objectContaining({
-          avatar: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
-          profilePhotos: [expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/)],
+          avatar: CLOUDINARY_URL,
+          primaryPhoto: CLOUDINARY_URL,
+          profilePhotos: [CLOUDINARY_URL],
           onboardingComplete: false,
           images: [
             expect.objectContaining({
-              url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+              url: CLOUDINARY_URL,
               isPrimary: true,
+              publicId: CLOUDINARY_PUBLIC_ID,
+              source: "cloudinary",
             }),
           ],
         }),
@@ -408,7 +425,7 @@ describe("POST /api/user/me/avatar-upload", () => {
       onboardingComplete: false,
       canAppearInFeed: false,
       missingFields: expect.arrayContaining(["name", "birthdate", "location", "gender", "intent", "interests"]),
-      photoUrl: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+      photoUrl: CLOUDINARY_URL,
       url: savedUser.avatar,
       images: [
         expect.objectContaining({
@@ -444,9 +461,10 @@ describe("POST /api/user/me/avatar-upload", () => {
     const savedUser = {
       _id: existingUser._id,
       avatar: primaryPhoto,
+      primaryPhoto,
       profilePhotos: [
         primaryPhoto,
-        "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+        CLOUDINARY_URL,
       ],
       images: [
         {
@@ -456,7 +474,7 @@ describe("POST /api/user/me/avatar-upload", () => {
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
         },
         {
-          url: "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-456.png",
+          url: CLOUDINARY_URL,
           isPrimary: false,
           source: "",
           uploadedAt: new Date("2026-06-14T00:00:00.000Z"),
@@ -466,6 +484,7 @@ describe("POST /api/user/me/avatar-upload", () => {
         return {
           _id: this._id,
           avatar: this.avatar,
+          primaryPhoto: this.primaryPhoto,
           profilePhotos: this.profilePhotos,
           images: this.images,
         };
@@ -492,15 +511,18 @@ describe("POST /api/user/me/avatar-upload", () => {
         expect.objectContaining({
           $set: expect.objectContaining({
             avatar: primaryPhoto,
+            primaryPhoto,
             profilePhotos: [
               primaryPhoto,
-              expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+              CLOUDINARY_URL,
             ],
             images: [
               expect.objectContaining({ url: primaryPhoto, isPrimary: true }),
               expect.objectContaining({
-                url: expect.stringMatching(/^https:\/\/meetyoulive\.onrender\.com\/uploads\/avatar-/),
+                url: CLOUDINARY_URL,
                 isPrimary: false,
+                publicId: CLOUDINARY_PUBLIC_ID,
+                source: "cloudinary",
               }),
             ],
           }),
@@ -515,7 +537,7 @@ describe("POST /api/user/me/avatar-upload", () => {
   });
 
   test("sets onboardingComplete true after upload when the merged profile is complete", async () => {
-    const photoUrl = "https://meetyoulive.onrender.com/uploads/avatar-507f1f77bcf86cd799439011-789.png";
+    const photoUrl = CLOUDINARY_URL;
     const existingUser = {
       _id: "507f1f77bcf86cd799439011",
       name: "Complete User",
@@ -538,6 +560,7 @@ describe("POST /api/user/me/avatar-upload", () => {
     const savedUser = {
       ...existingUser,
       avatar: photoUrl,
+      primaryPhoto: photoUrl,
       profilePhotos: [photoUrl],
       images: [{ url: photoUrl, isPrimary: true, source: "", uploadedAt: new Date("2026-06-14T00:00:00.000Z") }],
       onboardingComplete: true,
@@ -577,6 +600,31 @@ describe("POST /api/user/me/avatar-upload", () => {
         missingFields: [],
       },
     });
+  });
+
+  test("returns diagnostic JSON when Cloudinary upload fails", async () => {
+    const uploadError = new Error("Cloudinary unavailable");
+    uploadError.code = "CLOUDINARY_UNAVAILABLE";
+    uploadProfilePhoto.mockRejectedValueOnce(uploadError);
+
+    const res = await request(app)
+      .post("/api/user/me/avatar-upload")
+      .set("Authorization", "******")
+      .attach("avatar", Buffer.from("image"), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({
+      ok: false,
+      status: 500,
+      error: "CLOUDINARY_UNAVAILABLE",
+      message: "Error subiendo imagen a Cloudinary.",
+      code: "FILE_SAVE_FAILED",
+    });
+    expect(User.findById).not.toHaveBeenCalled();
+    expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   test("returns diagnostic JSON when no avatar file is sent", async () => {

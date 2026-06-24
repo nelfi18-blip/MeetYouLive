@@ -1198,18 +1198,18 @@ export default function FeedPage() {
   };
 
   const handleActionButtonPointerUp = (event, direction) => {
-    if (event.pointerType === "mouse") return;
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
     event.preventDefault();
     if (swipeLockedRef.current) return;
     lastTouchActionAtRef.current = Date.now();
     requestSwipe(direction);
   };
 
-  const isWithinTouchActionSuppressionWindow = () =>
+  const shouldSuppressTouchClick = () =>
     Date.now() - lastTouchActionAtRef.current < TOUCH_ACTION_SUPPRESSION_MS;
 
   const handleActionButtonClick = (direction) => {
-    if (isWithinTouchActionSuppressionWindow()) {
+    if (shouldSuppressTouchClick()) {
       return;
     }
     requestSwipe(direction);

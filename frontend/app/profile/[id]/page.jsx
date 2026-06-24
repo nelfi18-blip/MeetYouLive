@@ -55,6 +55,11 @@ function getSafeAge(profile) {
   return null;
 }
 
+function formatAge(profile) {
+  const age = getSafeAge(profile);
+  return age ? String(age) : "";
+}
+
 function unwrapProfileResponse(data) {
   if (!isPlainObject(data)) return null;
   if (isPlainObject(data.profile)) return data.profile;
@@ -68,7 +73,7 @@ function normalizePublicProfile(data, profileId) {
 
   const primaryPhoto = getPrimaryProfileImage(rawProfile);
   const photos = normalizeUserImages(rawProfile)
-    .map((image) => (isPlainObject(image) ? image.url : null));
+    .map((image) => (isPlainObject(image) ? getSafeText(image.url) : null));
   const allPhotos = Array.from(new Set([primaryPhoto, ...photos].filter(Boolean)));
   const safeId = getSafeText(rawProfile._id || rawProfile.id) || profileId;
 
@@ -157,9 +162,9 @@ export default function PublicProfilePage() {
   const mainPhoto = photos[0] || null;
   const displayName = getDisplayName(profile);
   const username = profile?.username ? `@${profile.username}` : "";
-  const age = Number.isInteger(profile?.age) && profile.age > 0 ? String(profile.age) : "";
-  const gender = getSafeText(profile?.gender);
-  const interests = getSafeTextList(profile?.interests);
+  const age = formatAge(profile);
+  const gender = profile?.gender || "";
+  const interests = profile?.interests || [];
   const isLive = profile?.isLive && profile?.liveId;
   const canChat = matchAccess.checked && matchAccess.match;
   const canVideo = isLive || (matchAccess.checked && matchAccess.match);

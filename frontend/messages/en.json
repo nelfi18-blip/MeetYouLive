@@ -175,6 +175,7 @@
     "invalidProfile": "Invalid profile.",
     "notFound": "Profile not found.",
     "loadError": "Could not load the profile.",
+    "invalidData": "The profile data is incomplete or invalid.",
     "likeError": "Could not send the like.",
     "likeSent": "Like sent.",
     "chatStartError": "Could not start the chat.",
@@ -192,7 +193,10 @@
     "chat": "Chat",
     "calling": "Calling…",
     "video": "Video",
-    "joinLive": "Join this profile's live stream"
+    "joinLive": "Join this profile's live stream",
+    "retry": "Try again",
+    "bioPlaceholder": "No bio yet.",
+    "emptyBioLabel": "This profile has not added a bio yet."
   },
   "home": {
     "heroTitle": "Discover Amazing People",

@@ -175,6 +175,7 @@
     "invalidProfile": "Perfil no válido.",
     "notFound": "Perfil no encontrado.",
     "loadError": "No se pudo cargar el perfil.",
+    "invalidData": "Los datos del perfil están incompletos o no son válidos.",
     "likeError": "No se pudo enviar el like.",
     "likeSent": "Like enviado.",
     "chatStartError": "No se pudo iniciar el chat.",
@@ -192,7 +193,10 @@
     "chat": "Chat",
     "calling": "Llamando…",
     "video": "Video",
-    "joinLive": "Entrar al directo de este perfil"
+    "joinLive": "Entrar al directo de este perfil",
+    "retry": "Intentar de nuevo",
+    "bioPlaceholder": "Sin bio todavía.",
+    "emptyBioLabel": "Este perfil todavía no agregó una bio."
   },
   "home": {
     "heroTitle": "Descubre Personas Increíbles",

@@ -175,7 +175,7 @@ exports.unlikeUser = async (req, res) => {
   }
   try {
     await Like.deleteOne({ from: req.userId, to: userId });
-    res.json({ success: true, match: false, message: "" });
+    res.json({ success: true, match: false, message: "Like removido" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "No se pudo quitar el like" });
   }

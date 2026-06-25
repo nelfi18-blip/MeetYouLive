@@ -1606,6 +1606,7 @@ export default function FeedPage() {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          /* Bias slightly upward so portrait photos keep faces/upper body visible. */
           object-position: center 35%;
         }
 

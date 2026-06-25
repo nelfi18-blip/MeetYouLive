@@ -22,10 +22,10 @@ const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 const SWIPE_LOCK_TIMEOUT_MS = 1400;
 const TOUCH_ACTION_SUPPRESSION_MS = 1000;
+const ACTION_TIMEOUT_MS = 12000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
-const ACTION_TIMEOUT_MS = 12000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
@@ -1085,7 +1085,6 @@ export default function FeedPage() {
     likeInFlightRef.current = true;
     setActionLoading(true);
     setError(null);
-    let actionSucceeded = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
 
@@ -1105,31 +1104,27 @@ export default function FeedPage() {
         return {};
       });
 
+      // The match API contract requires explicit success:true before the deck advances.
       if (!res.ok || data?.success !== true) {
         throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       }
 
       addSeenProfileId(targetProfileIdString);
       setLastAction({ profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
-      actionSucceeded = true;
       return true;
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      const message = err.name === "AbortError"
-        ? t("feed.serverStarting")
-        : err.message || (isLike ? t("feed.likeError") : t("feed.passError"));
-      setError(message);
+      setError(
+        err.name === "AbortError"
+          ? t("feed.serverStarting")
+          : err.message || (isLike ? t("feed.likeError") : t("feed.passError"))
+      );
       return false;
     } finally {
       clearTimeout(timeoutId);
       likeInFlightRef.current = false;
       setActionLoading(false);
-      if (!actionSucceeded) {
-        activeActionRef.current = false;
-        requestedActionRef.current = false;
-        pendingActionProfileIdRef.current = null;
-      }
     }
   };
 
@@ -1610,10 +1605,12 @@ export default function FeedPage() {
 
         :global(.feed-swipe-deck .swipe-card-image),
         :global(.feed-swipe-deck .swipe-card-placeholder) {
+          display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
-          object-position: center center;
+          /* Bias slightly upward so portrait photos keep faces/upper body visible. */
+          object-position: center 35%;
         }
 
         :global(.feed-swipe-deck .swipe-card-info) {

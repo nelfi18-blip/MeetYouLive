@@ -64,8 +64,9 @@ const handleMatch = async (userId, matchedUserId, io) => {
     });
   }
 
-  // Queue FCM push to both matched users (priority: match)
-  await Promise.allSettled([
+  // Queue FCM push to both matched users (priority: match). Do not block the
+  // match response on push delivery.
+  void Promise.allSettled([
     queueEvent(
       matchedUserId,
       "match",
@@ -79,6 +80,8 @@ const handleMatch = async (userId, matchedUserId, io) => {
       { matchedWith: String(matchedUserId) }
     ),
   ]);
+
+  return { likerName: nameA, matchedName: nameB };
 };
 
 // ─── Like a user ──────────────────────────────────────────────────────────────
@@ -109,19 +112,24 @@ exports.likeUser = async (req, res) => {
     res.json({
       success: true,
       match: !!mutual,
-      message: "",
+      message: mutual ? "Match creado" : "Like registrado",
     });
 
     Promise.resolve()
       .then(async () => {
+        // Notify target of the like and queue FCM in the background so the
+        // mobile feed never waits on non-critical delivery services.
         const io = getIO();
         if (mutual) {
-          await handleMatch(req.userId, userId, io);
+          handleMatch(req.userId, userId, io).catch(() => {});
         }
 
-        // Notify target of the like
-        const liker = await User.findById(req.userId).select("username name");
+        const [liker, likedUser] = await Promise.all([
+          User.findById(req.userId).select("username name").lean(),
+          User.findById(userId).select("username name").lean(),
+        ]);
         const likerName = liker?.username || liker?.name || "";
+
         if (io) {
           io.to(String(userId)).emit("CRUSH_RECEIVED", {
             fromUserId: String(req.userId),
@@ -130,10 +138,8 @@ exports.likeUser = async (req, res) => {
           });
         }
 
-        // Queue FCM push to liked user (priority: like, buffered for aggregation)
-        const likedUser = await User.findById(userId).select("username name");
         if (likedUser) {
-          await queueEvent(
+          queueEvent(
             userId,
             "like",
             {
@@ -144,19 +150,24 @@ exports.likeUser = async (req, res) => {
             { fromUserId: String(req.userId) }
           ).catch(() => {});
         }
-
-        // Track swipe mission progress (fire-and-forget)
-        await trackEvent(req.userId, "swipe").catch(() => {});
       })
       .catch(() => {});
+
+    // Track swipe mission progress (fire-and-forget)
+    trackEvent(req.userId, "swipe").catch(() => {});
   } catch (err) {
     if (err.code === 11000) {
-      const mutual = await Like.findOne({ from: userId, to: req.userId }).catch(() => null);
+      let mutual;
+      try {
+        mutual = await Like.findOne({ from: userId, to: req.userId });
+      } catch (lookupErr) {
+        return res.status(500).json({ success: false, message: lookupErr.message || "No se pudo registrar el like" });
+      }
       trackEvent(req.userId, "swipe").catch(() => {});
       return res.json({
         success: true,
         match: !!mutual,
-        message: "",
+        message: mutual ? "Match creado" : "Like registrado",
       });
     }
     res.status(500).json({ success: false, message: err.message || "No se pudo registrar el like" });
@@ -171,9 +182,9 @@ exports.unlikeUser = async (req, res) => {
   }
   try {
     await Like.deleteOne({ from: req.userId, to: userId });
-    res.json({ success: true, match: false, message: "" });
+    res.json({ success: true, match: false, message: "Like removido" });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message || "No se pudo registrar el rechazo" });
+    res.status(500).json({ success: false, message: err.message || "No se pudo quitar el like" });
   }
 };
 

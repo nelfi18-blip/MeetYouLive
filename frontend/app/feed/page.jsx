@@ -115,8 +115,6 @@ function sanitizeFeedProfile(profile) {
     location: getSafeLocation(profile),
     interests,
     bio: getSafeProfileText(profile.bio),
-    gender: getSafeProfileText(profile.gender),
-    interestedIn: getSafeProfileText(profile.interestedIn),
   };
 }
 

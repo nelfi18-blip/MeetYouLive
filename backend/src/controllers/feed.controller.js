@@ -334,8 +334,6 @@ const serializeFeedImageFields = (req, item) => {
     location,
     interests,
     bio: cleanString(serialized.bio),
-    gender: cleanString(serialized.gender),
-    interestedIn: cleanString(serialized.interestedIn),
     isOnline: serialized.isOnline === true,
     isVerified: serialized.isVerified === true,
     isPremium: serialized.isPremium === true,

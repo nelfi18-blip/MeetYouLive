@@ -160,12 +160,12 @@ describe("getFeed", () => {
       { $in: ["female", "male", "woman", "man"] },
       { $in: ["", null, "men", "male", "both"] },
     ],
-  ])("strict feed applies %s discovery gender preferences", async (_label, viewer, expectedGender, expectedInterestedIn) => {
+  ])("strict feed applies %s discovery gender preferences", async (preferenceType, viewer, expectedGender, expectedInterestedIn) => {
     const { getFeed, User, Live, Like } = setupController();
     const strictProfile = {
       _id: otherUserId,
       name: "Strict Candidate",
-      username: "strict_candidate",
+      username: `${preferenceType}_candidate`,
       gender: expectedGender.$in[0],
       interestedIn: "both",
       avatar: "https://example.com/strict.jpg",
@@ -192,8 +192,6 @@ describe("getFeed", () => {
         profiles: [
           expect.objectContaining({
             _id: otherUserId,
-            gender: expectedGender.$in[0],
-            interestedIn: "both",
           }),
         ],
       })

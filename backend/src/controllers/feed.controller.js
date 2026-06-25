@@ -334,6 +334,8 @@ const serializeFeedImageFields = (req, item) => {
     location,
     interests,
     bio: cleanString(serialized.bio),
+    gender: cleanString(serialized.gender),
+    interestedIn: cleanString(serialized.interestedIn),
     isOnline: serialized.isOnline === true,
     isVerified: serialized.isVerified === true,
     isPremium: serialized.isPremium === true,
@@ -984,12 +986,16 @@ const getFeed = async (req, res) => {
     const responseTime = Date.now() - startTime;
     const filtersApplied = buildFiltersAppliedDebug({ discoveryMatch, locationMatch, ignoreExclude });
     const genderPreference = buildGenderPreferenceDebug(currentUserProfile, discoveryMatch);
+    const matchedProfiles = serializedRecommendedProfiles.length;
+    const fallbackUsed = feedMode === "betaFallback";
     console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
       feedMode,
       filtersApplied,
       genderPreference,
+      matchedProfiles,
+      fallbackUsed,
       activeLives: serializedLives.length,
-      recommendedProfiles: serializedRecommendedProfiles.length,
+      recommendedProfiles: matchedProfiles,
       featuredCreators: serializedFeaturedCreators.length
     });
 
@@ -1007,6 +1013,8 @@ const getFeed = async (req, res) => {
         feedMode,
         filtersApplied,
         genderPreference,
+        matchedProfiles,
+        fallbackUsed,
         ignoreExclude,
       },
       activeLives: serializedLives,
@@ -1044,6 +1052,7 @@ const getFeed = async (req, res) => {
         : null;
       const fallbackDiscoveryMatch = buildDiscoveryMatch(fallbackViewerProfile);
       const fallbackProfiles = await getBetaFallbackProfiles(req, authenticatedUserId, fallbackViewerProfile);
+      const matchedProfiles = fallbackProfiles.length;
       res.set("Cache-Control", "no-store");
       return res.json({
         success: true,
@@ -1056,8 +1065,10 @@ const getFeed = async (req, res) => {
             ignoreExclude: req.query.ignoreExclude === "true",
           }),
           genderPreference: buildGenderPreferenceDebug(fallbackViewerProfile, fallbackDiscoveryMatch),
+          matchedProfiles,
+          fallbackUsed: true,
           strictError: error.message,
-          fallbackCount: fallbackProfiles.length,
+          fallbackCount: matchedProfiles,
           ignoreExclude: req.query.ignoreExclude === "true",
         },
         recommendedProfiles: fallbackProfiles,

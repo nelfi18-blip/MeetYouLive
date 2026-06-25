@@ -1103,6 +1103,7 @@ export default function FeedPage() {
         return {};
       });
 
+      // The match API contract requires explicit success:true before the deck advances.
       if (!res.ok || data?.success !== true) {
         throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       }

@@ -66,7 +66,7 @@ const handleMatch = async (userId, matchedUserId, io) => {
 
   // Queue FCM push to both matched users (priority: match). Do not block the
   // match response on push delivery.
-  Promise.allSettled([
+  void Promise.allSettled([
     queueEvent(
       matchedUserId,
       "match",
@@ -79,7 +79,9 @@ const handleMatch = async (userId, matchedUserId, io) => {
       { title: "🔥 ¡Tienes un match nuevo!", body: `Con ${nameB}`, data: { link: "/matches" } },
       { matchedWith: String(matchedUserId) }
     ),
-  ]).catch(() => {});
+  ]);
+
+  return { likerName: nameA, matchedName: nameB };
 };
 
 // ─── Like a user ──────────────────────────────────────────────────────────────
@@ -107,8 +109,9 @@ exports.likeUser = async (req, res) => {
     // Check if the other user already liked back → mutual match
     const mutual = await Like.findOne({ from: userId, to: req.userId });
 
+    let matchInfo = null;
     if (mutual) {
-      await handleMatch(req.userId, userId, getIO());
+      matchInfo = await handleMatch(req.userId, userId, getIO());
     }
 
     res.json({
@@ -122,11 +125,12 @@ exports.likeUser = async (req, res) => {
         // Notify target of the like and queue FCM in the background so the
         // mobile feed never waits on non-critical delivery services.
         const io = getIO();
+        const knownLikerName = matchInfo?.likerName || "";
         const [liker, likedUser] = await Promise.all([
-          User.findById(req.userId).select("username name").lean(),
+          knownLikerName ? null : User.findById(req.userId).select("username name").lean(),
           User.findById(userId).select("username name").lean(),
         ]);
-        const likerName = liker?.username || liker?.name || "";
+        const likerName = knownLikerName || liker?.username || liker?.name || "";
 
         if (io) {
           io.to(String(userId)).emit("CRUSH_RECEIVED", {

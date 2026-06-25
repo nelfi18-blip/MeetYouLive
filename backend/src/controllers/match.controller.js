@@ -65,7 +65,7 @@ const handleMatch = async (userId, matchedUserId, io) => {
   }
 
   // Queue FCM push to both matched users (priority: match). Do not block the
-  // like response on push delivery.
+  // match response on push delivery.
   Promise.allSettled([
     queueEvent(
       matchedUserId,

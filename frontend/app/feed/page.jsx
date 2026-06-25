@@ -1113,12 +1113,11 @@ export default function FeedPage() {
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      const fallbackMessage = err.name === "AbortError"
-        ? t("feed.serverStarting")
-        : isLike
-          ? t("feed.likeError")
-          : t("feed.passError");
-      setError(err.name === "AbortError" ? fallbackMessage : err.message || fallbackMessage);
+      setError(
+        err.name === "AbortError"
+          ? t("feed.serverStarting")
+          : err.message || (isLike ? t("feed.likeError") : t("feed.passError"))
+      );
       return false;
     } finally {
       clearTimeout(timeoutId);

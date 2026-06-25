@@ -211,9 +211,9 @@ const buildFiltersAppliedDebug = ({ discoveryMatch = {}, locationMatch = null, i
   excludedProfiles: !ignoreExclude,
 });
 
-const buildGenderPreferenceDebug = (viewer = null, discoveryMatch = {}) => ({
-  interestedIn: viewer?.interestedIn || null,
-  viewerGender: viewer?.gender || null,
+const buildGenderPreferenceDebug = (currentUserProfile = null, discoveryMatch = {}) => ({
+  interestedIn: currentUserProfile?.interestedIn || null,
+  viewerGender: currentUserProfile?.gender || null,
   candidateGenderFilter: discoveryMatch.gender || null,
   reciprocalInterestedInFilter: discoveryMatch.interestedIn || null,
 });
@@ -1040,6 +1040,7 @@ const getFeed = async (req, res) => {
       ? "Error al cargar el feed"
       : `Error al cargar el feed: ${error.message}`;
     try {
+      const ignoreExclude = req.query.ignoreExclude === "true";
       const authenticatedUserId = toObjectIdOrNull(req.userId);
       const fallbackViewerProfile = authenticatedUserId
         ? await User.findById(authenticatedUserId)
@@ -1060,14 +1061,14 @@ const getFeed = async (req, res) => {
           feedMode: "betaFallback",
           filtersApplied: buildFiltersAppliedDebug({
             discoveryMatch: fallbackDiscoveryMatch,
-            ignoreExclude: req.query.ignoreExclude === "true",
+            ignoreExclude,
           }),
           genderPreference: buildGenderPreferenceDebug(fallbackViewerProfile, fallbackDiscoveryMatch),
           matchedProfiles,
           fallbackUsed: true,
           strictError: error.message,
           fallbackCount: matchedProfiles,
-          ignoreExclude: req.query.ignoreExclude === "true",
+          ignoreExclude,
         },
         recommendedProfiles: fallbackProfiles,
         profiles: fallbackProfiles,

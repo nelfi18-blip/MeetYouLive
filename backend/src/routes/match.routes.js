@@ -33,8 +33,8 @@ const superCrushLimiter = rateLimit({
   message: { success: false, message: "Demasiados Super Crushes enviados, intenta de nuevo más tarde" },
 });
 
-router.post("/like/:userId",         verifyToken,       matchLimiter, likeUser);
-router.delete("/like/:userId",       verifyToken,       matchLimiter, unlikeUser);
+router.post("/like/:userId",         matchLimiter,      verifyToken, likeUser);
+router.delete("/like/:userId",       matchLimiter,      verifyToken, unlikeUser);
 router.post("/super-crush/:userId",  superCrushLimiter, verifyToken, superCrushUser);
 router.get("/",                      matchLimiter,      verifyToken, getMatches);
 router.get("/config",                matchLimiter,      verifyToken, getCrushConfig);

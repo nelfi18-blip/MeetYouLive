@@ -120,9 +120,9 @@ exports.likeUser = async (req, res) => {
         }
 
         // Notify target of the like
+        const liker = await User.findById(req.userId).select("username name");
+        const likerName = liker?.username || liker?.name || "";
         if (io) {
-          const liker = await User.findById(req.userId).select("username name");
-          const likerName = liker?.username || liker?.name || "";
           io.to(String(userId)).emit("CRUSH_RECEIVED", {
             fromUserId: String(req.userId),
             fromUsername: likerName,
@@ -133,8 +133,6 @@ exports.likeUser = async (req, res) => {
         // Queue FCM push to liked user (priority: like, buffered for aggregation)
         const likedUser = await User.findById(userId).select("username name");
         if (likedUser) {
-          const liker = await User.findById(req.userId).select("username name");
-          const likerName = liker?.username || liker?.name || "";
           await queueEvent(
             userId,
             "like",

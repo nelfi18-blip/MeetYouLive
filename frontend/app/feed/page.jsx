@@ -25,6 +25,7 @@ const TOUCH_ACTION_SUPPRESSION_MS = 1000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
+const ACTION_TIMEOUT_MS = 12000;
 
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
@@ -422,6 +423,7 @@ export default function FeedPage() {
   const [feedDebug, setFeedDebug] = useState(null);
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
   const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
@@ -1081,7 +1083,11 @@ export default function FeedPage() {
     }
 
     likeInFlightRef.current = true;
+    setActionLoading(true);
     setError(null);
+    let actionSucceeded = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
 
     try {
       if (!API_URL || !authToken) {
@@ -1091,6 +1097,7 @@ export default function FeedPage() {
       const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`, {
         method: isLike ? "POST" : "DELETE",
         headers: { Authorization: "Bearer " + authToken },
+        signal: controller.signal,
         cache: "no-store",
       });
       const data = await res.json().catch((parseError) => {
@@ -1098,20 +1105,31 @@ export default function FeedPage() {
         return {};
       });
 
-      if (!res.ok || data?.success === false) {
+      if (!res.ok || data?.success !== true) {
         throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       }
 
       addSeenProfileId(targetProfileIdString);
       setLastAction({ profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
+      actionSucceeded = true;
       return true;
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      setError(err.message || (isLike ? t("feed.likeError") : t("feed.passError")));
+      const message = err.name === "AbortError"
+        ? t("feed.serverStarting")
+        : err.message || (isLike ? t("feed.likeError") : t("feed.passError"));
+      setError(message);
       return false;
     } finally {
+      clearTimeout(timeoutId);
       likeInFlightRef.current = false;
+      setActionLoading(false);
+      if (!actionSucceeded) {
+        activeActionRef.current = false;
+        requestedActionRef.current = false;
+        pendingActionProfileIdRef.current = null;
+      }
     }
   };
 
@@ -1288,7 +1306,7 @@ export default function FeedPage() {
                   onExitComplete={isTopCard ? handleSwipeExitComplete : undefined}
                   actionSignal={isTopCard ? actionSignal : undefined}
                   disabled={isTopCard ? swipeLocked : true}
-                  pending={isTopCard && swipeLocked && !activeCardError}
+                  pending={isTopCard && actionLoading && !activeCardError}
                   error={isTopCard ? activeCardError : null}
                   pendingLabel={t("feed.pendingAction")}
                   bioMoreLabel={t("feed.bioMoreLabel")}
@@ -1395,7 +1413,8 @@ export default function FeedPage() {
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
           --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
-          --feed-info-panel-height: clamp(238px, 38%, 292px);
+          --feed-image-panel-height: clamp(300px, calc(var(--feed-stable-viewport-height) * 0.44), 360px);
+          --feed-info-panel-height: max(240px, calc(var(--feed-deck-height) - var(--feed-image-panel-height)));
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -1582,11 +1601,19 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          height: calc(100% - var(--feed-info-panel-height));
+          height: var(--feed-image-panel-height);
           border-radius: inherit;
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
           overflow: hidden;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-image),
+        :global(.feed-swipe-deck .swipe-card-placeholder) {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center center;
         }
 
         :global(.feed-swipe-deck .swipe-card-info) {
@@ -1732,6 +1759,8 @@ export default function FeedPage() {
           .feed-page {
             --feed-deck-width: min(calc(100vw - 32px), 440px);
             --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+            --feed-info-panel-height: clamp(238px, 38%, 292px);
+            --feed-image-panel-height: calc(var(--feed-deck-height) - var(--feed-info-panel-height));
           }
 
           .feed-swipe-deck {

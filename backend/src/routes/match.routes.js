@@ -23,14 +23,14 @@ const router = Router();
 const matchLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
+  message: { success: false, message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
 // Super Crush has its own stricter limiter (coin-gated action)
 const superCrushLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 50,
-  message: { message: "Demasiados Super Crushes enviados, intenta de nuevo más tarde" },
+  message: { success: false, message: "Demasiados Super Crushes enviados, intenta de nuevo más tarde" },
 });
 
 router.post("/like/:userId",         matchLimiter,      verifyToken, likeUser);

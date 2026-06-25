@@ -1085,7 +1085,6 @@ export default function FeedPage() {
     likeInFlightRef.current = true;
     setActionLoading(true);
     setError(null);
-    let actionSucceeded = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
 
@@ -1112,7 +1111,6 @@ export default function FeedPage() {
 
       addSeenProfileId(targetProfileIdString);
       setLastAction({ profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
-      actionSucceeded = true;
       return true;
     } catch (err) {
       console.error("Swipe action error:", err);
@@ -1126,11 +1124,6 @@ export default function FeedPage() {
       clearTimeout(timeoutId);
       likeInFlightRef.current = false;
       setActionLoading(false);
-      if (!actionSucceeded) {
-        activeActionRef.current = false;
-        requestedActionRef.current = false;
-        pendingActionProfileIdRef.current = null;
-      }
     }
   };
 

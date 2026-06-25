@@ -120,17 +120,15 @@ exports.likeUser = async (req, res) => {
         // Notify target of the like and queue FCM in the background so the
         // mobile feed never waits on non-critical delivery services.
         const io = getIO();
-        let matchInfo = null;
         if (mutual) {
-          matchInfo = await handleMatch(req.userId, userId, io);
+          handleMatch(req.userId, userId, io).catch(() => {});
         }
 
-        const knownLikerName = matchInfo?.likerName || "";
         const [liker, likedUser] = await Promise.all([
-          knownLikerName ? null : User.findById(req.userId).select("username name").lean(),
+          User.findById(req.userId).select("username name").lean(),
           User.findById(userId).select("username name").lean(),
         ]);
-        const likerName = knownLikerName || liker?.username || liker?.name || "";
+        const likerName = liker?.username || liker?.name || "";
 
         if (io) {
           io.to(String(userId)).emit("CRUSH_RECEIVED", {

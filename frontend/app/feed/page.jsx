@@ -868,7 +868,7 @@ export default function FeedPage() {
       }
 
       const data = await feedRes.json();
-      setFeedDebug(data?.debug || null);
+      setFeedDebug(data?.debug ? { feedMode: data.feedMode || data.debug.feedMode || null, ...data.debug } : null);
       setViewerProfileStatus(data?.viewerProfileStatus || null);
       if (data?.viewerProfileStatus?.canAppearInFeed === false && shouldLogProfileCompletionDiagnostics()) {
         console.log("[feed-profile-completion]", {

@@ -217,6 +217,61 @@ describe("getFeed", () => {
     );
   });
 
+  test("betaFallback keeps gender and reciprocal interestedIn preferences", async () => {
+    const { getFeed, User, Live, Like } = setupController();
+    const viewerSeekingMen = {
+      ...currentUser,
+      gender: "female",
+      interestedIn: "men",
+    };
+    const fallbackProfile = {
+      _id: otherUserId,
+      name: "Fallback Candidate",
+      username: "fallback_candidate",
+      role: "User",
+      gender: "male",
+      interestedIn: "women",
+      isBlocked: false,
+      isSuspended: false,
+      avatar: "/uploads/fallback.jpg",
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(viewerSeekingMen));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([fallbackProfile]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ limit: "10" }), res);
+
+    const fallbackMatch = User.find.mock.calls[2][0];
+    expect(fallbackMatch.gender).toEqual({ $in: ["male", "man"] });
+    expect(fallbackMatch.interestedIn).toEqual({ $in: ["", null, "women", "female", "both"] });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedMode: "betaFallback",
+        debug: expect.objectContaining({
+          feedMode: "betaFallback",
+          filtersApplied: expect.objectContaining({
+            gender: true,
+            reciprocalInterestedIn: true,
+          }),
+          genderPreference: expect.objectContaining({
+            interestedIn: "men",
+            viewerGender: "female",
+            candidateGenderFilter: { $in: ["male", "man"] },
+          }),
+        }),
+        profiles: [expect.objectContaining({ _id: otherUserId })],
+      })
+    );
+  });
+
   test("ignoreExclude also ignores client and liked exclusions in betaFallback", async () => {
     const { getFeed, User, Live, Like } = setupController();
     const fallbackProfile = {

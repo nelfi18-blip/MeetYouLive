@@ -203,7 +203,7 @@ const pickGenderDiscoveryFilters = (discoveryMatch = {}) => {
   return filters;
 };
 
-const buildFeedDebugFilters = ({ discoveryMatch = {}, locationMatch = null, ignoreExclude = false } = {}) => ({
+const buildFiltersAppliedDebug = ({ discoveryMatch = {}, locationMatch = null, ignoreExclude = false } = {}) => ({
   gender: Boolean(discoveryMatch.gender),
   reciprocalInterestedIn: Boolean(discoveryMatch.interestedIn),
   age: Boolean(discoveryMatch.birthdate),
@@ -982,7 +982,7 @@ const getFeed = async (req, res) => {
     }
 
     const responseTime = Date.now() - startTime;
-    const filtersApplied = buildFeedDebugFilters({ discoveryMatch, locationMatch, ignoreExclude });
+    const filtersApplied = buildFiltersAppliedDebug({ discoveryMatch, locationMatch, ignoreExclude });
     const genderPreference = buildGenderPreferenceDebug(currentUserProfile, discoveryMatch);
     console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
       feedMode,
@@ -1051,7 +1051,10 @@ const getFeed = async (req, res) => {
         reason: "El feed estricto falló. Mostrando usuarios de prueba en modo Beta.",
         debug: {
           feedMode: "betaFallback",
-          filtersApplied: buildFeedDebugFilters({ discoveryMatch: fallbackDiscoveryMatch, ignoreExclude: req.query.ignoreExclude === "true" }),
+          filtersApplied: buildFiltersAppliedDebug({
+            discoveryMatch: fallbackDiscoveryMatch,
+            ignoreExclude: req.query.ignoreExclude === "true",
+          }),
           genderPreference: buildGenderPreferenceDebug(fallbackViewerProfile, fallbackDiscoveryMatch),
           strictError: error.message,
           fallbackCount: fallbackProfiles.length,

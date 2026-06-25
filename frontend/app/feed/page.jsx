@@ -22,6 +22,7 @@ const INIT_TIMEOUT_MS = 30000;
 const BACKEND_TOKEN_FETCH_TIMEOUT_MS = 22000;
 const SWIPE_LOCK_TIMEOUT_MS = 1400;
 const TOUCH_ACTION_SUPPRESSION_MS = 1000;
+const ACTION_TIMEOUT_MS = 12000;
 
 // Hard ceiling for the feed API request itself.
 const FETCH_TIMEOUT_MS = 15000;
@@ -1083,6 +1084,9 @@ export default function FeedPage() {
     likeInFlightRef.current = true;
     setError(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
+
     try {
       if (!API_URL || !authToken) {
         throw new Error(t("feed.sessionExpired"));
@@ -1091,6 +1095,7 @@ export default function FeedPage() {
       const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`, {
         method: isLike ? "POST" : "DELETE",
         headers: { Authorization: "Bearer " + authToken },
+        signal: controller.signal,
         cache: "no-store",
       });
       const data = await res.json().catch((parseError) => {
@@ -1098,7 +1103,7 @@ export default function FeedPage() {
         return {};
       });
 
-      if (!res.ok || data?.success === false) {
+      if (!res.ok || data?.success !== true) {
         throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
       }
 
@@ -1108,9 +1113,15 @@ export default function FeedPage() {
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      setError(err.message || (isLike ? t("feed.likeError") : t("feed.passError")));
+      const fallbackMessage = err.name === "AbortError"
+        ? t("feed.serverStarting")
+        : isLike
+          ? t("feed.likeError")
+          : t("feed.passError");
+      setError(err.name === "AbortError" ? fallbackMessage : err.message || fallbackMessage);
       return false;
     } finally {
+      clearTimeout(timeoutId);
       likeInFlightRef.current = false;
     }
   };
@@ -1394,8 +1405,9 @@ export default function FeedPage() {
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(96vw, 440px);
-          --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
-          --feed-info-panel-height: clamp(238px, 38%, 292px);
+          --feed-deck-height: clamp(560px, calc(var(--feed-stable-viewport-height) * 0.7), 660px);
+          --feed-image-height: clamp(300px, calc(var(--feed-stable-viewport-height) * 0.44), 390px);
+          --feed-info-panel-height: calc(var(--feed-deck-height) - var(--feed-image-height));
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
           min-height: var(--feed-viewport-height);
           padding-bottom: var(--feed-bottom-nav-height);
@@ -1582,11 +1594,20 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          height: calc(100% - var(--feed-info-panel-height));
+          height: var(--feed-image-height);
           border-radius: inherit;
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
           overflow: hidden;
+        }
+
+        :global(.feed-swipe-deck .swipe-card-image),
+        :global(.feed-swipe-deck .swipe-card-placeholder) {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center 35%;
         }
 
         :global(.feed-swipe-deck .swipe-card-info) {
@@ -1732,6 +1753,8 @@ export default function FeedPage() {
           .feed-page {
             --feed-deck-width: min(calc(100vw - 32px), 440px);
             --feed-deck-height: clamp(520px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 720px);
+            --feed-image-height: calc(var(--feed-deck-height) - var(--feed-info-panel-height));
+            --feed-info-panel-height: clamp(238px, 38%, 292px);
           }
 
           .feed-swipe-deck {

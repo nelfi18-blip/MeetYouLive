@@ -109,15 +109,10 @@ exports.likeUser = async (req, res) => {
     // Check if the other user already liked back → mutual match
     const mutual = await Like.findOne({ from: userId, to: req.userId });
 
-    let matchInfo = null;
-    if (mutual) {
-      matchInfo = await handleMatch(req.userId, userId, getIO());
-    }
-
     res.json({
       success: true,
       match: !!mutual,
-      message: mutual ? "Match creado" : "Like registrado",
+      message: "",
     });
 
     Promise.resolve()
@@ -125,6 +120,11 @@ exports.likeUser = async (req, res) => {
         // Notify target of the like and queue FCM in the background so the
         // mobile feed never waits on non-critical delivery services.
         const io = getIO();
+        let matchInfo = null;
+        if (mutual) {
+          matchInfo = await handleMatch(req.userId, userId, io);
+        }
+
         const knownLikerName = matchInfo?.likerName || "";
         const [liker, likedUser] = await Promise.all([
           knownLikerName ? null : User.findById(req.userId).select("username name").lean(),
@@ -159,12 +159,12 @@ exports.likeUser = async (req, res) => {
     trackEvent(req.userId, "swipe").catch(() => {});
   } catch (err) {
     if (err.code === 11000) {
-      const mutual = await Like.findOne({ from: userId, to: req.userId });
+      const mutual = await Like.findOne({ from: userId, to: req.userId }).catch(() => null);
       trackEvent(req.userId, "swipe").catch(() => {});
       return res.json({
         success: true,
         match: !!mutual,
-        message: mutual ? "Match creado" : "Like registrado",
+        message: "",
       });
     }
     res.status(500).json({ success: false, message: err.message || "No se pudo registrar el like" });
@@ -179,9 +179,9 @@ exports.unlikeUser = async (req, res) => {
   }
   try {
     await Like.deleteOne({ from: req.userId, to: userId });
-    res.json({ success: true, match: false, message: "Like removido" });
+    res.json({ success: true, match: false, message: "" });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message || "No se pudo quitar el like" });
+    res.status(500).json({ success: false, message: err.message || "No se pudo registrar el rechazo" });
   }
 };
 

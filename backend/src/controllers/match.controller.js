@@ -157,7 +157,12 @@ exports.likeUser = async (req, res) => {
     trackEvent(req.userId, "swipe").catch(() => {});
   } catch (err) {
     if (err.code === 11000) {
-      const mutual = await Like.findOne({ from: userId, to: req.userId }).catch(() => null);
+      let mutual;
+      try {
+        mutual = await Like.findOne({ from: userId, to: req.userId });
+      } catch (lookupErr) {
+        return res.status(500).json({ success: false, message: lookupErr.message || "No se pudo registrar el like" });
+      }
       trackEvent(req.userId, "swipe").catch(() => {});
       return res.json({
         success: true,

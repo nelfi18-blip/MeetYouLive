@@ -1115,10 +1115,11 @@ export default function FeedPage() {
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      const message = err.name === "AbortError"
-        ? t("feed.serverStarting")
-        : err.message || (isLike ? t("feed.likeError") : t("feed.passError"));
-      setError(message);
+      setError(
+        err.name === "AbortError"
+          ? t("feed.serverStarting")
+          : err.message || (isLike ? t("feed.likeError") : t("feed.passError"))
+      );
       return false;
     } finally {
       clearTimeout(timeoutId);

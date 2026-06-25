@@ -112,7 +112,7 @@ exports.likeUser = async (req, res) => {
     res.json({
       success: true,
       match: !!mutual,
-      message: "",
+      message: mutual ? "Match creado" : "Like registrado",
     });
 
     Promise.resolve()
@@ -164,7 +164,7 @@ exports.likeUser = async (req, res) => {
       return res.json({
         success: true,
         match: !!mutual,
-        message: "",
+        message: mutual ? "Match creado" : "Like registrado",
       });
     }
     res.status(500).json({ success: false, message: err.message || "No se pudo registrar el like" });
@@ -179,9 +179,9 @@ exports.unlikeUser = async (req, res) => {
   }
   try {
     await Like.deleteOne({ from: req.userId, to: userId });
-    res.json({ success: true, match: false, message: "" });
+    res.json({ success: true, match: false, message: "Like removido" });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message || "No se pudo registrar el rechazo" });
+    res.status(500).json({ success: false, message: err.message || "No se pudo quitar el like" });
   }
 };
 

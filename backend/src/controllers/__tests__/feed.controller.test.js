@@ -130,11 +130,72 @@ describe("getFeed", () => {
       expect.objectContaining({
         success: true,
         feedMode: "strict",
+        debug: expect.objectContaining({
+          matchedProfiles: 1,
+          fallbackUsed: false,
+        }),
         profiles: [expect.objectContaining({ _id: otherUserId })],
         recommendedProfiles: [expect.objectContaining({ _id: otherUserId })],
       })
     );
     expect(User.find).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    [
+      "men",
+      { ...currentUser, gender: "female", interestedIn: "men" },
+      { $in: ["male", "man"] },
+      { $in: ["", null, "women", "female", "both"] },
+    ],
+    [
+      "women",
+      { ...currentUser, gender: "male", interestedIn: "women" },
+      { $in: ["female", "woman"] },
+      { $in: ["", null, "men", "male", "both"] },
+    ],
+    [
+      "both",
+      { ...currentUser, gender: "male", interestedIn: "both" },
+      { $in: ["female", "male", "woman", "man"] },
+      { $in: ["", null, "men", "male", "both"] },
+    ],
+  ])("strict feed applies %s discovery gender preferences", async (preferenceType, viewer, expectedGender, expectedInterestedIn) => {
+    const { getFeed, User, Live, Like } = setupController();
+    const strictProfile = {
+      _id: otherUserId,
+      name: "Strict Candidate",
+      username: `${preferenceType}_candidate`,
+      gender: expectedGender.$in[0],
+      interestedIn: "both",
+      avatar: "https://example.com/strict.jpg",
+      profilePhotos: ["https://example.com/strict.jpg"],
+      images: [{ url: "https://example.com/strict.jpg", isPrimary: true }],
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(viewer));
+    User.aggregate.mockResolvedValue([strictProfile]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+
+    const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
+    expect(strictMatch.gender).toEqual(expectedGender);
+    expect(strictMatch.interestedIn).toEqual(expectedInterestedIn);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedMode: "strict",
+        profiles: [
+          expect.objectContaining({
+            _id: otherUserId,
+          }),
+        ],
+      })
+    );
   });
 
   test("ignoreExclude ignores client and liked exclusions but keeps self excluded", async () => {
@@ -213,6 +274,63 @@ describe("getFeed", () => {
         role: { $in: ["user", "User"] },
         isBlocked: { $ne: true },
         isSuspended: { $ne: true },
+      })
+    );
+  });
+
+  test("betaFallback keeps gender and reciprocal interestedIn preferences", async () => {
+    const { getFeed, User, Live, Like } = setupController();
+    const viewerSeekingMen = {
+      ...currentUser,
+      gender: "female",
+      interestedIn: "men",
+    };
+    const fallbackProfile = {
+      _id: otherUserId,
+      name: "Fallback Candidate",
+      username: "fallback_candidate",
+      role: "User",
+      gender: "male",
+      interestedIn: "women",
+      isBlocked: false,
+      isSuspended: false,
+      avatar: "/uploads/fallback.jpg",
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(viewerSeekingMen));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([fallbackProfile]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ limit: "10" }), res);
+
+    const fallbackMatch = User.find.mock.calls[2][0];
+    expect(fallbackMatch.gender).toEqual({ $in: ["male", "man"] });
+    expect(fallbackMatch.interestedIn).toEqual({ $in: ["", null, "women", "female", "both"] });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedMode: "betaFallback",
+        debug: expect.objectContaining({
+          feedMode: "betaFallback",
+          matchedProfiles: 1,
+          fallbackUsed: true,
+          filtersApplied: expect.objectContaining({
+            gender: true,
+            reciprocalInterestedIn: true,
+          }),
+          genderPreference: expect.objectContaining({
+            interestedIn: "men",
+            viewerGender: "female",
+            candidateGenderFilter: { $in: ["male", "man"] },
+          }),
+        }),
+        profiles: [expect.objectContaining({ _id: otherUserId })],
       })
     );
   });

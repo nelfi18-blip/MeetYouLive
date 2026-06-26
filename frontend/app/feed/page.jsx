@@ -888,7 +888,8 @@ export default function FeedPage() {
       const previousCurrentProfile = profileIdBeforeRefresh
         ? profilesBeforeRefresh.find((profile) => getProfileId(profile) === profileIdBeforeRefresh)
         : null;
-      const visibleProfiles = previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)
+      const canPreserveCurrentProfile = !fresh;
+      const visibleProfiles = canPreserveCurrentProfile && previousCurrentProfile && !profileIds.has(profileIdBeforeRefresh)
         ? [previousCurrentProfile, ...uniqueProfiles]
         : uniqueProfiles;
       const nextProfileIds = new Set(visibleProfiles.map(getProfileId).filter(Boolean));

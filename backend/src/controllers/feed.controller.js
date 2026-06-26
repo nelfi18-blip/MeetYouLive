@@ -196,6 +196,28 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch =
   };
 };
 
+const pickGenderDiscoveryFilters = (discoveryMatch = {}) => {
+  const filters = {};
+  if (discoveryMatch.gender) filters.gender = discoveryMatch.gender;
+  if (discoveryMatch.interestedIn) filters.interestedIn = discoveryMatch.interestedIn;
+  return filters;
+};
+
+const buildFiltersAppliedDebug = ({ discoveryMatch = {}, locationMatch = null, ignoreExclude = false } = {}) => ({
+  gender: Boolean(discoveryMatch.gender),
+  reciprocalInterestedIn: Boolean(discoveryMatch.interestedIn),
+  age: Boolean(discoveryMatch.birthdate),
+  location: Boolean(locationMatch),
+  excludedProfiles: !ignoreExclude,
+});
+
+const buildGenderPreferenceDebug = (currentUserProfile = null, discoveryMatch = {}) => ({
+  interestedIn: currentUserProfile?.interestedIn || null,
+  viewerGender: currentUserProfile?.gender || null,
+  candidateGenderFilter: discoveryMatch.gender || null,
+  reciprocalInterestedInFilter: discoveryMatch.interestedIn || null,
+});
+
 const buildRecommendedProfilesPipeline = (match, limit) => [
   { $match: match },
   {
@@ -337,12 +359,14 @@ const serializeFeedProfilesAllowingMissingPhotos = (req, profiles, limit) =>
     .filter((profile) => profile._id)
     .slice(0, limit);
 
-const getBetaFallbackProfiles = async (req, currentUserId) => {
+const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = null) => {
   const limit = parseFeedLimit(req.query.limit);
+  const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
   const match = {
     role: { $in: ["user", "User"] },
     isBlocked: { $ne: true },
     isSuspended: { $ne: true },
+    ...pickGenderDiscoveryFilters(discoveryMatch),
     $or: [
       { name: { $exists: true, $type: "string", $ne: "" } },
       { username: { $exists: true, $type: "string", $ne: "" } },
@@ -828,11 +852,12 @@ const getFeed = async (req, res) => {
     }
 
     let discoveryMatch = {};
+    let locationMatch = null;
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
-      const locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
+      locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
       const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
       recommendedProfilesPrimary = await User.aggregate(
@@ -902,7 +927,7 @@ const getFeed = async (req, res) => {
         console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
       }
 
-      serializedRecommendedProfiles = await getBetaFallbackProfiles(req, authenticatedUserId);
+      serializedRecommendedProfiles = await getBetaFallbackProfiles(req, authenticatedUserId, currentUserProfile);
       feedMode = "betaFallback";
       returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
       fallbackDebug = {
@@ -957,9 +982,18 @@ const getFeed = async (req, res) => {
     }
 
     const responseTime = Date.now() - startTime;
+    const filtersApplied = buildFiltersAppliedDebug({ discoveryMatch, locationMatch, ignoreExclude });
+    const genderPreference = buildGenderPreferenceDebug(currentUserProfile, discoveryMatch);
+    const matchedProfiles = serializedRecommendedProfiles.length;
+    const fallbackUsed = feedMode === "betaFallback";
     console.log(`[Feed API] Response ready in ${responseTime}ms:`, {
+      feedMode,
+      filtersApplied,
+      genderPreference,
+      matchedProfiles,
+      fallbackUsed,
       activeLives: serializedLives.length,
-      recommendedProfiles: serializedRecommendedProfiles.length,
+      recommendedProfiles: matchedProfiles,
       featuredCreators: serializedFeaturedCreators.length
     });
 
@@ -971,7 +1005,16 @@ const getFeed = async (req, res) => {
       reason: feedMode === "betaFallback"
         ? "No hubo candidatos con filtros estrictos. Mostrando usuarios de prueba en modo Beta."
         : "",
-      debug: { ...(zeroCandidateDebug || {}), ...(fallbackDebug || {}), ignoreExclude },
+      debug: {
+        ...(zeroCandidateDebug || {}),
+        ...(fallbackDebug || {}),
+        feedMode,
+        filtersApplied,
+        genderPreference,
+        matchedProfiles,
+        fallbackUsed,
+        ignoreExclude,
+      },
       activeLives: serializedLives,
       recommendedProfiles: serializedRecommendedProfiles,
       profiles: serializedRecommendedProfiles,
@@ -997,17 +1040,35 @@ const getFeed = async (req, res) => {
       ? "Error al cargar el feed"
       : `Error al cargar el feed: ${error.message}`;
     try {
+      const ignoreExclude = req.query.ignoreExclude === "true";
       const authenticatedUserId = toObjectIdOrNull(req.userId);
-      const fallbackProfiles = await getBetaFallbackProfiles(req, authenticatedUserId);
+      const fallbackViewerProfile = authenticatedUserId
+        ? await User.findById(authenticatedUserId)
+            .select("gender interestedIn discoveryPreferences maxDistanceKm discoveryScope")
+            .lean()
+            .then((profile) => normalizeDiscoveryCompatibility(profile))
+            .catch(() => null)
+        : null;
+      const fallbackDiscoveryMatch = buildDiscoveryMatch(fallbackViewerProfile);
+      const fallbackProfiles = await getBetaFallbackProfiles(req, authenticatedUserId, fallbackViewerProfile);
+      const matchedProfiles = fallbackProfiles.length;
       res.set("Cache-Control", "no-store");
       return res.json({
         success: true,
         feedMode: "betaFallback",
         reason: "El feed estricto falló. Mostrando usuarios de prueba en modo Beta.",
         debug: {
+          feedMode: "betaFallback",
+          filtersApplied: buildFiltersAppliedDebug({
+            discoveryMatch: fallbackDiscoveryMatch,
+            ignoreExclude,
+          }),
+          genderPreference: buildGenderPreferenceDebug(fallbackViewerProfile, fallbackDiscoveryMatch),
+          matchedProfiles,
+          fallbackUsed: true,
           strictError: error.message,
-          fallbackCount: fallbackProfiles.length,
-          ignoreExclude: req.query.ignoreExclude === "true",
+          fallbackCount: matchedProfiles,
+          ignoreExclude,
         },
         recommendedProfiles: fallbackProfiles,
         profiles: fallbackProfiles,

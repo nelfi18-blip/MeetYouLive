@@ -306,12 +306,6 @@ export default function ExplorePage() {
         >
           <LiveTabIcon /> Directos en vivo
         </button>
-        <button
-          className={`explore-tab${tab === "discover" ? " active" : ""}`}
-          onClick={() => setTab("discover")}
-        >
-          <PeopleIcon /> Descubrir personas
-        </button>
         <Link href="/crush" className="explore-tab crush-link">
           ⚡ Crush
         </Link>

@@ -251,9 +251,6 @@ export default function LivePage() {
             <Link href="/live/start" className="btn-start-live">
               🚀 Iniciar Live
             </Link>
-            <Link href="/feed" className="btn-feed-alt">
-              Ir al Feed
-            </Link>
           </div>
         </div>
       )}
@@ -662,25 +659,6 @@ export default function LivePage() {
 
         .btn-start-live:active {
           transform: scale(0.97);
-        }
-
-        .btn-feed-alt {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.65rem 1.25rem;
-          border-radius: 999px;
-          border: 1px solid rgba(139,92,246,0.35);
-          background: rgba(139,92,246,0.08);
-          color: #c4b5fd;
-          font-size: 0.85rem;
-          font-weight: 700;
-          text-decoration: none;
-          transition: all 0.18s;
-        }
-
-        .btn-feed-alt:hover {
-          background: rgba(139,92,246,0.18);
-          border-color: rgba(139,92,246,0.55);
         }
       `}</style>
     </div>

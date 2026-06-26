@@ -107,8 +107,8 @@ export default function LivePage() {
             {loading
               ? "Cargando transmisiones…"
               : lives.length > 0
-                ? `${lives.length} stream${lives.length !== 1 ? "s" : ""} activo${lives.length !== 1 ? "s" : ""} ahora mismo`
-                : "No hay streams en vivo ahora"}
+                ? `${lives.length} directo${lives.length !== 1 ? "s" : ""} activo${lives.length !== 1 ? "s" : ""} ahora mismo`
+                : "No hay directos en vivo ahora"}
           </p>
         </div>
         <div className="live-hero-actions">
@@ -128,7 +128,7 @@ export default function LivePage() {
         <section className="section-block">
           <div className="section-header">
             <h2 className="section-title">🔴 En vivo ahora</h2>
-            <span className="section-count">{loading ? "" : `${trendingLives.length} stream${trendingLives.length !== 1 ? "s" : ""}`}</span>
+            <span className="section-count">{loading ? "" : `${trendingLives.length} directo${trendingLives.length !== 1 ? "s" : ""}`}</span>
           </div>
 
           {!loading && lives.length > 0 && (
@@ -153,11 +153,11 @@ export default function LivePage() {
         </section>
       )}
 
-      {/* ── Más directos en vivo ── */}
+      {/* ── Otros directos en vivo ── */}
       {!loading && restLives.length > 0 && (
         <section className="section-block">
           <div className="section-header">
-            <h2 className="section-title">🚀 Más directos en vivo</h2>
+            <h2 className="section-title">🚀 Otros directos en vivo</h2>
           </div>
           <div className="streams-grid">
             {restLives.map((live) => (

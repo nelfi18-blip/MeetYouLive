@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
 import LiveActivityFeed from "@/components/LiveActivityFeed";
@@ -11,12 +11,22 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TRENDING_COUNT = 3;
 const POLL_INTERVAL_MS = 20000;
+const CATEGORIES = ["Todos", "Música", "Gaming", "Chat", "Dating"];
+const CAT_ICONS = {
+  Todos: "🌐",
+  Música: "🎵",
+  Gaming: "🎮",
+  Chat: "💬",
+  Dating: "💕",
+};
 
 export default function LivePage() {
   const [lives, setLives] = useState([]);
   const [newLiveIds, setNewLiveIds] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState("Todos");
+  const [search, setSearch] = useState("");
   const knownIdsRef = useRef(null);
 
   const fetchLives = async (isInitial = false) => {
@@ -86,9 +96,31 @@ export default function LivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const trendingLives = lives.slice(0, TRENDING_COUNT);
-  const restLives = lives.slice(TRENDING_COUNT);
-  const totalViewers = lives.reduce((sum, l) => sum + (l.viewerCount || 0), 0);
+  const filteredLives = useMemo(() => {
+    let result = lives;
+
+    if (category !== "Todos") {
+      result = result.filter(
+        (live) => (live.category || "").toLowerCase() === category.toLowerCase(),
+      );
+    }
+
+    const query = search.trim().toLowerCase();
+    if (query) {
+      result = result.filter((live) => {
+        const title = live.title || "";
+        const username = live.user?.username || live.user?.name || "";
+        return title.toLowerCase().includes(query) || username.toLowerCase().includes(query);
+      });
+    }
+
+    return result;
+  }, [lives, category, search]);
+
+  const trendingLives = filteredLives.slice(0, TRENDING_COUNT);
+  const restLives = filteredLives.slice(TRENDING_COUNT);
+  const totalViewers = filteredLives.reduce((sum, l) => sum + (l.viewerCount || 0), 0);
+  const hasFilters = search.trim() || category !== "Todos";
 
   return (
     <div className="live-page">
@@ -120,6 +152,38 @@ export default function LivePage() {
 
       {error && <div className="banner-error">{error}</div>}
 
+      <section className="live-controls" aria-label="Filtros de directos en vivo">
+        <div className="search-wrap">
+          <span className="search-icon-inner">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </span>
+          <input
+            className="input search-input"
+            type="text"
+            placeholder="Buscar streams…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="category-bar">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`cat-pill${category === cat ? " active" : ""}`}
+              onClick={() => setCategory(cat)}
+            >
+              <span className="cat-icon">{CAT_ICONS[cat]}</span>
+              <span>{cat}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* ── 🔴 LIVE ACTIVITY FEED — real-time events ── */}
       <LiveActivityFeed lives={lives} newLiveIds={newLiveIds} />
 
@@ -131,7 +195,7 @@ export default function LivePage() {
             <span className="section-count">{loading ? "" : `${trendingLives.length} directo${trendingLives.length !== 1 ? "s" : ""}`}</span>
           </div>
 
-          {!loading && lives.length > 0 && (
+          {!loading && filteredLives.length > 0 && (
             <div className="urgency-strip">
               <span className="urgency-pill urgency-clock">⏳ Live activo ahora</span>
               <span className="urgency-pill urgency-fire">🔥 Únete antes que termine</span>
@@ -167,7 +231,7 @@ export default function LivePage() {
         </section>
       )}
 
-      {!loading && lives.length === 0 && !error && (
+      {!loading && filteredLives.length === 0 && !error && (
         <div className="empty-state">
           <div className="empty-glow" />
 
@@ -175,8 +239,12 @@ export default function LivePage() {
             <span className="empty-icon-emoji">🎥</span>
           </div>
 
-          <h3 className="empty-title">No hay directos en vivo ahora</h3>
-          <p className="empty-sub">Vuelve más tarde o inicia tu propia transmisión.</p>
+          <h3 className="empty-title">Sin resultados</h3>
+          <p className="empty-sub">
+            {hasFilters && lives.length > 0
+              ? "No hay streams que coincidan con tu búsqueda."
+              : "No hay streams en vivo ahora"}
+          </p>
 
           <div className="empty-actions">
             <Link href="/live/start" className="btn-start-live">
@@ -327,6 +395,68 @@ export default function LivePage() {
           background: rgba(139,92,246,0.22);
           border-color: rgba(139,92,246,0.65);
           box-shadow: 0 0 16px rgba(139,92,246,0.25);
+        }
+
+        /* Controls */
+        .live-controls {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .search-wrap {
+          position: relative;
+          width: min(100%, 420px);
+        }
+
+        .search-icon-inner {
+          position: absolute;
+          left: 0.9rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-dim);
+          display: flex;
+          pointer-events: none;
+        }
+
+        .search-input {
+          padding-left: 2.4rem !important;
+        }
+
+        .category-bar {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .cat-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.42rem 1rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.03);
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition);
+        }
+
+        .cat-pill:hover {
+          color: var(--text);
+        }
+
+        .cat-pill.active {
+          background: rgba(224,64,251,0.12);
+          border-color: rgba(224,64,251,0.3);
+          color: var(--accent-2);
+          box-shadow: 0 0 10px rgba(224,64,251,0.15);
+        }
+
+        .cat-icon {
+          font-size: 0.9rem;
         }
 
         /* Urgency strip */

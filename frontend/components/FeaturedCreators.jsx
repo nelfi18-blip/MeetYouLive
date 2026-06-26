@@ -42,6 +42,18 @@ const PODIUM = [
   },
 ];
 
+function toCreatorList(payload) {
+  if (Array.isArray(payload)) return payload.filter(Boolean);
+  if (Array.isArray(payload?.creators)) return payload.creators.filter(Boolean);
+  if (Array.isArray(payload?.items)) return payload.items.filter(Boolean);
+  if (Array.isArray(payload?.data)) return payload.data.filter(Boolean);
+  return [];
+}
+
+function getCreatorKey(creator, index) {
+  return String(creator?.userId || creator?._id || `creator-${index}`);
+}
+
 export default function FeaturedCreators() {
   const { data: session } = useSession();
   const [data, setData] = useState(null);
@@ -77,7 +89,7 @@ export default function FeaturedCreators() {
     } else {
       fetch(`${API_URL}/api/creators/discovery?limit=20`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d) setDiscoveryCreators(d); })
+        .then((d) => setDiscoveryCreators(toCreatorList(d)))
         .catch(() => {})
         .finally(() => setLoading(false));
     }
@@ -116,8 +128,8 @@ export default function FeaturedCreators() {
 
         {!loading && !isEmpty && (
           <div className="fc-discovery-grid">
-            {discoveryCreators.map((creator) => (
-              <CreatorDiscoveryCard key={creator.userId} creator={creator} />
+            {discoveryCreators.map((creator, index) => (
+              <CreatorDiscoveryCard key={getCreatorKey(creator, index)} creator={creator} />
             ))}
           </div>
         )}
@@ -210,10 +222,10 @@ export default function FeaturedCreators() {
   // For creators: show creator ranking view
   const items =
     activeTab === "live"
-      ? data?.liveNow  || []
+      ? toCreatorList(data?.liveNow)
       : activeTab === "today"
-      ? data?.topToday || []
-      : data?.topWeek  || [];
+      ? toCreatorList(data?.topToday)
+      : toCreatorList(data?.topWeek);
 
   const isEmpty        = !loading && items.length === 0;
   const activePeriod   = TABS.find((t) => t.key === activeTab)?.period;

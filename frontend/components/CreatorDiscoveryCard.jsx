@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { getInitial, getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 /**
  * Tango-style creator discovery card for public users
@@ -8,16 +9,27 @@ import Link from "next/link";
  * Hides: private earnings, payouts, agency commission
  */
 export default function CreatorDiscoveryCard({ creator }) {
-  const displayName = creator.username || creator.name || "Creador";
-  const initial = displayName[0]?.toUpperCase() || "C";
-  
-  const hasAvatar = creator.avatar && typeof creator.avatar === "string" && creator.avatar.trim().length > 0;
-  const avatarUrl = hasAvatar ? `${process.env.NEXT_PUBLIC_API_URL}/${creator.avatar}` : null;
+  const safeCreator = creator && typeof creator === "object" ? creator : {};
+  const displayName =
+    [safeCreator.username, safeCreator.name]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .find(Boolean) || "Creador";
+  const initial = getInitial(displayName) || "C";
+  const avatarUrl = getPrimaryProfileImage(safeCreator);
+  const userId = safeCreator.userId || safeCreator._id || "";
+  const topGift = safeCreator.topGift && typeof safeCreator.topGift === "object" ? safeCreator.topGift : null;
+  const topGiftName = typeof topGift?.name === "string" && topGift.name.trim() ? topGift.name.trim() : "Regalo";
+  const topGiftCost = Number.isFinite(topGift?.coinCost) ? topGift.coinCost : 0;
+  const totalReceivedCoins = Number.isFinite(safeCreator.totalReceivedCoins) ? safeCreator.totalReceivedCoins : 0;
+  const superGiftCount = Number.isFinite(safeCreator.superGiftCount) ? safeCreator.superGiftCount : 0;
+  const topFanCount = Number.isFinite(safeCreator.topFanCount) ? safeCreator.topFanCount : 0;
+  const followersCount = Number.isFinite(safeCreator.followersCount) ? safeCreator.followersCount : 0;
+  const viewerCount = Number.isFinite(safeCreator.viewerCount) ? safeCreator.viewerCount : 0;
 
   return (
-    <div className={`creator-card${creator.isLive ? " creator-card-live" : ""}`}>
+    <div className={`creator-card${safeCreator.isLive ? " creator-card-live" : ""}`}>
       {/* Live badge */}
-      {creator.isLive && (
+      {safeCreator.isLive && (
         <div className="creator-live-badge">
           <span className="live-dot" />
           EN VIVO
@@ -31,8 +43,8 @@ export default function CreatorDiscoveryCard({ creator }) {
         ) : (
           <div className="creator-avatar-fallback">{initial}</div>
         )}
-        {creator.isPremium && <span className="creator-premium-badge">⭐</span>}
-        {creator.isVerifiedCreator && <span className="creator-verified-badge">✓</span>}
+        {safeCreator.isPremium && <span className="creator-premium-badge">⭐</span>}
+        {safeCreator.isVerifiedCreator && <span className="creator-verified-badge">✓</span>}
       </div>
 
       {/* Creator info */}
@@ -43,64 +55,64 @@ export default function CreatorDiscoveryCard({ creator }) {
         <div className="creator-stats">
           <div className="stat-item">
             <span className="stat-icon">🪙</span>
-            <span className="stat-value">{(creator.totalReceivedCoins || 0).toLocaleString()}</span>
+            <span className="stat-value">{totalReceivedCoins.toLocaleString()}</span>
             <span className="stat-label">recibido</span>
           </div>
 
-          {creator.superGiftCount > 0 && (
+          {superGiftCount > 0 && (
             <div className="stat-item">
               <span className="stat-icon">💎</span>
-              <span className="stat-value">{creator.superGiftCount}</span>
+              <span className="stat-value">{superGiftCount}</span>
               <span className="stat-label">super gifts</span>
             </div>
           )}
 
-          {creator.topFanCount > 0 && (
+          {topFanCount > 0 && (
             <div className="stat-item">
               <span className="stat-icon">⭐</span>
-              <span className="stat-value">{creator.topFanCount}</span>
+              <span className="stat-value">{topFanCount}</span>
               <span className="stat-label">top fans</span>
             </div>
           )}
 
-          {creator.followersCount > 0 && (
+          {followersCount > 0 && (
             <div className="stat-item">
               <span className="stat-icon">👥</span>
-              <span className="stat-value">{creator.followersCount}</span>
+              <span className="stat-value">{followersCount}</span>
               <span className="stat-label">seguidores</span>
             </div>
           )}
         </div>
 
         {/* Top gift */}
-        {creator.topGift && (
+        {topGift && (
           <div className="top-gift-badge">
             <span className="gift-icon">🎁</span>
-            Top: {creator.topGift.name} ({creator.topGift.coinCost} 🪙)
+            Top: {topGiftName} ({topGiftCost} 🪙)
           </div>
         )}
 
         {/* Live stats */}
-        {creator.isLive && creator.viewerCount > 0 && (
+        {safeCreator.isLive && viewerCount > 0 && (
           <div className="live-viewers">
             <span className="viewers-icon">👁</span>
-            {creator.viewerCount} viendo ahora
+            {viewerCount} viendo ahora
           </div>
         )}
       </div>
 
       {/* Action buttons */}
       <div className="creator-actions">
-        {creator.isLive && creator.currentLiveId ? (
-          <Link href={`/live/${creator.currentLiveId}`} className="btn-live">
+        {safeCreator.isLive && safeCreator.currentLiveId ? (
+          <Link href={`/live/${safeCreator.currentLiveId}`} className="btn-live">
             🔴 Ver en vivo
           </Link>
         ) : (
-          <Link href={`/profile/${creator.userId}`} className="btn-profile">
+          <Link href={userId ? `/profile/${userId}` : "/explore"} className="btn-profile">
             Ver perfil
           </Link>
         )}
-        <Link href={`/profile/${creator.userId}?gift=true`} className="btn-gift">
+        <Link href={userId ? `/profile/${userId}?gift=true` : "/gifts"} className="btn-gift">
           🎁 Regalar
         </Link>
       </div>

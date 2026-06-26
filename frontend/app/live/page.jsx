@@ -163,6 +163,7 @@ export default function LivePage() {
           <input
             className="input search-input"
             type="text"
+            aria-label="Buscar streams en vivo"
             placeholder="Buscar streams…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LiveCard from "@/components/LiveCard";
-import FeaturedCreators from "@/components/FeaturedCreators";
-import ActivityBar from "@/components/ActivityBar";
 import LiveActivityFeed from "@/components/LiveActivityFeed";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
@@ -12,7 +10,6 @@ import { filterActiveLives } from "@/lib/liveFilters";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const TRENDING_COUNT = 3;
-const ONLINE_FLOOR = 12;
 const POLL_INTERVAL_MS = 20000;
 
 export default function LivePage() {
@@ -20,7 +17,6 @@ export default function LivePage() {
   const [newLiveIds, setNewLiveIds] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [onlineCount, setOnlineCount] = useState(ONLINE_FLOOR);
   const knownIdsRef = useRef(null);
 
   const fetchLives = async (isInitial = false) => {
@@ -85,13 +81,6 @@ export default function LivePage() {
   useEffect(() => {
     fetchLives(true);
 
-    fetch(`${API_URL}/api/stats/activity`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.onlineCount) setOnlineCount(Math.max(data.onlineCount, ONLINE_FLOOR));
-      })
-      .catch((err) => console.error("[LivePage] activity stats fetch failed:", err));
-
     const pollTimer = setInterval(() => fetchLives(false), POLL_INTERVAL_MS);
     return () => clearInterval(pollTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,16 +115,10 @@ export default function LivePage() {
           <Link href="/live/start" className="live-hero-start">
             🚀 Iniciar Live
           </Link>
-          <Link href="/explore" className="live-hero-cta">
-            🔥 Ver todos los lives →
-          </Link>
         </div>
       </div>
 
       {error && <div className="banner-error">{error}</div>}
-
-      {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
-      <ActivityBar variant="strip" />
 
       {/* ── 🔴 LIVE ACTIVITY FEED — real-time events ── */}
       <LiveActivityFeed lives={lives} newLiveIds={newLiveIds} />
@@ -170,11 +153,11 @@ export default function LivePage() {
         </section>
       )}
 
-      {/* ── Nuevos creadores / rest ── */}
+      {/* ── Más directos en vivo ── */}
       {!loading && restLives.length > 0 && (
         <section className="section-block">
           <div className="section-header">
-            <h2 className="section-title">🚀 Nuevos creadores</h2>
+            <h2 className="section-title">🚀 Más directos en vivo</h2>
           </div>
           <div className="streams-grid">
             {restLives.map((live) => (
@@ -192,35 +175,19 @@ export default function LivePage() {
             <span className="empty-icon-emoji">🎥</span>
           </div>
 
-          <h3 className="empty-title">No hay streams en vivo ahora</h3>
-          <p className="empty-sub">💫 Descubre creadores destacados mientras tanto</p>
-
-          {/* FOMO indicators */}
-          <div className="empty-fomo-row">
-            <span className="fomo-pill fomo-fire" aria-label={`${onlineCount} personas conectadas ahora`}>🔥 {onlineCount} personas conectadas ahora</span>
-            <span className="fomo-pill fomo-cam" role="status" aria-label="Nuevos lives pronto">🎥 Nuevos lives pronto</span>
-          </div>
+          <h3 className="empty-title">No hay directos en vivo ahora</h3>
+          <p className="empty-sub">Vuelve más tarde o inicia tu propia transmisión.</p>
 
           <div className="empty-actions">
             <Link href="/live/start" className="btn-start-live">
               🚀 Iniciar Live
             </Link>
-            <Link href="/explore" className="btn-explore-alt">
-              Explorar creadores
+            <Link href="/feed" className="btn-feed-alt">
+              Ir al Feed
             </Link>
           </div>
-
-          <p className="empty-hint">También puedes ver vídeos recientes o seguir a tus creadores favoritos</p>
         </div>
       )}
-
-      {/* ── Creator discovery / featured ── */}
-      <section className="section-block">
-        <div className="section-header">
-          <h2 className="section-title">⭐ Creadores destacados</h2>
-        </div>
-        <FeaturedCreators />
-      </section>
 
       <style jsx>{`
         .live-page { display: flex; flex-direction: column; gap: 2rem; }
@@ -531,38 +498,6 @@ export default function LivePage() {
           z-index: 1;
         }
 
-        .empty-fomo-row {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          justify-content: center;
-          position: relative;
-          z-index: 1;
-        }
-
-        .fomo-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.3rem;
-          font-size: 0.75rem;
-          font-weight: 700;
-          padding: 0.28rem 0.75rem;
-          border-radius: 999px;
-        }
-
-        .fomo-fire {
-          background: rgba(239,68,68,0.12);
-          border: 1px solid rgba(239,68,68,0.3);
-          color: #fca5a5;
-        }
-
-        .fomo-cam {
-          background: rgba(139,92,246,0.1);
-          border: 1px solid rgba(139,92,246,0.28);
-          color: #c4b5fd;
-        }
-
         .empty-actions {
           display: flex;
           align-items: center;
@@ -598,7 +533,7 @@ export default function LivePage() {
           transform: scale(0.97);
         }
 
-        .btn-explore-alt {
+        .btn-feed-alt {
           display: inline-flex;
           align-items: center;
           padding: 0.65rem 1.25rem;
@@ -612,17 +547,9 @@ export default function LivePage() {
           transition: all 0.18s;
         }
 
-        .btn-explore-alt:hover {
+        .btn-feed-alt:hover {
           background: rgba(139,92,246,0.18);
           border-color: rgba(139,92,246,0.55);
-        }
-
-        .empty-hint {
-          color: var(--text-dim);
-          font-size: 0.78rem;
-          margin: 0;
-          position: relative;
-          z-index: 1;
         }
       `}</style>
     </div>

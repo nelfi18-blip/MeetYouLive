@@ -94,11 +94,11 @@ export default function ExplorePage() {
       const data = await res.json();
       setLives(filterActiveLives(data));
     } catch {
-      setLiveError(t("explore.errorLoadingLives"));
+      setLiveError("explore.errorLoadingLives");
     } finally {
       setLiveLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     loadLives();
@@ -113,7 +113,7 @@ export default function ExplorePage() {
 
     fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + token } })
       .then((r) => {
-        if (!r.ok) throw new Error("Unable to load current user");
+        if (!r.ok) throw new Error();
         return r.json();
       })
       .then((d) => setCurrentUser(d || null))
@@ -368,7 +368,7 @@ export default function ExplorePage() {
             ))}
           </div>
 
-          {liveError && <div className="banner-error">{liveError}</div>}
+          {liveError && <div className="banner-error">{t(liveError)}</div>}
 
           {hasNoLiveStreams ? (
             <div className="empty-state live-empty-state">

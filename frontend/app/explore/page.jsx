@@ -336,7 +336,9 @@ export default function ExplorePage() {
 
           {lives.length === 0 ? (
             <div className="empty-state live-empty-state">
-              <div className="empty-icon live-empty-icon" aria-hidden="true">📡</div>
+              <div className="empty-icon live-empty-icon">
+                <span aria-hidden="true">📡</span>
+              </div>
               <h3>{t("explore.noLiveTitle")}</h3>
               <p>{t("explore.noLiveDescription")}</p>
               <Link href="/live/start" className="btn btn-primary live-start-btn">
@@ -551,6 +553,10 @@ export default function ExplorePage() {
         .crush-action { border-color: rgba(251,191,36,0.2); color: #fbbf24; background: rgba(251,191,36,0.08); }
         .matches-action { border-color: rgba(255,45,120,0.2); color: var(--accent); background: rgba(255,45,120,0.08); }
         .profile-action { border-color: rgba(224,64,251,0.22); color: var(--accent-2); background: rgba(224,64,251,0.08); }
+
+        @media (max-width: 760px) {
+          .wait-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
 
         @media (max-width: 600px) {
           .explore-header { flex-direction: column; align-items: flex-start; }

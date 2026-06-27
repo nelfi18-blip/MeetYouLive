@@ -336,24 +336,24 @@ export default function ExplorePage() {
 
           {lives.length === 0 ? (
             <div className="empty-state live-empty-state">
-              <div className="empty-icon live-empty-icon">📡</div>
+              <div className="empty-icon live-empty-icon" aria-hidden="true">📡</div>
               <h3>{t("explore.noLiveTitle")}</h3>
               <p>{t("explore.noLiveDescription")}</p>
               <Link href="/live/start" className="btn btn-primary live-start-btn">
-                🎥 {t("explore.startLive")}
+                <span aria-hidden="true">🎥</span> {t("explore.startLive")}
               </Link>
 
               <div className="wait-actions">
                 <p className="wait-title">{t("explore.whileWaiting")}</p>
                 <div className="wait-action-grid">
                   <Link href="/crush" className="wait-action crush-action">
-                    ⚡ {t("explore.viewCrush")}
+                    <span aria-hidden="true">⚡</span> {t("explore.viewCrush")}
                   </Link>
                   <Link href="/matches" className="wait-action matches-action">
-                    ❤️ {t("explore.reviewMatches")}
+                    <span aria-hidden="true">❤️</span> {t("explore.reviewMatches")}
                   </Link>
                   <Link href="/profile" className="wait-action profile-action">
-                    👤 {t("explore.completeProfile")}
+                    <span aria-hidden="true">👤</span> {t("explore.completeProfile")}
                   </Link>
                 </div>
               </div>
@@ -557,6 +557,7 @@ export default function ExplorePage() {
           .search-wrap { width: 100%; }
           .live-empty-state { padding: 2.5rem 1rem; }
           .wait-action-grid { grid-template-columns: 1fr; }
+          .wait-action { min-height: 3.25rem; }
         }
       `}</style>
     </div>

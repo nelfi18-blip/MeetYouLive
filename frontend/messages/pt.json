@@ -271,8 +271,10 @@
   },
   "explore": {
     "noLiveTitle": "Não há transmissões ao vivo agora",
-    "noLiveDescription": "Ninguém está transmitindo agora. Seja o primeiro a iniciar uma transmissão ao vivo ou volte mais tarde.",
+    "noLiveDescription": "Ninguém está transmitindo agora. Explore novamente ou volte mais tarde.",
+    "errorLoadingLives": "Não foi possível carregar as transmissões ao vivo",
     "startLive": "Iniciar ao vivo",
+    "exploreLive": "Explorar ao vivo",
     "whileWaiting": "Enquanto espera, você pode:",
     "viewCrush": "Ver seus Crush",
     "reviewMatches": "Revisar seus Matches",

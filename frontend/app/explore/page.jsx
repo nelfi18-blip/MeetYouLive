@@ -3,10 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -49,6 +51,7 @@ function MatchTabIcon() {
 
 export default function ExplorePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { t } = useLanguage();
   const [tab, setTab] = useState("live");
 
@@ -58,6 +61,9 @@ export default function ExplorePage() {
   const [category, setCategory] = useState("Todos");
   const [search, setSearch] = useState("");
   const [liveError, setLiveError] = useState("");
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [localToken, setLocalToken] = useState(null);
 
   // ── Discover tab state ─────────────────────────────────────
   const [users, setUsers] = useState([]);
@@ -71,28 +77,54 @@ export default function ExplorePage() {
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
   const [boostPrice] = useState(100);
   const [passedIds, setPassedIds] = useState(new Set());
+  const authToken = session?.backendToken || localToken;
 
-  // ── Load lives ─────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_URL}/api/lives`)
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((d) => {
-        // Apply frontend safety filter
-        const safeLives = filterActiveLives(d);
-        setLives(safeLives);
-      })
-      .catch(() => setLiveError("No se pudo cargar los directos"));
-
-    // Fetch crush config for super crush price
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (token) {
-      fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: `Bearer ${token}` } })
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => { if (d?.superCrushPrice) setSuperCrushPrice(d.superCrushPrice); })
-        .catch(() => {});
+    if (typeof window !== "undefined") {
+      setLocalToken(localStorage.getItem("token"));
     }
   }, []);
 
+  // ── Load lives ─────────────────────────────────────────────
+  const loadLives = useCallback(async () => {
+    setLiveLoading(true);
+    setLiveError("");
+    try {
+      const res = await fetch(`${API_URL}/api/lives`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setLives(filterActiveLives(data));
+    } catch {
+      setLiveError("explore.errorLoadingLives");
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLives();
+  }, []);
+
+  useEffect(() => {
+    if (!authToken) {
+      setCurrentUser(null);
+      return;
+    }
+
+    fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + authToken } })
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((d) => setCurrentUser(d || null))
+      .catch(() => setCurrentUser(null));
+
+    // Fetch crush config for super crush price
+    fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: "Bearer " + authToken } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.superCrushPrice) setSuperCrushPrice(d.superCrushPrice); })
+      .catch(() => {});
+  }, [authToken]);
   // ── Filter lives ───────────────────────────────────────────
   useEffect(() => {
     let result = lives;
@@ -272,6 +304,7 @@ export default function ExplorePage() {
 
   const hasNoLiveStreams = lives.length === 0;
   const hasLivesButNoMatches = lives.length > 0 && filtered.length === 0;
+  const canGoLive = isApprovedCreator(currentUser);
 
   return (
     <div className="explore">
@@ -335,7 +368,7 @@ export default function ExplorePage() {
             ))}
           </div>
 
-          {liveError && <div className="banner-error">{liveError}</div>}
+          {liveError && <div className="banner-error">{t(liveError)}</div>}
 
           {hasNoLiveStreams ? (
             <div className="empty-state live-empty-state">
@@ -344,9 +377,20 @@ export default function ExplorePage() {
               </div>
               <h3>{t("explore.noLiveTitle")}</h3>
               <p>{t("explore.noLiveDescription")}</p>
-              <Link href="/live/start" className="btn btn-primary live-start-btn">
-                <span aria-hidden="true">🎥</span> {t("explore.startLive")}
-              </Link>
+              {canGoLive ? (
+                <Link href="/live/start" className="btn btn-primary live-start-btn">
+                  <span aria-hidden="true">🎥</span> {t("explore.startLive")}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary live-start-btn"
+                  onClick={loadLives}
+                  disabled={liveLoading}
+                >
+                  <span aria-hidden="true">📡</span> {t("explore.exploreLive")}
+                </button>
+              )}
 
               <div className="wait-actions">
                 <p className="wait-title">{t("explore.whileWaiting")}</p>

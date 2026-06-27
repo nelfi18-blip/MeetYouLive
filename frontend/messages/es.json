@@ -271,8 +271,10 @@
   },
   "explore": {
     "noLiveTitle": "No hay directos en este momento",
-    "noLiveDescription": "Nadie está transmitiendo ahora mismo. Sé el primero en iniciar un directo o vuelve más tarde.",
+    "noLiveDescription": "Nadie está transmitiendo ahora mismo. Explora de nuevo o vuelve más tarde.",
+    "errorLoadingLives": "No se pudo cargar los directos",
     "startLive": "Iniciar directo",
+    "exploreLive": "Explorar directos",
     "whileWaiting": "Mientras esperas puedes:",
     "viewCrush": "Ver tus Crush",
     "reviewMatches": "Revisar tus Matches",

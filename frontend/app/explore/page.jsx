@@ -334,7 +334,7 @@ export default function ExplorePage() {
 
           {liveError && <div className="banner-error">{liveError}</div>}
 
-          {filtered.length === 0 && lives.length === 0 ? (
+          {lives.length === 0 ? (
             <div className="empty-state live-empty-state">
               <div className="empty-icon live-empty-icon">📡</div>
               <h3>{t("explore.noLiveTitle")}</h3>
@@ -494,8 +494,7 @@ export default function ExplorePage() {
         .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
         .live-empty-state {
           padding: 3.25rem 1.25rem;
-          border-style: solid;
-          border-color: rgba(224,64,251,0.2);
+          border: 1px solid rgba(224,64,251,0.2);
           background:
             radial-gradient(circle at top, rgba(224,64,251,0.14), transparent 34%),
             rgba(15,8,32,0.5);

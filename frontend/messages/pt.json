@@ -283,5 +283,31 @@
     "noResultsTitle": "Sem resultados",
     "noResultsDescription": "Nenhuma transmissão ao vivo corresponde à sua busca.",
     "noStreamsNow": "Não há streams ao vivo agora"
+  },
+  "hiddenLikes": {
+    "eyebrow": "Rede premium de conexões",
+    "subtitle": "Pessoas que demonstraram interesse no seu perfil. Descubra sinais reais e perfis em destaque.",
+    "receivedTab": "Likes recebidos",
+    "filterNearby": "Perto de mim",
+    "filterVerified": "Verificados",
+    "filterBio": "Com biografia",
+    "filterNew": "Novos",
+    "soon": "Em breve",
+    "nearYou": "Perto de você",
+    "liveNow": "Ao vivo agora",
+    "activeNow": "Ativo agora",
+    "recentlyActive": "Ativo recentemente",
+    "hiddenLike": "Like oculto",
+    "hiddenProfile": "Perfil oculto",
+    "unlockDetails": "Desbloqueie para ver detalhes",
+    "emptyFilter": "Não há likes visíveis com este filtro.",
+    "unlockHint": "Descubra quem deu like em você antes que seja tarde",
+    "unlock": "Desbloquear",
+    "buyCoins": "Comprar moedas",
+    "unlocking": "Desbloqueando…",
+    "counterSingular": "pessoa deu like em você",
+    "counterPlural": "pessoas deram like em você",
+    "likeSingular": "like",
+    "likePlural": "likes"
   }
 }

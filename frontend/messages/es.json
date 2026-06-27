@@ -276,6 +276,9 @@
     "whileWaiting": "Mientras esperas puedes:",
     "viewCrush": "Ver tus Crush",
     "reviewMatches": "Revisar tus Matches",
-    "completeProfile": "Completar tu perfil"
+    "completeProfile": "Completar tu perfil",
+    "noResultsTitle": "Sin resultados",
+    "noResultsDescription": "No hay directos que coincidan con tu búsqueda.",
+    "noStreamsNow": "No hay streams en vivo ahora"
   }
 }

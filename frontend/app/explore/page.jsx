@@ -361,11 +361,11 @@ export default function ExplorePage() {
           ) : filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📡</div>
-              <h3>Sin resultados</h3>
+              <h3>{t("explore.noResultsTitle")}</h3>
               <p>
                 {search || category !== "Todos"
-                  ? "No hay directos que coincidan con tu búsqueda."
-                  : "No hay streams en vivo ahora"}
+                  ? t("explore.noResultsDescription")
+                  : t("explore.noStreamsNow")}
               </p>
             </div>
           ) : (

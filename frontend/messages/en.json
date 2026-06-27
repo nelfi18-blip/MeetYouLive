@@ -276,6 +276,9 @@
     "whileWaiting": "While you wait, you can:",
     "viewCrush": "View your Crush",
     "reviewMatches": "Review your Matches",
-    "completeProfile": "Complete your profile"
+    "completeProfile": "Complete your profile",
+    "noResultsTitle": "No results",
+    "noResultsDescription": "No live streams match your search.",
+    "noStreamsNow": "No live streams right now"
   }
 }

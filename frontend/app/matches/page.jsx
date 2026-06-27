@@ -72,15 +72,15 @@ function getLocationLabel(user) {
   );
 }
 
-function getActivityLabel(user) {
-  if (user?.isLive) return "En vivo ahora";
-  if (user?.isOnline) return "Activo ahora";
+function getActivityLabel(user, t) {
+  if (user?.isLive) return t("matchesPage.liveNow");
+  if (user?.isOnline) return t("matchesPage.activeNow");
   const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
   if (!rawLastActive) return null;
   const lastActive = new Date(rawLastActive);
   if (Number.isNaN(lastActive.getTime())) return null;
   const daysSinceActiveFloat = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSinceActiveFloat <= 7 ? "Activo recientemente" : null;
+  return daysSinceActiveFloat <= 7 ? t("matchesPage.recentlyActive") : null;
 }
 
 export default function MatchesPage() {
@@ -199,24 +199,24 @@ export default function MatchesPage() {
         <div className="likes-hero-glow likes-hero-glow-pink" aria-hidden="true" />
         <div className="likes-hero-glow likes-hero-glow-purple" aria-hidden="true" />
         <div className="likes-hero-content">
-          <span className="likes-eyebrow">💖 Likes premium</span>
-          <h1 id="likes-title" className="likes-title">Likes</h1>
-          <p className="likes-subtitle">Personas interesadas en conocerte</p>
-          <div className="likes-tabs" role="tablist" aria-label="Secciones de Likes y Matches">
+          <span className="likes-eyebrow">💖 {t("matchesPage.likesEyebrow")}</span>
+          <h1 id="likes-title" className="likes-title">{t("matchesPage.likesTitle")}</h1>
+          <p className="likes-subtitle">{t("matchesPage.likesSubtitle")}</p>
+          <div className="likes-tabs" role="tablist" aria-label={t("matchesPage.tabsAria")}>
             <a href="#likes-recibidos" className="likes-tab likes-tab-active">
-              Likes recibidos <strong>{likesTotal}</strong>
+              {t("matchesPage.receivedLikesTab")} <strong>{likesTotal}</strong>
             </a>
             <a href="#matches-section" className="likes-tab">
-              Matches <strong>{matches.length}</strong>
+              {t("matchesPage.matchesTab")} <strong>{matches.length}</strong>
             </a>
           </div>
         </div>
-        <div className="likes-counter-panel" aria-label={`${likesTotal} personas te dieron like`}>
+        <div className="likes-counter-panel" aria-label={`${likesTotal} ${t("matchesPage.counterAriaSuffix")}`}>
           <span className="likes-counter-value">{likesTotal}</span>
           <span className="likes-counter-label">
-            {likesTotal === 1 ? "persona te dio Like" : "personas te dieron Like"}
+            {likesTotal === 1 ? t("matchesPage.counterSingular") : t("matchesPage.counterPlural")}
           </span>
-          <span className="likes-counter-hint">Señales reales de interés</span>
+          <span className="likes-counter-hint">{t("matchesPage.counterHint")}</span>
         </div>
       </section>
 
@@ -288,8 +288,8 @@ export default function MatchesPage() {
           <section id="matches-section" className="matches-section" aria-labelledby="matches-section-title">
             <div className="matches-section-head">
               <div>
-                <span className="matches-section-kicker">🔥 Conexiones mutuas</span>
-                <h2 id="matches-section-title">Matches</h2>
+                <span className="matches-section-kicker">🔥 {t("matchesPage.mutualConnections")}</span>
+                <h2 id="matches-section-title">{t("matchesPage.matchesTab")}</h2>
               </div>
               <Link href="/crush" className="crush-link-btn">
                 ⚡ Crush
@@ -309,7 +309,7 @@ export default function MatchesPage() {
             const userImage = getPrimaryProfileImage(user);
             const age = calcAge(user.birthdate || user.dateOfBirth || user.birthday);
             const locationLabel = getLocationLabel(user);
-            const activityLabel = getActivityLabel(user);
+            const activityLabel = getActivityLabel(user, t);
             const isVerified = Boolean(user.isVerified);
             return (
               <div key={user._id} className="match-card">
@@ -333,7 +333,7 @@ export default function MatchesPage() {
                         {age ? `, ${age}` : ""}
                       </span>
                       {isVerified && (
-                        <span className="match-verified" title="Verificado">
+                        <span className="match-verified" title={t("matchesPage.verified")}>
                           <VerifiedIcon />
                         </span>
                       )}
@@ -369,7 +369,7 @@ export default function MatchesPage() {
                 {/* Action buttons */}
                 <div className="match-actions">
                   <Link href={`/profile/${user._id}`} className="match-action-btn match-profile-btn">
-                    Ver perfil
+                    {t("matchesPage.viewProfile")}
                   </Link>
                   <button
                     className="btn btn-primary match-action-btn"

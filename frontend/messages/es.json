@@ -70,7 +70,23 @@
   },
   "matchesPage": {
     "chatOpenError": "No se pudo abrir el chat",
-    "connectionError": "Error de conexión"
+    "connectionError": "Error de conexión",
+    "likesEyebrow": "Likes premium",
+    "likesTitle": "Likes",
+    "likesSubtitle": "Personas interesadas en conocerte",
+    "receivedLikesTab": "Likes recibidos",
+    "matchesTab": "Matches",
+    "tabsAria": "Secciones de Likes y Matches",
+    "counterSingular": "persona te dio Like",
+    "counterPlural": "personas te dieron Like",
+    "counterAriaSuffix": "personas te dieron like",
+    "counterHint": "Señales reales de interés",
+    "mutualConnections": "Conexiones mutuas",
+    "viewProfile": "Ver perfil",
+    "verified": "Verificado",
+    "liveNow": "En vivo ahora",
+    "activeNow": "Activo ahora",
+    "recentlyActive": "Activo recientemente"
   },
   "profile": {
     "title": "Mi Perfil",

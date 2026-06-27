@@ -302,6 +302,11 @@ export default function ExplorePage() {
     }
   };
 
+  const handleExploreLiveRefresh = () => {
+    setTab("live");
+    loadLives();
+  };
+
   const hasNoLiveStreams = lives.length === 0;
   const hasLivesButNoMatches = lives.length > 0 && filtered.length === 0;
   const canGoLive = isApprovedCreator(currentUser);
@@ -385,10 +390,10 @@ export default function ExplorePage() {
                 <button
                   type="button"
                   className="btn btn-primary live-start-btn"
-                  onClick={loadLives}
+                  onClick={handleExploreLiveRefresh}
                   disabled={liveLoading}
                 >
-                  <span aria-hidden="true">📡</span> {t("explore.exploreLive")}
+                  <span aria-hidden="true">📡</span> {t("explore.viewLiveStreams")}
                 </button>
               )}
 

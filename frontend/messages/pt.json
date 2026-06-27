@@ -303,6 +303,7 @@
     "emptyFilter": "Não há likes visíveis com este filtro.",
     "unlockHint": "Descubra quem deu like em você antes que seja tarde",
     "unlock": "Desbloquear",
-    "buyCoins": "Comprar moedas"
+    "buyCoins": "Comprar moedas",
+    "unlocking": "Desbloqueando…"
   }
 }

@@ -324,7 +324,7 @@ export default function HiddenLikesSection({ compact = false }) {
               disabled={unlocking}
             >
               {unlocking
-                ? "Desbloqueando…"
+                ? t("hiddenLikes.unlocking")
                 : `💎 ${t("hiddenLikes.unlock")} ${data.lockedCount} like${data.lockedCount !== 1 ? "s" : ""} · 🪙${unlockPrice}`}
             </button>
             <Link href="/coins" className="hls-coins-link">

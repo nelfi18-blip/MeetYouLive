@@ -303,6 +303,7 @@
     "emptyFilter": "No likes are visible with this filter.",
     "unlockHint": "Discover who liked you before it is too late",
     "unlock": "Unlock",
-    "buyCoins": "Buy coins"
+    "buyCoins": "Buy coins",
+    "unlocking": "Unlocking…"
   }
 }

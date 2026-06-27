@@ -565,6 +565,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         }
 
         .hls-card {
+          position: relative;
           display: flex;
           flex-direction: column;
           min-height: 238px;
@@ -592,6 +593,13 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           height: 162px;
           background: linear-gradient(135deg, rgba(255, 45, 120, 0.18), rgba(224, 64, 251, 0.18));
           flex-shrink: 0;
+        }
+        .hls-photo-wrap::after {
+          content: "";
+          position: absolute;
+          inset: 38% 0 0;
+          background: linear-gradient(180deg, transparent, rgba(8, 4, 20, 0.55) 42%, rgba(8, 4, 20, 0.95));
+          pointer-events: none;
         }
         .hls-photo-img,
         .hls-photo-placeholder,
@@ -632,6 +640,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           font-size: 0.62rem;
           font-weight: 850;
           backdrop-filter: blur(10px);
+          z-index: 2;
         }
         .hls-lock-icon {
           position: absolute;
@@ -657,15 +666,21 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           align-items: center;
           justify-content: center;
           backdrop-filter: blur(10px);
+          z-index: 2;
         }
         .hls-super-badge-locked {
           opacity: 0.86;
         }
         .hls-card-body {
+          position: relative;
+          z-index: 2;
+          margin-top: -3.1rem;
           padding: 0.82rem;
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
+          min-height: 5.25rem;
+          justify-content: flex-end;
         }
         .hls-name-row {
           display: flex;
@@ -854,6 +869,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           }
           .hls-card-body {
             padding: 0.72rem;
+            margin-top: -3rem;
           }
           .hls-cta-buttons {
             width: 100%;

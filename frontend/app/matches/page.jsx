@@ -996,6 +996,79 @@ export default function MatchesPage() {
           background: rgba(244,114,182,0.2);
           box-shadow: 0 0 12px rgba(244,114,182,0.3);
         }
+
+        @media (max-width: 720px) {
+          .likes-hero {
+            flex-direction: column;
+            border-radius: 26px;
+          }
+          .likes-counter-panel {
+            min-width: 0;
+            align-self: stretch;
+          }
+          .likes-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .likes-tab {
+            justify-content: center;
+            padding-inline: 0.65rem;
+          }
+          .matches-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+          }
+          .match-card {
+            border-radius: 22px;
+            padding: 0.45rem;
+          }
+          .match-photo-wrap,
+          .match-photo-img,
+          .match-photo-placeholder {
+            min-height: 245px;
+          }
+          .match-photo-info {
+            padding: 0.8rem;
+          }
+          .match-name {
+            font-size: 1rem;
+          }
+          .match-actions {
+            padding-inline: 0.2rem;
+          }
+          .match-action-btn,
+          .match-call-btn {
+            font-size: 0.74rem;
+            padding: 0.56rem 0.45rem;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .matches-grid {
+            grid-template-columns: 1fr;
+          }
+          .match-photo-wrap,
+          .match-photo-img,
+          .match-photo-placeholder {
+            min-height: 330px;
+          }
+          .likes-tabs {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .likes-hero,
+          .match-card,
+          .match-call-btn {
+            animation: none;
+            transition: none;
+          }
+          .match-card:hover,
+          .likes-tab:hover {
+            transform: none;
+          }
+        }
       `}</style>
     </div>
   );

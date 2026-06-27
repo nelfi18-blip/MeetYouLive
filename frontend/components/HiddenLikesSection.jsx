@@ -98,8 +98,9 @@ function buildFilterLabel(icon, label, count) {
  *
  * Props:
  *   compact – if true, renders a smaller layout (used inside the crush page)
+ *   onTotalChange – optional callback with the current total likes count
  */
-export default function HiddenLikesSection({ compact = false }) {
+export default function HiddenLikesSection({ compact = false, onTotalChange }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null); // { revealed, locked, lockedCount, unlockPrice }
   const [loading, setLoading] = useState(true);
@@ -132,6 +133,11 @@ export default function HiddenLikesSection({ compact = false }) {
   useEffect(() => {
     fetchLikes();
   }, [fetchLikes]);
+
+  useEffect(() => {
+    if (!data || typeof onTotalChange !== "function") return;
+    onTotalChange((data.revealed?.length ?? 0) + (data.lockedCount ?? 0));
+  }, [data, onTotalChange]);
 
   const handleUnlock = async () => {
     const token =

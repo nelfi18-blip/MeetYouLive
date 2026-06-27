@@ -32,12 +32,55 @@ function ChatIcon() {
   );
 }
 
+function VerifiedIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2l2.13 2.08 2.96-.42.53 2.95 2.62 1.46-1.35 2.68 1.35 2.68-2.62 1.46-.53 2.95-2.96-.42L12 22l-2.13-2.08-2.96.42-.53-2.95-2.62-1.46 1.35-2.68-1.35-2.68 2.62-1.46.53-2.95 2.96.42L12 2zm-1.13 13.2l5.64-5.65-1.42-1.41-4.22 4.23-1.96-1.96L7.5 11.82l3.37 3.38z" />
+    </svg>
+  );
+}
+
 function CallIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   );
+}
+
+function calcAge(birthdate) {
+  if (!birthdate) return null;
+  const date = new Date(birthdate);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - date.getFullYear();
+  const monthDelta = now.getMonth() - date.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  return age > 0 ? age : null;
+}
+
+function getLocationLabel(user) {
+  return (
+    user?.distanceLabel ||
+    user?.distance ||
+    user?.city ||
+    user?.location?.city ||
+    user?.country ||
+    null
+  );
+}
+
+function getActivityLabel(user) {
+  if (user?.isLive) return "En vivo ahora";
+  if (user?.isOnline) return "Activo ahora";
+  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
+  if (!rawLastActive) return null;
+  const lastActive = new Date(rawLastActive);
+  if (Number.isNaN(lastActive.getTime())) return null;
+  const daysSinceActiveFloat = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceActiveFloat <= 7 ? "Activo recientemente" : null;
 }
 
 export default function MatchesPage() {
@@ -48,6 +91,7 @@ export default function MatchesPage() {
   const [error, setError] = useState("");
   const [chatError, setChatError] = useState("");
   const [callError, setCallError] = useState("");
+  const [likesTotal, setLikesTotal] = useState(0);
 
   const fetchMatches = useCallback(({ silent = false } = {}) => {
     const token = localStorage.getItem("token");
@@ -84,6 +128,10 @@ export default function MatchesPage() {
   useEffect(() => {
     fetchMatches();
   }, [fetchMatches]);
+
+  const handleLikesTotalChange = useCallback((total) => {
+    setLikesTotal(total);
+  }, []);
 
   useEffect(() => {
     const handleProfileUpdated = () => fetchMatches({ silent: true });
@@ -147,18 +195,30 @@ export default function MatchesPage() {
       {/* ── 📊 ACTIVITY SIGNALS — social proof ── */}
       <ActivityBar variant="strip" />
 
-      <div className="matches-header">
-        <div className="matches-header-icon">
-          <HeartIcon />
+      <section className="likes-hero" aria-labelledby="likes-title">
+        <div className="likes-hero-glow likes-hero-glow-pink" aria-hidden="true" />
+        <div className="likes-hero-glow likes-hero-glow-purple" aria-hidden="true" />
+        <div className="likes-hero-content">
+          <span className="likes-eyebrow">💖 Likes premium</span>
+          <h1 id="likes-title" className="likes-title">Likes</h1>
+          <p className="likes-subtitle">Personas interesadas en conocerte</p>
+          <div className="likes-tabs" role="tablist" aria-label="Secciones de Likes y Matches">
+            <a href="#likes-recibidos" className="likes-tab likes-tab-active">
+              Likes recibidos <strong>{likesTotal}</strong>
+            </a>
+            <a href="#matches-section" className="likes-tab">
+              Matches <strong>{matches.length}</strong>
+            </a>
+          </div>
         </div>
-        <div>
-          <h1 className="page-title">Tus Matches</h1>
-          <p className="page-subtitle">Conexiones mutuas con otros usuarios</p>
+        <div className="likes-counter-panel" aria-label={`${likesTotal} personas te dieron like`}>
+          <span className="likes-counter-value">{likesTotal}</span>
+          <span className="likes-counter-label">
+            {likesTotal === 1 ? "persona te dio Like" : "personas te dieron Like"}
+          </span>
+          <span className="likes-counter-hint">Señales reales de interés</span>
         </div>
-        <Link href="/crush" className="crush-link-btn">
-          ⚡ Crush
-        </Link>
-      </div>
+      </section>
 
       {error && <div className="banner-error">{error}</div>}
       {chatError && <div className="banner-error">{chatError}</div>}
@@ -175,7 +235,9 @@ export default function MatchesPage() {
       {!loading && matches.length === 0 && (
         <>
           {/* Real hidden likes section */}
-          <HiddenLikesSection />
+          <div id="likes-recibidos">
+            <HiddenLikesSection onTotalChange={handleLikesTotalChange} />
+          </div>
 
           <div className="empty-state">
             <div className="empty-icon" style={{ color: "var(--accent)" }}>
@@ -217,11 +279,23 @@ export default function MatchesPage() {
       {!loading && matches.length > 0 && (
         <>
           {/* Hidden likes section also shown when user has matches */}
-          <HiddenLikesSection />
+          <div id="likes-recibidos">
+            <HiddenLikesSection onTotalChange={handleLikesTotalChange} />
+          </div>
           <div className="fomo-matches-hint">
             💬 Tus matches te están esperando — ¡escríbeles antes de que pierdan el interés!
           </div>
-          <div className="matches-grid">
+          <section id="matches-section" className="matches-section" aria-labelledby="matches-section-title">
+            <div className="matches-section-head">
+              <div>
+                <span className="matches-section-kicker">🔥 Conexiones mutuas</span>
+                <h2 id="matches-section-title">Matches</h2>
+              </div>
+              <Link href="/crush" className="crush-link-btn">
+                ⚡ Crush
+              </Link>
+            </div>
+            <div className="matches-grid">
           {matches.map((user) => {
             const displayName = getDisplayName(user);
             const initial = displayName[0].toUpperCase();
@@ -233,20 +307,41 @@ export default function MatchesPage() {
             const sharedInterests = user.sharedInterests || [];
             const statusBadges = computeStatusBadges(user);
             const userImage = getPrimaryProfileImage(user);
+            const age = calcAge(user.birthdate || user.dateOfBirth || user.birthday);
+            const locationLabel = getLocationLabel(user);
+            const activityLabel = getActivityLabel(user);
+            const isVerified = Boolean(user.isVerified);
             return (
               <div key={user._id} className="match-card">
-                <div className="match-avatar-wrap">
+                <div className="match-photo-wrap">
                   {userImage ? (
-                    <img src={userImage} alt={displayName} className="match-avatar-img" />
+                    <img src={userImage} alt={displayName} className="match-photo-img" loading="lazy" />
                   ) : (
-                    <div className="match-avatar-placeholder">{initial}</div>
+                    <div className="match-photo-placeholder">{initial}</div>
                   )}
-                  <div className="match-badge-heart">
-                    <HeartIcon />
+                  <div className="match-photo-top">
+                    <span className="match-badge-heart">
+                      <HeartIcon />
+                    </span>
+                    {activityLabel && <span className="match-active-pill">{activityLabel}</span>}
+                  </div>
+                  <div className="match-photo-gradient" />
+                  <div className="match-photo-info">
+                    <div className="match-name-row">
+                      <span className="match-name">
+                        {displayName}
+                        {age ? `, ${age}` : ""}
+                      </span>
+                      {isVerified && (
+                        <span className="match-verified" title="Verificado">
+                          <VerifiedIcon />
+                        </span>
+                      )}
+                    </div>
+                    {locationLabel && <div className="match-location">📍 {locationLabel}</div>}
                   </div>
                 </div>
                 <div className="match-body">
-                  <div className="match-name">{displayName}</div>
                   <div className="match-meta-row">
                     {isCreator && (
                       <span className="badge badge-creator">{roleLabel}</span>
@@ -273,6 +368,9 @@ export default function MatchesPage() {
 
                 {/* Action buttons */}
                 <div className="match-actions">
+                  <Link href={`/profile/${user._id}`} className="match-action-btn match-profile-btn">
+                    Ver perfil
+                  </Link>
                   <button
                     className="btn btn-primary match-action-btn"
                     onClick={() => startChat(user._id)}
@@ -306,7 +404,8 @@ export default function MatchesPage() {
               </div>
             );
           })}
-        </div>
+            </div>
+          </section>
         </>
       )}
 
@@ -333,23 +432,144 @@ export default function MatchesPage() {
           text-align: center;
         }
 
-        .matches-header {
+        .likes-hero {
+          position: relative;
           display: flex;
-          align-items: center;
-          gap: 1rem;
-          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 1.25rem;
+          padding: clamp(1.15rem, 4vw, 1.75rem);
+          border-radius: 30px;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 18% 0%, rgba(255,45,120,0.28), transparent 34%),
+            linear-gradient(145deg, rgba(22,8,48,0.96), rgba(8,4,20,0.94));
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 22px 70px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08);
+          animation: likes-hero-in 0.35s ease-out both;
         }
-        .matches-header-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: var(--radius-sm);
-          background: rgba(255,45,120,0.1);
-          border: 1px solid rgba(255,45,120,0.2);
+        .likes-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, transparent, rgba(255,255,255,0.06), transparent);
+          opacity: 0.48;
+          pointer-events: none;
+        }
+        .likes-hero-glow {
+          position: absolute;
+          border-radius: 999px;
+          filter: blur(4px);
+          pointer-events: none;
+        }
+        .likes-hero-glow-pink {
+          width: 220px;
+          height: 220px;
+          right: -70px;
+          top: -80px;
+          background: rgba(255,45,120,0.2);
+        }
+        .likes-hero-glow-purple {
+          width: 160px;
+          height: 160px;
+          left: 30%;
+          bottom: -95px;
+          background: rgba(224,64,251,0.15);
+        }
+        .likes-hero-content,
+        .likes-counter-panel {
+          position: relative;
+          z-index: 1;
+        }
+        .likes-eyebrow {
+          display: inline-flex;
+          color: #ff9ac8;
+          font-size: 0.72rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 900;
+        }
+        .likes-title {
+          font-size: clamp(2.4rem, 9vw, 4.25rem);
+          line-height: 0.9;
+          letter-spacing: -0.07em;
+          color: #fff;
+          margin: 0.28rem 0 0.35rem;
+        }
+        .likes-subtitle {
+          margin: 0;
+          color: rgba(255,255,255,0.68);
+          font-size: 0.95rem;
+          font-weight: 650;
+        }
+        .likes-tabs {
           display: flex;
+          flex-wrap: wrap;
+          gap: 0.55rem;
+          margin-top: 1.15rem;
+        }
+        .likes-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.56rem 0.85rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.72);
+          text-decoration: none;
+          font-size: 0.78rem;
+          font-weight: 850;
+          backdrop-filter: blur(12px);
+          transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .likes-tab:hover,
+        .likes-tab-active {
+          transform: translateY(-1px);
+          color: #fff;
+          background: linear-gradient(135deg, rgba(255,45,120,0.85), rgba(224,64,251,0.78));
+          box-shadow: 0 10px 25px rgba(224,64,251,0.24);
+        }
+        .likes-tab strong {
+          min-width: 1.3rem;
+          height: 1.3rem;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: var(--accent);
-          flex-shrink: 0;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.14);
+          font-size: 0.68rem;
+        }
+        .likes-counter-panel {
+          min-width: 168px;
+          align-self: stretch;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 1rem;
+          border-radius: 24px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 16px 40px rgba(255,45,120,0.16);
+        }
+        .likes-counter-value {
+          color: #fff;
+          font-size: 2.45rem;
+          font-weight: 950;
+          line-height: 1;
+        }
+        .likes-counter-label,
+        .likes-counter-hint {
+          color: rgba(255,255,255,0.6);
+          font-size: 0.72rem;
+          font-weight: 800;
+        }
+        .likes-counter-hint {
+          margin-top: 0.45rem;
+          color: rgba(255,154,200,0.8);
+        }
+        @keyframes likes-hero-in {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .crush-link-btn {
           margin-left: auto;
@@ -373,74 +593,163 @@ export default function MatchesPage() {
 
         .matches-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
           gap: 1rem;
+        }
+        .matches-section {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .matches-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+        .matches-section-kicker {
+          color: rgba(255,154,200,0.78);
+          font-size: 0.72rem;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-weight: 900;
+        }
+        .matches-section-head h2 {
+          margin: 0.2rem 0 0;
+          color: var(--text);
+          font-size: clamp(1.35rem, 5vw, 1.8rem);
+          letter-spacing: -0.04em;
         }
 
         .match-card {
-          background: rgba(15,8,32,0.7);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 1.5rem 1.25rem;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.045)),
+            rgba(15,8,32,0.74);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 26px;
+          padding: 0.55rem;
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 0.9rem;
+          gap: 0.8rem;
+          overflow: hidden;
           touch-action: pan-y;
-          transition: all var(--transition-slow);
+          box-shadow: 0 18px 45px rgba(0,0,0,0.28);
+          transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
         }
         .match-card:hover {
-          border-color: rgba(255,45,120,0.3);
-          box-shadow: var(--shadow), 0 0 24px rgba(255,45,120,0.1);
-          transform: translateY(-3px);
+          border-color: rgba(255,45,120,0.34);
+          box-shadow: 0 24px 58px rgba(255,45,120,0.15);
+          transform: translateY(-4px);
         }
 
-        .match-avatar-wrap {
+        .match-photo-wrap {
           position: relative;
-          width: 80px;
-          height: 80px;
+          min-height: 310px;
+          border-radius: 22px;
+          overflow: hidden;
+          background: linear-gradient(135deg, rgba(255,45,120,0.22), rgba(224,64,251,0.18));
         }
-        .match-avatar-img {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
+        .match-photo-img,
+        .match-photo-placeholder {
+          width: 100%;
+          height: 100%;
+          min-height: 310px;
           object-fit: cover;
-          border: 2px solid rgba(255,45,120,0.3);
-        }
-        .match-avatar-placeholder {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: var(--grad-primary);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.8rem;
-          font-weight: 800;
+        }
+        .match-photo-placeholder {
+          background:
+            radial-gradient(circle at 35% 20%, rgba(255,255,255,0.26), transparent 18%),
+            linear-gradient(135deg, rgba(255,45,120,0.48), rgba(224,64,251,0.42));
           color: #fff;
+          font-size: 4.25rem;
+          font-weight: 950;
+        }
+        .match-photo-top {
+          position: absolute;
+          top: 0.7rem;
+          left: 0.7rem;
+          right: 0.7rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.45rem;
+          z-index: 2;
         }
         .match-badge-heart {
-          position: absolute;
-          bottom: 0;
-          right: 0;
-          width: 24px;
-          height: 24px;
+          width: 34px;
+          height: 34px;
           border-radius: 50%;
-          background: var(--accent);
+          background: rgba(255,45,120,0.9);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #fff;
-          box-shadow: 0 2px 8px rgba(255,45,120,0.5);
+          box-shadow: 0 8px 22px rgba(255,45,120,0.42);
+          backdrop-filter: blur(10px);
+          flex-shrink: 0;
+        }
+        .match-active-pill {
+          padding: 0.28rem 0.56rem;
+          border-radius: 999px;
+          background: rgba(9, 7, 20, 0.66);
+          border: 1px solid rgba(74,222,128,0.28);
+          color: #bbf7d0;
+          font-size: 0.62rem;
+          font-weight: 850;
+          backdrop-filter: blur(10px);
+        }
+        .match-photo-gradient {
+          position: absolute;
+          inset: 38% 0 0;
+          background: linear-gradient(180deg, transparent, rgba(7,4,18,0.64) 42%, rgba(7,4,18,0.96));
+          pointer-events: none;
+        }
+        .match-photo-info {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 1;
+          padding: 1rem;
         }
         .match-badge-heart :global(svg) { width: 12px; height: 12px; }
 
-        .match-body { text-align: center; width: 100%; }
+        .match-body {
+          text-align: left;
+          width: 100%;
+          padding: 0 0.35rem;
+        }
+        .match-name-row {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          min-width: 0;
+        }
         .match-name {
-          font-weight: 700;
-          font-size: 0.95rem;
-          color: var(--text);
-          margin-bottom: 0.3rem;
+          font-weight: 950;
+          font-size: 1.16rem;
+          color: #fff;
+          line-height: 1.1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .match-verified {
+          display: inline-flex;
+          color: #60a5fa;
+          filter: drop-shadow(0 0 8px rgba(96,165,250,0.45));
+          flex-shrink: 0;
+        }
+        .match-location {
+          margin-top: 0.25rem;
+          color: rgba(255,255,255,0.72);
+          font-size: 0.76rem;
+          font-weight: 750;
         }
         .match-bio {
           font-size: 0.78rem;
@@ -456,7 +765,7 @@ export default function MatchesPage() {
           display: flex;
           flex-wrap: wrap;
           gap: 0.35rem;
-          justify-content: center;
+          justify-content: flex-start;
           margin-top: 0.5rem;
         }
         .match-interest-tag {
@@ -477,7 +786,7 @@ export default function MatchesPage() {
         .match-meta-row {
           display: flex;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-start;
           gap: 0.45rem;
           flex-wrap: wrap;
           margin-bottom: 0.15rem;
@@ -499,7 +808,7 @@ export default function MatchesPage() {
           color: rgba(255,45,120,0.75);
           font-weight: 600;
           margin: 0.3rem 0 0;
-          text-align: center;
+          text-align: left;
         }
 
         .match-actions {
@@ -507,6 +816,7 @@ export default function MatchesPage() {
           flex-direction: column;
           gap: 0.45rem;
           width: 100%;
+          padding: 0 0.35rem 0.35rem;
           touch-action: pan-y;
         }
 
@@ -519,6 +829,19 @@ export default function MatchesPage() {
           justify-content: center;
           gap: 0.4rem;
           touch-action: manipulation;
+          border-radius: 14px;
+          text-decoration: none;
+        }
+        .match-profile-btn {
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.11);
+          color: rgba(255,255,255,0.78);
+          font-weight: 800;
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+        .match-profile-btn:hover {
+          background: rgba(255,255,255,0.12);
+          color: #fff;
         }
 
         .match-call-btn {

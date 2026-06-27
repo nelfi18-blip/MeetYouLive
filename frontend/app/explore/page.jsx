@@ -271,7 +271,7 @@ export default function ExplorePage() {
   };
 
   const hasNoLiveStreams = lives.length === 0;
-  const hasNoMatchingLives = filtered.length === 0;
+  const hasLivesButNoMatches = lives.length > 0 && filtered.length === 0;
 
   return (
     <div className="explore">
@@ -363,7 +363,7 @@ export default function ExplorePage() {
                 </div>
               </div>
             </div>
-          ) : hasNoMatchingLives ? (
+          ) : hasLivesButNoMatches ? (
             <div className="empty-state">
               <div className="empty-icon">
                 <span aria-hidden="true">📡</span>

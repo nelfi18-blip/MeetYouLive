@@ -272,6 +272,7 @@
   "explore": {
     "noLiveTitle": "No live streams right now",
     "noLiveDescription": "No one is streaming right now. Explore again or come back later.",
+    "errorLoadingLives": "Could not load live streams",
     "startLive": "Start live",
     "exploreLive": "Explore live",
     "whileWaiting": "While you wait, you can:",

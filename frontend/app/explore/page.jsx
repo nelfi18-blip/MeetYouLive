@@ -94,11 +94,11 @@ export default function ExplorePage() {
       const data = await res.json();
       setLives(filterActiveLives(data));
     } catch {
-      setLiveError("No se pudo cargar los directos");
+      setLiveError(t("explore.errorLoadingLives"));
     } finally {
       setLiveLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadLives();
@@ -112,7 +112,10 @@ export default function ExplorePage() {
     }
 
     fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + token } })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error("Unable to load current user");
+        return r.json();
+      })
       .then((d) => setCurrentUser(d || null))
       .catch(() => setCurrentUser(null));
 

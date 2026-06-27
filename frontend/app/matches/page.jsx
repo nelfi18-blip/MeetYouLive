@@ -132,9 +132,8 @@ export default function MatchesPage() {
 
   const scrollToSection = useCallback((sectionId) => {
     setActiveSection(sectionId);
-    if (typeof document === "undefined") return;
+    if (typeof window === "undefined") return;
     const prefersReducedMotion =
-      typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     document.getElementById(sectionId)?.scrollIntoView({
       behavior: prefersReducedMotion ? "auto" : "smooth",
@@ -214,26 +213,18 @@ export default function MatchesPage() {
           <span className="likes-eyebrow">💖 {t("matchesPage.likesEyebrow")}</span>
           <h1 id="likes-title" className="likes-title">{t("matchesPage.likesTitle")}</h1>
           <p className="likes-subtitle">{t("matchesPage.likesSubtitle")}</p>
-          <div className="likes-tabs" role="tablist" aria-label={t("matchesPage.tabsAria")}>
+          <div className="likes-tabs" aria-label={t("matchesPage.tabsAria")}>
             <button
-              id="received-likes-tab"
               type="button"
-              role="tab"
-              aria-selected={activeSection === "received-likes-panel"}
-              aria-controls="received-likes-panel"
-              tabIndex={activeSection === "received-likes-panel" ? 0 : -1}
+              aria-pressed={activeSection === "received-likes-panel"}
               className={`likes-tab${activeSection === "received-likes-panel" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("received-likes-panel")}
             >
               {t("matchesPage.receivedLikesTab")} <strong>{likesTotal}</strong>
             </button>
             <button
-              id="matches-tab"
               type="button"
-              role="tab"
-              aria-selected={activeSection === "matches-section"}
-              aria-controls="matches-section"
-              tabIndex={activeSection === "matches-section" ? 0 : -1}
+              aria-pressed={activeSection === "matches-section"}
               className={`likes-tab${activeSection === "matches-section" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("matches-section")}
             >
@@ -263,11 +254,11 @@ export default function MatchesPage() {
       {!loading && matches.length === 0 && (
         <>
           {/* Real hidden likes section */}
-          <div id="received-likes-panel" role="tabpanel" aria-labelledby="received-likes-tab">
+          <div id="received-likes-panel">
             <HiddenLikesSection onTotalChange={setLikesTotal} />
           </div>
 
-          <div id="matches-section" className="empty-state" role="tabpanel" aria-labelledby="matches-tab">
+          <div id="matches-section" className="empty-state">
             <div className="empty-icon" style={{ color: "var(--accent)" }}>
               <HeartIcon />
             </div>
@@ -307,13 +298,13 @@ export default function MatchesPage() {
       {!loading && matches.length > 0 && (
         <>
           {/* Hidden likes section also shown when user has matches */}
-          <div id="received-likes-panel" role="tabpanel" aria-labelledby="received-likes-tab">
+          <div id="received-likes-panel">
             <HiddenLikesSection onTotalChange={setLikesTotal} />
           </div>
           <div className="fomo-matches-hint">
             💬 {t("matchesPage.fomoHint")}
           </div>
-          <section id="matches-section" className="matches-section" role="tabpanel" aria-labelledby="matches-tab">
+          <section id="matches-section" className="matches-section">
             <div className="matches-section-head">
               <div>
                 <span className="matches-section-kicker">🔥 {t("matchesPage.mutualConnections")}</span>

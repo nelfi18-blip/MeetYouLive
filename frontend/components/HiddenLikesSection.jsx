@@ -590,6 +590,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         }
         .hls-photo-wrap {
           position: relative;
+          --gradient-start: 38%;
           height: 162px;
           background: linear-gradient(135deg, rgba(255, 45, 120, 0.18), rgba(224, 64, 251, 0.18));
           flex-shrink: 0;
@@ -597,7 +598,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         .hls-photo-wrap::after {
           content: "";
           position: absolute;
-          inset: 38% 0 0;
+          inset: var(--gradient-start) 0 0;
           background: linear-gradient(180deg, transparent, rgba(8, 4, 20, 0.55) 42%, rgba(8, 4, 20, 0.95));
           pointer-events: none;
         }

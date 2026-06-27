@@ -139,6 +139,9 @@ export default function MatchesPage() {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const likesCounterLabel =
+    likesTotal === 1 ? t("matchesPage.counterSingular") : t("matchesPage.counterPlural");
+
   useEffect(() => {
     const handleProfileUpdated = () => fetchMatches({ silent: true });
     window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated);
@@ -215,6 +218,7 @@ export default function MatchesPage() {
               role="tab"
               aria-selected={activeSection === "received-likes-panel"}
               aria-controls="received-likes-panel"
+              tabIndex={activeSection === "received-likes-panel" ? 0 : -1}
               className={`likes-tab${activeSection === "received-likes-panel" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("received-likes-panel")}
             >
@@ -226,6 +230,7 @@ export default function MatchesPage() {
               role="tab"
               aria-selected={activeSection === "matches-section"}
               aria-controls="matches-section"
+              tabIndex={activeSection === "matches-section" ? 0 : -1}
               className={`likes-tab${activeSection === "matches-section" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("matches-section")}
             >
@@ -233,11 +238,9 @@ export default function MatchesPage() {
             </button>
           </div>
         </div>
-        <div className="likes-counter-panel" aria-label={`${likesTotal} ${t("matchesPage.counterAriaSuffix")}`}>
+        <div className="likes-counter-panel" aria-label={`${likesTotal} ${likesCounterLabel}`}>
           <span className="likes-counter-value">{likesTotal}</span>
-          <span className="likes-counter-label">
-            {likesTotal === 1 ? t("matchesPage.counterSingular") : t("matchesPage.counterPlural")}
-          </span>
+          <span className="likes-counter-label">{likesCounterLabel}</span>
           <span className="likes-counter-hint">{t("matchesPage.counterHint")}</span>
         </div>
       </section>
@@ -355,7 +358,12 @@ export default function MatchesPage() {
                         {age ? `, ${age}` : ""}
                       </span>
                       {isVerified && (
-                        <span className="match-verified" title={t("matchesPage.verified")}>
+                        <span
+                          className="match-verified"
+                          title={t("matchesPage.verified")}
+                          aria-label={t("matchesPage.verified")}
+                          role="img"
+                        >
                           <VerifiedIcon />
                         </span>
                       )}
@@ -669,6 +677,7 @@ export default function MatchesPage() {
 
         .match-photo-wrap {
           position: relative;
+          --gradient-start: 38%;
           min-height: 310px;
           border-radius: 22px;
           overflow: hidden;
@@ -728,7 +737,7 @@ export default function MatchesPage() {
         }
         .match-photo-gradient {
           position: absolute;
-          inset: 38% 0 0;
+          inset: var(--gradient-start) 0 0;
           background: linear-gradient(180deg, transparent, rgba(7,4,18,0.64) 42%, rgba(7,4,18,0.96));
           pointer-events: none;
         }

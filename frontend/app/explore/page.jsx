@@ -334,7 +334,7 @@ export default function ExplorePage() {
 
           {liveError && <div className="banner-error">{liveError}</div>}
 
-          {lives.length === 0 ? (
+          {filtered.length === 0 && lives.length === 0 ? (
             <div className="empty-state live-empty-state">
               <div className="empty-icon live-empty-icon">
                 <span aria-hidden="true">📡</span>
@@ -362,7 +362,9 @@ export default function ExplorePage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📡</div>
+              <div className="empty-icon">
+                <span aria-hidden="true">📡</span>
+              </div>
               <h3>{t("explore.noResultsTitle")}</h3>
               <p>
                 {search || category !== "Todos"

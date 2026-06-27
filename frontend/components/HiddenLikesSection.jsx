@@ -80,6 +80,10 @@ function getActivityLabel(user) {
   return daysSinceActiveFloat <= 7 ? "Activo recientemente" : null;
 }
 
+function showsLockedLikes(filterId) {
+  return filterId !== "verified" && filterId !== "bio";
+}
+
 /**
  * HiddenLikesSection
  *
@@ -95,7 +99,7 @@ export default function HiddenLikesSection({ compact = false }) {
   const [loading, setLoading] = useState(true);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("");
 
   const fetchLikes = useCallback(() => {
     const token =
@@ -166,14 +170,11 @@ export default function HiddenLikesSection({ compact = false }) {
     if (activeFilter === "bio") return hasBio(user);
     return true;
   });
-  const visibleLocked = activeFilter === "verified" || activeFilter === "bio" ? [] : locked;
-  const tabs = [
-    { id: "received", label: "Likes recibidos", count: total },
-  ];
+  const visibleLocked = showsLockedLikes(activeFilter) ? locked : [];
   const filters = [
     { id: "near", label: "📍 Cerca de mí", disabled: true },
-    { id: "verified", label: `✓ Verificados${verifiedCount > 0 ? ` ${verifiedCount}` : ""}` },
-    { id: "bio", label: `📝 Con biografía${bioCount > 0 ? ` ${bioCount}` : ""}` },
+    { id: "verified", label: `✓ Verificados${verifiedCount > 0 ? ` (${verifiedCount})` : ""}` },
+    { id: "bio", label: `📝 Con biografía${bioCount > 0 ? ` (${bioCount})` : ""}` },
     { id: "new", label: "✨ Nuevos", disabled: true },
   ];
 
@@ -196,18 +197,10 @@ export default function HiddenLikesSection({ compact = false }) {
       </div>
 
       <div className="hls-tabs" role="tablist" aria-label="Categorías de likes">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected="true"
-            className="hls-tab hls-tab-active"
-          >
-            <span>{tab.label}</span>
-            {typeof tab.count === "number" && <strong>{tab.count}</strong>}
-          </button>
-        ))}
+        <button type="button" role="tab" aria-selected="true" className="hls-tab hls-tab-active">
+          <span>Likes recibidos</span>
+          <strong>{total}</strong>
+        </button>
       </div>
 
       <div className="hls-filters" aria-label="Filtros disponibles">
@@ -218,7 +211,7 @@ export default function HiddenLikesSection({ compact = false }) {
             className={`hls-filter-chip${activeFilter === filter.id ? " hls-filter-chip-active" : ""}${
               filter.disabled ? " hls-filter-chip-disabled" : ""
             }`}
-            onClick={() => !filter.disabled && setActiveFilter(filter.id)}
+            onClick={() => setActiveFilter(filter.id)}
             aria-pressed={activeFilter === filter.id}
             disabled={filter.disabled}
           >
@@ -435,7 +428,7 @@ export default function HiddenLikesSection({ compact = false }) {
           position: relative;
           z-index: 1;
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: 1fr;
           gap: 0.45rem;
           padding: 0.35rem;
           border-radius: 999px;

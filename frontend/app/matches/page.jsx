@@ -136,7 +136,11 @@ export default function MatchesPage() {
 
   const scrollToSection = useCallback((sectionId) => {
     setActiveSection(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
   }, []);
 
   const likesCounterLabel =

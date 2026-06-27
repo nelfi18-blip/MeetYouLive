@@ -565,7 +565,6 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         }
 
         .hls-card {
-          position: relative;
           display: flex;
           flex-direction: column;
           min-height: 238px;

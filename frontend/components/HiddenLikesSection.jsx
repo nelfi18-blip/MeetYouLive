@@ -85,6 +85,10 @@ function showsLockedLikes(filterId) {
   return filterId !== "verified" && filterId !== "bio";
 }
 
+function buildFilterLabel(icon, label, count) {
+  return `${icon} ${label}${count > 0 ? ` (${count})` : ""}`;
+}
+
 /**
  * HiddenLikesSection
  *
@@ -173,11 +177,15 @@ export default function HiddenLikesSection({ compact = false }) {
     return true;
   });
   const visibleLocked = showsLockedLikes(activeFilter) ? locked : [];
+  const counterLabel =
+    total === 1 ? t("hiddenLikes.counterSingular") : t("hiddenLikes.counterPlural");
+  const unlockLikeLabel =
+    data.lockedCount === 1 ? t("hiddenLikes.likeSingular") : t("hiddenLikes.likePlural");
   const filters = [
-    { id: "near", label: `📍 ${t("hiddenLikes.filterNearby")}`, disabled: true },
-    { id: "verified", label: `✓ ${t("hiddenLikes.filterVerified")}${verifiedCount > 0 ? ` (${verifiedCount})` : ""}` },
-    { id: "bio", label: `📝 ${t("hiddenLikes.filterBio")}${bioCount > 0 ? ` (${bioCount})` : ""}` },
-    { id: "new", label: `✨ ${t("hiddenLikes.filterNew")}`, disabled: true },
+    { id: "near", label: buildFilterLabel("📍", t("hiddenLikes.filterNearby")), disabled: true },
+    { id: "verified", label: buildFilterLabel("✓", t("hiddenLikes.filterVerified"), verifiedCount) },
+    { id: "bio", label: buildFilterLabel("📝", t("hiddenLikes.filterBio"), bioCount) },
+    { id: "new", label: buildFilterLabel("✨", t("hiddenLikes.filterNew")), disabled: true },
   ];
 
   return (
@@ -193,7 +201,7 @@ export default function HiddenLikesSection({ compact = false }) {
         <div className="hls-counter-card" aria-label={`${total} personas te dieron like`}>
           <span className="hls-counter-value">{total}</span>
           <span className="hls-counter-label">
-            persona{total !== 1 ? "s" : ""} te dieron Like
+            {counterLabel}
           </span>
         </div>
       </div>
@@ -325,7 +333,7 @@ export default function HiddenLikesSection({ compact = false }) {
             >
               {unlocking
                 ? t("hiddenLikes.unlocking")
-                : `💎 ${t("hiddenLikes.unlock")} ${data.lockedCount} like${data.lockedCount !== 1 ? "s" : ""} · 🪙${unlockPrice}`}
+                : `💎 ${t("hiddenLikes.unlock")} ${data.lockedCount} ${unlockLikeLabel} · 🪙${unlockPrice}`}
             </button>
             <Link href="/coins" className="hls-coins-link">
               {t("hiddenLikes.buyCoins")} →

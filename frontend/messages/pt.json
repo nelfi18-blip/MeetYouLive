@@ -304,6 +304,10 @@
     "unlockHint": "Descubra quem deu like em você antes que seja tarde",
     "unlock": "Desbloquear",
     "buyCoins": "Comprar moedas",
-    "unlocking": "Desbloqueando…"
+    "unlocking": "Desbloqueando…",
+    "counterSingular": "pessoa deu like em você",
+    "counterPlural": "pessoas deram like em você",
+    "likeSingular": "like",
+    "likePlural": "likes"
   }
 }

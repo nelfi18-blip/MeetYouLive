@@ -304,6 +304,10 @@
     "unlockHint": "Discover who liked you before it is too late",
     "unlock": "Unlock",
     "buyCoins": "Buy coins",
-    "unlocking": "Unlocking…"
+    "unlocking": "Unlocking…",
+    "counterSingular": "person liked you",
+    "counterPlural": "people liked you",
+    "likeSingular": "like",
+    "likePlural": "likes"
   }
 }

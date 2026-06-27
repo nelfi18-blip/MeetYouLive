@@ -271,8 +271,9 @@
   },
   "explore": {
     "noLiveTitle": "No live streams right now",
-    "noLiveDescription": "No one is streaming right now. Be the first to start a live stream or come back later.",
+    "noLiveDescription": "No one is streaming right now. Explore again or come back later.",
     "startLive": "Start live",
+    "exploreLive": "Explore live",
     "whileWaiting": "While you wait, you can:",
     "viewCrush": "View your Crush",
     "reviewMatches": "Review your Matches",

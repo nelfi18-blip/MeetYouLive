@@ -11,6 +11,8 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
+const PHOTO_SWIPE_THRESHOLD_PX = 36;
+const PHOTO_SWIPE_DIRECTION_RATIO = 1.2;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getProfileId(profile) {
@@ -145,7 +147,7 @@ export default function SwipeCard({
   const hasPhotoCarousel = photos.length > 1;
 
   useEffect(() => {
-    if (activePhotoIndex >= photos.length) {
+    if (photos.length > 0 && activePhotoIndex >= photos.length) {
       setActivePhotoIndex(0);
     }
   }, [activePhotoIndex, photos.length]);
@@ -167,6 +169,7 @@ export default function SwipeCard({
   const recentlyActive = Number.isFinite(lastSeenTime) &&
     (Date.now() - lastSeenTime) < 5 * 60 * 1000; // 5 mins
   const activityLabel = isOnline ? "Online" : recentlyActive ? "Active recently" : "";
+  const isVerified = Boolean(profile?.isVerified || profile?.verified);
   
   // Interests/hobbies
   const interests = (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
@@ -196,7 +199,10 @@ export default function SwipeCard({
     const deltaX = event.clientX - photoTouchStartRef.current.x;
     const deltaY = event.clientY - photoTouchStartRef.current.y;
     photoTouchStartRef.current = null;
-    if (Math.abs(deltaX) > 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+    if (
+      Math.abs(deltaX) > PHOTO_SWIPE_THRESHOLD_PX &&
+      Math.abs(deltaX) > Math.abs(deltaY) * PHOTO_SWIPE_DIRECTION_RATIO
+    ) {
       goToPhoto(deltaX < 0 ? 1 : -1);
     }
   };
@@ -349,7 +355,7 @@ export default function SwipeCard({
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
               {displayName}
-              {(profile?.isVerified || profile?.verified) && (
+              {isVerified && (
                 <span className="swipe-card-verified" title="Verified">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -360,7 +366,7 @@ export default function SwipeCard({
             {age && <span className="swipe-card-age">{age}</span>}
           </div>
           <div className="swipe-card-meta-row">
-            {(profile?.isVerified || profile?.verified) && <span className="swipe-card-meta-pill">Verified</span>}
+            {isVerified && <span className="swipe-card-meta-pill">Verified</span>}
             {activityLabel && <span className="swipe-card-meta-pill swipe-card-meta-pill--active">{activityLabel}</span>}
           </div>
           {(location || distance) && (

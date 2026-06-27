@@ -1751,10 +1751,11 @@ export default function FeedPage() {
           bottom: clamp(8px, calc(var(--feed-stable-viewport-height) * 0.02), 18px);
           z-index: 70;
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(4, auto);
+          justify-content: center;
           align-items: center;
           gap: clamp(0.42rem, 1.8vw, 0.72rem);
-          width: min(94%, 410px);
+          width: min(94%, 420px);
           transform: translateX(-50%);
           pointer-events: none;
         }

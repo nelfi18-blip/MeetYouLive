@@ -130,13 +130,12 @@ export default function MatchesPage() {
     fetchMatches();
   }, [fetchMatches]);
 
-  const handleLikesTotalChange = useCallback((total) => {
-    setLikesTotal(total);
-  }, []);
-
   const scrollToSection = useCallback((sectionId) => {
     setActiveSection(sectionId);
-    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (typeof document === "undefined") return;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     document.getElementById(sectionId)?.scrollIntoView({
       behavior: prefersReducedMotion ? "auto" : "smooth",
       block: "start",
@@ -265,7 +264,7 @@ export default function MatchesPage() {
         <>
           {/* Real hidden likes section */}
           <div id="received-likes-panel" role="tabpanel" aria-labelledby="received-likes-tab">
-            <HiddenLikesSection onTotalChange={handleLikesTotalChange} />
+            <HiddenLikesSection onTotalChange={setLikesTotal} />
           </div>
 
           <div id="matches-section" className="empty-state" role="tabpanel" aria-labelledby="matches-tab">
@@ -309,7 +308,7 @@ export default function MatchesPage() {
         <>
           {/* Hidden likes section also shown when user has matches */}
           <div id="received-likes-panel" role="tabpanel" aria-labelledby="received-likes-tab">
-            <HiddenLikesSection onTotalChange={handleLikesTotalChange} />
+            <HiddenLikesSection onTotalChange={setLikesTotal} />
           </div>
           <div className="fomo-matches-hint">
             💬 {t("matchesPage.fomoHint")}
@@ -692,7 +691,11 @@ export default function MatchesPage() {
           width: 100%;
           height: 100%;
           min-height: 310px;
+        }
+        .match-photo-img {
           object-fit: cover;
+        }
+        .match-photo-placeholder {
           display: flex;
           align-items: center;
           justify-content: center;

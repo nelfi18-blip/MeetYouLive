@@ -1751,6 +1751,7 @@ export default function FeedPage() {
           bottom: clamp(8px, calc(var(--feed-stable-viewport-height) * 0.02), 18px);
           z-index: 70;
           display: grid;
+          /* Button order follows the JSX: pass, undo, like, super-like. */
           grid-template-columns: repeat(4, auto);
           justify-content: center;
           align-items: center;
@@ -1761,6 +1762,7 @@ export default function FeedPage() {
         }
 
         .feed-action-btn {
+          --feed-action-btn-size: clamp(56px, 15vw, 68px);
           pointer-events: auto;
           display: inline-flex;
           flex-direction: column;
@@ -1768,8 +1770,8 @@ export default function FeedPage() {
           justify-content: center;
           gap: 0.25rem;
           min-width: 0;
-          width: clamp(56px, 15vw, 68px);
-          height: clamp(56px, 15vw, 68px);
+          width: var(--feed-action-btn-size);
+          height: var(--feed-action-btn-size);
           justify-self: center;
           padding: 0;
           border: 1px solid rgba(255, 255, 255, 0.2);

@@ -11,8 +11,8 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
-const PHOTO_SWIPE_THRESHOLD_PX = 36;
-const PHOTO_SWIPE_DIRECTION_RATIO = 1.2;
+const PHOTO_SWIPE_THRESHOLD_MIN_PX = 36;
+const PHOTO_SWIPE_DIRECTION_ASPECT_RATIO = 1.2;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getProfileId(profile) {
@@ -164,11 +164,11 @@ export default function SwipeCard({
   }, [currentPhoto, photos.length, profile?.username, profileId]);
   
   // Online status
-  const isOnline = Boolean(profile?.isOnline);
+  const isOnline = Boolean(profile?.isOnline || profile?.lastSeen);
   const lastSeenTime = profile?.lastSeen ? new Date(profile.lastSeen).getTime() : NaN;
   const recentlyActive = Number.isFinite(lastSeenTime) &&
     (Date.now() - lastSeenTime) < 5 * 60 * 1000; // 5 mins
-  const activityLabel = isOnline ? "Online" : recentlyActive ? "Active recently" : "";
+  const activityLabel = profile?.isOnline ? "Online" : isOnline || recentlyActive ? "Active recently" : "";
   const isVerified = Boolean(profile?.isVerified || profile?.verified);
   
   // Interests/hobbies
@@ -186,22 +186,29 @@ export default function SwipeCard({
     setActivePhotoIndex((index) => (index + direction + photos.length) % photos.length);
   }, [hasPhotoCarousel, photos.length]);
 
+  const canInteractWithPhotoCarousel = () =>
+    isActive && hasPhotoCarousel && !hasSwiped && !disabled && !isSubmitting;
+
   const handlePhotoPointerDownCapture = (event) => {
-    if (!isActive || !hasPhotoCarousel || hasSwiped || disabled || isSubmitting) return;
+    if (!canInteractWithPhotoCarousel()) return;
     event.stopPropagation();
     photoTouchStartRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const handlePhotoPointerUpCapture = (event) => {
     if (!photoTouchStartRef.current) return;
+    if (!canInteractWithPhotoCarousel()) {
+      photoTouchStartRef.current = null;
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     const deltaX = event.clientX - photoTouchStartRef.current.x;
     const deltaY = event.clientY - photoTouchStartRef.current.y;
     photoTouchStartRef.current = null;
     if (
-      Math.abs(deltaX) > PHOTO_SWIPE_THRESHOLD_PX &&
-      Math.abs(deltaX) > Math.abs(deltaY) * PHOTO_SWIPE_DIRECTION_RATIO
+      Math.abs(deltaX) > PHOTO_SWIPE_THRESHOLD_MIN_PX &&
+      Math.abs(deltaX) > Math.abs(deltaY) * PHOTO_SWIPE_DIRECTION_ASPECT_RATIO
     ) {
       goToPhoto(deltaX < 0 ? 1 : -1);
     }

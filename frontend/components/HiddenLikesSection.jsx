@@ -76,8 +76,8 @@ function getActivityLabel(user) {
   const lastActive = new Date(rawLastActive);
   if (Number.isNaN(lastActive.getTime())) return null;
 
-  const daysSinceActive = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSinceActive <= 7 ? "Activo recientemente" : null;
+  const daysSinceActiveFloat = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceActiveFloat <= 7 ? "Activo recientemente" : null;
 }
 
 /**
@@ -95,8 +95,7 @@ export default function HiddenLikesSection({ compact = false }) {
   const [loading, setLoading] = useState(true);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("received");
-  const [activeFilter, setActiveFilter] = useState("near");
+  const [activeFilter, setActiveFilter] = useState("all");
 
   const fetchLikes = useCallback(() => {
     const token =
@@ -170,14 +169,12 @@ export default function HiddenLikesSection({ compact = false }) {
   const visibleLocked = activeFilter === "verified" || activeFilter === "bio" ? [] : locked;
   const tabs = [
     { id: "received", label: "Likes recibidos", count: total },
-    { id: "sent", label: "Likes enviados", count: null },
-    { id: "top", label: "Top Picks", count: null },
   ];
   const filters = [
-    { id: "near", label: "📍 Cerca de mí" },
+    { id: "near", label: "📍 Cerca de mí", disabled: true },
     { id: "verified", label: `✓ Verificados${verifiedCount > 0 ? ` ${verifiedCount}` : ""}` },
     { id: "bio", label: `📝 Con biografía${bioCount > 0 ? ` ${bioCount}` : ""}` },
-    { id: "new", label: "✨ Nuevos" },
+    { id: "new", label: "✨ Nuevos", disabled: true },
   ];
 
   return (
@@ -204,9 +201,8 @@ export default function HiddenLikesSection({ compact = false }) {
             key={tab.id}
             type="button"
             role="tab"
-            aria-selected={activeTab === tab.id}
-            className={`hls-tab${activeTab === tab.id ? " hls-tab-active" : ""}`}
-            onClick={() => setActiveTab(tab.id)}
+            aria-selected="true"
+            className="hls-tab hls-tab-active"
           >
             <span>{tab.label}</span>
             {typeof tab.count === "number" && <strong>{tab.count}</strong>}
@@ -219,108 +215,102 @@ export default function HiddenLikesSection({ compact = false }) {
           <button
             key={filter.id}
             type="button"
-            className={`hls-filter-chip${activeFilter === filter.id ? " hls-filter-chip-active" : ""}`}
-            onClick={() => setActiveFilter(filter.id)}
+            className={`hls-filter-chip${activeFilter === filter.id ? " hls-filter-chip-active" : ""}${
+              filter.disabled ? " hls-filter-chip-disabled" : ""
+            }`}
+            onClick={() => !filter.disabled && setActiveFilter(filter.id)}
             aria-pressed={activeFilter === filter.id}
+            disabled={filter.disabled}
           >
             {filter.label}
+            {filter.disabled && <span className="hls-filter-soon">Pronto</span>}
           </button>
         ))}
       </div>
 
-      {activeTab === "received" ? (
-        <div className="hls-panel" role="tabpanel">
-          <div className="hls-grid">
-            {visibleRevealed.map(({ likeId, user, crushType }) => {
-              const displayName = getDisplayName(user);
-              const image = getUserImage(user);
-              const initial = displayName[0]?.toUpperCase() || "?";
-              const age = calcAge(user?.birthdate || user?.dateOfBirth || user?.birthday);
-              const locationLabel = getLocationLabel(user);
-              const isVerified = Boolean(user?.isVerified);
-              const activityLabel = getActivityLabel(user);
-              return (
-                <Link
-                  key={likeId}
-                  href={`/profile/${user?._id}`}
-                  className="hls-card hls-card-revealed"
-                >
-                  <div className="hls-photo-wrap">
-                    {image ? (
-                      <img
-                        src={image}
-                        alt={displayName}
-                        className="hls-photo-img"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="hls-photo-placeholder">{initial}</div>
-                    )}
-                    {activityLabel && <span className="hls-active-pill">{activityLabel}</span>}
-                    {crushType === "super_crush" && (
-                      <span className="hls-super-badge" title="Super Crush">
-                        ⚡ Super
-                      </span>
-                    )}
-                  </div>
-                  <div className="hls-card-body">
-                    <div className="hls-name-row">
-                      <span className="hls-name">
-                        {displayName}
-                        {age ? `, ${age}` : ""}
-                      </span>
-                      {isVerified && (
-                        <span className="hls-verified" title="Verificado">
-                          <VerifiedIcon />
-                        </span>
-                      )}
-                    </div>
-                    <div className="hls-location">📍 {locationLabel}</div>
-                    {hasBio(user) && <p className="hls-bio">{user.bio}</p>}
-                  </div>
-                </Link>
-              );
-            })}
-
-            {visibleLocked.map(({ likeId, crushType }) => (
-              <div key={likeId} className="hls-card hls-card-locked">
+      <div className="hls-panel" role="tabpanel">
+        <div className="hls-grid">
+          {visibleRevealed.map(({ likeId, user, crushType }) => {
+            const displayName = getDisplayName(user);
+            const image = getUserImage(user);
+            const initial = displayName[0]?.toUpperCase() || "?";
+            const age = calcAge(user?.birthdate || user?.dateOfBirth || user?.birthday);
+            const locationLabel = getLocationLabel(user);
+            const isVerified = Boolean(user?.isVerified);
+            const activityLabel = getActivityLabel(user);
+            return (
+              <Link
+                key={likeId}
+                href={`/profile/${user?._id}`}
+                className="hls-card hls-card-revealed"
+              >
                 <div className="hls-photo-wrap">
-                  <div className="hls-photo-blurred" aria-hidden="true" />
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={displayName}
+                      className="hls-photo-img"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="hls-photo-placeholder">{initial}</div>
+                  )}
+                  {activityLabel && <span className="hls-active-pill">{activityLabel}</span>}
                   {crushType === "super_crush" && (
-                    <span
-                      className="hls-super-badge hls-super-badge-locked"
-                      title="Super Crush"
-                    >
+                    <span className="hls-super-badge" title="Super Crush">
                       ⚡ Super
                     </span>
                   )}
-                  <div className="hls-lock-icon" aria-label="Bloqueado">
-                    <LockIcon />
-                  </div>
-                  <span className="hls-active-pill">Like oculto</span>
                 </div>
                 <div className="hls-card-body">
                   <div className="hls-name-row">
-                    <span className="hls-locked-title">Perfil oculto</span>
+                    <span className="hls-name">
+                      {displayName}
+                      {age ? `, ${age}` : ""}
+                    </span>
+                    {isVerified && (
+                      <span className="hls-verified" title="Verificado">
+                        <VerifiedIcon />
+                      </span>
+                    )}
                   </div>
-                  <div className="hls-location">Desbloquea para ver detalles</div>
+                  <div className="hls-location">📍 {locationLabel}</div>
+                  {hasBio(user) && <p className="hls-bio">{user.bio}</p>}
                 </div>
+              </Link>
+            );
+          })}
+
+          {visibleLocked.map(({ likeId, crushType }) => (
+            <div key={likeId} className="hls-card hls-card-locked">
+              <div className="hls-photo-wrap">
+                <div className="hls-photo-blurred" aria-hidden="true" />
+                {crushType === "super_crush" && (
+                  <span
+                    className="hls-super-badge hls-super-badge-locked"
+                    title="Super Crush"
+                  >
+                    ⚡ Super
+                  </span>
+                )}
+                <div className="hls-lock-icon" aria-label="Bloqueado">
+                  <LockIcon />
+                </div>
+                <span className="hls-active-pill">Like oculto</span>
               </div>
-            ))}
-          </div>
-          {visibleRevealed.length === 0 && visibleLocked.length === 0 && (
-            <div className="hls-filter-empty">No hay likes visibles con este filtro.</div>
-          )}
+              <div className="hls-card-body">
+                <div className="hls-name-row">
+                  <span className="hls-locked-title">Perfil oculto</span>
+                </div>
+                <div className="hls-location">Desbloquea para ver detalles</div>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : (
-        <div className="hls-empty-tab" role="tabpanel">
-          <span className="hls-empty-icon">{activeTab === "sent" ? "💌" : "⭐"}</span>
-          <strong>
-            {activeTab === "sent" ? "Likes enviados" : "Top Picks"}
-          </strong>
-          <p>Esta pestaña se mantiene en la interfaz sin cambiar la API actual.</p>
-        </div>
-      )}
+        {visibleRevealed.length === 0 && visibleLocked.length === 0 && (
+          <div className="hls-filter-empty">No hay likes visibles con este filtro.</div>
+        )}
+      </div>
 
       {error && <p className="hls-error">{error}</p>}
 
@@ -520,12 +510,26 @@ export default function HiddenLikesSection({ compact = false }) {
             border-color 0.2s ease,
             background 0.2s ease;
         }
-        .hls-filter-chip:hover,
+        .hls-filter-chip:hover:not(:disabled),
         .hls-filter-chip-active {
           color: #fff;
           border-color: rgba(255, 45, 120, 0.34);
           background: rgba(255, 45, 120, 0.16);
           transform: translateY(-1px);
+        }
+        .hls-filter-chip-disabled {
+          cursor: not-allowed;
+          opacity: 0.72;
+        }
+        .hls-filter-soon {
+          margin-left: 0.35rem;
+          padding: 0.1rem 0.34rem;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.58);
+          font-size: 0.58rem;
+          font-weight: 900;
+          text-transform: uppercase;
         }
 
         .hls-panel {
@@ -685,36 +689,9 @@ export default function HiddenLikesSection({ compact = false }) {
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
+          /* autoprefixer: ignore next */
           -webkit-box-orient: vertical;
           overflow: hidden;
-        }
-        .hls-empty-tab {
-          position: relative;
-          z-index: 1;
-          min-height: 180px;
-          border-radius: 24px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          gap: 0.35rem;
-          padding: 1.2rem;
-          background: rgba(255, 255, 255, 0.055);
-          border: 1px dashed rgba(255, 255, 255, 0.14);
-          color: rgba(255, 255, 255, 0.6);
-          animation: hls-panel-in 0.24s ease-out both;
-        }
-        .hls-empty-icon {
-          font-size: 2rem;
-        }
-        .hls-empty-tab strong {
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 1rem;
-        }
-        .hls-empty-tab p {
-          margin: 0;
-          font-size: 0.78rem;
         }
         .hls-filter-empty {
           margin-top: 0.75rem;

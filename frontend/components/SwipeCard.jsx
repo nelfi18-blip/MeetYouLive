@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getPrimaryProfileImage, getDisplayName, getBioText } from "@/lib/imageHelpers";
+import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -11,6 +11,10 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
+// Minimum horizontal movement required before a photo gesture changes images.
+const PHOTO_SWIPE_THRESHOLD_MIN_PX = 36;
+// Requires horizontal movement to clearly exceed vertical movement, preserving page scroll.
+const PHOTO_SWIPE_DIRECTION_ASPECT_RATIO = 1.2;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getProfileId(profile) {
@@ -22,6 +26,12 @@ function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
   if (direction === "right") return SWIPE_EXIT_DISTANCE_X;
   return 0;
+}
+
+function getActivityLabel(profile, hasActivitySignal) {
+  if (profile?.isOnline) return "Online";
+  if (hasActivitySignal) return "Active recently";
+  return "";
 }
 
 export default function SwipeCard({
@@ -46,7 +56,9 @@ export default function SwipeCard({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
   const [isBioExpanded, setIsBioExpanded] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const swipeTimeoutRef = useRef(null);
+  const photoTouchStartRef = useRef(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
@@ -61,6 +73,7 @@ export default function SwipeCard({
     setIsSubmitting(false);
     setBrokenPhotoUrls(new Set());
     setIsBioExpanded(false);
+    setActivePhotoIndex(0);
   }, [profileId]);
 
   useEffect(() => {
@@ -125,7 +138,10 @@ export default function SwipeCard({
     }
   };
 
-  const primaryPhoto = useMemo(() => getPrimaryProfileImage(profile), [profile]);
+  const photos = useMemo(
+    () => getUserPhotoSelection(profile).photos.filter((photo) => !brokenPhotoUrls.has(photo)),
+    [brokenPhotoUrls, profile]
+  );
   const displayName = getDisplayName(profile);
   const numericAge = Number(profile?.age);
   const age = Number.isInteger(numericAge) && numericAge > 0 ? numericAge : "";
@@ -135,7 +151,14 @@ export default function SwipeCard({
   const bio = getBioText(profile);
   const canExpandBio = bio.length > BIO_COLLAPSED_CHAR_LIMIT;
   
-  const currentPhoto = primaryPhoto && !brokenPhotoUrls.has(primaryPhoto) ? primaryPhoto : null;
+  const currentPhoto = photos[activePhotoIndex] || photos[0] || null;
+  const hasPhotoCarousel = photos.length > 1;
+
+  useEffect(() => {
+    if (photos.length > 0 && activePhotoIndex >= photos.length) {
+      setActivePhotoIndex(0);
+    }
+  }, [activePhotoIndex, photos.length]);
 
   useEffect(() => {
     if (!ENABLE_FEED_PHOTO_DIAGNOSTICS) return;
@@ -143,16 +166,18 @@ export default function SwipeCard({
     console.debug("[feed-photo-diagnostic]", {
       userId: profileId,
       username: profile?.username || null,
-      photoCount: currentPhoto ? 1 : 0,
-      fieldUsed: currentPhoto ? "getPrimaryProfileImage" : null,
+      photoCount: photos.length,
+      fieldUsed: currentPhoto ? "getUserPhotoSelection" : null,
     });
-  }, [currentPhoto, profile?.username, profileId]);
+  }, [currentPhoto, photos.length, profile?.username, profileId]);
   
   // Online status
   const isOnline = Boolean(profile?.isOnline || profile?.lastSeen);
   const lastSeenTime = profile?.lastSeen ? new Date(profile.lastSeen).getTime() : NaN;
   const recentlyActive = Number.isFinite(lastSeenTime) &&
     (Date.now() - lastSeenTime) < 5 * 60 * 1000; // 5 mins
+  const activityLabel = getActivityLabel(profile, isOnline || recentlyActive);
+  const isVerified = Boolean(profile?.isVerified || profile?.verified);
   
   // Interests/hobbies
   const interests = (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
@@ -162,6 +187,43 @@ export default function SwipeCard({
   const handlePhotoClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  const goToPhoto = useCallback((direction) => {
+    if (!hasPhotoCarousel) return;
+    setActivePhotoIndex((index) => (index + direction + photos.length) % photos.length);
+  }, [hasPhotoCarousel, photos.length]);
+
+  const isCarouselInteractionEnabled = () =>
+    isActive && hasPhotoCarousel && !hasSwiped && !disabled && !isSubmitting;
+
+  const handlePhotoPointerDownCapture = (event) => {
+    if (!isCarouselInteractionEnabled()) return;
+    event.stopPropagation();
+    photoTouchStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePhotoPointerUpCapture = (event) => {
+    if (!photoTouchStartRef.current) return;
+    if (!isCarouselInteractionEnabled()) {
+      photoTouchStartRef.current = null;
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const deltaX = event.clientX - photoTouchStartRef.current.x;
+    const deltaY = event.clientY - photoTouchStartRef.current.y;
+    photoTouchStartRef.current = null;
+    if (
+      Math.abs(deltaX) > PHOTO_SWIPE_THRESHOLD_MIN_PX &&
+      Math.abs(deltaX) > Math.abs(deltaY) * PHOTO_SWIPE_DIRECTION_ASPECT_RATIO
+    ) {
+      goToPhoto(deltaX < 0 ? 1 : -1);
+    }
+  };
+
+  const handlePhotoPointerCancelCapture = () => {
+    photoTouchStartRef.current = null;
   };
 
   const cardClassName = isActive
@@ -191,7 +253,20 @@ export default function SwipeCard({
       <div 
         className="swipe-card-image-wrapper"
         onClick={isActive ? handlePhotoClick : undefined}
+        onPointerDownCapture={handlePhotoPointerDownCapture}
+        onPointerUpCapture={handlePhotoPointerUpCapture}
+        onPointerCancelCapture={handlePhotoPointerCancelCapture}
       >
+        {hasPhotoCarousel && (
+          <div className="swipe-card-photo-indicators" aria-hidden="true">
+            {photos.map((photo, index) => (
+              <span
+                key={`${photo}-${index}`}
+                className={`photo-indicator${index === activePhotoIndex ? " active" : ""}`}
+              />
+            ))}
+          </div>
+        )}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPhoto || "placeholder"}
@@ -226,14 +301,39 @@ export default function SwipeCard({
             )}
           </motion.div>
         </AnimatePresence>
+
+        {hasPhotoCarousel && isActive && (
+          <div className="swipe-card-photo-zones" aria-label="Photo navigation">
+            <button
+              type="button"
+              className="swipe-card-photo-zone swipe-card-photo-zone--prev"
+              aria-label="Previous photo"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                goToPhoto(-1);
+              }}
+            />
+            <button
+              type="button"
+              className="swipe-card-photo-zone swipe-card-photo-zone--next"
+              aria-label="Next photo"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                goToPhoto(1);
+              }}
+            />
+          </div>
+        )}
         
         {isActive && (
           <>
             {/* Online Status Badge */}
-            {(isOnline || recentlyActive) && (
+            {activityLabel && (
               <div className="swipe-card-online-badge">
                 <span className="online-dot"></span>
-                {isOnline ? 'Online' : 'Active recently'}
+                {activityLabel}
               </div>
             )}
             
@@ -270,7 +370,7 @@ export default function SwipeCard({
           <div className="swipe-card-name-age">
             <h3 className="swipe-card-name">
               {displayName}
-              {profile?.isVerified && (
+              {isVerified && (
                 <span className="swipe-card-verified" title="Verified">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#22d3ee">
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -279,6 +379,10 @@ export default function SwipeCard({
               )}
             </h3>
             {age && <span className="swipe-card-age">{age}</span>}
+          </div>
+          <div className="swipe-card-meta-row">
+            {isVerified && <span className="swipe-card-meta-pill">Verified</span>}
+            {activityLabel && <span className="swipe-card-meta-pill swipe-card-meta-pill--active">{activityLabel}</span>}
           </div>
           {(location || distance) && (
             <div className="swipe-card-location">

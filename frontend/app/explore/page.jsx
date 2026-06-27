@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -48,6 +49,7 @@ function MatchTabIcon() {
 
 export default function ExplorePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [tab, setTab] = useState("live");
 
   // ── Live tab state ──────────────────────────────────────────
@@ -268,6 +270,9 @@ export default function ExplorePage() {
     }
   };
 
+  const hasNoLiveStreams = lives.length === 0;
+  const hasLivesButNoMatches = lives.length > 0 && filtered.length === 0;
+
   return (
     <div className="explore">
       {/* ── Urgency banner ── */}
@@ -332,14 +337,42 @@ export default function ExplorePage() {
 
           {liveError && <div className="banner-error">{liveError}</div>}
 
-          {filtered.length === 0 ? (
+          {hasNoLiveStreams ? (
+            <div className="empty-state live-empty-state">
+              <div className="empty-icon live-empty-icon">
+                <span aria-hidden="true">📡</span>
+              </div>
+              <h3>{t("explore.noLiveTitle")}</h3>
+              <p>{t("explore.noLiveDescription")}</p>
+              <Link href="/live/start" className="btn btn-primary live-start-btn">
+                <span aria-hidden="true">🎥</span> {t("explore.startLive")}
+              </Link>
+
+              <div className="wait-actions">
+                <p className="wait-title">{t("explore.whileWaiting")}</p>
+                <div className="wait-action-grid">
+                  <Link href="/crush" className="wait-action crush-action">
+                    <span aria-hidden="true">⚡</span> {t("explore.viewCrush")}
+                  </Link>
+                  <Link href="/matches" className="wait-action matches-action">
+                    <span aria-hidden="true">❤️</span> {t("explore.reviewMatches")}
+                  </Link>
+                  <Link href="/profile" className="wait-action profile-action">
+                    <span aria-hidden="true">👤</span> {t("explore.completeProfile")}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : hasLivesButNoMatches ? (
             <div className="empty-state">
-              <div className="empty-icon">📡</div>
-              <h3>Sin resultados</h3>
+              <div className="empty-icon">
+                <span aria-hidden="true">📡</span>
+              </div>
+              <h3>{t("explore.noResultsTitle")}</h3>
               <p>
                 {search || category !== "Todos"
-                  ? "No hay directos que coincidan con tu búsqueda."
-                  : "No hay streams en vivo ahora"}
+                  ? t("explore.noResultsDescription")
+                  : t("explore.noStreamsNow")}
               </p>
             </div>
           ) : (
@@ -466,10 +499,76 @@ export default function ExplorePage() {
         .empty-icon { font-size: 2.5rem; }
         .empty-state h3 { color: var(--text); font-size: 1.15rem; margin: 0; }
         .empty-state p  { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
+        .live-empty-state {
+          padding: 3.25rem 1.25rem;
+          border: 1px solid rgba(224,64,251,0.2);
+          background:
+            radial-gradient(circle at top, rgba(224,64,251,0.14), transparent 34%),
+            rgba(15,8,32,0.5);
+          box-shadow: 0 18px 45px rgba(0,0,0,0.2);
+        }
+        .live-empty-icon {
+          display: grid;
+          place-items: center;
+          width: 4.25rem;
+          height: 4.25rem;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: 0 0 24px rgba(224,64,251,0.18);
+        }
+        .live-empty-state h3 { font-size: 1.5rem; }
+        .live-empty-state > p { max-width: 35rem; line-height: 1.6; }
+        .live-start-btn { margin-top: 0.25rem; }
+        .wait-actions {
+          width: 100%;
+          max-width: 42rem;
+          margin-top: 0.5rem;
+          padding: 1rem;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: var(--radius);
+          background: rgba(255,255,255,0.035);
+          backdrop-filter: blur(16px);
+        }
+        .live-empty-state .wait-title {
+          margin-bottom: 0.8rem;
+          color: var(--text);
+          font-weight: 700;
+        }
+        .wait-action-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.65rem;
+        }
+        .wait-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 3rem;
+          padding: 0.72rem 0.9rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          font-weight: 700;
+          transition: all var(--transition);
+        }
+        .wait-action:hover { color: var(--text); transform: translateY(-1px); }
+        .crush-action { border-color: rgba(251,191,36,0.2); color: #fbbf24; background: rgba(251,191,36,0.08); }
+        .matches-action { border-color: rgba(255,45,120,0.2); color: var(--accent); background: rgba(255,45,120,0.08); }
+        .profile-action { border-color: rgba(224,64,251,0.22); color: var(--accent-2); background: rgba(224,64,251,0.08); }
+
+        @media (max-width: 760px) {
+          .wait-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
 
         @media (max-width: 600px) {
           .explore-header { flex-direction: column; align-items: flex-start; }
           .search-wrap { width: 100%; }
+          .live-empty-state { padding: 2.5rem 1rem; }
+          .wait-action-grid { grid-template-columns: 1fr; }
+          .wait-action { min-height: 3.25rem; }
         }
       `}</style>
     </div>

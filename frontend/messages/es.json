@@ -268,5 +268,17 @@
     "apply": "Solicitar",
     "timeout": "Tiempo de espera agotado",
     "retry": "Reintentar"
+  },
+  "explore": {
+    "noLiveTitle": "No hay directos en este momento",
+    "noLiveDescription": "Nadie está transmitiendo ahora mismo. Sé el primero en iniciar un directo o vuelve más tarde.",
+    "startLive": "Iniciar directo",
+    "whileWaiting": "Mientras esperas puedes:",
+    "viewCrush": "Ver tus Crush",
+    "reviewMatches": "Revisar tus Matches",
+    "completeProfile": "Completar tu perfil",
+    "noResultsTitle": "Sin resultados",
+    "noResultsDescription": "No hay directos que coincidan con tu búsqueda.",
+    "noStreamsNow": "No hay streams en vivo ahora"
   }
 }

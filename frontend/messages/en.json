@@ -268,5 +268,17 @@
     "apply": "Apply",
     "timeout": "Request timed out",
     "retry": "Retry"
+  },
+  "explore": {
+    "noLiveTitle": "No live streams right now",
+    "noLiveDescription": "No one is streaming right now. Be the first to start a live stream or come back later.",
+    "startLive": "Start live",
+    "whileWaiting": "While you wait, you can:",
+    "viewCrush": "View your Crush",
+    "reviewMatches": "Review your Matches",
+    "completeProfile": "Complete your profile",
+    "noResultsTitle": "No results",
+    "noResultsDescription": "No live streams match your search.",
+    "noStreamsNow": "No live streams right now"
   }
 }

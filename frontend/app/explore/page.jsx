@@ -63,6 +63,7 @@ export default function ExplorePage() {
   const [liveError, setLiveError] = useState("");
   const [liveLoading, setLiveLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [localToken, setLocalToken] = useState(null);
 
   // ── Discover tab state ─────────────────────────────────────
   const [users, setUsers] = useState([]);
@@ -76,13 +77,13 @@ export default function ExplorePage() {
   const [superCrushPrice, setSuperCrushPrice] = useState(50);
   const [boostPrice] = useState(100);
   const [passedIds, setPassedIds] = useState(new Set());
+  const authToken = session?.backendToken || localToken;
 
-  const getAuthToken = useCallback(
-    () =>
-      session?.backendToken ||
-      (typeof window !== "undefined" ? localStorage.getItem("token") : null),
-    [session?.backendToken]
-  );
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setLocalToken(localStorage.getItem("token"));
+    }
+  }, []);
 
   // ── Load lives ─────────────────────────────────────────────
   const loadLives = useCallback(async () => {
@@ -102,16 +103,15 @@ export default function ExplorePage() {
 
   useEffect(() => {
     loadLives();
-  }, [loadLives]);
+  }, []);
 
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
+    if (!authToken) {
       setCurrentUser(null);
       return;
     }
 
-    fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + token } })
+    fetch(`${API_URL}/api/user/me`, { headers: { Authorization: "Bearer " + authToken } })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -120,11 +120,11 @@ export default function ExplorePage() {
       .catch(() => setCurrentUser(null));
 
     // Fetch crush config for super crush price
-    fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: "Bearer " + token } })
+    fetch(`${API_URL}/api/matches/config`, { headers: { Authorization: "Bearer " + authToken } })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.superCrushPrice) setSuperCrushPrice(d.superCrushPrice); })
       .catch(() => {});
-  }, [getAuthToken]);
+  }, [authToken]);
   // ── Filter lives ───────────────────────────────────────────
   useEffect(() => {
     let result = lives;

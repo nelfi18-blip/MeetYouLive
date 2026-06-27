@@ -283,7 +283,7 @@ export default function MatchesPage() {
             <HiddenLikesSection onTotalChange={handleLikesTotalChange} />
           </div>
           <div className="fomo-matches-hint">
-            💬 Tus matches te están esperando — ¡escríbeles antes de que pierdan el interés!
+            💬 {t("matchesPage.fomoHint")}
           </div>
           <section id="matches-section" className="matches-section" aria-labelledby="matches-section-title">
             <div className="matches-section-head">

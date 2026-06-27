@@ -66,6 +66,20 @@ function hasBio(user) {
   return Boolean(user?.bio && String(user.bio).trim());
 }
 
+function getActivityLabel(user) {
+  if (user?.isLive) return "En vivo ahora";
+  if (user?.isOnline) return "Activo ahora";
+
+  const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
+  if (!rawLastActive) return null;
+
+  const lastActive = new Date(rawLastActive);
+  if (Number.isNaN(lastActive.getTime())) return null;
+
+  const daysSinceActive = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceActive <= 7 ? "Activo recientemente" : null;
+}
+
 /**
  * HiddenLikesSection
  *
@@ -82,6 +96,7 @@ export default function HiddenLikesSection({ compact = false }) {
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("received");
+  const [activeFilter, setActiveFilter] = useState("near");
 
   const fetchLikes = useCallback(() => {
     const token =
@@ -147,13 +162,22 @@ export default function HiddenLikesSection({ compact = false }) {
   const locked = data.locked ?? [];
   const verifiedCount = revealed.filter(({ user }) => user?.isVerified).length;
   const bioCount = revealed.filter(({ user }) => hasBio(user)).length;
-  const superCount = [...revealed, ...locked].filter(
-    ({ crushType }) => crushType === "super_crush"
-  ).length;
+  const visibleRevealed = revealed.filter(({ user }) => {
+    if (activeFilter === "verified") return user?.isVerified;
+    if (activeFilter === "bio") return hasBio(user);
+    return true;
+  });
+  const visibleLocked = activeFilter === "verified" || activeFilter === "bio" ? [] : locked;
   const tabs = [
     { id: "received", label: "Likes recibidos", count: total },
-    { id: "sent", label: "Likes enviados", count: 0 },
-    { id: "top", label: "Top Picks", count: 0 },
+    { id: "sent", label: "Likes enviados", count: null },
+    { id: "top", label: "Top Picks", count: null },
+  ];
+  const filters = [
+    { id: "near", label: "📍 Cerca de mí" },
+    { id: "verified", label: `✓ Verificados${verifiedCount > 0 ? ` ${verifiedCount}` : ""}` },
+    { id: "bio", label: `📝 Con biografía${bioCount > 0 ? ` ${bioCount}` : ""}` },
+    { id: "new", label: "✨ Nuevos" },
   ];
 
   return (
@@ -185,28 +209,36 @@ export default function HiddenLikesSection({ compact = false }) {
             onClick={() => setActiveTab(tab.id)}
           >
             <span>{tab.label}</span>
-            <strong>{tab.count}</strong>
+            {typeof tab.count === "number" && <strong>{tab.count}</strong>}
           </button>
         ))}
       </div>
 
       <div className="hls-filters" aria-label="Filtros disponibles">
-        <span className="hls-filter-chip">📍 Cerca de mí</span>
-        <span className="hls-filter-chip">✓ Verificados {verifiedCount > 0 ? verifiedCount : ""}</span>
-        <span className="hls-filter-chip">📝 Con biografía {bioCount > 0 ? bioCount : ""}</span>
-        <span className="hls-filter-chip">✨ Nuevos</span>
+        {filters.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={`hls-filter-chip${activeFilter === filter.id ? " hls-filter-chip-active" : ""}`}
+            onClick={() => setActiveFilter(filter.id)}
+            aria-pressed={activeFilter === filter.id}
+          >
+            {filter.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === "received" ? (
         <div className="hls-panel" role="tabpanel">
           <div className="hls-grid">
-            {revealed.map(({ likeId, user, crushType }) => {
+            {visibleRevealed.map(({ likeId, user, crushType }) => {
               const displayName = getDisplayName(user);
               const image = getUserImage(user);
               const initial = displayName[0]?.toUpperCase() || "?";
               const age = calcAge(user?.birthdate || user?.dateOfBirth || user?.birthday);
               const locationLabel = getLocationLabel(user);
               const isVerified = Boolean(user?.isVerified);
+              const activityLabel = getActivityLabel(user);
               return (
                 <Link
                   key={likeId}
@@ -224,7 +256,7 @@ export default function HiddenLikesSection({ compact = false }) {
                     ) : (
                       <div className="hls-photo-placeholder">{initial}</div>
                     )}
-                    <span className="hls-active-pill">Activo recientemente</span>
+                    {activityLabel && <span className="hls-active-pill">{activityLabel}</span>}
                     {crushType === "super_crush" && (
                       <span className="hls-super-badge" title="Super Crush">
                         ⚡ Super
@@ -250,7 +282,7 @@ export default function HiddenLikesSection({ compact = false }) {
               );
             })}
 
-            {locked.map(({ likeId, crushType }, index) => (
+            {visibleLocked.map(({ likeId, crushType }) => (
               <div key={likeId} className="hls-card hls-card-locked">
                 <div className="hls-photo-wrap">
                   <div className="hls-photo-blurred" aria-hidden="true" />
@@ -265,17 +297,20 @@ export default function HiddenLikesSection({ compact = false }) {
                   <div className="hls-lock-icon" aria-label="Bloqueado">
                     <LockIcon />
                   </div>
-                  <span className="hls-active-pill">Nuevo like</span>
+                  <span className="hls-active-pill">Like oculto</span>
                 </div>
                 <div className="hls-card-body">
                   <div className="hls-name-row">
-                    <span className="hls-locked-title">Perfil oculto #{index + 1}</span>
+                    <span className="hls-locked-title">Perfil oculto</span>
                   </div>
                   <div className="hls-location">Desbloquea para ver detalles</div>
                 </div>
               </div>
             ))}
           </div>
+          {visibleRevealed.length === 0 && visibleLocked.length === 0 && (
+            <div className="hls-filter-empty">No hay likes visibles con este filtro.</div>
+          )}
         </div>
       ) : (
         <div className="hls-empty-tab" role="tabpanel">
@@ -478,6 +513,19 @@ export default function HiddenLikesSection({ compact = false }) {
           font-size: 0.72rem;
           font-weight: 800;
           backdrop-filter: blur(12px);
+          cursor: pointer;
+          transition:
+            transform 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            background 0.2s ease;
+        }
+        .hls-filter-chip:hover,
+        .hls-filter-chip-active {
+          color: #fff;
+          border-color: rgba(255, 45, 120, 0.34);
+          background: rgba(255, 45, 120, 0.16);
+          transform: translateY(-1px);
         }
 
         .hls-panel {
@@ -667,6 +715,17 @@ export default function HiddenLikesSection({ compact = false }) {
         .hls-empty-tab p {
           margin: 0;
           font-size: 0.78rem;
+        }
+        .hls-filter-empty {
+          margin-top: 0.75rem;
+          border-radius: 18px;
+          padding: 0.9rem;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.58);
+          background: rgba(255, 255, 255, 0.055);
+          border: 1px dashed rgba(255, 255, 255, 0.14);
+          font-size: 0.82rem;
+          font-weight: 700;
         }
 
         .hls-error {

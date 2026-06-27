@@ -11,7 +11,9 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
+// Minimum horizontal movement required before a photo gesture changes images.
 const PHOTO_SWIPE_THRESHOLD_MIN_PX = 36;
+// Requires horizontal movement to clearly exceed vertical movement, preserving page scroll.
 const PHOTO_SWIPE_DIRECTION_ASPECT_RATIO = 1.2;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
@@ -24,6 +26,12 @@ function getSwipeExitX(direction) {
   if (direction === "left") return -SWIPE_EXIT_DISTANCE_X;
   if (direction === "right") return SWIPE_EXIT_DISTANCE_X;
   return 0;
+}
+
+function getActivityLabel(profile, hasActivitySignal) {
+  if (profile?.isOnline) return "Online";
+  if (hasActivitySignal) return "Active recently";
+  return "";
 }
 
 export default function SwipeCard({
@@ -168,7 +176,7 @@ export default function SwipeCard({
   const lastSeenTime = profile?.lastSeen ? new Date(profile.lastSeen).getTime() : NaN;
   const recentlyActive = Number.isFinite(lastSeenTime) &&
     (Date.now() - lastSeenTime) < 5 * 60 * 1000; // 5 mins
-  const activityLabel = profile?.isOnline ? "Online" : isOnline || recentlyActive ? "Active recently" : "";
+  const activityLabel = getActivityLabel(profile, isOnline || recentlyActive);
   const isVerified = Boolean(profile?.isVerified || profile?.verified);
   
   // Interests/hobbies
@@ -186,18 +194,18 @@ export default function SwipeCard({
     setActivePhotoIndex((index) => (index + direction + photos.length) % photos.length);
   }, [hasPhotoCarousel, photos.length]);
 
-  const canInteractWithPhotoCarousel = () =>
+  const isCarouselInteractionEnabled = () =>
     isActive && hasPhotoCarousel && !hasSwiped && !disabled && !isSubmitting;
 
   const handlePhotoPointerDownCapture = (event) => {
-    if (!canInteractWithPhotoCarousel()) return;
+    if (!isCarouselInteractionEnabled()) return;
     event.stopPropagation();
     photoTouchStartRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const handlePhotoPointerUpCapture = (event) => {
     if (!photoTouchStartRef.current) return;
-    if (!canInteractWithPhotoCarousel()) {
+    if (!isCarouselInteractionEnabled()) {
       photoTouchStartRef.current = null;
       return;
     }

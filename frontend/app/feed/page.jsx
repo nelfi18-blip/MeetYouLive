@@ -1751,7 +1751,7 @@ export default function FeedPage() {
           bottom: clamp(8px, calc(var(--feed-stable-viewport-height) * 0.02), 18px);
           z-index: 70;
           display: grid;
-          /* Button order follows the JSX: pass, undo, like, super-like. */
+          /* Keep primary positive actions on the right for mobile thumb reach. */
           grid-template-columns: repeat(4, auto);
           justify-content: center;
           align-items: center;
@@ -1762,6 +1762,7 @@ export default function FeedPage() {
         }
 
         .feed-action-btn {
+          /* 56px+ keeps touch targets comfortable; 68px prevents crowding. */
           --feed-action-btn-size: clamp(56px, 15vw, 68px);
           pointer-events: auto;
           display: inline-flex;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -51,14 +52,14 @@ function calcAge(birthdate) {
   return age > 0 ? age : null;
 }
 
-function getLocationLabel(user) {
+function getLocationLabel(user, fallback) {
   return (
     user?.distanceLabel ||
     user?.distance ||
     user?.city ||
     user?.location?.city ||
     user?.country ||
-    "Cerca de ti"
+    fallback
   );
 }
 
@@ -66,9 +67,9 @@ function hasBio(user) {
   return Boolean(user?.bio && String(user.bio).trim());
 }
 
-function getActivityLabel(user) {
-  if (user?.isLive) return "En vivo ahora";
-  if (user?.isOnline) return "Activo ahora";
+function getActivityLabel(user, t) {
+  if (user?.isLive) return t("hiddenLikes.liveNow");
+  if (user?.isOnline) return t("hiddenLikes.activeNow");
 
   const rawLastActive = user?.lastActiveAt || user?.lastSeenAt || user?.updatedAt;
   if (!rawLastActive) return null;
@@ -77,7 +78,7 @@ function getActivityLabel(user) {
   if (Number.isNaN(lastActive.getTime())) return null;
 
   const daysSinceActiveFloat = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSinceActiveFloat <= 7 ? "Activo recientemente" : null;
+  return daysSinceActiveFloat <= 7 ? t("hiddenLikes.recentlyActive") : null;
 }
 
 function showsLockedLikes(filterId) {
@@ -95,6 +96,7 @@ function showsLockedLikes(filterId) {
  *   compact – if true, renders a smaller layout (used inside the crush page)
  */
 export default function HiddenLikesSection({ compact = false }) {
+  const { t } = useLanguage();
   const [data, setData] = useState(null); // { revealed, locked, lockedCount, unlockPrice }
   const [loading, setLoading] = useState(true);
   const [unlocking, setUnlocking] = useState(false);
@@ -172,20 +174,20 @@ export default function HiddenLikesSection({ compact = false }) {
   });
   const visibleLocked = showsLockedLikes(activeFilter) ? locked : [];
   const filters = [
-    { id: "near", label: "📍 Cerca de mí", disabled: true },
-    { id: "verified", label: `✓ Verificados${verifiedCount > 0 ? ` (${verifiedCount})` : ""}` },
-    { id: "bio", label: `📝 Con biografía${bioCount > 0 ? ` (${bioCount})` : ""}` },
-    { id: "new", label: "✨ Nuevos", disabled: true },
+    { id: "near", label: `📍 ${t("hiddenLikes.filterNearby")}`, disabled: true },
+    { id: "verified", label: `✓ ${t("hiddenLikes.filterVerified")}${verifiedCount > 0 ? ` (${verifiedCount})` : ""}` },
+    { id: "bio", label: `📝 ${t("hiddenLikes.filterBio")}${bioCount > 0 ? ` (${bioCount})` : ""}` },
+    { id: "new", label: `✨ ${t("hiddenLikes.filterNew")}`, disabled: true },
   ];
 
   return (
     <div className={`hls-wrap${compact ? " hls-compact" : ""}`}>
       <div className="hls-header">
         <div>
-          <span className="hls-eyebrow">💖 Red premium de conexiones</span>
+          <span className="hls-eyebrow">💖 {t("hiddenLikes.eyebrow")}</span>
           <h2 className="hls-title">Likes</h2>
           <p className="hls-subtitle">
-            Personas que mostraron interés en tu perfil. Descubre señales reales y perfiles destacados.
+            {t("hiddenLikes.subtitle")}
           </p>
         </div>
         <div className="hls-counter-card" aria-label={`${total} personas te dieron like`}>
@@ -198,7 +200,7 @@ export default function HiddenLikesSection({ compact = false }) {
 
       <div className="hls-tabs" role="tablist" aria-label="Categorías de likes">
         <button type="button" role="tab" aria-selected="true" className="hls-tab hls-tab-active">
-          <span>Likes recibidos</span>
+          <span>{t("hiddenLikes.receivedTab")}</span>
           <strong>{total}</strong>
         </button>
       </div>
@@ -211,12 +213,14 @@ export default function HiddenLikesSection({ compact = false }) {
             className={`hls-filter-chip${activeFilter === filter.id ? " hls-filter-chip-active" : ""}${
               filter.disabled ? " hls-filter-chip-disabled" : ""
             }`}
-            onClick={() => setActiveFilter(filter.id)}
+            onClick={() => {
+              if (!filter.disabled) setActiveFilter(filter.id);
+            }}
             aria-pressed={activeFilter === filter.id}
             disabled={filter.disabled}
           >
             {filter.label}
-            {filter.disabled && <span className="hls-filter-soon">Pronto</span>}
+            {filter.disabled && <span className="hls-filter-soon">{t("hiddenLikes.soon")}</span>}
           </button>
         ))}
       </div>
@@ -228,9 +232,9 @@ export default function HiddenLikesSection({ compact = false }) {
             const image = getUserImage(user);
             const initial = displayName[0]?.toUpperCase() || "?";
             const age = calcAge(user?.birthdate || user?.dateOfBirth || user?.birthday);
-            const locationLabel = getLocationLabel(user);
+            const locationLabel = getLocationLabel(user, t("hiddenLikes.nearYou"));
             const isVerified = Boolean(user?.isVerified);
-            const activityLabel = getActivityLabel(user);
+            const activityLabel = getActivityLabel(user, t);
             return (
               <Link
                 key={likeId}
@@ -289,19 +293,19 @@ export default function HiddenLikesSection({ compact = false }) {
                 <div className="hls-lock-icon" aria-label="Bloqueado">
                   <LockIcon />
                 </div>
-                <span className="hls-active-pill">Like oculto</span>
+                <span className="hls-active-pill">{t("hiddenLikes.hiddenLike")}</span>
               </div>
               <div className="hls-card-body">
                 <div className="hls-name-row">
-                  <span className="hls-locked-title">Perfil oculto</span>
+                  <span className="hls-locked-title">{t("hiddenLikes.hiddenProfile")}</span>
                 </div>
-                <div className="hls-location">Desbloquea para ver detalles</div>
+                <div className="hls-location">{t("hiddenLikes.unlockDetails")}</div>
               </div>
             </div>
           ))}
         </div>
         {visibleRevealed.length === 0 && visibleLocked.length === 0 && (
-          <div className="hls-filter-empty">No hay likes visibles con este filtro.</div>
+          <div className="hls-filter-empty">{t("hiddenLikes.emptyFilter")}</div>
         )}
       </div>
 
@@ -311,7 +315,7 @@ export default function HiddenLikesSection({ compact = false }) {
         <div className="hls-cta-wrap">
           <div className="hls-cta-glow" aria-hidden="true" />
           <p className="hls-cta-hint">
-            👀 Descubre quién te dio like antes de que sea tarde
+            👀 {t("hiddenLikes.unlockHint")}
           </p>
           <div className="hls-cta-buttons">
             <button
@@ -321,10 +325,10 @@ export default function HiddenLikesSection({ compact = false }) {
             >
               {unlocking
                 ? "Desbloqueando…"
-                : `💎 Desbloquear ${data.lockedCount} like${data.lockedCount !== 1 ? "s" : ""} · 🪙${unlockPrice}`}
+                : `💎 ${t("hiddenLikes.unlock")} ${data.lockedCount} like${data.lockedCount !== 1 ? "s" : ""} · 🪙${unlockPrice}`}
             </button>
             <Link href="/coins" className="hls-coins-link">
-              Comprar monedas →
+              {t("hiddenLikes.buyCoins")} →
             </Link>
           </div>
         </div>
@@ -682,7 +686,7 @@ export default function HiddenLikesSection({ compact = false }) {
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
-          /* autoprefixer: ignore next */
+          /* autoprefixer: ignore next -- preserves line clamping in WebKit browsers */
           -webkit-box-orient: vertical;
           overflow: hidden;
         }

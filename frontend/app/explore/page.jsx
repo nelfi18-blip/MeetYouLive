@@ -270,6 +270,9 @@ export default function ExplorePage() {
     }
   };
 
+  const hasNoLiveStreams = lives.length === 0;
+  const hasNoMatchingLives = filtered.length === 0;
+
   return (
     <div className="explore">
       {/* ── Urgency banner ── */}
@@ -334,7 +337,7 @@ export default function ExplorePage() {
 
           {liveError && <div className="banner-error">{liveError}</div>}
 
-          {filtered.length === 0 && lives.length === 0 ? (
+          {hasNoLiveStreams ? (
             <div className="empty-state live-empty-state">
               <div className="empty-icon live-empty-icon">
                 <span aria-hidden="true">📡</span>
@@ -360,7 +363,7 @@ export default function ExplorePage() {
                 </div>
               </div>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : hasNoMatchingLives ? (
             <div className="empty-state">
               <div className="empty-icon">
                 <span aria-hidden="true">📡</span>
@@ -514,7 +517,7 @@ export default function ExplorePage() {
           border: 1px solid rgba(255,255,255,0.1);
           box-shadow: 0 0 24px rgba(224,64,251,0.18);
         }
-        .live-empty-state h3 { font-size: clamp(1.25rem, 5vw, 1.75rem); }
+        .live-empty-state h3 { font-size: 1.5rem; }
         .live-empty-state > p { max-width: 35rem; line-height: 1.6; }
         .live-start-btn { margin-top: 0.25rem; }
         .wait-actions {
@@ -527,9 +530,9 @@ export default function ExplorePage() {
           background: rgba(255,255,255,0.035);
           backdrop-filter: blur(16px);
         }
-        .wait-title {
-          margin-bottom: 0.8rem !important;
-          color: var(--text) !important;
+        .live-empty-state .wait-title {
+          margin-bottom: 0.8rem;
+          color: var(--text);
           font-weight: 700;
         }
         .wait-action-grid {

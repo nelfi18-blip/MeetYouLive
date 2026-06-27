@@ -32,9 +32,9 @@ function ChatIcon() {
   );
 }
 
-function VerifiedIcon() {
+function VerifiedIcon({ label }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={label}>
       <path d="M12 2l2.13 2.08 2.96-.42.53 2.95 2.62 1.46-1.35 2.68 1.35 2.68-2.62 1.46-.53 2.95-2.96-.42L12 22l-2.13-2.08-2.96.42-.53-2.95-2.62-1.46 1.35-2.68-1.35-2.68 2.62-1.46.53-2.95 2.96.42L12 2zm-1.13 13.2l5.64-5.65-1.42-1.41-4.22 4.23-1.96-1.96L7.5 11.82l3.37 3.38z" />
     </svg>
   );
@@ -131,8 +131,8 @@ export default function MatchesPage() {
   }, [fetchMatches]);
 
   const scrollToSection = useCallback((sectionId) => {
-    setActiveSection(sectionId);
     if (typeof window === "undefined") return;
+    setActiveSection(sectionId);
     const prefersReducedMotion =
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     document.getElementById(sectionId)?.scrollIntoView({
@@ -213,10 +213,12 @@ export default function MatchesPage() {
           <span className="likes-eyebrow">💖 {t("matchesPage.likesEyebrow")}</span>
           <h1 id="likes-title" className="likes-title">{t("matchesPage.likesTitle")}</h1>
           <p className="likes-subtitle">{t("matchesPage.likesSubtitle")}</p>
-          <div className="likes-tabs" aria-label={t("matchesPage.tabsAria")}>
+          <div className="likes-tabs" role="tablist" aria-label={t("matchesPage.tabsAria")}>
             <button
               type="button"
-              aria-pressed={activeSection === "received-likes-panel"}
+              role="tab"
+              aria-selected={activeSection === "received-likes-panel"}
+              aria-controls="received-likes-panel"
               className={`likes-tab${activeSection === "received-likes-panel" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("received-likes-panel")}
             >
@@ -224,7 +226,9 @@ export default function MatchesPage() {
             </button>
             <button
               type="button"
-              aria-pressed={activeSection === "matches-section"}
+              role="tab"
+              aria-selected={activeSection === "matches-section"}
+              aria-controls="matches-section"
               className={`likes-tab${activeSection === "matches-section" ? " likes-tab-active" : ""}`}
               onClick={() => scrollToSection("matches-section")}
             >
@@ -355,10 +359,8 @@ export default function MatchesPage() {
                         <span
                           className="match-verified"
                           title={t("matchesPage.verified")}
-                          aria-label={t("matchesPage.verified")}
-                          role="img"
                         >
-                          <VerifiedIcon />
+                          <VerifiedIcon label={t("matchesPage.verified")} />
                         </span>
                       )}
                     </div>

@@ -268,5 +268,14 @@
     "apply": "Solicitar",
     "timeout": "Tempo limite esgotado",
     "retry": "Tentar novamente"
+  },
+  "explore": {
+    "noLiveTitle": "Não há transmissões ao vivo agora",
+    "noLiveDescription": "Ninguém está transmitindo agora. Seja o primeiro a iniciar uma transmissão ao vivo ou volte mais tarde.",
+    "startLive": "Iniciar ao vivo",
+    "whileWaiting": "Enquanto espera, você pode:",
+    "viewCrush": "Ver seus Crush",
+    "reviewMatches": "Revisar seus Matches",
+    "completeProfile": "Completar seu perfil"
   }
 }

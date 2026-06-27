@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import LiveCard from "@/components/LiveCard";
 import UrgencyBanner from "@/components/UrgencyBanner";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { filterActiveLives } from "@/lib/liveFilters";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -48,6 +49,7 @@ function MatchTabIcon() {
 
 export default function ExplorePage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [tab, setTab] = useState("live");
 
   // ── Live tab state ──────────────────────────────────────────
@@ -335,26 +337,23 @@ export default function ExplorePage() {
           {filtered.length === 0 && lives.length === 0 ? (
             <div className="empty-state live-empty-state">
               <div className="empty-icon live-empty-icon">📡</div>
-              <h3>No hay directos en este momento</h3>
-              <p>
-                Nadie está transmitiendo ahora mismo. Sé el primero en iniciar
-                un directo o vuelve más tarde.
-              </p>
+              <h3>{t("explore.noLiveTitle")}</h3>
+              <p>{t("explore.noLiveDescription")}</p>
               <Link href="/live/start" className="btn btn-primary live-start-btn">
-                🎥 Iniciar directo
+                🎥 {t("explore.startLive")}
               </Link>
 
               <div className="wait-actions">
-                <p className="wait-title">Mientras esperas puedes:</p>
+                <p className="wait-title">{t("explore.whileWaiting")}</p>
                 <div className="wait-action-grid">
                   <Link href="/crush" className="wait-action crush-action">
-                    ⚡ Ver tus Crush
+                    ⚡ {t("explore.viewCrush")}
                   </Link>
                   <Link href="/matches" className="wait-action matches-action">
-                    ❤️ Revisar tus Matches
+                    ❤️ {t("explore.reviewMatches")}
                   </Link>
                   <Link href="/profile" className="wait-action profile-action">
-                    👤 Completar tu perfil
+                    👤 {t("explore.completeProfile")}
                   </Link>
                 </div>
               </div>

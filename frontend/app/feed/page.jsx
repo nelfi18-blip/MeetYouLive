@@ -1861,6 +1861,7 @@ export default function FeedPage() {
             padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 6.75rem;
             border-top: 0;
             background:
+              /* Subtle MeetYouLive accent glow behind profile details. */
               radial-gradient(circle at 12% 58%, rgba(224, 64, 251, 0.2), transparent 30%),
               linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 12%, rgba(0, 0, 0, 0.55) 42%, rgba(7, 4, 17, 0.92) 80%, rgba(7, 4, 17, 0.99) 100%);
             gap: 0.48rem;

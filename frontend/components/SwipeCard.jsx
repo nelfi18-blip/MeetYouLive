@@ -219,11 +219,22 @@ export default function SwipeCard({
     const deltaX = event.clientX - photoTouchStartRef.current.x;
     const deltaY = event.clientY - photoTouchStartRef.current.y;
     photoTouchStartRef.current = null;
+    // Prevent accidental photo changes when the pointer movement was a card drag, not a tap.
     suppressNextPhotoTapRef.current = Math.hypot(deltaX, deltaY) > PHOTO_TAP_CANCEL_THRESHOLD_PX;
   };
 
   const handlePhotoPointerCancelCapture = () => {
     photoTouchStartRef.current = null;
+  };
+
+  const handlePhotoKeyDown = (event) => {
+    if (!isCarouselInteractionEnabled()) return;
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    goToPhoto(event.key === "ArrowLeft" ? -1 : 1);
   };
 
   const cardClassName = isActive
@@ -257,9 +268,13 @@ export default function SwipeCard({
       <div 
         className="swipe-card-image-wrapper"
         onClick={isActive ? handlePhotoClick : undefined}
+        onKeyDown={isActive ? handlePhotoKeyDown : undefined}
         onPointerDownCapture={handlePhotoPointerDownCapture}
         onPointerUpCapture={handlePhotoPointerUpCapture}
         onPointerCancelCapture={handlePhotoPointerCancelCapture}
+        role={isActive && hasPhotoCarousel ? "button" : undefined}
+        tabIndex={isActive && hasPhotoCarousel ? 0 : undefined}
+        aria-label={isActive && hasPhotoCarousel ? "Change profile photo. Use left and right arrow keys." : undefined}
       >
         {hasPhotoCarousel && (
           <div className="swipe-card-photo-indicators" aria-hidden="true">

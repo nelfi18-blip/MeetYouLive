@@ -109,7 +109,7 @@ function VerifyEmailForm() {
       if (data.error) {
         setError(data.error);
       } else {
-        setResendSuccess(data.message || "Código reenviado. Revisa tu email. Revisa spam o correo no deseado.");
+        setResendSuccess(data.message || "Código reenviado. Revisa tu email y la carpeta de spam o correo no deseado.");
         setResendCooldown(60);
       }
     } catch {

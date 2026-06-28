@@ -10,7 +10,6 @@ import {
   AVATAR_UPLOAD_MAX_BYTES,
   AVATAR_UPLOAD_MAX_LABEL,
   compressAvatarImage,
-  formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
@@ -468,7 +467,8 @@ export default function OnboardingPage() {
           message: AVATAR_TOO_LARGE_MESSAGE,
           code: "FILE_TOO_LARGE",
         });
-        return { ok: false, message: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
+        console.warn("[onboarding-avatar-upload] file too large", diagnostic);
+        return { ok: false, message: AVATAR_TOO_LARGE_MESSAGE, diagnostic };
       }
 
       const formData = new FormData();

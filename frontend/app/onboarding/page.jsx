@@ -25,6 +25,11 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
+const SERVER_CONNECTING_MESSAGE = "Conectando con el servidor, intenta nuevamente en unos segundos";
+const PROFILE_SAVE_ERROR_MESSAGE = "No se pudo guardar tu perfil. Revisa los datos e inténtalo de nuevo.";
+const PHOTO_UPLOAD_ERROR_MESSAGE = "No se pudo subir la foto. Inténtalo de nuevo.";
+const CREATOR_PROFILE_SAVED_MESSAGE = "Tu perfil fue guardado. La cuenta de creador está pendiente de aprobación.";
+const CREATOR_PROFILE_NEXT_STEP_MESSAGE = "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación.";
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
@@ -121,6 +126,24 @@ const collectUploadPhotoUrls = (payload) => {
   ]);
 };
 
+const getSafeSaveErrorMessage = (status, data = {}) => {
+  if (status === 401 || status === 403) return "Tu sesión expiró. Inicia sesión de nuevo.";
+  if (status === 429) return "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.";
+  if (status >= 500 || status === 0) return SERVER_CONNECTING_MESSAGE;
+  if (typeof data?.message === "string" && data.message.trim() && !/failed to fetch|network|cors|stack|error:/i.test(data.message)) {
+    return data.message.trim();
+  }
+  return PROFILE_SAVE_ERROR_MESSAGE;
+};
+
+const getSafeUploadErrorMessage = (status) => {
+  if (status === 401 || status === 403) return "Tu sesión expiró. Inicia sesión de nuevo.";
+  if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
+  if (status === 429) return "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.";
+  if (status >= 500 || status === 0) return SERVER_CONNECTING_MESSAGE;
+  return PHOTO_UPLOAD_ERROR_MESSAGE;
+};
+
 const INTERESTS = [
   "Música", "Gaming", "Arte", "Viajes", "Fitness",
   "Cocina", "Tecnología", "Cine", "Moda", "Fotografía",
@@ -179,6 +202,7 @@ export default function OnboardingPage() {
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [saveFailed, setSaveFailed] = useState(false);
   const animTimerRef = useRef(null);
   const photoIdCounterRef = useRef(0);
   const addPhotosInputRef = useRef(null);
@@ -225,6 +249,7 @@ export default function OnboardingPage() {
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   })();
+  const displayedCompletionPercent = saveFailed ? Math.min(completionPercent, 99) : completionPercent;
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -375,6 +400,7 @@ export default function OnboardingPage() {
 
   const handleNext = () => {
     setError("");
+    setSaveFailed(false);
     if (step === 1 && !selectedPath) {
       setError(t("onboarding.pathRequired"));
       return;
@@ -410,6 +436,7 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     setError("");
+    setSaveFailed(false);
     if (!safeMainPhotoPreview && visibleExtraPhotoFiles.length === 0) {
       setError("Sube al menos una foto para continuar");
       return;
@@ -419,10 +446,17 @@ export default function OnboardingPage() {
     const token = localStorage.getItem("token");
     if (!token) {
       setError("Tu sesión expiró. Inicia sesión de nuevo.");
+      setSaveFailed(true);
       setLoading(false);
       router.replace("/login");
       return;
     }
+
+    const failSave = (message) => {
+      setSaveFailed(true);
+      setError(message);
+      setLoading(false);
+    };
 
     const uploadPhotoFile = async (file, { setAsMain = false } = {}) => {
       const uploadEndpoint = buildUploadEndpoint({ setAsMain });
@@ -449,8 +483,9 @@ export default function OnboardingPage() {
         body: formData,
         });
       } catch (err) {
-        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
-        return { ok: false, message: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
+        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, SERVER_CONNECTING_MESSAGE);
+        console.warn("[onboarding-avatar-upload] network error", diagnostic);
+        return { ok: false, message: SERVER_CONNECTING_MESSAGE, diagnostic };
       }
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] response status", uploadRes.status);
@@ -459,10 +494,11 @@ export default function OnboardingPage() {
       console.log("[onboarding-avatar-upload] response body", uploadData);
       if (!uploadRes.ok) {
         const diagnostic = getAvatarUploadDiagnostic(uploadRes.status, uploadData, "Error al subir la foto");
+        console.warn("[onboarding-avatar-upload] failed", diagnostic);
         return {
           ok: false,
           unauthorized: uploadRes.status === 401,
-          message: formatAvatarUploadDiagnostic(diagnostic),
+          message: getSafeUploadErrorMessage(uploadRes.status),
           diagnostic,
         };
       }
@@ -509,8 +545,7 @@ export default function OnboardingPage() {
         const mainUpload = await uploadPhotoFile(workingMainFile, { setAsMain: true });
         if (!mainUpload.ok) {
           if (mainUpload.unauthorized) router.replace("/login");
-          setError(mainUpload.message || "No se pudo subir la foto principal.");
-          setLoading(false);
+          failSave(mainUpload.message || PHOTO_UPLOAD_ERROR_MESSAGE);
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
@@ -525,11 +560,10 @@ export default function OnboardingPage() {
         if (!extraUpload.ok) {
           if (extraUpload.unauthorized) {
             router.replace("/login");
-            setLoading(false);
+            failSave(extraUpload.message || "Tu sesión expiró. Inicia sesión de nuevo.");
             return;
           }
-          setError(extraUpload.message || "Una foto no se pudo subir. Inténtalo de nuevo.");
-          setLoading(false);
+          failSave(extraUpload.message || PHOTO_UPLOAD_ERROR_MESSAGE);
           return;
         }
         finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
@@ -537,8 +571,7 @@ export default function OnboardingPage() {
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[onboarding-avatar-upload] caught frontend error", err);
-      setError("No se pudo subir la foto");
-      setLoading(false);
+      failSave(PHOTO_UPLOAD_ERROR_MESSAGE);
       return;
     }
 
@@ -593,7 +626,7 @@ export default function OnboardingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.message || "Error al guardar el perfil");
+        failSave(getSafeSaveErrorMessage(res.status, data));
         return;
       }
       const updatedUser = data.user || data;
@@ -604,7 +637,7 @@ export default function OnboardingPage() {
       console.log("normalized images", normalizedImages);
       const canAppearInFeed = data.canAppearInFeed === true || updatedUser.canAppearInFeed === true;
       const onboardingComplete = data.onboardingComplete === true || updatedUser.onboardingComplete === true;
-      if (!canAppearInFeed && !onboardingComplete) {
+      if (!onboardingComplete) {
         const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
         const missingLabels = getMissingProfileLabels(missing);
         if (shouldLogProfileCompletionDiagnostics()) {
@@ -628,7 +661,7 @@ export default function OnboardingPage() {
           });
         }
         const missingMessage = missingLabels.length ? `Te falta: ${missingLabels.join(" / ")}` : "El backend aún reporta el perfil incompleto.";
-        setError(missingMessage);
+        failSave(missingMessage);
         return;
       }
       try {
@@ -650,7 +683,7 @@ export default function OnboardingPage() {
         cache: "no-store",
       });
       if (!profileRes.ok) {
-        setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
+        failSave(getSafeSaveErrorMessage(profileRes.status));
         return;
       }
       // Force the backend profile to refresh before leaving onboarding.
@@ -666,9 +699,23 @@ export default function OnboardingPage() {
         profileStatus: sessionProfile?.profileStatus || data.profileStatus || null,
       });
       router.refresh();
+      if (selectedPath === "creator") {
+        try {
+          const creatorNotice =
+            sessionProfile?.creatorStatus === "pending" || sessionProfile?.role === "creator"
+              ? CREATOR_PROFILE_SAVED_MESSAGE
+              : CREATOR_PROFILE_NEXT_STEP_MESSAGE;
+          sessionStorage.setItem("meetyoulive:creatorProfileSavedNotice", creatorNotice);
+        } catch {
+          // Ignore storage failures; the creator request page still explains the next step.
+        }
+        router.replace("/creator-request?profileSaved=1");
+        return;
+      }
       router.replace("/feed");
-    } catch {
-      setError("No se pudo conectar con el servidor");
+    } catch (err) {
+      console.warn("[onboarding-save] request failed", err);
+      failSave(SERVER_CONNECTING_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -700,7 +747,7 @@ export default function OnboardingPage() {
             </div>
             <div className="ob-completion-percent">
               <span className="ob-completion-label">Perfil completado: </span>
-              <span className="ob-completion-value">{completionPercent}%</span>
+              <span className="ob-completion-value">{displayedCompletionPercent}%</span>
             </div>
           </div>
         )}

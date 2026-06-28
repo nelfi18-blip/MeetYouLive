@@ -46,6 +46,9 @@ const CTA_START_EARNING = "Empezar a ganar dinero";
 const CTA_ACTIVATE_CREATOR = "Activar modo creador 💰";
 const FALLBACK_BIO_CATEGORY = "contenido en vivo";
 const FALLBACK_BIO_COUNTRY = "tu región";
+const PROFILE_SAVED_NOTICE = "Tu perfil fue guardado. La cuenta de creador está pendiente de aprobación.";
+const PROFILE_SAVED_NEXT_STEP_NOTICE = "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación.";
+const SERVER_CONNECTING_MESSAGE = "Conectando con el servidor, intenta nuevamente en unos segundos";
 const SEGMENT_THRESHOLDS = {
   newMaxLogins: 3,
   activeMinLogins: 8,
@@ -107,12 +110,14 @@ export default function CreatorRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteCode = searchParams.get("creatorInvite") || null;
+  const profileSaved = searchParams.get("profileSaved") === "1";
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [detectingCountry, setDetectingCountry] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [profileSavedNotice, setProfileSavedNotice] = useState("");
   const [step, setStep] = useState(1);
   const [inviterInfo, setInviterInfo] = useState(null);
 
@@ -124,6 +129,16 @@ export default function CreatorRequestForm() {
     languages: [],
     socialLinks: { twitter: "", instagram: "", tiktok: "", youtube: "" },
   });
+
+  useEffect(() => {
+    if (!profileSaved) return;
+    try {
+      setProfileSavedNotice(sessionStorage.getItem("meetyoulive:creatorProfileSavedNotice") || PROFILE_SAVED_NEXT_STEP_NOTICE);
+      sessionStorage.removeItem("meetyoulive:creatorProfileSavedNotice");
+    } catch {
+      setProfileSavedNotice(PROFILE_SAVED_NEXT_STEP_NOTICE);
+    }
+  }, [profileSaved]);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -402,12 +417,13 @@ export default function CreatorRequestForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Error al enviar solicitud");
+        setError(data?.message || "No se pudo enviar la solicitud. Inténtalo de nuevo.");
       } else {
         setSuccess(true);
+        setProfileSavedNotice(PROFILE_SAVED_NOTICE);
       }
     } catch {
-      setError("Error de conexión. Inténtalo de nuevo.");
+      setError(SERVER_CONNECTING_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -487,7 +503,7 @@ export default function CreatorRequestForm() {
             <div>
               <div className="status-title">Solicitud en revisión</div>
               <div className="status-desc">
-                Tu solicitud ha sido enviada. Un administrador la revisará pronto y te notificaremos por email.
+                {profileSavedNotice || "Tu solicitud ha sido enviada. Un administrador la revisará pronto y te notificaremos por email."}
               </div>
             </div>
           </div>
@@ -515,6 +531,16 @@ export default function CreatorRequestForm() {
                 <div>
                   <div className="status-title">Solicitud rechazada</div>
                   <div className="status-desc">Puedes corregir tu solicitud y volver a enviarla.</div>
+                </div>
+              </div>
+            )}
+
+            {profileSavedNotice && (
+              <div className="status-box status-pending">
+                <span className="status-icon">⏳</span>
+                <div>
+                  <div className="status-title">Perfil guardado</div>
+                  <div className="status-desc">{profileSavedNotice}</div>
                 </div>
               </div>
             )}

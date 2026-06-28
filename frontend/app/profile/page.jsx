@@ -740,11 +740,11 @@ export default function ProfilePage() {
                   })()}
               </div>
               <div className="profile-actions-top">
-                <button className="btn btn-secondary btn-sm" onClick={handleEdit}>
+                <button className="btn btn-primary btn-sm" onClick={handleEdit}>
                   <EditIcon /> Editar
                 </button>
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-secondary btn-sm profile-password-btn"
                   onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
                 >
                   <KeyIcon /> Contraseña
@@ -812,7 +812,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.ageRangeLabel")}</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                  <div className="profile-inline-grid profile-inline-grid--two">
                     <input
                       className="input"
                       type="number"
@@ -835,7 +835,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.maxDistanceLabel")}</label>
-                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+                  <div className="profile-choice-row">
                     {DISTANCE_OPTIONS.map((distance) => (
                       <button
                         key={distance}
@@ -866,7 +866,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.locationControlsTitle")}</label>
-                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+                  <div className="profile-choice-row">
                     <button
                       type="button"
                       className={`btn${editForm.discoveryScope === "nearby" ? " btn-primary" : " btn-secondary"}`}
@@ -882,7 +882,7 @@ export default function ProfilePage() {
                       {t("profile.manualLocation")}
                     </button>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.6rem" }}>
+                  <div className="profile-inline-grid">
                     <input
                       className="input"
                       value={editForm.locationCountry}
@@ -905,11 +905,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.languagesLabel")}</label>
-                  <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
+                  <div className="profile-check-grid profile-check-grid--languages">
                     {SUPPORTED_LANGS.map((code) => {
                       const checked = editForm.discoveryLanguages.includes(code);
                       return (
-                        <label key={code} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                        <label key={code} className="profile-check-card">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -930,11 +930,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t("profile.goalsLabel")}</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "0.45rem 0.7rem" }}>
+                  <div className="profile-check-grid">
                     {DISCOVERY_GOAL_OPTIONS.map((option) => {
                       const checked = editForm.discoveryGoals.includes(option);
                       return (
-                        <label key={option} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                        <label key={option} className="profile-check-card">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -1016,11 +1016,11 @@ export default function ProfilePage() {
           {/* Language preference */}
           <div className="form-card">
             <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.5, marginBottom: "1rem" }}>
+            <p className="profile-section-copy">
               {t("profile.languageHint")}
             </p>
             {langSuccess && <div className="banner-success" style={{ marginBottom: "0.75rem" }}>{langSuccess}</div>}
-            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <div className="profile-language-actions">
               {SUPPORTED_LANGS.map((code) => (
                 <button
                   key={code}
@@ -1045,9 +1045,9 @@ export default function ProfilePage() {
             (user.discoveryPreferences?.goals || []).length > 0) && (
             <div className="form-card">
               <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
-              <div style={{ display: "grid", gap: "0.5rem" }}>
+              <div className="profile-summary-list">
                 {user.interestedIn && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.interestedInLabel")}:</strong>{" "}
                     {user.interestedIn === "women" && t("profile.interestedInWomen")}
                     {user.interestedIn === "men" && t("profile.interestedInMen")}
@@ -1055,30 +1055,30 @@ export default function ProfilePage() {
                   </div>
                 )}
                 {(user.discoveryPreferences?.ageRange?.min != null || user.discoveryPreferences?.ageRange?.max != null) && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.ageSummaryLabel")}:</strong>{" "}
                     {user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}
                   </div>
                 )}
                 {user.discoveryPreferences?.maxDistanceKm != null && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.distanceSummaryLabel")}:</strong> {user.discoveryPreferences.maxDistanceKm} km
                   </div>
                 )}
                 {(user.discoveryScope || user.discoveryPreferences?.discoveryScope) && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.scopeSummaryLabel")}:</strong>{" "}
                     {getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}
                   </div>
                 )}
                 {(user.discoveryPreferences?.languages || []).length > 0 && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.languagesSummaryLabel")}:</strong>{" "}
                     {(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}
                   </div>
                 )}
                 {(user.discoveryPreferences?.goals || []).length > 0 && (
-                  <div>
+                  <div className="profile-summary-row">
                     <strong>{t("profile.goalsSummaryLabel")}:</strong>{" "}
                     {(user.discoveryPreferences.goals || [])
                       .map((goal) => goalLabelByValue[goal] || goal)
@@ -1262,11 +1262,12 @@ export default function ProfilePage() {
         .profile-page {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
-          max-width: 580px;
+          gap: 1.15rem;
+          max-width: 640px;
           width: 100%;
           min-height: calc(100dvh - 140px);
           margin: 0 auto;
+          padding-bottom: 1rem;
         }
 
         /* Skeleton */
@@ -1284,7 +1285,7 @@ export default function ProfilePage() {
 
         /* Banners */
         .banner-error {
-          background: var(--error-bg);
+          background: linear-gradient(135deg, rgba(248,113,113,0.14), rgba(15,8,32,0.76));
           border: 1px solid rgba(248,113,113,0.35);
           color: var(--error);
           border-radius: var(--radius-sm);
@@ -1292,16 +1293,20 @@ export default function ProfilePage() {
           font-size: 0.875rem;
           font-weight: 500;
           text-align: center;
+          box-shadow: var(--shadow-sm);
+          backdrop-filter: blur(14px);
         }
 
         .banner-success {
-          background: var(--success-bg);
+          background: linear-gradient(135deg, rgba(52,211,153,0.14), rgba(15,8,32,0.76));
           border: 1px solid rgba(52,211,153,0.35);
           color: var(--success);
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           font-weight: 500;
+          box-shadow: var(--shadow-sm);
+          backdrop-filter: blur(14px);
         }
 
         .profile-diagnostics-card {
@@ -1360,17 +1365,36 @@ export default function ProfilePage() {
         .profile-card {
           position: relative;
           overflow: hidden;
-          border-radius: var(--radius);
-          border: 1px solid rgba(139,92,246,0.2);
-          background: rgba(15,8,32,0.9);
-          box-shadow: var(--shadow);
+          border-radius: 28px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.1), transparent 28%),
+            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.3), transparent 35%),
+            radial-gradient(circle at 100% 18%, rgba(34,211,238,0.18), transparent 38%),
+            rgba(15,8,32,0.82);
+          box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.1);
+          backdrop-filter: blur(18px);
+        }
+
+        .profile-card::before {
+          content: "";
+          position: absolute;
+          inset: 1px;
+          border-radius: 27px;
+          border: 1px solid rgba(236,124,255,0.12);
+          pointer-events: none;
         }
 
         .profile-card-bg {
           position: absolute;
-          top: 0; right: 0;
-          width: 260px; height: 160px;
-          background: radial-gradient(circle at 100% 0%, rgba(224,64,251,0.12), transparent 70%);
+          inset: auto -58px -76px auto;
+          width: 220px;
+          height: 220px;
+          border-radius: 999px;
+          background:
+            radial-gradient(circle at 50% 50%, rgba(224,64,251,0.28), transparent 62%),
+            radial-gradient(circle at 35% 20%, rgba(34,211,238,0.2), transparent 52%);
+          filter: blur(2px);
           pointer-events: none;
         }
 
@@ -1378,24 +1402,45 @@ export default function ProfilePage() {
           position: relative;
           display: flex;
           align-items: flex-start;
-          gap: 1.5rem;
-          padding: 2rem;
+          gap: 1.25rem;
+          padding: 1.6rem;
           flex-wrap: wrap;
         }
 
-        .profile-avatar-wrap { flex-shrink: 0; }
+        .profile-avatar-wrap {
+          flex-shrink: 0;
+          position: relative;
+          padding: 0.35rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, rgba(224,64,251,0.8), rgba(34,211,238,0.72));
+          box-shadow: var(--glow-pink), 0 18px 40px rgba(0,0,0,0.36);
+        }
+
+        .profile-avatar-wrap::after {
+          content: "";
+          position: absolute;
+          right: 0.4rem;
+          bottom: 0.45rem;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: var(--success);
+          border: 3px solid rgba(15,8,32,0.95);
+          box-shadow: 0 0 14px rgba(52,211,153,0.52);
+        }
 
         .profile-avatar-img {
-          width: 76px;
-          height: 76px;
+          width: 92px;
+          height: 92px;
           border-radius: 50%;
           object-fit: cover;
-          box-shadow: 0 0 0 3px rgba(224,64,251,0.25), 0 0 20px rgba(224,64,251,0.25);
+          display: block;
+          border: 3px solid rgba(15,8,32,0.88);
         }
 
         .profile-avatar {
-          width: 76px;
-          height: 76px;
+          width: 92px;
+          height: 92px;
           border-radius: 50%;
           background: var(--grad-primary);
           display: flex;
@@ -1403,46 +1448,66 @@ export default function ProfilePage() {
           justify-content: center;
           color: #fff;
           font-weight: 800;
-          font-size: 1.9rem;
+          font-size: 2.25rem;
           flex-shrink: 0;
-          box-shadow: 0 0 0 3px rgba(224,64,251,0.25), 0 0 20px rgba(224,64,251,0.25);
+          border: 3px solid rgba(15,8,32,0.88);
         }
 
-        .profile-info { flex: 1; min-width: 180px; }
+        .profile-info {
+          flex: 1;
+          min-width: 180px;
+          padding-top: 0.15rem;
+        }
 
         .profile-name {
-          font-size: 1.5rem;
-          font-weight: 800;
-          letter-spacing: -0.02em;
+          font-size: clamp(1.7rem, 5vw, 2.2rem);
+          font-weight: 900;
+          letter-spacing: -0.05em;
           color: var(--text);
+          margin: 0;
+          text-wrap: balance;
         }
 
         .profile-handle {
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          font-weight: 600;
-          margin-top: 0.1rem;
+          display: inline-flex;
+          width: fit-content;
+          color: rgba(255,255,255,0.74);
+          font-size: 0.9rem;
+          font-weight: 800;
+          margin: 0.25rem 0 0;
+          padding: 0.22rem 0.68rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.1);
         }
 
         .profile-email {
           color: var(--text-dim);
           font-size: 0.82rem;
-          margin-top: 0.1rem;
+          margin: 0.45rem 0 0;
+          overflow-wrap: anywhere;
         }
 
         .profile-bio {
-          color: var(--text-muted);
-          font-size: 0.875rem;
-          line-height: 1.55;
-          max-width: 340px;
-          margin-top: 0.5rem;
+          color: rgba(255,255,255,0.82);
+          font-size: 0.94rem;
+          line-height: 1.6;
+          max-width: 390px;
+          margin: 0.75rem 0 0;
         }
 
-        .profile-badges { margin-top: 0.65rem; }
+        .profile-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.4rem;
+          margin-top: 0.8rem;
+        }
 
         .role-badge {
-          display: inline-block;
-          padding: 0.22rem 0.75rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.3rem 0.78rem;
           border-radius: var(--radius-pill);
           font-size: 0.72rem;
           font-weight: 800;
@@ -1453,9 +1518,10 @@ export default function ProfilePage() {
         }
 
         .role-badge.creator {
-          background: var(--accent-dim);
-          color: var(--accent);
-          border-color: rgba(224,64,251,0.3);
+          background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(34,211,238,0.1));
+          color: #f0b9ff;
+          border-color: rgba(224,64,251,0.48);
+          box-shadow: 0 0 18px rgba(224,64,251,0.14);
         }
 
         .role-badge.admin {
@@ -1489,41 +1555,85 @@ export default function ProfilePage() {
           flex-direction: column;
           gap: 0.5rem;
           flex-shrink: 0;
+          margin-left: auto;
+        }
+
+        .profile-actions-top .btn {
+          border-radius: 999px;
+          min-height: 38px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        .profile-password-btn {
+          background: rgba(255,255,255,0.07);
+          border-color: rgba(255,255,255,0.16);
         }
 
         .profile-extra-strip {
           display: flex;
           flex-wrap: wrap;
           gap: 0.45rem;
-          padding: 0 2rem 1.1rem;
+          padding: 0 1.6rem 1.25rem;
         }
 
         .profile-extra-strip-img {
-          width: 42px;
-          height: 42px;
-          border-radius: 10px;
+          width: 48px;
+          height: 48px;
+          border-radius: 15px;
           object-fit: cover;
-          border: 1px solid rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.18);
+          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
         }
 
         /* Form card */
         .form-card {
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 1.75rem;
+          position: relative;
+          overflow: hidden;
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.07), transparent 28%),
+            rgba(15,8,32,0.76);
+          border: 1px solid rgba(236,124,255,0.26);
+          border-radius: 24px;
+          padding: 1.4rem;
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.08);
+          backdrop-filter: blur(16px);
+        }
+
+        .form-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(circle at 0% 0%, rgba(224,64,251,0.12), transparent 32%),
+            radial-gradient(circle at 100% 10%, rgba(34,211,238,0.08), transparent 34%);
+          pointer-events: none;
         }
 
         .form-card-title {
-          font-size: 1rem;
-          font-weight: 800;
+          position: relative;
+          font-size: 1.08rem;
+          font-weight: 900;
           color: var(--text);
           margin-bottom: 1.25rem;
-          letter-spacing: -0.02em;
+          letter-spacing: -0.035em;
         }
 
-        .form-fields { display: flex; flex-direction: column; gap: 1rem; }
-        .form-group { display: flex; flex-direction: column; gap: 0.45rem; }
+        .form-fields {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 0.78rem;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          padding: 0.78rem;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 18px;
+          background: rgba(255,255,255,0.035);
+        }
 
         .form-label {
           font-size: 0.72rem;
@@ -1541,7 +1651,101 @@ export default function ProfilePage() {
 
         .bio-textarea { resize: vertical; min-height: 76px; }
 
-        .form-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.25rem; }
+        .form-actions {
+          display: flex;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+          margin-top: 0.25rem;
+          padding-top: 0.25rem;
+        }
+
+        .form-actions .btn {
+          flex: 1 1 150px;
+          border-radius: 999px;
+          min-height: 44px;
+        }
+
+        .profile-inline-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 0.6rem;
+        }
+
+        .profile-inline-grid--two {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .profile-choice-row,
+        .profile-language-actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-bottom: 0.6rem;
+        }
+
+        .profile-choice-row .btn,
+        .profile-language-actions .btn {
+          border-radius: 999px;
+          padding-inline: 1rem;
+        }
+
+        .profile-check-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap: 0.55rem;
+        }
+
+        .profile-check-grid--languages {
+          grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+        }
+
+        .profile-check-card {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-height: 40px;
+          padding: 0.55rem 0.7rem;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          font-weight: 700;
+        }
+
+        .profile-check-card input {
+          accent-color: var(--accent);
+        }
+
+        .profile-section-copy {
+          color: var(--text-muted);
+          font-size: 0.875rem;
+          line-height: 1.55;
+          margin: -0.45rem 0 1rem;
+        }
+
+        .profile-summary-list {
+          display: grid;
+          gap: 0.55rem;
+        }
+
+        .profile-summary-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          align-items: center;
+          padding: 0.72rem 0.85rem;
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-muted);
+          line-height: 1.45;
+        }
+
+        .profile-summary-row strong {
+          color: var(--text);
+          font-size: 0.82rem;
+        }
 
         /* Stats */
         .stats-grid {

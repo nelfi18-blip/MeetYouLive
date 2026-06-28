@@ -333,6 +333,7 @@
   },
   "creatorRequest": {
     "profileSavedNotice": "Seu perfil foi salvo. A conta de criador está pendente de aprovação.",
-    "profileSavedNextStepNotice": "Seu perfil foi salvo. Complete a solicitação para enviar a conta de criador para aprovação."
+    "profileSavedNextStepNotice": "Seu perfil foi salvo. Complete a solicitação para enviar a conta de criador para aprovação.",
+    "submitError": "Não foi possível enviar a solicitação. Tente novamente."
   }
 }

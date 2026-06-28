@@ -7,6 +7,7 @@ const { updateOnboarding } = require("../onboarding.controller.js");
 
 const makeResponse = () => {
   const res = {
+    statusCode: 200,
     status: jest.fn(() => res),
     json: jest.fn(() => res),
   };
@@ -71,6 +72,7 @@ describe("creator onboarding", () => {
 
     await updateOnboarding(req, res);
 
+    expect(res.statusCode).toBe(200);
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({

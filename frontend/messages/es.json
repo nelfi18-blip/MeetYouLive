@@ -333,6 +333,7 @@
   },
   "creatorRequest": {
     "profileSavedNotice": "Tu perfil fue guardado. La cuenta de creador está pendiente de aprobación.",
-    "profileSavedNextStepNotice": "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación."
+    "profileSavedNextStepNotice": "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación.",
+    "submitError": "No se pudo enviar la solicitud. Inténtalo de nuevo."
   }
 }

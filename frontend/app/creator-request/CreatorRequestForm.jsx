@@ -417,7 +417,7 @@ export default function CreatorRequestForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.message || "No se pudo enviar la solicitud. Inténtalo de nuevo.");
+        setError(data?.message || t("creatorRequest.submitError"));
       } else {
         setSuccess(true);
         setProfileSavedNotice(t("creatorRequest.profileSavedNotice"));

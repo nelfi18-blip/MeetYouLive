@@ -25,7 +25,7 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
-const TECHNICAL_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
+const USER_UNSAFE_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
@@ -122,21 +122,26 @@ const collectUploadPhotoUrls = (payload) => {
   ]);
 };
 
-const getSafeSaveErrorMessage = (status, data = {}, labels) => {
+const getCommonRequestErrorMessage = (status, labels) => {
   if (status === 401 || status === 403) return labels.sessionExpired;
   if (status === 429) return labels.tooManyAttempts;
   if (status >= 500 || status === 0) return labels.serverConnecting;
-  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !TECHNICAL_ERROR_PATTERN.test(data.message)) {
+  return "";
+};
+
+const getSafeSaveErrorMessage = (status, data = {}, labels) => {
+  const commonMessage = getCommonRequestErrorMessage(status, labels);
+  if (commonMessage) return commonMessage;
+  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !USER_UNSAFE_ERROR_PATTERN.test(data.message)) {
     return data.message.trim();
   }
   return labels.profileSaveError;
 };
 
 const getSafeUploadErrorMessage = (status, labels) => {
-  if (status === 401 || status === 403) return labels.sessionExpired;
   if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
-  if (status === 429) return labels.tooManyAttempts;
-  if (status >= 500 || status === 0) return labels.serverConnecting;
+  const commonMessage = getCommonRequestErrorMessage(status, labels);
+  if (commonMessage) return commonMessage;
   return labels.photoUploadError;
 };
 
@@ -252,6 +257,7 @@ export default function OnboardingPage() {
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   })();
+  // A failed final save means the profile is not fully persisted yet, even if all required fields are filled.
   const displayedCompletionPercent = saveFailed ? Math.min(completionPercent, 99) : completionPercent;
 
   useEffect(() => {
@@ -448,14 +454,14 @@ export default function OnboardingPage() {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      setError("Tu sesión expiró. Inicia sesión de nuevo.");
+      setError(errorLabels.sessionExpired);
       setSaveFailed(true);
       setLoading(false);
       router.replace("/login");
       return;
     }
 
-    const failSave = (message) => {
+    const handleSaveFailure = (message) => {
       setSaveFailed(true);
       setError(message);
       setLoading(false);
@@ -549,7 +555,7 @@ export default function OnboardingPage() {
         const mainUpload = await uploadPhotoFile(workingMainFile, { setAsMain: true });
         if (!mainUpload.ok) {
           if (mainUpload.unauthorized) router.replace("/login");
-          failSave(mainUpload.message || errorLabels.photoUploadError);
+          handleSaveFailure(mainUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
@@ -564,10 +570,10 @@ export default function OnboardingPage() {
         if (!extraUpload.ok) {
           if (extraUpload.unauthorized) {
             router.replace("/login");
-            failSave(extraUpload.message || "Tu sesión expiró. Inicia sesión de nuevo.");
+            handleSaveFailure(extraUpload.message || errorLabels.sessionExpired);
             return;
           }
-          failSave(extraUpload.message || errorLabels.photoUploadError);
+          handleSaveFailure(extraUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
@@ -575,7 +581,7 @@ export default function OnboardingPage() {
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[onboarding-avatar-upload] caught frontend error", err);
-      failSave(errorLabels.photoUploadError);
+      handleSaveFailure(errorLabels.photoUploadError);
       return;
     }
 
@@ -630,7 +636,7 @@ export default function OnboardingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        failSave(getSafeSaveErrorMessage(res.status, data, errorLabels));
+        handleSaveFailure(getSafeSaveErrorMessage(res.status, data, errorLabels));
         return;
       }
       const updatedUser = data.user || data;
@@ -665,7 +671,7 @@ export default function OnboardingPage() {
           });
         }
         const missingMessage = missingLabels.length ? `Te falta: ${missingLabels.join(" / ")}` : "El backend aún reporta el perfil incompleto.";
-        failSave(missingMessage);
+        handleSaveFailure(missingMessage);
         return;
       }
       try {
@@ -687,7 +693,7 @@ export default function OnboardingPage() {
         cache: "no-store",
       });
       if (!profileRes.ok) {
-        failSave(getSafeSaveErrorMessage(profileRes.status, {}, errorLabels));
+        handleSaveFailure(getSafeSaveErrorMessage(profileRes.status, {}, errorLabels));
         return;
       }
       // Force the backend profile to refresh before leaving onboarding.
@@ -719,7 +725,7 @@ export default function OnboardingPage() {
       router.replace("/feed");
     } catch (err) {
       console.warn("[onboarding-save] request failed", err);
-      failSave(errorLabels.serverConnecting);
+      handleSaveFailure(errorLabels.serverConnecting);
     } finally {
       setLoading(false);
     }

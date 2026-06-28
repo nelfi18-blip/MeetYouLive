@@ -1768,7 +1768,7 @@ export default function FeedPage() {
           box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.16s ease, box-shadow 0.18s ease, filter 0.18s ease;
+          transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
           transform: translateZ(0);
         }
 
@@ -1842,7 +1842,7 @@ export default function FeedPage() {
           :global(.feed-swipe-deck .swipe-card-modern) {
             border-radius: 34px;
             border-color: rgba(255, 255, 255, 0.14);
-            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.055);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.06);
           }
 
           :global(.feed-swipe-deck .swipe-card-image-wrapper) {

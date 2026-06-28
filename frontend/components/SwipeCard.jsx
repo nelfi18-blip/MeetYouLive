@@ -234,7 +234,8 @@ export default function SwipeCard({
     }
     event.preventDefault();
     event.stopPropagation();
-    goToPhoto(event.key === "ArrowLeft" ? -1 : 1);
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    goToPhoto(direction);
   };
 
   const cardClassName = isActive

@@ -85,10 +85,11 @@ function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
+const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
+
 function getEmailSendFailurePayload(err) {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
-  const configErrorCodes = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
-  const isConfigError = configErrorCodes.has(code);
+  const isConfigError = EMAIL_CONFIG_ERROR_CODES.has(code);
   return {
     status: isConfigError ? 503 : (err?.status || 502),
     body: {

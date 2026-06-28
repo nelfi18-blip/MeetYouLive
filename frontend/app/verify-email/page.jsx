@@ -320,7 +320,6 @@ function VerifyEmailForm() {
           color: #94a3b8;
           font-size: 0.92rem;
           text-align: center;
-          font-weight: 700;
         }
 
         .banner-error {

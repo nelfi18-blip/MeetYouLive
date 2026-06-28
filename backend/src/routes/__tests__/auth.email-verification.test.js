@@ -74,6 +74,10 @@ describe("auth email verification delivery", () => {
     expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
     expect(sendVerificationEmail.mock.calls[0][0]).toBe("normaluser@example.com");
     expect(sendVerificationEmail.mock.calls[0][1]).toMatch(/^\d{6}$/);
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      "[register] Verification email sent",
+      { userId: "user-1", email: "normaluser@example.com" }
+    );
     expect(User.deleteOne).not.toHaveBeenCalled();
   });
 

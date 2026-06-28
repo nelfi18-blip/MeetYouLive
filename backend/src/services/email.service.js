@@ -51,7 +51,7 @@ function getEmailConfigSummary() {
   return {
     provider: process.env.SMTP_HOST ? "smtp" : "development-json",
     host: process.env.SMTP_HOST || null,
-    port: process.env.SMTP_PORT || "587",
+    port: parseInt(process.env.SMTP_PORT || "587", 10) || 587,
     from: FROM,
     production: process.env.NODE_ENV === "production",
   };

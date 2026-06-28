@@ -503,7 +503,7 @@ export default function CreatorRequestForm() {
             <div>
               <div className="status-title">Solicitud en revisión</div>
               <div className="status-desc">
-                {profileSavedNotice || "Tu solicitud ha sido enviada. Un administrador la revisará pronto y te notificaremos por email."}
+                {profileSavedNotice || t("creatorRequest.pendingReviewNotice")}
               </div>
             </div>
           </div>

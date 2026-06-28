@@ -25,7 +25,7 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
-const USER_UNSAFE_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
+const INTERNAL_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
@@ -132,7 +132,7 @@ const getCommonRequestErrorMessage = (status, labels) => {
 const getSafeSaveErrorMessage = (status, data = {}, labels) => {
   const commonMessage = getCommonRequestErrorMessage(status, labels);
   if (commonMessage) return commonMessage;
-  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !USER_UNSAFE_ERROR_PATTERN.test(data.message)) {
+  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !INTERNAL_ERROR_PATTERN.test(data.message)) {
     return data.message.trim();
   }
   return labels.profileSaveError;
@@ -447,7 +447,7 @@ export default function OnboardingPage() {
     setError("");
     setSaveFailed(false);
     if (!safeMainPhotoPreview && visibleExtraPhotoFiles.length === 0) {
-      setError("Sube al menos una foto para continuar");
+      setError(t("onboarding.photoRequired"));
       return;
     }
     setLoading(true);

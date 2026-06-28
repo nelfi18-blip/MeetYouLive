@@ -88,11 +88,12 @@ function getLatestResetRequestedAtMs(user) {
 function getEmailSendFailurePayload(err) {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
   const configErrorCodes = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
+  const isConfigError = configErrorCodes.has(code);
   return {
-    status: err?.status || (configErrorCodes.has(code) ? 503 : 502),
+    status: isConfigError ? 503 : (err?.status || 502),
     body: {
       code,
-      message: configErrorCodes.has(code)
+      message: isConfigError
         ? "El servicio de email no está configurado correctamente. Contacta a soporte."
         : "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
     },

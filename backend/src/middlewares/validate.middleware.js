@@ -59,6 +59,9 @@ const registerSchema = z.object({
   password: z
     .string({ required_error: "password es requerido" })
     .min(8, "La contraseña debe tener al menos 8 caracteres"),
+  ref: z.string().optional(),
+  agencyCode: z.string().optional(),
+  creatorInvite: z.string().optional(),
 });
 
 const loginSchema = z.object({

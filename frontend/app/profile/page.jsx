@@ -1416,19 +1416,6 @@ export default function ProfilePage() {
           box-shadow: var(--glow-pink), 0 18px 40px rgba(0,0,0,0.36);
         }
 
-        .profile-avatar-wrap::after {
-          content: "";
-          position: absolute;
-          right: 0.4rem;
-          bottom: 0.45rem;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: var(--success);
-          border: 3px solid rgba(15,8,32,0.95);
-          box-shadow: 0 0 14px rgba(52,211,153,0.52);
-        }
-
         .profile-avatar-img {
           width: 92px;
           height: 92px;
@@ -1519,7 +1506,7 @@ export default function ProfilePage() {
 
         .role-badge.creator {
           background: linear-gradient(135deg, rgba(224,64,251,0.2), rgba(34,211,238,0.1));
-          color: #f0b9ff;
+          color: var(--accent);
           border-color: rgba(224,64,251,0.48);
           box-shadow: 0 0 18px rgba(224,64,251,0.14);
         }

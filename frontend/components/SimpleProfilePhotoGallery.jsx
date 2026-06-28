@@ -503,7 +503,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           align-items: center;
           gap: 0.35rem;
           font-size: 0.72rem;
-          color: #f0b9ff;
+          color: var(--accent);
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.08em;

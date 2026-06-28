@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
@@ -46,9 +48,6 @@ const CTA_START_EARNING = "Empezar a ganar dinero";
 const CTA_ACTIVATE_CREATOR = "Activar modo creador 💰";
 const FALLBACK_BIO_CATEGORY = "contenido en vivo";
 const FALLBACK_BIO_COUNTRY = "tu región";
-const PROFILE_SAVED_NOTICE = "Tu perfil fue guardado. La cuenta de creador está pendiente de aprobación.";
-const PROFILE_SAVED_NEXT_STEP_NOTICE = "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación.";
-const SERVER_CONNECTING_MESSAGE = "Conectando con el servidor, intenta nuevamente en unos segundos";
 const SEGMENT_THRESHOLDS = {
   newMaxLogins: 3,
   activeMinLogins: 8,
@@ -109,6 +108,7 @@ function CreatorIcon() {
 export default function CreatorRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const inviteCode = searchParams.get("creatorInvite") || null;
   const profileSaved = searchParams.get("profileSaved") === "1";
   const [user, setUser] = useState(null);
@@ -133,12 +133,12 @@ export default function CreatorRequestForm() {
   useEffect(() => {
     if (!profileSaved) return;
     try {
-      setProfileSavedNotice(sessionStorage.getItem("meetyoulive:creatorProfileSavedNotice") || PROFILE_SAVED_NEXT_STEP_NOTICE);
-      sessionStorage.removeItem("meetyoulive:creatorProfileSavedNotice");
+      setProfileSavedNotice(sessionStorage.getItem(CREATOR_PROFILE_SAVED_NOTICE_KEY) || t("creatorRequest.profileSavedNextStepNotice"));
+      sessionStorage.removeItem(CREATOR_PROFILE_SAVED_NOTICE_KEY);
     } catch {
-      setProfileSavedNotice(PROFILE_SAVED_NEXT_STEP_NOTICE);
+      setProfileSavedNotice(t("creatorRequest.profileSavedNextStepNotice"));
     }
-  }, [profileSaved]);
+  }, [profileSaved, t]);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -420,10 +420,10 @@ export default function CreatorRequestForm() {
         setError(data?.message || "No se pudo enviar la solicitud. Inténtalo de nuevo.");
       } else {
         setSuccess(true);
-        setProfileSavedNotice(PROFILE_SAVED_NOTICE);
+        setProfileSavedNotice(t("creatorRequest.profileSavedNotice"));
       }
     } catch {
-      setError(SERVER_CONNECTING_MESSAGE);
+      setError(t("onboarding.serverConnecting"));
     } finally {
       setSubmitting(false);
     }

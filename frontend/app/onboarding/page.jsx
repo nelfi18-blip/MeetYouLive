@@ -14,6 +14,7 @@ import {
 } from "@/lib/avatarUpload";
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
+import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -24,11 +25,7 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
-const SERVER_CONNECTING_MESSAGE = "Conectando con el servidor, intenta nuevamente en unos segundos";
-const PROFILE_SAVE_ERROR_MESSAGE = "No se pudo guardar tu perfil. Revisa los datos e inténtalo de nuevo.";
-const PHOTO_UPLOAD_ERROR_MESSAGE = "No se pudo subir la foto. Inténtalo de nuevo.";
-const CREATOR_PROFILE_SAVED_MESSAGE = "Tu perfil fue guardado. La cuenta de creador está pendiente de aprobación.";
-const CREATOR_PROFILE_NEXT_STEP_MESSAGE = "Tu perfil fue guardado. Completa la solicitud para enviar la cuenta de creador a aprobación.";
+const TECHNICAL_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
@@ -125,22 +122,22 @@ const collectUploadPhotoUrls = (payload) => {
   ]);
 };
 
-const getSafeSaveErrorMessage = (status, data = {}) => {
-  if (status === 401 || status === 403) return "Tu sesión expiró. Inicia sesión de nuevo.";
-  if (status === 429) return "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.";
-  if (status >= 500 || status === 0) return SERVER_CONNECTING_MESSAGE;
-  if (typeof data?.message === "string" && data.message.trim() && !/failed to fetch|network|cors|stack|error:/i.test(data.message)) {
+const getSafeSaveErrorMessage = (status, data = {}, labels) => {
+  if (status === 401 || status === 403) return labels.sessionExpired;
+  if (status === 429) return labels.tooManyAttempts;
+  if (status >= 500 || status === 0) return labels.serverConnecting;
+  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !TECHNICAL_ERROR_PATTERN.test(data.message)) {
     return data.message.trim();
   }
-  return PROFILE_SAVE_ERROR_MESSAGE;
+  return labels.profileSaveError;
 };
 
-const getSafeUploadErrorMessage = (status) => {
-  if (status === 401 || status === 403) return "Tu sesión expiró. Inicia sesión de nuevo.";
+const getSafeUploadErrorMessage = (status, labels) => {
+  if (status === 401 || status === 403) return labels.sessionExpired;
   if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
-  if (status === 429) return "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.";
-  if (status >= 500 || status === 0) return SERVER_CONNECTING_MESSAGE;
-  return PHOTO_UPLOAD_ERROR_MESSAGE;
+  if (status === 429) return labels.tooManyAttempts;
+  if (status >= 500 || status === 0) return labels.serverConnecting;
+  return labels.photoUploadError;
 };
 
 const INTERESTS = [
@@ -197,6 +194,13 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { update: updateSession } = useSession();
   const { t } = useLanguage();
+  const errorLabels = {
+    serverConnecting: t("onboarding.serverConnecting"),
+    profileSaveError: t("onboarding.profileSaveError"),
+    photoUploadError: t("onboarding.photoUploadError"),
+    sessionExpired: t("onboarding.sessionExpired"),
+    tooManyAttempts: t("onboarding.tooManyAttempts"),
+  };
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -483,9 +487,9 @@ export default function OnboardingPage() {
         body: formData,
         });
       } catch (err) {
-        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, SERVER_CONNECTING_MESSAGE);
+        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, errorLabels.serverConnecting);
         console.warn("[onboarding-avatar-upload] network error", diagnostic);
-        return { ok: false, message: SERVER_CONNECTING_MESSAGE, diagnostic };
+        return { ok: false, message: errorLabels.serverConnecting, diagnostic };
       }
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] response status", uploadRes.status);
@@ -498,7 +502,7 @@ export default function OnboardingPage() {
         return {
           ok: false,
           unauthorized: uploadRes.status === 401,
-          message: getSafeUploadErrorMessage(uploadRes.status),
+          message: getSafeUploadErrorMessage(uploadRes.status, errorLabels),
           diagnostic,
         };
       }
@@ -545,7 +549,7 @@ export default function OnboardingPage() {
         const mainUpload = await uploadPhotoFile(workingMainFile, { setAsMain: true });
         if (!mainUpload.ok) {
           if (mainUpload.unauthorized) router.replace("/login");
-          failSave(mainUpload.message || PHOTO_UPLOAD_ERROR_MESSAGE);
+          failSave(mainUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
@@ -563,7 +567,7 @@ export default function OnboardingPage() {
             failSave(extraUpload.message || "Tu sesión expiró. Inicia sesión de nuevo.");
             return;
           }
-          failSave(extraUpload.message || PHOTO_UPLOAD_ERROR_MESSAGE);
+          failSave(extraUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
@@ -571,7 +575,7 @@ export default function OnboardingPage() {
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[onboarding-avatar-upload] caught frontend error", err);
-      failSave(PHOTO_UPLOAD_ERROR_MESSAGE);
+      failSave(errorLabels.photoUploadError);
       return;
     }
 
@@ -626,7 +630,7 @@ export default function OnboardingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        failSave(getSafeSaveErrorMessage(res.status, data));
+        failSave(getSafeSaveErrorMessage(res.status, data, errorLabels));
         return;
       }
       const updatedUser = data.user || data;
@@ -683,7 +687,7 @@ export default function OnboardingPage() {
         cache: "no-store",
       });
       if (!profileRes.ok) {
-        failSave(getSafeSaveErrorMessage(profileRes.status));
+        failSave(getSafeSaveErrorMessage(profileRes.status, {}, errorLabels));
         return;
       }
       // Force the backend profile to refresh before leaving onboarding.
@@ -703,9 +707,9 @@ export default function OnboardingPage() {
         try {
           const creatorNotice =
             sessionProfile?.creatorStatus === "pending" || sessionProfile?.role === "creator"
-              ? CREATOR_PROFILE_SAVED_MESSAGE
-              : CREATOR_PROFILE_NEXT_STEP_MESSAGE;
-          sessionStorage.setItem("meetyoulive:creatorProfileSavedNotice", creatorNotice);
+              ? t("creatorRequest.profileSavedNotice")
+              : t("creatorRequest.profileSavedNextStepNotice");
+          sessionStorage.setItem(CREATOR_PROFILE_SAVED_NOTICE_KEY, creatorNotice);
         } catch {
           // Ignore storage failures; the creator request page still explains the next step.
         }
@@ -715,7 +719,7 @@ export default function OnboardingPage() {
       router.replace("/feed");
     } catch (err) {
       console.warn("[onboarding-save] request failed", err);
-      failSave(SERVER_CONNECTING_MESSAGE);
+      failSave(errorLabels.serverConnecting);
     } finally {
       setLoading(false);
     }

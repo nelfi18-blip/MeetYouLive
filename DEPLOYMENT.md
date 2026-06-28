@@ -103,11 +103,11 @@ Redeploy the frontend after changing this value.
 | `ADMIN_NAME`                   | No       | Seed admin display name                                             |
 | `ADMIN_EMAIL`                  | No       | Seed admin email                                                    |
 | `ADMIN_PASSWORD`               | No       | Seed admin password (only used on first boot)                       |
-| `SMTP_HOST`                    | No       | SMTP host for email delivery                                        |
-| `SMTP_PORT`                    | No       | SMTP port (default: 587)                                            |
-| `SMTP_USER`                    | No       | SMTP username                                                       |
-| `SMTP_PASS`                    | No       | SMTP password                                                       |
-| `SMTP_FROM`                    | No       | From address for outgoing emails                                    |
+| `SMTP_HOST`                    | **Yes** | SMTP host for verification/password-reset email delivery in production |
+| `SMTP_PORT`                    | No       | SMTP port (default: 587; use 465 for SSL/TLS)                       |
+| `SMTP_USER`                    | **Yes** | SMTP username for production email delivery                         |
+| `SMTP_PASS`                    | **Yes** | SMTP password for production email delivery                         |
+| `SMTP_FROM`                    | No       | Optional `From:` address for outgoing emails                        |
 | `FCM_PROJECT_ID`               | No       | Firebase project ID for push notifications                          |
 | `FCM_CLIENT_EMAIL`             | No       | Firebase service account email                                      |
 | `FCM_PRIVATE_KEY`              | No       | Firebase service account private key                                |

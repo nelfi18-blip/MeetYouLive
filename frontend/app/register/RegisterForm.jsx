@@ -93,7 +93,7 @@ export default function RegisterForm() {
       }
 
       if (data.requiresVerification) {
-        setSuccess("¡Cuenta creada! Revisa tu email para obtener el código de verificación.");
+        setSuccess("¡Cuenta creada! Revisa tu email para obtener el código de verificación. Revisa spam o correo no deseado.");
         setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`); }, 1500);
       } else if (data.token) {
         setToken(data.token);

@@ -109,7 +109,7 @@ function VerifyEmailForm() {
       if (data.error) {
         setError(data.error);
       } else {
-        setResendSuccess(data.message || "Código reenviado. Revisa tu email.");
+        setResendSuccess(data.message || "Código reenviado. Revisa tu email. Revisa spam o correo no deseado.");
         setResendCooldown(60);
       }
     } catch {
@@ -142,6 +142,7 @@ function VerifyEmailForm() {
           Hemos enviado un código de 6 dígitos a<br />
           <strong className="ve-email">{email || "tu correo"}</strong>
         </p>
+        <p className="ve-spam-hint">Revisa spam o correo no deseado.</p>
 
         {error && <div className="banner-error">{error}</div>}
         {success && <div className="banner-success">{success}</div>}
@@ -313,6 +314,12 @@ function VerifyEmailForm() {
 
         .ve-email {
           color: #e040fb;
+        }
+        .ve-spam-hint {
+          margin: -0.75rem 0 1.25rem;
+          color: #94a3b8;
+          font-size: 0.92rem;
+          text-align: center;
           font-weight: 700;
         }
 

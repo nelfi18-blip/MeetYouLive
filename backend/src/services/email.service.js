@@ -15,7 +15,7 @@ function getTransporter() {
   if (transporter) return transporter;
 
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  const hasAnySmtpValue = Boolean(SMTP_HOST || SMTP_USER || SMTP_PASS);
+  const hasAnySmtpValue = Boolean(SMTP_HOST || SMTP_PORT || SMTP_USER || SMTP_PASS);
   const hasFullSmtpConfig = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 
   if (hasAnySmtpValue && !hasFullSmtpConfig) {
@@ -46,6 +46,51 @@ function getTransporter() {
 }
 
 const FROM = process.env.SMTP_FROM || "MeetYouLive <noreply@meetyoulive.net>";
+
+function getEmailConfigSummary() {
+  return {
+    provider: process.env.SMTP_HOST ? "smtp" : "development-json",
+    host: process.env.SMTP_HOST || null,
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    from: FROM,
+    production: process.env.NODE_ENV === "production",
+  };
+}
+
+function summarizeDeliveryInfo(info) {
+  return {
+    messageId: info?.messageId,
+    accepted: Array.isArray(info?.accepted) ? info.accepted : undefined,
+    rejected: Array.isArray(info?.rejected) ? info.rejected : undefined,
+    response: info?.response,
+  };
+}
+
+function throwIfDeliveryRejected(info, to, context) {
+  const accepted = Array.isArray(info?.accepted) ? info.accepted : [];
+  const rejected = Array.isArray(info?.rejected) ? info.rejected : [];
+
+  if (rejected.length > 0 && accepted.length === 0) {
+    console.error(`[email:${context}] Delivery rejected`, {
+      to,
+      ...summarizeDeliveryInfo(info),
+      config: getEmailConfigSummary(),
+    });
+    throw new MailServiceError(
+      "EMAIL_DELIVERY_FAILED",
+      `Email provider rejected the message for ${to}.`,
+      502
+    );
+  }
+}
+
+function logDeliverySuccess(context, to, info) {
+  console.log(`[email:${context}] Delivery result`, {
+    to,
+    ...summarizeDeliveryInfo(info),
+    config: getEmailConfigSummary(),
+  });
+}
 
 /**
  * Send an email verification code to a user.
@@ -84,7 +129,15 @@ async function sendVerificationEmail(to, code) {
   let info;
   try {
     info = await transport.sendMail(mailOptions);
+    throwIfDeliveryRejected(info, to, "verification");
   } catch (err) {
+    console.error("[email:verification] Delivery failed", {
+      to,
+      code: err?.code || "EMAIL_DELIVERY_FAILED",
+      message: err?.message || "Unknown email error",
+      config: getEmailConfigSummary(),
+    });
+    if (err instanceof MailServiceError) throw err;
     throw new MailServiceError(
       "EMAIL_DELIVERY_FAILED",
       `Unable to send verification email: ${err.message}`,
@@ -102,6 +155,7 @@ async function sendVerificationEmail(to, code) {
     console.log(`   Verification code: ${code}\n`);
   }
 
+  logDeliverySuccess("verification", to, info);
   return info;
 }
 
@@ -142,7 +196,15 @@ async function sendPasswordResetEmail(to, code) {
   let info;
   try {
     info = await transport.sendMail(mailOptions);
+    throwIfDeliveryRejected(info, to, "password-reset");
   } catch (err) {
+    console.error("[email:password-reset] Delivery failed", {
+      to,
+      code: err?.code || "EMAIL_DELIVERY_FAILED",
+      message: err?.message || "Unknown email error",
+      config: getEmailConfigSummary(),
+    });
+    if (err instanceof MailServiceError) throw err;
     throw new MailServiceError(
       "EMAIL_DELIVERY_FAILED",
       `Unable to send password reset email: ${err.message}`,
@@ -157,6 +219,7 @@ async function sendPasswordResetEmail(to, code) {
     console.log(`   Password reset code: ${code}\n`);
   }
 
+  logDeliverySuccess("password-reset", to, info);
   return info;
 }
 

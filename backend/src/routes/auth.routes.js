@@ -85,6 +85,22 @@ function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
+const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
+
+function getEmailSendFailurePayload(err) {
+  const code = err?.code || "EMAIL_DELIVERY_FAILED";
+  const isConfigError = EMAIL_CONFIG_ERROR_CODES.has(code);
+  return {
+    status: isConfigError ? 503 : (err?.status || 502),
+    body: {
+      code,
+      message: isConfigError
+        ? "El servicio de email no está configurado correctamente. Contacta a soporte."
+        : "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+    },
+  };
+}
+
 router.post("/register", registerLimiter, validate(registerSchema), async (req, res) => {
   const { username, password, ref, agencyCode, creatorInvite } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
@@ -153,13 +169,20 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       ...(invitedByCreator ? { invitedByCreator } : {}),
     });
 
-    // Send verification email (non-blocking — don't fail registration if email fails)
-    sendVerificationEmail(email, code).catch((err) => {
+    try {
+      await sendVerificationEmail(email, code);
+      console.log("[register] Verification email sent", { userId: String(user._id), email });
+    } catch (err) {
       const detail = err && err.code
         ? `${err.code}: ${err.message || "Unknown email error"}`
         : (err && err.message) || "Unknown email error";
       console.error("[register] Failed to send verification email:", detail);
-    });
+      await User.deleteOne({ _id: user._id, emailVerified: false }).catch((cleanupErr) => {
+        console.error("[register] Failed to clean up unverified user after email error:", cleanupErr.message);
+      });
+      const { status, body } = getEmailSendFailurePayload(err);
+      return res.status(status).json(body);
+    }
 
     // Analytics: referral_shared — track that the inviter's link was used (fire-and-forget)
     if (referredBy) {
@@ -292,15 +315,14 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
 
     try {
       await sendVerificationEmail(email, code);
+      console.log("[resend-verification] Verification email resent", { userId: String(user._id), email });
     } catch (err) {
       const detail = err && err.code
         ? `${err.code}: ${err.message || "Unknown email error"}`
         : (err && err.message) || "Unknown email error";
       console.error("[resend-verification] Failed to send email:", detail);
-      return res.status(503).json({
-        code: "EMAIL_DELIVERY_FAILED",
-        message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
-      });
+      const { status, body } = getEmailSendFailurePayload(err);
+      return res.status(status).json(body);
     }
 
     res.json({ message: "Código de verificación reenviado. Revisa tu email." });

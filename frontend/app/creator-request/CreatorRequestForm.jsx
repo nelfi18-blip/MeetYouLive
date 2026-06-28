@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
@@ -106,13 +108,16 @@ function CreatorIcon() {
 export default function CreatorRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const inviteCode = searchParams.get("creatorInvite") || null;
+  const profileSaved = searchParams.get("profileSaved") === "1";
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [detectingCountry, setDetectingCountry] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [profileSavedNotice, setProfileSavedNotice] = useState("");
   const [step, setStep] = useState(1);
   const [inviterInfo, setInviterInfo] = useState(null);
 
@@ -124,6 +129,16 @@ export default function CreatorRequestForm() {
     languages: [],
     socialLinks: { twitter: "", instagram: "", tiktok: "", youtube: "" },
   });
+
+  useEffect(() => {
+    if (!profileSaved) return;
+    try {
+      setProfileSavedNotice(sessionStorage.getItem(CREATOR_PROFILE_SAVED_NOTICE_KEY) || t("creatorRequest.profileSavedNextStepNotice"));
+      sessionStorage.removeItem(CREATOR_PROFILE_SAVED_NOTICE_KEY);
+    } catch {
+      setProfileSavedNotice(t("creatorRequest.profileSavedNextStepNotice"));
+    }
+  }, [profileSaved, t]);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -402,12 +417,13 @@ export default function CreatorRequestForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Error al enviar solicitud");
+        setError(data?.message || t("creatorRequest.submitError"));
       } else {
         setSuccess(true);
+        setProfileSavedNotice(t("creatorRequest.profileSavedNotice"));
       }
     } catch {
-      setError("Error de conexión. Inténtalo de nuevo.");
+      setError(t("onboarding.serverConnecting"));
     } finally {
       setSubmitting(false);
     }
@@ -487,7 +503,7 @@ export default function CreatorRequestForm() {
             <div>
               <div className="status-title">Solicitud en revisión</div>
               <div className="status-desc">
-                Tu solicitud ha sido enviada. Un administrador la revisará pronto y te notificaremos por email.
+                {profileSavedNotice || t("creatorRequest.pendingReviewNotice")}
               </div>
             </div>
           </div>
@@ -515,6 +531,16 @@ export default function CreatorRequestForm() {
                 <div>
                   <div className="status-title">Solicitud rechazada</div>
                   <div className="status-desc">Puedes corregir tu solicitud y volver a enviarla.</div>
+                </div>
+              </div>
+            )}
+
+            {profileSavedNotice && (
+              <div className="status-box status-pending">
+                <span className="status-icon">⏳</span>
+                <div>
+                  <div className="status-title">Perfil guardado</div>
+                  <div className="status-desc">{profileSavedNotice}</div>
                 </div>
               </div>
             )}

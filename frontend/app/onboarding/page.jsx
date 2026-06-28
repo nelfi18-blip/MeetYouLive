@@ -10,11 +10,11 @@ import {
   AVATAR_UPLOAD_MAX_BYTES,
   AVATAR_UPLOAD_MAX_LABEL,
   compressAvatarImage,
-  formatAvatarUploadDiagnostic,
   getAvatarUploadDiagnostic,
 } from "@/lib/avatarUpload";
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
+import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -25,6 +25,7 @@ const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "ima
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const MIN_AGE_YEARS = 13;
+const INTERNAL_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
 const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
   .toISOString()
   .split("T")[0];
@@ -121,6 +122,29 @@ const collectUploadPhotoUrls = (payload) => {
   ]);
 };
 
+const getCommonRequestErrorMessage = (status, labels) => {
+  if (status === 401 || status === 403) return labels.sessionExpired;
+  if (status === 429) return labels.tooManyAttempts;
+  if (status >= 500 || status === 0) return labels.serverConnecting;
+  return "";
+};
+
+const getSafeSaveErrorMessage = (status, data = {}, labels) => {
+  const commonMessage = getCommonRequestErrorMessage(status, labels);
+  if (commonMessage) return commonMessage;
+  if (status >= 400 && status < 500 && typeof data?.message === "string" && data.message.trim() && !INTERNAL_ERROR_PATTERN.test(data.message)) {
+    return data.message.trim();
+  }
+  return labels.profileSaveError;
+};
+
+const getSafeUploadErrorMessage = (status, labels) => {
+  if (status === 413) return AVATAR_TOO_LARGE_MESSAGE;
+  const commonMessage = getCommonRequestErrorMessage(status, labels);
+  if (commonMessage) return commonMessage;
+  return labels.photoUploadError;
+};
+
 const INTERESTS = [
   "Música", "Gaming", "Arte", "Viajes", "Fitness",
   "Cocina", "Tecnología", "Cine", "Moda", "Fotografía",
@@ -175,10 +199,18 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { update: updateSession } = useSession();
   const { t } = useLanguage();
+  const errorLabels = {
+    serverConnecting: t("onboarding.serverConnecting"),
+    profileSaveError: t("onboarding.profileSaveError"),
+    photoUploadError: t("onboarding.photoUploadError"),
+    sessionExpired: t("onboarding.sessionExpired"),
+    tooManyAttempts: t("onboarding.tooManyAttempts"),
+  };
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [saveFailed, setSaveFailed] = useState(false);
   const animTimerRef = useRef(null);
   const photoIdCounterRef = useRef(0);
   const addPhotosInputRef = useRef(null);
@@ -225,6 +257,8 @@ export default function OnboardingPage() {
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   })();
+  // A failed final save means the profile is not fully persisted yet, even if all required fields are filled.
+  const displayedCompletionPercent = saveFailed ? Math.min(completionPercent, 99) : completionPercent;
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -375,6 +409,7 @@ export default function OnboardingPage() {
 
   const handleNext = () => {
     setError("");
+    setSaveFailed(false);
     if (step === 1 && !selectedPath) {
       setError(t("onboarding.pathRequired"));
       return;
@@ -410,19 +445,27 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     setError("");
+    setSaveFailed(false);
     if (!safeMainPhotoPreview && visibleExtraPhotoFiles.length === 0) {
-      setError("Sube al menos una foto para continuar");
+      setError(t("onboarding.photoRequired"));
       return;
     }
     setLoading(true);
 
     const token = localStorage.getItem("token");
     if (!token) {
-      setError("Tu sesión expiró. Inicia sesión de nuevo.");
+      setError(errorLabels.sessionExpired);
+      setSaveFailed(true);
       setLoading(false);
       router.replace("/login");
       return;
     }
+
+    const handleSaveFailure = (message) => {
+      setSaveFailed(true);
+      setError(message);
+      setLoading(false);
+    };
 
     const uploadPhotoFile = async (file, { setAsMain = false } = {}) => {
       const uploadEndpoint = buildUploadEndpoint({ setAsMain });
@@ -434,7 +477,8 @@ export default function OnboardingPage() {
           message: AVATAR_TOO_LARGE_MESSAGE,
           code: "FILE_TOO_LARGE",
         });
-        return { ok: false, message: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
+        console.warn("[onboarding-avatar-upload] file too large", diagnostic);
+        return { ok: false, message: AVATAR_TOO_LARGE_MESSAGE, diagnostic };
       }
 
       const formData = new FormData();
@@ -449,8 +493,9 @@ export default function OnboardingPage() {
         body: formData,
         });
       } catch (err) {
-        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, "No se pudo conectar con el backend. Revisa CORS o la URL del API.");
-        return { ok: false, message: formatAvatarUploadDiagnostic(diagnostic), diagnostic };
+        const diagnostic = getAvatarUploadDiagnostic(0, { error: err?.message, code: "NETWORK_ERROR" }, errorLabels.serverConnecting);
+        console.warn("[onboarding-avatar-upload] network error", diagnostic);
+        return { ok: false, message: errorLabels.serverConnecting, diagnostic };
       }
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.log("[onboarding-avatar-upload] response status", uploadRes.status);
@@ -459,10 +504,11 @@ export default function OnboardingPage() {
       console.log("[onboarding-avatar-upload] response body", uploadData);
       if (!uploadRes.ok) {
         const diagnostic = getAvatarUploadDiagnostic(uploadRes.status, uploadData, "Error al subir la foto");
+        console.warn("[onboarding-avatar-upload] failed", diagnostic);
         return {
           ok: false,
           unauthorized: uploadRes.status === 401,
-          message: formatAvatarUploadDiagnostic(diagnostic),
+          message: getSafeUploadErrorMessage(uploadRes.status, errorLabels),
           diagnostic,
         };
       }
@@ -509,8 +555,7 @@ export default function OnboardingPage() {
         const mainUpload = await uploadPhotoFile(workingMainFile, { setAsMain: true });
         if (!mainUpload.ok) {
           if (mainUpload.unauthorized) router.replace("/login");
-          setError(mainUpload.message || "No se pudo subir la foto principal.");
-          setLoading(false);
+          handleSaveFailure(mainUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalAvatarUrl = mainUpload.avatar;
@@ -525,11 +570,10 @@ export default function OnboardingPage() {
         if (!extraUpload.ok) {
           if (extraUpload.unauthorized) {
             router.replace("/login");
-            setLoading(false);
+            handleSaveFailure(extraUpload.message || errorLabels.sessionExpired);
             return;
           }
-          setError(extraUpload.message || "Una foto no se pudo subir. Inténtalo de nuevo.");
-          setLoading(false);
+          handleSaveFailure(extraUpload.message || errorLabels.photoUploadError);
           return;
         }
         finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
@@ -537,8 +581,7 @@ export default function OnboardingPage() {
     } catch (err) {
       // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
       console.error("[onboarding-avatar-upload] caught frontend error", err);
-      setError("No se pudo subir la foto");
-      setLoading(false);
+      handleSaveFailure(errorLabels.photoUploadError);
       return;
     }
 
@@ -593,7 +636,7 @@ export default function OnboardingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.message || "Error al guardar el perfil");
+        handleSaveFailure(getSafeSaveErrorMessage(res.status, data, errorLabels));
         return;
       }
       const updatedUser = data.user || data;
@@ -604,7 +647,7 @@ export default function OnboardingPage() {
       console.log("normalized images", normalizedImages);
       const canAppearInFeed = data.canAppearInFeed === true || updatedUser.canAppearInFeed === true;
       const onboardingComplete = data.onboardingComplete === true || updatedUser.onboardingComplete === true;
-      if (!canAppearInFeed && !onboardingComplete) {
+      if (!onboardingComplete) {
         const missing = data.missingFields || updatedUser.missingFields || data.profileCompletion?.missing || [];
         const missingLabels = getMissingProfileLabels(missing);
         if (shouldLogProfileCompletionDiagnostics()) {
@@ -628,7 +671,7 @@ export default function OnboardingPage() {
           });
         }
         const missingMessage = missingLabels.length ? `Te falta: ${missingLabels.join(" / ")}` : "El backend aún reporta el perfil incompleto.";
-        setError(missingMessage);
+        handleSaveFailure(missingMessage);
         return;
       }
       try {
@@ -650,7 +693,7 @@ export default function OnboardingPage() {
         cache: "no-store",
       });
       if (!profileRes.ok) {
-        setError("Perfil guardado, pero no se pudo refrescar. Inténtalo de nuevo.");
+        handleSaveFailure(getSafeSaveErrorMessage(profileRes.status, {}, errorLabels));
         return;
       }
       // Force the backend profile to refresh before leaving onboarding.
@@ -666,9 +709,23 @@ export default function OnboardingPage() {
         profileStatus: sessionProfile?.profileStatus || data.profileStatus || null,
       });
       router.refresh();
+      if (selectedPath === "creator") {
+        try {
+          const creatorNotice =
+            sessionProfile?.creatorStatus === "pending" || sessionProfile?.role === "creator"
+              ? t("creatorRequest.profileSavedNotice")
+              : t("creatorRequest.profileSavedNextStepNotice");
+          sessionStorage.setItem(CREATOR_PROFILE_SAVED_NOTICE_KEY, creatorNotice);
+        } catch {
+          // Ignore storage failures; the creator request page still explains the next step.
+        }
+        router.replace("/creator-request?profileSaved=1");
+        return;
+      }
       router.replace("/feed");
-    } catch {
-      setError("No se pudo conectar con el servidor");
+    } catch (err) {
+      console.warn("[onboarding-save] request failed", err);
+      handleSaveFailure(errorLabels.serverConnecting);
     } finally {
       setLoading(false);
     }
@@ -700,7 +757,7 @@ export default function OnboardingPage() {
             </div>
             <div className="ob-completion-percent">
               <span className="ob-completion-label">Perfil completado: </span>
-              <span className="ob-completion-value">{completionPercent}%</span>
+              <span className="ob-completion-value">{displayedCompletionPercent}%</span>
             </div>
           </div>
         )}

@@ -66,7 +66,13 @@
     "cityLabel": "City *",
     "regionLabel": "State / province",
     "discoveryLocationTitle": "Location-based discovery",
-    "addPhotos": "➕ Add photos"
+    "addPhotos": "➕ Add photos",
+    "serverConnecting": "Connecting to the server, try again in a few seconds",
+    "profileSaveError": "Could not save your profile. Check the details and try again.",
+    "photoUploadError": "Could not upload the photo. Try again.",
+    "sessionExpired": "Your session expired. Sign in again.",
+    "tooManyAttempts": "Too many attempts. Wait a few seconds and try again.",
+    "photoRequired": "Upload at least one photo to continue"
   },
   "matchesPage": {
     "chatOpenError": "Could not open the chat",
@@ -325,5 +331,11 @@
     "counterPlural": "people liked you",
     "likeSingular": "like",
     "likePlural": "likes"
+  },
+  "creatorRequest": {
+    "profileSavedNotice": "Your profile was saved. The creator account is pending approval.",
+    "profileSavedNextStepNotice": "Your profile was saved. Complete the request to send the creator account for approval.",
+    "submitError": "Could not submit the request. Try again.",
+    "pendingReviewNotice": "Your request has been submitted. An administrator will review it soon and we will notify you by email."
   }
 }

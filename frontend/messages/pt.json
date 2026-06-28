@@ -66,7 +66,13 @@
     "cityLabel": "Cidade *",
     "regionLabel": "Estado / província",
     "discoveryLocationTitle": "Descoberta por localização",
-    "addPhotos": "➕ Adicionar fotos"
+    "addPhotos": "➕ Adicionar fotos",
+    "serverConnecting": "Conectando ao servidor, tente novamente em alguns segundos",
+    "profileSaveError": "Não foi possível salvar seu perfil. Revise os dados e tente novamente.",
+    "photoUploadError": "Não foi possível enviar a foto. Tente novamente.",
+    "sessionExpired": "Sua sessão expirou. Entre novamente.",
+    "tooManyAttempts": "Muitas tentativas. Aguarde alguns segundos e tente novamente.",
+    "photoRequired": "Envie pelo menos uma foto para continuar"
   },
   "matchesPage": {
     "chatOpenError": "Não foi possível abrir o chat",
@@ -325,5 +331,11 @@
     "counterPlural": "pessoas deram like em você",
     "likeSingular": "like",
     "likePlural": "likes"
+  },
+  "creatorRequest": {
+    "profileSavedNotice": "Seu perfil foi salvo. A conta de criador está pendente de aprovação.",
+    "profileSavedNextStepNotice": "Seu perfil foi salvo. Complete a solicitação para enviar a conta de criador para aprovação.",
+    "submitError": "Não foi possível enviar a solicitação. Tente novamente.",
+    "pendingReviewNotice": "Sua solicitação foi enviada. Um administrador a revisará em breve e notificaremos você por email."
   }
 }

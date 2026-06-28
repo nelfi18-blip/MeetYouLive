@@ -251,9 +251,9 @@ const getMinProfileCompletion = (user = {}, req) => {
   const status = getProfileCompletionStatus(user, { req });
   return {
     ...status,
-    complete: feedEligible,
+    complete: status.complete,
     profileComplete: status.complete,
-    onboardingComplete: feedEligible,
+    onboardingComplete: status.complete,
     canAppearInFeed: feedEligible,
     missing: missingFields,
     missingFields,
@@ -365,7 +365,7 @@ const saveUserPhotoState = async (req, currentUser, photosInput) => {
         primaryPhoto: normalizedPhotoState.primaryPhoto,
         profilePhotos: normalizedPhotoState.profilePhotos,
         images: normalizedPhotoState.images,
-        onboardingComplete: uploadProfileCompletion.canAppearInFeed,
+        onboardingComplete: uploadProfileCompletion.complete,
       },
     },
     { new: true }
@@ -401,7 +401,7 @@ const attachProfileCompletionPayload = (req, payload) => {
   const profileCompletion = getMinProfileCompletion(payload, req);
   payload.profileCompletion = profileCompletion;
   payload.profileCompletionStatus = profileCompletion;
-  payload.onboardingComplete = profileCompletion.canAppearInFeed;
+  payload.onboardingComplete = profileCompletion.complete;
   payload.canAppearInFeed = profileCompletion.canAppearInFeed;
   payload.missingFields = profileCompletion.missingFields;
   payload.profileStatus = buildProfileStatusPayload(req, payload);
@@ -649,9 +649,8 @@ router.get("/me", userLimiter, verifyToken, async (req, res) => {
     attachProfileCompletionPayload(req, payload);
     // Keep persisted onboardingComplete aligned with the canonical feed
     // eligibility helper so legacy profiles do not get stuck incomplete.
-    const feedEligible = payload.canAppearInFeed;
-    if (originalOnboardingComplete !== feedEligible) {
-      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: feedEligible } }).catch((err) => {
+    if (originalOnboardingComplete !== payload.onboardingComplete) {
+      User.updateOne({ _id: user._id }, { $set: { onboardingComplete: payload.onboardingComplete } }).catch((err) => {
         console.error("[lazy-onboarding-sync] failed:", err.message);
       });
     }
@@ -1294,7 +1293,7 @@ router.post("/me/avatar-upload", userLimiter, enableAvatarUploadDiagnostics, ver
     const syncedCompletionPhotoFields = syncCanonicalPhotoFields(mergedUserForCompletion, req);
     Object.assign(mergedUserForCompletion, syncedCompletionPhotoFields);
     const uploadProfileCompletion = getProfileCompletionStatus(mergedUserForCompletion, { req });
-    const nextOnboardingComplete = uploadProfileCompletion.canAppearInFeed;
+    const nextOnboardingComplete = uploadProfileCompletion.complete;
 
     const savedUser = await User.findByIdAndUpdate(
       user._id,

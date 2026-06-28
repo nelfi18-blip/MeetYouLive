@@ -187,8 +187,9 @@ const updateOnboarding = async (req, res) => {
     };
     const syncedPhotoFields = syncCanonicalPhotoFields(mergedProfile, req);
     const missingFields = getMissingProfileFields(mergedProfile, { req });
+    const profileComplete = missingFields.length === 0;
     const canAppearInFeedValue = canAppearInFeed(mergedProfile, { req, missingFields });
-    const onboardingComplete = canAppearInFeedValue;
+    const onboardingComplete = profileComplete;
 
     const updates = {
       images: syncedPhotoFields.images,
@@ -235,7 +236,7 @@ const updateOnboarding = async (req, res) => {
     syncCanonicalPhotoFields(user, req);
     const payload = withSerializedUserPhotoFields(req, user);
     const profileCompletion = getProfileCompletionStatus(payload, { req });
-    const finalOnboardingComplete = profileCompletion.canAppearInFeed;
+    const finalOnboardingComplete = profileCompletion.complete;
     payload.missingFields = profileCompletion.missingFields;
     payload.onboardingComplete = finalOnboardingComplete;
     payload.canAppearInFeed = profileCompletion.canAppearInFeed;

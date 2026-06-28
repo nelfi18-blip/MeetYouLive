@@ -1761,9 +1761,13 @@ export default function ProfilePage() {
           gap: 0.5rem;
           padding: 1.5rem 1rem;
           text-align: center;
-          background: rgba(15,8,32,0.7);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.06), transparent 36%),
+            rgba(15,8,32,0.72);
+          border: 1px solid rgba(236,124,255,0.22);
+          border-radius: 22px;
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.07);
+          backdrop-filter: blur(14px);
           transition: border-color var(--transition), transform var(--transition-slow);
         }
 
@@ -1775,9 +1779,9 @@ export default function ProfilePage() {
         .stat-icon-wrap {
           width: 44px;
           height: 44px;
-          border-radius: var(--radius-sm);
-          background: rgba(139,92,246,0.08);
-          border: 1px solid rgba(139,92,246,0.12);
+          border-radius: 16px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1856,10 +1860,14 @@ export default function ProfilePage() {
 
         /* Actions */
         .actions-card {
-          background: rgba(15,8,32,0.8);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.06), transparent 34%),
+            rgba(15,8,32,0.76);
+          border: 1px solid rgba(236,124,255,0.24);
+          border-radius: 24px;
           padding: 1.5rem;
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.07);
+          backdrop-filter: blur(16px);
         }
 
         .actions-title {
@@ -1919,9 +1927,13 @@ export default function ProfilePage() {
           flex-wrap: wrap;
           gap: 1rem;
           padding: 1.5rem;
-          border-radius: var(--radius);
+          border-radius: 24px;
           border: 1px solid rgba(224,64,251,0.25);
-          background: rgba(224,64,251,0.05);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.06), transparent 38%),
+            rgba(224,64,251,0.05);
+          box-shadow: var(--shadow-sm);
+          backdrop-filter: blur(14px);
         }
 
         .creator-pending-card {
@@ -2024,9 +2036,13 @@ export default function ProfilePage() {
           flex-wrap: wrap;
           gap: 1rem;
           padding: 1.25rem 1.5rem;
-          border-radius: var(--radius);
+          border-radius: 24px;
           border: 1px solid rgba(139,92,246,0.3);
-          background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(224,64,251,0.06) 100%);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.06), transparent 38%),
+            linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(224,64,251,0.07) 100%);
+          box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.07);
+          backdrop-filter: blur(14px);
           transition: border-color 0.2s;
         }
         .boost-profile-card--active {
@@ -2124,6 +2140,15 @@ export default function ProfilePage() {
             text-align: center;
           }
 
+          .profile-handle {
+            margin-left: auto;
+            margin-right: auto;
+          }
+
+          .profile-badges {
+            justify-content: center;
+          }
+
           .profile-bio {
             max-width: none;
           }
@@ -2138,6 +2163,25 @@ export default function ProfilePage() {
           }
 
           .profile-extra-strip { padding: 0 1.25rem 1rem; }
+          .form-card { padding: 1.05rem; border-radius: 22px; }
+          .form-group { padding: 0.72rem; }
+          .profile-inline-grid,
+          .profile-inline-grid--two {
+            grid-template-columns: 1fr;
+          }
+          .profile-check-grid,
+          .profile-check-grid--languages {
+            grid-template-columns: 1fr;
+          }
+          .profile-language-actions .btn,
+          .profile-choice-row .btn {
+            flex: 1 1 auto;
+          }
+          .profile-summary-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 0.25rem;
+          }
           .profile-photo-thumb-actions { flex-direction: row; flex-wrap: wrap; }
           .profile-main-photo-image,
           .profile-main-photo-placeholder { width: 100%; }

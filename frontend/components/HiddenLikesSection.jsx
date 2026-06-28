@@ -98,8 +98,9 @@ function buildFilterLabel(icon, label, count) {
  *
  * Props:
  *   compact – if true, renders a smaller layout (used inside the crush page)
+ *   onTotalChange – optional callback with the current total likes count
  */
-export default function HiddenLikesSection({ compact = false }) {
+export default function HiddenLikesSection({ compact = false, onTotalChange }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null); // { revealed, locked, lockedCount, unlockPrice }
   const [loading, setLoading] = useState(true);
@@ -132,6 +133,11 @@ export default function HiddenLikesSection({ compact = false }) {
   useEffect(() => {
     fetchLikes();
   }, [fetchLikes]);
+
+  useEffect(() => {
+    if (!data || typeof onTotalChange !== "function") return;
+    onTotalChange((data.revealed?.length ?? 0) + (data.lockedCount ?? 0));
+  }, [data, onTotalChange]);
 
   const handleUnlock = async () => {
     const token =
@@ -583,9 +589,17 @@ export default function HiddenLikesSection({ compact = false }) {
         }
         .hls-photo-wrap {
           position: relative;
+          --gradient-start: 38%;
           height: 162px;
           background: linear-gradient(135deg, rgba(255, 45, 120, 0.18), rgba(224, 64, 251, 0.18));
           flex-shrink: 0;
+        }
+        .hls-photo-wrap::after {
+          content: "";
+          position: absolute;
+          inset: var(--gradient-start) 0 0;
+          background: linear-gradient(180deg, transparent, rgba(8, 4, 20, 0.55) 42%, rgba(8, 4, 20, 0.95));
+          pointer-events: none;
         }
         .hls-photo-img,
         .hls-photo-placeholder,
@@ -626,6 +640,7 @@ export default function HiddenLikesSection({ compact = false }) {
           font-size: 0.62rem;
           font-weight: 850;
           backdrop-filter: blur(10px);
+          z-index: 2;
         }
         .hls-lock-icon {
           position: absolute;
@@ -651,15 +666,21 @@ export default function HiddenLikesSection({ compact = false }) {
           align-items: center;
           justify-content: center;
           backdrop-filter: blur(10px);
+          z-index: 2;
         }
         .hls-super-badge-locked {
           opacity: 0.86;
         }
         .hls-card-body {
+          position: relative;
+          z-index: 2;
+          margin-top: -3.1rem;
           padding: 0.82rem;
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
+          min-height: 5.25rem;
+          justify-content: flex-end;
         }
         .hls-name-row {
           display: flex;
@@ -848,6 +869,7 @@ export default function HiddenLikesSection({ compact = false }) {
           }
           .hls-card-body {
             padding: 0.72rem;
+            margin-top: -3rem;
           }
           .hls-cta-buttons {
             width: 100%;

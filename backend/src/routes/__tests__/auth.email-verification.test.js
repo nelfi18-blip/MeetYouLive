@@ -77,7 +77,7 @@ describe("auth email verification delivery", () => {
     expect(User.deleteOne).not.toHaveBeenCalled();
   });
 
-  test("creator invite registration sends the same verification email before success", async () => {
+  test("creator invite registration requires email delivery before returning success", async () => {
     User.findOne.mockReturnValueOnce(makeInviteQuery({ _id: "creator-1" }));
     User.create.mockResolvedValue({ _id: "subcreator-1" });
 

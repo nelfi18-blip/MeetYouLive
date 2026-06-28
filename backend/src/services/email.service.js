@@ -66,7 +66,7 @@ function summarizeDeliveryInfo(info) {
   };
 }
 
-function assertDeliveryAccepted(info, to, context) {
+function throwIfDeliveryRejected(info, to, context) {
   const accepted = Array.isArray(info?.accepted) ? info.accepted : [];
   const rejected = Array.isArray(info?.rejected) ? info.rejected : [];
 
@@ -129,7 +129,7 @@ async function sendVerificationEmail(to, code) {
   let info;
   try {
     info = await transport.sendMail(mailOptions);
-    assertDeliveryAccepted(info, to, "verification");
+    throwIfDeliveryRejected(info, to, "verification");
   } catch (err) {
     console.error("[email:verification] Delivery failed", {
       to,
@@ -196,7 +196,7 @@ async function sendPasswordResetEmail(to, code) {
   let info;
   try {
     info = await transport.sendMail(mailOptions);
-    assertDeliveryAccepted(info, to, "password-reset");
+    throwIfDeliveryRejected(info, to, "password-reset");
   } catch (err) {
     console.error("[email:password-reset] Delivery failed", {
       to,

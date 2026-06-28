@@ -1314,10 +1314,8 @@ export default function FeedPage() {
                   bioMoreLabel={t("feed.bioMoreLabel")}
                   bioLessLabel={t("feed.bioLessLabel")}
                   zIndex={30 - stackIndex}
+                  stackIndex={stackIndex}
                   style={{
-                    y: stackIndex * 10,
-                    scale: 1 - stackIndex * 0.035,
-                    opacity: 1 - stackIndex * 0.12,
                     pointerEvents: isTopCard ? "auto" : "none",
                   }}
                 />
@@ -1416,7 +1414,7 @@ export default function FeedPage() {
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
-          --feed-section-top-padding: 6px;
+          --feed-section-top-padding: 4px;
           --feed-accent-purple-rgb: 224, 64, 251;
           --feed-header-height: calc(var(--feed-header-content-height) + var(--feed-safe-top));
           --feed-bottom-nav-height: calc(var(--feed-bottom-nav-content-height) + var(--feed-safe-bottom));
@@ -1424,8 +1422,8 @@ export default function FeedPage() {
           --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
-          --feed-deck-width: min(96vw, 440px);
-          --feed-deck-height: clamp(600px, calc(var(--feed-stable-viewport-height) * 0.72), 720px);
+          --feed-deck-width: min(97vw, 444px);
+          --feed-deck-height: clamp(610px, calc(var(--feed-stable-viewport-height) * 0.74), 738px);
           --feed-image-panel-height: clamp(300px, calc(var(--feed-stable-viewport-height) * 0.44), 360px);
           --feed-info-panel-height: max(240px, calc(var(--feed-deck-height) - var(--feed-image-panel-height)));
           /* Keep the feed slot stable during mobile browser refresh/address-bar changes. */
@@ -1581,7 +1579,7 @@ export default function FeedPage() {
           justify-content: center;
           touch-action: pan-y;
           contain: layout paint;
-          border-radius: 22px;
+          border-radius: 28px;
           transition: opacity 0.16s ease;
         }
 
@@ -1606,10 +1604,10 @@ export default function FeedPage() {
           left: 0;
           right: 0;
           margin: 0 auto;
-          background: linear-gradient(180deg, rgba(20, 12, 46, 0.98), rgba(15, 8, 33, 0.98));
-          border: 1px solid rgba(224, 64, 251, 0.18);
+          background: #090511;
+          border: 1px solid rgba(255, 255, 255, 0.13);
           border-radius: inherit;
-          box-shadow: 0 28px 72px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(255, 255, 255, 0.04);
+          box-shadow: 0 34px 90px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(255, 255, 255, 0.045);
           transform-origin: center center;
           will-change: transform, opacity;
         }
@@ -1645,37 +1643,20 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-photo-indicators) {
-          top: 12px;
-          gap: 5px;
-          padding: 0 16px;
+          top: 14px;
+          gap: 6px;
+          padding: 0 18px;
         }
 
         :global(.feed-swipe-deck .photo-indicator) {
           height: 4px;
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.26);
           box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
         }
 
         :global(.feed-swipe-deck .photo-indicator.active) {
-          background: linear-gradient(90deg, #fff, #f0abfc);
-        }
-
-        :global(.feed-swipe-deck .swipe-card-photo-zones) {
-          position: absolute;
-          inset: 0;
-          z-index: 8;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          pointer-events: none;
-        }
-
-        :global(.feed-swipe-deck .swipe-card-photo-zone) {
-          pointer-events: auto;
-          border: 0;
-          background: transparent;
-          padding: 0;
-          cursor: pointer;
-          touch-action: manipulation;
+          background: linear-gradient(90deg, #fff, #f0abfc 52%, #e040fb);
+          box-shadow: 0 0 16px rgba(240, 171, 252, 0.38);
         }
 
         :global(.feed-swipe-deck .swipe-card-meta-row) {
@@ -1708,8 +1689,9 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-name) {
-          font-size: clamp(1.35rem, 6vw, 1.8rem);
-          line-height: 1.05;
+          font-size: clamp(1.42rem, 6.3vw, 1.92rem);
+          line-height: 1;
+          letter-spacing: -0.045em;
         }
 
         :global(.feed-swipe-deck .swipe-card-age) {
@@ -1786,7 +1768,8 @@ export default function FeedPage() {
           box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+          transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.16s ease, box-shadow 0.18s ease, filter 0.18s ease;
+          transform: translateZ(0);
         }
 
         .feed-action-btn:disabled {
@@ -1795,7 +1778,8 @@ export default function FeedPage() {
         }
 
         .feed-action-btn:not(:disabled):active {
-          transform: scale(0.93);
+          transform: translateY(2px) scale(0.91);
+          filter: brightness(1.12);
         }
 
         .feed-action-btn--pass {
@@ -1843,18 +1827,22 @@ export default function FeedPage() {
 
         @media (max-width: 768px) {
           .feed-page {
-            --feed-deck-width: min(calc(100vw - 18px), 440px);
-            --feed-deck-height: clamp(612px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 760px);
+            --feed-header-logo-size: clamp(38px, 10vw, 48px);
+            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.55rem);
+            --feed-section-top-padding: 2px;
+            --feed-deck-width: min(calc(100vw - 8px), 452px);
+            --feed-deck-height: clamp(628px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 790px);
             --feed-image-panel-height: 100%;
           }
 
           .feed-match-section {
-            padding-top: max(4px, var(--feed-section-top-padding));
+            padding-top: var(--feed-section-top-padding);
           }
 
           :global(.feed-swipe-deck .swipe-card-modern) {
-            border-radius: 30px;
+            border-radius: 34px;
             border-color: rgba(255, 255, 255, 0.14);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.055);
           }
 
           :global(.feed-swipe-deck .swipe-card-image-wrapper) {
@@ -1869,12 +1857,13 @@ export default function FeedPage() {
 
           :global(.feed-swipe-deck .swipe-card-info) {
             height: auto;
-            min-height: 34%;
-            padding: 7rem clamp(1.1rem, 4.5vw, 1.35rem) 6.25rem;
+            min-height: 36%;
+            padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 6.75rem;
             border-top: 0;
             background:
-              linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.36) 22%, rgba(7, 4, 17, 0.9) 78%, rgba(7, 4, 17, 0.98) 100%);
-            gap: 0.42rem;
+              radial-gradient(circle at 12% 58%, rgba(224, 64, 251, 0.2), transparent 30%),
+              linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 12%, rgba(0, 0, 0, 0.55) 42%, rgba(7, 4, 17, 0.92) 80%, rgba(7, 4, 17, 0.99) 100%);
+            gap: 0.48rem;
           }
 
           :global(.feed-swipe-deck .swipe-card-name-age) {
@@ -1883,22 +1872,34 @@ export default function FeedPage() {
           }
 
           :global(.feed-swipe-deck .swipe-card-name) {
-            font-size: clamp(1.75rem, 8vw, 2.45rem);
-            letter-spacing: -0.055em;
+            font-size: clamp(1.92rem, 8.7vw, 2.72rem);
+            letter-spacing: -0.065em;
+            text-shadow: 0 3px 18px rgba(0, 0, 0, 0.7);
           }
 
           :global(.feed-swipe-deck .swipe-card-age) {
-            font-size: clamp(1.35rem, 6vw, 1.85rem);
+            font-size: clamp(1.42rem, 6.2vw, 1.95rem);
             line-height: 1;
+          }
+
+          :global(.feed-swipe-deck .swipe-card-meta-row) {
+            gap: 0.42rem;
+          }
+
+          :global(.feed-swipe-deck .swipe-card-meta-pill) {
+            padding: 0.34rem 0.68rem;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 22px rgba(0, 0, 0, 0.18);
           }
 
           :global(.feed-swipe-deck .swipe-card-location) {
             width: fit-content;
-            padding: 0.34rem 0.64rem;
+            padding: 0.38rem 0.72rem;
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.13);
             color: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
           }
@@ -1910,19 +1911,37 @@ export default function FeedPage() {
 
           :global(.feed-swipe-deck .interest-tag) {
             border-color: rgba(255, 255, 255, 0.18);
-            background: rgba(255, 255, 255, 0.14);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(224, 64, 251, 0.18));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 24px rgba(0, 0, 0, 0.18);
+            font-weight: 800;
           }
 
           :global(.feed-swipe-deck .swipe-card-bio) {
             color: rgba(255, 255, 255, 0.9);
             font-size: clamp(0.84rem, 3.35vw, 0.95rem);
             -webkit-line-clamp: 2;
+            text-shadow: 0 2px 14px rgba(0, 0, 0, 0.58);
           }
 
           :global(.feed-swipe-deck .swipe-card-online-badge),
           :global(.feed-swipe-deck .swipe-card-info-btn) {
-            top: 28px;
+            top: 30px;
+          }
+
+          .feed-action-dock {
+            bottom: max(12px, calc(var(--feed-safe-bottom) + 10px));
+            width: min(95%, 432px);
+            gap: clamp(0.38rem, 2vw, 0.68rem);
+          }
+
+          .feed-action-btn {
+            --feed-action-btn-size: clamp(54px, 14.8vw, 66px);
+            border-color: rgba(255, 255, 255, 0.24);
+          }
+
+          .feed-action-btn--pass,
+          .feed-action-btn--like {
+            --feed-action-btn-size: clamp(62px, 17vw, 76px);
           }
         }
 
@@ -2023,6 +2042,14 @@ function FeedHeader() {
           height: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
           display: block;
           object-fit: contain;
+        }
+        @media (max-width: 768px) {
+          .feed-header {
+            padding: 0.28rem 1rem;
+            padding-top: calc(0.28rem + env(safe-area-inset-top));
+            background: linear-gradient(180deg, rgba(15, 8, 33, 0.84), rgba(15, 8, 33, 0.42));
+            border-bottom-color: rgba(255, 255, 255, 0.035);
+          }
         }
       `}</style>
     </header>

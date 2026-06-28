@@ -11,10 +11,7 @@ const SWIPE_EXIT_DELAY_MS = 210;
 const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
-// Minimum horizontal movement required before a photo gesture changes images.
-const PHOTO_SWIPE_THRESHOLD_MIN_PX = 36;
-// Requires horizontal movement to clearly exceed vertical movement, preserving page scroll.
-const PHOTO_SWIPE_DIRECTION_ASPECT_RATIO = 1.2;
+const PHOTO_TAP_CANCEL_THRESHOLD_PX = 10;
 const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getProfileId(profile) {
@@ -48,6 +45,7 @@ export default function SwipeCard({
   pendingLabel = "",
   bioMoreLabel = "See more",
   bioLessLabel = "See less",
+  stackIndex = 0,
 }) {
   const profileId = getProfileId(profile);
   const [exitX, setExitX] = useState(0);
@@ -59,9 +57,10 @@ export default function SwipeCard({
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const swipeTimeoutRef = useRef(null);
   const photoTouchStartRef = useRef(null);
+  const suppressNextPhotoTapRef = useRef(false);
   const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-25, 25]);
-  const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0.5, 1, 1, 1, 0.5]);
+  const rotate = useTransform(x, [-220, 220], [-18, 18]);
+  const opacity = useTransform(x, [-220, -150, 0, 150, 220], [0.62, 1, 1, 1, 0.62]);
   
   const likeOpacity = useTransform(x, [0, 100], [0, 1]);
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
@@ -185,8 +184,16 @@ export default function SwipeCard({
     .map((interest) => interest.trim());
   
   const handlePhotoClick = (e) => {
+    if (!isCarouselInteractionEnabled()) return;
     e.preventDefault();
     e.stopPropagation();
+    if (suppressNextPhotoTapRef.current) {
+      suppressNextPhotoTapRef.current = false;
+      return;
+    }
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const isPreviousTap = e.clientX - bounds.left < bounds.width / 2;
+    goToPhoto(isPreviousTap ? -1 : 1);
   };
 
   const goToPhoto = useCallback((direction) => {
@@ -199,7 +206,7 @@ export default function SwipeCard({
 
   const handlePhotoPointerDownCapture = (event) => {
     if (!isCarouselInteractionEnabled()) return;
-    event.stopPropagation();
+    suppressNextPhotoTapRef.current = false;
     photoTouchStartRef.current = { x: event.clientX, y: event.clientY };
   };
 
@@ -209,17 +216,10 @@ export default function SwipeCard({
       photoTouchStartRef.current = null;
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
     const deltaX = event.clientX - photoTouchStartRef.current.x;
     const deltaY = event.clientY - photoTouchStartRef.current.y;
     photoTouchStartRef.current = null;
-    if (
-      Math.abs(deltaX) > PHOTO_SWIPE_THRESHOLD_MIN_PX &&
-      Math.abs(deltaX) > Math.abs(deltaY) * PHOTO_SWIPE_DIRECTION_ASPECT_RATIO
-    ) {
-      goToPhoto(deltaX < 0 ? 1 : -1);
-    }
+    suppressNextPhotoTapRef.current = Math.hypot(deltaX, deltaY) > PHOTO_TAP_CANCEL_THRESHOLD_PX;
   };
 
   const handlePhotoPointerCancelCapture = () => {
@@ -229,23 +229,27 @@ export default function SwipeCard({
   const cardClassName = isActive
     ? "swipe-card-modern"
     : "swipe-card-modern swipe-card-modern--background";
+  const stackDepth = Math.max(0, Number(stackIndex) || 0);
+  const stackScale = 1 - stackDepth * 0.035;
+  const stackOffsetY = stackDepth * 12;
+  const stackOpacity = 1 - stackDepth * 0.13;
 
   return (
     <motion.div
       style={{
         x,
         rotate,
-        opacity,
+        opacity: isActive ? opacity : stackOpacity,
         zIndex,
         ...style,
       }}
       drag={isActive && !hasSwiped && !disabled && !isSubmitting ? "x" : false}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-      dragElastic={0.18}
+      dragElastic={0.22}
       dragMomentum={false}
       onDragEnd={isActive && !hasSwiped && !disabled && !isSubmitting ? handleDragEnd : undefined}
-      animate={hasSwiped ? { x: exitX, y: exitY, opacity: 0, scale: 0.98 } : undefined}
-      transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.9 }}
+      animate={hasSwiped ? { x: exitX, y: exitY, opacity: 0, scale: 0.96 } : { y: stackOffsetY, scale: stackScale }}
+      transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.86 }}
       className={cardClassName}
       aria-hidden={!isActive}
     >
@@ -302,31 +306,6 @@ export default function SwipeCard({
           </motion.div>
         </AnimatePresence>
 
-        {hasPhotoCarousel && isActive && (
-          <div className="swipe-card-photo-zones" aria-label="Photo navigation">
-            <button
-              type="button"
-              className="swipe-card-photo-zone swipe-card-photo-zone--prev"
-              aria-label="Previous photo"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                goToPhoto(-1);
-              }}
-            />
-            <button
-              type="button"
-              className="swipe-card-photo-zone swipe-card-photo-zone--next"
-              aria-label="Next photo"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                goToPhoto(1);
-              }}
-            />
-          </div>
-        )}
-        
         {isActive && (
           <>
             {/* Online Status Badge */}

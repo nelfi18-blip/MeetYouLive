@@ -234,7 +234,10 @@ export default function SwipeCard({
     }
     event.preventDefault();
     event.stopPropagation();
-    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    let direction = 1;
+    if (event.key === "ArrowLeft") {
+      direction = -1;
+    }
     goToPhoto(direction);
   };
 
@@ -275,7 +278,7 @@ export default function SwipeCard({
         onPointerCancelCapture={handlePhotoPointerCancelCapture}
         role={isActive && hasPhotoCarousel ? "button" : undefined}
         tabIndex={isActive && hasPhotoCarousel ? 0 : undefined}
-        aria-label={isActive && hasPhotoCarousel ? "Change profile photo. Use left and right arrow keys." : undefined}
+        aria-label={isActive && hasPhotoCarousel ? "Change profile photo. Use arrow keys, Enter, or Space." : undefined}
       >
         {hasPhotoCarousel && (
           <div className="swipe-card-photo-indicators" aria-hidden="true">

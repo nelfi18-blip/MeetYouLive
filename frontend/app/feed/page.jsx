@@ -1421,6 +1421,8 @@ export default function FeedPage() {
           --feed-viewport-height: 100vh;
           --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-mobile-profile-glow-x: 12%;
+          --feed-mobile-profile-glow-y: 58%;
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
           --feed-deck-width: min(97vw, 444px);
           --feed-deck-height: clamp(610px, calc(var(--feed-stable-viewport-height) * 0.74), 738px);
@@ -1861,8 +1863,7 @@ export default function FeedPage() {
             padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 6.75rem;
             border-top: 0;
             background:
-              /* Subtle MeetYouLive accent glow behind profile details. */
-              radial-gradient(circle at 12% 58%, rgba(224, 64, 251, 0.2), transparent 30%),
+              radial-gradient(circle at var(--feed-mobile-profile-glow-x) var(--feed-mobile-profile-glow-y), rgba(224, 64, 251, 0.2), transparent 30%),
               linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 12%, rgba(0, 0, 0, 0.55) 42%, rgba(7, 4, 17, 0.92) 80%, rgba(7, 4, 17, 0.99) 100%);
             gap: 0.48rem;
           }
@@ -1914,7 +1915,7 @@ export default function FeedPage() {
             border-color: rgba(255, 255, 255, 0.18);
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(224, 64, 251, 0.18));
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 24px rgba(0, 0, 0, 0.18);
-            font-weight: 800;
+            font-weight: 700;
           }
 
           :global(.feed-swipe-deck .swipe-card-bio) {

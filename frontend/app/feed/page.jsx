@@ -34,6 +34,8 @@ const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_PRELOAD_PROFILE_WINDOW = 3;
 const FEED_PRELOAD_IMAGE_LIMIT = 8;
+const FEED_PRELOAD_IDLE_TIMEOUT_MS = 350;
+const FEED_PRELOAD_FALLBACK_DELAY_MS = 80;
 const ACTION_FEEDBACK_DURATION_MS = 420;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
@@ -1044,8 +1046,8 @@ export default function FeedPage() {
       });
     };
     const idleCallbackId = window.requestIdleCallback
-      ? window.requestIdleCallback(preload, { timeout: 350 })
-      : window.setTimeout(preload, 80);
+      ? window.requestIdleCallback(preload, { timeout: FEED_PRELOAD_IDLE_TIMEOUT_MS })
+      : window.setTimeout(preload, FEED_PRELOAD_FALLBACK_DELAY_MS);
 
     return () => {
       cancelled = true;
@@ -1717,6 +1719,7 @@ export default function FeedPage() {
           min-height: 0;
           height: var(--feed-info-panel-height);
           padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
+          /* Full-card photo overlay: transparent top keeps the image dominant; opaque bottom keeps text readable. */
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
             linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 9, 35, 0.58) 24%, rgba(12, 7, 27, 0.98) 100%);
@@ -1914,6 +1917,7 @@ export default function FeedPage() {
 
         @keyframes feed-action-pop {
           0% { transform: translateZ(0) scale(1); }
+          /* Peak just before halfway for a quick premium tap response without feeling bouncy. */
           42% { transform: translateY(-2px) scale(1.08); }
           100% { transform: translateZ(0) scale(1); }
         }

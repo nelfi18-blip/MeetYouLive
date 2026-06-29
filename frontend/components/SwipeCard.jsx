@@ -39,6 +39,11 @@ const PHOTO_INDICATOR_ACTIVE = { scaleX: 1 };
 const PHOTO_INDICATOR_INACTIVE = { scaleX: 0 };
 const PHOTO_EASE = [0.22, 1, 0.36, 1];
 const CARD_TRANSITION = { type: "spring", stiffness: 260, damping: 29, mass: 0.82 };
+// Keep optional face/focal metadata inside a safe vertical range so images still fill the card.
+const MIN_PHOTO_FOCUS_Y_PERCENT = 18;
+const MAX_PHOTO_FOCUS_Y_PERCENT = 72;
+const NORMALIZED_PHOTO_FOCUS_THRESHOLD = 1;
+const PHOTO_FOCUS_PERCENT_SCALE = 100;
 const photoTransitionVariants = {
   enter: (direction) => ({ opacity: 0, x: direction * 14, scale: 1.012 }),
   center: { opacity: 1, x: 0, scale: 1 },
@@ -68,7 +73,10 @@ function getPhotoFocusY(profile, currentPhoto) {
   const numericFocusY = Number(rawFocusY);
 
   if (!Number.isFinite(numericFocusY)) return null;
-  return Math.min(72, Math.max(18, numericFocusY <= 1 ? numericFocusY * 100 : numericFocusY));
+  const focusPercent = numericFocusY <= NORMALIZED_PHOTO_FOCUS_THRESHOLD
+    ? numericFocusY * PHOTO_FOCUS_PERCENT_SCALE
+    : numericFocusY;
+  return Math.min(MAX_PHOTO_FOCUS_Y_PERCENT, Math.max(MIN_PHOTO_FOCUS_Y_PERCENT, focusPercent));
 }
 
 const SwipeCard = memo(function({

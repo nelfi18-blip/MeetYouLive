@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
 import Link from "next/link";
@@ -31,7 +31,20 @@ function getActivityLabel(profile, hasActivitySignal) {
   return "";
 }
 
-export default function SwipeCard({
+const PHOTO_TRANSITION_DURATION = 0.22;
+const INTERESTS_VISIBLE_LIMIT = 3;
+const INTEREST_ANIMATION_DURATION = 0.2;
+const INTEREST_STAGGER_DELAY = 0.025;
+const PHOTO_INDICATOR_ACTIVE = { scaleX: 1 };
+const PHOTO_INDICATOR_INACTIVE = { scaleX: 0 };
+const PHOTO_EASE = [0.22, 1, 0.36, 1];
+const photoTransitionVariants = {
+  enter: (direction) => ({ opacity: 0, x: direction * 18, scale: 1.01 }),
+  center: { opacity: 1, x: 0, scale: 1 },
+  exit: (direction) => ({ opacity: 0, x: direction * -12, scale: 1.005 }),
+};
+
+const SwipeCard = memo(function({
   profile,
   onSwipe,
   onExitComplete,
@@ -55,6 +68,7 @@ export default function SwipeCard({
   const [brokenPhotoUrls, setBrokenPhotoUrls] = useState(() => new Set());
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [photoDirection, setPhotoDirection] = useState(1);
   const swipeTimeoutRef = useRef(null);
   const photoTouchStartRef = useRef(null);
   const x = useMotionValue(0);
@@ -72,6 +86,7 @@ export default function SwipeCard({
     setBrokenPhotoUrls(new Set());
     setIsBioExpanded(false);
     setActivePhotoIndex(0);
+    setPhotoDirection(1);
   }, [profileId]);
 
   useEffect(() => {
@@ -178,15 +193,33 @@ export default function SwipeCard({
   const isVerified = Boolean(profile?.isVerified || profile?.verified);
   
   // Interests/hobbies
-  const interests = (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
-    .filter((interest) => typeof interest === "string" && interest.trim())
-    .map((interest) => interest.trim());
+  const interests = useMemo(
+    () => {
+      const seenInterests = new Set();
+      return (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
+        .filter((interest) => typeof interest === "string" && interest.trim())
+        .map((interest) => interest.trim())
+        .filter((interest) => {
+          const key = interest.toLowerCase();
+          if (seenInterests.has(key)) return false;
+          seenInterests.add(key);
+          return true;
+        });
+    },
+    [profile?.interests, profile?.tags]
+  );
+  const visibleInterests = interests.slice(0, INTERESTS_VISIBLE_LIMIT);
+  const hiddenInterestsCount = Math.max(0, interests.length - INTERESTS_VISIBLE_LIMIT);
   
   const goToPhoto = useCallback((direction) => {
     if (!hasPhotoCarousel) return;
     setActivePhotoIndex((index) => {
       const nextIndex = index + direction;
-      return Math.min(Math.max(nextIndex, 0), photos.length - 1);
+      const boundedIndex = Math.min(Math.max(nextIndex, 0), photos.length - 1);
+      if (boundedIndex !== index) {
+        setPhotoDirection(direction);
+      }
+      return boundedIndex;
     });
   }, [hasPhotoCarousel, photos.length]);
 
@@ -288,17 +321,26 @@ export default function SwipeCard({
               <span
                 key={`${photo}-${index}`}
                 className={`photo-indicator${index === activePhotoIndex ? " active" : ""}`}
-              />
+              >
+                <motion.span
+                  className="photo-indicator-fill"
+                  initial={false}
+                  animate={index === activePhotoIndex ? PHOTO_INDICATOR_ACTIVE : PHOTO_INDICATOR_INACTIVE}
+                  transition={{ duration: PHOTO_TRANSITION_DURATION, ease: PHOTO_EASE }}
+                />
+              </span>
             ))}
           </div>
         )}
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false} custom={photoDirection}>
           <motion.div
             key={currentPhoto || "placeholder"}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            custom={photoDirection}
+            variants={photoTransitionVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: PHOTO_TRANSITION_DURATION, ease: PHOTO_EASE }}
             className="swipe-card-image-container"
           >
             {currentPhoto ? (
@@ -395,16 +437,32 @@ export default function SwipeCard({
           {/* Interests/Hobbies */}
           {interests.length > 0 && (
             <div className="swipe-card-interests">
-              {interests.slice(0, 3).map((interest, idx) => (
-                <span key={idx} className="interest-tag">
+              <AnimatePresence initial={false}>
+              {visibleInterests.map((interest, idx) => (
+                <motion.span
+                  key={interest}
+                  className="interest-tag"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: INTEREST_ANIMATION_DURATION, ease: "easeOut", delay: idx * INTEREST_STAGGER_DELAY }}
+                >
                   {interest}
-                </span>
+                </motion.span>
               ))}
-              {interests.length > 3 && (
-                <span className="interest-tag interest-more">
-                  +{interests.length - 3}
-                </span>
+              {hiddenInterestsCount > 0 && (
+                <motion.span
+                  key={`more-${hiddenInterestsCount}`}
+                  className="interest-tag interest-more"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: INTEREST_ANIMATION_DURATION, ease: "easeOut", delay: visibleInterests.length * INTEREST_STAGGER_DELAY }}
+                >
+                  +{hiddenInterestsCount}
+                </motion.span>
               )}
+              </AnimatePresence>
             </div>
           )}
           {bio && (
@@ -446,4 +504,8 @@ export default function SwipeCard({
       )}
     </motion.div>
   );
-}
+});
+
+SwipeCard.displayName = "SwipeCard";
+
+export default SwipeCard;

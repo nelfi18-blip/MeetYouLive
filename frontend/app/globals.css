@@ -1711,6 +1711,7 @@ main.main-content:has(.admin-shell) {
   height: 100%;
   background: var(--swipe-card-bg-gradient);
   touch-action: pan-y;
+  overflow: hidden;
 }
 
 .swipe-card-image {
@@ -1849,12 +1850,21 @@ main.main-content:has(.admin-shell) {
 }
 
 .swipe-card-info {
+  --swipe-card-info-gradient-mid-start: 22%;
+  --swipe-card-info-gradient-mid-end: 62%;
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 24px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(5, 3, 12, 0.28) var(--swipe-card-info-gradient-mid-start),
+      rgba(3, 2, 8, 0.72) var(--swipe-card-info-gradient-mid-end),
+      rgba(3, 2, 8, 0.92) 100%
+    );
   color: white;
   display: flex;
   flex-direction: column;
@@ -1969,9 +1979,12 @@ main.main-content:has(.admin-shell) {
 
 /* New SwipeCard enhancements */
 .swipe-card-image-container {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   background: var(--swipe-card-bg-gradient);
+  will-change: opacity, transform;
 }
 
 .swipe-card-modern--background {
@@ -1991,15 +2004,28 @@ main.main-content:has(.admin-shell) {
 }
 
 .photo-indicator {
+  position: relative;
+  overflow: hidden;
   flex: 1;
   height: 3px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
-  transition: background 0.2s ease;
+  transform: translateZ(0);
+  transition: background 0.22s ease;
 }
 
 .photo-indicator.active {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.photo-indicator-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
   background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.32);
+  transform-origin: left center;
 }
 
 .swipe-card-online-badge {
@@ -2048,19 +2074,25 @@ main.main-content:has(.admin-shell) {
 .swipe-card-interests {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .interest-tag {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 7px 12px;
   background: rgba(224, 64, 251, 0.2);
   border: 1px solid rgba(224, 64, 251, 0.4);
   border-radius: 16px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   color: white;
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  will-change: opacity, transform;
 }
 
 .interest-more {

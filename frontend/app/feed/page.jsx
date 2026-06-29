@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,10 +32,15 @@ const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_SEEN_PROFILE_IDS_KEY = "meetyoulive:feed:seenProfileIds:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
+const FEED_PRELOAD_PROFILE_WINDOW = 3;
+const FEED_PRELOAD_IMAGE_LIMIT = 8;
+const ACTION_FEEDBACK_DURATION_MS = 420;
 const FEED_LAYOUT_DIAGNOSTIC_LABEL = "[feed-layout-diagnostic]";
 const POST_REFRESH_LAYOUT_DIAGNOSTIC_DELAY_MS = 650;
 const FEED_LAYOUT_DIAGNOSTIC_EVENT_DEBOUNCE_MS = 150;
 const DEFAULT_FEED_PROFILE_NAME = "Usuario";
+const TOP_CARD_STYLE = { pointerEvents: "auto" };
+const STACK_CARD_STYLE = { pointerEvents: "none" };
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -124,6 +129,22 @@ function sanitizeFeedProfiles(profiles, currentUserId = "") {
     .filter((profile) => profile && isRecommendedProfile(profile, currentUserId))
     .map((profile) => [getProfileId(profile), profile]);
   return Array.from(new Map(entries).values());
+}
+
+function getPreloadableProfileImages(profile) {
+  if (!profile) return [];
+  const urls = [
+    getPrimaryProfileImage(profile),
+    ...normalizeUserImages(profile).map((image) => image.url),
+  ].filter(Boolean);
+  return Array.from(new Set(urls));
+}
+
+function preloadProfileImage(url) {
+  if (typeof window === "undefined" || !url) return;
+  const image = new window.Image();
+  image.decoding = "async";
+  image.src = url;
 }
 
 function shouldLogProfileCompletionDiagnostics() {
@@ -430,6 +451,7 @@ export default function FeedPage() {
   const [actionSignal, setActionSignal] = useState({ id: 0, direction: null, profileId: null });
   const [swipeLocked, setSwipeLocked] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
   const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
@@ -449,6 +471,8 @@ export default function FeedPage() {
   const currentUserIdRef = useRef("");
   const currentProfileIdRef = useRef("");
   const lastActionRef = useRef(null);
+  const preloadedImageUrlsRef = useRef(new Set());
+  const actionFeedbackTimeoutRef = useRef(null);
 
   const logFeedLayoutDiagnostic = useCallback((reason) => {
     if (typeof window === "undefined") return;
@@ -532,6 +556,9 @@ export default function FeedPage() {
     return () => {
       if (swipeUnlockTimeoutRef.current) {
         clearTimeout(swipeUnlockTimeoutRef.current);
+      }
+      if (actionFeedbackTimeoutRef.current) {
+        clearTimeout(actionFeedbackTimeoutRef.current);
       }
     };
   }, []);
@@ -990,10 +1017,45 @@ export default function FeedPage() {
     };
   }, [authToken, loadFeed, profileSyncVersion]);
 
-  const visibleProfileStack = [];
-  for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
-    visibleProfileStack.push({ profile: profiles[i], stackIndex: i - currentIndex });
-  }
+  const visibleProfileStack = useMemo(() => {
+    const stack = [];
+    for (let i = Math.min(currentIndex + 2, profiles.length - 1); i >= currentIndex; i -= 1) {
+      stack.push({ profile: profiles[i], stackIndex: i - currentIndex });
+    }
+    return stack;
+  }, [currentIndex, profiles]);
+
+  useEffect(() => {
+    if (!profiles.length) return undefined;
+    const preloadUrls = profiles
+      .slice(currentIndex, currentIndex + FEED_PRELOAD_PROFILE_WINDOW)
+      .flatMap(getPreloadableProfileImages)
+      .filter((url) => !preloadedImageUrlsRef.current.has(url))
+      .slice(0, FEED_PRELOAD_IMAGE_LIMIT);
+
+    if (!preloadUrls.length) return undefined;
+
+    let cancelled = false;
+    const preload = () => {
+      if (cancelled) return;
+      preloadUrls.forEach((url) => {
+        preloadedImageUrlsRef.current.add(url);
+        preloadProfileImage(url);
+      });
+    };
+    const idleCallbackId = window.requestIdleCallback
+      ? window.requestIdleCallback(preload, { timeout: 350 })
+      : window.setTimeout(preload, 80);
+
+    return () => {
+      cancelled = true;
+      if (window.cancelIdleCallback && typeof idleCallbackId === "number") {
+        window.cancelIdleCallback(idleCallbackId);
+      } else {
+        window.clearTimeout(idleCallbackId);
+      }
+    };
+  }, [currentIndex, profiles]);
 
   useEffect(() => {
     const animationFrameId = requestAnimationFrame(() => {
@@ -1163,6 +1225,7 @@ export default function FeedPage() {
     feedMutationVersionRef.current += 1;
     setSwipeLocked(true);
     setError(null);
+    triggerActionFeedback("undo");
 
     try {
       if (action.actionType === "like") {
@@ -1206,6 +1269,7 @@ export default function FeedPage() {
       activeActionRef.current ||
       likeInFlightRef.current;
     if (!currentProfileId || isBusy) return;
+    triggerActionFeedback(direction);
     swipeLockedRef.current = true;
     requestedActionRef.current = true;
     pendingActionProfileIdRef.current = currentProfileId;
@@ -1235,6 +1299,17 @@ export default function FeedPage() {
     }
     requestSwipe(direction);
   };
+
+  const triggerActionFeedback = useCallback((direction) => {
+    if (actionFeedbackTimeoutRef.current) {
+      clearTimeout(actionFeedbackTimeoutRef.current);
+    }
+    setActionFeedback(direction);
+    actionFeedbackTimeoutRef.current = setTimeout(() => {
+      actionFeedbackTimeoutRef.current = null;
+      setActionFeedback(null);
+    }, ACTION_FEEDBACK_DURATION_MS);
+  }, []);
 
   /* --------------------------- Render --------------------------- */
   const currentProfile = profiles[currentIndex];
@@ -1315,9 +1390,8 @@ export default function FeedPage() {
                   bioLessLabel={t("feed.bioLessLabel")}
                   zIndex={30 - stackIndex}
                   stackIndex={stackIndex}
-                  style={{
-                    pointerEvents: isTopCard ? "auto" : "none",
-                  }}
+                  isImagePriority={stackIndex <= 1}
+                  style={isTopCard ? TOP_CARD_STYLE : STACK_CARD_STYLE}
                 />
               );
             })}
@@ -1325,7 +1399,7 @@ export default function FeedPage() {
             <div className="feed-action-dock" aria-label={t("feed.actionDockAria")}>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--pass"
+                className={`feed-action-btn feed-action-btn--pass${actionFeedback === "left" ? " feed-action-btn--feedback" : ""}`}
                 aria-label={t("feed.dislikeLabel")}
                 disabled={swipeLocked}
                 onPointerUp={(event) => handleActionButtonPointerUp(event, "left")}
@@ -1336,7 +1410,7 @@ export default function FeedPage() {
               </button>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--undo"
+                className={`feed-action-btn feed-action-btn--undo${actionFeedback === "undo" ? " feed-action-btn--feedback" : ""}`}
                 aria-label={t("feed.undoLabel")}
                 disabled={isUndoDisabled}
                 onClick={handleUndoLastAction}
@@ -1346,7 +1420,7 @@ export default function FeedPage() {
               </button>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--like"
+                className={`feed-action-btn feed-action-btn--like${actionFeedback === "right" ? " feed-action-btn--feedback" : ""}`}
                 aria-label={t("feed.likeLabel")}
                 disabled={swipeLocked}
                 onPointerUp={(event) => handleActionButtonPointerUp(event, "right")}
@@ -1357,7 +1431,7 @@ export default function FeedPage() {
               </button>
               <button
                 type="button"
-                className="feed-action-btn feed-action-btn--super-like"
+                className={`feed-action-btn feed-action-btn--super-like${actionFeedback === "up" ? " feed-action-btn--feedback" : ""}`}
                 aria-label={t("feed.superLikeLabel")}
                 disabled={swipeLocked}
                 onPointerUp={(event) => handleActionButtonPointerUp(event, "up")}
@@ -1615,12 +1689,15 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          height: var(--feed-image-panel-height);
+          height: 100%;
           border-radius: inherit;
-          border-bottom-left-radius: 0;
-          border-bottom-right-radius: 0;
           overflow: hidden;
           transform: translateZ(0);
+        }
+
+        :global(.feed-swipe-deck .swipe-card-image-container) {
+          contain: paint;
+          backface-visibility: hidden;
         }
 
         :global(.feed-swipe-deck .swipe-card-image),
@@ -1631,6 +1708,8 @@ export default function FeedPage() {
           object-fit: cover;
           /* Bias slightly upward so portrait photos keep faces/upper body visible. */
           object-position: center 35%;
+          transform: translateZ(0);
+          backface-visibility: hidden;
         }
 
         :global(.feed-swipe-deck .swipe-card-info) {
@@ -1640,8 +1719,8 @@ export default function FeedPage() {
           padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(16, 9, 35, 0.94), rgba(12, 7, 27, 0.995));
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+            linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 9, 35, 0.58) 24%, rgba(12, 7, 27, 0.98) 100%);
+          border-top: 0;
           gap: clamp(0.25rem, 1.2vw, 0.45rem);
         }
 
@@ -1754,6 +1833,7 @@ export default function FeedPage() {
           /* 56px+ keeps touch targets comfortable; 68px prevents crowding. */
           --feed-action-btn-size: clamp(56px, 15vw, 68px);
           pointer-events: auto;
+          position: relative;
           display: inline-flex;
           flex-direction: column;
           align-items: center;
@@ -1772,11 +1852,32 @@ export default function FeedPage() {
           letter-spacing: -0.01em;
           text-align: center;
           cursor: pointer;
+          overflow: visible;
           box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
           transform: translateZ(0);
+        }
+
+        .feed-action-btn::before,
+        .feed-action-btn::after {
+          content: "";
+          position: absolute;
+          inset: -4px;
+          border-radius: inherit;
+          pointer-events: none;
+          opacity: 0;
+          transform: scale(0.86);
+        }
+
+        .feed-action-btn::before {
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.28), transparent 62%);
+          filter: blur(2px);
+        }
+
+        .feed-action-btn::after {
+          border: 1px solid rgba(255, 255, 255, 0.42);
         }
 
         .feed-action-btn:disabled {
@@ -1787,6 +1888,44 @@ export default function FeedPage() {
         .feed-action-btn:not(:disabled):active {
           transform: translateY(1px) scale(0.96);
           filter: brightness(1.12);
+        }
+
+        .feed-action-btn:not(:disabled):hover {
+          transform: translateY(-2px) scale(1.025);
+          filter: brightness(1.06);
+        }
+
+        .feed-action-btn:focus-visible {
+          outline: 2px solid rgba(240, 171, 252, 0.9);
+          outline-offset: 4px;
+        }
+
+        .feed-action-btn--feedback {
+          animation: feed-action-pop 0.42s cubic-bezier(0.18, 0.82, 0.24, 1);
+        }
+
+        .feed-action-btn--feedback::before {
+          animation: feed-action-glow 0.42s ease-out;
+        }
+
+        .feed-action-btn--feedback::after {
+          animation: feed-action-ring 0.42s ease-out;
+        }
+
+        @keyframes feed-action-pop {
+          0% { transform: translateZ(0) scale(1); }
+          42% { transform: translateY(-2px) scale(1.08); }
+          100% { transform: translateZ(0) scale(1); }
+        }
+
+        @keyframes feed-action-glow {
+          0% { opacity: 0.58; transform: scale(0.82); }
+          100% { opacity: 0; transform: scale(1.34); }
+        }
+
+        @keyframes feed-action-ring {
+          0% { opacity: 0.72; transform: scale(0.88); }
+          100% { opacity: 0; transform: scale(1.28); }
         }
 
         .feed-action-btn--pass {

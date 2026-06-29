@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { getUserPhotoSelection, getDisplayName, getBioText } from "@/lib/imageHelpers";
+import { getUserPhotoSelection, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
 const SWIPE_EXIT_DISTANCE_X = 360;
@@ -38,11 +38,38 @@ const INTEREST_STAGGER_DELAY = 0.025;
 const PHOTO_INDICATOR_ACTIVE = { scaleX: 1 };
 const PHOTO_INDICATOR_INACTIVE = { scaleX: 0 };
 const PHOTO_EASE = [0.22, 1, 0.36, 1];
+const CARD_TRANSITION = { type: "spring", stiffness: 260, damping: 29, mass: 0.82 };
 const photoTransitionVariants = {
-  enter: (direction) => ({ opacity: 0, x: direction * 18, scale: 1.01 }),
+  enter: (direction) => ({ opacity: 0, x: direction * 14, scale: 1.012 }),
   center: { opacity: 1, x: 0, scale: 1 },
-  exit: (direction) => ({ opacity: 0, x: direction * -12, scale: 1.005 }),
+  exit: (direction) => ({ opacity: 0, x: direction * -10, scale: 1.006 }),
 };
+
+function getPhotoFocusY(profile, currentPhoto) {
+  if (!currentPhoto) return null;
+
+  const candidates = [
+    ...(Array.isArray(profile?.images) ? profile.images : []),
+    ...(Array.isArray(profile?.profilePhotos) ? profile.profilePhotos : []),
+    ...(Array.isArray(profile?.photos) ? profile.photos : []),
+    profile?.primaryPhoto,
+    profile?.avatar,
+  ];
+
+  const matchingPhoto = candidates.find((candidate) => normalizeImageUrl(candidate) === currentPhoto);
+  const rawFocusY =
+    matchingPhoto?.focusY ??
+    matchingPhoto?.focalY ??
+    matchingPhoto?.faceY ??
+    matchingPhoto?.focalPoint?.y ??
+    matchingPhoto?.crop?.focusY ??
+    profile?.photoFocusY ??
+    profile?.focalPoint?.y;
+  const numericFocusY = Number(rawFocusY);
+
+  if (!Number.isFinite(numericFocusY)) return null;
+  return Math.min(72, Math.max(18, numericFocusY <= 1 ? numericFocusY * 100 : numericFocusY));
+}
 
 const SwipeCard = memo(function({
   profile,
@@ -59,6 +86,7 @@ const SwipeCard = memo(function({
   bioMoreLabel = "See more",
   bioLessLabel = "See less",
   stackIndex = 0,
+  isImagePriority = false,
 }) {
   const profileId = getProfileId(profile);
   const [exitX, setExitX] = useState(0);
@@ -166,6 +194,7 @@ const SwipeCard = memo(function({
   
   const currentPhoto = photos[activePhotoIndex] || photos[0] || null;
   const hasPhotoCarousel = photos.length > 1;
+  const photoFocusY = getPhotoFocusY(profile, currentPhoto);
 
   useEffect(() => {
     if (photos.length > 0 && activePhotoIndex >= photos.length) {
@@ -284,13 +313,18 @@ const SwipeCard = memo(function({
   const stackScale = 1 - stackDepth * 0.035;
   const stackOffsetY = stackDepth * 12;
   const stackOpacity = 1 - stackDepth * 0.13;
+  const cardAnimate = hasSwiped
+    ? { x: exitX, y: exitY, opacity: 0, scale: 0.955 }
+    : isActive
+      ? { y: 0, scale: 1 }
+      : { y: stackOffsetY, scale: stackScale, opacity: stackOpacity };
 
   return (
     <motion.div
       style={{
         x,
         rotate,
-        opacity: isActive ? opacity : stackOpacity,
+        opacity: isActive ? opacity : undefined,
         zIndex,
         ...style,
       }}
@@ -299,8 +333,9 @@ const SwipeCard = memo(function({
       dragElastic={0.22}
       dragMomentum={false}
       onDragEnd={isActive && !hasSwiped && !disabled && !isSubmitting ? handleDragEnd : undefined}
-      animate={hasSwiped ? { x: exitX, y: exitY, opacity: 0, scale: 0.96 } : { y: stackOffsetY, scale: stackScale }}
-      transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.86 }}
+      initial={isActive ? false : { y: stackOffsetY + 18, scale: stackScale * 0.985, opacity: 0 }}
+      animate={cardAnimate}
+      transition={CARD_TRANSITION}
       className={cardClassName}
       aria-hidden={!isActive}
     >
@@ -348,8 +383,10 @@ const SwipeCard = memo(function({
                 src={currentPhoto}
                 alt={displayName}
                 className="swipe-card-image"
-                loading="lazy"
+                loading={isImagePriority ? "eager" : "lazy"}
                 decoding="async"
+                fetchPriority={isActive ? "high" : "auto"}
+                style={photoFocusY == null ? undefined : { objectPosition: `center ${photoFocusY}%` }}
                 onError={() => {
                   setBrokenPhotoUrls((prev) => {
                     const next = new Set(prev);

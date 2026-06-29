@@ -56,7 +56,6 @@ export default function SwipeCard({
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const swipeTimeoutRef = useRef(null);
-  const photoWrapperRef = useRef(null);
   const photoTouchStartRef = useRef(null);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-220, 220], [-18, 18]);
@@ -197,8 +196,7 @@ export default function SwipeCard({
   const handlePhotoTap = (event) => {
     if (!isCarouselInteractionEnabled()) return;
 
-    const container = photoWrapperRef.current || event.currentTarget;
-    const rect = container.getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width) return;
 
     event.preventDefault();
@@ -276,9 +274,8 @@ export default function SwipeCard({
     >
       {/* Main Image */}
       <div 
-        ref={photoWrapperRef}
         className="swipe-card-image-wrapper"
-        onKeyDown={isActive ? handlePhotoKeyDown : undefined}
+        onKeyDown={isActive && hasPhotoCarousel ? handlePhotoKeyDown : undefined}
         onPointerDownCapture={handlePhotoPointerDownCapture}
         onPointerUpCapture={handlePhotoPointerUpCapture}
         onPointerCancelCapture={handlePhotoPointerCancelCapture}

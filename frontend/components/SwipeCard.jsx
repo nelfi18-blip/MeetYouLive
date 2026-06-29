@@ -73,6 +73,7 @@ function getPhotoFocusY(profile, currentPhoto) {
   const numericFocusY = Number(rawFocusY);
 
   if (!Number.isFinite(numericFocusY)) return null;
+  // Backends or image providers may store focal Y as a normalized 0-1 value or as a percentage.
   const focusPercent = numericFocusY <= NORMALIZED_PHOTO_FOCUS_THRESHOLD
     ? numericFocusY * PHOTO_FOCUS_PERCENT_SCALE
     : numericFocusY;

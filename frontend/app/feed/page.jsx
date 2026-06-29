@@ -1045,16 +1045,17 @@ export default function FeedPage() {
         preloadProfileImage(url);
       });
     };
-    const idleCallbackId = window.requestIdleCallback
+    const usesIdlePreload = typeof window.requestIdleCallback === "function";
+    const preloadHandle = usesIdlePreload
       ? window.requestIdleCallback(preload, { timeout: FEED_PRELOAD_IDLE_TIMEOUT_MS })
       : window.setTimeout(preload, FEED_PRELOAD_FALLBACK_DELAY_MS);
 
     return () => {
       cancelled = true;
-      if (window.cancelIdleCallback && typeof idleCallbackId === "number") {
-        window.cancelIdleCallback(idleCallbackId);
+      if (usesIdlePreload && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(preloadHandle);
       } else {
-        window.clearTimeout(idleCallbackId);
+        window.clearTimeout(preloadHandle);
       }
     };
   }, [currentIndex, profiles]);
@@ -1691,6 +1692,7 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
+          /* Feed Phase 2 keeps the image full-card with profile info overlaid for a premium app feel. */
           height: 100%;
           border-radius: inherit;
           overflow: hidden;

@@ -201,9 +201,9 @@ export default function SwipeCard({
     const rect = container.getBoundingClientRect();
     if (!rect.width) return;
 
-    const tapX = event.clientX - rect.left;
     event.preventDefault();
     event.stopPropagation();
+    const tapX = event.clientX - rect.left;
     goToPhoto(tapX < rect.width / 2 ? -1 : 1);
   };
 
@@ -213,14 +213,15 @@ export default function SwipeCard({
   };
 
   const handlePhotoPointerUpCapture = (event) => {
-    if (!photoTouchStartRef.current) return;
+    const touchStart = photoTouchStartRef.current;
+    if (!touchStart) return;
     if (!isCarouselInteractionEnabled()) {
       photoTouchStartRef.current = null;
       return;
     }
-    if (photoTouchStartRef.current.pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - photoTouchStartRef.current.x;
-    const deltaY = event.clientY - photoTouchStartRef.current.y;
+    if (touchStart.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - touchStart.x;
+    const deltaY = event.clientY - touchStart.y;
     photoTouchStartRef.current = null;
     // Let real drags bubble to the card swipe handler; only consume taps for photo navigation.
     if (Math.hypot(deltaX, deltaY) <= PHOTO_TAP_CANCEL_THRESHOLD_PX) {

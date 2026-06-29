@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const CARD_INTEREST_LIMIT = 4;
 
 function LockIcon() {
   return (
@@ -243,12 +244,15 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         <div className="hls-grid">
           {visibleRevealed.map(({ likeId, user, crushType }) => {
             const displayName = getDisplayName(user);
-            const image = getUserImage(user);
+            const image = getPrimaryProfileImage(user);
             const initial = displayName[0]?.toUpperCase() || "?";
             const age = calcAge(user?.birthdate || user?.dateOfBirth || user?.birthday);
             const locationLabel = getLocationLabel(user, t("hiddenLikes.nearYou"));
             const isVerified = Boolean(user?.isVerified);
             const activityLabel = getActivityLabel(user, t);
+            const interests = Array.isArray(user?.interests)
+              ? user.interests.slice(0, CARD_INTEREST_LIMIT)
+              : [];
             return (
               <Link
                 key={likeId}
@@ -266,27 +270,40 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
                   ) : (
                     <div className="hls-photo-placeholder">{initial}</div>
                   )}
+                  <div className="hls-photo-shine" aria-hidden="true" />
                   {activityLabel && <span className="hls-active-pill">{activityLabel}</span>}
                   {crushType === "super_crush" && (
                     <span className="hls-super-badge" title="Super Crush">
                       ⚡ Super
                     </span>
                   )}
+                  <div className="hls-photo-info">
+                    <div className="hls-name-row">
+                      <span className="hls-name">
+                        {displayName}
+                        {age ? `, ${age}` : ""}
+                      </span>
+                      {isVerified && (
+                        <span className="hls-verified" title="Verificado">
+                          <VerifiedIcon />
+                        </span>
+                      )}
+                    </div>
+                    <div className="hls-location">📍 {locationLabel}</div>
+                  </div>
                 </div>
                 <div className="hls-card-body">
-                  <div className="hls-name-row">
-                    <span className="hls-name">
-                      {displayName}
-                      {age ? `, ${age}` : ""}
-                    </span>
-                    {isVerified && (
-                      <span className="hls-verified" title="Verificado">
-                        <VerifiedIcon />
-                      </span>
-                    )}
-                  </div>
-                  <div className="hls-location">📍 {locationLabel}</div>
+                  {interests.length > 0 && (
+                    <div className="hls-interest-list">
+                      {interests.map((interest) => (
+                        <span key={interest} className="hls-interest-chip">{interest}</span>
+                      ))}
+                    </div>
+                  )}
                   {hasBio(user) && <p className="hls-bio">{user.bio}</p>}
+                  <div className="hls-profile-cta">
+                    {t("matchesPage.viewProfile")} →
+                  </div>
                 </div>
               </Link>
             );
@@ -560,17 +577,19 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         }
         .hls-grid { 
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
           gap: 0.85rem;
         }
 
         .hls-card {
           display: flex;
           flex-direction: column;
-          min-height: 238px;
+          min-height: 286px;
           border-radius: 24px;
           overflow: hidden;
-          background: rgba(255, 255, 255, 0.075);
+          background:
+            radial-gradient(circle at 20% 0%, rgba(255, 45, 120, 0.16), transparent 34%),
+            rgba(255, 255, 255, 0.075);
           border: 1px solid rgba(255, 255, 255, 0.1);
           box-shadow: 0 16px 35px rgba(0, 0, 0, 0.28);
           transition:
@@ -590,15 +609,26 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         .hls-photo-wrap {
           position: relative;
           --gradient-start: 38%;
-          height: 162px;
+          height: 220px;
           background: linear-gradient(135deg, rgba(255, 45, 120, 0.18), rgba(224, 64, 251, 0.18));
           flex-shrink: 0;
+        }
+        .hls-photo-wrap::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background:
+            radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.24), transparent 15%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 32%);
+          pointer-events: none;
         }
         .hls-photo-wrap::after {
           content: "";
           position: absolute;
           inset: var(--gradient-start) 0 0;
           background: linear-gradient(180deg, transparent, rgba(8, 4, 20, 0.55) 42%, rgba(8, 4, 20, 0.95));
+          z-index: 1;
           pointer-events: none;
         }
         .hls-photo-img,
@@ -610,6 +640,9 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .hls-photo-img {
+          display: block;
         }
         .hls-photo-placeholder {
           background: linear-gradient(
@@ -628,10 +661,27 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           filter: blur(10px);
           transform: scale(1.05);
         }
+        .hls-photo-shine {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background: linear-gradient(110deg, transparent 28%, rgba(255,255,255,0.18) 45%, transparent 58%);
+          opacity: 0;
+          transform: translateX(-120%);
+          pointer-events: none;
+        }
+        .hls-card:hover .hls-photo-shine {
+          animation: hls-card-shine 0.9s ease;
+        }
+        @keyframes hls-card-shine {
+          0% { opacity: 0; transform: translateX(-120%); }
+          18% { opacity: 0.45; }
+          100% { opacity: 0; transform: translateX(120%); }
+        }
         .hls-active-pill {
           position: absolute;
           left: 0.65rem;
-          bottom: 0.65rem;
+          top: 0.65rem;
           padding: 0.28rem 0.55rem;
           border-radius: 999px;
           background: rgba(12, 8, 24, 0.74);
@@ -650,6 +700,7 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           justify-content: center;
           color: rgba(255, 255, 255, 0.88);
           filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
+          z-index: 2;
         }
         .hls-super-badge {
           position: absolute;
@@ -674,13 +725,21 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
         .hls-card-body {
           position: relative;
           z-index: 2;
-          margin-top: -3.1rem;
           padding: 0.82rem;
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
-          min-height: 5.25rem;
-          justify-content: flex-end;
+          flex: 1;
+          justify-content: space-between;
+          background: rgba(9, 5, 23, 0.28);
+        }
+        .hls-photo-info {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 2;
+          padding: 0.82rem;
         }
         .hls-name-row {
           display: flex;
@@ -718,6 +777,26 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
           /* autoprefixer: ignore next -- preserves line clamping in WebKit browsers */
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+        .hls-interest-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.32rem;
+        }
+        .hls-interest-chip {
+          border-radius: 999px;
+          padding: 0.2rem 0.48rem;
+          background: rgba(255, 255, 255, 0.075);
+          border: 1px solid rgba(255, 255, 255, 0.11);
+          color: rgba(255, 255, 255, 0.78);
+          font-size: 0.62rem;
+          font-weight: 800;
+        }
+        .hls-profile-cta {
+          margin-top: auto;
+          color: #ff9ac8;
+          font-size: 0.72rem;
+          font-weight: 900;
         }
         .hls-filter-empty {
           margin-top: 0.75rem;
@@ -861,15 +940,14 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
             gap: 0.7rem;
           }
           .hls-photo-wrap {
-            height: 148px;
+            height: 206px;
           }
           .hls-card {
-            min-height: 224px;
+            min-height: 276px;
             border-radius: 20px;
           }
           .hls-card-body {
             padding: 0.72rem;
-            margin-top: -3rem;
           }
           .hls-cta-buttons {
             width: 100%;
@@ -886,7 +964,20 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
             grid-template-columns: 1fr;
           }
           .hls-photo-wrap {
-            height: 190px;
+            height: 260px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hls-wrap,
+          .hls-panel,
+          .hls-card,
+          .hls-photo-shine,
+          .hls-unlock-btn {
+            animation: none;
+            transition: none;
+          }
+          .hls-card:hover {
+            transform: none;
           }
         }
       `}</style>

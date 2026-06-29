@@ -15,6 +15,7 @@ import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const CARD_INTEREST_LIMIT = 4;
 
 function HeartIcon() {
   return (
@@ -213,6 +214,16 @@ export default function MatchesPage() {
           <span className="likes-eyebrow">💖 {t("matchesPage.likesEyebrow")}</span>
           <h1 id="likes-title" className="likes-title">{t("matchesPage.likesTitle")}</h1>
           <p className="likes-subtitle">{t("matchesPage.likesSubtitle")}</p>
+          <div className="likes-stat-row" aria-label={t("matchesPage.tabsAria")}>
+            <span className="likes-stat-pill">
+              <strong>{likesTotal}</strong>
+              {t("matchesPage.receivedLikesTab")}
+            </span>
+            <span className="likes-stat-pill likes-stat-pill-hot">
+              <strong>{matches.length}</strong>
+              {t("matchesPage.matchesTab")}
+            </span>
+          </div>
           <div className="likes-tabs" role="tablist" aria-label={t("matchesPage.tabsAria")}>
             <button
               type="button"
@@ -335,13 +346,18 @@ export default function MatchesPage() {
             const activityLabel = getActivityLabel(user, t);
             const isVerified = Boolean(user.isVerified);
             return (
-              <div key={user._id} className="match-card">
+              <article
+                key={user._id}
+                className="match-card"
+                aria-label={`${displayName}${age ? `, ${age}` : ""}`}
+              >
                 <div className="match-photo-wrap">
                   {userImage ? (
                     <img src={userImage} alt={displayName} className="match-photo-img" loading="lazy" />
                   ) : (
                     <div className="match-photo-placeholder">{initial}</div>
                   )}
+                  <div className="match-photo-shine" aria-hidden="true" />
                   <div className="match-photo-top">
                     <span className="match-badge-heart">
                       <HeartIcon />
@@ -382,8 +398,8 @@ export default function MatchesPage() {
                   {user.bio && <p className="match-bio">{user.bio}</p>}
                   {user.interests?.length > 0 && (
                     <div className="match-interests">
-                      {user.interests.slice(0, 3).map((i) => (
-                        <span key={i} className={`match-interest-tag${sharedInterests.includes(i) ? " match-interest-shared" : ""}`}>{i}</span>
+                      {user.interests.slice(0, CARD_INTEREST_LIMIT).map((interest) => (
+                        <span key={interest} className={`match-interest-tag${sharedInterests.includes(interest) ? " match-interest-shared" : ""}`}>{interest}</span>
                       ))}
                     </div>
                   )}
@@ -427,7 +443,7 @@ export default function MatchesPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
             </div>
@@ -526,6 +542,35 @@ export default function MatchesPage() {
           color: rgba(255,255,255,0.68);
           font-size: 0.95rem;
           font-weight: 650;
+        }
+        .likes-stat-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.55rem;
+          margin-top: 0.95rem;
+        }
+        .likes-stat-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.45rem 0.72rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.11);
+          color: rgba(255,255,255,0.74);
+          font-size: 0.72rem;
+          font-weight: 850;
+          backdrop-filter: blur(14px);
+        }
+        .likes-stat-pill strong {
+          color: #fff;
+          font-size: 0.92rem;
+          line-height: 1;
+        }
+        .likes-stat-pill-hot {
+          background: rgba(255,45,120,0.13);
+          border-color: rgba(255,45,120,0.22);
+          color: #ffc1dc;
         }
         .likes-tabs {
           display: flex;
@@ -652,6 +697,7 @@ export default function MatchesPage() {
 
         .match-card {
           background:
+            radial-gradient(circle at 25% 0%, rgba(255,45,120,0.18), transparent 28%),
             linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.045)),
             rgba(15,8,32,0.74);
           border: 1px solid rgba(255,255,255,0.1);
@@ -679,6 +725,16 @@ export default function MatchesPage() {
           overflow: hidden;
           background: linear-gradient(135deg, rgba(255,45,120,0.22), rgba(224,64,251,0.18));
         }
+        .match-photo-wrap::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background:
+            radial-gradient(circle at 22% 18%, rgba(255,255,255,0.22), transparent 16%),
+            linear-gradient(180deg, rgba(255,255,255,0.06), transparent 32%);
+          pointer-events: none;
+        }
         .match-photo-img,
         .match-photo-placeholder {
           width: 100%;
@@ -687,6 +743,7 @@ export default function MatchesPage() {
         }
         .match-photo-img {
           object-fit: cover;
+          display: block;
         }
         .match-photo-placeholder {
           display: flex;
@@ -700,6 +757,23 @@ export default function MatchesPage() {
           color: #fff;
           font-size: 4.25rem;
           font-weight: 950;
+        }
+        .match-photo-shine {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          background: linear-gradient(110deg, transparent 28%, rgba(255,255,255,0.18) 45%, transparent 58%);
+          transform: translateX(-120%);
+          opacity: 0;
+          pointer-events: none;
+        }
+        .match-card:hover .match-photo-shine {
+          animation: match-shine 0.9s ease;
+        }
+        @keyframes match-shine {
+          0% { opacity: 0; transform: translateX(-120%); }
+          18% { opacity: 0.5; }
+          100% { opacity: 0; transform: translateX(120%); }
         }
         .match-photo-top {
           position: absolute;
@@ -739,6 +813,7 @@ export default function MatchesPage() {
           position: absolute;
           inset: var(--gradient-start) 0 0;
           background: linear-gradient(180deg, transparent, rgba(7,4,18,0.64) 42%, rgba(7,4,18,0.96));
+          z-index: 1;
           pointer-events: none;
         }
         .match-photo-info {
@@ -746,7 +821,7 @@ export default function MatchesPage() {
           left: 0;
           right: 0;
           bottom: 0;
-          z-index: 1;
+          z-index: 2;
           padding: 1rem;
         }
         .match-badge-heart :global(svg) { width: 12px; height: 12px; }
@@ -803,12 +878,12 @@ export default function MatchesPage() {
         }
         .match-interest-tag {
           font-size: 0.65rem;
-          padding: 0.2rem 0.55rem;
+          padding: 0.23rem 0.58rem;
           border-radius: var(--radius-pill);
-          background: rgba(224,64,251,0.08);
-          border: 1px solid rgba(224,64,251,0.18);
-          color: var(--accent-2);
-          font-weight: 600;
+          background: rgba(255,255,255,0.075);
+          border: 1px solid rgba(255,255,255,0.11);
+          color: rgba(255,255,255,0.78);
+          font-weight: 750;
         }
         .match-interest-shared {
           background: rgba(255,45,120,0.12);
@@ -1095,7 +1170,8 @@ export default function MatchesPage() {
         @media (prefers-reduced-motion: reduce) {
           .likes-hero,
           .match-card,
-          .match-call-btn {
+          .match-call-btn,
+          .match-photo-shine {
             animation: none;
             transition: none;
           }

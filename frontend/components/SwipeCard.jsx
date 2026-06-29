@@ -73,7 +73,7 @@ function getPhotoFocusY(profile, currentPhoto) {
   const numericFocusY = Number(rawFocusY);
 
   if (!Number.isFinite(numericFocusY)) return null;
-  // Backends or image providers may store focal Y as a normalized 0-1 value or as a percentage.
+  // Accept normalized focal values (0.35) and percentage values (35) from image metadata.
   const focusPercent = numericFocusY <= NORMALIZED_PHOTO_FOCUS_THRESHOLD
     ? numericFocusY * PHOTO_FOCUS_PERCENT_SCALE
     : numericFocusY;
@@ -203,7 +203,7 @@ const SwipeCard = memo(function({
   
   const currentPhoto = photos[activePhotoIndex] || photos[0] || null;
   const hasPhotoCarousel = photos.length > 1;
-  const photoFocusY = getPhotoFocusY(profile, currentPhoto);
+  const photoFocusY = useMemo(() => getPhotoFocusY(profile, currentPhoto), [currentPhoto, profile]);
 
   useEffect(() => {
     if (photos.length > 0 && activePhotoIndex >= photos.length) {

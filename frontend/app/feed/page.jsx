@@ -146,6 +146,8 @@ function preloadProfileImage(url) {
   if (typeof window === "undefined" || !url) return;
   const image = new window.Image();
   image.decoding = "async";
+  // Fire-and-forget preloading keeps the next card warm without blocking the feed UI.
+  image.onerror = () => {};
   image.src = url;
 }
 
@@ -1045,7 +1047,9 @@ export default function FeedPage() {
         preloadProfileImage(url);
       });
     };
-    const usesIdlePreload = typeof window.requestIdleCallback === "function";
+    const usesIdlePreload =
+      typeof window.requestIdleCallback === "function" &&
+      typeof window.cancelIdleCallback === "function";
     const preloadHandle = usesIdlePreload
       ? window.requestIdleCallback(preload, { timeout: FEED_PRELOAD_IDLE_TIMEOUT_MS })
       : window.setTimeout(preload, FEED_PRELOAD_FALLBACK_DELAY_MS);
@@ -1692,7 +1696,7 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          /* Feed Phase 2 keeps the image full-card with profile info overlaid for a premium app feel. */
+          /* Keep profile photos full-card while text overlays preserve readability at the bottom. */
           height: 100%;
           border-radius: inherit;
           overflow: hidden;
@@ -1919,8 +1923,8 @@ export default function FeedPage() {
 
         @keyframes feed-action-pop {
           0% { transform: translateZ(0) scale(1); }
-          /* Peak just before halfway for a quick premium tap response without feeling bouncy. */
-          42% { transform: translateY(-2px) scale(1.08); }
+          /* Peak before halfway for a quick premium tap response without feeling bouncy. */
+          40% { transform: translateY(-2px) scale(1.08); }
           100% { transform: translateZ(0) scale(1); }
         }
 

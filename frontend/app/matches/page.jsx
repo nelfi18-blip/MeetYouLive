@@ -396,7 +396,7 @@ export default function MatchesPage() {
                       {user.interests.slice(0, 4).map((i) => (
                         <span key={i} className={`match-interest-tag${sharedInterests.includes(i) ? " match-interest-shared" : ""}`}>{i}</span>
                       ))}
-                    </article>
+                    </div>
                   )}
                   {sharedInterests.length > 0 && (
                     <p className="match-shared-label">✨ {sharedInterests.length} interés{sharedInterests.length !== 1 ? "es" : ""} en común</p>
@@ -438,7 +438,7 @@ export default function MatchesPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
             </div>

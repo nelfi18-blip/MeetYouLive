@@ -1850,13 +1850,15 @@ main.main-content:has(.admin-shell) {
 }
 
 .swipe-card-info {
+  --swipe-card-info-gradient-mid-start: 22%;
+  --swipe-card-info-gradient-mid-end: 62%;
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 24px;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(5, 3, 12, 0.28) 22%, rgba(3, 2, 8, 0.72) 62%, rgba(3, 2, 8, 0.92) 100%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(5, 3, 12, 0.28) var(--swipe-card-info-gradient-mid-start), rgba(3, 2, 8, 0.72) var(--swipe-card-info-gradient-mid-end), rgba(3, 2, 8, 0.92) 100%);
   color: white;
   display: flex;
   flex-direction: column;

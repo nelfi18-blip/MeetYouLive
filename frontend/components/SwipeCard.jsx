@@ -33,13 +33,16 @@ function getActivityLabel(profile, hasActivitySignal) {
 
 const PHOTO_TRANSITION_DURATION = 0.22;
 const INTERESTS_VISIBLE_LIMIT = 3;
+const PHOTO_INDICATOR_ACTIVE = { scaleX: 1 };
+const PHOTO_INDICATOR_INACTIVE = { scaleX: 0 };
+const PHOTO_EASE = [0.22, 1, 0.36, 1];
 const photoTransitionVariants = {
   enter: (direction) => ({ opacity: 0, x: direction * 18, scale: 1.01 }),
   center: { opacity: 1, x: 0, scale: 1 },
   exit: (direction) => ({ opacity: 0, x: direction * -12, scale: 1.005 }),
 };
 
-function SwipeCard({
+const SwipeCard = memo(function SwipeCard({
   profile,
   onSwipe,
   onExitComplete,
@@ -189,9 +192,18 @@ function SwipeCard({
   
   // Interests/hobbies
   const interests = useMemo(
-    () => (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
-      .filter((interest) => typeof interest === "string" && interest.trim())
-      .map((interest) => interest.trim()),
+    () => {
+      const seenInterests = new Set();
+      return (Array.isArray(profile?.interests) ? profile.interests : Array.isArray(profile?.tags) ? profile.tags : [])
+        .filter((interest) => typeof interest === "string" && interest.trim())
+        .map((interest) => interest.trim())
+        .filter((interest) => {
+          const key = interest.toLocaleLowerCase();
+          if (seenInterests.has(key)) return false;
+          seenInterests.add(key);
+          return true;
+        });
+    },
     [profile?.interests, profile?.tags]
   );
   const visibleInterests = interests.slice(0, INTERESTS_VISIBLE_LIMIT);
@@ -311,8 +323,8 @@ function SwipeCard({
                 <motion.span
                   className="photo-indicator-fill"
                   initial={false}
-                  animate={{ scaleX: index === activePhotoIndex ? 1 : 0 }}
-                  transition={{ duration: PHOTO_TRANSITION_DURATION, ease: [0.22, 1, 0.36, 1] }}
+                  animate={index === activePhotoIndex ? PHOTO_INDICATOR_ACTIVE : PHOTO_INDICATOR_INACTIVE}
+                  transition={{ duration: PHOTO_TRANSITION_DURATION, ease: PHOTO_EASE }}
                 />
               </span>
             ))}
@@ -326,7 +338,7 @@ function SwipeCard({
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: PHOTO_TRANSITION_DURATION, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: PHOTO_TRANSITION_DURATION, ease: PHOTO_EASE }}
             className="swipe-card-image-container"
           >
             {currentPhoto ? (
@@ -426,7 +438,7 @@ function SwipeCard({
               <AnimatePresence initial={false}>
               {visibleInterests.map((interest, idx) => (
                 <motion.span
-                  key={`${interest}-${idx}`}
+                  key={interest}
                   className="interest-tag"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -490,6 +502,6 @@ function SwipeCard({
       )}
     </motion.div>
   );
-}
+});
 
-export default memo(SwipeCard);
+export default SwipeCard;

@@ -1640,7 +1640,7 @@ export default function FeedPage() {
           padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(16, 9, 35, 0.98), rgba(12, 7, 27, 0.995));
+            linear-gradient(180deg, rgba(16, 9, 35, 0.94), rgba(12, 7, 27, 0.995));
           border-top: 1px solid rgba(255, 255, 255, 0.08);
           gap: clamp(0.25rem, 1.2vw, 0.45rem);
         }

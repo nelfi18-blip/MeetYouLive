@@ -31,7 +31,7 @@ function getActivityLabel(profile, hasActivitySignal) {
   return "";
 }
 
-const PHOTO_TRANSITION_MS = 0.22;
+const PHOTO_TRANSITION_DURATION = 0.22;
 const INTERESTS_VISIBLE_LIMIT = 3;
 const photoTransitionVariants = {
   enter: (direction) => ({ opacity: 0, x: direction * 18, scale: 1.01 }),
@@ -312,7 +312,7 @@ function SwipeCard({
                   className="photo-indicator-fill"
                   initial={false}
                   animate={{ scaleX: index === activePhotoIndex ? 1 : 0 }}
-                  transition={{ duration: PHOTO_TRANSITION_MS, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: PHOTO_TRANSITION_DURATION, ease: [0.22, 1, 0.36, 1] }}
                 />
               </span>
             ))}
@@ -326,7 +326,7 @@ function SwipeCard({
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: PHOTO_TRANSITION_MS, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: PHOTO_TRANSITION_DURATION, ease: [0.22, 1, 0.36, 1] }}
             className="swipe-card-image-container"
           >
             {currentPhoto ? (

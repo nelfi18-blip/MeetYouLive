@@ -198,7 +198,10 @@ export default function SwipeCard({
 
   const goToPhoto = useCallback((direction) => {
     if (!hasPhotoCarousel) return;
-    setActivePhotoIndex((index) => (index + direction + photos.length) % photos.length);
+    setActivePhotoIndex((index) => {
+      const nextIndex = index + direction;
+      return Math.min(Math.max(nextIndex, 0), photos.length - 1);
+    });
   }, [hasPhotoCarousel, photos.length]);
 
   const isCarouselInteractionEnabled = () =>

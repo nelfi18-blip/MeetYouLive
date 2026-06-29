@@ -193,16 +193,15 @@ export default function SwipeCard({
   const isCarouselInteractionEnabled = () =>
     isActive && hasPhotoCarousel && !hasSwiped && !disabled && !isSubmitting;
 
-  const handlePhotoTap = (event) => {
+  const handlePhotoTap = (event, containerRect = event.currentTarget.getBoundingClientRect()) => {
     if (!isCarouselInteractionEnabled()) return;
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width) return;
+    if (!containerRect.width) return;
 
     event.preventDefault();
     event.stopPropagation();
-    const tapX = event.clientX - rect.left;
-    goToPhoto(tapX < rect.width / 2 ? -1 : 1);
+    const tapX = event.clientX - containerRect.left;
+    goToPhoto(tapX < containerRect.width / 2 ? -1 : 1);
   };
 
   const handlePhotoPointerDownCapture = (event) => {
@@ -223,7 +222,7 @@ export default function SwipeCard({
     photoTouchStartRef.current = null;
     // Let real drags bubble to the card swipe handler; only consume taps for photo navigation.
     if (Math.hypot(deltaX, deltaY) <= PHOTO_TAP_CANCEL_THRESHOLD_PX) {
-      handlePhotoTap(event);
+      handlePhotoTap(event, event.currentTarget.getBoundingClientRect());
     }
   };
 
@@ -275,7 +274,7 @@ export default function SwipeCard({
       {/* Main Image */}
       <div 
         className="swipe-card-image-wrapper"
-        onKeyDown={isActive && hasPhotoCarousel ? handlePhotoKeyDown : undefined}
+        onKeyDown={isActive ? handlePhotoKeyDown : undefined}
         onPointerDownCapture={handlePhotoPointerDownCapture}
         onPointerUpCapture={handlePhotoPointerUpCapture}
         onPointerCancelCapture={handlePhotoPointerCancelCapture}

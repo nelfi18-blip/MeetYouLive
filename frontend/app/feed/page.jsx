@@ -147,7 +147,11 @@ function preloadProfileImage(url) {
   const image = new window.Image();
   image.decoding = "async";
   // Fire-and-forget preloading keeps the next card warm without blocking the feed UI.
-  image.onerror = () => {};
+  image.onerror = () => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[feed-image-preload-error]", url);
+    }
+  };
   image.src = url;
 }
 
@@ -1056,7 +1060,7 @@ export default function FeedPage() {
 
     return () => {
       cancelled = true;
-      if (usesIdlePreload && typeof window.cancelIdleCallback === "function") {
+      if (usesIdlePreload) {
         window.cancelIdleCallback(preloadHandle);
       } else {
         window.clearTimeout(preloadHandle);
@@ -1694,9 +1698,8 @@ export default function FeedPage() {
           transform-origin: center center;
           will-change: transform, opacity;
         }
-
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-          /* Keep profile photos full-card while text overlays preserve readability at the bottom. */
+        :global(.feed-swipe-deck .swipe-card-image-wrapper) {
           height: 100%;
           border-radius: inherit;
           overflow: hidden;
@@ -1725,7 +1728,7 @@ export default function FeedPage() {
           min-height: 0;
           height: var(--feed-info-panel-height);
           padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
-          /* Full-card photo overlay: transparent top keeps the image dominant; opaque bottom keeps text readable. */
+          /* Full-card photo overlay: image stays dominant while the bottom gradient keeps text readable. */
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
             linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 9, 35, 0.58) 24%, rgba(12, 7, 27, 0.98) 100%);

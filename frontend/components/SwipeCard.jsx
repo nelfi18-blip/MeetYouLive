@@ -52,6 +52,7 @@ const photoTransitionVariants = {
 
 function getPhotoFocusY(profile, currentPhoto) {
   if (!currentPhoto) return null;
+  const normalizedCurrentPhoto = normalizeImageUrl(currentPhoto) || currentPhoto;
 
   const candidates = [
     ...(Array.isArray(profile?.images) ? profile.images : []),
@@ -61,7 +62,7 @@ function getPhotoFocusY(profile, currentPhoto) {
     profile?.avatar,
   ];
 
-  const matchingPhoto = candidates.find((candidate) => normalizeImageUrl(candidate) === currentPhoto);
+  const matchingPhoto = candidates.find((candidate) => normalizeImageUrl(candidate) === normalizedCurrentPhoto);
   const rawFocusY =
     matchingPhoto?.focusY ??
     matchingPhoto?.focalY ??
@@ -73,7 +74,7 @@ function getPhotoFocusY(profile, currentPhoto) {
   const numericFocusY = Number(rawFocusY);
 
   if (!Number.isFinite(numericFocusY)) return null;
-  // Accept normalized focal values (0.35) and percentage values (35) from image metadata.
+  // Values up to 1.0 are normalized focal coordinates (0.35); larger values are percentages (35).
   const focusPercent = numericFocusY <= NORMALIZED_PHOTO_FOCUS_THRESHOLD
     ? numericFocusY * PHOTO_FOCUS_PERCENT_SCALE
     : numericFocusY;

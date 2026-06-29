@@ -33,6 +33,8 @@ function getActivityLabel(profile, hasActivitySignal) {
 
 const PHOTO_TRANSITION_DURATION = 0.22;
 const INTERESTS_VISIBLE_LIMIT = 3;
+const INTEREST_ANIMATION_DURATION = 0.2;
+const INTEREST_STAGGER_DELAY = 0.025;
 const PHOTO_INDICATOR_ACTIVE = { scaleX: 1 };
 const PHOTO_INDICATOR_INACTIVE = { scaleX: 0 };
 const PHOTO_EASE = [0.22, 1, 0.36, 1];
@@ -42,7 +44,7 @@ const photoTransitionVariants = {
   exit: (direction) => ({ opacity: 0, x: direction * -12, scale: 1.005 }),
 };
 
-const SwipeCard = memo(function SwipeCard({
+const SwipeCard = memo(function({
   profile,
   onSwipe,
   onExitComplete,
@@ -198,7 +200,7 @@ const SwipeCard = memo(function SwipeCard({
         .filter((interest) => typeof interest === "string" && interest.trim())
         .map((interest) => interest.trim())
         .filter((interest) => {
-          const key = interest.toLocaleLowerCase();
+          const key = interest.toLowerCase();
           if (seenInterests.has(key)) return false;
           seenInterests.add(key);
           return true;
@@ -443,7 +445,7 @@ const SwipeCard = memo(function SwipeCard({
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.2, ease: "easeOut", delay: idx * 0.025 }}
+                  transition={{ duration: INTEREST_ANIMATION_DURATION, ease: "easeOut", delay: idx * INTEREST_STAGGER_DELAY }}
                 >
                   {interest}
                 </motion.span>
@@ -455,7 +457,7 @@ const SwipeCard = memo(function SwipeCard({
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.2, ease: "easeOut", delay: visibleInterests.length * 0.025 }}
+                  transition={{ duration: INTEREST_ANIMATION_DURATION, ease: "easeOut", delay: visibleInterests.length * INTEREST_STAGGER_DELAY }}
                 >
                   +{hiddenInterestsCount}
                 </motion.span>
@@ -503,5 +505,7 @@ const SwipeCard = memo(function SwipeCard({
     </motion.div>
   );
 });
+
+SwipeCard.displayName = "SwipeCard";
 
 export default SwipeCard;

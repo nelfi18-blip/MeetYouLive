@@ -1858,7 +1858,13 @@ main.main-content:has(.admin-shell) {
   right: 0;
   padding: 24px;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(5, 3, 12, 0.28) var(--swipe-card-info-gradient-mid-start), rgba(3, 2, 8, 0.72) var(--swipe-card-info-gradient-mid-end), rgba(3, 2, 8, 0.92) 100%);
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(5, 3, 12, 0.28) var(--swipe-card-info-gradient-mid-start),
+      rgba(3, 2, 8, 0.72) var(--swipe-card-info-gradient-mid-end),
+      rgba(3, 2, 8, 0.92) 100%
+    );
   color: white;
   display: flex;
   flex-direction: column;

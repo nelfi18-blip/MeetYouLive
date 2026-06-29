@@ -183,19 +183,6 @@ export default function SwipeCard({
     .filter((interest) => typeof interest === "string" && interest.trim())
     .map((interest) => interest.trim());
   
-  const handlePhotoClick = (e) => {
-    if (!isCarouselInteractionEnabled()) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (suppressNextPhotoTapRef.current) {
-      suppressNextPhotoTapRef.current = false;
-      return;
-    }
-    const bounds = e.currentTarget.getBoundingClientRect();
-    const isPreviousTap = e.clientX - bounds.left < bounds.width / 2;
-    goToPhoto(isPreviousTap ? -1 : 1);
-  };
-
   const goToPhoto = useCallback((direction) => {
     if (!hasPhotoCarousel) return;
     setActivePhotoIndex((index) => {
@@ -206,6 +193,23 @@ export default function SwipeCard({
 
   const isCarouselInteractionEnabled = () =>
     isActive && hasPhotoCarousel && !hasSwiped && !disabled && !isSubmitting;
+
+  const handlePhotoTap = (event) => {
+    if (!isCarouselInteractionEnabled()) return;
+    if (suppressNextPhotoTapRef.current) {
+      suppressNextPhotoTapRef.current = false;
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+
+    const tapX = event.clientX - rect.left;
+    goToPhoto(tapX < rect.width / 2 ? -1 : 1);
+  };
 
   const handlePhotoPointerDownCapture = (event) => {
     if (!isCarouselInteractionEnabled()) return;
@@ -274,7 +278,7 @@ export default function SwipeCard({
       {/* Main Image */}
       <div 
         className="swipe-card-image-wrapper"
-        onClick={isActive ? handlePhotoClick : undefined}
+        onPointerUp={isActive ? handlePhotoTap : undefined}
         onKeyDown={isActive ? handlePhotoKeyDown : undefined}
         onPointerDownCapture={handlePhotoPointerDownCapture}
         onPointerUpCapture={handlePhotoPointerUpCapture}

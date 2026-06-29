@@ -15,6 +15,7 @@ import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const CARD_INTEREST_LIMIT = 4;
 
 function HeartIcon() {
   return (
@@ -345,7 +346,11 @@ export default function MatchesPage() {
             const activityLabel = getActivityLabel(user, t);
             const isVerified = Boolean(user.isVerified);
             return (
-              <article key={user._id} className="match-card">
+              <article
+                key={user._id}
+                className="match-card"
+                aria-label={`${displayName}${age ? `, ${age}` : ""}`}
+              >
                 <div className="match-photo-wrap">
                   {userImage ? (
                     <img src={userImage} alt={displayName} className="match-photo-img" loading="lazy" />
@@ -393,8 +398,8 @@ export default function MatchesPage() {
                   {user.bio && <p className="match-bio">{user.bio}</p>}
                   {user.interests?.length > 0 && (
                     <div className="match-interests">
-                      {user.interests.slice(0, 4).map((i) => (
-                        <span key={i} className={`match-interest-tag${sharedInterests.includes(i) ? " match-interest-shared" : ""}`}>{i}</span>
+                      {user.interests.slice(0, CARD_INTEREST_LIMIT).map((interest) => (
+                        <span key={interest} className={`match-interest-tag${sharedInterests.includes(interest) ? " match-interest-shared" : ""}`}>{interest}</span>
                       ))}
                     </div>
                   )}

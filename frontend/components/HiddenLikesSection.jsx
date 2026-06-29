@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const CARD_INTEREST_LIMIT = 4;
 
 function LockIcon() {
   return (
@@ -249,7 +250,9 @@ export default function HiddenLikesSection({ compact = false, onTotalChange }) {
             const locationLabel = getLocationLabel(user, t("hiddenLikes.nearYou"));
             const isVerified = Boolean(user?.isVerified);
             const activityLabel = getActivityLabel(user, t);
-            const interests = Array.isArray(user?.interests) ? user.interests.slice(0, 3) : [];
+            const interests = Array.isArray(user?.interests)
+              ? user.interests.slice(0, CARD_INTEREST_LIMIT)
+              : [];
             return (
               <Link
                 key={likeId}

@@ -1620,6 +1620,7 @@ export default function FeedPage() {
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
           overflow: hidden;
+          transform: translateZ(0);
         }
 
         :global(.feed-swipe-deck .swipe-card-image),
@@ -1639,7 +1640,7 @@ export default function FeedPage() {
           padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(20, 12, 46, 0.96), rgba(15, 8, 33, 0.99));
+            linear-gradient(180deg, rgba(16, 9, 35, 0.98), rgba(12, 7, 27, 0.995));
           border-top: 1px solid rgba(255, 255, 255, 0.08);
           gap: clamp(0.25rem, 1.2vw, 0.45rem);
         }
@@ -1652,13 +1653,17 @@ export default function FeedPage() {
 
         :global(.feed-swipe-deck .photo-indicator) {
           height: 4px;
-          background: rgba(255, 255, 255, 0.26);
+          background: rgba(255, 255, 255, 0.22);
           box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
         }
 
         :global(.feed-swipe-deck .photo-indicator.active) {
+          background: rgba(255, 255, 255, 0.28);
+        }
+
+        :global(.feed-swipe-deck .photo-indicator-fill) {
           background: linear-gradient(90deg, #fff, #f0abfc 52%, #e040fb);
-          box-shadow: 0 0 16px rgba(240, 171, 252, 0.38);
+          box-shadow: 0 0 16px rgba(240, 171, 252, 0.42);
         }
 
         :global(.feed-swipe-deck .swipe-card-meta-row) {
@@ -1710,12 +1715,12 @@ export default function FeedPage() {
         }
 
         :global(.feed-swipe-deck .swipe-card-interests) {
-          margin-top: 0.1rem;
-          gap: 0.35rem;
+          margin-top: 0.2rem;
+          gap: 0.46rem;
         }
 
         :global(.feed-swipe-deck .interest-tag) {
-          padding: 0.32rem 0.62rem;
+          padding: 0.38rem 0.68rem;
           line-height: 1.1;
         }
 
@@ -1780,7 +1785,7 @@ export default function FeedPage() {
         }
 
         .feed-action-btn:not(:disabled):active {
-          transform: translateY(2px) scale(0.91);
+          transform: translateY(1px) scale(0.96);
           filter: brightness(1.12);
         }
 
@@ -1863,8 +1868,8 @@ export default function FeedPage() {
             padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 6.75rem;
             border-top: 0;
             background:
-              radial-gradient(circle at var(--feed-mobile-profile-glow-x) var(--feed-mobile-profile-glow-y), rgba(224, 64, 251, 0.2), transparent 30%),
-              linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 12%, rgba(0, 0, 0, 0.55) 42%, rgba(7, 4, 17, 0.92) 80%, rgba(7, 4, 17, 0.99) 100%);
+              radial-gradient(circle at var(--feed-mobile-profile-glow-x) var(--feed-mobile-profile-glow-y), rgba(224, 64, 251, 0.18), transparent 30%),
+              linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 16%, rgba(0, 0, 0, 0.62) 46%, rgba(7, 4, 17, 0.94) 82%, rgba(7, 4, 17, 0.995) 100%);
             gap: 0.48rem;
           }
 
@@ -1907,8 +1912,8 @@ export default function FeedPage() {
           }
 
           :global(.feed-swipe-deck .swipe-card-interests) {
-            gap: 0.4rem;
-            margin-top: 0.05rem;
+            gap: 0.48rem;
+            margin-top: 0.12rem;
           }
 
           :global(.feed-swipe-deck .interest-tag) {

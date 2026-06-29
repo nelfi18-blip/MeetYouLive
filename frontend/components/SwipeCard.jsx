@@ -201,11 +201,11 @@ export default function SwipeCard({
       return;
     }
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width) return;
-
     event.preventDefault();
     event.stopPropagation();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
 
     const tapX = event.clientX - rect.left;
     goToPhoto(tapX < rect.width / 2 ? -1 : 1);

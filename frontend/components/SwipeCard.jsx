@@ -56,8 +56,8 @@ export default function SwipeCard({
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const swipeTimeoutRef = useRef(null);
+  const photoWrapperRef = useRef(null);
   const photoTouchStartRef = useRef(null);
-  const suppressNextPhotoTapRef = useRef(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-220, 220], [-18, 18]);
   const opacity = useTransform(x, [-220, -150, 0, 150, 220], [0.62, 1, 1, 1, 0.62]);
@@ -196,25 +196,20 @@ export default function SwipeCard({
 
   const handlePhotoTap = (event) => {
     if (!isCarouselInteractionEnabled()) return;
-    if (suppressNextPhotoTapRef.current) {
-      suppressNextPhotoTapRef.current = false;
-      return;
-    }
 
-    event.preventDefault();
-    event.stopPropagation();
-
-    const rect = event.currentTarget.getBoundingClientRect();
+    const container = photoWrapperRef.current || event.currentTarget;
+    const rect = container.getBoundingClientRect();
     if (!rect.width) return;
 
     const tapX = event.clientX - rect.left;
+    event.preventDefault();
+    event.stopPropagation();
     goToPhoto(tapX < rect.width / 2 ? -1 : 1);
   };
 
   const handlePhotoPointerDownCapture = (event) => {
     if (!isCarouselInteractionEnabled()) return;
-    suppressNextPhotoTapRef.current = false;
-    photoTouchStartRef.current = { x: event.clientX, y: event.clientY };
+    photoTouchStartRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
   };
 
   const handlePhotoPointerUpCapture = (event) => {
@@ -223,11 +218,14 @@ export default function SwipeCard({
       photoTouchStartRef.current = null;
       return;
     }
+    if (photoTouchStartRef.current.pointerId !== event.pointerId) return;
     const deltaX = event.clientX - photoTouchStartRef.current.x;
     const deltaY = event.clientY - photoTouchStartRef.current.y;
     photoTouchStartRef.current = null;
-    // Prevent accidental photo changes when the pointer movement was a card drag, not a tap.
-    suppressNextPhotoTapRef.current = Math.hypot(deltaX, deltaY) > PHOTO_TAP_CANCEL_THRESHOLD_PX;
+    // Let real drags bubble to the card swipe handler; only consume taps for photo navigation.
+    if (Math.hypot(deltaX, deltaY) <= PHOTO_TAP_CANCEL_THRESHOLD_PX) {
+      handlePhotoTap(event);
+    }
   };
 
   const handlePhotoPointerCancelCapture = () => {
@@ -277,8 +275,8 @@ export default function SwipeCard({
     >
       {/* Main Image */}
       <div 
+        ref={photoWrapperRef}
         className="swipe-card-image-wrapper"
-        onPointerUp={isActive ? handlePhotoTap : undefined}
         onKeyDown={isActive ? handlePhotoKeyDown : undefined}
         onPointerDownCapture={handlePhotoPointerDownCapture}
         onPointerUpCapture={handlePhotoPointerUpCapture}

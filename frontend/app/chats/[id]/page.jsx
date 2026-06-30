@@ -42,7 +42,11 @@ export default function ChatConversationPage() {
   const [callError, setCallError] = useState("");
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [chatGiftNotif, setChatGiftNotif] = useState(null); // For displaying gift notifications
+  const [showScrollJump, setShowScrollJump] = useState(false);
+  const messagesAreaRef = useRef(null);
   const bottomRef = useRef(null);
+  const isNearBottomRef = useRef(true);
+  const lastMessageCountRef = useRef(0);
   
   // Context naming note:
   // - Stored context: "private_call" (distinguishes from public chat rooms in data layer)
@@ -120,9 +124,31 @@ export default function ChatConversationPage() {
       .finally(() => setLoading(false));
   }, [id, router, t]);
 
+  const scrollToBottom = (behavior = "smooth") => {
+    bottomRef.current?.scrollIntoView({ behavior });
+    isNearBottomRef.current = true;
+    setShowScrollJump(false);
+  };
+
+  const handleMessagesScroll = () => {
+    const node = messagesAreaRef.current;
+    if (!node) return;
+    const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    const isNearBottom = distanceFromBottom < 120;
+    isNearBottomRef.current = isNearBottom;
+    setShowScrollJump(!isNearBottom && messages.length > 0);
+  };
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (loading) return;
+    const previousCount = lastMessageCountRef.current;
+    const latestMessage = messages[messages.length - 1];
+    const latestIsMine = latestMessage?.sender?._id === currentUserId;
+    const shouldScroll = previousCount === 0 || isNearBottomRef.current || latestIsMine;
+
+    lastMessageCountRef.current = messages.length;
+    if (shouldScroll) scrollToBottom(previousCount === 0 ? "auto" : "smooth");
+  }, [messages, currentUserId, loading]);
 
   useEffect(() => {
     if (!otherUser?._id) return;
@@ -226,6 +252,11 @@ export default function ChatConversationPage() {
   // Show video call button if: matched users (social call) OR talking to a creator (paid call)
   const canVideoCall = isMatch || isCreator;
 
+  const getDeliveryLabel = (msg, isLatestMine) => {
+    if (msg.readAt || msg.readBy?.length) return t("chatPremium.read");
+    return isLatestMine ? t("chatPremium.delivered") : t("chatPremium.sent");
+  };
+
   return (
     <div className="chat-page">
       <header className="chat-header">
@@ -249,7 +280,7 @@ export default function ChatConversationPage() {
               </div>
               <div className="peer-info">
                 <span className="peer-name">{otherName}</span>
-                <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.privateChat")}</span>
+                <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.lastSeenPending")}</span>
                 {isCreator && <span className="peer-creator-badge">{t("chatPremium.creator")}</span>}
               </div>
             </>
@@ -258,6 +289,9 @@ export default function ChatConversationPage() {
         </div>
 
         <div className="header-actions">
+          <button type="button" className="icon-action muted" title={t("chatPremium.voiceCallSoon")} aria-label={t("chatPremium.voiceCallSoon")} disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.08 4.18 2 2 0 014.06 2h3a2 2 0 012 1.72c.12.9.33 1.78.63 2.63a2 2 0 01-.45 2.11L8 9.7a16 16 0 006.3 6.3l1.24-1.24a2 2 0 012.11-.45c.85.3 1.73.51 2.63.63A2 2 0 0122 16.92z"/></svg>
+          </button>
           <button type="button" className="icon-action muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
@@ -284,9 +318,16 @@ export default function ChatConversationPage() {
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
 
-      <main className="messages-area" aria-label={t("chatPremium.messagesAria")}>
+      <main ref={messagesAreaRef} className="messages-area" aria-label={t("chatPremium.messagesAria")} onScroll={handleMessagesScroll}>
         {loading && (
           <div className="messages-loading">
+            <div className="skeleton-header-card">
+              <div className="skeleton skeleton-avatar-sm" />
+              <div className="skeleton-stack">
+                <div className="skeleton skeleton-line wide" />
+                <div className="skeleton skeleton-line short" />
+              </div>
+            </div>
             {[...Array(5)].map((_, i) => (
               <div key={i} className={`skeleton-bubble ${i % 2 === 0 ? "left" : "right"}`} />
             ))}
@@ -302,10 +343,11 @@ export default function ChatConversationPage() {
           </div>
         )}
 
-        {!loading && messages.map((msg) => {
+        {!loading && messages.map((msg, index) => {
           const isMine = msg.sender?._id === currentUserId;
           const senderImage = getUserImage(msg.sender);
           const senderName = msg.sender?.username || msg.sender?.name || "Usuario";
+          const isLatestMine = isMine && index === messages.length - 1;
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
@@ -319,16 +361,40 @@ export default function ChatConversationPage() {
               )}
               <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
                 <p className="bubble-text">{msg.text}</p>
-                <time className="bubble-time" dateTime={getIsoDateTime(msg.createdAt)}>
-                  {formatMessageTime(msg.createdAt, locale)}
-                </time>
+                <div className="bubble-meta">
+                  <time className="bubble-time" dateTime={getIsoDateTime(msg.createdAt)}>
+                    {formatMessageTime(msg.createdAt, locale)}
+                  </time>
+                  {isMine && (
+                    <span className={`delivery-state ${msg.readAt || msg.readBy?.length ? "read" : ""}`}>
+                      <span className="delivery-check" aria-hidden="true">✓✓</span>
+                      {getDeliveryLabel(msg, isLatestMine)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
 
+        {!loading && text.trim() && (
+          <div className="typing-indicator" aria-live="polite">
+            <span>{t("chatPremium.typing")}</span>
+            <i />
+            <i />
+            <i />
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </main>
+
+      {showScrollJump && (
+        <button type="button" className="scroll-jump" onClick={() => scrollToBottom()} aria-label={t("chatPremium.scrollToLatest")}>
+          {t("chatPremium.newMessages")}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+        </button>
+      )}
 
       <form className="chat-input-bar" onSubmit={sendMessage}>
         <div className="composer-actions">
@@ -343,6 +409,9 @@ export default function ChatConversationPage() {
               🎁
             </button>
           )}
+          <button type="button" className="composer-btn muted" title={t("chatPremium.emojiSoon")} aria-label={t("chatPremium.emojiSoon")} disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          </button>
           <button type="button" className="composer-btn muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
@@ -622,13 +691,79 @@ export default function ChatConversationPage() {
           margin: 0;
         }
         .bubble-mine .bubble-text { color: #fff; }
+        .bubble-meta {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.38rem;
+          flex-wrap: wrap;
+        }
         .bubble-time {
           font-size: 0.63rem;
           color: rgba(255,255,255,0.62);
-          align-self: flex-end;
           font-weight: 700;
         }
         .bubble-theirs .bubble-time { color: var(--text-dim); }
+        .delivery-state {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.18rem;
+          color: rgba(255,255,255,0.72);
+          font-size: 0.61rem;
+          font-weight: 800;
+          line-height: 1;
+        }
+        .delivery-state.read { color: var(--accent-cyan); }
+        .delivery-check { letter-spacing: -0.22em; margin-right: 0.08rem; }
+
+        .typing-indicator {
+          width: fit-content;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.34rem;
+          margin-left: 2.45rem;
+          padding: 0.48rem 0.7rem;
+          border: 1px solid rgba(236,124,255,0.18);
+          border-radius: var(--radius-pill);
+          color: var(--text-muted);
+          background: rgba(255,255,255,0.055);
+          font-size: 0.74rem;
+          font-weight: 800;
+          animation: bubbleIn 0.24s ease both;
+        }
+        .typing-indicator i {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--accent-cyan);
+          animation: typingDot 1s ease-in-out infinite;
+        }
+        .typing-indicator i:nth-child(3) { animation-delay: 0.14s; }
+        .typing-indicator i:nth-child(4) { animation-delay: 0.28s; }
+
+        .scroll-jump {
+          position: absolute;
+          left: 50%;
+          bottom: 88px;
+          z-index: 5;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.58rem 0.85rem;
+          border: 1px solid rgba(34,211,238,0.34);
+          border-radius: var(--radius-pill);
+          color: #fff;
+          background: rgba(15,8,33,0.9);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.34), 0 0 18px rgba(34,211,238,0.16);
+          backdrop-filter: blur(12px);
+          font-size: 0.78rem;
+          font-weight: 900;
+          cursor: pointer;
+          animation: bubbleIn 0.24s ease both;
+          transition: transform var(--transition), border-color var(--transition);
+        }
+        .scroll-jump:hover { transform: translateX(-50%) translateY(-1px); border-color: rgba(34,211,238,0.56); }
 
         .chat-input-bar {
           display: flex;
@@ -718,6 +853,27 @@ export default function ChatConversationPage() {
         .chat-gift-text strong { font-weight: 800; }
 
         .messages-loading { display: flex; flex-direction: column; gap: 0.75rem; }
+        .skeleton {
+          border-radius: var(--radius-pill);
+          background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.13) 50%, rgba(255,255,255,0.06) 75%);
+          background-size: 220% 100%;
+          animation: shimmer 1.45s infinite;
+        }
+        .skeleton-header-card {
+          display: flex;
+          align-items: center;
+          gap: 0.72rem;
+          width: min(100%, 360px);
+          padding: 0.72rem;
+          border: 1px solid rgba(236,124,255,0.16);
+          border-radius: 22px;
+          background: rgba(255,255,255,0.045);
+        }
+        .skeleton-avatar-sm { width: 38px; height: 38px; flex-shrink: 0; }
+        .skeleton-stack { flex: 1; display: flex; flex-direction: column; gap: 0.45rem; }
+        .skeleton-line { width: 48%; height: 10px; }
+        .skeleton-line.wide { width: 74%; height: 13px; }
+        .skeleton-line.short { width: 38%; }
         .skeleton-bubble {
           height: 54px;
           width: 55%;
@@ -772,6 +928,7 @@ export default function ChatConversationPage() {
         @keyframes shimmer { 0% { background-position: 220% 0; } 100% { background-position: -220% 0; } }
         @keyframes headerShimmer { 0%, 70% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
         @keyframes bubbleIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes typingDot { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
         @keyframes chatGiftGlow { 0%, 100% { box-shadow: 0 0 6px rgba(251,191,36,0.16); } 50% { box-shadow: 0 0 16px rgba(251,191,36,0.4); } }
         @keyframes giftNotifSlideDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         @keyframes giftNotifPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
@@ -791,6 +948,8 @@ export default function ChatConversationPage() {
           .send-btn { min-width: 48px; width: 48px; }
           .send-btn span:not(.send-dots) { display: none; }
           .bubble { max-width: 82%; }
+          .typing-indicator { margin-left: 0.5rem; }
+          .scroll-jump { bottom: 76px; }
         }
       `}</style>
     </div>

@@ -60,7 +60,7 @@ export default function ChatConversationPage() {
       return;
     }
 
-    const headers = { Authorization: "Bearer " + token };
+    const headers = { Authorization: `Bearer ${token}` };
 
     // Fetch current user, chat participants, and messages in parallel
     Promise.all([
@@ -179,7 +179,7 @@ export default function ChatConversationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ text: text.trim() }),
       });
@@ -204,7 +204,7 @@ export default function ChatConversationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ recipientId: otherUser._id, type, callCoins }),
       });

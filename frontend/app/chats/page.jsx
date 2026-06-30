@@ -60,7 +60,7 @@ export default function ChatsPage() {
     if (!silent) setLoading(true);
     setError("");
     fetch(`${API_URL}/api/chats`, {
-      headers: { Authorization: "Bearer " + token },
+      headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     })
       .then((r) => {

@@ -10,6 +10,13 @@ import { getUserImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const formatMessageTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+};
+
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -20,6 +27,7 @@ export default function ChatConversationPage() {
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [otherUser, setOtherUser] = useState(null); // { _id, username, name, avatar, role }
+  const [isOtherOnline, setIsOtherOnline] = useState(false);
   const [isMatch, setIsMatch] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
   const [callError, setCallError] = useState("");
@@ -43,7 +51,7 @@ export default function ChatConversationPage() {
       return;
     }
 
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = { Authorization: "Bearer " + token };
 
     // Fetch current user, chat participants, and messages in parallel
     Promise.all([
@@ -79,6 +87,16 @@ export default function ChatConversationPage() {
         }
         setOtherUser(other);
 
+        if (other?._id) {
+          fetch(`${API_URL}/api/user/online`, { headers, cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((onlineData) => {
+              const users = Array.isArray(onlineData?.users) ? onlineData.users : [];
+              setIsOtherOnline(users.some((user) => String(user._id) === String(other._id)));
+            })
+            .catch(() => {});
+        }
+
         // Check match status if we have both IDs
         if (myId && other?._id) {
           try {
@@ -106,6 +124,24 @@ export default function ChatConversationPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!otherUser?._id) return;
+
+    const handleOnline = ({ userId }) => {
+      if (String(userId) === String(otherUser._id)) setIsOtherOnline(true);
+    };
+    const handleOffline = ({ userId }) => {
+      if (String(userId) === String(otherUser._id)) setIsOtherOnline(false);
+    };
+
+    socket.on("USER_ONLINE", handleOnline);
+    socket.on("USER_OFFLINE", handleOffline);
+    return () => {
+      socket.off("USER_ONLINE", handleOnline);
+      socket.off("USER_OFFLINE", handleOffline);
+    };
+  }, [otherUser?._id]);
 
   // Socket listener for chat gifts
   useEffect(() => {
@@ -138,12 +174,13 @@ export default function ChatConversationPage() {
 
     const token = localStorage.getItem("token");
     setSending(true);
+    setError("");
     try {
       const res = await fetch(`${API_URL}/api/chats/${id}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: "Bearer " + token,
         },
         body: JSON.stringify({ text: text.trim() }),
       });
@@ -168,7 +205,7 @@ export default function ChatConversationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: "Bearer " + token,
         },
         body: JSON.stringify({ recipientId: otherUser._id, type, callCoins }),
       });
@@ -192,20 +229,28 @@ export default function ChatConversationPage() {
 
   return (
     <div className="chat-page">
-      <div className="chat-header card">
-        <Link href="/chats" className="back-btn">← Chats</Link>
+      <header className="chat-header">
+        <Link href="/chats" className="back-btn" aria-label="Volver a chats">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          <span>Chats</span>
+        </Link>
+
         <div className="chat-peer">
           {otherName && (
             <>
-              <div className="peer-avatar avatar-placeholder">
-                {otherImage ? (
-                  <img src={otherImage} alt={otherName} className="peer-avatar-img" />
-                ) : (
-                  otherName[0].toUpperCase()
-                )}
+              <div className="peer-avatar-wrap" data-online={isOtherOnline ? "true" : "false"}>
+                <div className="peer-avatar avatar-placeholder">
+                  {otherImage ? (
+                    <img src={otherImage} alt={otherName} className="peer-avatar-img" />
+                  ) : (
+                    otherName[0].toUpperCase()
+                  )}
+                </div>
+                {isOtherOnline && <span className="peer-online-dot" aria-label="Usuario en línea" />}
               </div>
               <div className="peer-info">
                 <span className="peer-name">{otherName}</span>
+                <span className="peer-status">{isOtherOnline ? "En línea ahora" : "Chat privado"}</span>
                 {isCreator && <span className="peer-creator-badge">Creador</span>}
               </div>
             </>
@@ -213,31 +258,37 @@ export default function ChatConversationPage() {
           {!otherName && <span className="peer-name">Conversación</span>}
         </div>
 
-        {canVideoCall && (
+        <div className="header-actions">
+          <button type="button" className="icon-action muted" title="Imagen próximamente" aria-label="Imagen próximamente" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </button>
+          <button type="button" className="icon-action muted" title="Voz próximamente" aria-label="Voz próximamente" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
           <button
-            className="video-call-btn"
-            onClick={() => handleVideoCall(isCreator ? "paid_creator" : "social")}
-            disabled={callLoading}
-            title={isCreator ? "Llamada privada con creador" : "Videollamada"}
-            aria-label="Iniciar videollamada"
+            type="button"
+            className={`icon-action video ${canVideoCall ? "active" : "muted"}`}
+            onClick={() => canVideoCall && handleVideoCall(isCreator ? "paid_creator" : "social")}
+            disabled={!canVideoCall || callLoading}
+            title={canVideoCall ? (isCreator ? "Llamada privada con creador" : "Videollamada") : "Videollamada próximamente"}
+            aria-label={canVideoCall ? "Iniciar videollamada" : "Videollamada próximamente"}
           >
             {callLoading ? (
               <span className="call-spinner-sm" />
             ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
             )}
-            <span className="video-call-label">{isCreator ? "Llamada privada" : "Videollamada"}</span>
           </button>
-        )}
-      </div>
+        </div>
+      </header>
 
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="messages-area">
+      <main className="messages-area" aria-label="Mensajes de la conversación">
         {loading && (
           <div className="messages-loading">
-            {[...Array(4)].map((_, i) => (
+            {[...Array(5)].map((_, i) => (
               <div key={i} className={`skeleton-bubble ${i % 2 === 0 ? "left" : "right"}`} />
             ))}
           </div>
@@ -245,8 +296,10 @@ export default function ChatConversationPage() {
 
         {!loading && messages.length === 0 && (
           <div className="empty-state">
-            <span style={{ fontSize: "2.5rem" }}>💬</span>
-            <p>No hay mensajes aún. ¡Sé el primero en escribir!</p>
+            <div className="empty-orb">💬</div>
+            <span>Chat premium listo</span>
+            <h3>Inicia la conversación</h3>
+            <p>Envía el primer mensaje y mantén esta conexión en privado.</p>
           </div>
         )}
 
@@ -257,7 +310,7 @@ export default function ChatConversationPage() {
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>
               {!isMine && (
-                <div className="bubble-avatar avatar-placeholder" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
+                <div className="bubble-avatar avatar-placeholder">
                   {senderImage ? (
                     <img src={senderImage} alt={senderName} className="bubble-avatar-img" />
                   ) : (
@@ -268,7 +321,7 @@ export default function ChatConversationPage() {
               <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
                 <p className="bubble-text">{msg.text}</p>
                 <span className="bubble-time">
-                  {new Date(msg.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                  {formatMessageTime(msg.createdAt)}
                 </span>
               </div>
             </div>
@@ -276,35 +329,53 @@ export default function ChatConversationPage() {
         })}
 
         <div ref={bottomRef} />
-      </div>
+      </main>
 
-      <form className="chat-input-bar card" onSubmit={sendMessage}>
-        {otherUser?._id && currentUserId && String(otherUser._id) !== String(currentUserId) && (
-          <button
-            type="button"
-            className="gift-btn-chat"
-            onClick={() => setShowGiftPanel(true)}
-            aria-label="Enviar regalo"
-            title="Enviar regalo 🎁"
-          >
-            🎁
+      <form className="chat-input-bar" onSubmit={sendMessage}>
+        <div className="composer-actions">
+          {otherUser?._id && currentUserId && String(otherUser._id) !== String(currentUserId) && (
+            <button
+              type="button"
+              className="composer-btn gift-btn-chat"
+              onClick={() => setShowGiftPanel(true)}
+              aria-label="Enviar regalo"
+              title="Enviar regalo 🎁"
+            >
+              🎁
+            </button>
+          )}
+          <button type="button" className="composer-btn muted" title="Imagen próximamente" aria-label="Imagen próximamente" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
-        )}
-        <input
-          className="input chat-input"
-          type="text"
-          placeholder="Escribe un mensaje…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          maxLength={2000}
-          disabled={sending}
-        />
+          <button type="button" className="composer-btn muted" title="Voz próximamente" aria-label="Voz próximamente" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>
+          </button>
+        </div>
+        <div className="input-shell">
+          <input
+            className="chat-input"
+            type="text"
+            placeholder="Escribe un mensaje premium…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={2000}
+            disabled={sending}
+          />
+        </div>
         <button
           type="submit"
-          className="btn btn-primary send-btn"
+          className="send-btn"
           disabled={!text.trim() || sending}
+          aria-label="Enviar mensaje"
         >
-          {sending ? "…" : "Enviar"}
+          {sending ? (
+            <span className="send-dots">…</span>
+          ) : (
+            <>
+              <span>Enviar</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </>
+          )}
         </button>
       </form>
 
@@ -346,231 +417,286 @@ export default function ChatConversationPage() {
           display: flex;
           flex-direction: column;
           height: calc(100vh - 140px);
-          gap: 0.75rem;
+          min-height: 560px;
+          gap: 0.85rem;
+          position: relative;
         }
 
         .chat-header {
+          position: relative;
+          overflow: hidden;
           display: flex;
           align-items: center;
-          gap: 1rem;
-          padding: 1rem 1.25rem;
-          background: rgba(20,8,42,0.9);
-          border: 1px solid var(--border-glow);
-          border-radius: var(--radius);
-          backdrop-filter: blur(16px);
+          gap: 0.9rem;
+          padding: 0.9rem 1rem;
+          background:
+            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.18), transparent 34%),
+            linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
+          border: 1px solid rgba(236,124,255,0.34);
+          border-radius: 26px;
+          box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255,255,255,0.08);
+          backdrop-filter: blur(18px);
+        }
+        .chat-header::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.07) 45%, transparent 72%);
+          transform: translateX(-100%);
+          animation: headerShimmer 8s ease-in-out infinite;
+          pointer-events: none;
         }
 
-        .bubble-avatar,
-        .peer-avatar {
-          overflow: hidden;
-        }
-
-        .bubble-avatar-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-          border-radius: 50%;
-        }
+        .back-btn,
+        .icon-action,
+        .chat-peer { position: relative; z-index: 1; }
 
         .back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
           color: var(--text-muted);
-          font-size: 0.875rem;
-          font-weight: 600;
+          font-size: 0.85rem;
+          font-weight: 800;
           flex-shrink: 0;
-          transition: color var(--transition);
+          transition: color var(--transition), transform var(--transition);
         }
-        .back-btn:hover { color: var(--accent-2); }
+        .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); }
 
-        .chat-peer { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 0; }
-        .peer-avatar {
+        .chat-peer { display: flex; align-items: center; gap: 0.72rem; flex: 1; min-width: 0; }
+        .peer-avatar-wrap {
+          position: relative;
+          width: 48px;
+          height: 48px;
           flex-shrink: 0;
-          width: 36px;
-          height: 36px;
+          padding: 2px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.38), rgba(34,211,238,0.55));
+          box-shadow: 0 0 0 4px rgba(224,64,251,0.06), 0 12px 24px rgba(0,0,0,0.28);
+        }
+        .peer-avatar-wrap[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.18); }
+        .peer-avatar {
+          width: 100%;
+          height: 100%;
           border-radius: 50%;
           background: var(--grad-primary);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #fff;
-          font-weight: 800;
+          font-weight: 900;
           overflow: hidden;
+          border: 2px solid rgba(15,8,33,0.96);
         }
-        .peer-avatar-img {
+        .peer-avatar-img,
+        .bubble-avatar-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           border-radius: 50%;
+          display: block;
         }
-        .peer-info { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-        .peer-name { font-weight: 700; color: var(--text); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .peer-online-dot {
+          position: absolute;
+          right: 2px;
+          bottom: 3px;
+          width: 13px;
+          height: 13px;
+          border-radius: 50%;
+          background: var(--accent-green);
+          border: 3px solid #120a28;
+          box-shadow: 0 0 12px rgba(52,211,153,0.8);
+        }
+        .peer-info { display: flex; flex-direction: column; gap: 0.12rem; min-width: 0; }
+        .peer-name { font-weight: 900; color: var(--text); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .peer-status { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
         .peer-creator-badge {
           display: inline-block;
           font-size: 0.6rem;
-          padding: 0.1rem 0.4rem;
+          padding: 0.12rem 0.45rem;
           border-radius: var(--radius-pill);
           background: rgba(52,211,153,0.1);
           border: 1px solid rgba(52,211,153,0.2);
           color: var(--accent-green);
-          font-weight: 700;
+          font-weight: 900;
           width: fit-content;
         }
 
-        /* Video call button */
-        .video-call-btn {
-          display: flex;
+        .header-actions { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+        .icon-action,
+        .composer-btn {
+          display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.5rem 1rem;
-          border-radius: var(--radius-sm);
-          background: rgba(129,140,248,0.12);
-          border: 1px solid rgba(129,140,248,0.3);
-          color: var(--accent-3);
-          font-size: 0.8rem;
-          font-weight: 700;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 15px;
+          border: 1px solid rgba(236,124,255,0.24);
+          background: rgba(255,255,255,0.06);
+          color: var(--text-muted);
           cursor: pointer;
-          transition: all var(--transition);
-          flex-shrink: 0;
-          white-space: nowrap;
+          transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition), color var(--transition);
         }
-        .video-call-btn:hover:not(:disabled) {
-          background: rgba(129,140,248,0.2);
-          box-shadow: 0 0 16px rgba(129,140,248,0.3);
+        .icon-action.active {
+          color: #fff;
+          border-color: rgba(34,211,238,0.45);
+          background: linear-gradient(135deg, rgba(124,58,237,0.34), rgba(34,211,238,0.18));
+          box-shadow: 0 0 18px rgba(34,211,238,0.18);
         }
-        .video-call-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .video-call-label {
-          display: none;
-        }
-
-        @media (min-width: 480px) {
-          .video-call-label { display: inline; }
-        }
+        .icon-action:hover:not(:disabled),
+        .composer-btn:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(34,211,238,0.5); color: #fff; }
+        .icon-action:disabled,
+        .composer-btn:disabled { cursor: not-allowed; opacity: 0.52; }
+        .muted { opacity: 0.68; }
 
         .call-spinner-sm {
           width: 16px;
           height: 16px;
           border: 2px solid rgba(129,140,248,0.3);
-          border-top-color: var(--accent-3);
+          border-top-color: var(--accent-cyan);
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
           display: inline-block;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         .messages-area {
           flex: 1;
+          min-height: 0;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 0.7rem;
-          padding: 0.5rem 0;
+          gap: 0.72rem;
+          padding: 0.7rem 0.2rem 0.9rem;
+          scroll-behavior: smooth;
         }
+        .messages-area::-webkit-scrollbar { width: 8px; }
+        .messages-area::-webkit-scrollbar-thumb { background: rgba(236,124,255,0.22); border-radius: var(--radius-pill); }
 
         .bubble-wrap {
           display: flex;
           align-items: flex-end;
           gap: 0.5rem;
+          animation: bubbleIn 0.28s ease both;
         }
-
         .bubble-wrap.mine { flex-direction: row-reverse; }
-
-        .bubble {
-          max-width: 72%;
-          padding: 0.65rem 1rem;
-          border-radius: 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .bubble-mine {
-          background: linear-gradient(135deg, #FF0F8A, #FF4FD8);
-          border-bottom-right-radius: 5px;
-          box-shadow: 0 4px 14px rgba(255,15,138,0.35);
-        }
-
-        .bubble-theirs {
-          background: rgba(42,18,82,0.9);
-          border: 1px solid rgba(122,43,255,0.25);
-          border-bottom-left-radius: 5px;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-        }
-
-        .bubble-text {
-          font-size: 0.9rem;
-          color: var(--text);
-          word-break: break-word;
-          line-height: 1.45;
-        }
-
-        .bubble-mine .bubble-text { color: #fff; }
-
-        .bubble-time {
-          font-size: 0.63rem;
-          color: rgba(255,255,255,0.55);
-          align-self: flex-end;
-        }
-
-        .bubble-theirs .bubble-time { color: var(--text-muted); }
-
-        .chat-input-bar {
-          display: flex;
-          gap: 0.75rem;
-          padding: 0.875rem 1rem;
-          align-items: center;
-          background: rgba(20,8,42,0.9);
-          border: 1px solid var(--border-glow);
-          border-radius: var(--radius);
-          backdrop-filter: blur(16px);
-        }
-
-        .chat-input {
-          flex: 1;
-          background: rgba(26,11,46,0.8) !important;
-          border-radius: var(--radius) !important;
-        }
-
-        .send-btn {
+        .bubble-avatar {
+          width: 30px;
+          height: 30px;
           flex-shrink: 0;
-          padding: 0.6rem 1.4rem;
-          border-radius: var(--radius-sm);
-          font-size: 0.875rem;
-          background: var(--grad-primary);
-          box-shadow: 0 2px 12px rgba(255,15,138,0.4);
-        }
-
-        /* Gift button in input bar */
-        .gift-btn-chat {
+          border-radius: 50%;
+          overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px;
-          height: 40px;
+          background: var(--grad-primary);
+          color: #fff;
+          font-size: 0.76rem;
+          font-weight: 900;
+          box-shadow: 0 0 0 2px rgba(224,64,251,0.14);
+        }
+
+        .bubble {
+          max-width: min(74%, 620px);
+          padding: 0.72rem 0.95rem 0.55rem;
+          border-radius: 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.22rem;
+          position: relative;
+          box-shadow: 0 12px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        .bubble-mine {
+          background: linear-gradient(135deg, #c040ff 0%, #ff4fa3 100%);
+          border-bottom-right-radius: 7px;
+          color: #fff;
+        }
+        .bubble-theirs {
+          background: linear-gradient(145deg, rgba(42,18,82,0.94), rgba(21,12,46,0.96));
+          border: 1px solid rgba(236,124,255,0.22);
+          border-bottom-left-radius: 7px;
+        }
+        .bubble-text {
+          font-size: 0.92rem;
+          color: var(--text);
+          word-break: break-word;
+          line-height: 1.48;
+          margin: 0;
+        }
+        .bubble-mine .bubble-text { color: #fff; }
+        .bubble-time {
+          font-size: 0.63rem;
+          color: rgba(255,255,255,0.62);
+          align-self: flex-end;
+          font-weight: 700;
+        }
+        .bubble-theirs .bubble-time { color: var(--text-dim); }
+
+        .chat-input-bar {
+          display: flex;
+          gap: 0.7rem;
+          padding: 0.78rem;
+          align-items: center;
+          background:
+            linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
+          border: 1px solid rgba(236,124,255,0.34);
+          border-radius: 26px;
+          box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255,255,255,0.08);
+          backdrop-filter: blur(18px);
+        }
+        .composer-actions { display: flex; align-items: center; gap: 0.42rem; flex-shrink: 0; }
+        .input-shell {
+          flex: 1;
+          min-width: 0;
+          border-radius: 18px;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(224,64,251,0.34), rgba(34,211,238,0.18));
+        }
+        .chat-input {
+          width: 100%;
+          min-width: 0;
+          height: 44px;
+          border: 0;
+          outline: none;
+          color: var(--text);
+          background: rgba(15,8,33,0.92);
+          border-radius: 17px;
+          padding: 0 0.95rem;
+          font: inherit;
+        }
+        .chat-input::placeholder { color: var(--text-dim); }
+        .chat-input:disabled { opacity: 0.65; }
+
+        .send-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
           flex-shrink: 0;
-          border-radius: var(--radius-sm);
-          border: 1px solid rgba(224,64,251,0.45);
-          background: rgba(224,64,251,0.1);
-          font-size: 1.1rem;
+          min-width: 106px;
+          height: 44px;
+          border: 0;
+          border-radius: 17px;
+          color: #fff;
+          font-weight: 900;
+          background: var(--grad-primary);
+          box-shadow: 0 8px 22px rgba(224,64,251,0.28);
           cursor: pointer;
-          transition: all 0.2s;
+          transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+        }
+        .send-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(224,64,251,0.36); }
+        .send-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .send-dots { font-size: 1.3rem; line-height: 1; }
+
+        .gift-btn-chat {
+          border-color: rgba(251,191,36,0.4);
+          background: rgba(251,191,36,0.1);
+          color: #fff;
           animation: chatGiftGlow 2.5s ease-in-out infinite;
           font-family: inherit;
+          font-size: 1.05rem;
         }
+        .gift-btn-chat:hover { box-shadow: 0 0 16px rgba(251,191,36,0.3); }
 
-        .gift-btn-chat:hover {
-          background: rgba(224,64,251,0.22);
-          border-color: rgba(224,64,251,0.75);
-          box-shadow: 0 0 14px rgba(224,64,251,0.35);
-          transform: scale(1.08);
-        }
-
-        @keyframes chatGiftGlow {
-          0%, 100% { box-shadow: 0 0 6px rgba(224,64,251,0.15); }
-          50% { box-shadow: 0 0 14px rgba(224,64,251,0.4); }
-        }
-
-        /* Chat gift notification */
         .chat-gift-notif {
           position: fixed;
           top: 100px;
@@ -588,69 +714,22 @@ export default function ChatConversationPage() {
           backdrop-filter: blur(8px);
           animation: giftNotifSlideDown 0.3s ease, giftNotifPulse 0.5s ease 0.3s;
         }
+        .chat-gift-icon { font-size: 2rem; line-height: 1; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); animation: giftIconBounce 0.6s ease; }
+        .chat-gift-text { font-size: 0.9rem; font-weight: 600; color: #fff; line-height: 1.3; }
+        .chat-gift-text strong { font-weight: 800; }
 
-        .chat-gift-icon {
-          font-size: 2rem;
-          line-height: 1;
-          filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
-          animation: giftIconBounce 0.6s ease;
-        }
-
-        .chat-gift-text {
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: #fff;
-          line-height: 1.3;
-        }
-
-        .chat-gift-text strong {
-          font-weight: 800;
-        }
-
-        @keyframes giftNotifSlideDown {
-          from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-          }
-        }
-
-        @keyframes giftNotifPulse {
-          0%, 100% { transform: translateX(-50%) scale(1); }
-          50% { transform: translateX(-50%) scale(1.05); }
-        }
-
-        @keyframes giftIconBounce {
-          0%, 100% { transform: scale(1); }
-          25% { transform: scale(1.2) rotate(-10deg); }
-          50% { transform: scale(1.1) rotate(10deg); }
-          75% { transform: scale(1.15) rotate(-5deg); }
-        }
-
-        /* Skeletons */
         .messages-loading { display: flex; flex-direction: column; gap: 0.75rem; }
-
         .skeleton-bubble {
-          height: 50px;
+          height: 54px;
           width: 55%;
-          border-radius: 18px;
-          background: linear-gradient(90deg, rgba(26,11,46,0.8) 25%, rgba(42,18,82,0.8) 50%, rgba(26,11,46,0.8) 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border: 1px solid var(--border);
+          border-radius: 22px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.13) 50%, rgba(255,255,255,0.06) 75%);
+          background-size: 220% 100%;
+          animation: shimmer 1.45s infinite;
+          border: 1px solid rgba(236,124,255,0.18);
         }
-
         .skeleton-bubble.right { align-self: flex-end; }
 
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        /* Error */
         .error-banner {
           background: rgba(244,67,54,0.1);
           border: 1px solid var(--error);
@@ -658,18 +737,61 @@ export default function ChatConversationPage() {
           border-radius: var(--radius-sm);
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
+          font-weight: 600;
         }
 
-        /* Empty */
         .empty-state {
+          margin: auto;
+          width: min(100%, 420px);
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
-          padding: 3rem;
+          gap: 0.65rem;
+          padding: 2.6rem 1.5rem;
           text-align: center;
           color: var(--text-muted);
-          font-size: 0.9rem;
+          border: 1px dashed rgba(139,92,246,0.34);
+          border-radius: 28px;
+          background: radial-gradient(circle at 50% 0%, rgba(224,64,251,0.16), transparent 40%), rgba(15,8,32,0.46);
+        }
+        .empty-orb {
+          width: 74px;
+          height: 74px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 26px;
+          background: rgba(224,64,251,0.1);
+          border: 1px solid rgba(236,124,255,0.2);
+          font-size: 2.1rem;
+        }
+        .empty-state span { color: var(--accent-cyan); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
+        .empty-state h3 { margin: 0; font-size: 1.2rem; }
+        .empty-state p { margin: 0; font-size: 0.9rem; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes shimmer { 0% { background-position: 220% 0; } 100% { background-position: -220% 0; } }
+        @keyframes headerShimmer { 0%, 70% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        @keyframes bubbleIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes chatGiftGlow { 0%, 100% { box-shadow: 0 0 6px rgba(251,191,36,0.16); } 50% { box-shadow: 0 0 16px rgba(251,191,36,0.4); } }
+        @keyframes giftNotifSlideDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @keyframes giftNotifPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } }
+        @keyframes giftIconBounce { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2) rotate(-10deg); } 50% { transform: scale(1.1) rotate(10deg); } 75% { transform: scale(1.15) rotate(-5deg); } }
+
+        @media (max-width: 720px) {
+          .chat-page { height: calc(100vh - 120px); min-height: 520px; }
+          .chat-header { border-radius: 22px; padding: 0.78rem; }
+          .back-btn span { display: none; }
+          .peer-avatar-wrap { width: 44px; height: 44px; }
+          .header-actions { gap: 0.32rem; }
+          .icon-action { width: 36px; height: 36px; border-radius: 13px; }
+          .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem; }
+          .composer-actions { gap: 0.32rem; }
+          .composer-btn { width: 36px; height: 36px; border-radius: 13px; }
+          .composer-actions .muted { display: none; }
+          .send-btn { min-width: 48px; width: 48px; }
+          .send-btn span:not(.send-dots) { display: none; }
+          .bubble { max-width: 82%; }
         }
       `}</style>
     </div>

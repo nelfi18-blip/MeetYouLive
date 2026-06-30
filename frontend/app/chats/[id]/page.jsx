@@ -251,6 +251,7 @@ export default function ChatConversationPage() {
   const isCreator = otherUser?.role === "creator";
   // Show video call button if: matched users (social call) OR talking to a creator (paid call)
   const canVideoCall = isMatch || isCreator;
+  const isOtherTyping = false; // Visual scaffold only; future Socket.io typing events can drive this.
 
   const getDeliveryLabel = (msg, isLatestMine) => {
     if (msg.readAt || msg.readBy?.length) return t("chatPremium.read");
@@ -280,7 +281,7 @@ export default function ChatConversationPage() {
               </div>
               <div className="peer-info">
                 <span className="peer-name">{otherName}</span>
-                <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.lastSeenPending")}</span>
+                <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.lastSeenUnavailable")}</span>
                 {isCreator && <span className="peer-creator-badge">{t("chatPremium.creator")}</span>}
               </div>
             </>
@@ -366,7 +367,10 @@ export default function ChatConversationPage() {
                     {formatMessageTime(msg.createdAt, locale)}
                   </time>
                   {isMine && (
-                    <span className={`delivery-state ${msg.readAt || msg.readBy?.length ? "read" : ""}`}>
+                    <span
+                      className={`delivery-state ${msg.readAt || msg.readBy?.length ? "read" : ""}`}
+                      aria-label={`${t("chatPremium.messageStatus")}: ${getDeliveryLabel(msg, isLatestMine)}`}
+                    >
                       <span className="delivery-check" aria-hidden="true">✓✓</span>
                       {getDeliveryLabel(msg, isLatestMine)}
                     </span>
@@ -377,7 +381,7 @@ export default function ChatConversationPage() {
           );
         })}
 
-        {!loading && text.trim() && (
+        {!loading && isOtherTyping && (
           <div className="typing-indicator" aria-live="polite">
             <span>{t("chatPremium.typing")}</span>
             <i />

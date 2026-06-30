@@ -146,7 +146,7 @@ const buildDiscoveryPayloadFromForm = (form) => {
   };
 };
 
-const buildProfilePreferenceItems = (user, { t, getScopeLabel, goalLabelByValue }) => {
+const buildProfilePreferenceItems = (user, { t, getScopeLabel, goalLabelMap }) => {
   if (!user) return [];
   const preferences = user.discoveryPreferences || {};
   const languages = Array.isArray(preferences.languages) ? preferences.languages : [];
@@ -175,7 +175,7 @@ const buildProfilePreferenceItems = (user, { t, getScopeLabel, goalLabelByValue 
     items.push({ label: t("profile.languagesSummaryLabel"), value: languages.map((code) => t(`lang.${code}`)).join(", ") });
   }
   if (goals.length > 0) {
-    items.push({ label: t("profile.goalsSummaryLabel"), value: goals.map((goal) => goalLabelByValue[goal] || goal).join(", ") });
+    items.push({ label: t("profile.goalsSummaryLabel"), value: goals.map((goal) => goalLabelMap[goal] || goal).join(", ") });
   }
 
   return items;
@@ -722,7 +722,7 @@ export default function ProfilePage() {
   };
   const intentLabel = user?.intent ? intentLabelByValue[user.intent] || user.intent : "";
   const profileInterests = Array.isArray(user?.interests) ? user.interests.filter(Boolean) : [];
-  const preferenceItems = buildProfilePreferenceItems(user, { t, getScopeLabel, goalLabelByValue });
+  const preferenceItems = buildProfilePreferenceItems(user, { t, getScopeLabel, goalLabelMap: goalLabelByValue });
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
@@ -1900,7 +1900,7 @@ export default function ProfilePage() {
 
         .profile-summary-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
           gap: 0.65rem;
         }
 

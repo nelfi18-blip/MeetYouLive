@@ -339,6 +339,13 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
   return (
     <div className="profile-photo-manager">
+      <div className="profile-photo-manager-head">
+        <div>
+          <span className="profile-photo-kicker">{t("profile.primaryPhotoLabel")}</span>
+          <h3>Galería</h3>
+        </div>
+        <span className="profile-photo-counter">{visibleImageCount}/{MAX_PROFILE_PHOTOS}</span>
+      </div>
       {error && <div className="profile-gallery-error">{error}</div>}
       {success && <div className="profile-gallery-success">{success}</div>}
 
@@ -354,7 +361,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           >
             {(isValidPhoto) =>
               isValidPhoto && (
-                <button type="button" className="btn btn-secondary btn-xs" onClick={() => handleDelete(primaryImage)} disabled={working}>
+                <button type="button" className="btn btn-secondary btn-xs profile-main-photo-action" onClick={() => handleDelete(primaryImage)} disabled={working}>
                   {t("profile.deletePhoto")}
                 </button>
               )
@@ -433,6 +440,52 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           gap: 0.85rem;
         }
 
+        .profile-photo-manager-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.85rem 0.95rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background:
+            linear-gradient(135deg, rgba(224,64,251,0.12), rgba(34,211,238,0.06)),
+            rgba(255,255,255,0.04);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+
+        .profile-photo-manager-head h3 {
+          margin: 0.1rem 0 0;
+          color: var(--text);
+          font-size: 1rem;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+        }
+
+        .profile-photo-kicker {
+          color: #f0abfc;
+          font-size: 0.66rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .profile-photo-counter {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 3rem;
+          min-height: 2rem;
+          padding: 0.25rem 0.7rem;
+          border-radius: 999px;
+          color: var(--text);
+          font-size: 0.78rem;
+          font-weight: 900;
+          border: 1px solid rgba(224,64,251,0.34);
+          background: rgba(224,64,251,0.12);
+          box-shadow: 0 0 20px rgba(224,64,251,0.16);
+        }
+
         .profile-gallery-error,
         .profile-gallery-success {
           border-radius: var(--radius-sm);
@@ -473,11 +526,22 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
+        .profile-main-photo-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(circle at 24% 8%, rgba(255,79,163,0.18), transparent 36%),
+            radial-gradient(circle at 100% 0%, rgba(34,211,238,0.12), transparent 34%);
+          pointer-events: none;
+        }
+
         .profile-main-photo-image,
         .profile-main-photo-placeholder {
+          position: relative;
           width: min(100%, 360px);
           aspect-ratio: 1 / 1;
-          border-radius: 20px;
+          border-radius: 24px;
           box-shadow: 0 16px 34px rgba(0,0,0,0.32);
         }
 
@@ -499,6 +563,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         }
 
         .profile-main-photo-label {
+          position: relative;
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
@@ -511,6 +576,14 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           border-radius: 999px;
           border: 1px solid rgba(224,64,251,0.28);
           background: rgba(224,64,251,0.1);
+        }
+
+        .profile-main-photo-action {
+          position: absolute;
+          right: 1.3rem;
+          bottom: 1.3rem;
+          z-index: 2;
+          backdrop-filter: blur(14px);
         }
 
         .profile-photo-grid {
@@ -530,6 +603,13 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           flex-direction: column;
           gap: 0.45rem;
           box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .profile-photo-thumb:hover {
+          transform: translateY(-2px);
+          border-color: rgba(224,64,251,0.32);
+          box-shadow: 0 14px 28px rgba(0,0,0,0.24), 0 0 18px rgba(224,64,251,0.12);
         }
 
         .profile-photo-thumb-img,
@@ -542,6 +622,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
         .profile-photo-thumb-img {
           object-fit: cover;
           border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
         }
 
         .profile-photo-thumb-placeholder {
@@ -552,6 +633,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           background: rgba(224,64,251,0.055);
           color: var(--text-muted);
           font-size: 1.5rem;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
         }
 
         .profile-photo-src-debug {
@@ -588,6 +670,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
           display: flex;
           gap: 0.55rem;
           flex-wrap: wrap;
+          padding-top: 0.15rem;
         }
 
         .profile-upload-btn {

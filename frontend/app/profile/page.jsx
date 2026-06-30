@@ -484,7 +484,7 @@ export default function ProfilePage() {
       if (res.ok) {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
-        updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
+        const normalizedUser = updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
         await refreshProfileSession(normalizedUser);
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);
@@ -517,7 +517,7 @@ export default function ProfilePage() {
           cache: "no-store",
         });
       }
-      updateAndPublishUser({ preferredLanguage: newLang });
+      const normalizedUser = updateAndPublishUser({ preferredLanguage: newLang });
       await refreshProfileSession(normalizedUser);
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
@@ -698,8 +698,11 @@ export default function ProfilePage() {
           {/* Profile card */}
           <div className="profile-card">
             <div className="profile-card-bg" />
+            <div className="profile-card-sheen" />
             <div className="profile-card-content">
+              <div className="profile-eyebrow">Perfil MeetYouLive</div>
               <div className="profile-avatar-wrap">
+                  <div className="profile-avatar-orbit" />
                   {primaryImage?.url ? (
                     <img src={primaryImage.url} alt={displayName} className="profile-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
                   ) : (
@@ -741,13 +744,13 @@ export default function ProfilePage() {
               </div>
               <div className="profile-actions-top">
                 <button className="btn btn-primary btn-sm" onClick={handleEdit}>
-                  <EditIcon /> Editar
+                  <EditIcon /> <span>Editar</span>
                 </button>
                 <button
                   className="btn btn-secondary btn-sm profile-password-btn"
                   onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
                 >
-                  <KeyIcon /> Contraseña
+                  <KeyIcon /> <span>Contraseña</span>
                 </button>
               </div>
             </div>
@@ -762,10 +765,24 @@ export default function ProfilePage() {
 
           {/* Edit form */}
           {editing && (
-            <div className="form-card">
-              <h2 className="form-card-title">Editar perfil</h2>
+            <div className="form-card profile-editor-card">
+              <div className="form-card-heading">
+                <span className="form-card-kicker">Tu vitrina premium</span>
+                <h2 className="form-card-title">Editar perfil</h2>
+                <p className="form-card-subtitle">Actualiza tu presentación sin cambiar cómo se guardan tus datos o fotos.</p>
+              </div>
               {saveError && <div className="banner-error">{saveError}</div>}
               <form onSubmit={handleSave} className="form-fields">
+                <div className="form-group profile-photo-form-group">
+                  <label className="form-label">Foto de perfil</label>
+                  <SimpleProfilePhotoGallery
+                    user={user}
+                    initial={initial}
+                    t={t}
+                    onUserChange={handlePhotoGalleryUserChange}
+                    showSrcDebug={showPhotoSrcDebug}
+                  />
+                </div>
                 <div className="form-group">
                   <label className="form-label">Nombre de usuario</label>
                   <input className="input" type="text" value={editForm.username}
@@ -953,16 +970,6 @@ export default function ProfilePage() {
                     })}
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Foto de perfil</label>
-                  <SimpleProfilePhotoGallery
-                    user={user}
-                    initial={initial}
-                    t={t}
-                    onUserChange={handlePhotoGalleryUserChange}
-                    showSrcDebug={showPhotoSrcDebug}
-                  />
-                </div>
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={saving}>
                     {saving ? "Guardando…" : "Guardar cambios"}
@@ -1014,8 +1021,11 @@ export default function ProfilePage() {
           )}
 
           {/* Language preference */}
-          <div className="form-card">
-            <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
+          <div className="form-card profile-language-card">
+            <div className="form-card-heading">
+              <span className="form-card-kicker">Preferencias</span>
+              <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
+            </div>
             <p className="profile-section-copy">
               {t("profile.languageHint")}
             </p>
@@ -1043,46 +1053,52 @@ export default function ProfilePage() {
             user.discoveryPreferences?.discoveryScope ||
             (user.discoveryPreferences?.languages || []).length > 0 ||
             (user.discoveryPreferences?.goals || []).length > 0) && (
-            <div className="form-card">
-              <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
+            <div className="form-card profile-discovery-card">
+              <div className="form-card-heading">
+                <span className="form-card-kicker">Discovery</span>
+                <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
+              </div>
               <div className="profile-summary-list">
                 {user.interestedIn && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.interestedInLabel")}:</strong>{" "}
-                    {user.interestedIn === "women" && t("profile.interestedInWomen")}
-                    {user.interestedIn === "men" && t("profile.interestedInMen")}
-                    {user.interestedIn === "both" && t("profile.interestedInBoth")}
+                    <strong>{t("profile.interestedInLabel")}</strong>
+                    <span>
+                      {user.interestedIn === "women" && t("profile.interestedInWomen")}
+                      {user.interestedIn === "men" && t("profile.interestedInMen")}
+                      {user.interestedIn === "both" && t("profile.interestedInBoth")}
+                    </span>
                   </div>
                 )}
                 {(user.discoveryPreferences?.ageRange?.min != null || user.discoveryPreferences?.ageRange?.max != null) && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.ageSummaryLabel")}:</strong>{" "}
-                    {user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}
+                    <strong>{t("profile.ageSummaryLabel")}</strong>
+                    <span>{user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}</span>
                   </div>
                 )}
                 {user.discoveryPreferences?.maxDistanceKm != null && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.distanceSummaryLabel")}:</strong> {user.discoveryPreferences.maxDistanceKm} km
+                    <strong>{t("profile.distanceSummaryLabel")}</strong>
+                    <span>{user.discoveryPreferences.maxDistanceKm} km</span>
                   </div>
                 )}
                 {(user.discoveryScope || user.discoveryPreferences?.discoveryScope) && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.scopeSummaryLabel")}:</strong>{" "}
-                    {getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}
+                    <strong>{t("profile.scopeSummaryLabel")}</strong>
+                    <span>{getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}</span>
                   </div>
                 )}
                 {(user.discoveryPreferences?.languages || []).length > 0 && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.languagesSummaryLabel")}:</strong>{" "}
-                    {(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}
+                    <strong>{t("profile.languagesSummaryLabel")}</strong>
+                    <span>{(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}</span>
                   </div>
                 )}
                 {(user.discoveryPreferences?.goals || []).length > 0 && (
                   <div className="profile-summary-row">
-                    <strong>{t("profile.goalsSummaryLabel")}:</strong>{" "}
-                    {(user.discoveryPreferences.goals || [])
+                    <strong>{t("profile.goalsSummaryLabel")}</strong>
+                    <span>{(user.discoveryPreferences.goals || [])
                       .map((goal) => goalLabelByValue[goal] || goal)
-                      .join(", ")}
+                      .join(", ")}</span>
                   </div>
                 )}
               </div>
@@ -1376,6 +1392,16 @@ export default function ProfilePage() {
           backdrop-filter: blur(18px);
         }
 
+        .profile-card-sheen {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 24%, transparent 42%),
+            radial-gradient(circle at 50% -20%, rgba(255,79,163,0.18), transparent 46%);
+          opacity: 0.78;
+          pointer-events: none;
+        }
+
         .profile-card::before {
           content: "";
           position: absolute;
@@ -1407,6 +1433,27 @@ export default function ProfilePage() {
           flex-wrap: wrap;
         }
 
+        .profile-eyebrow {
+          width: 100%;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          color: rgba(255,255,255,0.76);
+          font-size: 0.7rem;
+          font-weight: 900;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+
+        .profile-eyebrow::before {
+          content: "";
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: var(--grad-primary);
+          box-shadow: var(--glow-pink);
+        }
+
         .profile-avatar-wrap {
           flex-shrink: 0;
           position: relative;
@@ -1416,9 +1463,18 @@ export default function ProfilePage() {
           box-shadow: var(--glow-pink), 0 18px 40px rgba(0,0,0,0.36);
         }
 
+        .profile-avatar-orbit {
+          position: absolute;
+          inset: -7px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,79,163,0.35);
+          box-shadow: 0 0 32px rgba(224,64,251,0.24);
+          pointer-events: none;
+        }
+
         .profile-avatar-img {
-          width: 92px;
-          height: 92px;
+          width: 104px;
+          height: 104px;
           border-radius: 50%;
           object-fit: cover;
           display: block;
@@ -1426,8 +1482,8 @@ export default function ProfilePage() {
         }
 
         .profile-avatar {
-          width: 92px;
-          height: 92px;
+          width: 104px;
+          height: 104px;
           border-radius: 50%;
           background: var(--grad-primary);
           display: flex;
@@ -1543,12 +1599,15 @@ export default function ProfilePage() {
           gap: 0.5rem;
           flex-shrink: 0;
           margin-left: auto;
+          align-self: center;
         }
 
         .profile-actions-top .btn {
           border-radius: 999px;
           min-height: 38px;
           box-shadow: var(--shadow-sm);
+          justify-content: center;
+          padding-inline: 1rem;
         }
 
         .profile-password-btn {
@@ -1601,8 +1660,39 @@ export default function ProfilePage() {
           font-size: 1.08rem;
           font-weight: 900;
           color: var(--text);
-          margin-bottom: 1.25rem;
+          margin: 0 0 1.25rem;
           letter-spacing: -0.035em;
+        }
+
+        .form-card-heading {
+          position: relative;
+          margin-bottom: 1.15rem;
+        }
+
+        .form-card-heading .form-card-title {
+          margin-bottom: 0.25rem;
+        }
+
+        .form-card-kicker {
+          display: inline-flex;
+          width: fit-content;
+          margin-bottom: 0.45rem;
+          padding: 0.25rem 0.7rem;
+          border-radius: 999px;
+          background: rgba(224,64,251,0.12);
+          border: 1px solid rgba(224,64,251,0.28);
+          color: #f0abfc;
+          font-size: 0.66rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .form-card-subtitle {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.84rem;
+          line-height: 1.5;
         }
 
         .form-fields {
@@ -1620,6 +1710,19 @@ export default function ProfilePage() {
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 18px;
           background: rgba(255,255,255,0.035);
+        }
+
+        .profile-editor-card,
+        .profile-language-card,
+        .profile-discovery-card {
+          border-color: rgba(255,79,163,0.28);
+        }
+
+        .profile-photo-form-group {
+          padding: 0;
+          border: none;
+          background: transparent;
+          gap: 0.75rem;
         }
 
         .form-label {
@@ -1674,6 +1777,7 @@ export default function ProfilePage() {
         .profile-language-actions .btn {
           border-radius: 999px;
           padding-inline: 1rem;
+          min-height: 42px;
         }
 
         .profile-check-grid {
@@ -1732,6 +1836,13 @@ export default function ProfilePage() {
         .profile-summary-row strong {
           color: var(--text);
           font-size: 0.82rem;
+        }
+
+        .profile-summary-row span {
+          color: rgba(255,255,255,0.78);
+          font-size: 0.88rem;
+          font-weight: 700;
+          text-align: right;
         }
 
         /* Stats */

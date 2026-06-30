@@ -342,7 +342,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       <div className="profile-photo-manager-head">
         <div>
           <span className="profile-photo-kicker">{t("profile.primaryPhotoLabel")}</span>
-          <h3>Galería</h3>
+          <h3>{t("profile.galleryTitle")}</h3>
         </div>
         <span className="profile-photo-counter">{visibleImageCount}/{MAX_PROFILE_PHOTOS}</span>
       </div>

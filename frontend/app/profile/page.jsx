@@ -18,6 +18,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
+const INTERESTED_IN_LABEL_KEYS = {
+  women: "profile.interestedInWomen",
+  men: "profile.interestedInMen",
+  both: "profile.interestedInBoth",
+};
 const PROFILE_STATUS_FIELDS = [
   "onboardingComplete",
   "canAppearInFeed",
@@ -284,6 +289,7 @@ export default function ProfilePage() {
   const [profileStatus, setProfileStatus] = useState(null);
   const [profileStatusError, setProfileStatusError] = useState("");
   const [showPhotoDebugParam, setShowPhotoDebugParam] = useState(false);
+  const [hiddenPrimaryImageUrl, setHiddenPrimaryImageUrl] = useState("");
   const goalLabelByValue = {
     serious_relationship: t("profile.goalSeriousRelationship"),
     friendship: t("profile.goalFriendship"),
@@ -484,8 +490,9 @@ export default function ProfilePage() {
       if (res.ok) {
         setIsBoosted(true);
         setBoostUntil(data.boostUntil);
-        const normalizedUser = updateAndPublishUser((u) => u ? { ...u, coins: (u.coins ?? 0) - boostPrice } : u);
-        await refreshProfileSession(normalizedUser);
+        const updatedUser = user ? { ...user, coins: (user.coins ?? 0) - boostPrice, boostUntil: data.boostUntil } : user;
+        updateAndPublishUser(updatedUser);
+        await refreshProfileSession(updatedUser);
         setBoostSuccess("🚀 ¡Boost activado! Tu perfil aparece primero en Crush.");
         setTimeout(() => setBoostSuccess(""), 4000);
       } else {
@@ -517,8 +524,9 @@ export default function ProfilePage() {
           cache: "no-store",
         });
       }
-      const normalizedUser = updateAndPublishUser({ preferredLanguage: newLang });
-      await refreshProfileSession(normalizedUser);
+      const updatedUser = user ? { ...user, preferredLanguage: newLang } : { preferredLanguage: newLang };
+      updateAndPublishUser(updatedUser);
+      await refreshProfileSession(updatedUser);
       setLangSuccess(t("profile.languageSaved"));
       setTimeout(() => setLangSuccess(""), 3000);
     } catch {
@@ -668,6 +676,8 @@ export default function ProfilePage() {
   const showPhotoSrcDebug = showProfileDiagnostics || showPhotoDebugParam;
   const normalizedImages = user ? normalizeUserImages(user) : [];
   const primaryImage = normalizedImages[0] ?? null;
+  const primaryImageUrl = primaryImage?.url || "";
+  const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
 
   const ACTIONS = [
@@ -700,15 +710,14 @@ export default function ProfilePage() {
             <div className="profile-card-bg" />
             <div className="profile-card-sheen" />
             <div className="profile-card-content">
-              <div className="profile-eyebrow">Perfil MeetYouLive</div>
+              <div className="profile-eyebrow">{t("profile.profileEyebrow")}</div>
               <div className="profile-avatar-wrap">
-                  <div className="profile-avatar-orbit" />
-                  {primaryImage?.url ? (
-                    <img src={primaryImage.url} alt={displayName} className="profile-avatar-img" onError={(e) => { e.target.style.display = "none"; }} />
-                  ) : (
-                    <div className="profile-avatar">{initial}</div>
-                  )}
-                </div>
+                {showPrimaryImage ? (
+                  <img src={primaryImageUrl} alt={displayName} className="profile-avatar-img" onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)} />
+                ) : (
+                  <div className="profile-avatar">{initial}</div>
+                )}
+              </div>
               <div className="profile-info">
                 <h1 className="profile-name">{displayName}</h1>
                 {user.username && <p className="profile-handle">@{user.username}</p>}
@@ -744,13 +753,13 @@ export default function ProfilePage() {
               </div>
               <div className="profile-actions-top">
                 <button className="btn btn-primary btn-sm" onClick={handleEdit}>
-                  <EditIcon /> <span>Editar</span>
+                  <EditIcon /> <span>{t("profile.editProfileShort")}</span>
                 </button>
                 <button
                   className="btn btn-secondary btn-sm profile-password-btn"
                   onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
                 >
-                  <KeyIcon /> <span>Contraseña</span>
+                  <KeyIcon /> <span>{t("profile.passwordShort")}</span>
                 </button>
               </div>
             </div>
@@ -767,14 +776,14 @@ export default function ProfilePage() {
           {editing && (
             <div className="form-card profile-editor-card">
               <div className="form-card-heading">
-                <span className="form-card-kicker">Tu vitrina premium</span>
-                <h2 className="form-card-title">Editar perfil</h2>
-                <p className="form-card-subtitle">Actualiza tu presentación sin cambiar cómo se guardan tus datos o fotos.</p>
+                <span className="form-card-kicker">{t("profile.editorKicker")}</span>
+                <h2 className="form-card-title">{t("profile.editProfile")}</h2>
+                <p className="form-card-subtitle">{t("profile.editorSubtitle")}</p>
               </div>
               {saveError && <div className="banner-error">{saveError}</div>}
               <form onSubmit={handleSave} className="form-fields">
                 <div className="form-group profile-photo-form-group">
-                  <label className="form-label">Foto de perfil</label>
+                  <label className="form-label">{t("profile.profilePhotoLabel")}</label>
                   <SimpleProfilePhotoGallery
                     user={user}
                     initial={initial}
@@ -972,10 +981,10 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-actions">
                   <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? "Guardando…" : "Guardar cambios"}
+                    {saving ? t("profile.saving") : t("profile.saveChanges")}
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={handleCancelEdit} disabled={saving}>
-                    Cancelar
+                    {t("profile.cancelEdit")}
                   </button>
                 </div>
               </form>
@@ -1023,7 +1032,7 @@ export default function ProfilePage() {
           {/* Language preference */}
           <div className="form-card profile-language-card">
             <div className="form-card-heading">
-              <span className="form-card-kicker">Preferencias</span>
+              <span className="form-card-kicker">{t("profile.preferencesKicker")}</span>
               <h2 className="form-card-title">🌐 {t("profile.languageSection")}</h2>
             </div>
             <p className="profile-section-copy">
@@ -1055,7 +1064,7 @@ export default function ProfilePage() {
             (user.discoveryPreferences?.goals || []).length > 0) && (
             <div className="form-card profile-discovery-card">
               <div className="form-card-heading">
-                <span className="form-card-kicker">Discovery</span>
+                <span className="form-card-kicker">{t("profile.discoveryKicker")}</span>
                 <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
               </div>
               <div className="profile-summary-list">
@@ -1063,9 +1072,7 @@ export default function ProfilePage() {
                   <div className="profile-summary-row">
                     <strong>{t("profile.interestedInLabel")}</strong>
                     <span>
-                      {user.interestedIn === "women" && t("profile.interestedInWomen")}
-                      {user.interestedIn === "men" && t("profile.interestedInMen")}
-                      {user.interestedIn === "both" && t("profile.interestedInBoth")}
+                      {INTERESTED_IN_LABEL_KEYS[user.interestedIn] ? t(INTERESTED_IN_LABEL_KEYS[user.interestedIn]) : "—"}
                     </span>
                   </div>
                 )}
@@ -1463,7 +1470,8 @@ export default function ProfilePage() {
           box-shadow: var(--glow-pink), 0 18px 40px rgba(0,0,0,0.36);
         }
 
-        .profile-avatar-orbit {
+        .profile-avatar-wrap::after {
+          content: "";
           position: absolute;
           inset: -7px;
           border-radius: 999px;

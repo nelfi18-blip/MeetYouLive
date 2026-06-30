@@ -596,7 +596,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
 
         .profile-photo-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(var(--profile-compact-grid-min), 1fr));
           gap: 0.7rem;
         }
 

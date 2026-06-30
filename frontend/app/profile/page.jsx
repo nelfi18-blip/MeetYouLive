@@ -1900,12 +1900,11 @@ export default function ProfilePage() {
 
         .profile-summary-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(var(--profile-compact-grid-min), 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(var(--profile-compact-grid-min), 1fr));
           gap: 0.65rem;
         }
 
         .profile-summary-row {
-          position: relative;
           display: flex;
           flex-direction: column;
           justify-content: center;

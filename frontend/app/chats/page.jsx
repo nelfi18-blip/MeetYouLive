@@ -6,11 +6,12 @@ import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
+import { useLanguage } from "@/contexts/LanguageContext";
 import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const formatChatTime = (value) => {
+const formatChatTime = (value, locale, yesterdayLabel) => {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -22,19 +23,27 @@ const formatChatTime = (value) => {
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   if (isToday) {
-    return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
-  if (isYesterday) return "Ayer";
-  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  if (isYesterday) return yesterdayLabel;
+  return date.toLocaleDateString(locale, { day: "numeric", month: "short" });
 };
 
-const getMessagePreview = (message) => {
+const getIsoDateTime = (value) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
+const getMessagePreview = (message, fallback) => {
   const text = message?.text?.trim();
-  return text || "Nueva conversación lista para empezar";
+  return text || fallback;
 };
 
 export default function ChatsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const locale = t("chatPremium.locale");
   const [chats, setChats] = useState([]);
   const [onlineUserIds, setOnlineUserIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
@@ -82,9 +91,9 @@ export default function ChatsPage() {
         if (d !== null) setChats(Array.isArray(d) ? d : []);
         fetchOnlineUsers(token);
       })
-      .catch(() => setError("No se pudo cargar los chats"))
+      .catch(() => setError(t("chatPremium.loadError")))
       .finally(() => setLoading(false));
-  }, [fetchOnlineUsers, router]);
+  }, [fetchOnlineUsers, router, t]);
 
   useEffect(() => {
     fetchChats();
@@ -129,18 +138,18 @@ export default function ChatsPage() {
     <div className="chats-page">
       <section className="chat-hero">
         <div className="hero-copy">
-          <span className="eyebrow">Mensajería privada</span>
-          <h1 className="page-title">Chats Premium</h1>
-          <p className="page-subtitle">Tus conversaciones privadas con una experiencia más elegante, rápida y lista para nuevas funciones.</p>
+          <span className="eyebrow">{t("chatPremium.privateMessaging")}</span>
+          <h1 className="page-title">{t("chatPremium.title")}</h1>
+          <p className="page-subtitle">{t("chatPremium.subtitle")}</p>
         </div>
         <div className="hero-stats" aria-label="Resumen de conversaciones">
           <div>
             <strong>{totalChats}</strong>
-            <span>chats</span>
+            <span>{t("chatPremium.chats")}</span>
           </div>
           <div>
             <strong>{activeChats}</strong>
-            <span>activos</span>
+            <span>{t("chatPremium.active")}</span>
           </div>
         </div>
       </section>
@@ -170,11 +179,11 @@ export default function ChatsPage() {
               <path d="M8 9h8M8 13h5" />
             </svg>
           </div>
-          <span className="empty-kicker">Inbox listo</span>
-          <h3>Sin conversaciones todavía</h3>
-          <p>Explora perfiles, conecta con streamers y abre tu primer chat privado.</p>
+          <span className="empty-kicker">{t("chatPremium.emptyKicker")}</span>
+          <h3>{t("chatPremium.emptyTitle")}</h3>
+          <p>{t("chatPremium.emptyText")}</p>
           <Link href="/explore" className="btn btn-primary empty-action">
-            Explorar streamers
+            {t("chatPremium.exploreCreators")}
           </Link>
         </div>
       )}
@@ -188,7 +197,8 @@ export default function ChatsPage() {
             const lastMsg = chat.lastMessage;
             const userImage = getUserImage(other);
             const isOnline = onlineUserIds.has(String(other._id));
-            const lastTime = formatChatTime(lastMsg?.createdAt || chat.updatedAt);
+            const lastDate = lastMsg?.createdAt || chat.updatedAt;
+            const lastTime = formatChatTime(lastDate, locale, t("chatPremium.yesterday"));
 
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
@@ -200,17 +210,17 @@ export default function ChatsPage() {
                       initial
                     )}
                   </div>
-                  {isOnline && <span className="online-dot" aria-label="Usuario en línea" />}
+                  {isOnline && <span className="online-dot" aria-label={t("chatPremium.online")} />}
                 </div>
 
                 <div className="chat-info">
                   <div className="chat-topline">
                     <div className="chat-name">{displayName}</div>
-                    {lastTime && <time className="chat-time" dateTime={(lastMsg?.createdAt || chat.updatedAt) ?? undefined}>{lastTime}</time>}
+                    {lastTime && <time className="chat-time" dateTime={getIsoDateTime(lastDate)}>{lastTime}</time>}
                   </div>
                   <div className="chat-preview-row">
-                    <span className="chat-preview">{getMessagePreview(lastMsg)}</span>
-                    {isOnline && <span className="online-label">En línea</span>}
+                    <span className="chat-preview">{getMessagePreview(lastMsg, t("chatPremium.defaultPreview"))}</span>
+                    {isOnline && <span className="online-label">{t("chatPremium.online")}</span>}
                   </div>
                 </div>
 

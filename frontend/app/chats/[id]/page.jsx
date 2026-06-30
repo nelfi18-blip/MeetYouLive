@@ -7,19 +7,22 @@ import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
 import socket from "@/lib/socket";
 import { getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const formatMessageTime = (value) => {
+const formatMessageTime = (value, locale) => {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 };
 
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
+  const locale = t("chatPremium.locale");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -116,10 +119,10 @@ export default function ChatConversationPage() {
           router.replace("/login");
           return;
         }
-        setError("No se pudo cargar la conversación");
+        setError(t("chatPremium.conversationLoadError"));
       })
       .finally(() => setLoading(false));
-  }, [id, router]);
+  }, [id, router, t]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -189,7 +192,7 @@ export default function ChatConversationPage() {
       setMessages((prev) => [...prev, msg]);
       setText("");
     } catch {
-      setError("No se pudo enviar el mensaje");
+      setError(t("chatPremium.sendError"));
     } finally {
       setSending(false);
     }
@@ -232,7 +235,7 @@ export default function ChatConversationPage() {
       <header className="chat-header">
         <Link href="/chats" className="back-btn" aria-label="Volver a chats">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-          <span>Chats</span>
+          <span>{t("chatPremium.backToChats")}</span>
         </Link>
 
         <div className="chat-peer">
@@ -250,8 +253,8 @@ export default function ChatConversationPage() {
               </div>
               <div className="peer-info">
                 <span className="peer-name">{otherName}</span>
-                <span className="peer-status">{isOtherOnline ? "En línea ahora" : "Chat privado"}</span>
-                {isCreator && <span className="peer-creator-badge">Creador</span>}
+                <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.privateChat")}</span>
+                {isCreator && <span className="peer-creator-badge">{t("chatPremium.creator")}</span>}
               </div>
             </>
           )}
@@ -259,10 +262,10 @@ export default function ChatConversationPage() {
         </div>
 
         <div className="header-actions">
-          <button type="button" className="icon-action muted" title="Imagen próximamente" aria-label="Imagen próximamente" disabled>
+          <button type="button" className="icon-action muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
-          <button type="button" className="icon-action muted" title="Voz próximamente" aria-label="Voz próximamente" disabled>
+          <button type="button" className="icon-action muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
           <button
@@ -270,8 +273,8 @@ export default function ChatConversationPage() {
             className={`icon-action video ${canVideoCall ? "active" : "muted"}`}
             onClick={() => canVideoCall && handleVideoCall(isCreator ? "paid_creator" : "social")}
             disabled={!canVideoCall || callLoading}
-            title={canVideoCall ? (isCreator ? "Llamada privada con creador" : "Videollamada") : "Videollamada próximamente"}
-            aria-label={canVideoCall ? "Iniciar videollamada" : "Videollamada próximamente"}
+            title={canVideoCall ? (isCreator ? t("chatPremium.privateCreatorCall") : t("chatPremium.videoCall")) : t("chatPremium.videoSoon")}
+            aria-label={canVideoCall ? t("chatPremium.startVideoCall") : t("chatPremium.videoSoon")}
           >
             {callLoading ? (
               <span className="call-spinner-sm" />
@@ -297,9 +300,9 @@ export default function ChatConversationPage() {
         {!loading && messages.length === 0 && (
           <div className="empty-state">
             <div className="empty-orb">💬</div>
-            <span>Chat premium listo</span>
-            <h3>Inicia la conversación</h3>
-            <p>Envía el primer mensaje y mantén esta conexión en privado.</p>
+            <span>{t("chatPremium.premiumReady")}</span>
+            <h3>{t("chatPremium.startConversation")}</h3>
+            <p>{t("chatPremium.emptyConversationText")}</p>
           </div>
         )}
 
@@ -321,7 +324,7 @@ export default function ChatConversationPage() {
               <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
                 <p className="bubble-text">{msg.text}</p>
                 <span className="bubble-time">
-                  {formatMessageTime(msg.createdAt)}
+                  {formatMessageTime(msg.createdAt, locale)}
                 </span>
               </div>
             </div>
@@ -338,16 +341,16 @@ export default function ChatConversationPage() {
               type="button"
               className="composer-btn gift-btn-chat"
               onClick={() => setShowGiftPanel(true)}
-              aria-label="Enviar regalo"
-              title="Enviar regalo 🎁"
+              aria-label={t("chatPremium.sendGift")}
+              title={`${t("chatPremium.sendGift")} 🎁`}
             >
               🎁
             </button>
           )}
-          <button type="button" className="composer-btn muted" title="Imagen próximamente" aria-label="Imagen próximamente" disabled>
+          <button type="button" className="composer-btn muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
-          <button type="button" className="composer-btn muted" title="Voz próximamente" aria-label="Voz próximamente" disabled>
+          <button type="button" className="composer-btn muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>
           </button>
         </div>
@@ -355,7 +358,7 @@ export default function ChatConversationPage() {
           <input
             className="chat-input"
             type="text"
-            placeholder="Escribe un mensaje premium…"
+            placeholder={t("chatPremium.messagePlaceholder")}
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={2000}
@@ -366,13 +369,13 @@ export default function ChatConversationPage() {
           type="submit"
           className="send-btn"
           disabled={!text.trim() || sending}
-          aria-label="Enviar mensaje"
+          aria-label={t("chatPremium.send")}
         >
           {sending ? (
             <span className="send-dots">…</span>
           ) : (
             <>
-              <span>Enviar</span>
+              <span>{t("chatPremium.send")}</span>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </>
           )}

@@ -679,6 +679,42 @@ export default function ProfilePage() {
   const primaryImageUrl = primaryImage?.url || "";
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
+  const intentLabelByValue = {
+    dating: "💖 Conocer personas",
+    casual: "😊 Amistades",
+    live: "🎥 Ver directos",
+    creator: "🌟 Creador",
+  };
+  const intentLabel = user?.intent ? intentLabelByValue[user.intent] || user.intent : "";
+  const profileInterests = Array.isArray(user?.interests) ? user.interests.filter(Boolean) : [];
+  const discoveryLanguages = Array.isArray(user?.discoveryPreferences?.languages) ? user.discoveryPreferences.languages : [];
+  const discoveryGoals = Array.isArray(user?.discoveryPreferences?.goals) ? user.discoveryPreferences.goals : [];
+  const preferenceItems = [
+    user?.interestedIn
+      ? {
+          label: t("profile.interestedInLabel"),
+          value: INTERESTED_IN_LABEL_KEYS[user.interestedIn] ? t(INTERESTED_IN_LABEL_KEYS[user.interestedIn]) : "—",
+        }
+      : null,
+    user?.discoveryPreferences?.ageRange?.min != null || user?.discoveryPreferences?.ageRange?.max != null
+      ? {
+          label: t("profile.ageSummaryLabel"),
+          value: `${user.discoveryPreferences?.ageRange?.min ?? "18"} - ${user.discoveryPreferences?.ageRange?.max ?? "100"}`,
+        }
+      : null,
+    user?.discoveryPreferences?.maxDistanceKm != null
+      ? { label: t("profile.distanceSummaryLabel"), value: `${user.discoveryPreferences.maxDistanceKm} km` }
+      : null,
+    user?.discoveryScope || user?.discoveryPreferences?.discoveryScope
+      ? { label: t("profile.scopeSummaryLabel"), value: getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope) }
+      : null,
+    discoveryLanguages.length > 0
+      ? { label: t("profile.languagesSummaryLabel"), value: discoveryLanguages.map((code) => t(`lang.${code}`)).join(", ") }
+      : null,
+    discoveryGoals.length > 0
+      ? { label: t("profile.goalsSummaryLabel"), value: discoveryGoals.map((goal) => goalLabelByValue[goal] || goal).join(", ") }
+      : null,
+  ].filter(Boolean);
 
   const ACTIONS = [
     { href: "/coins",      label: t("profile.buyCoins"), Icon: ShopIcon },
@@ -710,7 +746,10 @@ export default function ProfilePage() {
             <div className="profile-card-bg" />
             <div className="profile-card-sheen" />
             <div className="profile-card-content">
-              <div className="profile-eyebrow">{t("profile.profileEyebrow")}</div>
+              <div className="profile-premium-topline">
+                <span className="profile-eyebrow">{t("profile.profileEyebrow")}</span>
+                <span className="profile-photo-state">{primaryImageUrl ? "Foto principal activa" : "Perfil sin foto principal"}</span>
+              </div>
               <div className="profile-avatar-wrap">
                 {showPrimaryImage ? (
                   <img src={primaryImageUrl} alt={displayName} className="profile-avatar-img" onError={(event) => setHiddenPrimaryImageUrl(event.currentTarget.src || primaryImageUrl)} />
@@ -719,6 +758,7 @@ export default function ProfilePage() {
                 )}
               </div>
               <div className="profile-info">
+                <div className="profile-info-kicker">Identidad visual</div>
                 <h1 className="profile-name">{displayName}</h1>
                 {user.username && <p className="profile-handle">@{user.username}</p>}
                 <p className="profile-email">{user.email}</p>
@@ -750,13 +790,21 @@ export default function ProfilePage() {
                       </>
                     );
                   })()}
+                  {isNotAdmin && (intentLabel || profileInterests.length > 0) && (
+                    <div className="profile-hero-personality">
+                      {intentLabel && <span className="profile-intent-badge profile-intent-badge--hero">{intentLabel}</span>}
+                      {profileInterests.slice(0, 5).map((interest) => (
+                        <span key={interest} className="profile-interest-chip profile-interest-chip--hero">{interest}</span>
+                      ))}
+                    </div>
+                  )}
               </div>
               <div className="profile-actions-top">
-                <button className="btn btn-primary btn-sm" onClick={handleEdit}>
+                <button className="btn btn-primary btn-sm profile-action-button profile-action-button-primary" onClick={handleEdit}>
                   <EditIcon /> <span>{t("profile.editProfileShort")}</span>
                 </button>
                 <button
-                  className="btn btn-secondary btn-sm profile-password-btn"
+                  className="btn btn-secondary btn-sm profile-password-btn profile-action-button"
                   onClick={() => { setChangingPwd(true); setSaveSuccess(""); setPwdSuccess(""); setPwdError(""); }}
                 >
                   <KeyIcon /> <span>{t("profile.passwordShort")}</span>
@@ -765,6 +813,7 @@ export default function ProfilePage() {
             </div>
             {secondaryImages.length > 0 && (
               <div className="profile-extra-strip">
+                <span className="profile-extra-strip-label">Galería</span>
                 {secondaryImages.map((photo) => (
                   <img key={photo.url} src={photo.url} alt="Foto adicional" className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
                 ))}
@@ -1054,82 +1103,38 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {(user.interestedIn ||
-            user.discoveryPreferences?.ageRange?.min != null ||
-            user.discoveryPreferences?.ageRange?.max != null ||
-            user.discoveryPreferences?.maxDistanceKm != null ||
-            user.discoveryScope ||
-            user.discoveryPreferences?.discoveryScope ||
-            (user.discoveryPreferences?.languages || []).length > 0 ||
-            (user.discoveryPreferences?.goals || []).length > 0) && (
+          {preferenceItems.length > 0 && (
             <div className="form-card profile-discovery-card">
               <div className="form-card-heading">
                 <span className="form-card-kicker">{t("profile.discoveryKicker")}</span>
                 <h2 className="form-card-title">🎯 {t("profile.discoverySummaryTitle")}</h2>
               </div>
-              <div className="profile-summary-list">
-                {user.interestedIn && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.interestedInLabel")}</strong>
-                    <span>
-                      {INTERESTED_IN_LABEL_KEYS[user.interestedIn] ? t(INTERESTED_IN_LABEL_KEYS[user.interestedIn]) : "—"}
-                    </span>
+              <div className="profile-summary-grid">
+                {preferenceItems.map((item) => (
+                  <div key={item.label} className="profile-summary-row">
+                    <strong>{item.label}</strong>
+                    <span>{item.value}</span>
                   </div>
-                )}
-                {(user.discoveryPreferences?.ageRange?.min != null || user.discoveryPreferences?.ageRange?.max != null) && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.ageSummaryLabel")}</strong>
-                    <span>{user.discoveryPreferences?.ageRange?.min ?? "18"} - {user.discoveryPreferences?.ageRange?.max ?? "100"}</span>
-                  </div>
-                )}
-                {user.discoveryPreferences?.maxDistanceKm != null && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.distanceSummaryLabel")}</strong>
-                    <span>{user.discoveryPreferences.maxDistanceKm} km</span>
-                  </div>
-                )}
-                {(user.discoveryScope || user.discoveryPreferences?.discoveryScope) && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.scopeSummaryLabel")}</strong>
-                    <span>{getScopeLabel(user.discoveryScope || user.discoveryPreferences?.discoveryScope)}</span>
-                  </div>
-                )}
-                {(user.discoveryPreferences?.languages || []).length > 0 && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.languagesSummaryLabel")}</strong>
-                    <span>{(user.discoveryPreferences.languages || []).map((code) => t(`lang.${code}`)).join(", ")}</span>
-                  </div>
-                )}
-                {(user.discoveryPreferences?.goals || []).length > 0 && (
-                  <div className="profile-summary-row">
-                    <strong>{t("profile.goalsSummaryLabel")}</strong>
-                    <span>{(user.discoveryPreferences.goals || [])
-                      .map((goal) => goalLabelByValue[goal] || goal)
-                      .join(", ")}</span>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}
 
           {/* Interests & Intent */}
-          {isNotAdmin && (user.interests?.length > 0 || user.intent) && (
-            <div className="form-card">
-              <h2 className="form-card-title">✨ Intereses e intención</h2>
-              {user.intent && (
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <span className="profile-intent-badge">
-                    {user.intent === "dating" && "💖 Conocer personas"}
-                    {user.intent === "casual" && "😊 Amistades"}
-                    {user.intent === "live" && "🎥 Ver directos"}
-                    {user.intent === "creator" && "🌟 Creador"}
-                    {!["dating","casual","live","creator"].includes(user.intent) && user.intent}
-                  </span>
+          {isNotAdmin && (profileInterests.length > 0 || intentLabel) && (
+            <div className="form-card profile-personality-card">
+              <div className="form-card-heading">
+                <span className="form-card-kicker">Perfil social</span>
+                <h2 className="form-card-title">✨ Intereses e intención</h2>
+              </div>
+              {intentLabel && (
+                <div className="profile-intent-row">
+                  <span className="profile-intent-badge">{intentLabel}</span>
                 </div>
               )}
-              {user.interests?.length > 0 && (
+              {profileInterests.length > 0 && (
                 <div className="profile-interests-wrap">
-                  {user.interests.map((interest) => (
+                  {profileInterests.map((interest) => (
                     <span key={interest} className="profile-interest-chip">{interest}</span>
                   ))}
                 </div>
@@ -1440,8 +1445,16 @@ export default function ProfilePage() {
           flex-wrap: wrap;
         }
 
-        .profile-eyebrow {
+        .profile-premium-topline {
           width: 100%;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+
+        .profile-eyebrow {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
@@ -1449,6 +1462,21 @@ export default function ProfilePage() {
           font-size: 0.7rem;
           font-weight: 900;
           letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+
+        .profile-photo-state {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.28rem 0.7rem;
+          border-radius: 999px;
+          border: 1px solid rgba(34,211,238,0.24);
+          background: rgba(34,211,238,0.08);
+          color: rgba(194,245,255,0.88);
+          font-size: 0.68rem;
+          font-weight: 900;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
         }
 
@@ -1510,6 +1538,15 @@ export default function ProfilePage() {
           padding-top: 0.15rem;
         }
 
+        .profile-info-kicker {
+          color: #f0abfc;
+          font-size: 0.68rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          margin-bottom: 0.2rem;
+          text-transform: uppercase;
+        }
+
         .profile-name {
           font-size: clamp(1.7rem, 5vw, 2.2rem);
           font-weight: 900;
@@ -1552,6 +1589,14 @@ export default function ProfilePage() {
           flex-wrap: wrap;
           gap: 0.4rem;
           margin-top: 0.8rem;
+        }
+
+        .profile-hero-personality {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+          margin-top: 0.75rem;
+          max-width: 430px;
         }
 
         .role-badge {
@@ -1618,6 +1663,16 @@ export default function ProfilePage() {
           padding-inline: 1rem;
         }
 
+        .profile-action-button {
+          border: 1px solid rgba(255,255,255,0.16);
+          backdrop-filter: blur(14px);
+        }
+
+        .profile-action-button-primary {
+          background: linear-gradient(135deg, rgba(255,45,120,0.95), rgba(224,64,251,0.88), rgba(139,92,246,0.88));
+          box-shadow: var(--glow-pink), 0 12px 26px rgba(0,0,0,0.24);
+        }
+
         .profile-password-btn {
           background: rgba(255,255,255,0.07);
           border-color: rgba(255,255,255,0.16);
@@ -1627,7 +1682,17 @@ export default function ProfilePage() {
           display: flex;
           flex-wrap: wrap;
           gap: 0.45rem;
+          align-items: center;
           padding: 0 1.6rem 1.25rem;
+        }
+
+        .profile-extra-strip-label {
+          color: var(--text-muted);
+          font-size: 0.68rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          padding-right: 0.2rem;
+          text-transform: uppercase;
         }
 
         .profile-extra-strip-img {
@@ -1823,34 +1888,42 @@ export default function ProfilePage() {
           margin: -0.45rem 0 1rem;
         }
 
-        .profile-summary-list {
+        .profile-summary-grid {
           display: grid;
-          gap: 0.55rem;
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          gap: 0.65rem;
         }
 
         .profile-summary-row {
+          position: relative;
           display: flex;
-          justify-content: space-between;
+          flex-direction: column;
+          justify-content: center;
           gap: 0.75rem;
-          align-items: center;
-          padding: 0.72rem 0.85rem;
-          border-radius: 16px;
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.04);
+          min-height: 86px;
+          padding: 0.9rem 1rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.07), transparent 46%),
+            rgba(255,255,255,0.04);
           color: var(--text-muted);
           line-height: 1.45;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
         }
 
         .profile-summary-row strong {
-          color: var(--text);
-          font-size: 0.82rem;
+          color: #f0abfc;
+          font-size: 0.7rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
 
         .profile-summary-row span {
           color: rgba(255,255,255,0.78);
-          font-size: 0.88rem;
-          font-weight: 700;
-          text-align: right;
+          font-size: 0.92rem;
+          font-weight: 800;
+          text-align: left;
         }
 
         /* Stats */
@@ -2101,6 +2174,14 @@ export default function ProfilePage() {
         }
 
         /* Interests & Intent */
+        .profile-personality-card {
+          border-color: rgba(34,211,238,0.22);
+        }
+
+        .profile-intent-row {
+          margin-bottom: 0.85rem;
+        }
+
         .profile-interests-wrap {
           display: flex;
           flex-wrap: wrap;
@@ -2116,6 +2197,11 @@ export default function ProfilePage() {
           color: #e040fb;
           letter-spacing: 0.01em;
           transition: background 0.18s, border-color 0.18s;
+        }
+        .profile-interest-chip--hero {
+          background: rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.86);
+          border-color: rgba(255,255,255,0.14);
         }
         .profile-interest-chip:hover {
           background: rgba(224,64,251,0.18);
@@ -2133,6 +2219,11 @@ export default function ProfilePage() {
           border: 1px solid rgba(255,45,120,0.35);
           color: #fbbf24;
           letter-spacing: 0.02em;
+        }
+
+        .profile-intent-badge--hero {
+          background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(255,45,120,0.13));
+          box-shadow: 0 0 16px rgba(251,191,36,0.12);
         }
 
         /* Boost card */
@@ -2282,6 +2373,9 @@ export default function ProfilePage() {
           .profile-language-actions .btn,
           .profile-choice-row .btn {
             flex: 1 1 auto;
+          }
+          .profile-summary-grid {
+            grid-template-columns: 1fr;
           }
           .profile-summary-row {
             align-items: flex-start;

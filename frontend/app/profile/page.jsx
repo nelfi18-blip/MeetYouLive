@@ -748,7 +748,9 @@ export default function ProfilePage() {
             <div className="profile-card-content">
               <div className="profile-premium-topline">
                 <span className="profile-eyebrow">{t("profile.profileEyebrow")}</span>
-                <span className="profile-photo-state">{primaryImageUrl ? "Foto principal activa" : "Perfil sin foto principal"}</span>
+                <span className="profile-photo-state">
+                  {primaryImageUrl ? t("profile.primaryPhotoActive") : t("profile.primaryPhotoMissing")}
+                </span>
               </div>
               <div className="profile-avatar-wrap">
                 {showPrimaryImage ? (
@@ -758,7 +760,7 @@ export default function ProfilePage() {
                 )}
               </div>
               <div className="profile-info">
-                <div className="profile-info-kicker">Identidad visual</div>
+                <div className="profile-info-kicker">{t("profile.visualIdentityKicker")}</div>
                 <h1 className="profile-name">{displayName}</h1>
                 {user.username && <p className="profile-handle">@{user.username}</p>}
                 <p className="profile-email">{user.email}</p>
@@ -813,7 +815,7 @@ export default function ProfilePage() {
             </div>
             {secondaryImages.length > 0 && (
               <div className="profile-extra-strip">
-                <span className="profile-extra-strip-label">Galería</span>
+                <span className="profile-extra-strip-label">{t("profile.galleryTitle")}</span>
                 {secondaryImages.map((photo) => (
                   <img key={photo.url} src={photo.url} alt="Foto adicional" className="profile-extra-strip-img" onError={(e) => { e.target.style.display = "none"; }} />
                 ))}
@@ -1124,7 +1126,7 @@ export default function ProfilePage() {
           {isNotAdmin && (profileInterests.length > 0 || intentLabel) && (
             <div className="form-card profile-personality-card">
               <div className="form-card-heading">
-                <span className="form-card-kicker">Perfil social</span>
+                <span className="form-card-kicker">{t("profile.socialProfileKicker")}</span>
                 <h2 className="form-card-title">✨ Intereses e intención</h2>
               </div>
               {intentLabel && (

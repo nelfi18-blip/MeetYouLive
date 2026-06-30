@@ -126,7 +126,11 @@
     "privateCreatorCall": "Chamada privada com criador",
     "videoCall": "Videochamada",
     "creator": "Criador",
-    "sendGift": "Enviar presente"
+    "sendGift": "Enviar presente",
+    "summaryAria": "Resumo das conversas",
+    "loadingConversations": "Carregando conversas",
+    "conversation": "Conversa",
+    "messagesAria": "Mensagens da conversa"
   },
   "profile": {
     "title": "Meu Perfil",

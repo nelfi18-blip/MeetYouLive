@@ -233,7 +233,7 @@ export default function ChatConversationPage() {
   return (
     <div className="chat-page">
       <header className="chat-header">
-        <Link href="/chats" className="back-btn" aria-label="Volver a chats">
+        <Link href="/chats" className="back-btn" aria-label={t("chatPremium.backToChats")}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           <span>{t("chatPremium.backToChats")}</span>
         </Link>
@@ -249,7 +249,7 @@ export default function ChatConversationPage() {
                     otherName[0].toUpperCase()
                   )}
                 </div>
-                {isOtherOnline && <span className="peer-online-dot" aria-label="Usuario en línea" />}
+                {isOtherOnline && <span className="peer-online-dot" aria-label={t("chatPremium.online")} />}
               </div>
               <div className="peer-info">
                 <span className="peer-name">{otherName}</span>
@@ -258,7 +258,7 @@ export default function ChatConversationPage() {
               </div>
             </>
           )}
-          {!otherName && <span className="peer-name">Conversación</span>}
+          {!otherName && <span className="peer-name">{t("chatPremium.conversation")}</span>}
         </div>
 
         <div className="header-actions">
@@ -288,7 +288,7 @@ export default function ChatConversationPage() {
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
 
-      <main className="messages-area" aria-label="Mensajes de la conversación">
+      <main className="messages-area" aria-label={t("chatPremium.messagesAria")}>
         {loading && (
           <div className="messages-loading">
             {[...Array(5)].map((_, i) => (

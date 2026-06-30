@@ -126,7 +126,11 @@
     "privateCreatorCall": "Private creator call",
     "videoCall": "Video call",
     "creator": "Creator",
-    "sendGift": "Send gift"
+    "sendGift": "Send gift",
+    "summaryAria": "Conversation summary",
+    "loadingConversations": "Loading conversations",
+    "conversation": "Conversation",
+    "messagesAria": "Conversation messages"
   },
   "profile": {
     "title": "My Profile",

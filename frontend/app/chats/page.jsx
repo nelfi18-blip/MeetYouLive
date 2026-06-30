@@ -142,7 +142,7 @@ export default function ChatsPage() {
           <h1 className="page-title">{t("chatPremium.title")}</h1>
           <p className="page-subtitle">{t("chatPremium.subtitle")}</p>
         </div>
-        <div className="hero-stats" aria-label="Resumen de conversaciones">
+        <div className="hero-stats" aria-label={t("chatPremium.summaryAria")}>
           <div>
             <strong>{totalChats}</strong>
             <span>{t("chatPremium.chats")}</span>
@@ -157,7 +157,7 @@ export default function ChatsPage() {
       {error && <div className="banner-error">{error}</div>}
 
       {loading && (
-        <div className="chats-list" aria-label="Cargando conversaciones">
+        <div className="chats-list" aria-label={t("chatPremium.loadingConversations")}>
           {[...Array(5)].map((_, i) => (
             <div key={i} className="chat-row skeleton-row">
               <div className="skeleton skeleton-avatar" />

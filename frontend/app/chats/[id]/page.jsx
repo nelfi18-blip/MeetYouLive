@@ -96,16 +96,6 @@ export default function ChatConversationPage() {
         }
         setOtherUser(other);
 
-        if (other?._id) {
-          fetch(`${API_URL}/api/user/online`, { headers, cache: "no-store" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((onlineData) => {
-              const users = Array.isArray(onlineData?.users) ? onlineData.users : [];
-              setIsOtherOnline(users.some((user) => String(user._id) === String(other._id)));
-            })
-            .catch(() => {});
-        }
-
         // Check match status if we have both IDs
         if (myId && other?._id) {
           try {

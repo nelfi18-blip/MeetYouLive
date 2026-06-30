@@ -49,21 +49,6 @@ export default function ChatsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchOnlineUsers = useCallback((token) => {
-    if (!token) return;
-
-    fetch(`${API_URL}/api/user/online`, {
-      headers: { Authorization: "Bearer " + token },
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data?.users) return;
-        setOnlineUserIds(new Set(data.users.map((user) => String(user._id))));
-      })
-      .catch(() => {});
-  }, []);
-
   const fetchChats = useCallback(({ silent = false } = {}) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -89,11 +74,10 @@ export default function ChatsPage() {
       })
       .then((d) => {
         if (d !== null) setChats(Array.isArray(d) ? d : []);
-        if (!silent) fetchOnlineUsers(token);
       })
       .catch(() => setError(t("chatPremium.loadError")))
       .finally(() => setLoading(false));
-  }, [fetchOnlineUsers, router, t]);
+  }, [router, t]);
 
   useEffect(() => {
     fetchChats();
@@ -132,7 +116,7 @@ export default function ChatsPage() {
   }, []);
 
   const totalChats = chats.length;
-  const activeChats = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);
+  const chatsWithMessages = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);
 
   return (
     <div className="chats-page">
@@ -148,8 +132,8 @@ export default function ChatsPage() {
             <span>{t("chatPremium.chats")}</span>
           </div>
           <div>
-            <strong>{activeChats}</strong>
-            <span>{t("chatPremium.active")}</span>
+            <strong>{chatsWithMessages}</strong>
+            <span>{t("chatPremium.withMessages")}</span>
           </div>
         </div>
       </section>

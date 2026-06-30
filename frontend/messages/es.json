@@ -102,6 +102,7 @@
     "subtitle": "Tus conversaciones privadas con una experiencia más elegante, rápida y lista para nuevas funciones.",
     "chats": "chats",
     "active": "activos",
+    "withMessages": "con mensajes",
     "loadError": "No se pudo cargar los chats",
     "conversationLoadError": "No se pudo cargar la conversación",
     "sendError": "No se pudo enviar el mensaje",

@@ -92,6 +92,7 @@
   --bottom-spacing-mobile: 180px; /* 80px (nav) + 100px (floating buttons/interaction bar) */
   --bottom-spacing-landscape: 160px; /* Slightly reduced for landscape mode horizontal space */
   --profile-bottom-spacing-mobile: 88px; /* Profile content clearance above fixed mobile bottom nav */
+  --profile-compact-grid-min: 112px;
 }
 
 /* =========================================================

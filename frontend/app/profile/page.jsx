@@ -680,10 +680,10 @@ export default function ProfilePage() {
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
   const intentLabelByValue = {
-    dating: "💖 Conocer personas",
-    casual: "😊 Amistades",
-    live: "🎥 Ver directos",
-    creator: "🌟 Creador",
+    dating: t("profile.intentDating"),
+    casual: t("profile.intentCasual"),
+    live: t("profile.intentLive"),
+    creator: t("profile.intentCreator"),
   };
   const intentLabel = user?.intent ? intentLabelByValue[user.intent] || user.intent : "";
   const profileInterests = Array.isArray(user?.interests) ? user.interests.filter(Boolean) : [];
@@ -1127,7 +1127,7 @@ export default function ProfilePage() {
             <div className="form-card profile-personality-card">
               <div className="form-card-heading">
                 <span className="form-card-kicker">{t("profile.socialProfileKicker")}</span>
-                <h2 className="form-card-title">✨ Intereses e intención</h2>
+                <h2 className="form-card-title">✨ {t("profile.interestsIntentTitle")}</h2>
               </div>
               {intentLabel && (
                 <div className="profile-intent-row">

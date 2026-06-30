@@ -18,6 +18,12 @@ const formatMessageTime = (value, locale) => {
   return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 };
 
+const getIsoDateTime = (value) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -241,7 +247,7 @@ export default function ChatConversationPage() {
         <div className="chat-peer">
           {otherName && (
             <>
-              <div className="peer-avatar-wrap" data-online={isOtherOnline ? "true" : "false"}>
+              <div className="peer-avatar-wrap" data-online={isOtherOnline}>
                 <div className="peer-avatar avatar-placeholder">
                   {otherImage ? (
                     <img src={otherImage} alt={otherName} className="peer-avatar-img" />
@@ -323,9 +329,9 @@ export default function ChatConversationPage() {
               )}
               <div className={`bubble ${isMine ? "bubble-mine" : "bubble-theirs"}`}>
                 <p className="bubble-text">{msg.text}</p>
-                <span className="bubble-time">
+                <time className="bubble-time" dateTime={getIsoDateTime(msg.createdAt)}>
                   {formatMessageTime(msg.createdAt, locale)}
-                </span>
+                </time>
               </div>
             </div>
           );

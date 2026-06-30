@@ -89,7 +89,7 @@ export default function ChatsPage() {
       })
       .then((d) => {
         if (d !== null) setChats(Array.isArray(d) ? d : []);
-        fetchOnlineUsers(token);
+        if (!silent) fetchOnlineUsers(token);
       })
       .catch(() => setError(t("chatPremium.loadError")))
       .finally(() => setLoading(false));
@@ -193,7 +193,7 @@ export default function ChatsPage() {
           {chats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
             const displayName = getDisplayName(other);
-            const initial = displayName?.[0]?.toUpperCase() || "U";
+            const initial = displayName[0].toUpperCase();
             const lastMsg = chat.lastMessage;
             const userImage = getUserImage(other);
             const isOnline = onlineUserIds.has(String(other._id));
@@ -202,7 +202,7 @@ export default function ChatsPage() {
 
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
-                <div className="avatar-ring" data-online={isOnline ? "true" : "false"}>
+                <div className="avatar-ring" data-online={isOnline}>
                   <div className="chat-avatar">
                     {userImage ? (
                       <img src={userImage} alt={displayName} className="chat-avatar-img" />

@@ -28,6 +28,8 @@ const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
 
 const isObjectId = (value) => typeof value === "string" && OBJECT_ID_RE.test(value);
 
+const getUserRoom = (userId) => `user:${userId}`;
+
 const getHandshakeToken = (socket) => {
   const authToken = socket.handshake.auth && socket.handshake.auth.token;
   if (typeof authToken === "string" && authToken.trim()) return authToken.trim();
@@ -71,6 +73,8 @@ const getParticipantIds = (chat) => (chat?.participants || []).map((id) => Strin
 const joinPersonalRoom = (socket) => {
   const userId = socket._userId;
   if (!userId) return false;
+  socket.join(getUserRoom(userId));
+  // Keep the legacy raw userId room for existing notification/live/call emitters.
   socket.join(userId);
 
   const existing = onlineUsers.get(userId);
@@ -97,14 +101,14 @@ const emitChatMessage = async ({ chatId, message, senderId }) => {
   const payload = {
     chatId: String(chatId),
     message: serializeMessage(message),
-    _id: String(message._id),
     clientMessageId: message.clientMessageId || null,
   };
 
   io.to(`chat:${chatId}`).emit("message:new", payload);
   for (const participantId of getParticipantIds(chat)) {
-    io.to(participantId).emit(participantId === String(senderId) ? "message:sent" : "message:new", payload);
-    io.to(participantId).emit("chat:unread_count_updated", {
+    const eventName = participantId === String(senderId) ? "message:sent" : "message:new";
+    io.to(getUserRoom(participantId)).emit(eventName, payload);
+    io.to(getUserRoom(participantId)).emit("chat:unread_count_updated", {
       chatId: String(chatId),
       userId: participantId,
     });
@@ -312,7 +316,9 @@ const initSocket = (httpServer) => {
     // Allow authenticated clients to join their personal notification/presence room.
     // The room is derived from the verified JWT, never from a client-supplied userId.
     socket.on("join_user_room", () => {
-      joinPersonalRoom(socket);
+      if (socket._userId && !socket.rooms.has(getUserRoom(socket._userId))) {
+        joinPersonalRoom(socket);
+      }
     });
 
     // Heartbeat to update lastSeen timestamp for online users

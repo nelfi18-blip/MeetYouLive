@@ -207,6 +207,12 @@ export default function ChatConversationPage() {
     }
   }, [id]);
 
+  const stopTyping = useCallback(() => {
+    if (socket.connected) {
+      socket.emit("typing:stop", { chatId: id });
+    }
+  }, [id]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || loading) return;
@@ -215,7 +221,11 @@ export default function ChatConversationPage() {
     if (!socket.connected) socket.connect();
 
     const joinChat = () => {
-      socket.emit("chat:join", { chatId: id });
+      socket.emit("chat:join", { chatId: id }, (response) => {
+        if (response && response.ok === false) {
+          setError(response.message || t("chatPremium.conversationLoadError"));
+        }
+      });
       fetchNewMessages();
     };
 
@@ -238,7 +248,7 @@ export default function ChatConversationPage() {
     socket.on("typing:stop", handleTypingStop);
 
     return () => {
-      socket.emit("typing:stop", { chatId: id });
+      stopTyping();
       socket.emit("chat:leave", { chatId: id });
       socket.off("connect", joinChat);
       socket.off("message:new", handleRealtimeMessage);
@@ -246,7 +256,7 @@ export default function ChatConversationPage() {
       socket.off("typing:start", handleTypingStart);
       socket.off("typing:stop", handleTypingStop);
     };
-  }, [id, loading, fetchNewMessages, currentUserId]);
+  }, [id, loading, fetchNewMessages, currentUserId, t, stopTyping]);
 
   // Socket listener for chat gifts
   useEffect(() => {
@@ -293,7 +303,7 @@ export default function ChatConversationPage() {
       const msg = await res.json();
       setMessages((prev) => mergeMessagesById(prev, msg));
       setText("");
-      socket.emit("typing:stop", { chatId: id });
+      stopTyping();
     } catch {
       setError(t("chatPremium.sendError"));
     } finally {
@@ -309,7 +319,7 @@ export default function ChatConversationPage() {
     if (wasEmpty && value.trim()) {
       socket.emit("typing:start", { chatId: id });
     } else if (!value.trim()) {
-      socket.emit("typing:stop", { chatId: id });
+      stopTyping();
     }
   };
 

@@ -25,7 +25,11 @@ export function configureSocketAuth(token) {
   if (typeof window === "undefined" || !socket) return;
   const nextToken = token || null;
   const previousToken = socket.auth?.token || null;
-  socket.auth = nextToken ? { token: nextToken } : {};
+  if (nextToken) {
+    socket.auth = { token: nextToken };
+  } else {
+    delete socket.auth;
+  }
   if (socket.connected && previousToken !== nextToken) {
     socket.disconnect();
   }

@@ -71,14 +71,6 @@ function SocketManager() {
       socket.connect();
     }
 
-    const joinRoom = () => {
-      socket.emit("join_user_room");
-    };
-
-    if (socket.connected) {
-      joinRoom();
-    }
-
     // Send heartbeat every 2 minutes to keep the online status updated
     const heartbeatInterval = setInterval(() => {
       if (socket.connected) {
@@ -86,7 +78,6 @@ function SocketManager() {
       }
     }, 2 * 60 * 1000); // 2 minutes
 
-    socket.on("connect", joinRoom);
     socket.on("LIVE_STARTED", handleLiveStarted);
     socket.on("GIFT_SENT", handleGiftSent);
     socket.on("MATCH_CREATED", handleMatchCreated);
@@ -97,7 +88,6 @@ function SocketManager() {
 
     return () => {
       clearInterval(heartbeatInterval);
-      socket.off("connect", joinRoom);
       socket.off("LIVE_STARTED", handleLiveStarted);
       socket.off("GIFT_SENT", handleGiftSent);
       socket.off("MATCH_CREATED", handleMatchCreated);

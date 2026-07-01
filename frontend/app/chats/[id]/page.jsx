@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
-import socket from "@/lib/socket";
+import socket, { configureSocketAuth } from "@/lib/socket";
 import { getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -22,6 +22,18 @@ const getIsoDateTime = (value) => {
   if (!value) return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
+const mergeMessagesById = (current, incoming) => {
+  const nextMessages = Array.isArray(incoming) ? incoming : [incoming];
+  const seen = new Set(current.map((message) => String(message._id)));
+  const merged = [...current];
+  for (const message of nextMessages) {
+    if (!message?._id || seen.has(String(message._id))) continue;
+    seen.add(String(message._id));
+    merged.push(message);
+  }
+  return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
 export default function ChatConversationPage() {
@@ -43,10 +55,12 @@ export default function ChatConversationPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [chatGiftNotif, setChatGiftNotif] = useState(null); // For displaying gift notifications
   const [showScrollJump, setShowScrollJump] = useState(false);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesAreaRef = useRef(null);
   const bottomRef = useRef(null);
   const isNearBottomRef = useRef(true);
   const lastMessageCountRef = useRef(0);
+  const lastMessageIdRef = useRef(null);
   
   // Context naming note:
   // - Stored context: "private_call" (distinguishes from public chat rooms in data layer)
@@ -87,6 +101,7 @@ export default function ChatConversationPage() {
         setCurrentUserId(myId);
         const msgs = Array.isArray(data) ? data : [];
         setMessages(msgs);
+        lastMessageIdRef.current = msgs[msgs.length - 1]?._id || null;
 
         // Resolve the other participant from chat data
         let other = null;
@@ -123,6 +138,10 @@ export default function ChatConversationPage() {
       })
       .finally(() => setLoading(false));
   }, [id, router, t]);
+
+  useEffect(() => {
+    lastMessageIdRef.current = messages[messages.length - 1]?._id || null;
+  }, [messages]);
 
   const scrollToBottom = (behavior = "smooth") => {
     bottomRef.current?.scrollIntoView({ behavior });
@@ -168,6 +187,67 @@ export default function ChatConversationPage() {
     };
   }, [otherUser?._id]);
 
+  const fetchNewMessages = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const after = lastMessageIdRef.current;
+    if (!after) return;
+    try {
+      const res = await fetch(`${API_URL}/api/chats/${id}/messages?after=${encodeURIComponent(after)}`, {
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setMessages((prev) => mergeMessagesById(prev, data));
+      }
+    } catch {
+      // Reconnect sync is best-effort; REST remains the source of truth.
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || loading) return;
+
+    configureSocketAuth(token);
+    if (!socket.connected) socket.connect();
+
+    const joinChat = () => {
+      socket.emit("chat:join", { chatId: id });
+      fetchNewMessages();
+    };
+
+    const handleRealtimeMessage = ({ chatId, message }) => {
+      if (String(chatId) !== String(id) || !message?._id) return;
+      setMessages((prev) => mergeMessagesById(prev, message));
+    };
+    const handleTypingStart = ({ chatId, userId }) => {
+      if (String(chatId) === String(id) && String(userId) !== String(currentUserId)) setIsOtherTyping(true);
+    };
+    const handleTypingStop = ({ chatId, userId }) => {
+      if (String(chatId) === String(id) && String(userId) !== String(currentUserId)) setIsOtherTyping(false);
+    };
+
+    if (socket.connected) joinChat();
+    socket.on("connect", joinChat);
+    socket.on("message:new", handleRealtimeMessage);
+    socket.on("message:sent", handleRealtimeMessage);
+    socket.on("typing:start", handleTypingStart);
+    socket.on("typing:stop", handleTypingStop);
+
+    return () => {
+      socket.emit("typing:stop", { chatId: id });
+      socket.emit("chat:leave", { chatId: id });
+      socket.off("connect", joinChat);
+      socket.off("message:new", handleRealtimeMessage);
+      socket.off("message:sent", handleRealtimeMessage);
+      socket.off("typing:start", handleTypingStart);
+      socket.off("typing:stop", handleTypingStop);
+    };
+  }, [id, loading, fetchNewMessages, currentUserId]);
+
   // Socket listener for chat gifts
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -211,12 +291,25 @@ export default function ChatConversationPage() {
       });
       if (!res.ok) throw new Error("Error al enviar mensaje");
       const msg = await res.json();
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => mergeMessagesById(prev, msg));
       setText("");
+      socket.emit("typing:stop", { chatId: id });
     } catch {
       setError(t("chatPremium.sendError"));
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleTextChange = (e) => {
+    const value = e.target.value;
+    const wasEmpty = !text.trim();
+    setText(value);
+    if (!socket.connected) return;
+    if (wasEmpty && value.trim()) {
+      socket.emit("typing:start", { chatId: id });
+    } else if (!value.trim()) {
+      socket.emit("typing:stop", { chatId: id });
     }
   };
 
@@ -251,8 +344,6 @@ export default function ChatConversationPage() {
   const isCreator = otherUser?.role === "creator";
   // Show video call button if: matched users (social call) OR talking to a creator (paid call)
   const canVideoCall = isMatch || isCreator;
-  const isOtherTyping = false; // Visual scaffold only; future Socket.io typing events can drive this.
-
   const getDeliveryLabel = (msg, isLatestMine) => {
     if (msg.readAt || msg.readBy?.length) return t("chatPremium.read");
     return isLatestMine ? t("chatPremium.delivered") : t("chatPremium.sent");
@@ -429,7 +520,7 @@ export default function ChatConversationPage() {
             type="text"
             placeholder={t("chatPremium.messagePlaceholder")}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             maxLength={2000}
             disabled={sending}
           />

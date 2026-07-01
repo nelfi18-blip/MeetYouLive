@@ -3,6 +3,7 @@ const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { emitChatMessage } = require("../lib/socket.js");
 
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
@@ -106,7 +107,18 @@ const getMessages = async (req, res) => {
     });
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
 
-    const messages = await Message.find({ chat: req.params.chatId })
+    const query = { chat: req.params.chatId };
+    const afterMessageId = req.query.after || req.query.afterMessageId || req.query.lastMessageId;
+    if (afterMessageId && /^[a-f0-9]{24}$/i.test(String(afterMessageId))) {
+      const afterMessage = await Message.findOne({ _id: afterMessageId, chat: req.params.chatId })
+        .select("createdAt")
+        .lean();
+      if (afterMessage) {
+        query.createdAt = { $gt: afterMessage.createdAt };
+      }
+    }
+
+    const messages = await Message.find(query)
       .populate("sender", CHAT_USER_FIELDS)
       .sort({ createdAt: 1 })
       .limit(100); // Returns the most recent 100 messages; paginate with skip/limit if needed
@@ -148,6 +160,12 @@ const sendMessage = async (req, res) => {
     const payload = populated.toObject();
     payload.sender = withSerializedUserPhotoFields(req, payload.sender);
     res.status(201).json(payload);
+
+    emitChatMessage({
+      chatId: req.params.chatId,
+      message: payload,
+      senderId: req.userId,
+    }).catch(() => {});
 
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});

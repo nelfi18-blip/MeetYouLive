@@ -21,4 +21,14 @@ const socket =
         emit() { return this; },
       };
 
+export function configureSocketAuth(token) {
+  if (typeof window === "undefined" || !socket) return;
+  const nextToken = token || null;
+  const previousToken = socket.auth?.token || null;
+  socket.auth = nextToken ? { token: nextToken } : {};
+  if (socket.connected && previousToken !== nextToken) {
+    socket.disconnect();
+  }
+}
+
 export default socket;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import socket from "@/lib/socket";
+import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
@@ -20,7 +20,6 @@ function parseJwtPayload(token) {
 
 function SocketManager() {
   const { data: session } = useSession();
-  const joinedRef = useRef(false);
   const {
     notifications,
     push,
@@ -67,15 +66,13 @@ function SocketManager() {
 
     if (!userId) return;
 
+    configureSocketAuth(backendToken);
     if (!socket.connected) {
       socket.connect();
     }
 
     const joinRoom = () => {
-      if (!joinedRef.current) {
-        socket.emit("join_user_room", userId);
-        joinedRef.current = true;
-      }
+      socket.emit("join_user_room");
     };
 
     if (socket.connected) {
@@ -100,7 +97,6 @@ function SocketManager() {
 
     return () => {
       clearInterval(heartbeatInterval);
-      joinedRef.current = false;
       socket.off("connect", joinRoom);
       socket.off("LIVE_STARTED", handleLiveStarted);
       socket.off("GIFT_SENT", handleGiftSent);

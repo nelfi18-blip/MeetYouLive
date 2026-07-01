@@ -107,13 +107,21 @@ export default function ChatsPage() {
       });
     };
 
+    const refreshChats = () => fetchChats({ silent: true });
+
     socket.on("USER_ONLINE", markOnline);
     socket.on("USER_OFFLINE", markOffline);
+    socket.on("message:new", refreshChats);
+    socket.on("message:sent", refreshChats);
+    socket.on("chat:unread_count_updated", refreshChats);
     return () => {
       socket.off("USER_ONLINE", markOnline);
       socket.off("USER_OFFLINE", markOffline);
+      socket.off("message:new", refreshChats);
+      socket.off("message:sent", refreshChats);
+      socket.off("chat:unread_count_updated", refreshChats);
     };
-  }, []);
+  }, [fetchChats]);
 
   const totalChats = chats.length;
   const chatsWithMessages = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);

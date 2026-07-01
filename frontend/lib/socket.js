@@ -32,6 +32,7 @@ export function configureSocketAuth(token) {
   }
   if (socket.connected && previousToken !== nextToken) {
     socket.disconnect();
+    socket.connect();
   }
 }
 

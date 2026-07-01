@@ -495,7 +495,7 @@ const initSocket = (httpServer) => {
           at: new Date().toISOString(),
         };
         socket.to(`chat:${message.chat}`).emit(eventName, payload);
-        io.to(socket._userId).emit(eventName, payload);
+        io.to(getUserRoom(socket._userId)).emit(eventName, payload);
       } catch (err) {
         console.error(`[${eventName}] Error:`, err);
       }

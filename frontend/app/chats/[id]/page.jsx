@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
@@ -39,6 +40,7 @@ const mergeMessagesById = (current, incoming) => {
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
   const locale = t("chatPremium.locale");
   const [messages, setMessages] = useState([]);
@@ -61,6 +63,12 @@ export default function ChatConversationPage() {
   const isNearBottomRef = useRef(true);
   const lastMessageCountRef = useRef(0);
   const lastMessageIdRef = useRef(null);
+  const getBackendToken = useCallback(
+    () =>
+      session?.backendToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("token") : null),
+    [session?.backendToken]
+  );
   
   // Context naming note:
   // - Stored context: "private_call" (distinguishes from public chat rooms in data layer)
@@ -71,8 +79,9 @@ export default function ChatConversationPage() {
   const otherImage = getUserImage(otherUser);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getBackendToken();
     if (!token) {
+      if (sessionStatus === "loading") return;
       clearToken();
       router.replace("/login");
       return;
@@ -137,7 +146,7 @@ export default function ChatConversationPage() {
         setError(t("chatPremium.conversationLoadError"));
       })
       .finally(() => setLoading(false));
-  }, [id, router, t]);
+  }, [id, router, t, getBackendToken, sessionStatus]);
 
   useEffect(() => {
     lastMessageIdRef.current = messages[messages.length - 1]?._id || null;
@@ -188,7 +197,7 @@ export default function ChatConversationPage() {
   }, [otherUser?._id]);
 
   const fetchNewMessages = useCallback(async () => {
-    const token = localStorage.getItem("token");
+    const token = getBackendToken();
     if (!token) return;
     const after = lastMessageIdRef.current;
     if (!after) return;
@@ -205,7 +214,7 @@ export default function ChatConversationPage() {
     } catch {
       // Reconnect sync is best-effort; REST remains the source of truth.
     }
-  }, [id]);
+  }, [id, getBackendToken]);
 
   const stopTyping = useCallback(() => {
     if (socket.connected) {
@@ -214,7 +223,7 @@ export default function ChatConversationPage() {
   }, [id]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getBackendToken();
     if (!token || loading) return;
 
     configureSocketAuth(token);
@@ -256,7 +265,7 @@ export default function ChatConversationPage() {
       socket.off("typing:start", handleTypingStart);
       socket.off("typing:stop", handleTypingStop);
     };
-  }, [id, loading, fetchNewMessages, currentUserId, t, stopTyping]);
+  }, [id, loading, fetchNewMessages, currentUserId, t, stopTyping, getBackendToken]);
 
   // Socket listener for chat gifts
   useEffect(() => {
@@ -287,7 +296,7 @@ export default function ChatConversationPage() {
     e.preventDefault();
     if (!text.trim() || sending) return;
 
-    const token = localStorage.getItem("token");
+    const token = getBackendToken();
     setSending(true);
     setError("");
     try {
@@ -327,7 +336,7 @@ export default function ChatConversationPage() {
     if (!otherUser?._id || callLoading) return;
     setCallLoading(true);
     setCallError("");
-    const token = localStorage.getItem("token");
+    const token = getBackendToken();
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",

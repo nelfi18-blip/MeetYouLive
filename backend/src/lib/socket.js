@@ -93,10 +93,14 @@ const serializeMessage = (message) => {
   return typeof message.toObject === "function" ? message.toObject() : message;
 };
 
-const emitChatMessage = async ({ chatId, message, senderId }) => {
+const emitChatMessage = async ({ chatId, message, senderId, participants }) => {
   if (!io || !chatId || !message) return;
-  const chat = await Chat.findById(chatId).select("participants").lean();
-  if (!chat) return;
+  let participantIds = Array.isArray(participants) ? participants.map((id) => String(id)) : [];
+  if (participantIds.length === 0) {
+    const chat = await Chat.findById(chatId).select("participants").lean();
+    if (!chat) return;
+    participantIds = getParticipantIds(chat);
+  }
 
   const payload = {
     chatId: String(chatId),
@@ -105,7 +109,7 @@ const emitChatMessage = async ({ chatId, message, senderId }) => {
   };
 
   io.to(`chat:${chatId}`).emit("message:new", payload);
-  for (const participantId of getParticipantIds(chat)) {
+  for (const participantId of participantIds) {
     const eventName = participantId === String(senderId) ? "message:sent" : "message:new";
     io.to(getUserRoom(participantId)).emit(eventName, payload);
     io.to(getUserRoom(participantId)).emit("chat:unread_count_updated", {
@@ -398,6 +402,7 @@ const initSocket = (httpServer) => {
 
     socket.on("live_chat_message", async ({ liveId, text, user }) => {
       if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
+      if (!socket._userId) return;
       if (!text || typeof text !== "string") return;
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;
@@ -467,8 +472,7 @@ const initSocket = (httpServer) => {
       try {
         const { chatId } = data;
         if (!socket._userId || !isObjectId(chatId)) return;
-        const allowed = await isChatParticipant(chatId, socket._userId);
-        if (!allowed) return;
+        if (!socket._chatRoomIds || !socket._chatRoomIds.has(chatId)) return;
         socket.to(`chat:${chatId}`).emit(eventName, {
           ...data,
           chatId,

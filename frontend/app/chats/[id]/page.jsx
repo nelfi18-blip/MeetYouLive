@@ -260,6 +260,7 @@ export default function ChatConversationPage() {
 
     return () => {
       stopTyping();
+      setIsOtherTyping(false);
       socket.emit("chat:leave", { chatId: id });
       socket.off("connect", joinChat);
       socket.off("message:new", handleRealtimeMessage);

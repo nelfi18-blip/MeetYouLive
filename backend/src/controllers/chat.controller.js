@@ -167,7 +167,7 @@ const sendMessage = async (req, res) => {
       senderId: req.userId,
       participants: chat.participants,
     }).catch((err) => {
-      if (process.env.NODE_ENV === "development") console.error("[emitChatMessage]", err);
+      console.error("[emitChatMessage]", err);
     });
 
     // Track chat mission progress (fire-and-forget)

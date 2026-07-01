@@ -112,9 +112,10 @@ const emitChatMessage = async ({ chatId, message, senderId, participants }) => {
   for (const participantId of participantIds) {
     const eventName = participantId === String(senderId) ? "message:sent" : "message:new";
     io.to(getUserRoom(participantId)).emit(eventName, payload);
-    io.to(getUserRoom(participantId)).emit("chat:unread_count_updated", {
-      chatId: String(chatId),
-      userId: participantId,
+  if (participantId === String(senderId)) continue;
+  io.to(getUserRoom(participantId)).emit("chat:unread_count_updated", {
+    chatId: String(chatId),
+    userId: participantId,
     });
   }
 };
@@ -401,8 +402,8 @@ const initSocket = (httpServer) => {
     });
 
     socket.on("live_chat_message", async ({ liveId, text, user }) => {
-      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       if (!socket._userId) return;
+      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       if (!text || typeof text !== "string") return;
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;

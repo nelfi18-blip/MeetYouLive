@@ -245,9 +245,11 @@ export default function ChatConversationPage() {
       setMessages((prev) => mergeMessagesById(prev, message));
     };
     const handleTypingStart = ({ chatId, userId }) => {
+      if (!currentUserId) return;
       if (String(chatId) === String(id) && String(userId) !== String(currentUserId)) setIsOtherTyping(true);
     };
     const handleTypingStop = ({ chatId, userId }) => {
+      if (!currentUserId) return;
       if (String(chatId) === String(id) && String(userId) !== String(currentUserId)) setIsOtherTyping(false);
     };
 

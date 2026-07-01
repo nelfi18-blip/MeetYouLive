@@ -315,6 +315,7 @@ const initSocket = (httpServer) => {
 
     // Allow authenticated clients to join their personal notification/presence room.
     // The room is derived from the verified JWT, never from a client-supplied userId.
+    // Legacy compatibility: current clients auto-join on connection, but older clients may still emit this event.
     socket.on("join_user_room", () => {
       if (socket._userId && !socket.rooms.has(getUserRoom(socket._userId))) {
         joinPersonalRoom(socket);

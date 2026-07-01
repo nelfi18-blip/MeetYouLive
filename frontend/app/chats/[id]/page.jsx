@@ -65,6 +65,7 @@ export default function ChatConversationPage() {
   const lastMessageIdRef = useRef(null);
   const getBackendToken = useCallback(
     () =>
+      // OAuth users receive the backend JWT from NextAuth; email/password users keep it in localStorage.
       session?.backendToken ||
       (typeof window !== "undefined" ? localStorage.getItem("token") : null),
     [session?.backendToken]
@@ -211,8 +212,9 @@ export default function ChatConversationPage() {
       if (Array.isArray(data) && data.length > 0) {
         setMessages((prev) => mergeMessagesById(prev, data));
       }
-    } catch {
+    } catch (err) {
       // Reconnect sync is best-effort; REST remains the source of truth.
+      if (process.env.NODE_ENV === "development") console.error("[fetchNewMessages]", err);
     }
   }, [id, getBackendToken]);
 

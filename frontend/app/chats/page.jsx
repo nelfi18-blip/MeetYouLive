@@ -173,7 +173,7 @@ export default function ChatsPage() {
         </div>
       </section>
 
-      <section className="chat-toolbar" aria-label="Buscar conversaciones">
+      <section className="chat-toolbar" aria-label={t("chatPremium.searchConversationsAria")}>
         <div className="search-shell">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
@@ -183,8 +183,8 @@ export default function ChatsPage() {
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar conversaciones..."
-            aria-label="Buscar conversaciones"
+            placeholder={t("chatPremium.searchPlaceholder")}
+            aria-label={t("chatPremium.searchConversationsAria")}
           />
         </div>
         <div className="toolbar-badge" aria-hidden="true">
@@ -235,9 +235,9 @@ export default function ChatsPage() {
               <path d="M21 21l-4.35-4.35" />
             </svg>
           </div>
-          <span className="empty-kicker">Sin resultados</span>
-          <h3>No encontramos esa conversación</h3>
-          <p>Prueba con otro nombre o con una palabra del último mensaje.</p>
+          <span className="empty-kicker">{t("chatPremium.noResults")}</span>
+          <h3>{t("chatPremium.conversationNotFound")}</h3>
+          <p>{t("chatPremium.tryDifferentSearch")}</p>
         </div>
       )}
 

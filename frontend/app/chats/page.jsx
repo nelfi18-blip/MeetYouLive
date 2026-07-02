@@ -156,9 +156,9 @@ export default function ChatsPage() {
           <h1 className="page-title">{t("chatPremium.title")}</h1>
           <p className="page-subtitle">{t("chatPremium.subtitle")}</p>
           <div className="hero-pills" aria-hidden="true">
-            <span>Premium UI</span>
-            <span>Realtime</span>
-            <span>Privado</span>
+            <span>{t("chatPremium.premiumUI")}</span>
+            <span>{t("chatPremium.realtime")}</span>
+            <span>{t("chatPremium.private")}</span>
           </div>
         </div>
         <div className="hero-stats" aria-label={t("chatPremium.summaryAria")}>

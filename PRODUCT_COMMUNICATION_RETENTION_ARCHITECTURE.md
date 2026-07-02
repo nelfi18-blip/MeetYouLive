@@ -1,6 +1,6 @@
 # Arquitectura oficial del producto – Comunicación y retención de usuarios
 
-Este documento define la dirección oficial de MeetYouLive. No implementar toda la lógica en un único PR. Utilizarlo como guía para las próximas fases del desarrollo.
+Este documento define la dirección oficial de MeetYouLive. No implementar toda la lógica en este PR. Cada fase deberá abordarse en PRs separados y acotados, utilizando este documento como guía para las próximas fases del desarrollo.
 
 ## Objetivo
 

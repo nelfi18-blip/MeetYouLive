@@ -94,4 +94,10 @@ No modificar en este PR:
 - Base de datos.
 - Contratos actuales de la API.
 
+## Decisiones abiertas para futuras fases
+
+Antes de implementar las protecciones de contacto, deberá definirse desde producto qué cuenta como "primeras interacciones" y cuál es el criterio de confianza que permite relajar o desbloquear restricciones.
+
+Antes de implementar reglas de duración para llamadas sociales, deberá definirse dónde se administran esas reglas dentro de la plataforma para que puedan actualizarse sin modificar código.
+
 Este documento define únicamente la dirección oficial del producto y deberá servir como referencia para las siguientes fases del desarrollo.

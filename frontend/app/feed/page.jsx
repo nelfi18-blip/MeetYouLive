@@ -1699,7 +1699,6 @@ export default function FeedPage() {
           will-change: transform, opacity;
         }
         :global(.feed-swipe-deck .swipe-card-image-wrapper) {
-        :global(.feed-swipe-deck .swipe-card-image-wrapper) {
           height: 100%;
           border-radius: inherit;
           overflow: hidden;
@@ -1990,7 +1989,7 @@ export default function FeedPage() {
             --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.55rem);
             --feed-section-top-padding: 2px;
             --feed-deck-width: min(calc(100vw - 8px), 452px);
-            --feed-deck-height: clamp(628px, calc(var(--feed-available-height) - var(--feed-section-top-padding)), 790px);
+            --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
             --feed-image-panel-height: 100%;
           }
 

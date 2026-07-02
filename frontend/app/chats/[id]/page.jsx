@@ -404,29 +404,25 @@ export default function ChatConversationPage() {
           {!otherName && <span className="peer-name">{t("chatPremium.conversation")}</span>}
         </div>
 
-        <div className="header-actions">
-          <button type="button" className="icon-action muted" title={t("chatPremium.voiceCallSoon")} aria-label={t("chatPremium.voiceCallSoon")} disabled>
+        <div className="header-actions" aria-label={t("chatPremium.upcomingPremiumActionsAria")}>
+          <button type="button" className="icon-action call-action muted" title={t("chatPremium.voiceCallSoon")} aria-label={t("chatPremium.voiceCallSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.08 4.18 2 2 0 014.06 2h3a2 2 0 012 1.72c.12.9.33 1.78.63 2.63a2 2 0 01-.45 2.11L8 9.7a16 16 0 006.3 6.3l1.24-1.24a2 2 0 012.11-.45c.85.3 1.73.51 2.63.63A2 2 0 0122 16.92z"/></svg>
           </button>
-          <button type="button" className="icon-action muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <button type="button" className="icon-action camera-action muted" title={t("chatPremium.cameraSoon")} aria-label={t("chatPremium.cameraSoon")} disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-3h8l2 3h3a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </button>
-          <button type="button" className="icon-action muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
+          <button type="button" className="icon-action voice-action muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           </button>
+          {/* Phase 2 keeps call controls visual-only until the next sprint enables them. */}
           <button
             type="button"
-            className={`icon-action video ${canVideoCall ? "active" : "muted"}`}
-            onClick={() => canVideoCall && handleVideoCall(isCreator ? "paid_creator" : "social")}
-            disabled={!canVideoCall || callLoading}
-            title={canVideoCall ? (isCreator ? t("chatPremium.privateCreatorCall") : t("chatPremium.videoCall")) : t("chatPremium.videoSoon")}
-            aria-label={canVideoCall ? t("chatPremium.startVideoCall") : t("chatPremium.videoSoon")}
+            className="icon-action video video-action muted"
+            disabled
+            title={t("chatPremium.videoSoon")}
+            aria-label={t("chatPremium.videoSoon")}
           >
-            {callLoading ? (
-              <span className="call-spinner-sm" />
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            )}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           </button>
         </div>
       </header>
@@ -534,6 +530,9 @@ export default function ChatConversationPage() {
           <button type="button" className="composer-btn muted" title={t("chatPremium.imageSoon")} aria-label={t("chatPremium.imageSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
+          <button type="button" className="composer-btn muted" title={t("chatPremium.cameraSoon")} aria-label={t("chatPremium.cameraSoon")} disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-3h8l2 3h3a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
           <button type="button" className="composer-btn muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>
           </button>
@@ -605,7 +604,7 @@ export default function ChatConversationPage() {
           flex-direction: column;
           height: calc(100vh - 140px);
           min-height: 560px;
-          gap: 0.85rem;
+          gap: 0.82rem;
           position: relative;
         }
 
@@ -615,13 +614,14 @@ export default function ChatConversationPage() {
           display: flex;
           align-items: center;
           gap: 0.9rem;
-          padding: 0.9rem 1rem;
+          padding: 0.95rem 1rem;
           background:
-            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.18), transparent 34%),
+            radial-gradient(circle at 18% 0%, rgba(224,64,251,0.28), transparent 34%),
+            radial-gradient(circle at 92% 12%, rgba(34,211,238,0.18), transparent 32%),
             linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
           border: 1px solid rgba(236,124,255,0.34);
-          border-radius: 26px;
-          box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255,255,255,0.08);
+          border-radius: 30px;
+          box-shadow: 0 20px 52px rgba(4,2,12,0.48), inset 0 1px 0 rgba(255,255,255,0.1);
           backdrop-filter: blur(18px);
         }
         .chat-header::after {
@@ -646,9 +646,13 @@ export default function ChatConversationPage() {
           font-size: 0.85rem;
           font-weight: 800;
           flex-shrink: 0;
+          padding: 0.62rem 0.72rem;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.08);
           transition: color var(--transition), transform var(--transition);
         }
-        .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); }
+        .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); border-color: rgba(34,211,238,0.24); }
 
         .chat-peer { display: flex; align-items: center; gap: 0.72rem; flex: 1; min-width: 0; }
         .peer-avatar-wrap {
@@ -659,7 +663,7 @@ export default function ChatConversationPage() {
           padding: 2px;
           border-radius: 50%;
           background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.38), rgba(34,211,238,0.55));
-          box-shadow: 0 0 0 4px rgba(224,64,251,0.06), 0 12px 24px rgba(0,0,0,0.28);
+          box-shadow: 0 0 0 5px rgba(224,64,251,0.06), 0 12px 24px rgba(0,0,0,0.3);
         }
         .peer-avatar-wrap[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.18); }
         .peer-avatar {
@@ -694,8 +698,8 @@ export default function ChatConversationPage() {
           border: 3px solid #120a28;
           box-shadow: 0 0 12px rgba(52,211,153,0.8);
         }
-        .peer-info { display: flex; flex-direction: column; gap: 0.12rem; min-width: 0; }
-        .peer-name { font-weight: 900; color: var(--text); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .peer-info { display: flex; flex-direction: column; gap: 0.14rem; min-width: 0; }
+        .peer-name { font-weight: 900; color: var(--text); font-size: 1.04rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.02em; }
         .peer-status { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
         .peer-creator-badge {
           display: inline-block;
@@ -709,7 +713,18 @@ export default function ChatConversationPage() {
           width: fit-content;
         }
 
-        .header-actions { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+        .header-actions {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          flex-shrink: 0;
+          padding: 0.28rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.045);
+        }
         .icon-action,
         .composer-btn {
           display: inline-flex;
@@ -717,9 +732,11 @@ export default function ChatConversationPage() {
           justify-content: center;
           width: 40px;
           height: 40px;
-          border-radius: 15px;
-          border: 1px solid rgba(236,124,255,0.24);
-          background: rgba(255,255,255,0.06);
+          border-radius: 16px;
+          border: 1px solid rgba(236,124,255,0.22);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025)),
+            rgba(255,255,255,0.045);
           color: var(--text-muted);
           cursor: pointer;
           transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition), color var(--transition);
@@ -733,7 +750,7 @@ export default function ChatConversationPage() {
         .icon-action:hover:not(:disabled),
         .composer-btn:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(34,211,238,0.5); color: #fff; }
         .icon-action:disabled,
-        .composer-btn:disabled { cursor: not-allowed; opacity: 0.52; }
+        .composer-btn:disabled { cursor: not-allowed; opacity: 0.58; }
         .muted { opacity: 0.68; }
 
         .call-spinner-sm {
@@ -752,9 +769,13 @@ export default function ChatConversationPage() {
           overflow-y: auto;
           display: flex;
           flex-direction: column;
-          gap: 0.72rem;
-          padding: 0.7rem 0.2rem 0.9rem;
+          gap: 0.76rem;
+          padding: 0.8rem 0.28rem 1rem;
           scroll-behavior: smooth;
+          border-radius: 28px;
+          background:
+            radial-gradient(circle at 12% 0%, rgba(224,64,251,0.06), transparent 34%),
+            radial-gradient(circle at 88% 100%, rgba(34,211,238,0.05), transparent 34%);
         }
         .messages-area::-webkit-scrollbar { width: 8px; }
         .messages-area::-webkit-scrollbar-thumb { background: rgba(236,124,255,0.22); border-radius: var(--radius-pill); }
@@ -762,13 +783,14 @@ export default function ChatConversationPage() {
         .bubble-wrap {
           display: flex;
           align-items: flex-end;
-          gap: 0.5rem;
+          gap: 0.55rem;
           animation: bubbleIn 0.28s ease both;
+          padding-inline: 0.2rem;
         }
         .bubble-wrap.mine { flex-direction: row-reverse; }
         .bubble-avatar {
-          width: 30px;
-          height: 30px;
+          width: 32px;
+          height: 32px;
           flex-shrink: 0;
           border-radius: 50%;
           overflow: hidden;
@@ -779,31 +801,35 @@ export default function ChatConversationPage() {
           color: #fff;
           font-size: 0.76rem;
           font-weight: 900;
-          box-shadow: 0 0 0 2px rgba(224,64,251,0.14);
+          box-shadow: 0 0 0 2px rgba(224,64,251,0.14), 0 8px 18px rgba(0,0,0,0.26);
         }
 
         .bubble {
           max-width: min(74%, 620px);
-          padding: 0.72rem 0.95rem 0.55rem;
-          border-radius: 22px;
+          padding: 0.78rem 0.98rem 0.58rem;
+          border-radius: 24px;
           display: flex;
           flex-direction: column;
           gap: 0.22rem;
           position: relative;
-          box-shadow: 0 12px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
         }
         .bubble-mine {
-          background: linear-gradient(135deg, #c040ff 0%, #ff4fa3 100%);
+          background:
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.22), transparent 38%),
+            linear-gradient(135deg, #b937ff 0%, #ff4fa3 100%);
           border-bottom-right-radius: 7px;
           color: #fff;
         }
         .bubble-theirs {
-          background: linear-gradient(145deg, rgba(42,18,82,0.94), rgba(21,12,46,0.96));
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.055), transparent 38%),
+            linear-gradient(145deg, rgba(42,18,82,0.94), rgba(21,12,46,0.96));
           border: 1px solid rgba(236,124,255,0.22);
           border-bottom-left-radius: 7px;
         }
         .bubble-text {
-          font-size: 0.92rem;
+          font-size: 0.94rem;
           color: var(--text);
           word-break: break-word;
           line-height: 1.48;
@@ -845,7 +871,9 @@ export default function ChatConversationPage() {
           border: 1px solid rgba(236,124,255,0.18);
           border-radius: var(--radius-pill);
           color: var(--text-muted);
-          background: rgba(255,255,255,0.055);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%),
+            rgba(255,255,255,0.055);
           font-size: 0.74rem;
           font-weight: 800;
           animation: bubbleIn 0.24s ease both;
@@ -873,7 +901,7 @@ export default function ChatConversationPage() {
           border: 1px solid rgba(34,211,238,0.34);
           border-radius: var(--radius-pill);
           color: #fff;
-          background: rgba(15,8,33,0.9);
+          background: rgba(15,8,33,0.92);
           box-shadow: 0 12px 30px rgba(0,0,0,0.34), 0 0 18px rgba(34,211,238,0.16);
           backdrop-filter: blur(12px);
           font-size: 0.78rem;
@@ -887,34 +915,46 @@ export default function ChatConversationPage() {
         .chat-input-bar {
           display: flex;
           gap: 0.7rem;
-          padding: 0.78rem;
+          padding: 0.72rem;
           align-items: center;
           background:
+            radial-gradient(circle at 8% 0%, rgba(224,64,251,0.14), transparent 36%),
             linear-gradient(145deg, rgba(32,18,68,0.94), rgba(15,8,33,0.98));
           border: 1px solid rgba(236,124,255,0.34);
-          border-radius: 26px;
-          box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255,255,255,0.08);
+          border-radius: 28px;
+          box-shadow: 0 18px 46px rgba(4,2,12,0.46), inset 0 1px 0 rgba(255,255,255,0.09);
           backdrop-filter: blur(18px);
         }
-        .composer-actions { display: flex; align-items: center; gap: 0.42rem; flex-shrink: 0; }
+        .composer-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.38rem;
+          flex-shrink: 0;
+          padding: 0.24rem;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+        }
         .input-shell {
           flex: 1;
           min-width: 0;
-          border-radius: 18px;
+          border-radius: 20px;
           padding: 1px;
-          background: linear-gradient(135deg, rgba(224,64,251,0.34), rgba(34,211,238,0.18));
+          background: linear-gradient(135deg, rgba(224,64,251,0.42), rgba(34,211,238,0.22));
+          box-shadow: 0 0 0 4px rgba(124,58,237,0.05);
         }
         .chat-input {
           width: 100%;
           min-width: 0;
-          height: 44px;
+          height: 46px;
           border: 0;
           outline: none;
           color: var(--text);
           background: rgba(15,8,33,0.92);
-          border-radius: 17px;
-          padding: 0 0.95rem;
+          border-radius: 19px;
+          padding: 0 1rem;
           font: inherit;
+          font-weight: 700;
         }
         .chat-input::placeholder { color: var(--text-dim); }
         .chat-input:disabled { opacity: 0.65; }
@@ -926,9 +966,9 @@ export default function ChatConversationPage() {
           gap: 0.45rem;
           flex-shrink: 0;
           min-width: 106px;
-          height: 44px;
+          height: 46px;
           border: 0;
-          border-radius: 17px;
+          border-radius: 18px;
           color: #fff;
           font-weight: 900;
           background: var(--grad-primary);
@@ -1060,6 +1100,8 @@ export default function ChatConversationPage() {
           .peer-avatar-wrap { width: 44px; height: 44px; }
           .header-actions { gap: 0.32rem; }
           .icon-action { width: 36px; height: 36px; border-radius: 13px; }
+          .header-actions .camera-action,
+          .header-actions .voice-action { display: none; }
           .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem; }
           .composer-actions { gap: 0.32rem; }
           .composer-btn { width: 36px; height: 36px; border-radius: 13px; }

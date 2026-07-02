@@ -106,6 +106,8 @@
     "chats": "chats",
     "active": "ativos",
     "withMessages": "com mensagens",
+    "lastMessageLabel": "Última mensagem",
+    "newThreadLabel": "Novo chat",
     "loadError": "Não foi possível carregar os chats",
     "conversationLoadError": "Não foi possível carregar a conversa",
     "sendError": "Não foi possível enviar a mensagem",

@@ -141,9 +141,9 @@ export default function ChatsPage() {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return chats;
     return chats.filter((chat) => {
-      const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
+      const other = chat.participants?.find((p) => String(p._id) !== String(chat.currentUserId)) || {};
       const displayName = getDisplayName(other).toLowerCase();
-      const lastMessage = getMessagePreview(chat.lastMessage, "").toLowerCase();
+      const lastMessage = String(getMessagePreview(chat.lastMessage, "")).toLowerCase();
       return displayName.includes(query) || lastMessage.includes(query);
     });
   }, [chats, searchTerm]);
@@ -277,7 +277,7 @@ export default function ChatsPage() {
                   <div className="chat-meta-row">
                     <span>{isOnline ? t("chatPremium.online") : t("chatPremium.privateChat")}</span>
                     <span className="meta-separator" />
-                    <span>{lastMsg ? t("chatPremium.withMessages") : t("chatPremium.defaultPreview")}</span>
+                    <span>{lastMsg ? t("chatPremium.lastMessageLabel") : t("chatPremium.newThreadLabel")}</span>
                   </div>
                 </div>
 

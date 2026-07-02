@@ -2093,13 +2093,8 @@ export default function FeedPage() {
           }
 
           .feed-action-btn {
-            --feed-action-btn-size: clamp(54px, 14.8vw, 66px);
+            --feed-action-btn-size: clamp(56px, 15vw, 68px);
             border-color: rgba(255, 255, 255, 0.24);
-          }
-
-          .feed-action-btn--pass,
-          .feed-action-btn--like {
-            --feed-action-btn-size: clamp(62px, 17vw, 76px);
           }
         }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import socket from "@/lib/socket";
+import socket, { configureSocketAuth } from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
 import SimulationPanel from "@/components/SimulationPanel";
 import { ROOM_CATEGORY_META } from "@/lib/roomCategories";
@@ -91,6 +91,7 @@ export default function SocialRoomPage() {
   useEffect(() => {
     if (!currentUser) return;
 
+    configureSocketAuth(getToken());
     if (!socket.connected) socket.connect();
 
     const joinedRef = { current: false };

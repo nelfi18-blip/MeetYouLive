@@ -25,7 +25,7 @@ import GiftOverlay from "@/components/GiftOverlay";
 import LiveEventFeed from "@/components/LiveEventFeed";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
-import socket from "@/lib/socket";
+import socket, { configureSocketAuth } from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -403,6 +403,7 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!id || !meLoaded) return;
 
+    configureSocketAuth(token);
     if (!socket.connected) socket.connect();
 
     const joinRoom = () => {

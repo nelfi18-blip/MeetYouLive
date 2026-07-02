@@ -1,5 +1,9 @@
 const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken");
 const Live = require("../models/Live.js");
+const Chat = require("../models/Chat.js");
+const Message = require("../models/Message.js");
+const User = require("../models/User.js");
 
 let io = null;
 
@@ -19,6 +23,110 @@ const liveHosts = new Map();
 
 // In-memory map of active live events: liveId (string) → { type, label, icon, expiresAt, timerId }
 const liveEvents = new Map();
+
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+
+const isObjectId = (value) => typeof value === "string" && OBJECT_ID_RE.test(value);
+
+const getUserRoom = (userId) => `user:${userId}`;
+
+const getHandshakeToken = (socket) => {
+  const authToken = socket.handshake.auth && socket.handshake.auth.token;
+  if (typeof authToken === "string" && authToken.trim()) return authToken.trim();
+
+  const header = socket.handshake.headers && socket.handshake.headers.authorization;
+  if (typeof header === "string" && header.startsWith("Bearer ")) {
+    return header.slice("Bearer ".length).trim();
+  }
+  return null;
+};
+
+const authenticateSocket = async (socket, next) => {
+  const token = getHandshakeToken(socket);
+  if (!token) return next();
+  if (!process.env.JWT_SECRET) return next(new Error("Socket auth unavailable"));
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded || !isObjectId(String(decoded.id))) return next(new Error("Invalid socket token"));
+
+    const user = await User.findById(decoded.id).select("isBlocked").lean();
+    if (!user || user.isBlocked) return next(new Error("Invalid socket token"));
+
+    socket._userId = String(decoded.id);
+    socket.data.userId = String(decoded.id);
+    User.updateOne({ _id: decoded.id }, { lastActiveAt: new Date() }).catch(() => {});
+    return next();
+  } catch (_) {
+    return next(new Error("Invalid socket token"));
+  }
+};
+
+const isChatParticipant = async (chatId, userId) => {
+  if (!isObjectId(chatId) || !isObjectId(userId)) return false;
+  const chat = await Chat.findOne({ _id: chatId, participants: userId }).select("_id").lean();
+  return !!chat;
+};
+
+const getParticipantIds = (chat) => (chat?.participants || []).map((id) => String(id));
+
+const joinPersonalRoom = (socket) => {
+  const userId = socket._userId;
+  if (!userId) return false;
+  socket.join(getUserRoom(userId));
+  // Keep the legacy raw userId room for existing notification/live/call emitters.
+  socket.join(userId);
+
+  const existing = onlineUsers.get(userId);
+  if (existing) {
+    existing.socketIds.add(socket.id);
+    existing.lastSeen = new Date();
+  } else {
+    onlineUsers.set(userId, { lastSeen: new Date(), socketIds: new Set([socket.id]) });
+    if (io) io.emit("USER_ONLINE", { userId });
+  }
+  return true;
+};
+
+const serializeMessage = (message) => {
+  if (!message) return null;
+  return typeof message.toObject === "function" ? message.toObject() : message;
+};
+
+const emitChatMessage = async ({ chatId, message, senderId, participants }) => {
+  if (!io || !chatId || !message) return;
+  let participantIds = Array.isArray(participants) ? participants.map((id) => String(id)) : [];
+  if (participantIds.length === 0) {
+    const chat = await Chat.findById(chatId).select("participants").lean();
+    if (!chat) return;
+    participantIds = getParticipantIds(chat);
+  }
+
+  const payload = {
+    chatId: String(chatId),
+    message: serializeMessage(message),
+    clientMessageId: message.clientMessageId || null,
+  };
+
+  io.to(`chat:${chatId}`).emit("message:new", payload);
+  for (const participantId of participantIds) {
+    const eventName = participantId === String(senderId) ? "message:sent" : "message:new";
+    io.to(getUserRoom(participantId)).emit(eventName, payload);
+  if (participantId === String(senderId)) continue;
+  io.to(getUserRoom(participantId)).emit("chat:unread_count_updated", {
+    chatId: String(chatId),
+    userId: participantId,
+    });
+  }
+};
+
+const getMessageForUser = async (messageId, userId) => {
+  if (!isObjectId(messageId) || !isObjectId(userId)) return null;
+  const message = await Message.findById(messageId).select("_id chat sender").lean();
+  if (!message) return null;
+  const allowed = await isChatParticipant(String(message.chat), userId);
+  return allowed ? message : null;
+};
 
 /** Get the current active event for a live, or null if none. */
 const getLiveEvent = (liveId) => {
@@ -205,23 +313,17 @@ const initSocket = (httpServer) => {
     }
   }, 2 * 60 * 1000); // Run every 2 minutes
 
-  io.on("connection", (socket) => {
-    // Allow authenticated clients to join their personal notification room
-    socket.on("join_user_room", (userId) => {
-      if (userId && typeof userId === "string" && /^[a-f0-9]{24}$/.test(userId)) {
-        socket.join(userId);
-        socket._userId = userId;
+  io.use(authenticateSocket);
 
-        const existing = onlineUsers.get(userId);
-        if (existing) {
-          // User already has other active sockets — just add this one
-          existing.socketIds.add(socket.id);
-          existing.lastSeen = new Date();
-        } else {
-          // First socket for this user — mark as online
-          onlineUsers.set(userId, { lastSeen: new Date(), socketIds: new Set([socket.id]) });
-          io.emit("USER_ONLINE", { userId });
-        }
+  io.on("connection", (socket) => {
+    if (socket._userId) joinPersonalRoom(socket);
+
+    // Allow authenticated clients to join their personal notification/presence room.
+    // The room is derived from the verified JWT, never from a client-supplied userId.
+    // Legacy compatibility: current clients auto-join on connection, but older clients may still emit this event.
+    socket.on("join_user_room", () => {
+      if (socket._userId && !socket.rooms.has(getUserRoom(socket._userId))) {
+        joinPersonalRoom(socket);
       }
     });
 
@@ -239,7 +341,7 @@ const initSocket = (httpServer) => {
 
     // ── Live Room presence ───────────────────────────────────────────────
     socket.on("join_live_room", ({ liveId, user }) => {
-      if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       const roomKey = `live:${liveId}`;
       socket.join(roomKey);
       socket._liveRoomId = liveId;
@@ -260,7 +362,7 @@ const initSocket = (httpServer) => {
 
     socket.on("live_host_active", async ({ liveId }) => {
       try {
-        if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+        if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
         if (!socket._userId) return;
 
         const live = await Live.findOne({ _id: liveId, user: socket._userId, isLive: true })
@@ -283,7 +385,7 @@ const initSocket = (httpServer) => {
     });
 
     socket.on("leave_live_room", ({ liveId }) => {
-      if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       const roomKey = `live:${liveId}`;
       socket.leave(roomKey);
       socket._liveRoomId = null;
@@ -300,7 +402,8 @@ const initSocket = (httpServer) => {
     });
 
     socket.on("live_chat_message", async ({ liveId, text, user }) => {
-      if (!liveId || typeof liveId !== "string" || !/^[a-f0-9]{24}$/.test(liveId)) return;
+      if (!socket._userId) return;
+      if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       if (!text || typeof text !== "string") return;
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;
@@ -319,7 +422,7 @@ const initSocket = (httpServer) => {
 
       const safeUser = {
         username: (user && typeof user.username === "string") ? user.username.slice(0, 100) : "Anónimo",
-        userId: (user && typeof user.userId === "string") ? user.userId : null,
+        userId: socket._userId || null,
         isVIP,
       };
 
@@ -333,9 +436,87 @@ const initSocket = (httpServer) => {
       });
     });
 
+    // ── Private Chat rooms and realtime contract ─────────────────────────
+    socket.on("chat:join", async ({ chatId } = {}, ack) => {
+      try {
+        if (!socket._userId || !isObjectId(chatId)) {
+          if (typeof ack === "function") ack({ ok: false, message: "No autorizado" });
+          return;
+        }
+        const allowed = await isChatParticipant(chatId, socket._userId);
+        if (!allowed) {
+          if (typeof ack === "function") ack({ ok: false, message: "Chat no encontrado" });
+          return;
+        }
+
+        socket.join(`chat:${chatId}`);
+        if (!socket._chatRoomIds) socket._chatRoomIds = new Set();
+        socket._chatRoomIds.add(chatId);
+        if (typeof ack === "function") ack({ ok: true, chatId });
+      } catch (err) {
+        console.error("[chat:join] Error:", err);
+        if (typeof ack === "function") ack({ ok: false, message: "Error al unir chat" });
+      }
+    });
+
+    socket.on("chat:leave", ({ chatId } = {}, ack) => {
+      if (!isObjectId(chatId)) {
+        if (typeof ack === "function") ack({ ok: false, message: "chatId inválido" });
+        return;
+      }
+      socket.leave(`chat:${chatId}`);
+      if (socket._chatRoomIds) socket._chatRoomIds.delete(chatId);
+      if (typeof ack === "function") ack({ ok: true, chatId });
+    });
+
+    const emitChatPresenceEvent = async (eventName, data = {}) => {
+      try {
+        const { chatId } = data;
+        if (!socket._userId || !isObjectId(chatId)) return;
+        if (!socket._chatRoomIds || !socket._chatRoomIds.has(chatId)) return;
+        socket.to(`chat:${chatId}`).emit(eventName, {
+          ...data,
+          chatId,
+          userId: socket._userId,
+          at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error(`[${eventName}] Error:`, err);
+      }
+    };
+
+    socket.on("typing:start", (data) => emitChatPresenceEvent("typing:start", data));
+    socket.on("typing:stop", (data) => emitChatPresenceEvent("typing:stop", data));
+
+    const emitMessageStatusEvent = async (eventName, data = {}) => {
+      try {
+        if (!socket._userId) return;
+        const message = await getMessageForUser(data.messageId || data._id, socket._userId);
+        if (!message) return;
+        const payload = {
+          ...data,
+          messageId: String(message._id),
+          chatId: String(message.chat),
+          userId: socket._userId,
+          at: new Date().toISOString(),
+        };
+        socket.to(`chat:${message.chat}`).emit(eventName, payload);
+        io.to(getUserRoom(socket._userId)).emit(eventName, payload);
+      } catch (err) {
+        console.error(`[${eventName}] Error:`, err);
+      }
+    };
+
+    socket.on("message:delivered", (data) => emitMessageStatusEvent("message:delivered", data));
+    socket.on("message:read", (data) => emitMessageStatusEvent("message:read", data));
+    socket.on("message:updated", (data) => emitMessageStatusEvent("message:updated", data));
+    socket.on("message:deleted", (data) => emitMessageStatusEvent("message:deleted", data));
+    socket.on("reaction:added", (data) => emitMessageStatusEvent("reaction:added", data));
+    socket.on("reaction:removed", (data) => emitMessageStatusEvent("reaction:removed", data));
+
     // ── Social Room presence ────────────────────────────────────────────
     socket.on("join_social_room", ({ roomId, user }) => {
-      if (!roomId || typeof roomId !== "string" || !/^[a-f0-9]{24}$/.test(roomId)) return;
+      if (!roomId || typeof roomId !== "string" || !OBJECT_ID_RE.test(roomId)) return;
       const roomKey = `social_room:${roomId}`;
       socket.join(roomKey);
       socket._socialRoomId = roomId;
@@ -447,4 +628,5 @@ module.exports = {
   setLiveEvent, 
   clearLiveEvent,
   clearAllEventsForLive,
+  emitChatMessage,
 };

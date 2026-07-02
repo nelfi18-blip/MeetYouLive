@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
@@ -48,6 +48,7 @@ export default function ChatsPage() {
   const [onlineUserIds, setOnlineUserIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const refreshTimerRef = useRef(null);
 
   const fetchChats = useCallback(({ silent = false } = {}) => {
     const token = localStorage.getItem("token");
@@ -107,13 +108,31 @@ export default function ChatsPage() {
       });
     };
 
+    const refreshChats = () => {
+      if (refreshTimerRef.current) return;
+      refreshTimerRef.current = setTimeout(() => {
+        refreshTimerRef.current = null;
+        fetchChats({ silent: true });
+      }, 1000);
+    };
+
     socket.on("USER_ONLINE", markOnline);
     socket.on("USER_OFFLINE", markOffline);
+    socket.on("message:new", refreshChats);
+    socket.on("message:sent", refreshChats);
+    socket.on("chat:unread_count_updated", refreshChats);
     return () => {
       socket.off("USER_ONLINE", markOnline);
       socket.off("USER_OFFLINE", markOffline);
+      socket.off("message:new", refreshChats);
+      socket.off("message:sent", refreshChats);
+      socket.off("chat:unread_count_updated", refreshChats);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [fetchChats]);
 
   const totalChats = chats.length;
   const chatsWithMessages = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);

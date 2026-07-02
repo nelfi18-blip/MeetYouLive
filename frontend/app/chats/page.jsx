@@ -294,9 +294,11 @@ export default function ChatsPage() {
 
       <style jsx>{`
         .chats-page {
+          --chat-page-gap: 1rem;
+          --chat-title-fluid: 4vw;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: var(--chat-page-gap);
           position: relative;
         }
 
@@ -345,7 +347,7 @@ export default function ChatsPage() {
 
         .page-title {
           margin-bottom: 0.25rem;
-          font-size: clamp(2rem, 4vw, 3.3rem);
+          font-size: clamp(2rem, var(--chat-title-fluid), 3.3rem);
           letter-spacing: -0.05em;
         }
         .page-subtitle { max-width: 620px; margin: 0; color: rgba(237,231,255,0.74); }

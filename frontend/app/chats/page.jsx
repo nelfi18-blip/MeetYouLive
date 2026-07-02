@@ -48,6 +48,7 @@ export default function ChatsPage() {
   const [onlineUserIds, setOnlineUserIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const refreshTimerRef = useRef(null);
 
   const fetchChats = useCallback(({ silent = false } = {}) => {
@@ -136,6 +137,16 @@ export default function ChatsPage() {
 
   const totalChats = chats.length;
   const chatsWithMessages = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);
+  const filteredChats = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return chats;
+    return chats.filter((chat) => {
+      const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
+      const displayName = getDisplayName(other).toLowerCase();
+      const lastMessage = getMessagePreview(chat.lastMessage, "").toLowerCase();
+      return displayName.includes(query) || lastMessage.includes(query);
+    });
+  }, [chats, searchTerm]);
 
   return (
     <div className="chats-page">
@@ -144,6 +155,11 @@ export default function ChatsPage() {
           <span className="eyebrow">{t("chatPremium.privateMessaging")}</span>
           <h1 className="page-title">{t("chatPremium.title")}</h1>
           <p className="page-subtitle">{t("chatPremium.subtitle")}</p>
+          <div className="hero-pills" aria-hidden="true">
+            <span>Premium UI</span>
+            <span>Realtime</span>
+            <span>Privado</span>
+          </div>
         </div>
         <div className="hero-stats" aria-label={t("chatPremium.summaryAria")}>
           <div>
@@ -154,6 +170,26 @@ export default function ChatsPage() {
             <strong>{chatsWithMessages}</strong>
             <span>{t("chatPremium.withMessages")}</span>
           </div>
+        </div>
+      </section>
+
+      <section className="chat-toolbar" aria-label="Buscar conversaciones">
+        <div className="search-shell">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar conversaciones..."
+            aria-label="Buscar conversaciones"
+          />
+        </div>
+        <div className="toolbar-badge" aria-hidden="true">
+          <span className="pulse-dot" />
+          {chatsWithMessages} {t("chatPremium.active")}
         </div>
       </section>
 
@@ -191,9 +227,23 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {!loading && chats.length > 0 && (
+      {!loading && chats.length > 0 && filteredChats.length === 0 && (
+        <div className="empty-state compact">
+          <div className="empty-orb">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </div>
+          <span className="empty-kicker">Sin resultados</span>
+          <h3>No encontramos esa conversación</h3>
+          <p>Prueba con otro nombre o con una palabra del último mensaje.</p>
+        </div>
+      )}
+
+      {!loading && filteredChats.length > 0 && (
         <div className="chats-list">
-          {chats.map((chat) => {
+          {filteredChats.map((chat) => {
             const other = chat.participants?.find((p) => p._id !== chat.currentUserId) || {};
             const displayName = getDisplayName(other);
             const initial = displayName[0].toUpperCase();
@@ -223,7 +273,11 @@ export default function ChatsPage() {
                   </div>
                   <div className="chat-preview-row">
                     <span className="chat-preview">{getMessagePreview(lastMsg, t("chatPremium.defaultPreview"))}</span>
-                    {isOnline && <span className="online-label">{t("chatPremium.online")}</span>}
+                  </div>
+                  <div className="chat-meta-row">
+                    <span>{isOnline ? t("chatPremium.online") : t("chatPremium.privateChat")}</span>
+                    <span className="meta-separator" />
+                    <span>{lastMsg ? t("chatPremium.withMessages") : t("chatPremium.defaultPreview")}</span>
                   </div>
                 </div>
 
@@ -242,7 +296,7 @@ export default function ChatsPage() {
         .chats-page {
           display: flex;
           flex-direction: column;
-          gap: 1.35rem;
+          gap: 1rem;
           position: relative;
         }
 
@@ -252,14 +306,15 @@ export default function ChatsPage() {
           display: flex;
           justify-content: space-between;
           gap: 1.25rem;
-          padding: 1.35rem;
+          padding: 1.45rem;
           border: 1px solid rgba(236,124,255,0.34);
-          border-radius: 28px;
+          border-radius: 32px;
           background:
-            radial-gradient(circle at 14% 18%, rgba(224,64,251,0.24), transparent 34%),
-            radial-gradient(circle at 86% 0%, rgba(34,211,238,0.18), transparent 35%),
+            radial-gradient(circle at 12% 16%, rgba(224,64,251,0.34), transparent 34%),
+            radial-gradient(circle at 88% 4%, rgba(34,211,238,0.24), transparent 36%),
+            radial-gradient(circle at 74% 86%, rgba(124,58,237,0.24), transparent 38%),
             linear-gradient(145deg, rgba(32,18,68,0.92), rgba(15,8,33,0.96));
-          box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255,255,255,0.08);
+          box-shadow: 0 22px 58px rgba(4,2,12,0.46), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
         .chat-hero::after {
@@ -288,8 +343,27 @@ export default function ChatsPage() {
           text-transform: uppercase;
         }
 
-        .page-title { margin-bottom: 0.25rem; }
-        .page-subtitle { max-width: 620px; margin: 0; }
+        .page-title {
+          margin-bottom: 0.25rem;
+          font-size: clamp(2rem, 4vw, 3.3rem);
+          letter-spacing: -0.05em;
+        }
+        .page-subtitle { max-width: 620px; margin: 0; color: rgba(237,231,255,0.74); }
+        .hero-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+          margin-top: 1rem;
+        }
+        .hero-pills span {
+          padding: 0.34rem 0.62rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.06);
+          color: rgba(255,255,255,0.78);
+          font-size: 0.72rem;
+          font-weight: 800;
+        }
 
         .hero-stats {
           position: relative;
@@ -307,29 +381,98 @@ export default function ChatsPage() {
           padding: 0.8rem;
           border-radius: 20px;
           border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.055);
+          background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035));
           backdrop-filter: blur(12px);
         }
         .hero-stats strong { color: #fff; font-size: 1.3rem; line-height: 1; }
         .hero-stats span { margin-top: 0.25rem; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 
-        .chats-list { display: flex; flex-direction: column; gap: 0.72rem; }
+        .chat-toolbar {
+          display: flex;
+          align-items: center;
+          gap: 0.8rem;
+          padding: 0.75rem;
+          border: 1px solid rgba(236,124,255,0.2);
+          border-radius: 24px;
+          background: rgba(15,8,32,0.58);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+          backdrop-filter: blur(16px);
+        }
+        .search-shell {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.62rem;
+          height: 48px;
+          padding: 0 0.9rem;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 18px;
+          color: var(--text-dim);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%),
+            rgba(7,4,18,0.58);
+          transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+        }
+        .search-shell:focus-within {
+          border-color: rgba(34,211,238,0.42);
+          box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 0 24px rgba(124,58,237,0.14);
+          background: rgba(10,5,26,0.78);
+        }
+        .search-shell input {
+          width: 100%;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: var(--text);
+          font: inherit;
+          font-weight: 700;
+        }
+        .search-shell input::placeholder { color: var(--text-dim); }
+        .toolbar-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.46rem;
+          flex-shrink: 0;
+          height: 48px;
+          padding: 0 0.9rem;
+          border: 1px solid rgba(52,211,153,0.18);
+          border-radius: 18px;
+          color: var(--accent-green);
+          background: rgba(52,211,153,0.08);
+          font-size: 0.76rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .pulse-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--accent-green);
+          box-shadow: 0 0 0 0 rgba(52,211,153,0.42);
+          animation: pulseDot 1.8s ease-out infinite;
+        }
+
+        .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }
 
         .chat-row {
           position: relative;
           display: flex;
           align-items: center;
-          gap: 0.95rem;
-          padding: 0.95rem;
+          gap: 1rem;
+          padding: 1rem;
           cursor: pointer;
           overflow: hidden;
           transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition), background var(--transition);
-          border: 1px solid rgba(236,124,255,0.22);
-          border-radius: 24px;
+          border: 1px solid rgba(236,124,255,0.2);
+          border-radius: 26px;
           background:
-            linear-gradient(135deg, rgba(255,255,255,0.06), transparent 38%),
-            rgba(15,8,32,0.76);
-          box-shadow: 0 14px 32px rgba(4,2,12,0.34), inset 0 1px 0 rgba(255,255,255,0.05);
+            radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 38%),
+            linear-gradient(135deg, rgba(255,255,255,0.07), transparent 40%),
+            rgba(15,8,32,0.82);
+          box-shadow: 0 14px 34px rgba(4,2,12,0.36), inset 0 1px 0 rgba(255,255,255,0.06);
         }
 
         .chat-row::before {
@@ -342,9 +485,9 @@ export default function ChatsPage() {
           pointer-events: none;
         }
         .chat-row:hover {
-          border-color: rgba(34,211,238,0.34);
+          border-color: rgba(34,211,238,0.38);
           background: rgba(22,12,45,0.92);
-          box-shadow: 0 18px 44px rgba(4,2,12,0.48), 0 0 22px rgba(124,58,237,0.18);
+          box-shadow: 0 20px 48px rgba(4,2,12,0.5), 0 0 26px rgba(124,58,237,0.2);
           transform: translateY(-2px);
         }
         .chat-row:hover::before { opacity: 1; }
@@ -358,7 +501,7 @@ export default function ChatsPage() {
           border-radius: 50%;
           padding: 2px;
           background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.35), rgba(34,211,238,0.55));
-          box-shadow: 0 0 0 4px rgba(224,64,251,0.06), 0 12px 28px rgba(0,0,0,0.32);
+          box-shadow: 0 0 0 5px rgba(224,64,251,0.055), 0 12px 28px rgba(0,0,0,0.34);
         }
         .avatar-ring[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.16); }
 
@@ -399,14 +542,14 @@ export default function ChatsPage() {
         .chat-info { position: relative; z-index: 1; flex: 1; min-width: 0; }
         .chat-topline { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
         .chat-name {
-          font-weight: 800;
+          font-weight: 900;
           color: var(--text);
-          font-size: 1rem;
+          font-size: 1.02rem;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .chat-preview-row { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.22rem; min-width: 0; }
+        .chat-preview-row { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.24rem; min-width: 0; }
         .chat-preview {
           color: var(--text-muted);
           font-size: 0.84rem;
@@ -415,22 +558,33 @@ export default function ChatsPage() {
           text-overflow: ellipsis;
           min-width: 0;
         }
-        .online-label {
-          flex-shrink: 0;
-          padding: 0.14rem 0.45rem;
-          border-radius: var(--radius-pill);
-          color: var(--accent-green);
-          background: rgba(52,211,153,0.1);
-          border: 1px solid rgba(52,211,153,0.18);
-          font-size: 0.64rem;
+        .chat-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          margin-top: 0.42rem;
+          color: var(--text-dim);
+          font-size: 0.68rem;
           font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .meta-separator {
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.18);
         }
 
         .chat-time {
           flex-shrink: 0;
-          color: var(--text-dim);
+          color: rgba(255,255,255,0.72);
           font-size: 0.72rem;
-          font-weight: 700;
+          font-weight: 900;
+          padding: 0.2rem 0.5rem;
+          border-radius: var(--radius-pill);
+          background: rgba(255,255,255,0.055);
+          border: 1px solid rgba(255,255,255,0.07);
         }
         .chat-arrow {
           position: relative;
@@ -468,6 +622,7 @@ export default function ChatsPage() {
             rgba(15,8,32,0.54);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
+        .empty-state.compact { padding: 3rem 2rem; }
         .empty-orb {
           width: 84px;
           height: 84px;
@@ -506,14 +661,22 @@ export default function ChatsPage() {
           0%, 68% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
         }
+        @keyframes pulseDot {
+          0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.42); }
+          70% { box-shadow: 0 0 0 9px rgba(52,211,153,0); }
+          100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+        }
 
         @media (max-width: 720px) {
           .chat-hero { flex-direction: column; border-radius: 24px; padding: 1.15rem; }
           .hero-stats { grid-template-columns: repeat(2, 1fr); }
+          .chat-toolbar { flex-direction: column; align-items: stretch; border-radius: 22px; }
+          .toolbar-badge { width: 100%; justify-content: center; height: 42px; }
           .chat-row { border-radius: 22px; padding: 0.85rem; gap: 0.8rem; }
           .avatar-ring { width: 52px; height: 52px; }
-          .online-label { display: none; }
           .chat-arrow { display: none; }
+          .chat-meta-row { display: none; }
+          .chat-time { padding: 0; border: 0; background: transparent; }
         }
       `}</style>
     </div>

@@ -22,6 +22,7 @@ export const PREMIUM_COMMUNICATION_RULES = Object.freeze({
 const CREATOR_ROLES = new Set(["creator", "subCreator"]);
 
 export function isCreatorCommunicationFlow(peer) {
+  if (!peer) return false;
   return CREATOR_ROLES.has(peer?.role);
 }
 

@@ -34,7 +34,7 @@ export default function PremiumCommunicationActions({
   }
 
   return (
-    <div className={className} aria-label={t("chatPremium.upcomingPremiumActionsAria")}>
+    <div className={className} aria-label={t("chatPremium.premiumCommunicationActionsAria")}>
       {availability.showSocialVoiceAction && (
         <button
           type="button"

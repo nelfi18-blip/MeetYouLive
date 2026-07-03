@@ -407,6 +407,7 @@ export default function ChatConversationPage() {
 
         <PremiumCommunicationActions
           isMatch={isMatch}
+          // otherUser can be null while chat metadata loads; the contract treats it as a non-creator social flow.
           peer={otherUser}
           className="header-actions"
           buttonClassName="icon-action muted"

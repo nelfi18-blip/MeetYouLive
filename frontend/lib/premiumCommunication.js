@@ -19,11 +19,11 @@ export const PREMIUM_COMMUNICATION_RULES = Object.freeze({
   externalContactSharingAllowed: false,
 });
 
-const CREATOR_ROLES = new Set(["creator", "subCreator"]);
+const CREATOR_ROLES = new Set(["creator"]);
 
 export function isCreatorCommunicationFlow(peer) {
   if (!peer) return false;
-  return CREATOR_ROLES.has(peer?.role);
+  return CREATOR_ROLES.has(peer.role);
 }
 
 export function getPremiumCommunicationAvailability({ isMatch = false, peer = null } = {}) {

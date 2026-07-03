@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
+import PremiumCommunicationActions from "@/components/PremiumCommunicationActions";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -404,27 +405,13 @@ export default function ChatConversationPage() {
           {!otherName && <span className="peer-name">{t("chatPremium.conversation")}</span>}
         </div>
 
-        <div className="header-actions" aria-label={t("chatPremium.upcomingPremiumActionsAria")}>
-          <button type="button" className="icon-action call-action muted" title={t("chatPremium.voiceCallSoon")} aria-label={t("chatPremium.voiceCallSoon")} disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.08 4.18 2 2 0 014.06 2h3a2 2 0 012 1.72c.12.9.33 1.78.63 2.63a2 2 0 01-.45 2.11L8 9.7a16 16 0 006.3 6.3l1.24-1.24a2 2 0 012.11-.45c.85.3 1.73.51 2.63.63A2 2 0 0122 16.92z"/></svg>
-          </button>
-          <button type="button" className="icon-action camera-action muted" title={t("chatPremium.cameraSoon")} aria-label={t("chatPremium.cameraSoon")} disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h3l2-3h8l2 3h3a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </button>
-          <button type="button" className="icon-action voice-action muted" title={t("chatPremium.voiceSoon")} aria-label={t("chatPremium.voiceSoon")} disabled>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          </button>
-          {/* Phase 2 keeps call controls visual-only until the next sprint enables them. */}
-          <button
-            type="button"
-            className="icon-action video video-action muted"
-            disabled
-            title={t("chatPremium.videoSoon")}
-            aria-label={t("chatPremium.videoSoon")}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          </button>
-        </div>
+        <PremiumCommunicationActions
+          isMatch={isMatch}
+          // otherUser can be null while chat metadata loads; the contract treats it as a non-creator social flow.
+          peer={otherUser}
+          className="header-actions"
+          buttonClassName="icon-action muted"
+        />
       </header>
 
       {callError && <div className="error-banner">{callError}</div>}

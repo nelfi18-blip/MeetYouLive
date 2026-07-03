@@ -1,3 +1,5 @@
+import { isApprovedCreator } from "@/lib/creatorUtils";
+
 export const PREMIUM_COMMUNICATION_PHASE = "phase_3_frontend_contract";
 
 export const PREMIUM_CALL_STATES = Object.freeze({
@@ -20,8 +22,7 @@ export const PREMIUM_COMMUNICATION_RULES = Object.freeze({
 });
 
 export function isCreatorCommunicationFlow(peer) {
-  if (!peer) return false;
-  return peer.role === "creator";
+  return isApprovedCreator(peer);
 }
 
 export function getPremiumCommunicationAvailability({ isMatch = false, peer = null } = {}) {

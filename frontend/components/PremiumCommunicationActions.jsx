@@ -22,7 +22,7 @@ function VideoIcon() {
 
 /**
  * Match-gated, disabled Phase 3 premium communication actions.
- * `peer` is the other chat participant; its `role` is used only to classify the future creator flow.
+ * `peer` is the other chat participant and can be null while chat metadata loads.
  */
 export default function PremiumCommunicationActions({
   isMatch,

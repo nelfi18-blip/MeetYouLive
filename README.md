@@ -10,6 +10,8 @@ MeetYouLive is a live streaming and social platform with:
 
 ## Architecture
 
+For the official product direction around user communication, retention, creator boundaries, and future communication phases, see [Product Communication and Retention Architecture](PRODUCT_COMMUNICATION_RETENTION_ARCHITECTURE.md).
+
 ### Frontend
 - Platform: Vercel
 - Directory: `frontend`

@@ -20,6 +20,10 @@ function VideoIcon() {
   );
 }
 
+/**
+ * Match-gated, disabled Phase 3 premium communication actions.
+ * `peer` is the other chat participant; its `role` is used only to classify the future creator flow.
+ */
 export default function PremiumCommunicationActions({
   isMatch,
   peer,

@@ -12,6 +12,9 @@ const STATE_LABEL_KEYS = {
   [PREMIUM_CALL_STATES.ENDED]: "chatPremium.premiumCallEndedElegant",
 };
 
+/**
+ * Displays a localized future call status for a value from PREMIUM_CALL_STATES.
+ */
 export function PremiumCallStatus({ state = PREMIUM_CALL_STATES.WAITING }) {
   const { t } = useLanguage();
   const labelKey = STATE_LABEL_KEYS[state] || STATE_LABEL_KEYS[PREMIUM_CALL_STATES.WAITING];
@@ -23,6 +26,10 @@ export function PremiumCallStatus({ state = PREMIUM_CALL_STATES.WAITING }) {
   );
 }
 
+/**
+ * Displays the elegant ended/permission/reconnect message for future call endings.
+ * Supported reasons today: "permission_denied" and "reconnecting"; all others use the generic ended copy.
+ */
 export function PremiumCallEndedMessage({ reason }) {
   const { t } = useLanguage();
 
@@ -33,6 +40,9 @@ export function PremiumCallEndedMessage({ reason }) {
   );
 }
 
+/**
+ * Renders children only when media permissions are allowed; otherwise shows the localized permission message.
+ */
 export function MediaPermissionGuard({ allowed = true, children }) {
   const { t } = useLanguage();
 

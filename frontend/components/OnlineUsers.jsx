@@ -12,6 +12,7 @@ function getInitial(user) {
 
 function UserCard({ user, onChat, onCall, chatLoading }) {
   const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
+  const canSocialCall = Boolean(user.isMatch || user.match || user.matched);
 
   return (
     <div className="online-card">
@@ -38,13 +39,15 @@ function UserCard({ user, onChat, onCall, chatLoading }) {
         >
           💬 <span>Hablar</span>
         </button>
-        <button
-          className="online-btn online-btn-call"
-          onClick={() => onCall(user)}
-          title="Llamar ahora"
-        >
-          📞
-        </button>
+        {canSocialCall && (
+          <button
+            className="online-btn online-btn-call"
+            onClick={() => onCall(user)}
+            title="Llamar ahora"
+          >
+            📞
+          </button>
+        )}
       </div>
 
       <style jsx>{`
@@ -260,20 +263,21 @@ export default function OnlineUsers() {
   const handleCall = useCallback(async (user) => {
     const token = getToken();
     if (!token) return;
-    // Check if user has coins before initiating call
     try {
-      const r = await fetch(`${API_URL}/api/user/coins`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const r = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: user._id, type: "social" }),
       });
-      if (r.ok) {
-        const data = await r.json();
-        if ((data.coins ?? 0) <= 0) {
-          setCoinsModal(true);
-          return;
-        }
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data._id) {
+        router.push(`/call/${data._id}`);
+        return;
       }
-    } catch {}
-    router.push(`/call/${user._id}`);
+      setCoinsModal(true);
+    } catch {
+      setCoinsModal(true);
+    }
   }, [router]);
 
   if (!loading && users.length === 0) return null;

@@ -26,8 +26,6 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const image = getUserImage(user);
   const isCreator = user?.role === "creator" || user?.role === "subCreator";
   const isLive = isCreator && user?.isLive && user?.liveId;
-  const privateCallEnabled = isCreator && user?.creatorProfile?.privateCallEnabled;
-  const pricePerMinute = user?.creatorProfile?.pricePerMinute ?? 0;
 
   useEffect(() => {
     // Generate sparkle particles for animation
@@ -67,7 +65,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
     }
   };
 
-  const startPrivateCall = async () => {
+  const startSocialCall = async () => {
     const token = localStorage.getItem("token");
     if (!token) { router.push("/login"); return; }
     setCallLoading(true);
@@ -76,7 +74,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ recipientId: user._id, type: "paid_creator" }),
+        body: JSON.stringify({ recipientId: user._id, type: "social" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -160,12 +158,10 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
             </Link>
           )}
 
-          {privateCallEnabled && (
-            <button className="cta-btn cta-call" onClick={startPrivateCall} disabled={callLoading}>
+          <button className="cta-btn cta-call" onClick={startSocialCall} disabled={callLoading}>
               <span className="cta-icon">📞</span>
-              {callLoading ? "Conectando…" : `Llamada privada · 🪙${pricePerMinute}/min`}
-            </button>
-          )}
+              {callLoading ? "Conectando…" : "Videollamada con tu match"}
+          </button>
 
           {isLive && (
             <Link href={`/live/${user.liveId}`} className="cta-btn cta-live" onClick={onClose}>

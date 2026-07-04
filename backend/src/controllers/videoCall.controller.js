@@ -1,9 +1,16 @@
 const VideoCall = require("../models/VideoCall.js");
-const Like = require("../models/Like.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
+const {
+  CALL_TYPES,
+  normalizeCallType,
+  assertSocialCallAllowed,
+  assertPaidCreatorCallAllowed,
+  isPendingCallExpired,
+  PENDING_CALL_TIMEOUT_MS,
+} = require("../services/callRules.service.js");
 const { getIO } = require("../lib/socket.js");
 
 // Helper: refund coins to caller for a paid call
@@ -11,6 +18,33 @@ const refundPaidCall = async (callerId, coins) => {
   if (coins > 0) {
     await User.findByIdAndUpdate(callerId, { $inc: { coins } });
   }
+};
+
+const emitCallEvent = (call, event, payload = {}) => {
+  const io = getIO();
+  if (!io || !call) return;
+  const callerId = String(call.caller?._id || call.caller || "");
+  const recipientId = String(call.recipient?._id || call.recipient || "");
+  const data = {
+    callId: String(call._id),
+    status: call.status,
+    type: call.type,
+    ...payload,
+  };
+  if (callerId) io.to(callerId).emit(event, data);
+  if (recipientId && recipientId !== callerId) io.to(recipientId).emit(event, data);
+};
+
+const markPendingCallMissed = async (call, reason = "timeout") => {
+  if (!call || call.status !== "pending") return call;
+  if (call.type === CALL_TYPES.PAID_CREATOR) {
+    await refundPaidCall(call.caller, call.callCoins);
+  }
+  call.status = "missed";
+  call.endedAt = new Date();
+  await call.save();
+  emitCallEvent(call, "CALL_MISSED", { reason });
+  return call;
 };
 
 // POST /api/calls — create call invite
@@ -24,35 +58,21 @@ const inviteCall = async (req, res) => {
     return res.status(400).json({ message: "No puedes llamarte a ti mismo" });
   }
 
-  const callType = type === "paid_creator" ? "paid_creator" : "social";
-  let coins = callType === "paid_creator" ? Math.max(0, parseInt(callCoins) || 0) : 0;
+  const callType = normalizeCallType(type);
+  let coins = callType === CALL_TYPES.PAID_CREATOR ? Math.max(0, parseInt(callCoins) || 0) : 0;
   let creatorPricePerMinute = 0;
 
   try {
     // For social calls: require mutual match
-    if (callType === "social") {
-      const iLiked = await Like.findOne({ from: req.userId, to: recipientId });
-      const theyLiked = await Like.findOne({ from: recipientId, to: req.userId });
-      if (!iLiked || !theyLiked) {
-        return res.status(403).json({ message: "Solo puedes llamar a tus matches" });
-      }
+    if (callType === CALL_TYPES.SOCIAL) {
+      await assertSocialCallAllowed(req.userId, recipientId);
     }
 
     // For paid creator calls: recipient must be a creator with private calls enabled
-    if (callType === "paid_creator") {
-      const creator = await User.findOne({ _id: recipientId, creatorStatus: "approved" }).where("role").in(["creator", "subCreator"]);
-      if (!creator) {
-        return res.status(403).json({ message: "El usuario no es un creador aprobado" });
-      }
-      if (!creator.creatorProfile?.privateCallEnabled) {
-        return res.status(403).json({ message: "Este creador no tiene habilitadas las llamadas privadas" });
-      }
-
+    if (callType === CALL_TYPES.PAID_CREATOR) {
       // Enforce callCoins = pricePerMinute (caller cannot set an arbitrary amount)
-      creatorPricePerMinute = creator.creatorProfile.pricePerMinute || 0;
-      if (creatorPricePerMinute < 1) {
-        return res.status(403).json({ message: "Este creador no ha configurado un precio por minuto" });
-      }
+      const { pricePerMinute } = await assertPaidCreatorCallAllowed(recipientId);
+      creatorPricePerMinute = pricePerMinute;
       coins = creatorPricePerMinute;
       // Deduct coins atomically using a conditional update
       const updated = await User.findOneAndUpdate(
@@ -84,7 +104,7 @@ const inviteCall = async (req, res) => {
     });
 
     for (const pending of pendingCalls) {
-      if (pending.type === "paid_creator") {
+      if (pending.type === CALL_TYPES.PAID_CREATOR) {
         await refundPaidCall(pending.caller, pending.callCoins);
       }
     }
@@ -114,18 +134,29 @@ const inviteCall = async (req, res) => {
         callId: String(call._id),
         callerId: String(req.userId),
         callerName,
+        type: call.type,
+        callCoins: call.callCoins,
       });
     }
 
     res.status(201).json(populated);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.statusCode || 500).json({ message: err.message });
   }
 };
 
 // GET /api/calls/incoming — pending calls for current user
 const getIncoming = async (req, res) => {
   try {
+    const stalePending = await VideoCall.find({
+      recipient: req.userId,
+      status: "pending",
+      createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
+    });
+    for (const pending of stalePending) {
+      await markPendingCallMissed(pending);
+    }
+
     const call = await VideoCall.findOne({
       recipient: req.userId,
       status: "pending",
@@ -147,6 +178,10 @@ const getCallById = async (req, res) => {
       .populate("recipient", "username name avatar");
 
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
+
+    if (isPendingCallExpired(call)) {
+      await markPendingCallMissed(call);
+    }
 
     const isParticipant =
       String(call.caller._id) === String(req.userId) ||
@@ -173,6 +208,10 @@ const respondCall = async (req, res) => {
     const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
+    if (isPendingCallExpired(call)) {
+      await markPendingCallMissed(call);
+    }
+
     if (String(call.recipient) !== String(req.userId)) {
       return res.status(403).json({ message: "Solo el destinatario puede responder" });
     }
@@ -188,7 +227,7 @@ const respondCall = async (req, res) => {
       }
 
       // Credit creator for paid calls — platform takes 40% first, remaining 60% split
-      if (call.type === "paid_creator" && call.callCoins > 0) {
+      if (call.type === CALL_TYPES.PAID_CREATOR && call.callCoins > 0) {
         // Look up the canonical AgencyRelationship for the percentage at this moment.
         // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
         // matching the same safety rule enforced in gift.controller.js.
@@ -249,7 +288,7 @@ const respondCall = async (req, res) => {
     } else {
       call.status = "rejected";
       // Refund caller coins if paid call is rejected
-      if (call.type === "paid_creator") {
+      if (call.type === CALL_TYPES.PAID_CREATOR) {
         await refundPaidCall(call.caller, call.callCoins);
       }
     }
@@ -260,6 +299,7 @@ const respondCall = async (req, res) => {
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
 
+    emitCallEvent(populated, action === "accept" ? "CALL_ACCEPTED" : "CALL_REJECTED");
     res.json(populated);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -281,11 +321,11 @@ const endCall = async (req, res) => {
     }
 
     if (!["pending", "accepted"].includes(call.status)) {
-      return res.status(400).json({ message: "La llamada ya está finalizada" });
+      return res.json(call);
     }
 
     // Refund coins if paid call ended before fully accepted (caller hangs up while pending)
-    if (call.status === "pending" && call.type === "paid_creator") {
+    if (call.status === "pending" && call.type === CALL_TYPES.PAID_CREATOR) {
       await refundPaidCall(call.caller, call.callCoins);
     }
 
@@ -296,13 +336,16 @@ const endCall = async (req, res) => {
     }
     await call.save();
 
+    emitCallEvent(call, "CALL_ENDED", { reason: req.body?.reason || "hangup" });
     res.json(call);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// PUT /api/calls/:id/offer — caller submits WebRTC SDP offer
+// LEGACY/INACTIVE: WebRTC SDP signaling is retained for old clients only.
+// Active call rooms use Agora tokens with the VideoCall _id as channelName.
+// PUT /api/calls/:id/offer — caller submits legacy WebRTC SDP offer
 const submitOffer = async (req, res) => {
   const { offerSdp } = req.body;
   if (!offerSdp) return res.status(400).json({ message: "offerSdp es requerido" });
@@ -327,7 +370,8 @@ const submitOffer = async (req, res) => {
   }
 };
 
-// PUT /api/calls/:id/answer — callee submits WebRTC SDP answer
+// LEGACY/INACTIVE: WebRTC SDP signaling is retained for old clients only.
+// PUT /api/calls/:id/answer — callee submits legacy WebRTC SDP answer
 const submitAnswer = async (req, res) => {
   const { answerSdp } = req.body;
   if (!answerSdp) return res.status(400).json({ message: "answerSdp es requerido" });
@@ -352,7 +396,8 @@ const submitAnswer = async (req, res) => {
   }
 };
 
-// POST /api/calls/:id/candidates — submit ICE candidates
+// LEGACY/INACTIVE: WebRTC ICE candidate storage is retained for old clients only.
+// POST /api/calls/:id/candidates — submit legacy ICE candidates
 const addCandidates = async (req, res) => {
   const { candidates } = req.body; // array of ICE candidate objects
   if (!Array.isArray(candidates) || candidates.length === 0) {
@@ -385,7 +430,8 @@ const addCandidates = async (req, res) => {
   }
 };
 
-// GET /api/calls/:id/candidates — get ICE candidates from the remote peer
+// LEGACY/INACTIVE: WebRTC ICE candidate storage is retained for old clients only.
+// GET /api/calls/:id/candidates — get legacy ICE candidates from the remote peer
 const getCandidates = async (req, res) => {
   try {
     const call = await VideoCall.findById(req.params.id).select(
@@ -426,7 +472,7 @@ const tickCall = async (req, res) => {
       return res.status(400).json({ message: "La llamada no está activa" });
     }
 
-    if (call.type !== "paid_creator" || call.callCoins <= 0) {
+    if (call.type !== CALL_TYPES.PAID_CREATOR || call.callCoins <= 0) {
       return res.status(400).json({ message: "Esta llamada no es de pago" });
     }
 
@@ -459,6 +505,7 @@ const tickCall = async (req, res) => {
         call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
       }
       await call.save();
+      emitCallEvent(call, "CALL_ENDED", { reason: "insufficient_coins" });
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
 

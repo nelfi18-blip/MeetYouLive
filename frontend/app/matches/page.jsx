@@ -177,14 +177,14 @@ export default function MatchesPage() {
     }
   };
 
-  const startPrivateCall = async (userId) => {
+  const startCall = async (user, type = "social") => {
     const token = localStorage.getItem("token");
     setCallError("");
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ recipientId: userId, type: "paid_creator" }),
+        body: JSON.stringify({ recipientId: user._id, type }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -423,7 +423,7 @@ export default function MatchesPage() {
                   {privateCallEnabled ? (
                     <button
                       className="match-action-btn match-call-btn"
-                      onClick={() => startPrivateCall(user._id)}
+                      onClick={() => startCall(user, "paid_creator")}
                       title={`Llamada privada · 🪙${pricePerMinute}/min`}
                     >
                       <CallIcon /> ⚡ Llamar ahora · 🪙{pricePerMinute}/min
@@ -431,7 +431,7 @@ export default function MatchesPage() {
                   ) : (
                     <button
                       className="match-action-btn match-call-btn match-call-instant"
-                      onClick={() => startPrivateCall(user._id)}
+                      onClick={() => startCall(user, "social")}
                     >
                       <CallIcon /> ⚡ Llamar ahora
                     </button>

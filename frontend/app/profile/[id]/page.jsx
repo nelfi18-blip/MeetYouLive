@@ -12,14 +12,10 @@ import {
 import { getToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isPaidCreatorCallCandidate } from "@/lib/callRules";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const PAID_CREATOR_ROLES = new Set(["creator", "subCreator"]);
 const MAX_DISPLAYED_INTERESTS = 8;
-
-function isPaidCreatorCallProfile(profile) {
-  return PAID_CREATOR_ROLES.has(profile?.role);
-}
 
 function getSafeText(value) {
   if (typeof value === "string") return value.trim();
@@ -172,8 +168,9 @@ export default function PublicProfilePage() {
   const interests = getSafeArray(profile?.interests);
   const metadata = [profile?.location, age, gender].filter(Boolean);
   const isLive = profile?.isLive && profile?.liveId;
+  const paidCreatorCall = isPaidCreatorCallCandidate(profile);
   const canChat = matchAccess.checked && matchAccess.match;
-  const canVideo = isLive || (matchAccess.checked && matchAccess.match);
+  const canVideo = isLive || paidCreatorCall || (matchAccess.checked && matchAccess.match);
 
   useEffect(() => {
     const token = getToken();
@@ -289,7 +286,7 @@ export default function PublicProfilePage() {
         },
         body: JSON.stringify({
           recipientId: profileId,
-          type: isPaidCreatorCallProfile(profile) ? "paid_creator" : "social",
+          type: paidCreatorCall ? "paid_creator" : "social",
         }),
         cache: "no-store",
       });

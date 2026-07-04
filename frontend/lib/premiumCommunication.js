@@ -1,4 +1,4 @@
-import { isApprovedCreator } from "@/lib/creatorUtils";
+import { getCallFlowForPeer } from "@/lib/callRules";
 
 export const PREMIUM_COMMUNICATION_PHASE = "phase_3_frontend_contract";
 
@@ -22,24 +22,26 @@ export const PREMIUM_COMMUNICATION_RULES = Object.freeze({
 });
 
 export function isCreatorCommunicationFlow(peer) {
-  return isApprovedCreator(peer);
+  return getCallFlowForPeer({ peer }).flow === "paid_creator";
 }
 
 export function getPremiumCommunicationAvailability({ isMatch = false, peer = null } = {}) {
-  const creatorFlow = isCreatorCommunicationFlow(peer);
+  const callFlow = getCallFlowForPeer({ peer, isMatch });
+  const creatorFlow = callFlow.flow === "paid_creator";
   const matchReady = Boolean(isMatch);
 
   return {
     phase: PREMIUM_COMMUNICATION_PHASE,
     flow: creatorFlow ? "creator_independent" : "social_match",
+    callType: callFlow.type,
     creatorFlow,
     matchReady,
     requiresMatch: !creatorFlow,
-    showSocialVoiceAction: matchReady,
-    showSocialVideoAction: matchReady,
-    voiceActionEnabled: false,
-    videoActionEnabled: false,
-    reason: matchReady ? "future_phase_ready" : "match_required",
+    showSocialVoiceAction: !creatorFlow && matchReady,
+    showSocialVideoAction: !creatorFlow && matchReady,
+    voiceActionEnabled: !creatorFlow && matchReady,
+    videoActionEnabled: !creatorFlow && matchReady,
+    reason: callFlow.canStart ? "ready" : "match_required",
   };
 }
 

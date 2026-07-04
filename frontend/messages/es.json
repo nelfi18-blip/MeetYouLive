@@ -142,6 +142,7 @@
     "premiumCallReconnecting": "Reconectando la sesión…",
     "premiumCallEndedElegant": "La sesión terminó. Puedes seguir conversando en MeetYouLive.",
     "premiumCallPermissionDenied": "Activa los permisos de cámara y micrófono para continuar dentro de MeetYouLive.",
+    "startVoiceCall": "Iniciar llamada de voz",
     "startVideoCall": "Iniciar videollamada",
     "privateCreatorCall": "Llamada privada con creador",
     "videoCall": "Videollamada",

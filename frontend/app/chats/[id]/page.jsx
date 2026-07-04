@@ -338,7 +338,7 @@ export default function ChatConversationPage() {
     }
   };
 
-  const handleVideoCall = async (type = "social", callCoins = 0) => {
+  const handleVideoCall = async () => {
     if (!otherUser?._id || callLoading) return;
     setCallLoading(true);
     setCallError("");
@@ -350,7 +350,7 @@ export default function ChatConversationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ recipientId: otherUser._id, type, callCoins }),
+        body: JSON.stringify({ recipientId: otherUser._id, type: "social" }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -367,8 +367,6 @@ export default function ChatConversationPage() {
   };
 
   const isCreator = otherUser?.role === "creator";
-  // Show video call button if: matched users (social call) OR talking to a creator (paid call)
-  const canVideoCall = isMatch || isCreator;
   const getDeliveryLabel = (msg, isLatestMine) => {
     if (msg.readAt || msg.readBy?.length) return t("chatPremium.read");
     return isLatestMine ? t("chatPremium.delivered") : t("chatPremium.sent");
@@ -409,6 +407,7 @@ export default function ChatConversationPage() {
           isMatch={isMatch}
           // otherUser can be null while chat metadata loads; the contract treats it as a non-creator social flow.
           peer={otherUser}
+          onStartCall={handleVideoCall}
           className="header-actions"
           buttonClassName="icon-action muted"
         />

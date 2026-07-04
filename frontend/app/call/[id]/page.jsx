@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import socket from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
@@ -15,6 +16,7 @@ const RECONNECT_GRACE_MS = 15000;
 export default function CallPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [call, setCall] = useState(null);
   const [error, setError] = useState("");
@@ -247,10 +249,10 @@ export default function CallPage() {
       if (String(data?.callId) === String(id)) finish("rejected");
     };
     const handleEnded = (data) => {
-      if (String(data?.callId) === String(id)) finish("ended", "La llamada ha finalizado.");
+      if (String(data?.callId) === String(id)) finish("ended", t("chatPremium.callEnded"));
     };
     const handleMissed = (data) => {
-      if (String(data?.callId) === String(id)) finish("missed", "La llamada no fue contestada a tiempo.");
+      if (String(data?.callId) === String(id)) finish("missed", t("chatPremium.callMissed"));
     };
 
     socket.on("CALL_REJECTED", handleRejected);
@@ -261,7 +263,7 @@ export default function CallPage() {
       socket.off("CALL_ENDED", handleEnded);
       socket.off("CALL_MISSED", handleMissed);
     };
-  }, [cleanupAgora, id]);
+  }, [cleanupAgora, id, t]);
 
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
@@ -308,7 +310,7 @@ export default function CallPage() {
             await cleanupAgora();
             clearInterval(tickRef.current);
             clearInterval(durationRef.current);
-            setCoinsWarning("La otra persona se desconectó. La llamada terminó automáticamente.");
+            setCoinsWarning(t("chatPremium.callDisconnectedEnded"));
             setStatus("ended");
           }, RECONNECT_GRACE_MS);
         });

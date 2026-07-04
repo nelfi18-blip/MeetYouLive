@@ -26,7 +26,3 @@ export function getCallFlowForPeer({ peer, isMatch = false } = {}) {
     canStart: Boolean(isMatch),
   };
 }
-
-export function canStartSocialCall(isMatch) {
-  return Boolean(isMatch);
-}

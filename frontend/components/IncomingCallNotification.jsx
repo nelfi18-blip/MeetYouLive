@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import socket from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL = 2500; // poll every 2.5 seconds
 
 export default function IncomingCallNotification() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [call, setCall] = useState(null);
   const [responding, setResponding] = useState(false);
   const [message, setMessage] = useState("");
@@ -61,9 +63,9 @@ export default function IncomingCallNotification() {
     };
 
     const handleIncoming = (data) => fetchCallById(data?.callId);
-    const handleEnded = (data) => clearIfCurrent(data, "La llamada ya no está disponible.");
-    const handleRejected = (data) => clearIfCurrent(data, "La llamada fue rechazada.");
-    const handleMissed = (data) => clearIfCurrent(data, "La llamada no fue contestada a tiempo.");
+    const handleEnded = (data) => clearIfCurrent(data, t("chatPremium.callUnavailable"));
+    const handleRejected = (data) => clearIfCurrent(data, t("chatPremium.callRejected"));
+    const handleMissed = (data) => clearIfCurrent(data, t("chatPremium.callMissed"));
 
     fetchIncoming();
     intervalRef.current = setInterval(fetchIncoming, POLL_INTERVAL);
@@ -78,7 +80,7 @@ export default function IncomingCallNotification() {
       socket.off("CALL_REJECTED", handleRejected);
       socket.off("CALL_MISSED", handleMissed);
     };
-  }, []);
+  }, [t]);
 
   const respond = async (action) => {
     if (!call || responding) return;
@@ -94,18 +96,18 @@ export default function IncomingCallNotification() {
         body: JSON.stringify({ action }),
       });
       if (res.ok && action === "accept") {
-        setMessage("Llamada aceptada. Abriendo sala…");
+        setMessage(t("chatPremium.callAcceptedOpening"));
         router.push(`/call/${call._id}`);
       } else if (res.ok) {
-        setMessage("Llamada rechazada.");
+        setMessage(t("chatPremium.callRejected"));
       } else {
         const data = await res.json().catch(() => ({}));
-        setMessage(data.message || "La llamada ya no está disponible.");
+        setMessage(data.message || t("chatPremium.callUnavailable"));
       }
       setCall(null);
     } catch {
       setCall(null);
-      setMessage("No se pudo responder la llamada.");
+      setMessage(t("chatPremium.callRespondError"));
     } finally {
       setResponding(false);
     }
@@ -117,7 +119,7 @@ export default function IncomingCallNotification() {
     return (
       <div className="incoming-call-overlay">
         <div className="incoming-call-card incoming-call-state">
-          <p className="incoming-call-label">Estado de llamada</p>
+          <p className="incoming-call-label">{t("chatPremium.callStatus")}</p>
           <p className="incoming-call-name">{message}</p>
         </div>
         <style jsx>{`

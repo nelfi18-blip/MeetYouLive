@@ -193,6 +193,7 @@ export default function OnlineUsers() {
   const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(null);
   const [coinsModal, setCoinsModal] = useState(false);
+  const [callError, setCallError] = useState("");
   const userIdsRef = useRef(new Set());
 
   const getToken = () =>
@@ -274,9 +275,13 @@ export default function OnlineUsers() {
         router.push(`/call/${data._id}`);
         return;
       }
-      setCoinsModal(true);
+      if (r.status === 402) {
+        setCoinsModal(true);
+      } else {
+        setCallError(data.message || "No se pudo iniciar la llamada.");
+      }
     } catch {
-      setCoinsModal(true);
+      setCallError("Error de conexión al iniciar la llamada.");
     }
   }, [router]);
 
@@ -289,6 +294,7 @@ export default function OnlineUsers() {
         <h2 className="online-title">🔥 Personas conectadas ahora</h2>
         {!loading && <span className="online-count">{users.length}</span>}
       </div>
+      {callError && <p className="online-call-error">{callError}</p>}
 
       {loading ? (
         <div className="online-scroll">
@@ -368,6 +374,12 @@ export default function OnlineUsers() {
           color: #22c55e;
           border-radius: 999px;
           padding: 2px 10px;
+        }
+        .online-call-error {
+          margin: 0;
+          color: #f87171;
+          font-size: 0.82rem;
+          font-weight: 600;
         }
 
         .online-scroll {

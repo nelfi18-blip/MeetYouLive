@@ -796,8 +796,8 @@ export default function OnboardingPage() {
                 </button>
               </div>
               <p className="ob-legal-hint">
-                Gratis para siempre · Sin tarjeta de crédito ·
-                {" "}<Link href="/legal">Políticas legales</Link>
+                {t("legal.onboardingNotice")}{" "}
+                <Link href="/legal">{t("legal.backToLegal")}</Link>
               </p>
             </div>
           )}

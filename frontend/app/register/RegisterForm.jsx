@@ -7,11 +7,13 @@ import Link from "next/link";
 import { signUp } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { status } = useSession();
+  const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -210,10 +212,11 @@ export default function RegisterForm() {
             ) : "Crear cuenta"}
           </button>
           <p className="legal-notice">
-            Al crear una cuenta aceptas nuestros <Link href="/terms">Términos</Link>,
-            {" "}<Link href="/privacy">Privacidad</Link>,
-            {" "}<Link href="/community-guidelines">Normas de la Comunidad</Link> y
-            {" "}<Link href="/payments-refunds">Pagos</Link>.
+            {t("legal.registrationNotice")}{" "}
+            <Link href="/terms">{t("legal.policies.terms.shortTitle")}</Link>
+            {" · "}<Link href="/privacy">{t("legal.policies.privacy.shortTitle")}</Link>
+            {" · "}<Link href="/community-guidelines">{t("legal.policies.communityGuidelines.shortTitle")}</Link>
+            {" · "}<Link href="/payments-refunds">{t("legal.policies.paymentsRefunds.shortTitle")}</Link>
           </p>
         </form>
 

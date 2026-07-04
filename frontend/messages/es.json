@@ -497,7 +497,7 @@
             "heading": "6. Uso aceptable y moderación",
             "body": [
               "Debes cumplir la Política de Uso Aceptable, las Normas de la Comunidad y la Política de Seguridad y Moderación. Podemos retirar contenido, limitar visibilidad, cancelar directos, bloquear chats, suspender pagos, suspender cuentas o terminar el acceso cuando sea necesario.",
-              "Las decisiones pueden basarse en reportes, revisión humana, señales técnicas, patrones de fraude o requisitos legales, de Stripe, Apple App Store o Google Play."
+              "Las decisiones pueden basarse en reportes, revisión humana, señales técnicas, patrones de fraude o requisitos legales y de Stripe."
             ]
           },
           {
@@ -531,7 +531,7 @@
             "heading": "2. Datos que recopilamos",
             "body": [
               "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada, fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
-              "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect, Apple, Google u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
+              "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
             ]
           },
           {
@@ -708,13 +708,13 @@
       "paymentsRefunds": {
         "shortTitle": "Pagos",
         "title": "Política de Pagos y Reembolsos",
-        "description": "Pagos, coins, regalos, suscripciones, Stripe, Stripe Connect, compras in-app, payouts y reembolsos.",
+        "description": "Pagos, coins, regalos, suscripciones, Stripe, Stripe Connect, compras, payouts y reembolsos.",
         "lastUpdated": "4 de julio de 2026",
         "sections": [
           {
             "heading": "1. Procesamiento de pagos",
             "body": [
-              "Las compras pueden procesarse mediante Stripe, Stripe Connect, Apple App Store, Google Play u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo."
+              "Las compras pueden procesarse mediante Stripe, Stripe Connect u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo."
             ]
           },
           {
@@ -724,9 +724,9 @@
             ]
           },
           {
-            "heading": "3. Suscripciones y compras in-app",
+            "heading": "3. Suscripciones y compras",
             "body": [
-              "Las suscripciones se renuevan según las condiciones mostradas al comprar. Si compras mediante Apple o Google, la cancelación y reembolso pueden gestionarse directamente con la tienda correspondiente."
+              "Las suscripciones se renuevan según las condiciones mostradas al comprar. La cancelación y las solicitudes de reembolso se gestionan mediante los flujos de cuenta de MeetYouLive, soporte o el proveedor de pago cuando corresponda."
             ]
           },
           {
@@ -832,7 +832,7 @@
           {
             "heading": "6. Transparencia",
             "body": [
-              "Podemos actualizar reglas, automatizaciones y criterios de revisión para cumplir requisitos legales, Stripe, Apple App Store, Google Play y mejores prácticas de privacidad y moderación."
+              "Podemos actualizar reglas, automatizaciones y criterios de revisión para cumplir requisitos legales, requisitos de Stripe y mejores prácticas de privacidad y moderación."
             ]
           }
         ]

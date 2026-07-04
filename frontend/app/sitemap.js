@@ -17,8 +17,7 @@ export default function sitemap() {
     '/acceptable-use',
     '/community-guidelines',
     '/creator-policy',
-    '/refunds',      // Payments and refund policy
-    '/payments-refunds',
+    '/payments-refunds', // Payments and refund policy
     '/dmca',
     '/safety-moderation' 
   ];

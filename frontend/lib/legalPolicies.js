@@ -4,7 +4,7 @@ export const LEGAL_POLICIES = [
   { key: "acceptableUse", href: "/acceptable-use" },
   { key: "communityGuidelines", href: "/community-guidelines" },
   { key: "creatorPolicy", href: "/creator-policy" },
-  { key: "paymentsRefunds", href: "/refunds", aliases: ["/payments-refunds"] },
+  { key: "paymentsRefunds", href: "/payments-refunds", aliases: ["/refunds"] },
   { key: "dmca", href: "/dmca" },
   { key: "safetyModeration", href: "/safety-moderation" },
 ];

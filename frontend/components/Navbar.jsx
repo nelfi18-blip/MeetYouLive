@@ -314,7 +314,7 @@ export default function Navbar() {
                   <span className="dropdown-legal-sep">·</span>
                   <Link href="/privacy" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Privacidad</Link>
                   <span className="dropdown-legal-sep">·</span>
-                  <Link href="/refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Pagos</Link>
+                  <Link href="/payments-refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Pagos</Link>
                 </div>
               </div>
             </>

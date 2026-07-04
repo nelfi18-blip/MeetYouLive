@@ -213,7 +213,7 @@ export default function RegisterForm() {
             Al crear una cuenta aceptas nuestros <Link href="/terms">Términos</Link>,
             {" "}<Link href="/privacy">Privacidad</Link>,
             {" "}<Link href="/community-guidelines">Normas de la Comunidad</Link> y
-            {" "}<Link href="/refunds">Pagos</Link>.
+            {" "}<Link href="/payments-refunds">Pagos</Link>.
           </p>
         </form>
 

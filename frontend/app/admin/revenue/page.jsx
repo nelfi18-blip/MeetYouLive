@@ -244,7 +244,7 @@ export default function AdminRevenuePage() {
               </div>
               <div className="checklist-item">
                 <span className="check-icon">7.</span>
-                <span>Páginas legales publicadas: <a href="/terms" target="_blank">/terms</a>, <a href="/privacy" target="_blank">/privacy</a>, <a href="/refunds" target="_blank">/refunds</a></span>
+                <span>Páginas legales publicadas: <a href="/terms" target="_blank">/terms</a>, <a href="/privacy" target="_blank">/privacy</a>, <a href="/payments-refunds" target="_blank">/payments-refunds</a></span>
               </div>
             </div>
           </section>

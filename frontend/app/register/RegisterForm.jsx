@@ -7,11 +7,13 @@ import Link from "next/link";
 import { signUp } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { status } = useSession();
+  const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -209,6 +211,13 @@ export default function RegisterForm() {
               <><span className="spinner" />Creando cuenta…</>
             ) : "Crear cuenta"}
           </button>
+          <p className="legal-notice">
+            {t("legal.registrationNotice")}{" "}
+            <Link href="/terms">{t("legal.policies.terms.shortTitle")}</Link>
+            {" · "}<Link href="/privacy">{t("legal.policies.privacy.shortTitle")}</Link>
+            {" · "}<Link href="/community-guidelines">{t("legal.policies.communityGuidelines.shortTitle")}</Link>
+            {" · "}<Link href="/payments-refunds">{t("legal.policies.paymentsRefunds.shortTitle")}</Link>
+          </p>
         </form>
 
         <div className="divider-text">o continúa con</div>

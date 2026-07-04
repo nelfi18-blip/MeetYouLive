@@ -1,5 +1,5 @@
 import LegalPage from "@/components/LegalPage";
 
 export default function Page() {
-  return <LegalPage policyKey="terms" />;
+  return <LegalPage policyKey="safetyModeration" />;
 }

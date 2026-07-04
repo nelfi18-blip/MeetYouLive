@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -794,7 +795,10 @@ export default function OnboardingPage() {
                   Empezar ahora ✨
                 </button>
               </div>
-              <p className="ob-legal-hint">Gratis para siempre · Sin tarjeta de crédito</p>
+              <p className="ob-legal-hint">
+                {t("legal.onboardingNotice")}{" "}
+                <Link href="/legal">{t("legal.backToLegal")}</Link>
+              </p>
             </div>
           )}
 
@@ -1362,6 +1366,9 @@ export default function OnboardingPage() {
           letter-spacing: 0.01em;
           box-shadow: 0 0 32px rgba(255,45,120,0.35);
         }
+        .ob-legal-hint :global(a) { color: var(--accent-3); text-decoration: none; font-weight: 800; }
+        .ob-legal-hint :global(a):hover { text-decoration: underline; }
+
         .ob-legal-hint {
           text-align: center;
           font-size: 0.74rem;

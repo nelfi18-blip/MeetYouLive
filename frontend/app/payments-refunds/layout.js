@@ -2,7 +2,7 @@ import { canonicalUrl } from "@/lib/site";
 
 export const metadata = {
   title: "Pagos y Reembolsos · MeetYouLive",
-  description: "Política de pagos, coins, regalos, suscripciones, Stripe Connect, payouts y reembolsos de MeetYouLive.",
+  description: "Pagos, coins, regalos, Stripe Connect y reembolsos en MeetYouLive.",
   alternates: { canonical: canonicalUrl("/payments-refunds") },
   openGraph: { url: canonicalUrl("/payments-refunds") },
 };

@@ -308,11 +308,13 @@ export default function Navbar() {
                 </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-legal">
+                  <Link href="/legal" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Legal</Link>
+                  <span className="dropdown-legal-sep">·</span>
                   <Link href="/terms" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Términos</Link>
                   <span className="dropdown-legal-sep">·</span>
                   <Link href="/privacy" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Privacidad</Link>
                   <span className="dropdown-legal-sep">·</span>
-                  <Link href="/refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Reembolsos</Link>
+                  <Link href="/payments-refunds" className="dropdown-legal-link" onClick={() => setMenuOpen(false)}>Pagos</Link>
                 </div>
               </div>
             </>

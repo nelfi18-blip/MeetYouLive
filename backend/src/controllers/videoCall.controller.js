@@ -321,7 +321,8 @@ const endCall = async (req, res) => {
     }
 
     if (!["pending", "accepted"].includes(call.status)) {
-      return res.json(call);
+      const payload = call.toObject ? call.toObject() : call;
+      return res.json({ ...payload, message: "La llamada ya está finalizada" });
     }
 
     // Refund coins if paid call ended before fully accepted (caller hangs up while pending)

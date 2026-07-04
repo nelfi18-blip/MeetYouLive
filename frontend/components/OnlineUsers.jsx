@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import socket from "@/lib/socket";
+import { hasMutualMatchFlag } from "@/lib/callRules";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -12,7 +13,7 @@ function getInitial(user) {
 
 function UserCard({ user, onChat, onCall, chatLoading }) {
   const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
-  const canSocialCall = Boolean(user.isMatch || user.match || user.matched);
+  const canSocialCall = hasMutualMatchFlag(user);
 
   return (
     <div className="online-card">

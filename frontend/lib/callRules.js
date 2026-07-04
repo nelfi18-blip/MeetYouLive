@@ -9,6 +9,10 @@ export function isPaidCreatorCallCandidate(user) {
   return isApprovedCreator(user) && Boolean(user?.creatorProfile?.privateCallEnabled);
 }
 
+export function hasMutualMatchFlag(user) {
+  return Boolean(user?.isMatch || user?.match || user?.matched);
+}
+
 export function getCallFlowForPeer({ peer, isMatch = false } = {}) {
   const creatorFlow = isPaidCreatorCallCandidate(peer);
   if (creatorFlow) {

@@ -22,12 +22,12 @@ export const PREMIUM_COMMUNICATION_RULES = Object.freeze({
 });
 
 export function isCreatorCommunicationFlow(peer) {
-  return getCallFlowForPeer({ peer }).flow === "paid_creator";
+  return getCallFlowForPeer({ peer }).flow === "creator_independent";
 }
 
 export function getPremiumCommunicationAvailability({ isMatch = false, peer = null } = {}) {
   const callFlow = getCallFlowForPeer({ peer, isMatch });
-  const creatorFlow = callFlow.flow === "paid_creator";
+  const creatorFlow = callFlow.flow === "creator_independent";
   const matchReady = Boolean(isMatch);
 
   return {
@@ -41,7 +41,7 @@ export function getPremiumCommunicationAvailability({ isMatch = false, peer = nu
     showSocialVideoAction: !creatorFlow && matchReady,
     voiceActionEnabled: !creatorFlow && matchReady,
     videoActionEnabled: !creatorFlow && matchReady,
-    reason: callFlow.canStart ? "ready" : "match_required",
+    reason: callFlow.canStart ? "future_phase_ready" : "match_required",
   };
 }
 

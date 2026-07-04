@@ -56,16 +56,16 @@ export default function IncomingCallNotification() {
       }
     };
 
-    const clearIfCurrent = (data, nextMessage) => {
+    const clearMatchingCall = (data, nextMessage) => {
       if (!callRef.current || String(callRef.current._id) !== String(data?.callId)) return;
       setCall(null);
       setMessage(nextMessage);
     };
 
     const handleIncoming = (data) => fetchCallById(data?.callId);
-    const handleEnded = (data) => clearIfCurrent(data, t("chatPremium.callUnavailable"));
-    const handleRejected = (data) => clearIfCurrent(data, t("chatPremium.callRejected"));
-    const handleMissed = (data) => clearIfCurrent(data, t("chatPremium.callMissed"));
+    const handleEnded = (data) => clearMatchingCall(data, t("chatPremium.callUnavailable"));
+    const handleRejected = (data) => clearMatchingCall(data, t("chatPremium.callRejected"));
+    const handleMissed = (data) => clearMatchingCall(data, t("chatPremium.callMissed"));
 
     fetchIncoming();
     intervalRef.current = setInterval(fetchIncoming, POLL_INTERVAL);

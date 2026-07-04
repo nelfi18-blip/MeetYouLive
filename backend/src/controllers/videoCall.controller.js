@@ -13,7 +13,7 @@ const {
 } = require("../services/callRules.service.js");
 const { getIO } = require("../lib/socket.js");
 
-// Helper: refund coins to caller for a paid call
+// Helper: refund coins to caller for a paid call. Accepts a raw id or populated user.
 const refundPaidCall = async (callerId, coins) => {
   if (coins > 0) {
     await User.findByIdAndUpdate(callerId?._id || callerId, { $inc: { coins } });
@@ -173,14 +173,14 @@ const getIncoming = async (req, res) => {
 // GET /api/calls/:id — get call details
 const getCallById = async (req, res) => {
   try {
-    const call = await VideoCall.findById(req.params.id)
+    let call = await VideoCall.findById(req.params.id)
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
 
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
     if (isPendingCallExpired(call)) {
-      await markPendingCallMissed(call);
+      call = await markPendingCallMissed(call);
     }
 
     const isParticipant =
@@ -210,6 +210,7 @@ const respondCall = async (req, res) => {
 
     if (isPendingCallExpired(call)) {
       await markPendingCallMissed(call);
+      return res.status(410).json({ message: "La llamada expiró" });
     }
 
     if (String(call.recipient) !== String(req.userId)) {
@@ -321,8 +322,7 @@ const endCall = async (req, res) => {
     }
 
     if (!["pending", "accepted"].includes(call.status)) {
-      const payload = call.toObject ? call.toObject() : call;
-      return res.json({ ...payload, message: "La llamada ya está finalizada" });
+      return res.status(409).json({ message: "La llamada ya está finalizada" });
     }
 
     // Refund coins if paid call ended before fully accepted (caller hangs up while pending)

@@ -268,7 +268,7 @@ export default function OnlineUsers() {
     try {
       const r = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        headers: { Authorization: ["Bearer", token].join(" "), "Content-Type": "application/json" },
         body: JSON.stringify({ recipientId: user._id, type: "social" }),
       });
       const data = await r.json().catch(() => ({}));

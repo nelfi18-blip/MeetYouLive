@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,6 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
  */
 export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [chatLoading, setChatLoading] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
   const [error, setError] = useState("");
@@ -160,7 +162,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
 
           <button className="cta-btn cta-call" onClick={startSocialCall} disabled={callLoading}>
               <span className="cta-icon">📞</span>
-              {callLoading ? "Conectando…" : "Videollamada con tu match"}
+              {callLoading ? t("chatPremium.callConnectingShort") : t("chatPremium.videoCallWithMatch")}
           </button>
 
           {isLive && (

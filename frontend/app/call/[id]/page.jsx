@@ -11,6 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const POLL_MS = 1000; // polling interval for call acceptance
+// Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
 
 export default function CallPage() {
@@ -409,7 +410,7 @@ export default function CallPage() {
       <div className="call-page call-center">
         <span style={{ fontSize: "3rem" }}>📞</span>
         <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>
-          {error ? "Error" : status === "missed" ? "Llamada no contestada" : "Llamada finalizada"}
+          {error ? t("chatPremium.callErrorTitle") : status === "missed" ? t("chatPremium.callMissedTitle") : t("chatPremium.callEndedTitle")}
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
         {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}

@@ -10,6 +10,8 @@ export function isPaidCreatorCallCandidate(user) {
 }
 
 export function hasMutualMatchFlag(user) {
+  // Online/discovery payloads currently expose match state under different
+  // names depending on the source endpoint; keep the call gate centralized here.
   return Boolean(user?.isMatch || user?.match || user?.matched);
 }
 
@@ -18,14 +20,14 @@ export function getCallFlowForPeer({ peer, isMatch = false } = {}) {
   if (creatorFlow) {
     return {
       type: CALL_TYPES.PAID_CREATOR,
-      flow: "paid_creator",
+      flow: "creator_independent",
       requiresMatch: false,
       canStart: true,
     };
   }
   return {
     type: CALL_TYPES.SOCIAL,
-    flow: "social",
+    flow: "social_match",
     requiresMatch: true,
     canStart: Boolean(isMatch),
   };

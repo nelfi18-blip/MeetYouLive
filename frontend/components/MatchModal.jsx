@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,6 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
  */
 export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [chatLoading, setChatLoading] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
   const [error, setError] = useState("");
@@ -26,8 +28,6 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
   const image = getUserImage(user);
   const isCreator = user?.role === "creator" || user?.role === "subCreator";
   const isLive = isCreator && user?.isLive && user?.liveId;
-  const privateCallEnabled = isCreator && user?.creatorProfile?.privateCallEnabled;
-  const pricePerMinute = user?.creatorProfile?.pricePerMinute ?? 0;
 
   useEffect(() => {
     // Generate sparkle particles for animation
@@ -67,7 +67,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
     }
   };
 
-  const startPrivateCall = async () => {
+  const startSocialCall = async () => {
     const token = localStorage.getItem("token");
     if (!token) { router.push("/login"); return; }
     setCallLoading(true);
@@ -76,7 +76,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ recipientId: user._id, type: "paid_creator" }),
+        body: JSON.stringify({ recipientId: user._id, type: "social" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -160,12 +160,10 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
             </Link>
           )}
 
-          {privateCallEnabled && (
-            <button className="cta-btn cta-call" onClick={startPrivateCall} disabled={callLoading}>
+          <button className="cta-btn cta-call" onClick={startSocialCall} disabled={callLoading}>
               <span className="cta-icon">📞</span>
-              {callLoading ? "Conectando…" : `Llamada privada · 🪙${pricePerMinute}/min`}
-            </button>
-          )}
+              {callLoading ? t("chatPremium.callConnectingShort") : t("chatPremium.videoCallWithMatch")}
+          </button>
 
           {isLive && (
             <Link href={`/live/${user.liveId}`} className="cta-btn cta-live" onClick={onClose}>

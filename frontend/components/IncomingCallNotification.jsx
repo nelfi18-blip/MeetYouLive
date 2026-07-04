@@ -2,18 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import socket from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL = 2500; // poll every 2.5 seconds
 
 export default function IncomingCallNotification() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [call, setCall] = useState(null);
   const [responding, setResponding] = useState(false);
+  const [message, setMessage] = useState("");
   const intervalRef = useRef(null);
+  const callRef = useRef(null);
 
   useEffect(() => {
-    const poll = async () => {
+    // Socket handlers live across renders; this ref keeps their call lookup fresh.
+    callRef.current = call;
+  }, [call]);
+
+  useEffect(() => {
+    const fetchIncoming = async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) return;
       try {
@@ -23,15 +33,55 @@ export default function IncomingCallNotification() {
         if (!res.ok) return;
         const data = await res.json();
         setCall(data.call || null);
+        if (data.call) setMessage("");
       } catch {
         // silently ignore network errors in the background poll
       }
     };
 
-    poll();
-    intervalRef.current = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(intervalRef.current);
-  }, []);
+    const fetchCallById = async (callId) => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token || !callId) return;
+      try {
+        const res = await fetch(`${API_URL}/api/calls/${callId}`, {
+          headers: { Authorization: "Bearer " + token },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "pending") {
+          setCall(data);
+          setMessage("");
+        }
+      } catch {
+        // polling fallback will retry
+      }
+    };
+
+    const clearMatchingCall = (data, nextMessage) => {
+      if (!callRef.current || String(callRef.current._id) !== String(data?.callId)) return;
+      setCall(null);
+      setMessage(nextMessage);
+    };
+
+    const handleIncoming = (data) => fetchCallById(data?.callId);
+    const handleEnded = (data) => clearMatchingCall(data, t("chatPremium.callUnavailable"));
+    const handleRejected = (data) => clearMatchingCall(data, t("chatPremium.callRejected"));
+    const handleMissed = (data) => clearMatchingCall(data, t("chatPremium.callMissed"));
+
+    fetchIncoming();
+    intervalRef.current = setInterval(fetchIncoming, POLL_INTERVAL);
+    socket.on("CALL_INCOMING", handleIncoming);
+    socket.on("CALL_ENDED", handleEnded);
+    socket.on("CALL_REJECTED", handleRejected);
+    socket.on("CALL_MISSED", handleMissed);
+    return () => {
+      clearInterval(intervalRef.current);
+      socket.off("CALL_INCOMING", handleIncoming);
+      socket.off("CALL_ENDED", handleEnded);
+      socket.off("CALL_REJECTED", handleRejected);
+      socket.off("CALL_MISSED", handleMissed);
+    };
+  }, [t]);
 
   const respond = async (action) => {
     if (!call || responding) return;
@@ -47,17 +97,41 @@ export default function IncomingCallNotification() {
         body: JSON.stringify({ action }),
       });
       if (res.ok && action === "accept") {
+        setMessage(t("chatPremium.callAcceptedOpening"));
         router.push(`/call/${call._id}`);
+      } else if (res.ok) {
+        setMessage(t("chatPremium.callRejected"));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage(data.message || t("chatPremium.callUnavailable"));
       }
       setCall(null);
     } catch {
       setCall(null);
+      setMessage(t("chatPremium.callRespondError"));
     } finally {
       setResponding(false);
     }
   };
 
-  if (!call) return null;
+  if (!call && !message) return null;
+
+  if (!call && message) {
+    return (
+      <div className="incoming-call-overlay">
+        <div className="incoming-call-card incoming-call-state">
+          <p className="incoming-call-label">{t("chatPremium.callStatus")}</p>
+          <p className="incoming-call-name">{message}</p>
+        </div>
+        <style jsx>{`
+          .incoming-call-overlay { position: fixed; bottom: 80px; right: 1.5rem; z-index: 1000; }
+          .incoming-call-card { background: rgba(12, 5, 25, 0.97); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius); padding: 1rem 1.25rem; max-width: 320px; box-shadow: var(--shadow); backdrop-filter: blur(24px); }
+          .incoming-call-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin: 0 0 0.25rem; text-transform: uppercase; }
+          .incoming-call-name { font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 0; }
+        `}</style>
+      </div>
+    );
+  }
 
   const callerName = call.caller?.username || call.caller?.name || "Alguien";
   const callerInitial = callerName[0].toUpperCase();

@@ -27,6 +27,7 @@ function VideoIcon() {
 export default function PremiumCommunicationActions({
   isMatch,
   peer,
+  onStartCall,
   className = "",
   buttonClassName = "",
 }) {
@@ -43,9 +44,10 @@ export default function PremiumCommunicationActions({
         <button
           type="button"
           className={buttonClassName}
-          title={t("chatPremium.premiumVoiceMatchOnlySoon")}
-          aria-label={t("chatPremium.premiumVoiceMatchOnlySoon")}
-          disabled
+          title={t("chatPremium.startVoiceCall")}
+          aria-label={t("chatPremium.startVoiceCall")}
+          onClick={() => onStartCall?.("audio")}
+          disabled={!availability.voiceActionEnabled}
         >
           <PhoneIcon />
         </button>
@@ -54,9 +56,10 @@ export default function PremiumCommunicationActions({
         <button
           type="button"
           className={buttonClassName}
-          title={t("chatPremium.premiumVideoMatchOnlySoon")}
-          aria-label={t("chatPremium.premiumVideoMatchOnlySoon")}
-          disabled
+          title={t("chatPremium.startVideoCall")}
+          aria-label={t("chatPremium.startVideoCall")}
+          onClick={() => onStartCall?.("video")}
+          disabled={!availability.videoActionEnabled}
         >
           <VideoIcon />
         </button>

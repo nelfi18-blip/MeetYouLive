@@ -4,15 +4,20 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import socket from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const POLL_MS = 1000; // polling interval for call acceptance
+// Short Agora reconnect grace; separate from backend pending-invite timeout.
+const RECONNECT_GRACE_MS = 15000;
 
 export default function CallPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [call, setCall] = useState(null);
   const [error, setError] = useState("");
@@ -34,6 +39,7 @@ export default function CallPage() {
   const pollRef = useRef(null);
   const tickRef = useRef(null); // per-minute billing interval
   const durationRef = useRef(null); // 1-second timer
+  const reconnectRef = useRef(null);
   const callRef = useRef(null); // kept in sync with call state for use inside intervals
 
   const token = useRef(
@@ -70,6 +76,8 @@ export default function CallPage() {
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
+      // Prevent a pending Agora reconnect timeout from ending the call again after hangup.
+      clearTimeout(reconnectRef.current);
       if (localAudioTrackRef.current) localAudioTrackRef.current.close();
       if (localVideoTrackRef.current) localVideoTrackRef.current.close();
       if (agoraClientRef.current) agoraClientRef.current.leave().catch(() => {});
@@ -216,6 +224,49 @@ export default function CallPage() {
     []
   );
 
+  const endCallOnServer = useCallback(async (reason = "hangup") => {
+    try {
+      await fetch(`${API_URL}/api/calls/${id}/end`, {
+        method: "PATCH",
+        headers: apiHeaders(),
+        body: JSON.stringify({ reason }),
+      });
+    } catch {
+      // ignore; socket/polling state will reconcile when available
+    }
+  }, [apiHeaders, id]);
+
+  useEffect(() => {
+    const finish = (nextStatus, nextMessage = "") => {
+      clearInterval(pollRef.current);
+      clearInterval(tickRef.current);
+      clearInterval(durationRef.current);
+      clearTimeout(reconnectRef.current);
+      cleanupAgora();
+      if (nextMessage) setCoinsWarning(nextMessage);
+      setStatus(nextStatus);
+    };
+
+    const handleRejected = (data) => {
+      if (String(data?.callId) === String(id)) finish("rejected");
+    };
+    const handleEnded = (data) => {
+      if (String(data?.callId) === String(id)) finish("ended", t("chatPremium.callEnded"));
+    };
+    const handleMissed = (data) => {
+      if (String(data?.callId) === String(id)) finish("missed", t("chatPremium.callMissed"));
+    };
+
+    socket.on("CALL_REJECTED", handleRejected);
+    socket.on("CALL_ENDED", handleEnded);
+    socket.on("CALL_MISSED", handleMissed);
+    return () => {
+      socket.off("CALL_REJECTED", handleRejected);
+      socket.off("CALL_ENDED", handleEnded);
+      socket.off("CALL_MISSED", handleMissed);
+    };
+  }, [cleanupAgora, id, t]);
+
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
     async (callId) => {
@@ -236,6 +287,7 @@ export default function CallPage() {
         agoraClientRef.current = client;
 
         client.on("user-published", async (user, mediaType) => {
+          clearTimeout(reconnectRef.current);
           await client.subscribe(user, mediaType);
           if (mediaType === "video" && remoteVideoRef.current) {
             user.videoTrack?.play(remoteVideoRef.current);
@@ -253,7 +305,16 @@ export default function CallPage() {
         });
 
         client.on("user-left", () => {
-          setStatus("ended");
+          clearTimeout(reconnectRef.current);
+          setStatus("reconnecting");
+          reconnectRef.current = setTimeout(async () => {
+            await endCallOnServer("remote_left");
+            await cleanupAgora();
+            clearInterval(tickRef.current);
+            clearInterval(durationRef.current);
+            setCoinsWarning(t("chatPremium.callDisconnectedEnded"));
+            setStatus("ended");
+          }, RECONNECT_GRACE_MS);
         });
 
         // Get local camera and mic
@@ -295,16 +356,9 @@ export default function CallPage() {
     clearInterval(pollRef.current);
     clearInterval(tickRef.current);
     clearInterval(durationRef.current);
+    clearTimeout(reconnectRef.current);
     await cleanupAgora();
-
-    try {
-      await fetch(`${API_URL}/api/calls/${id}/end`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token.current}` },
-      });
-    } catch {
-      // ignore
-    }
+    await endCallOnServer("hangup");
     router.replace("/chats");
   };
 
@@ -352,12 +406,12 @@ export default function CallPage() {
     );
   }
 
-  if (status === "ended" || error) {
+  if (status === "ended" || status === "missed" || error) {
     return (
       <div className="call-page call-center">
         <span style={{ fontSize: "3rem" }}>📞</span>
         <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>
-          {error ? "Error" : "Llamada finalizada"}
+          {error ? t("chatPremium.callErrorTitle") : status === "missed" ? t("chatPremium.callMissedTitle") : t("chatPremium.callEndedTitle")}
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
         {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}
@@ -418,6 +472,7 @@ export default function CallPage() {
             <p className="call-status-text">
               {status === "waiting" && "⏳ Esperando que acepte…"}
               {status === "connecting" && "🔄 Conectando…"}
+              {status === "reconnecting" && "🔄 Reconectando…"}
             </p>
             {status === "waiting" && (
               <p className="call-sub-text">{remoteName}</p>

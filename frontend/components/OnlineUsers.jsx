@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import socket from "@/lib/socket";
+import { hasMutualMatchFlag } from "@/lib/callRules";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -12,6 +13,7 @@ function getInitial(user) {
 
 function UserCard({ user, onChat, onCall, chatLoading }) {
   const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
+  const canSocialCall = hasMutualMatchFlag(user);
 
   return (
     <div className="online-card">
@@ -38,13 +40,15 @@ function UserCard({ user, onChat, onCall, chatLoading }) {
         >
           💬 <span>Hablar</span>
         </button>
-        <button
-          className="online-btn online-btn-call"
-          onClick={() => onCall(user)}
-          title="Llamar ahora"
-        >
-          📞
-        </button>
+        {canSocialCall && (
+          <button
+            className="online-btn online-btn-call"
+            onClick={() => onCall(user)}
+            title="Llamar ahora"
+          >
+            📞
+          </button>
+        )}
       </div>
 
       <style jsx>{`
@@ -190,6 +194,7 @@ export default function OnlineUsers() {
   const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(null);
   const [coinsModal, setCoinsModal] = useState(false);
+  const [callError, setCallError] = useState("");
   const userIdsRef = useRef(new Set());
 
   const getToken = () =>
@@ -260,20 +265,25 @@ export default function OnlineUsers() {
   const handleCall = useCallback(async (user) => {
     const token = getToken();
     if (!token) return;
-    // Check if user has coins before initiating call
     try {
-      const r = await fetch(`${API_URL}/api/user/coins`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const r = await fetch(`${API_URL}/api/calls`, {
+        method: "POST",
+        headers: { Authorization: ["Bearer", token].join(" "), "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: user._id, type: "social" }),
       });
-      if (r.ok) {
-        const data = await r.json();
-        if ((data.coins ?? 0) <= 0) {
-          setCoinsModal(true);
-          return;
-        }
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data._id) {
+        router.push(`/call/${data._id}`);
+        return;
       }
-    } catch {}
-    router.push(`/call/${user._id}`);
+      if (r.status === 402) {
+        setCoinsModal(true);
+      } else {
+        setCallError(data.message || "No se pudo iniciar la llamada.");
+      }
+    } catch {
+      setCallError("Error de conexión al iniciar la llamada.");
+    }
   }, [router]);
 
   if (!loading && users.length === 0) return null;
@@ -285,6 +295,7 @@ export default function OnlineUsers() {
         <h2 className="online-title">🔥 Personas conectadas ahora</h2>
         {!loading && <span className="online-count">{users.length}</span>}
       </div>
+      {callError && <p className="online-call-error">{callError}</p>}
 
       {loading ? (
         <div className="online-scroll">
@@ -364,6 +375,12 @@ export default function OnlineUsers() {
           color: #22c55e;
           border-radius: 999px;
           padding: 2px 10px;
+        }
+        .online-call-error {
+          margin: 0;
+          color: #f87171;
+          font-size: 0.82rem;
+          font-weight: 600;
         }
 
         .online-scroll {

@@ -35,7 +35,7 @@ const emitCallEvent = (call, event, payload = {}) => {
   if (recipientId && recipientId !== callerId) io.to(recipientId).emit(event, data);
 };
 
-const markPendingCallMissed = async (call, reason = "timeout") => {
+const markPendingCallMissed = async (call) => {
   if (!call || call.status !== "pending") return call;
   if (call.type === CALL_TYPES.PAID_CREATOR) {
     await refundPaidCall(call.caller, call.callCoins);
@@ -43,7 +43,7 @@ const markPendingCallMissed = async (call, reason = "timeout") => {
   call.status = "missed";
   call.endedAt = new Date();
   await call.save();
-  emitCallEvent(call, "CALL_MISSED", { reason });
+  emitCallEvent(call, "CALL_MISSED");
   return call;
 };
 
@@ -148,14 +148,12 @@ const inviteCall = async (req, res) => {
 // GET /api/calls/incoming — pending calls for current user
 const getIncoming = async (req, res) => {
   try {
-    const stalePending = await VideoCall.find({
+    const stalePending = await VideoCall.findOne({
       recipient: req.userId,
       status: "pending",
       createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
-    });
-    for (const pending of stalePending) {
-      await markPendingCallMissed(pending);
-    }
+    }).sort({ createdAt: 1 });
+    if (stalePending) await markPendingCallMissed(stalePending);
 
     const call = await VideoCall.findOne({
       recipient: req.userId,

@@ -18,6 +18,7 @@ export default function IncomingCallNotification() {
   const callRef = useRef(null);
 
   useEffect(() => {
+    // Socket handlers live across renders; this ref keeps their call lookup fresh.
     callRef.current = call;
   }, [call]);
 

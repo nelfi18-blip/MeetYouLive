@@ -76,6 +76,7 @@ export default function CallPage() {
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
       clearInterval(durationRef.current);
+      // Prevent a pending Agora reconnect timeout from ending the call again after hangup.
       clearTimeout(reconnectRef.current);
       if (localAudioTrackRef.current) localAudioTrackRef.current.close();
       if (localVideoTrackRef.current) localVideoTrackRef.current.close();

@@ -16,7 +16,7 @@ const { getIO } = require("../lib/socket.js");
 // Helper: refund coins to caller for a paid call
 const refundPaidCall = async (callerId, coins) => {
   if (coins > 0) {
-    await User.findByIdAndUpdate(callerId, { $inc: { coins } });
+    await User.findByIdAndUpdate(callerId?._id || callerId, { $inc: { coins } });
   }
 };
 

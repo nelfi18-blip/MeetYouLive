@@ -440,5 +440,331 @@
     "profileSavedNextStepNotice": "Your profile was saved. Complete the request to send the creator account for approval.",
     "submitError": "Could not submit the request. Try again.",
     "pendingReviewNotice": "Your request has been submitted. An administrator will review it soon and we will notify you by email."
+  },
+  "legal": {
+    "eyebrow": "Legal and compliance",
+    "indexTitle": "MeetYouLive Legal Center",
+    "indexDescription": "Review the policies governing MeetYouLive, including safety, privacy, payments, creators, intellectual property and moderation.",
+    "navigationAria": "MeetYouLive legal policies",
+    "backToLegal": "Legal center",
+    "backToApp": "Back to MeetYouLive",
+    "lastUpdated": "Last updated",
+    "registrationNotice": "By creating an account you agree to our Terms, Privacy Policy, community rules and payment policies.",
+    "onboardingNotice": "By continuing you agree to use MeetYouLive under our legal and safety policies.",
+    "policies": {
+      "terms": {
+        "shortTitle": "Terms",
+        "title": "Terms of Service",
+        "description": "Terms for matches, chat, calls, video calls, live streams, gifts, coins, creators and moderation.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Acceptance and scope",
+            "body": [
+              "By accessing or using MeetYouLive you accept these Terms of Service and the linked policies. If you do not agree, you must not use the platform.",
+              "These terms apply to the website, apps, accounts, profiles, matches, chat, calls, video calls, live streams, gifts, coins, subscriptions, creator content and moderation tools."
+            ]
+          },
+          {
+            "heading": "2. Eligibility and minors",
+            "body": [
+              "MeetYouLive is intended only for users who meet the minimum legal age in their jurisdiction and never for minors where monetization or safety rules prohibit access. We may request age or identity checks.",
+              "Content or conduct involving exploitation, grooming, sexualization, harassment or risk to minors is strictly prohibited and may be reported to authorities."
+            ]
+          },
+          {
+            "heading": "3. Social and live features",
+            "body": [
+              "You may use MeetYouLive to discover profiles, match, chat, call, video call, join rooms, watch live streams and send gifts. You must respect consent, privacy and user boundaries.",
+              "We do not guarantee matches, creator availability, earnings, audience, continuous connectivity or technical compatibility."
+            ]
+          },
+          {
+            "heading": "4. Coins, gifts and creators",
+            "body": [
+              "Coins and virtual gifts are digital items for use inside MeetYouLive. They are not money, deposits, stored value or property rights outside the platform.",
+              "Payments may be processed through Stripe, Stripe Connect, Apple, Google or other approved providers. Approved creators monetize under the Creator Policy and Payments & Refund Policy."
+            ]
+          },
+          {
+            "heading": "5. Content, moderation and termination",
+            "body": [
+              "You keep rights to your content but grant MeetYouLive the license needed to host, display, moderate and operate it within the service.",
+              "We may remove content, restrict features, suspend payouts, suspend accounts or terminate access for violations, fraud, safety risks, copyright issues or legal requirements."
+            ]
+          }
+        ]
+      },
+      "privacy": {
+        "shortTitle": "Privacy",
+        "title": "Privacy Policy",
+        "description": "How we collect, use and protect data across profiles, matches, chat, calls, live streams, payments, reports and moderation.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Controller and contact",
+            "body": [
+              "MeetYouLive processes personal data to operate the platform. Contact privacy@meetyoulive.net for privacy requests."
+            ]
+          },
+          {
+            "heading": "2. Data we collect",
+            "body": [
+              "We may collect account, profile, age, approximate location, photos, preferences, language, matches, likes, chats, calls, video calls, live streams, gifts, coins, transactions, creator requests, reports and technical signals.",
+              "We do not store full payment card numbers when Stripe or another provider processes the payment."
+            ]
+          },
+          {
+            "heading": "3. How we use data",
+            "body": [
+              "We use data to create accounts, personalize discovery and matches, enable chat, calls and live streams, process payments, manage coins and gifts, support creators, prevent fraud, moderate content and comply with law."
+            ]
+          },
+          {
+            "heading": "4. Image, voice and safety",
+            "body": [
+              "Live streams, calls and video calls may transmit image, voice, messages, gifts and technical metadata. Reported content or related signals may be reviewed for safety and compliance."
+            ]
+          },
+          {
+            "heading": "5. Sharing, retention and rights",
+            "body": [
+              "We may share data with infrastructure, payment, streaming, notification, support, moderation, compliance and fraud-prevention providers. We do not sell personal data.",
+              "You may request access, correction, deletion, portability or objection by contacting privacy@meetyoulive.net."
+            ]
+          }
+        ]
+      },
+      "acceptableUse": {
+        "shortTitle": "Acceptable use",
+        "title": "Acceptable Use Policy",
+        "description": "Minimum rules for using MeetYouLive safely, legally and respectfully.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Principles",
+            "body": [
+              "Use MeetYouLive to connect, talk, create and support content legally, safely and with consent. Do not use the platform to harm, deceive, exploit or infringe rights."
+            ]
+          },
+          {
+            "heading": "2. Prohibited conduct",
+            "body": [
+              "Harassment, threats, hate, spam, fraud, impersonation, payment manipulation, ban evasion, abusive automation, malware, social engineering and unauthorized access are prohibited."
+            ]
+          },
+          {
+            "heading": "3. Prohibited content",
+            "body": [
+              "Illegal content, child safety violations, extreme violence, doxxing, non-consensual intimate content, extortion, terrorism, trafficking, illegal drugs and intellectual property infringement are prohibited."
+            ]
+          },
+          {
+            "heading": "4. Chat, calls, live streams and payments",
+            "body": [
+              "Respect consent and privacy in messages, calls, video calls and live streams. Do not pressure users into sharing private data, intimate content, external payments or off-platform contact.",
+              "Do not use coins, gifts, refunds, chargebacks or Stripe Connect for fraud, laundering, misleading monetization or ranking manipulation."
+            ]
+          },
+          {
+            "heading": "5. Enforcement",
+            "body": [
+              "Violations may result in content removal, feature limits, live stream termination, payout holds, account suspension or reports to providers and authorities."
+            ]
+          }
+        ]
+      },
+      "communityGuidelines": {
+        "shortTitle": "Community",
+        "title": "Community Guidelines",
+        "description": "Behavior expectations for users, viewers, matches and creators.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Respect and consent",
+            "body": [
+              "Treat every person with respect. Consent must be clear, ongoing and revocable in chat, calls, video calls, live streams, gifts and any interaction."
+            ]
+          },
+          {
+            "heading": "2. Dating and match safety",
+            "body": [
+              "Do not share sensitive information too soon, pressure others for meetings, external payments or intimate content, or misrepresent yourself. Report suspicious behavior."
+            ]
+          },
+          {
+            "heading": "3. Live rooms and creators",
+            "body": [
+              "Hosts and participants must avoid hate, humiliation, exploitation, illegal activity and unauthorized content. Creators are expected to cooperate with moderation."
+            ]
+          },
+          {
+            "heading": "4. Gifts and support",
+            "body": [
+              "Gifts are voluntary. Do not promise romantic, sexual, financial or off-platform outcomes in exchange for coins or gifts."
+            ]
+          },
+          {
+            "heading": "5. Reports and consequences",
+            "body": [
+              "Use reporting tools for abuse, harassment, fraud, child safety concerns or prohibited content. False or abusive reports may also be sanctioned."
+            ]
+          }
+        ]
+      },
+      "creatorPolicy": {
+        "shortTitle": "Creators",
+        "title": "Creator Policy",
+        "description": "Rules for approved creators, monetization, gifts, coins, agencies, payouts and Stripe Connect.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Creator approval",
+            "body": [
+              "Creator access is subject to review, age, identity, quality, safety and compliance requirements. We may approve, reject, pause or remove creator status."
+            ]
+          },
+          {
+            "heading": "2. Creator responsibilities",
+            "body": [
+              "Creators are responsible for live streams, videos, rooms, profiles, promotions and communications with fans. They must follow community, acceptable use, intellectual property and app store rules."
+            ]
+          },
+          {
+            "heading": "3. Monetization",
+            "body": [
+              "Creator earnings may come from gifts, premium content, calls or enabled features. Internal balances are not money until MeetYouLive validates eligibility and processes an allowed payout."
+            ]
+          },
+          {
+            "heading": "4. Stripe Connect, agencies and payouts",
+            "body": [
+              "We may use Stripe Connect or other providers for identity, tax and payout compliance. Agency or sub-creator relationships are valid only when active and accepted by the parties in the platform."
+            ]
+          },
+          {
+            "heading": "5. Fraud and payout holds",
+            "body": [
+              "Inflating gifts, rankings or earnings with fake accounts, self-payments, coordinated chargebacks, misleading promises or bought traffic is prohibited. Payouts may be held or cancelled during review."
+            ]
+          }
+        ]
+      },
+      "paymentsRefunds": {
+        "shortTitle": "Payments",
+        "title": "Payments & Refund Policy",
+        "description": "Payments, coins, gifts, subscriptions, Stripe, Stripe Connect, in-app purchases, payouts and refunds.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Payment processing",
+            "body": [
+              "Purchases may be processed by Stripe, Stripe Connect, Apple App Store, Google Play or other approved providers. Prices, taxes, currencies and payment methods may vary by country and device."
+            ]
+          },
+          {
+            "heading": "2. Digital items",
+            "body": [
+              "Coins, gifts, Sparks and digital benefits are consumed inside MeetYouLive. They are not money, do not earn interest, are not transferable outside the platform and are generally non-refundable once delivered or used."
+            ]
+          },
+          {
+            "heading": "3. Subscriptions and app stores",
+            "body": [
+              "Subscriptions renew under the terms shown at purchase. If you buy through Apple or Google, cancellation and refund handling may be managed by that store."
+            ]
+          },
+          {
+            "heading": "4. Refunds and disputes",
+            "body": [
+              "We may consider refunds for duplicate charges, verified technical errors, missing credits or timely reported unauthorized use. Used coins and gifts are not refundable unless required by law.",
+              "Chargebacks may lead to temporary suspension of features, coins, gifts, accounts or payouts until the dispute is resolved."
+            ]
+          },
+          {
+            "heading": "5. Creator payouts",
+            "body": [
+              "Creator payouts depend on eligible balance, anti-fraud review, identity, tax requirements, platform rules, Stripe Connect and possible holds for disputes, reports or violations."
+            ]
+          }
+        ]
+      },
+      "dmca": {
+        "shortTitle": "DMCA",
+        "title": "DMCA / Copyright Policy",
+        "description": "Process for reporting copyright, trademark, likeness and intellectual property infringement.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Intellectual property",
+            "body": [
+              "MeetYouLive respects copyright, trademarks, likeness and other intellectual property rights. Users and creators may only post content they own or are authorized to use."
+            ]
+          },
+          {
+            "heading": "2. Infringement notices",
+            "body": [
+              "Send claims to copyright@meetyoulive.net with the work identified, the allegedly infringing content or URL, contact details, a good-faith statement, an accuracy statement and a physical or electronic signature."
+            ]
+          },
+          {
+            "heading": "3. Takedown and repeat infringement",
+            "body": [
+              "We may remove or limit allegedly infringing content, suspend live streams, restrict repeat infringers and preserve information needed for dispute handling."
+            ]
+          },
+          {
+            "heading": "4. Counter-notices",
+            "body": [
+              "If you believe content was removed by mistake, you may send a counter-notice with your details, the content identified, a statement under penalty of perjury and jurisdiction consent where applicable."
+            ]
+          },
+          {
+            "heading": "5. Abuse",
+            "body": [
+              "False, abusive or bad-faith claims may lead to platform sanctions and legal consequences."
+            ]
+          }
+        ]
+      },
+      "safetyModeration": {
+        "shortTitle": "Safety",
+        "title": "Safety & Moderation Policy",
+        "description": "Reports, review, moderation actions, suspensions, appeals and user protection.",
+        "lastUpdated": "July 4, 2026",
+        "sections": [
+          {
+            "heading": "1. Goal",
+            "body": [
+              "MeetYouLive should be safe for discovery, matches, chat, calls, live streams, creators and gifts. This policy explains how we handle risks and reports."
+            ]
+          },
+          {
+            "heading": "2. Reports and signals",
+            "body": [
+              "We may use user reports, technical signals, fraud patterns, provider alerts and internal reviews involving profiles, chats, calls, live streams, gifts, payments or content."
+            ]
+          },
+          {
+            "heading": "3. Moderation actions",
+            "body": [
+              "Depending on severity, we may warn, remove content, limit reach, block messages, end live streams, restrict gifts, pause payouts, temporarily suspend or close accounts."
+            ]
+          },
+          {
+            "heading": "4. Minors and severe harm",
+            "body": [
+              "Reports involving minors, exploitation, threats, violence, self-harm, extortion, non-consensual intimate content or fraud are prioritized and may be escalated to providers or authorities."
+            ]
+          },
+          {
+            "heading": "5. Appeals and transparency",
+            "body": [
+              "You may request review at safety@meetyoulive.net. Some measures remain active during review to protect the community. We may update criteria to meet legal, Stripe, Apple and Google requirements."
+            ]
+          }
+        ]
+      }
+    }
   }
 }

@@ -209,6 +209,12 @@ export default function RegisterForm() {
               <><span className="spinner" />Creando cuenta…</>
             ) : "Crear cuenta"}
           </button>
+          <p className="legal-notice">
+            Al crear una cuenta aceptas nuestros <Link href="/terms">Términos</Link>,
+            {" "}<Link href="/privacy">Privacidad</Link>,
+            {" "}<Link href="/community-guidelines">Normas de la Comunidad</Link> y
+            {" "}<Link href="/refunds">Pagos</Link>.
+          </p>
         </form>
 
         <div className="divider-text">o continúa con</div>

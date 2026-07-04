@@ -11,9 +11,16 @@ export default function sitemap() {
     '',              // Homepage
     '/login',        // Login page
     '/register',     // Registration page
+    '/legal',        // Legal center
     '/terms',        // Terms of service
     '/privacy',      // Privacy policy
-    '/refunds',      // Refund policy
+    '/acceptable-use',
+    '/community-guidelines',
+    '/creator-policy',
+    '/refunds',      // Payments and refund policy
+    '/payments-refunds',
+    '/dmca',
+    '/safety-moderation' 
   ];
   
   return routes.map((route) => ({

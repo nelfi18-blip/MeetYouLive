@@ -9,11 +9,12 @@ import socket from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
+const AUTO_RETURN_DELAY_MS = 3000;
+const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
@@ -32,7 +33,7 @@ export default function CallPage() {
 
   const [call, setCall] = useState(null);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("loading"); // loading | waiting | connecting | connected | ended | rejected | missed
+  const [status, setStatus] = useState("loading"); // loading | calling | ringing | connecting | connected | reconnecting | ended | rejected | missed | busy
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [isCaller, setIsCaller] = useState(false);
@@ -54,6 +55,7 @@ export default function CallPage() {
   const durationRef = useRef(null); // 1-second timer
   const reconnectRef = useRef(null);
   const callRef = useRef(null); // kept in sync with call state for use inside intervals
+  const agoraStartingRef = useRef(false);
 
   const token = useRef(
     typeof window !== "undefined" ? localStorage.getItem("token") : null
@@ -159,11 +161,8 @@ export default function CallPage() {
           startAgora(data._id, mediaType);
         } else {
           // status is pending
-          setStatus(callerIsMe ? "waiting" : "connecting");
-          if (!callerIsMe) {
-            // callee just accepted via notification — join Agora now
-            startAgora(data._id, mediaType);
-          } else {
+          setStatus(callerIsMe ? "calling" : "ringing");
+          if (callerIsMe) {
             pollForAcceptance(data);
           }
         }
@@ -176,6 +175,13 @@ export default function CallPage() {
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
+
+  // ── Auto-return to chat after terminal call states ───────────────────────
+  useEffect(() => {
+    if (!TERMINAL_CALL_STATES.includes(status)) return undefined;
+    const timer = setTimeout(() => router.replace(returnTo), AUTO_RETURN_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [returnTo, router, status]);
 
   // ── Per-minute billing & duration timer for connected paid calls ──────────
   useEffect(() => {
@@ -267,6 +273,36 @@ export default function CallPage() {
     }
   }, [apiHeaders, id]);
 
+  const respondFromCall = useCallback(async (action) => {
+    if (!callRef.current || status !== "ringing") return;
+    try {
+      const res = await fetch(`${API_URL}/api/calls/${id}/respond`, {
+        method: "PATCH",
+        headers: apiHeaders(),
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || t("chatPremium.callRespondError"));
+        setStatus("ended");
+        return;
+      }
+      if (action === "reject") {
+        setStatus("rejected");
+        return;
+      }
+      setCall(data);
+      callRef.current = data;
+      const mediaType = normalizeMediaType(data.mediaType);
+      setCallMediaType(mediaType);
+      startAgora(data._id, mediaType);
+    } catch {
+      setError(t("chatPremium.callRespondError"));
+      setStatus("ended");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiHeaders, id, status, t]);
+
   useEffect(() => {
     const finish = (nextStatus, nextMessage = "") => {
       clearInterval(pollRef.current);
@@ -301,11 +337,12 @@ export default function CallPage() {
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
     async (callId, mediaType = "video") => {
+      if (agoraStartingRef.current || agoraClientRef.current) return;
+      agoraStartingRef.current = true;
       setStatus("connecting");
       const isVideoCall = normalizeMediaType(mediaType) === "video";
 
       try {
-        if (!AGORA_APP_ID) throw new Error("agora_token_failed");
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
 
         const tokenRes = await fetch(
@@ -313,7 +350,8 @@ export default function CallPage() {
           { headers: { Authorization: `Bearer ${token.current}` } }
         );
         if (!tokenRes.ok) throw new Error("agora_token_failed");
-        const { token: agoraToken, uid } = await tokenRes.json();
+        const { token: agoraToken, uid, appId } = await tokenRes.json();
+        if (!appId) throw new Error("agora_token_failed");
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         agoraClientRef.current = client;
@@ -357,12 +395,20 @@ export default function CallPage() {
           } else {
             audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
           }
-        } catch {
+        } catch (permissionError) {
+          const denied =
+            permissionError?.name === "NotAllowedError" ||
+            permissionError?.code === "PERMISSION_DENIED" ||
+            /permission|denied|not allowed/i.test(permissionError?.message || "");
           setError(
-            isVideoCall
+            denied
+              ? t("chatPremium.callPermissionDenied")
+              : isVideoCall
               ? t("chatPremium.callCameraMicAccessError")
               : t("chatPremium.callMicAccessError")
           );
+          await endCallOnServer("permission_denied");
+          await cleanupAgora();
           setStatus("ended");
           return;
         }
@@ -370,7 +416,7 @@ export default function CallPage() {
         localAudioTrackRef.current = audioTrack;
         localVideoTrackRef.current = videoTrack || null;
 
-        await client.join(AGORA_APP_ID, String(callId), agoraToken, uid);
+        await client.join(appId, String(callId), agoraToken, uid);
         await client.publish(videoTrack ? [audioTrack, videoTrack] : [audioTrack]);
 
         // Play local preview
@@ -384,11 +430,14 @@ export default function CallPage() {
         } else {
           setError("Error al conectar la videollamada.");
         }
+        await endCallOnServer("connect_error");
+        await cleanupAgora();
         setStatus("ended");
+      } finally {
+        agoraStartingRef.current = false;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [cleanupAgora, endCallOnServer, t]
   );
 
   const handleEnd = async () => {
@@ -429,17 +478,19 @@ export default function CallPage() {
     );
   }
 
-  if (status === "rejected") {
+  if (status === "rejected" || status === "busy") {
     return (
       <div className="call-page call-center">
-        <span style={{ fontSize: "3rem" }}>📵</span>
-        <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>Llamada rechazada</h2>
-        <p style={{ color: "var(--text-muted)" }}>{remoteName} no pudo atender en este momento.</p>
+        <span style={{ fontSize: "3rem" }}>{status === "busy" ? "📞" : "📵"}</span>
+        <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>
+          {status === "busy" ? t("chatPremium.callBusyTitle") : t("chatPremium.callRejectedTitle")}
+        </h2>
+        <p style={{ color: "var(--text-muted)" }}>
+          {status === "busy" ? t("chatPremium.callBusy") : `${remoteName} ${t("chatPremium.callRejectedDescription")}`}
+        </p>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>{t("chatPremium.returningToChat")}</p>
         <Link href={returnTo} className="btn btn-primary" style={{ marginTop: "1rem" }}>
           💬 {t("chatPremium.returnToChat")}
-        </Link>
-        <Link href="/coins" style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
-          🪙 Comprar monedas
         </Link>
       </div>
     );
@@ -454,17 +505,10 @@ export default function CallPage() {
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
         {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}
+        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>{t("chatPremium.returningToChat")}</p>
         <Link href={returnTo} className="btn btn-primary" style={{ marginTop: "1rem" }}>
           💬 {t("chatPremium.returnToChat")}
         </Link>
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
-          <Link href="/coins" style={{ fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
-            🪙 Comprar monedas
-          </Link>
-          <Link href="/crush" style={{ fontSize: "0.85rem", color: "var(--text-muted)", textDecoration: "none", fontWeight: 600 }}>
-            ⚡ Volver al Crush
-          </Link>
-        </div>
       </div>
     );
   }
@@ -510,16 +554,27 @@ export default function CallPage() {
               )}
             </div>
             <p className="call-status-text">
-              {status === "waiting" && "⏳ Esperando que acepte…"}
-              {status === "connecting" && "🔄 Conectando…"}
-              {status === "reconnecting" && "🔄 Reconectando…"}
+              {status === "calling" && `📲 ${t("chatPremium.calling")}`}
+              {status === "ringing" && `🔔 ${t("chatPremium.ringing")}`}
+              {status === "connecting" && `🔄 ${t("chatPremium.connecting")}`}
+              {status === "reconnecting" && `🔄 ${t("chatPremium.reconnecting")}`}
               {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
             </p>
-            {status === "waiting" && (
+            {(status === "calling" || status === "ringing") && (
               <p className="call-sub-text">{remoteName}</p>
             )}
-            {status === "waiting" && isPaidCall && (
+            {status === "calling" && isPaidCall && (
               <p className="call-paid-info">🪙 {call.callCoins} monedas/min</p>
+            )}
+            {status === "ringing" && (
+              <div className="call-ringing-actions">
+                <button className="call-answer-btn" onClick={() => respondFromCall("accept")}>
+                  {t("chatPremium.acceptCall")}
+                </button>
+                <button className="call-decline-btn" onClick={() => respondFromCall("reject")}>
+                  {t("chatPremium.rejectCall")}
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -542,24 +597,28 @@ export default function CallPage() {
 
       {/* Controls */}
       <div className="call-controls">
-        <button
-          className={`call-control-btn${muted ? " active-mute" : ""}`}
-          onClick={toggleMute}
-          aria-label={muted ? "Activar micrófono" : "Silenciar"}
-          title={muted ? "Activar micrófono" : "Silenciar"}
-        >
-          {muted ? (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          )}
-          <span>{muted ? "Activar mic" : "Silenciar"}</span>
-        </button>
+        {status !== "ringing" && (
+          <button
+            className={`call-control-btn${muted ? " active-mute" : ""}`}
+            onClick={toggleMute}
+            disabled={!localAudioTrackRef.current}
+            aria-label={muted ? "Activar micrófono" : "Silenciar"}
+            title={muted ? "Activar micrófono" : "Silenciar"}
+          >
+            {muted ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            )}
+            <span>{muted ? "Activar mic" : "Silenciar"}</span>
+          </button>
+        )}
 
-        {isVideoCall && (
+        {isVideoCall && status !== "ringing" && (
           <button
             className={`call-control-btn${cameraOff ? " active-mute" : ""}`}
             onClick={toggleCamera}
+            disabled={!localVideoTrackRef.current}
             aria-label={cameraOff ? "Activar cámara" : "Apagar cámara"}
             title={cameraOff ? "Activar cámara" : "Apagar cámara"}
           >
@@ -572,15 +631,17 @@ export default function CallPage() {
           </button>
         )}
 
-        <button
-          className="call-control-btn call-end-btn"
-          onClick={handleEnd}
-          aria-label="Colgar"
-          title="Colgar"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C9.6 21 3 14.4 3 6c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-          <span>Colgar</span>
-        </button>
+        {status !== "ringing" && (
+          <button
+            className="call-control-btn call-end-btn"
+            onClick={handleEnd}
+            aria-label="Colgar"
+            title="Colgar"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C9.6 21 3 14.4 3 6c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            <span>{status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}</span>
+          </button>
+        )}
       </div>
 
       <style jsx>{`
@@ -840,6 +901,33 @@ export default function CallPage() {
           font-size: 0.82rem;
           font-weight: 600;
           margin: 0;
+        }
+
+        .call-ringing-actions {
+          display: flex;
+          gap: 0.75rem;
+          margin-top: 0.5rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .call-answer-btn,
+        .call-decline-btn {
+          border: 0;
+          border-radius: var(--radius-pill);
+          color: #fff;
+          cursor: pointer;
+          font-weight: 800;
+          min-width: 112px;
+          padding: 0.75rem 1.1rem;
+        }
+
+        .call-answer-btn { background: #22c55e; }
+        .call-decline-btn { background: #e53935; }
+
+        .call-control-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.45;
         }
 
         @media (max-width: 480px) {

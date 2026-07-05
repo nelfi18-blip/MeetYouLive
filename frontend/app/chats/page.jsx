@@ -11,7 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const CALL_REFRESH_EVENTS = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
+const CALL_REFRESH_EVENT_NAMES = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
 const ACTIVE_CALL_STATUSES = new Set(["pending", "accepted"]);
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CHAT_REFRESH_DEBOUNCE_MS = 800;
@@ -47,6 +47,20 @@ const getActivityTime = (value) => {
   const date = new Date(value || 0);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
+
+const safeJson = (response) => response.json().catch(() => ({}));
+
+const isRecentActivity = (value, now = Date.now()) =>
+  Boolean(value) && now - getActivityTime(value) < RECENT_WINDOW_MS;
+
+const createContactSummary = (user) => ({
+  user,
+  activityAt: 0,
+  contexts: new Set(),
+  messageCount: 0,
+  callCount: 0,
+  isOnline: false,
+});
 
 const getCallActivityAt = (call) => call?.startedAt || call?.createdAt || call?.endedAt;
 
@@ -154,11 +168,11 @@ export default function ChatsPage() {
       ]);
 
       if (historyResult.status === "fulfilled" && historyResult.value.ok) {
-        const data = await historyResult.value.json().catch(() => ({}));
+        const data = await safeJson(historyResult.value);
         setCalls(Array.isArray(data?.calls) ? data.calls : []);
       }
       if (incomingResult.status === "fulfilled" && incomingResult.value.ok) {
-        const data = await incomingResult.value.json().catch(() => ({}));
+        const data = await safeJson(incomingResult.value);
         setIncomingCall(data?.call || null);
       }
     } catch {
@@ -209,14 +223,14 @@ export default function ChatsPage() {
     socket.on("message:new", refreshChats);
     socket.on("message:sent", refreshChats);
     socket.on("chat:unread_count_updated", refreshChats);
-    CALL_REFRESH_EVENTS.forEach((event) => socket.on(event, refreshChats));
+    CALL_REFRESH_EVENT_NAMES.forEach((event) => socket.on(event, refreshChats));
     return () => {
       socket.off("USER_ONLINE", markOnline);
       socket.off("USER_OFFLINE", markOffline);
       socket.off("message:new", refreshChats);
       socket.off("message:sent", refreshChats);
       socket.off("chat:unread_count_updated", refreshChats);
-      CALL_REFRESH_EVENTS.forEach((event) => socket.off(event, refreshChats));
+      CALL_REFRESH_EVENT_NAMES.forEach((event) => socket.off(event, refreshChats));
       if (refreshTimerRef.current) {
         clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;
@@ -229,7 +243,7 @@ export default function ChatsPage() {
   const missedCalls = useMemo(() => calls.filter((call) => call.status === "missed").length, [calls]);
   const newMessageSignals = useMemo(() => {
     const now = Date.now();
-    return chats.filter((chat) => chat.lastMessage?.createdAt && now - getActivityTime(chat.lastMessage.createdAt) < RECENT_WINDOW_MS).length;
+    return chats.filter((chat) => isRecentActivity(chat.lastMessage?.createdAt, now)).length;
   }, [chats]);
 
   const activeCall = useMemo(() => {
@@ -244,7 +258,7 @@ export default function ChatsPage() {
     const recordContactActivity = ({ user, activityAt, context, isOnline, messageCount = 0, callCount = 0 }) => {
       const id = String(user?._id || "");
       if (!id) return;
-      const previous = contacts.get(id) || { user, activityAt: 0, contexts: new Set(), messageCount: 0, callCount: 0, isOnline: false };
+      const previous = contacts.get(id) || createContactSummary(user);
       contacts.set(id, {
         ...previous,
         user: { ...previous.user, ...user },
@@ -357,6 +371,7 @@ export default function ChatsPage() {
   const activeCallPeer = getCallPeer(activeCall);
   const activeCallName = activeCallPeer ? getDisplayName(activeCallPeer) : t("chatPremium.noActiveCall");
   const activeCallIsVideo = activeCall?.mediaType !== "audio";
+  const activeCallCardClassName = ["active-call-card", activeCall ? "live" : ""].filter(Boolean).join(" ");
 
   return (
     <div className="chats-page">
@@ -380,7 +395,7 @@ export default function ChatsPage() {
       </section>
 
       <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>
-        <Link href={activeCall ? `/call/${activeCall._id}?returnTo=${encodeURIComponent("/chats")}` : "/calls"} className={`active-call-card${activeCall ? " live" : ""}`}>
+        <Link href={activeCall ? `/call/${activeCall._id}?returnTo=${encodeURIComponent("/chats")}` : "/calls"} className={activeCallCardClassName}>
           <div className="active-call-icon">{activeCallIsVideo ? <VideoIcon /> : <PhoneIcon />}</div>
           <div>
             <span className="card-kicker">{activeCall ? t("chatPremium.activeCall") : t("chatPremium.noActiveCall")}</span>

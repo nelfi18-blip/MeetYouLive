@@ -85,10 +85,6 @@ export default function CallPage() {
 
   // ── Clean up on unmount ────────────────────────────────────────────────
   useEffect(() => {
-    setReturnTo(getSafeChatReturnTo());
-  }, []);
-
-  useEffect(() => {
     return () => {
       clearInterval(pollRef.current);
       clearInterval(tickRef.current);
@@ -103,12 +99,15 @@ export default function CallPage() {
 
   // ── Initial load ────────────────────────────────────────────────────────
   useEffect(() => {
+    setReturnTo(getSafeChatReturnTo());
+    const storedToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (sessionStatus === "loading" && !session?.backendToken && !storedToken) return;
+
     token.current =
       session?.backendToken ||
-      (typeof window !== "undefined" ? localStorage.getItem("token") : null);
+      storedToken;
 
     if (!token.current) {
-      if (sessionStatus === "loading") return;
       clearToken();
       router.replace("/login");
       return;

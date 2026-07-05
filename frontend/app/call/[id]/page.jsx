@@ -17,6 +17,8 @@ const POLL_MS = 1000; // polling interval for call acceptance
 const RECONNECT_GRACE_MS = 15000;
 const AUTO_RETURN_DELAY_MS = 3000;
 const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
+const SPEAKER_VOLUME_FULL = 100;
+const SPEAKER_VOLUME_REDUCED = 65;
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
@@ -551,14 +553,15 @@ export default function CallPage() {
       const cameras = await AgoraRTC.getCameras();
       if (cameras.length < 2) return;
       const currentIndex = cameras.findIndex((camera) => camera.deviceId === currentCameraDeviceIdRef.current);
-      const nextCamera = cameras[(currentIndex + 1 + cameras.length) % cameras.length];
+      const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % cameras.length;
+      const nextCamera = cameras[nextIndex];
       if (nextCamera?.deviceId && typeof localVideoTrackRef.current.setDevice === "function") {
         await localVideoTrackRef.current.setDevice(nextCamera.deviceId);
         currentCameraDeviceIdRef.current = nextCamera.deviceId;
         setCameraOff(false);
       }
-    } catch {
-      // Browser/device may not support camera switching during an active call.
+    } catch (err) {
+      console.warn("[CallPage] Camera switch failed", err);
     } finally {
       setSwitchingCamera(false);
     }
@@ -568,7 +571,7 @@ export default function CallPage() {
     setSpeakerOn((prev) => {
       const next = !prev;
       if (remoteAudioTrackRef.current?.setVolume) {
-        remoteAudioTrackRef.current.setVolume(next ? 100 : 65);
+        remoteAudioTrackRef.current.setVolume(next ? SPEAKER_VOLUME_FULL : SPEAKER_VOLUME_REDUCED);
       }
       return next;
     });

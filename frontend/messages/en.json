@@ -859,5 +859,48 @@
         ]
       }
     }
+  },
+
+  "callHistory": {
+    "eyebrow": "Premium history",
+    "title": "Call history",
+    "subtitle": "Review your voice and video calls with status, duration and quick actions.",
+    "voice": "Voice",
+    "video": "Video",
+    "realtime": "Updated in real time",
+    "summaryAria": "Call history summary",
+    "total": "total",
+    "missed": "missed",
+    "filtersAria": "Call history filters",
+    "filters": {
+      "all": "All",
+      "incoming": "Received",
+      "outgoing": "Made",
+      "missed": "Missed"
+    },
+    "directions": {
+      "incoming": "Received",
+      "outgoing": "Made"
+    },
+    "statuses": {
+      "answered": "Answered",
+      "missed": "Missed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "pending": "Pending"
+    },
+    "noDuration": "No duration",
+    "offline": "Offline",
+    "callBack": "Call back",
+    "sendMessage": "Send message",
+    "loading": "Loading call history",
+    "emptyKicker": "No calls yet",
+    "emptyTitle": "Your history will appear here",
+    "emptyText": "When you make or receive premium calls, you will see date, time, duration and status.",
+    "openChats": "Open chats",
+    "loadError": "Could not load call history",
+    "messageError": "Could not open chat",
+    "callError": "Could not start the call"
   }
+
 }

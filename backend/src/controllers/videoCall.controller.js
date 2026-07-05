@@ -112,6 +112,7 @@ const serializeCallHistoryItem = (req, call, onlineUserIds) => {
   const peerId = String(peer?._id || "");
   const startedAt = payload.startedAt ? new Date(payload.startedAt) : null;
   const endedAt = payload.endedAt ? new Date(payload.endedAt) : null;
+  // Prefer the persisted duration from completed calls; calculate a fallback for legacy/in-flight records.
   const durationSeconds =
     payload.totalDurationSeconds ||
     (startedAt && endedAt ? Math.max(0, Math.floor((endedAt - startedAt) / 1000)) : 0);
@@ -282,7 +283,8 @@ const getCallHistory = async (req, res) => {
       await markPendingCallMissed(staleCall);
     }
 
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(parsedLimit) ? 50 : Math.min(Math.max(parsedLimit, 1), 100);
     const calls = await VideoCall.find({
       $or: [{ caller: req.userId }, { recipient: req.userId }],
     })

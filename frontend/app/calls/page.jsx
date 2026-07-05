@@ -12,6 +12,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const FILTERS = ["all", "incoming", "outgoing", "missed"];
 const REFRESH_EVENTS = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
+// Coalesces bursts of call socket events while keeping the history feeling live.
+const REFRESH_DEBOUNCE_MS = 700;
 
 const formatDate = (value, locale) => {
   if (!value) return "";
@@ -68,7 +70,7 @@ export default function CallHistoryPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [actionId, setActionId] = useState("");
+  const [activeActionId, setActiveActionId] = useState("");
   const refreshTimerRef = useRef(null);
 
   const getBackendToken = useCallback(
@@ -124,7 +126,7 @@ export default function CallHistoryPage() {
       refreshTimerRef.current = setTimeout(() => {
         refreshTimerRef.current = null;
         fetchHistory({ silent: true });
-      }, 700);
+      }, REFRESH_DEBOUNCE_MS);
     };
 
     const markOnline = ({ userId }) => {
@@ -173,8 +175,8 @@ export default function CallHistoryPage() {
 
   const handleMessage = async (peerId) => {
     const token = getBackendToken();
-    if (!token || !peerId || actionId) return;
-    setActionId(`message:${peerId}`);
+    if (!token || !peerId || activeActionId) return;
+    setActiveActionId(`message:${peerId}`);
     setError("");
     try {
       const res = await fetch(`${API_URL}/api/chats`, {
@@ -191,15 +193,15 @@ export default function CallHistoryPage() {
     } catch (err) {
       setError(err.message || t("callHistory.messageError"));
     } finally {
-      setActionId("");
+      setActiveActionId("");
     }
   };
 
   const handleCallBack = async (call) => {
     const token = getBackendToken();
     const peerId = call?.peer?._id;
-    if (!token || !peerId || actionId) return;
-    setActionId(`call:${call._id}`);
+    if (!token || !peerId || activeActionId) return;
+    setActiveActionId(`call:${call._id}`);
     setError("");
     try {
       const res = await fetch(`${API_URL}/api/calls`, {
@@ -220,7 +222,7 @@ export default function CallHistoryPage() {
     } catch (err) {
       setError(err.message || t("callHistory.callError"));
     } finally {
-      setActionId("");
+      setActiveActionId("");
     }
   };
 
@@ -329,7 +331,7 @@ export default function CallHistoryPage() {
                     type="button"
                     className="call-action primary"
                     onClick={() => handleCallBack(call)}
-                    disabled={Boolean(actionId)}
+                    disabled={Boolean(activeActionId)}
                   >
                     {t("callHistory.callBack")}
                   </button>
@@ -337,7 +339,7 @@ export default function CallHistoryPage() {
                     type="button"
                     className="call-action"
                     onClick={() => handleMessage(peer._id)}
-                    disabled={Boolean(actionId)}
+                    disabled={Boolean(activeActionId)}
                   >
                     {t("callHistory.sendMessage")}
                   </button>

@@ -166,6 +166,7 @@
     "acceptCall": "Accept",
     "rejectCall": "Reject",
     "cancelCall": "Cancel",
+    "endCall": "Hang up",
     "callDisconnectedEnded": "The other person disconnected. The call ended automatically.",
     "callConnectingShort": "Connecting…",
     "callCameraMicAccessError": "Could not access the camera or microphone. Please allow access and try again.",

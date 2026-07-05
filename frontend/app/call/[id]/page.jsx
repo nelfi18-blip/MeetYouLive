@@ -14,6 +14,7 @@ const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
 const AUTO_RETURN_MS = 2600;
+const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
@@ -177,7 +178,7 @@ export default function CallPage() {
 
   // ── Auto-return to chat after terminal call states ───────────────────────
   useEffect(() => {
-    if (!["ended", "rejected", "missed", "busy"].includes(status)) return undefined;
+    if (!TERMINAL_CALL_STATES.includes(status)) return undefined;
     const timer = setTimeout(() => router.replace(returnTo), AUTO_RETURN_MS);
     return () => clearTimeout(timer);
   }, [returnTo, router, status]);
@@ -637,7 +638,7 @@ export default function CallPage() {
             title="Colgar"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C9.6 21 3 14.4 3 6c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-            <span>{status === "calling" ? t("chatPremium.cancelCall") : "Colgar"}</span>
+            <span>{status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}</span>
           </button>
         )}
       </div>

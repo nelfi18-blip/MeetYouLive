@@ -166,6 +166,7 @@
     "acceptCall": "Aceptar",
     "rejectCall": "Rechazar",
     "cancelCall": "Cancelar",
+    "endCall": "Colgar",
     "callDisconnectedEnded": "La otra persona se desconectó. La llamada terminó automáticamente.",
     "callConnectingShort": "Conectando…",
     "callCameraMicAccessError": "No se pudo acceder a la cámara o micrófono. Por favor, permite el acceso e intenta de nuevo.",

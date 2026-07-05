@@ -122,7 +122,7 @@ const inviteCall = async (req, res) => {
     if (blockingCall) {
       return res.status(409).json({
         code: "CALL_BUSY",
-        message: "El usuario está en otra llamada. Intenta de nuevo más tarde.",
+        message: "The user is in another call. Please try again later.",
       });
     }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import socket from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -11,6 +12,7 @@ const POLL_INTERVAL = 2500; // poll every 2.5 seconds
 export default function IncomingCallNotification() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { data: session } = useSession();
   const [call, setCall] = useState(null);
   const [responding, setResponding] = useState(false);
   const [message, setMessage] = useState("");
@@ -24,7 +26,9 @@ export default function IncomingCallNotification() {
 
   useEffect(() => {
     const fetchIncoming = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token =
+        session?.backendToken ||
+        (typeof window !== "undefined" ? localStorage.getItem("token") : null);
       if (!token) return;
       try {
         const res = await fetch(`${API_URL}/api/calls/incoming`, {
@@ -40,7 +44,9 @@ export default function IncomingCallNotification() {
     };
 
     const fetchCallById = async (callId) => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token =
+        session?.backendToken ||
+        (typeof window !== "undefined" ? localStorage.getItem("token") : null);
       if (!token || !callId) return;
       try {
         const res = await fetch(`${API_URL}/api/calls/${callId}`, {
@@ -81,11 +87,16 @@ export default function IncomingCallNotification() {
       socket.off("CALL_REJECTED", handleRejected);
       socket.off("CALL_MISSED", handleMissed);
     };
-  }, [t]);
+  }, [session?.backendToken, t]);
 
   const respond = async (action) => {
     if (!call || responding) return;
-    const token = localStorage.getItem("token");
+    const token = session?.backendToken || localStorage.getItem("token");
+    if (!token) {
+      setCall(null);
+      setMessage(t("chatPremium.callRespondError"));
+      return;
+    }
     setResponding(true);
     try {
       const res = await fetch(`${API_URL}/api/calls/${call._id}/respond`, {
@@ -98,7 +109,9 @@ export default function IncomingCallNotification() {
       });
       if (res.ok && action === "accept") {
         setMessage(t("chatPremium.callAcceptedOpening"));
-        router.push(`/call/${call._id}`);
+        const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+        const returnTo = currentPath.startsWith("/chats/") ? `?returnTo=${encodeURIComponent(currentPath)}` : "";
+        router.push(`/call/${call._id}${returnTo}`);
       } else if (res.ok) {
         setMessage(t("chatPremium.callRejected"));
       } else {
@@ -136,6 +149,7 @@ export default function IncomingCallNotification() {
   const callerName = call.caller?.username || call.caller?.name || "Alguien";
   const callerInitial = callerName[0].toUpperCase();
   const isPaid = call.type === "paid_creator";
+  const isAudioCall = call.mediaType === "audio";
 
   return (
     <div className="incoming-call-overlay">
@@ -149,7 +163,9 @@ export default function IncomingCallNotification() {
           )}
         </div>
         <div className="incoming-call-info">
-          <p className="incoming-call-label">📹 Llamada entrante</p>
+          <p className="incoming-call-label">
+            {isAudioCall ? t("chatPremium.incomingVoiceCall") : t("chatPremium.incomingVideoCall")}
+          </p>
           <p className="incoming-call-name">{callerName}</p>
           {isPaid && (
             <p className="incoming-call-paid">
@@ -164,7 +180,11 @@ export default function IncomingCallNotification() {
             disabled={responding}
             aria-label="Aceptar llamada"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            {isAudioCall ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.08 4.18 2 2 0 014.06 2h3a2 2 0 012 1.72c.12.9.33 1.78.63 2.63a2 2 0 01-.45 2.11L8 9.7a16 16 0 006.3 6.3l1.24-1.24a2 2 0 012.11-.45c.85.3 1.73.51 2.63.63A2 2 0 0122 16.92z"/></svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            )}
             Aceptar
           </button>
           <button

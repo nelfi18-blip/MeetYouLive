@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import socket from "@/lib/socket";
@@ -14,9 +15,19 @@ const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
 
+const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
+
+const getSafeChatReturnTo = () => {
+  if (typeof window === "undefined") return "/chats";
+  const params = new URLSearchParams(window.location.search);
+  const returnTo = params.get("returnTo") || "";
+  return returnTo.startsWith("/chats/") ? returnTo : "/chats";
+};
+
 export default function CallPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
 
   const [call, setCall] = useState(null);
@@ -27,6 +38,8 @@ export default function CallPage() {
   const [isCaller, setIsCaller] = useState(false);
   const [remoteName, setRemoteName] = useState("");
   const [remoteAvatar, setRemoteAvatar] = useState("");
+  const [callMediaType, setCallMediaType] = useState("video");
+  const [returnTo, setReturnTo] = useState("/chats");
   const [callDuration, setCallDuration] = useState(0); // seconds elapsed while connected
   const [totalCharged, setTotalCharged] = useState(0); // coins charged so far this call
   const [coinsWarning, setCoinsWarning] = useState("");
@@ -52,6 +65,14 @@ export default function CallPage() {
       Authorization: `Bearer ${token.current}`,
     }),
     []
+  );
+
+  const getCurrentUserId = useCallback(
+    () =>
+      session?.backendUserId ||
+      (typeof window !== "undefined" ? localStorage.getItem("userId") : "") ||
+      "",
+    [session?.backendUserId]
   );
 
   // ── Agora cleanup helper ────────────────────────────────────────────────
@@ -86,6 +107,12 @@ export default function CallPage() {
 
   // ── Initial load ────────────────────────────────────────────────────────
   useEffect(() => {
+    setReturnTo(getSafeChatReturnTo());
+    const storedToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (sessionStatus === "loading" && !session?.backendToken && !storedToken) return;
+
+    token.current = session?.backendToken || storedToken;
+
     if (!token.current) {
       clearToken();
       router.replace("/login");
@@ -111,7 +138,7 @@ export default function CallPage() {
         setCall(data);
         callRef.current = data;
 
-        const me = localStorage.getItem("userId") || "";
+        const me = getCurrentUserId();
         const callerIsMe = String(data.caller._id) === me;
         setIsCaller(callerIsMe);
 
@@ -123,17 +150,19 @@ export default function CallPage() {
         const remote = callerIsMe ? data.recipient : data.caller;
         setRemoteName(remote?.username || remote?.name || "Usuario");
         setRemoteAvatar(remote?.avatar || "");
+        const mediaType = normalizeMediaType(data.mediaType);
+        setCallMediaType(mediaType);
 
         if (data.status === "rejected") { setStatus("rejected"); return; }
         if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
         if (data.status === "accepted") {
-          startAgora(data._id);
+          startAgora(data._id, mediaType);
         } else {
           // status is pending
           setStatus(callerIsMe ? "waiting" : "connecting");
           if (!callerIsMe) {
             // callee just accepted via notification — join Agora now
-            startAgora(data._id);
+            startAgora(data._id, mediaType);
           } else {
             pollForAcceptance(data);
           }
@@ -146,15 +175,15 @@ export default function CallPage() {
 
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 
   // ── Per-minute billing & duration timer for connected paid calls ──────────
   useEffect(() => {
     if (status !== "connected") return;
     const currentCall = callRef.current;
     const isPaidCall = currentCall?.type === "paid_creator" && currentCall?.callCoins > 0;
-    const isCallerUser = String(currentCall?.caller?._id || currentCall?.caller) ===
-      (typeof window !== "undefined" ? localStorage.getItem("userId") : "");
+    const currentUserId = getCurrentUserId();
+    const isCallerUser = String(currentCall?.caller?._id || currentCall?.caller) === currentUserId;
 
     // Duration counter (every second)
     durationRef.current = setInterval(() => {
@@ -194,7 +223,7 @@ export default function CallPage() {
       clearInterval(durationRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [getCurrentUserId, status]);
 
   // ── Poll until recipient accepts, then start Agora ─────────────────────
   const pollForAcceptance = useCallback(
@@ -210,7 +239,9 @@ export default function CallPage() {
             clearInterval(pollRef.current);
             setCall(data);
             callRef.current = data;
-            startAgora(callData._id);
+            const mediaType = normalizeMediaType(data.mediaType);
+            setCallMediaType(mediaType);
+            startAgora(callData._id, mediaType);
           } else if (["rejected", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
             setStatus(data.status === "rejected" ? "rejected" : "ended");
@@ -269,8 +300,9 @@ export default function CallPage() {
 
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
-    async (callId) => {
+    async (callId, mediaType = "video") => {
       setStatus("connecting");
+      const isVideoCall = normalizeMediaType(mediaType) === "video";
 
       try {
         if (!AGORA_APP_ID) throw new Error("agora_token_failed");
@@ -317,25 +349,32 @@ export default function CallPage() {
           }, RECONNECT_GRACE_MS);
         });
 
-        // Get local camera and mic
+        // Get local mic, and camera only for video calls.
         let audioTrack, videoTrack;
         try {
-          [audioTrack, videoTrack] =
-            await AgoraRTC.createMicrophoneAndCameraTracks();
+          if (isVideoCall) {
+            [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+          } else {
+            audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          }
         } catch {
-          setError("No se pudo acceder a la cámara/micrófono. Por favor, permite el acceso.");
+          setError(
+            isVideoCall
+              ? t("chatPremium.callCameraMicAccessError")
+              : t("chatPremium.callMicAccessError")
+          );
           setStatus("ended");
           return;
         }
 
         localAudioTrackRef.current = audioTrack;
-        localVideoTrackRef.current = videoTrack;
+        localVideoTrackRef.current = videoTrack || null;
 
         await client.join(AGORA_APP_ID, String(callId), agoraToken, uid);
-        await client.publish([audioTrack, videoTrack]);
+        await client.publish(videoTrack ? [audioTrack, videoTrack] : [audioTrack]);
 
         // Play local preview
-        if (localVideoRef.current) {
+        if (videoTrack && localVideoRef.current) {
           videoTrack.play(localVideoRef.current);
         }
       } catch (err) {
@@ -359,7 +398,7 @@ export default function CallPage() {
     clearTimeout(reconnectRef.current);
     await cleanupAgora();
     await endCallOnServer("hangup");
-    router.replace("/chats");
+    router.replace(returnTo);
   };
 
   const toggleMute = () => {
@@ -396,8 +435,8 @@ export default function CallPage() {
         <span style={{ fontSize: "3rem" }}>📵</span>
         <h2 style={{ color: "var(--text)", margin: "0.5rem 0" }}>Llamada rechazada</h2>
         <p style={{ color: "var(--text-muted)" }}>{remoteName} no pudo atender en este momento.</p>
-        <Link href="/matches" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-          ⚡ Llamar ahora a otro match
+        <Link href={returnTo} className="btn btn-primary" style={{ marginTop: "1rem" }}>
+          💬 {t("chatPremium.returnToChat")}
         </Link>
         <Link href="/coins" style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
           🪙 Comprar monedas
@@ -415,8 +454,8 @@ export default function CallPage() {
         </h2>
         {error && <p style={{ color: "var(--error)" }}>{error}</p>}
         {coinsWarning && <p style={{ color: "var(--error)" }}>{coinsWarning}</p>}
-        <Link href="/matches" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-          💖 Ver mis matches
+        <Link href={returnTo} className="btn btn-primary" style={{ marginTop: "1rem" }}>
+          💬 {t("chatPremium.returnToChat")}
         </Link>
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
           <Link href="/coins" style={{ fontSize: "0.85rem", color: "#fbbf24", textDecoration: "none", fontWeight: 700 }}>
@@ -431,6 +470,7 @@ export default function CallPage() {
   }
 
   const isPaidCall = call?.type === "paid_creator" && call?.callCoins > 0;
+  const isVideoCall = callMediaType !== "audio";
   const mins = Math.floor(callDuration / 60);
   const secs = callDuration % 60;
   const durationLabel = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
@@ -460,7 +500,7 @@ export default function CallPage() {
       {/* Remote video */}
       <div className="call-remote-area">
         <div ref={remoteVideoRef} className="call-remote-video" />
-        {status !== "connected" && (
+        {(!isVideoCall || status !== "connected") && (
           <div className="call-remote-placeholder">
             <div className="call-remote-avatar">
               {remoteAvatar ? (
@@ -473,6 +513,7 @@ export default function CallPage() {
               {status === "waiting" && "⏳ Esperando que acepte…"}
               {status === "connecting" && "🔄 Conectando…"}
               {status === "reconnecting" && "🔄 Reconectando…"}
+              {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
             </p>
             {status === "waiting" && (
               <p className="call-sub-text">{remoteName}</p>
@@ -488,14 +529,16 @@ export default function CallPage() {
       </div>
 
       {/* Local video (picture-in-picture) */}
-      <div className={`call-local-pip${cameraOff ? " camera-off" : ""}`}>
-        <div ref={localVideoRef} className="call-local-video" />
-        {cameraOff && (
-          <div className="call-local-placeholder">
-            <span>📵</span>
-          </div>
-        )}
-      </div>
+      {isVideoCall && (
+        <div className={`call-local-pip${cameraOff ? " camera-off" : ""}`}>
+          <div ref={localVideoRef} className="call-local-video" />
+          {cameraOff && (
+            <div className="call-local-placeholder">
+              <span>📵</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="call-controls">
@@ -513,19 +556,21 @@ export default function CallPage() {
           <span>{muted ? "Activar mic" : "Silenciar"}</span>
         </button>
 
-        <button
-          className={`call-control-btn${cameraOff ? " active-mute" : ""}`}
-          onClick={toggleCamera}
-          aria-label={cameraOff ? "Activar cámara" : "Apagar cámara"}
-          title={cameraOff ? "Activar cámara" : "Apagar cámara"}
-        >
-          {cameraOff ? (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3m3-3h6l2 3h4a2 2 0 012 2v9.34m-7.72-2.06A3 3 0 019.88 9.88"/></svg>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          )}
-          <span>{cameraOff ? "Activar cam" : "Apagar cam"}</span>
-        </button>
+        {isVideoCall && (
+          <button
+            className={`call-control-btn${cameraOff ? " active-mute" : ""}`}
+            onClick={toggleCamera}
+            aria-label={cameraOff ? "Activar cámara" : "Apagar cámara"}
+            title={cameraOff ? "Activar cámara" : "Apagar cámara"}
+          >
+            {cameraOff ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3m3-3h6l2 3h4a2 2 0 012 2v9.34m-7.72-2.06A3 3 0 019.88 9.88"/></svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            )}
+            <span>{cameraOff ? "Activar cam" : "Apagar cam"}</span>
+          </button>
+        )}
 
         <button
           className="call-control-btn call-end-btn"

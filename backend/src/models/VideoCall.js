@@ -14,6 +14,11 @@ const videocallSchema = new mongoose.Schema(
       enum: ["social", "paid_creator"],
       default: "social",
     },
+    mediaType: {
+      type: String,
+      enum: ["audio", "video"],
+      default: "video",
+    },
     callCoins: { type: Number, default: 0, min: 0 },
     pricePerMinute: { type: Number, default: 0, min: 0 },
     startedAt: { type: Date, default: null },

@@ -11,7 +11,18 @@ const {
   isPendingCallExpired,
   PENDING_CALL_TIMEOUT_MS,
 } = require("../services/callRules.service.js");
-const { getIO } = require("../lib/socket.js");
+const { getIO, getOnlineUsers } = require("../lib/socket.js");
+
+const MEDIA_TYPES = Object.freeze({
+  AUDIO: "audio",
+  VIDEO: "video",
+});
+
+const normalizeMediaType = (mediaType) =>
+  mediaType === MEDIA_TYPES.AUDIO ? MEDIA_TYPES.AUDIO : MEDIA_TYPES.VIDEO;
+
+const isUserOnline = (userId) =>
+  getOnlineUsers().some((onlineUser) => String(onlineUser.userId) === String(userId));
 
 // Helper: refund coins to caller for a paid call. Accepts a raw id or populated user.
 const refundPaidCall = async (callerId, coins) => {
@@ -59,6 +70,7 @@ const inviteCall = async (req, res) => {
   }
 
   const callType = normalizeCallType(type);
+  const mediaType = normalizeMediaType(req.body?.mediaType);
   let coins = callType === CALL_TYPES.PAID_CREATOR ? Math.max(0, parseInt(callCoins) || 0) : 0;
   let creatorPricePerMinute = 0;
 
@@ -66,6 +78,12 @@ const inviteCall = async (req, res) => {
     // For social calls: require mutual match
     if (callType === CALL_TYPES.SOCIAL) {
       await assertSocialCallAllowed(req.userId, recipientId);
+      if (!isUserOnline(recipientId)) {
+        return res.status(409).json({
+          code: "USER_OFFLINE",
+          message: "The user is offline. Please try again when they are online.",
+        });
+      }
     }
 
     // For paid creator calls: recipient must be a creator with private calls enabled
@@ -118,6 +136,7 @@ const inviteCall = async (req, res) => {
       caller: req.userId,
       recipient: recipientId,
       type: callType,
+      mediaType,
       callCoins: coins,
       pricePerMinute: creatorPricePerMinute,
     });
@@ -135,6 +154,7 @@ const inviteCall = async (req, res) => {
         callerId: String(req.userId),
         callerName,
         type: call.type,
+        mediaType: call.mediaType,
         callCoins: call.callCoins,
       });
     }

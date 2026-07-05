@@ -338,7 +338,7 @@ export default function ChatConversationPage() {
     }
   };
 
-  const handleVideoCall = async () => {
+  const handleStartCall = async (mediaType = "video") => {
     if (!otherUser?._id || callLoading) return;
     setCallLoading(true);
     setCallError("");
@@ -350,15 +350,15 @@ export default function ChatConversationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ recipientId: otherUser._id, type: "social" }),
+        body: JSON.stringify({ recipientId: otherUser._id, type: "social", mediaType }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setCallError(data.message || "No se pudo iniciar la llamada");
+        setCallError(data.code === "USER_OFFLINE" ? t("chatPremium.callUserOffline") : data.message || "No se pudo iniciar la llamada");
         return;
       }
       // Navigate to the call room
-      router.push(`/call/${data._id}`);
+      router.push(`/call/${data._id}?returnTo=${encodeURIComponent(`/chats/${id}`)}`);
     } catch {
       setCallError("Error de conexión al iniciar la llamada");
     } finally {
@@ -407,7 +407,7 @@ export default function ChatConversationPage() {
           isMatch={isMatch}
           // otherUser can be null while chat metadata loads; the contract treats it as a non-creator social flow.
           peer={otherUser}
-          onStartCall={handleVideoCall}
+          onStartCall={handleStartCall}
           className="header-actions"
           buttonClassName="icon-action muted"
         />

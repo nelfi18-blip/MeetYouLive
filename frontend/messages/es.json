@@ -860,7 +860,6 @@
       }
     }
   },
-
   "callHistory": {
     "eyebrow": "Historial premium",
     "title": "Historial de llamadas",
@@ -901,6 +900,11 @@
     "loadError": "No se pudo cargar el historial de llamadas",
     "messageError": "No se pudo abrir el chat",
     "callError": "No se pudo iniciar la llamada"
+  },
+  "giftPanel": {
+    "visualMode": "Modo visual · sin cobro",
+    "visualNote": "Vista previa Premium: no descuenta monedas, no activa Stripe y no genera payout.",
+    "visualPreviewSent": "Vista previa enviada",
+    "sendVisual": "Enviar visual"
   }
-
 }

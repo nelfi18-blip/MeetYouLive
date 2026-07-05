@@ -860,7 +860,6 @@
       }
     }
   },
-
   "callHistory": {
     "eyebrow": "Premium history",
     "title": "Call history",
@@ -901,6 +900,11 @@
     "loadError": "Could not load call history",
     "messageError": "Could not open chat",
     "callError": "Could not start the call"
+  },
+  "giftPanel": {
+    "visualMode": "Visual mode · no charge",
+    "visualNote": "Premium preview: no coins are deducted, Stripe is not activated, and no payout is generated.",
+    "visualPreviewSent": "Preview sent",
+    "sendVisual": "Send visual"
   }
-
 }

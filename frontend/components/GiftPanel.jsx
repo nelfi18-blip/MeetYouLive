@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 import { getGiftTier } from "../lib/giftTiers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -45,6 +46,7 @@ const CATEGORIES = [
  */
 export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false }) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   /* ── Auth check ────────────────────────────────────────────────────── */
   const [isLoggedIn] = useState(() =>
@@ -92,7 +94,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   // initial seed (captured in useState), so re-running when it changes would cause
   // duplicate fetches if the parent updates the prop later.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visualOnly]);
+  }, []);
 
   /* ── Filtered gifts for active category ────────────────────────────── */
   const filteredGifts = useCallback(() => {
@@ -164,7 +166,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           },
         };
         const comboLabel = quantity > 1 ? ` x${quantity} combo` : "";
-        setSendSuccess(`🎁 Vista previa enviada${comboLabel}`);
+        setSendSuccess(`🎁 ${t("giftPanel.visualPreviewSent")}${comboLabel}`);
         setShowConfirm(false);
         setSelectedGift(null);
         setQuantity(1);
@@ -234,7 +236,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           <div className="gp-header-left">
             <span className="gp-title">🎁 Enviar regalo</span>
             {visualOnly && (
-              <span className="gp-visual-mode">Modo visual · sin cobro</span>
+              <span className="gp-visual-mode">{t("giftPanel.visualMode")}</span>
             )}
             {coinBalance !== null && (
               <span className="gp-balance" aria-label={`Saldo: ${coinBalance.toLocaleString()} monedas`}>
@@ -502,7 +504,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
             {visualOnly && (
               <div className="gp-visual-note">
-                Vista previa Premium: no descuenta monedas, no activa Stripe y no genera payout.
+                {t("giftPanel.visualNote")}
               </div>
             )}
 
@@ -530,7 +532,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                   <><span className="gp-btn-spinner" /> Enviando…</>
                 ) : (
                   visualOnly
-                    ? `Enviar visual ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""}`
+                    ? `${t("giftPanel.sendVisual")} ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""}`
                     : `Enviar ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}`
                 )}
               </button>

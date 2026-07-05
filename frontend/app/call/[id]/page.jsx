@@ -350,7 +350,7 @@ export default function CallPage() {
       const gift = data.gift || {};
       const notif = {
         eventId: data.eventId || `${Date.now()}-${Math.random()}`,
-        senderName: data.senderName || remoteName || "Alguien",
+        senderName: data.senderName || "Alguien",
         giftName: gift.name || "Regalo Premium",
         giftIcon: gift.icon || "🎁",
         quantity: data.quantity || 1,
@@ -374,7 +374,7 @@ export default function CallPage() {
 
     socket.on("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
     return () => socket.off("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
-  }, [getCurrentUserId, id, remoteName]);
+  }, [getCurrentUserId, id]);
 
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(

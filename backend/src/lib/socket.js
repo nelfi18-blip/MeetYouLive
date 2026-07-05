@@ -96,6 +96,7 @@ const sanitizeVisualGift = (gift = {}) => ({
   type: ["basic", "premium", "super"].includes(gift.type) ? gift.type : "basic",
   isSuper: !!gift.isSuper || gift.type === "super",
   animationType: ["small", "medium", "fullscreen"].includes(gift.animationType) ? gift.animationType : "small",
+  soundUrl: typeof gift.soundUrl === "string" && /^https?:\/\//i.test(gift.soundUrl) ? gift.soundUrl.slice(0, 500) : "",
 });
 
 const getParticipantIds = (chat) => (chat?.participants || []).map((id) => String(id));

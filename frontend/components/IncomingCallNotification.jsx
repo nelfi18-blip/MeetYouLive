@@ -163,7 +163,9 @@ export default function IncomingCallNotification() {
           )}
         </div>
         <div className="incoming-call-info">
-          <p className="incoming-call-label">{isAudioCall ? "📞 Llamada entrante" : "📹 Videollamada entrante"}</p>
+          <p className="incoming-call-label">
+            {isAudioCall ? t("chatPremium.incomingVoiceCall") : t("chatPremium.incomingVideoCall")}
+          </p>
           <p className="incoming-call-name">{callerName}</p>
           {isPaid && (
             <p className="incoming-call-paid">

@@ -360,8 +360,8 @@ export default function CallPage() {
         } catch {
           setError(
             isVideoCall
-              ? "No se pudo acceder a la cámara o micrófono. Por favor, permite el acceso e intenta de nuevo."
-              : "No se pudo acceder al micrófono. Por favor, permite el acceso e intenta de nuevo."
+              ? t("chatPremium.callCameraMicAccessError")
+              : t("chatPremium.callMicAccessError")
           );
           setStatus("ended");
           return;
@@ -513,7 +513,7 @@ export default function CallPage() {
               {status === "waiting" && "⏳ Esperando que acepte…"}
               {status === "connecting" && "🔄 Conectando…"}
               {status === "reconnecting" && "🔄 Reconectando…"}
-              {!isVideoCall && status === "connected" && "📞 Llamada de voz en curso"}
+              {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
             </p>
             {status === "waiting" && (
               <p className="call-sub-text">{remoteName}</p>

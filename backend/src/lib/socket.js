@@ -4,6 +4,7 @@ const Live = require("../models/Live.js");
 const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
 const User = require("../models/User.js");
+const VideoCall = require("../models/VideoCall.js");
 
 let io = null;
 
@@ -67,6 +68,46 @@ const isChatParticipant = async (chatId, userId) => {
   const chat = await Chat.findOne({ _id: chatId, participants: userId }).select("_id").lean();
   return !!chat;
 };
+
+const isChatBetweenParticipants = async (chatId, userA, userB) => {
+  if (!isObjectId(chatId) || !isObjectId(userA) || !isObjectId(userB)) return false;
+  const chat = await Chat.findOne({ _id: chatId, participants: { $all: [userA, userB], $size: 2 } }).select("_id").lean();
+  return !!chat;
+};
+
+const isCallBetweenParticipants = async (callId, userA, userB) => {
+  if (!isObjectId(callId) || !isObjectId(userA) || !isObjectId(userB)) return false;
+  const call = await VideoCall.findOne({
+    _id: callId,
+    $or: [
+      { caller: userA, recipient: userB },
+      { caller: userB, recipient: userA },
+    ],
+  }).select("_id").lean();
+  return !!call;
+};
+
+const sanitizeHttpsUrl = (value) => {
+  if (typeof value !== "string" || value.length > 500) return "";
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch (_) {
+    return "";
+  }
+};
+
+const sanitizeVisualGift = (gift = {}) => ({
+  name: String(gift.name || "Regalo Premium").slice(0, 80),
+  icon: String(gift.icon || "🎁").slice(0, 12),
+  coinCost: Math.max(0, Math.min(100000, parseInt(gift.coinCost, 10) || 0)),
+  rarity: String(gift.rarity || "common").slice(0, 24),
+  category: String(gift.category || "emotional").slice(0, 24),
+  type: ["basic", "premium", "super"].includes(gift.type) ? gift.type : "basic",
+  isSuper: !!gift.isSuper || gift.type === "super",
+  animationType: ["small", "medium", "fullscreen"].includes(gift.animationType) ? gift.animationType : "small",
+  soundUrl: sanitizeHttpsUrl(gift.soundUrl),
+});
 
 const getParticipantIds = (chat) => (chat?.participants || []).map((id) => String(id));
 
@@ -487,6 +528,52 @@ const initSocket = (httpServer) => {
 
     socket.on("typing:start", (data) => emitChatPresenceEvent("typing:start", data));
     socket.on("typing:stop", (data) => emitChatPresenceEvent("typing:stop", data));
+
+    socket.on("premium_gift:visual_send", async (data = {}, ack) => {
+      try {
+        if (!socket._userId || !isObjectId(data.receiverId)) {
+          if (typeof ack === "function") ack({ ok: false, message: "No autorizado" });
+          return;
+        }
+
+        const context = data.context === "call" ? "call" : "chat";
+        const contextId = String(data.contextId || "");
+        if (!isObjectId(contextId)) {
+          if (typeof ack === "function") ack({ ok: false, message: "Contexto inválido" });
+          return;
+        }
+
+        const allowed =
+          context === "chat"
+            ? await isChatBetweenParticipants(contextId, socket._userId, String(data.receiverId))
+            : await isCallBetweenParticipants(contextId, socket._userId, String(data.receiverId));
+        if (!allowed) {
+          if (typeof ack === "function") ack({ ok: false, message: "No autorizado" });
+          return;
+        }
+
+        const sender = await User.findById(socket._userId).select("username name").lean();
+        const payload = {
+          eventId: String(data.eventId || `${Date.now()}-${socket.id}`).slice(0, 80),
+          visualOnly: true,
+          context,
+          contextId,
+          senderId: socket._userId,
+          receiverId: String(data.receiverId),
+          senderName: sender?.username || sender?.name || "Alguien",
+          gift: sanitizeVisualGift(data.gift),
+          quantity: [1, 5, 10, 50].includes(Number(data.quantity)) ? Number(data.quantity) : 1,
+          at: new Date().toISOString(),
+        };
+
+        io.to(getUserRoom(socket._userId)).emit("PREMIUM_GIFT_VISUAL", payload);
+        io.to(getUserRoom(String(data.receiverId))).emit("PREMIUM_GIFT_VISUAL", payload);
+        if (typeof ack === "function") ack({ ok: true });
+      } catch (err) {
+        console.error("[premium_gift:visual_send] Error:", err);
+        if (typeof ack === "function") ack({ ok: false, message: "Error al enviar regalo visual" });
+      }
+    });
 
     const emitMessageStatusEvent = async (eventName, data = {}) => {
       try {

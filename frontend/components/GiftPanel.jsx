@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 import { getGiftTier } from "../lib/giftTiers";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -43,8 +44,9 @@ const CATEGORIES = [
  *  - onClose     {()=>void} Callback to close the panel
  *  - onGiftSent  {(data)=>void} Callback after successful send
  */
-export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive }) {
+export default function GiftPanel({ receiverId, liveId, context, onClose, onGiftSent, initialCoinBalance, isOwnLive, visualOnly = false }) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   /* ── Auth check ────────────────────────────────────────────────────── */
   const [isLoggedIn] = useState(() =>
@@ -56,7 +58,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
 
-  const [coinBalance, setCoinBalance]   = useState(initialCoinBalance ?? null);
+  const [coinBalance, setCoinBalance]   = useState(visualOnly ? null : initialCoinBalance ?? null);
   const [activeCategory, setActiveCategory] = useState("basic");
   const [selectedGift, setSelectedGift] = useState(null);
   const [quantity, setQuantity]         = useState(1);
@@ -80,7 +82,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       .finally(() => setLoadingCatalog(false));
 
     // Fetch coin balance only if not provided by parent and user is logged in
-    if (token && initialCoinBalance === undefined) {
+    if (!visualOnly && token && initialCoinBalance === undefined) {
       fetch(`${API_URL}/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -112,18 +114,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
       return;
     }
 
-    if (!isLoggedIn) {
+    if (!visualOnly && !isLoggedIn) {
       setSendError("Debes iniciar sesión para enviar regalos");
       return;
     }
 
-    // RESTRICTION: Super gifts only allowed in live context
-    if (gift.isSuper && context !== "live" && !liveId) {
+    // RESTRICTION: Super gifts only allowed outside visual preview mode in live context
+    if (!visualOnly && gift.isSuper && context !== "live" && !liveId) {
       setSendError("Este regalo solo se puede enviar en directo 🔥");
       return;
     }
 
-    if (coinBalance !== null && coinBalance < bundleTotal(gift.coinCost, quantity)) {
+    if (!visualOnly && coinBalance !== null && coinBalance < bundleTotal(gift.coinCost, quantity)) {
       setSelectedGift(gift);
       setInsufficientCoins(true);
       return;
@@ -141,6 +143,38 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     const totalCost = bundleTotal(selectedGift.coinCost, quantity);
 
     try {
+      if (visualOnly) {
+        const data = {
+          _id: `visual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          visualOnly: true,
+          quantity,
+          coinCost: totalCost,
+          context: context || (liveId ? "live" : "profile"),
+          contextId: liveId || null,
+          giftCatalogItem: {
+            _id: selectedGift._id,
+            name: selectedGift.name,
+            slug: selectedGift.slug,
+            icon: selectedGift.icon,
+            coinCost: selectedGift.coinCost,
+            rarity: selectedGift.rarity,
+            category: selectedGift.category,
+            type: selectedGift.type,
+            isSuper: selectedGift.isSuper,
+            animationType: selectedGift.animationType,
+            soundUrl: selectedGift.soundUrl,
+          },
+        };
+        const comboLabel = quantity > 1 ? ` x${quantity} combo` : "";
+        setSendSuccess(`🎁 ${t("giftPanel.visualPreviewSent")}${comboLabel}`);
+        setShowConfirm(false);
+        setSelectedGift(null);
+        setQuantity(1);
+        if (onGiftSent) onGiftSent(data);
+        setTimeout(() => setSendSuccess(""), 3000);
+        return;
+      }
+
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",
@@ -201,6 +235,9 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         <div className="gp-header">
           <div className="gp-header-left">
             <span className="gp-title">🎁 Enviar regalo</span>
+            {visualOnly && (
+              <span className="gp-visual-mode">{t("giftPanel.visualMode")}</span>
+            )}
             {coinBalance !== null && (
               <span className="gp-balance" aria-label={`Saldo: ${coinBalance.toLocaleString()} monedas`}>
                 🪙 {coinBalance.toLocaleString()} monedas
@@ -208,13 +245,15 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
             )}
           </div>
           <div className="gp-header-right">
-            <button
-              className="gp-buy-btn"
-              onClick={() => router.push("/coins")}
-              aria-label="Comprar monedas"
-            >
-              ＋ Comprar monedas
-            </button>
+            {!visualOnly && (
+              <button
+                className="gp-buy-btn"
+                onClick={() => router.push("/coins")}
+                aria-label="Comprar monedas"
+              >
+                ＋ Comprar monedas
+              </button>
+            )}
             <button
               className="gp-close-btn"
               onClick={onClose}
@@ -241,7 +280,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         </div>
 
         {/* ── Not logged in notice ───────────────────────────────────── */}
-        {!isLoggedIn && (
+        {!visualOnly && !isLoggedIn && (
           <div className="gp-not-logged-in" role="alert">
             <span className="gp-nli-icon">🔐</span>
             <div className="gp-nli-text">
@@ -311,7 +350,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 const r = rs(g);
                 const isSelected = selectedGift?._id === g._id;
                 const isSuperGift = g.isSuper;
-                const isLiveContext = context === "live" || !!liveId;
+                const isLiveContext = visualOnly || context === "live" || !!liveId;
                 const isRestricted = isSuperGift && !isLiveContext;
                 
                 return (
@@ -463,6 +502,12 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
               </div>
             )}
 
+            {visualOnly && (
+              <div className="gp-visual-note">
+                {t("giftPanel.visualNote")}
+              </div>
+            )}
+
             {sendError && (
               <div className="gp-feedback gp-feedback-error" role="alert" style={{ marginTop: "0.5rem" }}>
                 {sendError}
@@ -486,7 +531,9 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 {sending ? (
                   <><span className="gp-btn-spinner" /> Enviando…</>
                 ) : (
-                  `Enviar ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}`
+                  visualOnly
+                    ? `${t("giftPanel.sendVisual")} ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""}`
+                    : `Enviar ${selectedGift.icon}${quantity > 1 ? ` x${quantity}` : ""} · 🪙 ${bundleTotal(selectedGift.coinCost, quantity).toLocaleString()}`
                 )}
               </button>
             </div>
@@ -552,6 +599,13 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           font-size: 0.78rem;
           color: #fbbf24;
           font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+
+        .gp-visual-mode {
+          font-size: 0.74rem;
+          color: #67e8f9;
+          font-weight: 700;
           letter-spacing: 0.01em;
         }
 
@@ -1067,6 +1121,18 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           background: rgba(255,255,255,0.05);
           border: 1px solid rgba(255,255,255,0.07);
           margin-top: 0.25rem;
+        }
+
+        .gp-visual-note {
+          margin-top: 0.6rem;
+          border: 1px solid rgba(103,232,249,0.25);
+          background: rgba(8,47,73,0.38);
+          color: #a5f3fc;
+          border-radius: 14px;
+          padding: 0.65rem 0.8rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-align: center;
         }
 
         .gp-modal-cost-label,

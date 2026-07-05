@@ -17,8 +17,6 @@ const POLL_MS = 1000; // polling interval for call acceptance
 const RECONNECT_GRACE_MS = 15000;
 const AUTO_RETURN_DELAY_MS = 3000;
 const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
-const SPEAKER_VOLUME_FULL = 100;
-const SPEAKER_VOLUME_REDUCED = 65;
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
@@ -500,7 +498,9 @@ export default function CallPage() {
         }
         if (isVideoCall && videoTrack) {
           const cameras = await AgoraRTC.getCameras().catch(() => []);
-          currentCameraDeviceIdRef.current = cameras[0]?.deviceId || "";
+          const trackLabel = typeof videoTrack.getTrackLabel === "function" ? videoTrack.getTrackLabel() : "";
+          const activeCamera = cameras.find((camera) => camera.label && camera.label === trackLabel);
+          currentCameraDeviceIdRef.current = activeCamera?.deviceId || cameras[0]?.deviceId || "";
         }
       } catch (err) {
         const msg = err?.message || "";
@@ -555,7 +555,11 @@ export default function CallPage() {
       const currentIndex = cameras.findIndex((camera) => camera.deviceId === currentCameraDeviceIdRef.current);
       const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % cameras.length;
       const nextCamera = cameras[nextIndex];
-      if (nextCamera?.deviceId && typeof localVideoTrackRef.current.setDevice === "function") {
+      if (typeof localVideoTrackRef.current.setDevice !== "function") {
+        console.warn("[CallPage] Camera switching is not supported by this video track");
+        return;
+      }
+      if (nextCamera?.deviceId) {
         await localVideoTrackRef.current.setDevice(nextCamera.deviceId);
         currentCameraDeviceIdRef.current = nextCamera.deviceId;
         setCameraOff(false);
@@ -568,13 +572,7 @@ export default function CallPage() {
   };
 
   const toggleSpeaker = () => {
-    setSpeakerOn((prev) => {
-      const next = !prev;
-      if (remoteAudioTrackRef.current?.setVolume) {
-        remoteAudioTrackRef.current.setVolume(next ? SPEAKER_VOLUME_FULL : SPEAKER_VOLUME_REDUCED);
-      }
-      return next;
-    });
+    setSpeakerOn((prev) => !prev);
   };
 
   const handleGiftProcessed = useCallback((processedGift) => {
@@ -866,7 +864,7 @@ export default function CallPage() {
           <button
             className={`call-control-btn${speakerOn ? " active-speaker" : ""}`}
             onClick={toggleSpeaker}
-            disabled={!remoteAudioTrackRef.current && status !== "connected"}
+            disabled={!remoteAudioTrackRef.current}
             aria-label={speakerOn ? t("chatPremium.normalAudio") : t("chatPremium.enableSpeaker")}
             title={speakerOn ? t("chatPremium.speakerActive") : t("chatPremium.enableSpeaker")}
           >
@@ -1162,14 +1160,10 @@ export default function CallPage() {
           height: clamp(180px, 28vw, 300px);
           border-radius: 50%;
           border: 1px solid rgba(255,255,255,0.12);
-          background: conic-gradient(from 90deg, rgba(224,64,251,0.02), rgba(34,211,238,0.55), rgba(251,191,36,0.42), rgba(224,64,251,0.55), rgba(224,64,251,0.02));
-          filter: blur(0.2px);
-          opacity: 0.68;
-          animation: call-avatar-ring-spin 9s linear infinite;
-        }
-
-        @keyframes call-avatar-ring-spin {
-          to { transform: rotate(360deg); }
+          background:
+            radial-gradient(circle, transparent 58%, rgba(34,211,238,0.24) 59%, rgba(224,64,251,0.18) 72%, transparent 73%),
+            linear-gradient(135deg, rgba(34,211,238,0.22), rgba(224,64,251,0.18));
+          opacity: 0.62;
         }
 
         .call-remote-avatar {

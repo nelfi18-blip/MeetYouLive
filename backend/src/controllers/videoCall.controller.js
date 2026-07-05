@@ -24,7 +24,7 @@ const normalizeMediaType = (mediaType) =>
 const isUserOnline = (userId) =>
   getOnlineUsers().some((onlineUser) => String(onlineUser.userId) === String(userId));
 
-const involvesOnlyUsers = (call, userA, userB) => {
+const isBetweenUsers = (call, userA, userB) => {
   const ids = new Set([String(userA), String(userB)]);
   return ids.has(String(call.caller)) && ids.has(String(call.recipient));
 };
@@ -38,7 +38,7 @@ const findBlockingCall = async (callerId, recipientId) => {
       { caller: recipientId },
       { recipient: recipientId },
     ],
-  }).sort({ createdAt: -1 }).limit(10);
+  }).sort({ createdAt: -1 });
 
   for (const activeCall of activeCalls) {
     if (isPendingCallExpired(activeCall)) {
@@ -46,7 +46,7 @@ const findBlockingCall = async (callerId, recipientId) => {
       continue;
     }
 
-    if (activeCall.status === "pending" && involvesOnlyUsers(activeCall, callerId, recipientId)) {
+    if (activeCall.status === "pending" && isBetweenUsers(activeCall, callerId, recipientId)) {
       continue;
     }
 

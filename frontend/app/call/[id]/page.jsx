@@ -13,7 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
-const AUTO_RETURN_MS = 2600;
+const AUTO_RETURN_DELAY_MS = 3000;
 const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
@@ -179,7 +179,7 @@ export default function CallPage() {
   // ── Auto-return to chat after terminal call states ───────────────────────
   useEffect(() => {
     if (!TERMINAL_CALL_STATES.includes(status)) return undefined;
-    const timer = setTimeout(() => router.replace(returnTo), AUTO_RETURN_MS);
+    const timer = setTimeout(() => router.replace(returnTo), AUTO_RETURN_DELAY_MS);
     return () => clearTimeout(timer);
   }, [returnTo, router, status]);
 
@@ -398,7 +398,8 @@ export default function CallPage() {
         } catch (permissionError) {
           const denied =
             permissionError?.name === "NotAllowedError" ||
-            permissionError?.code === "PERMISSION_DENIED";
+            permissionError?.code === "PERMISSION_DENIED" ||
+            /permission|denied|not allowed/i.test(permissionError?.message || "");
           setError(
             denied
               ? t("chatPremium.callPermissionDenied")

@@ -354,7 +354,7 @@ export default function ChatConversationPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setCallError(res.status === 409 ? t("chatPremium.callUserOffline") : data.message || "No se pudo iniciar la llamada");
+        setCallError(data.code === "USER_OFFLINE" ? t("chatPremium.callUserOffline") : data.message || "No se pudo iniciar la llamada");
         return;
       }
       // Navigate to the call room

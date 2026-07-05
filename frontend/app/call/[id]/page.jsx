@@ -67,6 +67,14 @@ export default function CallPage() {
     []
   );
 
+  const getCurrentUserId = useCallback(
+    () =>
+      session?.backendUserId ||
+      (typeof window !== "undefined" ? localStorage.getItem("userId") : "") ||
+      "",
+    [session?.backendUserId]
+  );
+
   // ── Agora cleanup helper ────────────────────────────────────────────────
   const cleanupAgora = useCallback(async () => {
     if (localAudioTrackRef.current) {
@@ -103,9 +111,7 @@ export default function CallPage() {
     const storedToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (sessionStatus === "loading" && !session?.backendToken && !storedToken) return;
 
-    token.current =
-      session?.backendToken ||
-      storedToken;
+    token.current = session?.backendToken || storedToken;
 
     if (!token.current) {
       clearToken();
@@ -132,10 +138,7 @@ export default function CallPage() {
         setCall(data);
         callRef.current = data;
 
-        const me =
-          session?.backendUserId ||
-          (typeof window !== "undefined" ? localStorage.getItem("userId") : "") ||
-          "";
+        const me = getCurrentUserId();
         const callerIsMe = String(data.caller._id) === me;
         setIsCaller(callerIsMe);
 
@@ -172,17 +175,14 @@ export default function CallPage() {
 
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, session?.backendToken, session?.backendUserId, sessionStatus]);
+  }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 
   // ── Per-minute billing & duration timer for connected paid calls ──────────
   useEffect(() => {
     if (status !== "connected") return;
     const currentCall = callRef.current;
     const isPaidCall = currentCall?.type === "paid_creator" && currentCall?.callCoins > 0;
-    const currentUserId =
-      session?.backendUserId ||
-      (typeof window !== "undefined" ? localStorage.getItem("userId") : "") ||
-      "";
+    const currentUserId = getCurrentUserId();
     const isCallerUser = String(currentCall?.caller?._id || currentCall?.caller) === currentUserId;
 
     // Duration counter (every second)
@@ -223,7 +223,7 @@ export default function CallPage() {
       clearInterval(durationRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, session?.backendUserId]);
+  }, [getCurrentUserId, status]);
 
   // ── Poll until recipient accepts, then start Agora ─────────────────────
   const pollForAcceptance = useCallback(

@@ -24,6 +24,38 @@ const normalizeMediaType = (mediaType) =>
 const isUserOnline = (userId) =>
   getOnlineUsers().some((onlineUser) => String(onlineUser.userId) === String(userId));
 
+const involvesOnlyUsers = (call, userA, userB) => {
+  const ids = new Set([String(userA), String(userB)]);
+  return ids.has(String(call.caller)) && ids.has(String(call.recipient));
+};
+
+const findBlockingCall = async (callerId, recipientId) => {
+  const activeCalls = await VideoCall.find({
+    status: { $in: ["pending", "accepted"] },
+    $or: [
+      { caller: callerId },
+      { recipient: callerId },
+      { caller: recipientId },
+      { recipient: recipientId },
+    ],
+  }).sort({ createdAt: -1 }).limit(10);
+
+  for (const activeCall of activeCalls) {
+    if (isPendingCallExpired(activeCall)) {
+      await markPendingCallMissed(activeCall);
+      continue;
+    }
+
+    if (activeCall.status === "pending" && involvesOnlyUsers(activeCall, callerId, recipientId)) {
+      continue;
+    }
+
+    return activeCall;
+  }
+
+  return null;
+};
+
 // Helper: refund coins to caller for a paid call. Accepts a raw id or populated user.
 const refundPaidCall = async (callerId, coins) => {
   if (coins > 0) {
@@ -84,6 +116,14 @@ const inviteCall = async (req, res) => {
           message: "The user is offline. Please try again when they are online.",
         });
       }
+    }
+
+    const blockingCall = await findBlockingCall(req.userId, recipientId);
+    if (blockingCall) {
+      return res.status(409).json({
+        code: "CALL_BUSY",
+        message: "El usuario está en otra llamada. Intenta de nuevo más tarde.",
+      });
     }
 
     // For paid creator calls: recipient must be a creator with private calls enabled

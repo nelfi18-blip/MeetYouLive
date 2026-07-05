@@ -79,7 +79,7 @@ const inviteCall = async (req, res) => {
     if (callType === CALL_TYPES.SOCIAL) {
       await assertSocialCallAllowed(req.userId, recipientId);
       if (!isUserOnline(recipientId)) {
-        return res.status(409).json({ message: "El usuario está desconectado. Intenta de nuevo cuando esté en línea." });
+        return res.status(409).json({ message: "The user is offline. Please try again when they are online." });
       }
     }
 

@@ -14,6 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CALL_REFRESH_EVENTS = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
 const ACTIVE_CALL_STATUSES = new Set(["pending", "accepted"]);
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const CHAT_REFRESH_DEBOUNCE_MS = 800;
 
 const formatChatTime = (value, locale, yesterdayLabel) => {
   if (!value) return "";
@@ -48,6 +49,13 @@ const getActivityTime = (value) => {
 };
 
 const getCallActivityAt = (call) => call?.startedAt || call?.createdAt || call?.endedAt;
+
+const getOtherParticipant = (chat) =>
+  chat?.participants?.find((participant) => String(participant._id) !== String(chat.currentUserId)) || {};
+
+const getCallPeer = (call) => call?.peer || call?.caller || call?.recipient || null;
+
+const getCallPeerId = (call) => String(getCallPeer(call)?._id || "");
 
 function PhoneIcon() {
   return (
@@ -193,7 +201,7 @@ export default function ChatsPage() {
       refreshTimerRef.current = setTimeout(() => {
         refreshTimerRef.current = null;
         fetchChats({ silent: true });
-      }, 800);
+      }, CHAT_REFRESH_DEBOUNCE_MS);
     };
 
     socket.on("USER_ONLINE", markOnline);
@@ -229,11 +237,11 @@ export default function ChatsPage() {
     return calls.find((call) => ACTIVE_CALL_STATUSES.has(call.rawStatus || call.status)) || null;
   }, [calls, incomingCall]);
 
-  const activePeerId = String(activeCall?.peer?._id || activeCall?.caller?._id || activeCall?.recipient?._id || "");
+  const activePeerId = getCallPeerId(activeCall);
 
   const contactSummaries = useMemo(() => {
     const contacts = new Map();
-    const remember = ({ user, activityAt, context, isOnline, messageCount = 0, callCount = 0 }) => {
+    const recordContactActivity = ({ user, activityAt, context, isOnline, messageCount = 0, callCount = 0 }) => {
       const id = String(user?._id || "");
       if (!id) return;
       const previous = contacts.get(id) || { user, activityAt: 0, contexts: new Set(), messageCount: 0, callCount: 0, isOnline: false };
@@ -249,8 +257,8 @@ export default function ChatsPage() {
     };
 
     chats.forEach((chat) => {
-      const other = chat.participants?.find((p) => String(p._id) !== String(chat.currentUserId));
-      remember({
+      const other = getOtherParticipant(chat);
+      recordContactActivity({
         user: other,
         activityAt: chat.lastMessage?.createdAt || chat.updatedAt,
         context: "chat",
@@ -260,7 +268,7 @@ export default function ChatsPage() {
     });
 
     calls.forEach((call) => {
-      remember({
+      recordContactActivity({
         user: call.peer,
         activityAt: getCallActivityAt(call),
         context: "call",
@@ -293,7 +301,7 @@ export default function ChatsPage() {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return chats;
     return chats.filter((chat) => {
-      const other = chat.participants?.find((p) => String(p._id) !== String(chat.currentUserId)) || {};
+      const other = getOtherParticipant(chat);
       const displayName = getDisplayName(other).toLowerCase();
       const lastMessage = String(getMessagePreview(chat.lastMessage, "")).toLowerCase();
       return displayName.includes(query) || lastMessage.includes(query);
@@ -315,7 +323,7 @@ export default function ChatsPage() {
   };
 
   const renderConversationCard = (chat) => {
-    const other = chat.participants?.find((p) => String(p._id) !== String(chat.currentUserId)) || {};
+    const other = getOtherParticipant(chat);
     const name = getDisplayName(other);
     const isOnline = onlineUserIds.has(String(other._id));
     const inCall = activePeerId && String(other._id) === activePeerId;
@@ -346,7 +354,7 @@ export default function ChatsPage() {
     );
   };
 
-  const activeCallPeer = activeCall?.peer || activeCall?.caller || activeCall?.recipient || null;
+  const activeCallPeer = getCallPeer(activeCall);
   const activeCallName = activeCallPeer ? getDisplayName(activeCallPeer) : t("chatPremium.noActiveCall");
   const activeCallIsVideo = activeCall?.mediaType !== "audio";
 
@@ -478,7 +486,7 @@ export default function ChatsPage() {
       {!loading && filteredChats.length > 0 && (
         <div className="chats-list">
           {filteredChats.map((chat) => {
-            const other = chat.participants?.find((p) => String(p._id) !== String(chat.currentUserId)) || {};
+            const other = getOtherParticipant(chat);
             const displayName = getDisplayName(other);
             const lastMsg = chat.lastMessage;
             const isOnline = onlineUserIds.has(String(other._id));

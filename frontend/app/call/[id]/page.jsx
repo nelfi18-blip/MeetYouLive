@@ -20,6 +20,25 @@ const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
+const QUALITY_META = {
+  0: { label: "Evaluando", bars: 2, className: "medium" },
+  1: { label: "Excelente", bars: 4, className: "excellent" },
+  2: { label: "Buena", bars: 3, className: "good" },
+  3: { label: "Estable", bars: 3, className: "good" },
+  4: { label: "Media", bars: 2, className: "medium" },
+  5: { label: "Baja", bars: 1, className: "low" },
+  6: { label: "Reconectando", bars: 1, className: "low" },
+};
+
+const getStatusLabel = (status) => {
+  if (status === "calling") return "Llamando";
+  if (status === "ringing") return "Entrante";
+  if (status === "connecting") return "Conectando";
+  if (status === "connected") return "Conectado";
+  if (status === "reconnecting") return "Reconectando";
+  return "Preparando";
+};
+
 const getSafeChatReturnTo = () => {
   if (typeof window === "undefined") return "/chats";
   const params = new URLSearchParams(window.location.search);
@@ -38,6 +57,9 @@ export default function CallPage() {
   const [status, setStatus] = useState("loading"); // loading | calling | ringing | connecting | connected | reconnecting | ended | rejected | missed | busy
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const [switchingCamera, setSwitchingCamera] = useState(false);
+  const [networkQuality, setNetworkQuality] = useState(0);
   const [isCaller, setIsCaller] = useState(false);
   const [remoteName, setRemoteName] = useState("");
   const [remoteAvatar, setRemoteAvatar] = useState("");
@@ -56,6 +78,8 @@ export default function CallPage() {
   const agoraClientRef = useRef(null);
   const localAudioTrackRef = useRef(null);
   const localVideoTrackRef = useRef(null);
+  const remoteAudioTrackRef = useRef(null);
+  const currentCameraDeviceIdRef = useRef("");
   const pollRef = useRef(null);
   const tickRef = useRef(null); // per-minute billing interval
   const durationRef = useRef(null); // 1-second timer
@@ -97,6 +121,7 @@ export default function CallPage() {
       try { await agoraClientRef.current.leave(); } catch { /* ignore */ }
       agoraClientRef.current = null;
     }
+    remoteAudioTrackRef.current = null;
   }, []);
 
   // ── Clean up on unmount ────────────────────────────────────────────────
@@ -405,9 +430,15 @@ export default function CallPage() {
             user.videoTrack?.play(remoteVideoRef.current);
           }
           if (mediaType === "audio") {
+            remoteAudioTrackRef.current = user.audioTrack || null;
             user.audioTrack?.play();
           }
           setStatus("connected");
+        });
+
+        client.on("network-quality", (stats) => {
+          const quality = Math.max(stats?.uplinkNetworkQuality || 0, stats?.downlinkNetworkQuality || 0);
+          setNetworkQuality(quality);
         });
 
         client.on("user-unpublished", (user, mediaType) => {
@@ -465,6 +496,10 @@ export default function CallPage() {
         if (videoTrack && localVideoRef.current) {
           videoTrack.play(localVideoRef.current);
         }
+        if (isVideoCall && videoTrack) {
+          const cameras = await AgoraRTC.getCameras().catch(() => []);
+          currentCameraDeviceIdRef.current = cameras[0]?.deviceId || "";
+        }
       } catch (err) {
         const msg = err?.message || "";
         if (msg === "agora_token_failed") {
@@ -505,6 +540,34 @@ export default function CallPage() {
       const newCameraOff = !cameraOff;
       localVideoTrackRef.current.setEnabled(!newCameraOff);
       setCameraOff(newCameraOff);
+    }
+  };
+
+  const switchCamera = async () => {
+    if (!localVideoTrackRef.current || switchingCamera) return;
+    setSwitchingCamera(true);
+    try {
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+      const cameras = await AgoraRTC.getCameras();
+      if (cameras.length < 2) return;
+      const currentIndex = cameras.findIndex((camera) => camera.deviceId === currentCameraDeviceIdRef.current);
+      const nextCamera = cameras[(currentIndex + 1 + cameras.length) % cameras.length];
+      if (nextCamera?.deviceId && typeof localVideoTrackRef.current.setDevice === "function") {
+        await localVideoTrackRef.current.setDevice(nextCamera.deviceId);
+        currentCameraDeviceIdRef.current = nextCamera.deviceId;
+        setCameraOff(false);
+      }
+    } catch {
+      // Browser/device may not support camera switching during an active call.
+    } finally {
+      setSwitchingCamera(false);
+    }
+  };
+
+  const toggleSpeaker = () => {
+    setSpeakerOn((prev) => !prev);
+    if (remoteAudioTrackRef.current?.setVolume) {
+      remoteAudioTrackRef.current.setVolume(speakerOn ? 65 : 100);
     }
   };
 
@@ -612,9 +675,14 @@ export default function CallPage() {
   const mins = Math.floor(callDuration / 60);
   const secs = callDuration % 60;
   const durationLabel = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const statusLabel = getStatusLabel(status);
+  const qualityMeta = QUALITY_META[networkQuality] || QUALITY_META[0];
+  const qualityBars = Array.from({ length: 4 }, (_, index) => index < qualityMeta.bars);
 
   return (
-    <div className="call-page">
+    <div className={`call-page call-page--${callMediaType} call-page--${status}`}>
+      <div className="call-ambient call-ambient--one" />
+      <div className="call-ambient call-ambient--two" />
       {/* Paid call info banner */}
       {isPaidCall && isCaller && (
         <div className="call-paid-banner">
@@ -630,6 +698,37 @@ export default function CallPage() {
         </div>
       )}
 
+      <div className="call-top-hud">
+        <div className="call-identity">
+          <div className="call-identity-avatar">
+            {remoteAvatar ? (
+              <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
+            ) : (
+              remoteInitial
+            )}
+          </div>
+          <div>
+            <p className="call-eyebrow">{isVideoCall ? "Videollamada Premium" : "Llamada Premium"}</p>
+            <h1>{remoteName}</h1>
+          </div>
+        </div>
+        <div className="call-hud-metrics" aria-label="Estado de llamada">
+          <span className={`call-status-pill call-status-pill--${status}`}>
+            <span className="call-status-dot" />
+            {statusLabel}
+          </span>
+          <span className="call-duration-pill">⏱ {durationLabel}</span>
+          <span className={`call-quality-pill call-quality-pill--${qualityMeta.className}`}>
+            <span className="call-quality-bars" aria-hidden="true">
+              {qualityBars.map((active, index) => (
+                <span key={index} className={active ? "active" : ""} />
+              ))}
+            </span>
+            {qualityMeta.label}
+          </span>
+        </div>
+      </div>
+
       {/* Inline low-balance warning during active call */}
       {coinsWarning && status === "connected" && (
         <div className="call-balance-warning">⚠️ {coinsWarning}</div>
@@ -640,6 +739,7 @@ export default function CallPage() {
         <div ref={remoteVideoRef} className="call-remote-video" />
         {(!isVideoCall || status !== "connected") && (
           <div className="call-remote-placeholder">
+            <div className="call-avatar-ring" />
             <div className="call-remote-avatar">
               {remoteAvatar ? (
                 <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
@@ -653,6 +753,9 @@ export default function CallPage() {
               {status === "connecting" && `🔄 ${t("chatPremium.connecting")}`}
               {status === "reconnecting" && `🔄 ${t("chatPremium.reconnecting")}`}
               {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
+            </p>
+            <p className="call-premium-caption">
+              Experiencia privada preparada para regalos Premium visuales.
             </p>
             {(status === "calling" || status === "ringing") && (
               <p className="call-sub-text">{remoteName}</p>
@@ -673,7 +776,10 @@ export default function CallPage() {
           </div>
         )}
         {status === "connected" && (
-          <div className="call-remote-name">{remoteName}</div>
+          <div className="call-remote-name">
+            <span>{remoteName}</span>
+            <small>{isVideoCall ? "En video" : "Solo audio"}</small>
+          </div>
         )}
         {callGiftNotif && (
           <div className="call-gift-notif">
@@ -701,6 +807,7 @@ export default function CallPage() {
 
       {/* Controls */}
       <div className="call-controls">
+        <div className="call-controls__rail" aria-label="Controles de llamada Premium">
         {status !== "ringing" && (
           <button
             className={`call-control-btn${muted ? " active-mute" : ""}`}
@@ -735,6 +842,32 @@ export default function CallPage() {
           </button>
         )}
 
+        {isVideoCall && status !== "ringing" && (
+          <button
+            className="call-control-btn"
+            onClick={switchCamera}
+            disabled={!localVideoTrackRef.current || switchingCamera}
+            aria-label="Cambiar cámara"
+            title="Cambiar cámara"
+          >
+            <span className="call-control-icon">🔄</span>
+            <span>{switchingCamera ? "Cambiando" : "Cambiar cam"}</span>
+          </button>
+        )}
+
+        {status !== "ringing" && (
+          <button
+            className={`call-control-btn${speakerOn ? " active-speaker" : ""}`}
+            onClick={toggleSpeaker}
+            disabled={!remoteAudioTrackRef.current && status !== "connected"}
+            aria-label={speakerOn ? "Usar audio normal" : "Activar altavoz"}
+            title={speakerOn ? "Altavoz activo" : "Activar altavoz"}
+          >
+            <span className="call-control-icon">{speakerOn ? "🔊" : "🔈"}</span>
+            <span>Altavoz</span>
+          </button>
+        )}
+
         {status !== "ringing" && (
           <button
             className="call-control-btn call-gift-btn"
@@ -759,6 +892,7 @@ export default function CallPage() {
             <span>{status === "calling" ? t("chatPremium.cancelCall") : t("chatPremium.endCall")}</span>
           </button>
         )}
+        </div>
       </div>
 
       {showGiftPanel && remoteUserId && (
@@ -780,10 +914,63 @@ export default function CallPage() {
         .call-page {
           position: fixed;
           inset: 0;
-          background: #06020f;
+          background:
+            radial-gradient(circle at 16% 12%, rgba(224,64,251,0.26), transparent 34%),
+            radial-gradient(circle at 84% 16%, rgba(34,211,238,0.2), transparent 34%),
+            linear-gradient(145deg, #06020f 0%, #12062a 48%, #05020b 100%);
           z-index: 300;
           display: flex;
           flex-direction: column;
+          color: #fff;
+          overflow: hidden;
+          isolation: isolate;
+          animation: call-shell-in 0.42s ease-out both;
+        }
+
+        .call-page--ended,
+        .call-page--missed,
+        .call-page--rejected {
+          animation: call-shell-out 0.26s ease-in both;
+        }
+
+        .call-ambient {
+          position: absolute;
+          width: 42vw;
+          height: 42vw;
+          border-radius: 999px;
+          filter: blur(48px);
+          opacity: 0.34;
+          pointer-events: none;
+          z-index: -1;
+        }
+
+        .call-ambient--one {
+          left: -12vw;
+          top: 8vh;
+          background: rgba(224,64,251,0.72);
+          animation: premium-orbit 11s ease-in-out infinite alternate;
+        }
+
+        .call-ambient--two {
+          right: -14vw;
+          bottom: 10vh;
+          background: rgba(34,211,238,0.58);
+          animation: premium-orbit 13s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes call-shell-in {
+          from { opacity: 0; transform: scale(1.015); }
+          to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes call-shell-out {
+          from { opacity: 1; transform: scale(1); }
+          to { opacity: 0.92; transform: scale(0.99); }
+        }
+
+        @keyframes premium-orbit {
+          from { transform: translate3d(0, 0, 0) scale(1); }
+          to { transform: translate3d(6vw, -3vh, 0) scale(1.12); }
         }
 
         .call-center {
@@ -793,11 +980,132 @@ export default function CallPage() {
           text-align: center;
         }
 
+        .call-top-hud {
+          position: absolute;
+          top: calc(1rem + env(safe-area-inset-top));
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 320;
+          width: min(1120px, calc(100% - 2rem));
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.85rem;
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 28px;
+          background: linear-gradient(135deg, rgba(15,8,33,0.74), rgba(34,12,58,0.58));
+          box-shadow: 0 18px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+          backdrop-filter: blur(20px);
+        }
+
+        .call-identity {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: 0.85rem;
+        }
+
+        .call-identity-avatar {
+          width: 54px;
+          height: 54px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          overflow: hidden;
+          background: var(--grad-primary);
+          color: #fff;
+          font-weight: 900;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.18), 0 0 26px rgba(224,64,251,0.38);
+        }
+
+        .call-identity h1 {
+          max-width: min(42vw, 420px);
+          margin: 0;
+          overflow: hidden;
+          color: #fff;
+          font-size: clamp(1.05rem, 2vw, 1.35rem);
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .call-eyebrow {
+          margin: 0 0 0.15rem;
+          color: rgba(255,255,255,0.64);
+          font-size: 0.7rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .call-hud-metrics {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.55rem;
+          flex-wrap: wrap;
+        }
+
+        .call-status-pill,
+        .call-duration-pill,
+        .call-quality-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-height: 34px;
+          padding: 0.38rem 0.7rem;
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 999px;
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.9);
+          font-size: 0.76rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .call-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--accent-yellow);
+          box-shadow: 0 0 14px currentColor;
+          animation: fade-pulse 1.4s ease-in-out infinite;
+        }
+
+        .call-status-pill--connected .call-status-dot { background: var(--success); }
+        .call-status-pill--reconnecting .call-status-dot { background: var(--warning); }
+
+        .call-quality-bars {
+          display: inline-flex;
+          align-items: flex-end;
+          gap: 2px;
+          height: 13px;
+        }
+
+        .call-quality-bars span {
+          display: block;
+          width: 3px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.25);
+        }
+
+        .call-quality-bars span:nth-child(1) { height: 5px; }
+        .call-quality-bars span:nth-child(2) { height: 8px; }
+        .call-quality-bars span:nth-child(3) { height: 11px; }
+        .call-quality-bars span:nth-child(4) { height: 14px; }
+
+        .call-quality-pill--excellent .call-quality-bars span.active,
+        .call-quality-pill--good .call-quality-bars span.active { background: var(--success); }
+        .call-quality-pill--medium .call-quality-bars span.active { background: var(--warning); }
+        .call-quality-pill--low .call-quality-bars span.active { background: var(--error); }
+
         /* Remote video area */
         .call-remote-area {
           flex: 1;
           position: relative;
-          background: rgba(10, 4, 22, 0.98);
+          margin: 0;
+          background: rgba(10, 4, 22, 0.72);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -817,6 +1125,16 @@ export default function CallPage() {
           object-fit: cover;
         }
 
+        .call-page--video .call-remote-video::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            linear-gradient(180deg, rgba(3,1,10,0.52) 0%, transparent 26%, transparent 62%, rgba(3,1,10,0.72) 100%),
+            radial-gradient(circle at 50% 12%, rgba(255,255,255,0.1), transparent 36%);
+        }
+
         .call-remote-placeholder {
           position: absolute;
           inset: 0;
@@ -825,28 +1143,58 @@ export default function CallPage() {
           align-items: center;
           justify-content: center;
           gap: 1rem;
-          background: radial-gradient(ellipse at center, rgba(30, 12, 60, 0.9) 0%, rgba(6, 2, 15, 0.98) 70%);
+          padding: 7rem 1.25rem 8.25rem;
+          background:
+            radial-gradient(circle at center, rgba(224,64,251,0.2) 0%, transparent 28%),
+            radial-gradient(ellipse at center, rgba(30, 12, 60, 0.84) 0%, rgba(6, 2, 15, 0.96) 70%);
+        }
+
+        .call-avatar-ring {
+          position: absolute;
+          width: clamp(180px, 28vw, 300px);
+          height: clamp(180px, 28vw, 300px);
+          border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: conic-gradient(from 90deg, rgba(224,64,251,0.02), rgba(34,211,238,0.55), rgba(251,191,36,0.42), rgba(224,64,251,0.55), rgba(224,64,251,0.02));
+          filter: blur(0.2px);
+          opacity: 0.68;
+          animation: spin 9s linear infinite;
         }
 
         .call-remote-avatar {
-          width: 96px;
-          height: 96px;
+          width: clamp(132px, 20vw, 220px);
+          height: clamp(132px, 20vw, 220px);
           border-radius: 50%;
           background: var(--grad-primary);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #fff;
-          font-size: 2rem;
+          font-size: clamp(2.5rem, 6vw, 5rem);
           font-weight: 800;
           overflow: hidden;
-          box-shadow: 0 0 0 4px rgba(255, 45, 120, 0.3), 0 0 40px rgba(255, 45, 120, 0.4);
+          position: relative;
+          z-index: 1;
+          box-shadow:
+            0 0 0 8px rgba(255,255,255,0.08),
+            0 0 0 18px rgba(224,64,251,0.08),
+            0 28px 90px rgba(224,64,251,0.36);
           animation: avatar-pulse 2s ease-in-out infinite;
         }
 
         @keyframes avatar-pulse {
-          0%, 100% { box-shadow: 0 0 0 4px rgba(255, 45, 120, 0.3), 0 0 40px rgba(255, 45, 120, 0.4); }
-          50%       { box-shadow: 0 0 0 8px rgba(255, 45, 120, 0.15), 0 0 60px rgba(255, 45, 120, 0.6); }
+          0%, 100% {
+            box-shadow:
+              0 0 0 8px rgba(255,255,255,0.08),
+              0 0 0 18px rgba(224,64,251,0.08),
+              0 28px 90px rgba(224,64,251,0.36);
+          }
+          50% {
+            box-shadow:
+              0 0 0 12px rgba(255,255,255,0.08),
+              0 0 0 28px rgba(34,211,238,0.08),
+              0 32px 110px rgba(34,211,238,0.38);
+          }
         }
 
         .call-avatar-img {
@@ -857,11 +1205,23 @@ export default function CallPage() {
         }
 
         .call-status-text {
-          color: var(--text-muted);
-          font-size: 0.9rem;
-          font-weight: 600;
+          position: relative;
+          z-index: 1;
+          color: #fff;
+          font-size: clamp(1rem, 2vw, 1.25rem);
+          font-weight: 900;
           margin: 0;
           animation: fade-pulse 1.5s ease-in-out infinite;
+        }
+
+        .call-premium-caption {
+          position: relative;
+          z-index: 1;
+          max-width: 360px;
+          margin: -0.35rem 0 0;
+          color: rgba(255,255,255,0.68);
+          font-size: 0.86rem;
+          text-align: center;
         }
 
         @keyframes fade-pulse {
@@ -871,22 +1231,37 @@ export default function CallPage() {
 
         .call-sub-text {
           color: var(--text);
-          font-size: 1.1rem;
+          font-size: 1.15rem;
           font-weight: 800;
           margin: 0;
+          position: relative;
+          z-index: 1;
         }
 
         .call-remote-name {
           position: absolute;
-          bottom: 1.25rem;
-          left: 1.25rem;
-          background: rgba(0, 0, 0, 0.55);
+          bottom: calc(6.6rem + env(safe-area-inset-bottom));
+          left: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.05rem;
+          background: rgba(10, 4, 24, 0.62);
           color: #fff;
           font-size: 0.9rem;
           font-weight: 700;
-          padding: 0.3rem 0.8rem;
-          border-radius: var(--radius-pill);
-          backdrop-filter: blur(8px);
+          padding: 0.58rem 0.85rem;
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 18px;
+          box-shadow: 0 12px 36px rgba(0,0,0,0.34);
+          backdrop-filter: blur(16px);
+        }
+
+        .call-remote-name small {
+          color: rgba(255,255,255,0.62);
+          font-size: 0.68rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
 
         .call-gift-notif {
@@ -924,16 +1299,17 @@ export default function CallPage() {
         /* Local PiP */
         .call-local-pip {
           position: absolute;
-          top: 1.25rem;
-          right: 1.25rem;
-          width: 120px;
-          height: 90px;
-          border-radius: var(--radius-sm);
+          top: calc(6.8rem + env(safe-area-inset-top));
+          right: 1rem;
+          width: clamp(112px, 16vw, 176px);
+          height: clamp(84px, 12vw, 132px);
+          border-radius: 22px;
           overflow: hidden;
-          border: 2px solid rgba(255, 45, 120, 0.5);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(255,255,255,0.22);
+          box-shadow: 0 18px 54px rgba(0, 0, 0, 0.52), 0 0 30px rgba(224,64,251,0.18);
           background: rgba(20, 8, 40, 0.9);
           z-index: 310;
+          backdrop-filter: blur(12px);
         }
 
         .call-local-pip.camera-off { border-color: rgba(248, 113, 113, 0.5); }
@@ -961,47 +1337,88 @@ export default function CallPage() {
 
         /* Controls */
         .call-controls {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 325;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 1.25rem;
-          padding: 1rem 1.5rem 1.5rem;
-          background: rgba(6, 2, 15, 0.95);
-          border-top: 1px solid rgba(255, 45, 120, 0.15);
-          backdrop-filter: blur(16px);
+          padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+          pointer-events: none;
+        }
+
+        .call-controls__rail {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: clamp(0.45rem, 1.4vw, 0.9rem);
+          max-width: min(980px, calc(100% - 1rem));
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scrollbar-width: none;
+          padding: 0.7rem;
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 30px;
+          background: linear-gradient(135deg, rgba(8,3,18,0.86), rgba(28,12,56,0.72));
+          box-shadow: 0 22px 70px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09);
+          backdrop-filter: blur(22px);
+          pointer-events: auto;
+        }
+
+        .call-controls__rail::-webkit-scrollbar {
+          display: none;
         }
 
         .call-control-btn {
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: 0.35rem;
-          padding: 0.75rem 1.5rem;
-          border-radius: var(--radius-sm);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.06);
+          min-width: 74px;
+          min-height: 66px;
+          padding: 0.68rem 0.78rem;
+          border-radius: 22px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.07);
           color: var(--text);
-          font-size: 0.7rem;
-          font-weight: 600;
+          font-size: 0.68rem;
+          font-weight: 800;
           cursor: pointer;
-          transition: all var(--transition);
-          min-width: 80px;
+          transition: transform var(--transition), background var(--transition), border-color var(--transition), box-shadow var(--transition);
         }
 
-        .call-control-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .call-control-btn:hover {
+          background: rgba(255, 255, 255, 0.13);
+          transform: translateY(-2px);
+        }
 
-        .call-control-btn.active-mute {
+        .call-control-icon {
+          font-size: 1.25rem;
+          line-height: 1;
+        }
+
+        .call-control-btn.active-mute,
+        .call-control-btn.active-speaker {
           background: rgba(248, 113, 113, 0.12);
           border-color: rgba(248, 113, 113, 0.3);
           color: var(--error);
         }
 
+        .call-control-btn.active-speaker {
+          background: rgba(34,211,238,0.14);
+          border-color: rgba(34,211,238,0.34);
+          color: #a5f3fc;
+        }
+
         .call-end-btn {
-          background: #e53935 !important;
-          border-color: #e53935 !important;
+          background: linear-gradient(135deg, #ef4444, #be123c) !important;
+          border-color: rgba(255,255,255,0.16) !important;
           color: #fff !important;
-          box-shadow: 0 4px 20px rgba(229, 57, 53, 0.5);
-          padding: 0.75rem 2rem;
+          box-shadow: 0 10px 32px rgba(229, 57, 53, 0.44);
+          min-width: 104px;
         }
 
         .call-gift-btn {
@@ -1018,8 +1435,7 @@ export default function CallPage() {
         }
 
         .call-end-btn:hover {
-          background: #c62828 !important;
-          box-shadow: 0 4px 28px rgba(229, 57, 53, 0.7);
+          box-shadow: 0 14px 38px rgba(229, 57, 53, 0.62);
         }
 
         .call-spinner {
@@ -1107,14 +1523,99 @@ export default function CallPage() {
           opacity: 0.45;
         }
 
-        @media (max-width: 480px) {
-          .call-local-pip {
-            width: 90px;
-            height: 68px;
+        @media (max-width: 760px) {
+          .call-top-hud {
+            align-items: flex-start;
+            border-radius: 24px;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 0.75rem;
           }
+
+          .call-hud-metrics {
+            justify-content: flex-start;
+            width: 100%;
+          }
+
+          .call-status-pill,
+          .call-duration-pill,
+          .call-quality-pill {
+            min-height: 30px;
+            padding: 0.32rem 0.56rem;
+            font-size: 0.68rem;
+          }
+
+          .call-identity-avatar {
+            width: 46px;
+            height: 46px;
+          }
+
+          .call-local-pip {
+            top: calc(9.5rem + env(safe-area-inset-top));
+            right: 0.75rem;
+            width: 98px;
+            height: 74px;
+            border-radius: 18px;
+          }
+
+          .call-remote-placeholder {
+            padding-top: 10.5rem;
+            padding-bottom: 8.6rem;
+          }
+
+          .call-premium-caption {
+            font-size: 0.78rem;
+          }
+
+          .call-remote-name {
+            bottom: calc(7.2rem + env(safe-area-inset-bottom));
+            left: 0.75rem;
+          }
+
+          .call-controls {
+            justify-content: flex-start;
+            padding-inline: 0.5rem;
+          }
+
+          .call-controls__rail {
+            justify-content: flex-start;
+            max-width: 100%;
+            width: 100%;
+            border-radius: 26px;
+            padding: 0.55rem;
+          }
+
           .call-control-btn {
-            padding: 0.65rem 1rem;
-            min-width: 64px;
+            flex: 0 0 68px;
+            min-width: 68px;
+            min-height: 62px;
+            padding: 0.55rem 0.45rem;
+            font-size: 0.62rem;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .call-status-pill,
+          .call-duration-pill,
+          .call-quality-pill {
+            font-size: 0.62rem;
+          }
+
+          .call-control-btn {
+            flex-basis: 62px;
+            min-width: 62px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .call-page,
+          .call-ambient,
+          .call-avatar-ring,
+          .call-remote-avatar,
+          .call-status-dot,
+          .call-status-text,
+          .call-balance-warning {
+            animation: none !important;
           }
         }
       `}</style>

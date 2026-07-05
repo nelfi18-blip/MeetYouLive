@@ -714,10 +714,10 @@ export default function CallPage() {
               remoteInitial
             )}
           </div>
-          <div>
+          <header>
             <p className="call-eyebrow">{isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}</p>
             <h1>{remoteName}</h1>
-          </div>
+          </header>
         </div>
         <div className="call-hud-metrics" aria-label={t("chatPremium.callStateAria")}>
           <span className={`call-status-pill call-status-pill--${status}`}>
@@ -1165,7 +1165,11 @@ export default function CallPage() {
           background: conic-gradient(from 90deg, rgba(224,64,251,0.02), rgba(34,211,238,0.55), rgba(251,191,36,0.42), rgba(224,64,251,0.55), rgba(224,64,251,0.02));
           filter: blur(0.2px);
           opacity: 0.68;
-          animation: spin 9s linear infinite;
+          animation: call-avatar-ring-spin 9s linear infinite;
+        }
+
+        @keyframes call-avatar-ring-spin {
+          to { transform: rotate(360deg); }
         }
 
         .call-remote-avatar {

@@ -225,7 +225,12 @@
     "normalAudio": "Use normal audio",
     "enableSpeaker": "Enable speaker",
     "speakerActive": "Speaker active",
-    "speaker": "Speaker"
+    "speaker": "Speaker",
+    "enableAudioBoost": "Enable audio boost",
+    "reduceAudioBoost": "Reduce audio boost",
+    "audioBoostActive": "Audio boost active",
+    "audioBoost": "Audio +",
+    "cameraSwitchUnavailable": "Camera switching is not available on this device."
   },
   "profile": {
     "title": "My Profile",

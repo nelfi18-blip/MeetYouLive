@@ -225,7 +225,12 @@
     "normalAudio": "Usar áudio normal",
     "enableSpeaker": "Ativar alto-falante",
     "speakerActive": "Alto-falante ativo",
-    "speaker": "Alto-falante"
+    "speaker": "Alto-falante",
+    "enableAudioBoost": "Ativar áudio reforçado",
+    "reduceAudioBoost": "Reduzir áudio reforçado",
+    "audioBoostActive": "Áudio reforçado ativo",
+    "audioBoost": "Áudio +",
+    "cameraSwitchUnavailable": "A troca de câmera não está disponível neste dispositivo."
   },
   "profile": {
     "title": "Meu Perfil",

@@ -859,5 +859,48 @@
         ]
       }
     }
+  },
+
+  "callHistory": {
+    "eyebrow": "Histórico premium",
+    "title": "Histórico de chamadas",
+    "subtitle": "Revise suas chamadas de voz e vídeo com status, duração e ações rápidas.",
+    "voice": "Voz",
+    "video": "Vídeo",
+    "realtime": "Atualizado em tempo real",
+    "summaryAria": "Resumo do histórico de chamadas",
+    "total": "total",
+    "missed": "perdidas",
+    "filtersAria": "Filtros do histórico de chamadas",
+    "filters": {
+      "all": "Todas",
+      "incoming": "Recebidas",
+      "outgoing": "Realizadas",
+      "missed": "Perdidas"
+    },
+    "directions": {
+      "incoming": "Recebida",
+      "outgoing": "Realizada"
+    },
+    "statuses": {
+      "answered": "Atendida",
+      "missed": "Perdida",
+      "rejected": "Rejeitada",
+      "cancelled": "Cancelada",
+      "pending": "Pendente"
+    },
+    "noDuration": "Sem duração",
+    "offline": "Desconectado",
+    "callBack": "Ligar de novo",
+    "sendMessage": "Enviar mensagem",
+    "loading": "Carregando histórico de chamadas",
+    "emptyKicker": "Sem chamadas ainda",
+    "emptyTitle": "Seu histórico aparecerá aqui",
+    "emptyText": "Quando você fizer ou receber chamadas premium, verá data, hora, duração e status.",
+    "openChats": "Abrir chats",
+    "loadError": "Não foi possível carregar o histórico de chamadas",
+    "messageError": "Não foi possível abrir o chat",
+    "callError": "Não foi possível iniciar a chamada"
   }
+
 }

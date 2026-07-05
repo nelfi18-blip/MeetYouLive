@@ -4,6 +4,7 @@ const { verifyToken } = require("../middlewares/auth.middleware.js");
 const {
   inviteCall,
   getIncoming,
+  getCallHistory,
   getCallById,
   respondCall,
   endCall,
@@ -24,6 +25,7 @@ const callLimiter = rateLimit({
 
 router.post("/", callLimiter, verifyToken, inviteCall);
 router.get("/incoming", callLimiter, verifyToken, getIncoming);
+router.get("/history", callLimiter, verifyToken, getCallHistory);
 router.get("/:id", callLimiter, verifyToken, getCallById);
 router.patch("/:id/respond", callLimiter, verifyToken, respondCall);
 router.patch("/:id/end", callLimiter, verifyToken, endCall);

@@ -87,6 +87,7 @@ export function middleware(request) {
     pathname.startsWith("/profile") ||
     pathname.startsWith("/creator") ||
     pathname.startsWith("/chats") ||
+    pathname.startsWith("/calls") ||
     pathname.startsWith("/coins") ||
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/matches") ||

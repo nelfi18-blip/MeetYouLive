@@ -12,6 +12,9 @@ const {
   PENDING_CALL_TIMEOUT_MS,
 } = require("../services/callRules.service.js");
 const { getIO, getOnlineUsers } = require("../lib/socket.js");
+const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+
+const CALL_USER_FIELDS = "username name avatar profilePhotos profileImage photo role lastActiveAt";
 
 const MEDIA_TYPES = Object.freeze({
   AUDIO: "audio",
@@ -23,6 +26,9 @@ const normalizeMediaType = (mediaType) =>
 
 const isUserOnline = (userId) =>
   getOnlineUsers().some((onlineUser) => String(onlineUser.userId) === String(userId));
+
+const getOnlineUserIdSet = () =>
+  new Set(getOnlineUsers().map((onlineUser) => String(onlineUser.userId)));
 
 const isBetweenUsers = (call, userA, userB) => {
   const ids = new Set([String(userA), String(userB)]);
@@ -88,6 +94,44 @@ const markPendingCallMissed = async (call) => {
   await call.save();
   emitCallEvent(call, "CALL_MISSED");
   return call;
+};
+
+const getHistoryStatus = (call) => {
+  if (call.status === "ended" && !call.startedAt) return "cancelled";
+  if (call.status === "ended" || call.status === "accepted") return "answered";
+  return call.status;
+};
+
+const serializeCallHistoryItem = (req, call, onlineUserIds) => {
+  const payload = typeof call.toObject === "function" ? call.toObject() : call;
+  const currentUserId = String(req.userId);
+  const callerId = String(payload.caller?._id || payload.caller || "");
+  const recipientId = String(payload.recipient?._id || payload.recipient || "");
+  const direction = callerId === currentUserId ? "outgoing" : "incoming";
+  const peer = direction === "outgoing" ? payload.recipient : payload.caller;
+  const peerId = String(peer?._id || "");
+  const startedAt = payload.startedAt ? new Date(payload.startedAt) : null;
+  const endedAt = payload.endedAt ? new Date(payload.endedAt) : null;
+  // Prefer the persisted duration from completed calls; calculate a fallback for legacy/in-flight records.
+  const finalDurationSeconds =
+    payload.totalDurationSeconds != null
+      ? payload.totalDurationSeconds
+      : (startedAt && endedAt ? Math.max(0, Math.floor((endedAt - startedAt) / 1000)) : 0);
+
+  return {
+    _id: payload._id,
+    direction,
+    status: getHistoryStatus(payload),
+    rawStatus: payload.status,
+    type: payload.type,
+    mediaType: payload.mediaType || MEDIA_TYPES.VIDEO,
+    createdAt: payload.createdAt,
+    startedAt: payload.startedAt,
+    endedAt: payload.endedAt,
+    durationSeconds: finalDurationSeconds,
+    peer: peer ? withSerializedUserPhotoFields(req, peer) : null,
+    isPeerOnline: peerId ? onlineUserIds.has(peerId) : false,
+  };
 };
 
 // POST /api/calls — create call invite
@@ -223,6 +267,35 @@ const getIncoming = async (req, res) => {
       .populate("caller", "username name avatar");
 
     res.json({ call: call || null });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/calls/history — call history for current user
+const getCallHistory = async (req, res) => {
+  try {
+    const stalePendingCalls = await VideoCall.find({
+      status: "pending",
+      createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
+      $or: [{ caller: req.userId }, { recipient: req.userId }],
+    });
+    await Promise.all(stalePendingCalls.map((staleCall) => markPendingCallMissed(staleCall)));
+
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(parsedLimit) ? 50 : Math.min(Math.max(parsedLimit, 1), 100);
+    const calls = await VideoCall.find({
+      $or: [{ caller: req.userId }, { recipient: req.userId }],
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("caller", CALL_USER_FIELDS)
+      .populate("recipient", CALL_USER_FIELDS);
+
+    const onlineUserIds = getOnlineUserIdSet();
+    res.json({
+      calls: calls.map((call) => serializeCallHistoryItem(req, call, onlineUserIds)),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -632,6 +705,7 @@ const tickCall = async (req, res) => {
 module.exports = {
   inviteCall,
   getIncoming,
+  getCallHistory,
   getCallById,
   respondCall,
   endCall,

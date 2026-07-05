@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import GiftPanel from "@/components/GiftPanel";
+import GiftOverlay from "@/components/GiftOverlay";
 import PremiumCommunicationActions from "@/components/PremiumCommunicationActions";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { getUserImage } from "@/lib/imageHelpers";
@@ -50,6 +51,7 @@ export default function ChatConversationPage() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserName, setCurrentUserName] = useState("Tú");
   const [otherUser, setOtherUser] = useState(null); // { _id, username, name, avatar, role }
   const [isOtherOnline, setIsOtherOnline] = useState(false);
   const [isMatch, setIsMatch] = useState(false);
@@ -57,6 +59,7 @@ export default function ChatConversationPage() {
   const [callError, setCallError] = useState("");
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [chatGiftNotif, setChatGiftNotif] = useState(null); // For displaying gift notifications
+  const [giftQueue, setGiftQueue] = useState([]);
   const [showScrollJump, setShowScrollJump] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const messagesAreaRef = useRef(null);
@@ -110,6 +113,7 @@ export default function ChatConversationPage() {
       .then(async ([me, chatData, data]) => {
         const myId = me?._id ?? null;
         setCurrentUserId(myId);
+        setCurrentUserName(me?.username || me?.name || "Tú");
         const msgs = Array.isArray(data) ? data : [];
         setMessages(msgs);
         lastMessageIdRef.current = msgs[msgs.length - 1]?._id || null;
@@ -284,19 +288,48 @@ export default function ChatConversationPage() {
     const handleChatGift = (data) => {
       if (!mounted) return;
       setChatGiftNotif(data);
+      setGiftQueue((prev) => [
+        ...prev,
+        {
+          id: data.eventId || `${Date.now()}-${Math.random()}`,
+          senderName: data.senderName || "Alguien",
+          giftName: data.giftName || data.gift?.name || "Regalo Premium",
+          icon: data.giftIcon || data.gift?.icon || "🎁",
+          coins: 0,
+          quantity: data.quantity || 1,
+          isSuper: !!data.gift?.isSuper,
+          soundUrl: data.gift?.soundUrl || "",
+        },
+      ]);
       timeoutId = setTimeout(() => {
         if (mounted) setChatGiftNotif(null);
       }, 5000);
     };
+
+    const handlePremiumVisualGift = (data) => {
+      if (!mounted) return;
+      if (data?.context !== "chat" || String(data.contextId) !== String(id)) return;
+      if (String(data.senderId) === String(currentUserId)) return;
+      handleChatGift({
+        eventId: data.eventId,
+        senderName: data.senderName,
+        giftName: data.gift?.name,
+        giftIcon: data.gift?.icon,
+        quantity: data.quantity,
+        gift: data.gift,
+      });
+    };
     
     socket.on("CHAT_GIFT_SENT", handleChatGift);
+    socket.on("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
     
     return () => {
       mounted = false;
       if (timeoutId) clearTimeout(timeoutId);
       socket.off("CHAT_GIFT_SENT", handleChatGift);
+      socket.off("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
     };
-  }, []);
+  }, [currentUserId, id]);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -367,6 +400,59 @@ export default function ChatConversationPage() {
   };
 
   const isCreator = otherUser?.role === "creator";
+  const handleGiftProcessed = useCallback((processedGift) => {
+    setGiftQueue((prev) => prev.filter((gift) => gift.id !== processedGift.id));
+  }, []);
+
+  const showLocalVisualGift = (giftData) => {
+    const item = giftData.giftCatalogItem || {};
+    const eventId = `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const payload = {
+      eventId,
+      senderName: currentUserName || "Tú",
+      giftName: item.name || "Regalo Premium",
+      giftIcon: item.icon || "🎁",
+      quantity: giftData.quantity || 1,
+      gift: item,
+    };
+    setChatGiftNotif(payload);
+    setGiftQueue((prev) => [
+      ...prev,
+      {
+        id: eventId,
+        senderName: "Tú",
+        giftName: payload.giftName,
+        icon: payload.giftIcon,
+        coins: 0,
+        quantity: payload.quantity,
+        isSuper: !!item.isSuper || item.type === "super",
+        soundUrl: item.soundUrl || "",
+      },
+    ]);
+    setTimeout(() => setChatGiftNotif(null), 5000);
+
+    if (socket.connected && otherUser?._id) {
+      socket.emit("premium_gift:visual_send", {
+        eventId,
+        receiverId: String(otherUser._id),
+        context: "chat",
+        contextId: String(id),
+        quantity: payload.quantity,
+        gift: {
+          name: payload.giftName,
+          icon: payload.giftIcon,
+          coinCost: item.coinCost || giftData.coinCost || 0,
+          rarity: item.rarity,
+          category: item.category,
+          type: item.type,
+          isSuper: item.isSuper,
+          animationType: item.animationType,
+          soundUrl: item.soundUrl,
+        },
+      });
+    }
+  };
+
   const getDeliveryLabel = (msg, isLatestMine) => {
     if (msg.readAt || msg.readBy?.length) return t("chatPremium.read");
     return isLatestMine ? t("chatPremium.delivered") : t("chatPremium.sent");
@@ -555,22 +641,16 @@ export default function ChatConversationPage() {
         <GiftPanel
           receiverId={String(otherUser._id)}
           context="private_call"
+          visualOnly
           onClose={() => setShowGiftPanel(false)}
           onGiftSent={(gift) => {
             setShowGiftPanel(false);
-            // Show gift notification in chat
-            setChatGiftNotif({
-              senderName: "Tú",
-              giftName: gift.giftCatalogItem?.name || "un regalo",
-              giftIcon: gift.giftCatalogItem?.icon || "🎁",
-              quantity: gift.quantity || 1,
-            });
-            // Note: This timeout is user-triggered and brief (5s), but we could track
-            // it for consistency if needed. For now, keeping it simple.
-            setTimeout(() => setChatGiftNotif(null), 5000);
+            showLocalVisualGift(gift);
           }}
         />
       )}
+
+      <GiftOverlay giftQueue={giftQueue} onGiftProcessed={handleGiftProcessed} />
 
       {/* Chat gift notification */}
       {chatGiftNotif && (

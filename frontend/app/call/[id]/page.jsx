@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
-import socket from "@/lib/socket";
+import socket, { configureSocketAuth } from "@/lib/socket";
+import GiftPanel from "@/components/GiftPanel";
+import GiftOverlay from "@/components/GiftOverlay";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -39,11 +41,15 @@ export default function CallPage() {
   const [isCaller, setIsCaller] = useState(false);
   const [remoteName, setRemoteName] = useState("");
   const [remoteAvatar, setRemoteAvatar] = useState("");
+  const [remoteUserId, setRemoteUserId] = useState("");
   const [callMediaType, setCallMediaType] = useState("video");
   const [returnTo, setReturnTo] = useState("/chats");
   const [callDuration, setCallDuration] = useState(0); // seconds elapsed while connected
   const [totalCharged, setTotalCharged] = useState(0); // coins charged so far this call
   const [coinsWarning, setCoinsWarning] = useState("");
+  const [showGiftPanel, setShowGiftPanel] = useState(false);
+  const [callGiftNotif, setCallGiftNotif] = useState(null);
+  const [giftQueue, setGiftQueue] = useState([]);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -120,6 +126,8 @@ export default function CallPage() {
       router.replace("/login");
       return;
     }
+    configureSocketAuth(token.current);
+    if (!socket.connected) socket.connect();
 
     const load = async () => {
       try {
@@ -152,6 +160,7 @@ export default function CallPage() {
         const remote = callerIsMe ? data.recipient : data.caller;
         setRemoteName(remote?.username || remote?.name || "Usuario");
         setRemoteAvatar(remote?.avatar || "");
+        setRemoteUserId(String(remote?._id || ""));
         const mediaType = normalizeMediaType(data.mediaType);
         setCallMediaType(mediaType);
 
@@ -334,6 +343,39 @@ export default function CallPage() {
     };
   }, [cleanupAgora, id, t]);
 
+  useEffect(() => {
+    const handlePremiumVisualGift = (data) => {
+      if (data?.context !== "call" || String(data.contextId) !== String(id)) return;
+      if (String(data.senderId) === String(getCurrentUserId())) return;
+      const gift = data.gift || {};
+      const notif = {
+        eventId: data.eventId || `${Date.now()}-${Math.random()}`,
+        senderName: data.senderName || remoteName || "Alguien",
+        giftName: gift.name || "Regalo Premium",
+        giftIcon: gift.icon || "🎁",
+        quantity: data.quantity || 1,
+      };
+      setCallGiftNotif(notif);
+      setGiftQueue((prev) => [
+        ...prev,
+        {
+          id: notif.eventId,
+          senderName: notif.senderName,
+          giftName: notif.giftName,
+          icon: notif.giftIcon,
+          coins: 0,
+          quantity: notif.quantity,
+          isSuper: !!gift.isSuper || gift.type === "super",
+          soundUrl: gift.soundUrl || "",
+        },
+      ]);
+      setTimeout(() => setCallGiftNotif(null), 5000);
+    };
+
+    socket.on("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
+    return () => socket.off("PREMIUM_GIFT_VISUAL", handlePremiumVisualGift);
+  }, [getCurrentUserId, id, remoteName]);
+
   // ── Join Agora channel ──────────────────────────────────────────────────
   const startAgora = useCallback(
     async (callId, mediaType = "video") => {
@@ -466,6 +508,58 @@ export default function CallPage() {
     }
   };
 
+  const handleGiftProcessed = useCallback((processedGift) => {
+    setGiftQueue((prev) => prev.filter((gift) => gift.id !== processedGift.id));
+  }, []);
+
+  const showLocalVisualGift = (giftData) => {
+    const item = giftData.giftCatalogItem || {};
+    const eventId = `call-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const notif = {
+      eventId,
+      senderName: "Tú",
+      giftName: item.name || "Regalo Premium",
+      giftIcon: item.icon || "🎁",
+      quantity: giftData.quantity || 1,
+    };
+    setCallGiftNotif(notif);
+    setGiftQueue((prev) => [
+      ...prev,
+      {
+        id: eventId,
+        senderName: "Tú",
+        giftName: notif.giftName,
+        icon: notif.giftIcon,
+        coins: 0,
+        quantity: notif.quantity,
+        isSuper: !!item.isSuper || item.type === "super",
+        soundUrl: item.soundUrl || "",
+      },
+    ]);
+    setTimeout(() => setCallGiftNotif(null), 5000);
+
+    if (socket.connected && remoteUserId) {
+      socket.emit("premium_gift:visual_send", {
+        eventId,
+        receiverId: remoteUserId,
+        context: "call",
+        contextId: String(id),
+        quantity: notif.quantity,
+        gift: {
+          name: notif.giftName,
+          icon: notif.giftIcon,
+          coinCost: item.coinCost || giftData.coinCost || 0,
+          rarity: item.rarity,
+          category: item.category,
+          type: item.type,
+          isSuper: item.isSuper,
+          animationType: item.animationType,
+          soundUrl: item.soundUrl,
+        },
+      });
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────
   const remoteInitial = remoteName[0]?.toUpperCase() || "?";
 
@@ -581,6 +675,16 @@ export default function CallPage() {
         {status === "connected" && (
           <div className="call-remote-name">{remoteName}</div>
         )}
+        {callGiftNotif && (
+          <div className="call-gift-notif">
+            <span className="call-gift-icon">{callGiftNotif.giftIcon}</span>
+            <span>
+              🎁 <strong>{callGiftNotif.senderName}</strong> envió{" "}
+              {callGiftNotif.quantity > 1 ? `${callGiftNotif.quantity}x ` : ""}
+              <strong>{callGiftNotif.giftName}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Local video (picture-in-picture) */}
@@ -633,6 +737,19 @@ export default function CallPage() {
 
         {status !== "ringing" && (
           <button
+            className="call-control-btn call-gift-btn"
+            onClick={() => setShowGiftPanel(true)}
+            disabled={!remoteUserId || TERMINAL_CALL_STATES.includes(status)}
+            aria-label="Enviar regalo visual"
+            title="Enviar regalo visual"
+          >
+            <span className="call-gift-emoji">🎁</span>
+            <span>Regalo</span>
+          </button>
+        )}
+
+        {status !== "ringing" && (
+          <button
             className="call-control-btn call-end-btn"
             onClick={handleEnd}
             aria-label="Colgar"
@@ -643,6 +760,21 @@ export default function CallPage() {
           </button>
         )}
       </div>
+
+      {showGiftPanel && remoteUserId && (
+        <GiftPanel
+          receiverId={remoteUserId}
+          context="private_call"
+          visualOnly
+          onClose={() => setShowGiftPanel(false)}
+          onGiftSent={(gift) => {
+            setShowGiftPanel(false);
+            showLocalVisualGift(gift);
+          }}
+        />
+      )}
+
+      <GiftOverlay giftQueue={giftQueue} onGiftProcessed={handleGiftProcessed} />
 
       <style jsx>{`
         .call-page {
@@ -757,6 +889,38 @@ export default function CallPage() {
           backdrop-filter: blur(8px);
         }
 
+        .call-gift-notif {
+          position: absolute;
+          top: 1.25rem;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 5;
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+          max-width: min(90vw, 460px);
+          padding: 0.72rem 1rem;
+          border-radius: 999px;
+          border: 1px solid rgba(251,191,36,0.45);
+          background: rgba(10, 4, 24, 0.82);
+          color: #fff;
+          font-weight: 800;
+          font-size: 0.9rem;
+          box-shadow: 0 14px 34px rgba(0,0,0,0.38), 0 0 22px rgba(251,191,36,0.22);
+          backdrop-filter: blur(12px);
+          animation: gift-toast-in 0.24s ease-out;
+        }
+
+        .call-gift-icon {
+          font-size: 1.45rem;
+          filter: drop-shadow(0 0 10px rgba(251,191,36,0.7));
+        }
+
+        @keyframes gift-toast-in {
+          from { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+          to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        }
+
         /* Local PiP */
         .call-local-pip {
           position: absolute;
@@ -838,6 +1002,19 @@ export default function CallPage() {
           color: #fff !important;
           box-shadow: 0 4px 20px rgba(229, 57, 53, 0.5);
           padding: 0.75rem 2rem;
+        }
+
+        .call-gift-btn {
+          border-color: rgba(251,191,36,0.34);
+          background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(236,72,153,0.18));
+        }
+
+        .call-gift-btn:not(:disabled):hover {
+          box-shadow: 0 0 22px rgba(251,191,36,0.26);
+        }
+
+        .call-gift-emoji {
+          font-size: 1.25rem;
         }
 
         .call-end-btn:hover {

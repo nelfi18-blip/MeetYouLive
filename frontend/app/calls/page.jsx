@@ -72,6 +72,7 @@ export default function CallHistoryPage() {
   const [error, setError] = useState("");
   const [activeActionId, setActiveActionId] = useState("");
   const refreshTimerRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   const getBackendToken = useCallback(
     () =>
@@ -105,11 +106,22 @@ export default function CallHistoryPage() {
         return res.json();
       })
       .then((data) => {
+        if (!isMountedRef.current) return;
         if (data !== null) setCalls(Array.isArray(data?.calls) ? data.calls : []);
       })
-      .catch(() => setError(t("callHistory.loadError")))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (isMountedRef.current) setError(t("callHistory.loadError"));
+      })
+      .finally(() => {
+        if (isMountedRef.current) setLoading(false);
+      });
   }, [getBackendToken, router, sessionStatus, t]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     fetchHistory();
@@ -176,9 +188,9 @@ export default function CallHistoryPage() {
   const handleMessage = async (peerId) => {
     const token = getBackendToken();
     if (!token || !peerId || activeActionId) return;
-    setActiveActionId(`message:${peerId}`);
     setError("");
     try {
+      setActiveActionId(`message:${peerId}`);
       const res = await fetch(`${API_URL}/api/chats`, {
         method: "POST",
         headers: {
@@ -201,9 +213,9 @@ export default function CallHistoryPage() {
     const token = getBackendToken();
     const peerId = call?.peer?._id;
     if (!token || !peerId || activeActionId) return;
-    setActiveActionId(`call:${call._id}`);
     setError("");
     try {
+      setActiveActionId(`call:${call._id}`);
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: {
@@ -293,7 +305,7 @@ export default function CallHistoryPage() {
             const peer = call.peer || {};
             const displayName = getDisplayName(peer);
             const userImage = getUserImage(peer);
-            const initial = (displayName || "?")[0].toUpperCase();
+            const initial = typeof displayName === "string" && displayName ? displayName[0].toUpperCase() : "?";
             const tone = getCallTone(call);
             const isVideo = call.mediaType !== "audio";
             const callAt = call.startedAt || call.createdAt;

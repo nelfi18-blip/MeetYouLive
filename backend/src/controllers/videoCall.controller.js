@@ -114,8 +114,9 @@ const serializeCallHistoryItem = (req, call, onlineUserIds) => {
   const endedAt = payload.endedAt ? new Date(payload.endedAt) : null;
   // Prefer the persisted duration from completed calls; calculate a fallback for legacy/in-flight records.
   const durationSeconds =
-    payload.totalDurationSeconds ||
-    (startedAt && endedAt ? Math.max(0, Math.floor((endedAt - startedAt) / 1000)) : 0);
+    payload.totalDurationSeconds != null
+      ? payload.totalDurationSeconds
+      : (startedAt && endedAt ? Math.max(0, Math.floor((endedAt - startedAt) / 1000)) : 0);
 
   return {
     _id: payload._id,
@@ -279,9 +280,7 @@ const getCallHistory = async (req, res) => {
       createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
       $or: [{ caller: req.userId }, { recipient: req.userId }],
     });
-    for (const staleCall of stalePendingCalls) {
-      await markPendingCallMissed(staleCall);
-    }
+    await Promise.all(stalePendingCalls.map((staleCall) => markPendingCallMissed(staleCall)));
 
     const parsedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isNaN(parsedLimit) ? 50 : Math.min(Math.max(parsedLimit, 1), 100);

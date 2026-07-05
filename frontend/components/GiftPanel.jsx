@@ -145,7 +145,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
     try {
       if (visualOnly) {
         const data = {
-          _id: `visual-${Date.now()}`,
+          _id: `visual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           visualOnly: true,
           quantity,
           coinCost: totalCost,

@@ -71,7 +71,7 @@ const isChatParticipant = async (chatId, userId) => {
 
 const isChatBetweenParticipants = async (chatId, userA, userB) => {
   if (!isObjectId(chatId) || !isObjectId(userA) || !isObjectId(userB)) return false;
-  const chat = await Chat.findOne({ _id: chatId, participants: { $all: [userA, userB] } }).select("_id").lean();
+  const chat = await Chat.findOne({ _id: chatId, participants: { $all: [userA, userB], $size: 2 } }).select("_id").lean();
   return !!chat;
 };
 
@@ -96,7 +96,7 @@ const sanitizeVisualGift = (gift = {}) => ({
   type: ["basic", "premium", "super"].includes(gift.type) ? gift.type : "basic",
   isSuper: !!gift.isSuper || gift.type === "super",
   animationType: ["small", "medium", "fullscreen"].includes(gift.animationType) ? gift.animationType : "small",
-  soundUrl: typeof gift.soundUrl === "string" && /^https?:\/\//i.test(gift.soundUrl) ? gift.soundUrl.slice(0, 500) : "",
+  soundUrl: typeof gift.soundUrl === "string" && /^https:\/\//i.test(gift.soundUrl) ? gift.soundUrl.slice(0, 500) : "",
 });
 
 const getParticipantIds = (chat) => (chat?.participants || []).map((id) => String(id));

@@ -87,6 +87,16 @@ const isCallBetweenParticipants = async (callId, userA, userB) => {
   return !!call;
 };
 
+const sanitizeHttpsUrl = (value) => {
+  if (typeof value !== "string" || value.length > 500) return "";
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch (_) {
+    return "";
+  }
+};
+
 const sanitizeVisualGift = (gift = {}) => ({
   name: String(gift.name || "Regalo Premium").slice(0, 80),
   icon: String(gift.icon || "🎁").slice(0, 12),
@@ -96,7 +106,7 @@ const sanitizeVisualGift = (gift = {}) => ({
   type: ["basic", "premium", "super"].includes(gift.type) ? gift.type : "basic",
   isSuper: !!gift.isSuper || gift.type === "super",
   animationType: ["small", "medium", "fullscreen"].includes(gift.animationType) ? gift.animationType : "small",
-  soundUrl: typeof gift.soundUrl === "string" && /^https:\/\//i.test(gift.soundUrl) ? gift.soundUrl.slice(0, 500) : "",
+  soundUrl: sanitizeHttpsUrl(gift.soundUrl),
 });
 
 const getParticipantIds = (chat) => (chat?.participants || []).map((id) => String(id));

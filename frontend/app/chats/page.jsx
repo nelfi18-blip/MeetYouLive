@@ -100,7 +100,7 @@ function ContactAvatar({ user, name, online, inCall, size = "md" }) {
   const image = getUserImage(user);
   const initial = (name || getDisplayName(user) || "U")[0]?.toUpperCase() || "U";
   return (
-    <div className={`avatar-ring ${size}`} data-online={online} data-call={inCall}>
+    <div className={`avatar-ring ${size}`} data-online={online ? "true" : "false"} data-call={inCall ? "true" : "false"}>
       <div className="chat-avatar">
         {image ? <img src={image} alt={name || getDisplayName(user)} className="chat-avatar-img" /> : initial}
       </div>

@@ -113,7 +113,7 @@ const serializeCallHistoryItem = (req, call, onlineUserIds) => {
   const startedAt = payload.startedAt ? new Date(payload.startedAt) : null;
   const endedAt = payload.endedAt ? new Date(payload.endedAt) : null;
   // Prefer the persisted duration from completed calls; calculate a fallback for legacy/in-flight records.
-  const durationSeconds =
+  const finalDurationSeconds =
     payload.totalDurationSeconds != null
       ? payload.totalDurationSeconds
       : (startedAt && endedAt ? Math.max(0, Math.floor((endedAt - startedAt) / 1000)) : 0);
@@ -128,7 +128,7 @@ const serializeCallHistoryItem = (req, call, onlineUserIds) => {
     createdAt: payload.createdAt,
     startedAt: payload.startedAt,
     endedAt: payload.endedAt,
-    durationSeconds,
+    durationSeconds: finalDurationSeconds,
     peer: peer ? withSerializedUserPhotoFields(req, peer) : null,
     isPeerOnline: peerId ? onlineUserIds.has(peerId) : false,
   };

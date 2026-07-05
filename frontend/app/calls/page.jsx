@@ -14,6 +14,7 @@ const FILTERS = ["all", "incoming", "outgoing", "missed"];
 const REFRESH_EVENTS = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
 // Coalesces bursts of call socket events while keeping the history feeling live.
 const REFRESH_DEBOUNCE_MS = 700;
+const DEFAULT_AVATAR_INITIAL = "U";
 
 const formatDate = (value, locale) => {
   if (!value) return "";
@@ -305,7 +306,7 @@ export default function CallHistoryPage() {
             const peer = call.peer || {};
             const displayName = getDisplayName(peer);
             const userImage = getUserImage(peer);
-            const initial = typeof displayName === "string" && displayName ? displayName[0].toUpperCase() : "?";
+            const initial = typeof displayName === "string" && displayName ? displayName[0].toUpperCase() : DEFAULT_AVATAR_INITIAL;
             const tone = getCallTone(call);
             const isVideo = call.mediaType !== "audio";
             const callAt = call.startedAt || call.createdAt;

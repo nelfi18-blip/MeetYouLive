@@ -21,22 +21,22 @@ const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 const normalizeMediaType = (mediaType) => (mediaType === "audio" ? "audio" : "video");
 
 const QUALITY_META = {
-  0: { label: "Evaluando", bars: 2, className: "medium" },
-  1: { label: "Excelente", bars: 4, className: "excellent" },
-  2: { label: "Buena", bars: 3, className: "good" },
-  3: { label: "Estable", bars: 3, className: "good" },
-  4: { label: "Media", bars: 2, className: "medium" },
-  5: { label: "Baja", bars: 1, className: "low" },
-  6: { label: "Reconectando", bars: 1, className: "low" },
+  0: { labelKey: "qualityEvaluating", bars: 2, className: "medium" },
+  1: { labelKey: "qualityExcellent", bars: 4, className: "excellent" },
+  2: { labelKey: "qualityGood", bars: 3, className: "good" },
+  3: { labelKey: "qualityStable", bars: 3, className: "good" },
+  4: { labelKey: "qualityMedium", bars: 2, className: "medium" },
+  5: { labelKey: "qualityLow", bars: 1, className: "low" },
+  6: { labelKey: "qualityReconnecting", bars: 1, className: "low" },
 };
 
-const getStatusLabel = (status) => {
-  if (status === "calling") return "Llamando";
-  if (status === "ringing") return "Entrante";
-  if (status === "connecting") return "Conectando";
-  if (status === "connected") return "Conectado";
-  if (status === "reconnecting") return "Reconectando";
-  return "Preparando";
+const getStatusLabel = (status, t) => {
+  if (status === "calling") return t("chatPremium.callStatusCalling");
+  if (status === "ringing") return t("chatPremium.callStatusRinging");
+  if (status === "connecting") return t("chatPremium.callStatusConnecting");
+  if (status === "connected") return t("chatPremium.callStatusConnected");
+  if (status === "reconnecting") return t("chatPremium.callStatusReconnecting");
+  return t("chatPremium.callStatusPreparing");
 };
 
 const getSafeChatReturnTo = () => {
@@ -565,10 +565,13 @@ export default function CallPage() {
   };
 
   const toggleSpeaker = () => {
-    setSpeakerOn((prev) => !prev);
-    if (remoteAudioTrackRef.current?.setVolume) {
-      remoteAudioTrackRef.current.setVolume(speakerOn ? 65 : 100);
-    }
+    setSpeakerOn((prev) => {
+      const next = !prev;
+      if (remoteAudioTrackRef.current?.setVolume) {
+        remoteAudioTrackRef.current.setVolume(next ? 100 : 65);
+      }
+      return next;
+    });
   };
 
   const handleGiftProcessed = useCallback((processedGift) => {
@@ -675,8 +678,9 @@ export default function CallPage() {
   const mins = Math.floor(callDuration / 60);
   const secs = callDuration % 60;
   const durationLabel = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  const statusLabel = getStatusLabel(status);
+  const statusLabel = getStatusLabel(status, t);
   const qualityMeta = QUALITY_META[networkQuality] || QUALITY_META[0];
+  const qualityLabel = t(`chatPremium.${qualityMeta.labelKey}`);
   const qualityBars = Array.from({ length: 4 }, (_, index) => index < qualityMeta.bars);
 
   return (
@@ -708,11 +712,11 @@ export default function CallPage() {
             )}
           </div>
           <div>
-            <p className="call-eyebrow">{isVideoCall ? "Videollamada Premium" : "Llamada Premium"}</p>
+            <p className="call-eyebrow">{isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}</p>
             <h1>{remoteName}</h1>
           </div>
         </div>
-        <div className="call-hud-metrics" aria-label="Estado de llamada">
+        <div className="call-hud-metrics" aria-label={t("chatPremium.callStateAria")}>
           <span className={`call-status-pill call-status-pill--${status}`}>
             <span className="call-status-dot" />
             {statusLabel}
@@ -724,7 +728,7 @@ export default function CallPage() {
                 <span key={index} className={active ? "active" : ""} />
               ))}
             </span>
-            {qualityMeta.label}
+            {qualityLabel}
           </span>
         </div>
       </div>
@@ -755,7 +759,7 @@ export default function CallPage() {
               {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
             </p>
             <p className="call-premium-caption">
-              Experiencia privada preparada para regalos Premium visuales.
+              {t("chatPremium.premiumCallCaption")}
             </p>
             {(status === "calling" || status === "ringing") && (
               <p className="call-sub-text">{remoteName}</p>
@@ -778,7 +782,7 @@ export default function CallPage() {
         {status === "connected" && (
           <div className="call-remote-name">
             <span>{remoteName}</span>
-            <small>{isVideoCall ? "En video" : "Solo audio"}</small>
+            <small>{isVideoCall ? t("chatPremium.inVideo") : t("chatPremium.audioOnly")}</small>
           </div>
         )}
         {callGiftNotif && (
@@ -807,7 +811,7 @@ export default function CallPage() {
 
       {/* Controls */}
       <div className="call-controls">
-        <div className="call-controls__rail" aria-label="Controles de llamada Premium">
+        <div className="call-controls__rail" aria-label={t("chatPremium.premiumCallControlsAria")}>
         {status !== "ringing" && (
           <button
             className={`call-control-btn${muted ? " active-mute" : ""}`}
@@ -847,11 +851,11 @@ export default function CallPage() {
             className="call-control-btn"
             onClick={switchCamera}
             disabled={!localVideoTrackRef.current || switchingCamera}
-            aria-label="Cambiar cámara"
-            title="Cambiar cámara"
+            aria-label={t("chatPremium.switchCamera")}
+            title={t("chatPremium.switchCamera")}
           >
             <span className="call-control-icon">🔄</span>
-            <span>{switchingCamera ? "Cambiando" : "Cambiar cam"}</span>
+            <span>{switchingCamera ? t("chatPremium.switchingCamera") : t("chatPremium.switchCameraShort")}</span>
           </button>
         )}
 
@@ -860,11 +864,11 @@ export default function CallPage() {
             className={`call-control-btn${speakerOn ? " active-speaker" : ""}`}
             onClick={toggleSpeaker}
             disabled={!remoteAudioTrackRef.current && status !== "connected"}
-            aria-label={speakerOn ? "Usar audio normal" : "Activar altavoz"}
-            title={speakerOn ? "Altavoz activo" : "Activar altavoz"}
+            aria-label={speakerOn ? t("chatPremium.normalAudio") : t("chatPremium.enableSpeaker")}
+            title={speakerOn ? t("chatPremium.speakerActive") : t("chatPremium.enableSpeaker")}
           >
             <span className="call-control-icon">{speakerOn ? "🔊" : "🔈"}</span>
-            <span>Altavoz</span>
+            <span>{t("chatPremium.speaker")}</span>
           </button>
         )}
 

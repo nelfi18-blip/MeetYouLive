@@ -35,7 +35,6 @@ export default function ServiceWorkerRegistration() {
           scope: "/",
         });
         if (cancelled) return;
-        if (cancelled) return;
 
         updateInterval = setInterval(() => {
           registration.update();

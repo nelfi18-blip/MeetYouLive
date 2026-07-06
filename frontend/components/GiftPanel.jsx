@@ -356,7 +356,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 return (
                   <button
                     key={g._id}
-                    aria-label={`${g.name} — ${g.coinCost} monedas — ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
+                    aria-label={`${g.name}, cuesta ${g.coinCost} monedas, rareza ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
                     style={{

@@ -7,6 +7,8 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { initNativePushNotifications } from "@/lib/nativePush";
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -43,7 +45,11 @@ function SocketManager() {
       session?.backendToken ||
       (typeof window !== "undefined" ? localStorage.getItem("token") : null);
     if (!backendToken) return;
-    initPushNotifications(backendToken);
+    if (isNativeMobileApp()) {
+      initNativePushNotifications(backendToken);
+    } else {
+      initPushNotifications(backendToken);
+    }
   }, [session]);
 
   // Dispatch a window event when a new persisted notification arrives so the

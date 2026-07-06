@@ -12,6 +12,10 @@ import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import {
+  MOBILE_STORE_PAYMENT_MESSAGE,
+  shouldUseNativeStorePayments,
+} from "@/lib/mobilePayments";
+import {
   ArrowRightIcon,
   CardIcon,
   CoinIcon,
@@ -171,6 +175,10 @@ export default function BuyCoinsPage() {
 
   const buy = async (pkg) => {
     setError("");
+    if (shouldUseNativeStorePayments()) {
+      setError(MOBILE_STORE_PAYMENT_MESSAGE);
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem("token") || session?.backendToken;

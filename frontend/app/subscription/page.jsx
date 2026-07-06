@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import {
+  MOBILE_STORE_PAYMENT_MESSAGE,
+  shouldUseNativeStorePayments,
+} from "@/lib/mobilePayments";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -81,6 +85,10 @@ export default function SubscriptionPage() {
   const handleSubscribe = async () => {
     const token = localStorage.getItem("token");
     if (!token) { router.replace("/login"); return; }
+    if (shouldUseNativeStorePayments()) {
+      setError(MOBILE_STORE_PAYMENT_MESSAGE);
+      return;
+    }
     setActionLoading(true);
     setError("");
     try {

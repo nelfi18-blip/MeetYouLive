@@ -966,7 +966,9 @@
     "visualMode": "Modo visual · sem cobrança",
     "visualNote": "Prévia Premium: não desconta moedas, não ativa Stripe e não gera payout.",
     "visualPreviewSent": "Prévia enviada",
-    "sendVisual": "Enviar visual"
+    "sendVisual": "Enviar visual",
+    "giftAriaLabel": "{name}, custa {coins} moedas, raridade {rarity}{restricted}",
+    "liveOnlySuffix": " (somente ao vivo)"
   },
   "activityCenter": {
     "locale": "pt-BR",
@@ -1014,5 +1016,19 @@
       "hoursAgo": "Há {count} h",
       "daysAgo": "Há {count} dias"
     }
+  },
+  "routeError": {
+    "defaultTitle": "Não foi possível carregar esta seção",
+    "defaultMessage": "Tente novamente em alguns segundos. Se o problema continuar, volte ao início.",
+    "retry": "Tentar novamente",
+    "back": "Voltar",
+    "feed": "Voltar ao feed",
+    "dashboard": "Ir para o painel",
+    "feedTitle": "Não foi possível carregar o feed",
+    "feedMessage": "Seus matches e preferências não foram alterados. Tente novamente para recarregar perfis.",
+    "chatsTitle": "Não foi possível carregar seus chats",
+    "chatsMessage": "A conversa não foi perdida. Tente novamente para reconectar suas mensagens.",
+    "liveTitle": "Não foi possível carregar Live",
+    "liveMessage": "A sessão ao vivo não foi alterada. Tente novamente para reconectar."
   }
 }

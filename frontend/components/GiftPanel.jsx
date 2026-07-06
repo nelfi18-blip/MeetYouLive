@@ -220,6 +220,12 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
 
   /* ── Helpers ────────────────────────────────────────────────────────── */
   const rs = (g) => RARITY[g?.rarity] || RARITY.common;
+  const formatGiftAriaLabel = (gift, rarityLabel, restricted) =>
+    t("giftPanel.giftAriaLabel")
+      .replace("{name}", gift.name)
+      .replace("{coins}", String(gift.coinCost))
+      .replace("{rarity}", rarityLabel)
+      .replace("{restricted}", restricted ? t("giftPanel.liveOnlySuffix") : "");
   const gifts = filteredGifts();
 
   /* ──────────────────────────────────────────────────────────────────── */
@@ -356,7 +362,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 return (
                   <button
                     key={g._id}
-                    aria-label={`${g.name}, cuesta ${g.coinCost} monedas, rareza ${r.label}${isRestricted ? " (solo en directo)" : ""}`}
+                    aria-label={formatGiftAriaLabel(g, r.label, isRestricted)}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}
                     style={{

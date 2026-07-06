@@ -7,10 +7,10 @@ export default function ChatsError({ error, reset }) {
     <RouteErrorFallback
       error={error}
       reset={reset}
-      title="No pudimos cargar tus chats"
-      message="La conversación no se perdió. Reintenta para reconectar con tus mensajes."
+      titleKey="routeError.chatsTitle"
+      messageKey="routeError.chatsMessage"
       homeHref="/feed"
-      homeLabel="Volver al feed"
+      homeLabelKey="routeError.feed"
     />
   );
 }

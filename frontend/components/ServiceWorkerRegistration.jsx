@@ -46,6 +46,7 @@ export default function ServiceWorkerRegistration() {
 
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              // Fired when an updated service worker is installed; UI consumers can show a reload prompt.
               window.dispatchEvent(new Event("meetyoulive:sw-update-ready"));
             }
           }, { signal: stateController.signal });

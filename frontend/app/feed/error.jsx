@@ -7,10 +7,10 @@ export default function FeedError({ error, reset }) {
     <RouteErrorFallback
       error={error}
       reset={reset}
-      title="No pudimos cargar el feed"
-      message="Tus matches y preferencias no se han modificado. Reintenta para volver a cargar perfiles."
+      titleKey="routeError.feedTitle"
+      messageKey="routeError.feedMessage"
       homeHref="/dashboard"
-      homeLabel="Ir al dashboard"
+      homeLabelKey="routeError.dashboard"
     />
   );
 }

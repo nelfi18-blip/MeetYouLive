@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function reportBoundaryError(error) {
   if (typeof window !== "undefined" && typeof window.reportError === "function") {
@@ -12,11 +13,13 @@ function reportBoundaryError(error) {
 export default function RouteErrorFallback({
   error,
   reset,
-  title = "No pudimos cargar esta sección",
-  message = "Inténtalo de nuevo en unos segundos. Si el problema continúa, vuelve al inicio.",
+  titleKey = "routeError.defaultTitle",
+  messageKey = "routeError.defaultMessage",
   homeHref = "/feed",
-  homeLabel = "Volver",
+  homeLabelKey = "routeError.back",
 }) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     reportBoundaryError(error);
   }, [error]);
@@ -25,13 +28,13 @@ export default function RouteErrorFallback({
     <main className="route-error-page">
       <section className="route-error-card" role="alert" aria-live="assertive">
         <p className="route-error-eyebrow">MeetYouLive</p>
-        <h1>{title}</h1>
-        <p>{message}</p>
+        <h1>{t(titleKey)}</h1>
+        <p>{t(messageKey)}</p>
         <div className="route-error-actions">
           <button type="button" onClick={reset}>
-            Reintentar
+            {t("routeError.retry")}
           </button>
-          <Link href={homeHref}>{homeLabel}</Link>
+          <Link href={homeHref}>{t(homeLabelKey)}</Link>
         </div>
       </section>
 

@@ -42,6 +42,8 @@ const withdrawRoutes = require("./routes/withdraw.routes.js");
 const feedRoutes = require("./routes/feed.routes.js");
 const onboardingRoutes = require("./routes/onboarding.routes.js");
 
+const INTERNAL_SERVER_ERROR_MESSAGE = "Error interno del servidor";
+
 const app = express();
 
 // Render/other proxies terminate TLS before forwarding requests to Express.
@@ -175,8 +177,8 @@ app.use((err, req, res, next) => {
   const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
   const message =
     safeStatusCode === 500 && process.env.NODE_ENV === "production"
-      ? "Error interno del servidor"
-      : err.message || "Error interno del servidor";
+      ? INTERNAL_SERVER_ERROR_MESSAGE
+      : err.message || INTERNAL_SERVER_ERROR_MESSAGE;
 
   return res.status(safeStatusCode).json({
     ok: false,

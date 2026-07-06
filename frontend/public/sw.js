@@ -20,7 +20,7 @@ const NETWORK_ONLY_API_ROUTES = ["/api/user/me", "/api/feed"];
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch(() => undefined);
+      return cache.addAll(STATIC_ASSETS);
     })
   );
   self.skipWaiting();

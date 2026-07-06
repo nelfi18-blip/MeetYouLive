@@ -2,6 +2,13 @@
 
 import { useEffect } from "react";
 
+const GLOBAL_ERROR_COPY = {
+  brand: "MeetYouLive",
+  title: "Algo salió mal",
+  message: "Recarga la página o inténtalo nuevamente en unos segundos.",
+  retry: "Reintentar",
+};
+
 export default function GlobalError({ error, reset }) {
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.reportError === "function") {
@@ -28,11 +35,11 @@ export default function GlobalError({ error, reset }) {
         >
           <section style={{ maxWidth: "32rem" }}>
             <p style={{ color: "#ff4ecd", fontWeight: 800, letterSpacing: "0.08em" }}>
-              MeetYouLive
+              {GLOBAL_ERROR_COPY.brand}
             </p>
-            <h1>Algo salió mal</h1>
+            <h1>{GLOBAL_ERROR_COPY.title}</h1>
             <p style={{ color: "#c8c1df", lineHeight: 1.5 }}>
-              Recarga la página o inténtalo nuevamente en unos segundos.
+              {GLOBAL_ERROR_COPY.message}
             </p>
             <button
               type="button"
@@ -49,7 +56,7 @@ export default function GlobalError({ error, reset }) {
                 cursor: "pointer",
               }}
             >
-              Reintentar
+              {GLOBAL_ERROR_COPY.retry}
             </button>
           </section>
         </main>

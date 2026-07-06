@@ -7,10 +7,10 @@ export default function LiveError({ error, reset }) {
     <RouteErrorFallback
       error={error}
       reset={reset}
-      title="No pudimos cargar Live"
-      message="La sesión en vivo no se modificó. Reintenta para reconectar."
+      titleKey="routeError.liveTitle"
+      messageKey="routeError.liveMessage"
       homeHref="/feed"
-      homeLabel="Volver al feed"
+      homeLabelKey="routeError.feed"
     />
   );
 }

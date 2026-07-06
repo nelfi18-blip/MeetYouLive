@@ -51,7 +51,11 @@ function registerListeners() {
     registerTokenWithBackend(value, latestBackendToken, "granted");
   });
 
-  PushNotifications.addListener("registrationError", () => {});
+  PushNotifications.addListener("registrationError", (err) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[push] Native registration error:", err);
+    }
+  });
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
     const link = notification?.data?.link;

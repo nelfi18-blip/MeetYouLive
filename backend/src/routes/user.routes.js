@@ -38,6 +38,8 @@ const {
 
 const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
+const PUSH_TOKEN_PLATFORMS = new Set(["web", "ios", "android", "unknown"]);
+const PUSH_TOKEN_PERMISSION_STATUSES = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
 const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
@@ -1420,33 +1422,31 @@ router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
 // Register / update FCM push notification token
 router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
   const { pushToken, platform, deviceId, permissionStatus } = req.body;
-  if (pushToken !== undefined && pushToken !== null && typeof pushToken !== "string") {
-    return res.status(400).json({ message: "pushToken debe ser una cadena o null" });
+  if (pushToken != null && typeof pushToken !== "string") {
+    return res.status(400).json({ message: "pushToken must be a string or null" });
   }
-  const allowedPlatforms = new Set(["web", "ios", "android", "unknown"]);
-  const normalizedPlatform = typeof platform === "string" && allowedPlatforms.has(platform) ? platform : null;
+  const normalizedPlatform = typeof platform === "string" && PUSH_TOKEN_PLATFORMS.has(platform) ? platform : null;
   if (platform !== undefined && normalizedPlatform === null) {
-    return res.status(400).json({ message: "platform inválido" });
+    return res.status(400).json({ message: "Invalid platform" });
   }
   const nextPlatform = normalizedPlatform || "web";
   const nextDeviceId = typeof deviceId === "string" && deviceId ? deviceId : null;
   const nextPushToken = typeof pushToken === "string" && pushToken ? pushToken : null;
-  const allowedPermissionStatuses = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
   const normalizedPermissionStatus =
-    typeof permissionStatus === "string" && allowedPermissionStatuses.has(permissionStatus)
+    typeof permissionStatus === "string" && PUSH_TOKEN_PERMISSION_STATUSES.has(permissionStatus)
       ? permissionStatus
       : null;
   if (permissionStatus !== undefined && permissionStatus !== null && normalizedPermissionStatus === null) {
-    return res.status(400).json({ message: "permissionStatus inválido" });
+    return res.status(400).json({ message: "Invalid permissionStatus" });
   }
   if (deviceId !== undefined && deviceId !== null && typeof deviceId !== "string") {
-    return res.status(400).json({ message: "deviceId debe ser una cadena o null" });
+    return res.status(400).json({ message: "deviceId must be a string or null" });
   }
   try {
     const user = await User.findById(req.userId).select(
       "pushToken pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt"
     );
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     user.pushToken = nextPushToken;
     user.pushTokenPlatform = nextPlatform;

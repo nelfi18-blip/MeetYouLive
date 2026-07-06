@@ -8,4 +8,3 @@ export function getMobilePlatform() {
   if (typeof window === "undefined") return "web";
   return Capacitor.getPlatform();
 }
-

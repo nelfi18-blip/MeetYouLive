@@ -242,7 +242,8 @@ export default function NotificationsPage() {
       const data = await res.json();
       setUnreadCount(data.count || 0);
     } else {
-      console.warn("[activity-center] unread count request failed", res.status);
+      const body = await res.text().catch(() => "");
+      console.warn("[activity-center] unread count request failed", res.status, body);
     }
   }, [router, session]);
 
@@ -270,7 +271,9 @@ export default function NotificationsPage() {
       setNotifications((prev) => (append ? [...prev, ...(data.notifications || [])] : data.notifications || []));
       setHasMore(Boolean(data.hasMore));
       setPage(data.page || pageNum);
-      fetchUnreadCount().catch(() => {});
+      fetchUnreadCount().catch((err) => {
+        console.warn("[activity-center] unread count update failed", err);
+      });
     } catch (err) {
       setError(err.message || t("activityCenter.loadError"));
     } finally {
@@ -343,7 +346,8 @@ export default function NotificationsPage() {
         headers: { Authorization: authHeader(token) },
       });
       if (!res.ok) throw new Error(t("activityCenter.markReadError"));
-    } catch {
+    } catch (err) {
+      console.error("[activity-center] mark read failed", err);
       setError(t("activityCenter.markReadError"));
       fetchNotifications(1, false);
     }

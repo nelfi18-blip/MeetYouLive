@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 
 function CloseIcon() {
   return (
@@ -16,6 +17,8 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (isNativeMobileApp()) return undefined;
+
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);

@@ -234,6 +234,10 @@ const userSchema = new mongoose.Schema(
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
     pushToken: { type: String, default: null },
+    pushTokenPlatform: { type: String, enum: ["web", "ios", "android", "unknown"], default: null },
+    pushTokenDeviceId: { type: String, default: null },
+    pushTokenPermissionStatus: { type: String, enum: ["granted", "denied", "prompt", "prompt-with-rationale"], default: null },
+    pushTokenUpdatedAt: { type: Date, default: null },
     pushSettings: {
       type: new mongoose.Schema(
         {

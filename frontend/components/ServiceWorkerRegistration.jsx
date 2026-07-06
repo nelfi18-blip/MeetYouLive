@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 
 /**
  * ServiceWorkerRegistration - Registers the main PWA service worker for offline support
@@ -9,6 +10,7 @@ import { useEffect } from "react";
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isNativeMobileApp()) return;
 
     if (!("serviceWorker" in navigator)) {
       return;

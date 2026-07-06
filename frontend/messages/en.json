@@ -474,7 +474,8 @@
     "coins": "coins",
     "apply": "Apply",
     "timeout": "Request timed out",
-    "retry": "Retry"
+    "retry": "Retry",
+    "mobileStorePaymentRequired": "Purchases inside the mobile app must be processed with Apple In-App Purchase or Google Play Billing. Use the web version for Stripe while we enable store products."
   },
   "explore": {
     "noLiveTitle": "No live streams right now",

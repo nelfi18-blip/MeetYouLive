@@ -68,6 +68,7 @@ const PREMIUM_GRADIENTS = {
 
 function getAuthToken(session) {
   if (session?.backendToken) return session.backendToken;
+  // Email/password users in this app keep the backend JWT outside NextAuth.
   if (typeof window === "undefined") return null;
   return localStorage.getItem("token") || sessionStorage.getItem("token");
 }
@@ -232,13 +233,18 @@ export default function NotificationsPage() {
       headers: { Authorization: authHeader(token) },
       cache: "no-store",
     });
+    if (res.status === 401 || res.status === 403) {
+      clearToken();
+      router.replace("/login");
+      return;
+    }
     if (res.ok) {
       const data = await res.json();
       setUnreadCount(data.count || 0);
     } else {
       console.warn("[activity-center] unread count request failed", res.status);
     }
-  }, [session]);
+  }, [router, session]);
 
   const fetchNotifications = useCallback(async (pageNum = 1, append = false) => {
     const token = getAuthToken(session);
@@ -296,6 +302,7 @@ export default function NotificationsPage() {
     socket.on("NEW_NOTIFICATION", handleNewNotification);
     return () => {
       socket.off("NEW_NOTIFICATION", handleNewNotification);
+      // Keep the shared app-wide socket alive for global toasts and incoming calls.
     };
   }, [session]);
 
@@ -337,6 +344,7 @@ export default function NotificationsPage() {
       });
       if (!res.ok) throw new Error(t("activityCenter.markReadError"));
     } catch {
+      setError(t("activityCenter.markReadError"));
       fetchNotifications(1, false);
     }
   }, [fetchNotifications, session, t]);

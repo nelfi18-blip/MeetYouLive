@@ -42,6 +42,8 @@ const withdrawRoutes = require("./routes/withdraw.routes.js");
 const feedRoutes = require("./routes/feed.routes.js");
 const onboardingRoutes = require("./routes/onboarding.routes.js");
 
+const INTERNAL_SERVER_ERROR_MESSAGE = "Error interno del servidor";
+
 const app = express();
 
 // Render/other proxies terminate TLS before forwarding requests to Express.
@@ -158,5 +160,30 @@ app.use("/api/onboarding", onboardingRoutes);
 // Sentry error handler — must come before the 404/generic error handler
 // so Sentry captures unhandled errors from all routes above.
 app.use(sentryErrorHandler());
+
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    message: "Ruta no encontrada",
+  });
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const safeStatusCode =
+    Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
+  const message =
+    safeStatusCode === 500 && process.env.NODE_ENV === "production"
+      ? INTERNAL_SERVER_ERROR_MESSAGE
+      : err.message || INTERNAL_SERVER_ERROR_MESSAGE;
+
+  return res.status(safeStatusCode).json({
+    ok: false,
+    message,
+  });
+});
 
 module.exports = app;

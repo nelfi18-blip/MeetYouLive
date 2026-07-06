@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "lint": "eslint . --max-warnings=0",
     "start": "next start",
     "build:mobile": "NEXT_MOBILE_BUILD=true next build && npx cap sync",
     "cap:sync": "npx cap sync",

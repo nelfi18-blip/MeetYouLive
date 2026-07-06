@@ -12,7 +12,6 @@ const SUPER_LIKE_VIBRATION_MS = 70;
 const STANDARD_VIBRATION_MS = 45;
 const BIO_COLLAPSED_CHAR_LIMIT = 120;
 const PHOTO_TAP_CANCEL_THRESHOLD_PX = 10;
-const ENABLE_FEED_PHOTO_DIAGNOSTICS = process.env.NEXT_PUBLIC_ENABLE_FEED_PHOTO_DIAGNOSTICS === "true";
 
 function getProfileId(profile) {
   const profileId = profile?._id || profile?.id;
@@ -212,17 +211,6 @@ const SwipeCard = memo(function({
     }
   }, [activePhotoIndex, photos.length]);
 
-  useEffect(() => {
-    if (!ENABLE_FEED_PHOTO_DIAGNOSTICS) return;
-    // TODO: Remove this temporary diagnostic after feed photo storage is verified.
-    console.debug("[feed-photo-diagnostic]", {
-      userId: profileId,
-      username: profile?.username || null,
-      photoCount: photos.length,
-      fieldUsed: currentPhoto ? "getUserPhotoSelection" : null,
-    });
-  }, [currentPhoto, photos.length, profile?.username, profileId]);
-  
   // Online status
   const isOnline = Boolean(profile?.isOnline || profile?.lastSeen);
   const lastSeenTime = profile?.lastSeen ? new Date(profile.lastSeen).getTime() : NaN;

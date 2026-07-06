@@ -966,7 +966,9 @@
     "visualMode": "Visual mode · no charge",
     "visualNote": "Premium preview: no coins are deducted, Stripe is not activated, and no payout is generated.",
     "visualPreviewSent": "Preview sent",
-    "sendVisual": "Send visual"
+    "sendVisual": "Send visual",
+    "giftAriaLabel": "{name}, costs {coins} coins, rarity {rarity}{restricted}",
+    "liveOnlySuffix": " (live only)"
   },
   "activityCenter": {
     "locale": "en-US",
@@ -1014,5 +1016,19 @@
       "hoursAgo": "{count} h ago",
       "daysAgo": "{count} days ago"
     }
+  },
+  "routeError": {
+    "defaultTitle": "We could not load this section",
+    "defaultMessage": "Try again in a few seconds. If the problem continues, return home.",
+    "retry": "Try again",
+    "back": "Back",
+    "feed": "Back to feed",
+    "dashboard": "Go to dashboard",
+    "feedTitle": "We could not load the feed",
+    "feedMessage": "Your matches and preferences were not changed. Try again to reload profiles.",
+    "chatsTitle": "We could not load your chats",
+    "chatsMessage": "The conversation was not lost. Try again to reconnect to your messages.",
+    "liveTitle": "We could not load Live",
+    "liveMessage": "The live session was not changed. Try again to reconnect."
   }
 }

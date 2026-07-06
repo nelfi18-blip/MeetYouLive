@@ -11,10 +11,8 @@ import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
-import {
-  MOBILE_STORE_PAYMENT_MESSAGE,
-  shouldUseNativeStorePayments,
-} from "@/lib/mobilePayments";
+import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ArrowRightIcon,
   CardIcon,
@@ -111,6 +109,7 @@ const COIN_USES = [
 
 export default function BuyCoinsPage() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -176,7 +175,7 @@ export default function BuyCoinsPage() {
   const buy = async (pkg) => {
     setError("");
     if (shouldUseNativeStorePayments()) {
-      setError(MOBILE_STORE_PAYMENT_MESSAGE);
+      setError(t("common.mobileStorePaymentRequired"));
       return;
     }
     setLoading(true);

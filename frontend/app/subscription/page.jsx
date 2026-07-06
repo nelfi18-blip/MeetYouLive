@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
-import {
-  MOBILE_STORE_PAYMENT_MESSAGE,
-  shouldUseNativeStorePayments,
-} from "@/lib/mobilePayments";
+import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -46,6 +44,7 @@ const BENEFITS = [
 
 export default function SubscriptionPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [status, setStatus] = useState(null);
   const [periodEnd, setPeriodEnd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +85,7 @@ export default function SubscriptionPage() {
     const token = localStorage.getItem("token");
     if (!token) { router.replace("/login"); return; }
     if (shouldUseNativeStorePayments()) {
-      setError(MOBILE_STORE_PAYMENT_MESSAGE);
+      setError(t("common.mobileStorePaymentRequired"));
       return;
     }
     setActionLoading(true);

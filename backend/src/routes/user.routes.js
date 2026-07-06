@@ -1420,33 +1420,40 @@ router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
 // Register / update FCM push notification token
 router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
   const { pushToken, platform, deviceId, permissionStatus } = req.body;
-  if (pushToken !== null && typeof pushToken !== "string") {
+  if (pushToken !== undefined && pushToken !== null && typeof pushToken !== "string") {
     return res.status(400).json({ message: "pushToken debe ser una cadena o null" });
   }
-  const normalizedPlatform = platform || "web";
   const allowedPlatforms = new Set(["web", "ios", "android", "unknown"]);
-  if (!allowedPlatforms.has(normalizedPlatform)) {
+  const normalizedPlatform = typeof platform === "string" && allowedPlatforms.has(platform) ? platform : null;
+  if (platform !== undefined && normalizedPlatform === null) {
     return res.status(400).json({ message: "platform inválido" });
+  }
+  const nextPlatform = normalizedPlatform || "web";
+  const nextDeviceId = typeof deviceId === "string" && deviceId ? deviceId : null;
+  const nextPushToken = typeof pushToken === "string" && pushToken ? pushToken : null;
+  const allowedPermissionStatuses = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
+  const normalizedPermissionStatus =
+    typeof permissionStatus === "string" && allowedPermissionStatuses.has(permissionStatus)
+      ? permissionStatus
+      : null;
+  if (permissionStatus !== undefined && permissionStatus !== null && normalizedPermissionStatus === null) {
+    return res.status(400).json({ message: "permissionStatus inválido" });
   }
   if (deviceId !== undefined && deviceId !== null && typeof deviceId !== "string") {
     return res.status(400).json({ message: "deviceId debe ser una cadena o null" });
   }
-  const normalizedPermissionStatus = permissionStatus || null;
-  const allowedPermissionStatuses = new Set(["granted", "denied", "prompt", "prompt-with-rationale", null]);
-  if (!allowedPermissionStatuses.has(normalizedPermissionStatus)) {
-    return res.status(400).json({ message: "permissionStatus inválido" });
-  }
   try {
-    await User.updateOne(
-      { _id: req.userId },
-      {
-        pushToken: pushToken || null,
-        pushTokenPlatform: normalizedPlatform,
-        pushTokenDeviceId: deviceId || null,
-        pushTokenPermissionStatus: normalizedPermissionStatus,
-        pushTokenUpdatedAt: new Date(),
-      }
+    const user = await User.findById(req.userId).select(
+      "pushToken pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt"
     );
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    user.pushToken = nextPushToken;
+    user.pushTokenPlatform = nextPlatform;
+    user.pushTokenDeviceId = nextDeviceId;
+    user.pushTokenPermissionStatus = normalizedPermissionStatus;
+    user.pushTokenUpdatedAt = new Date();
+    await user.save();
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -36,7 +36,11 @@ async function registerTokenWithBackend(pushToken, backendToken, permissionStatu
       deviceId,
       permissionStatus,
     }),
-  }).catch(() => {});
+  }).catch((err) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[push] Native token registration failed:", err);
+    }
+  });
 }
 
 function registerListeners() {

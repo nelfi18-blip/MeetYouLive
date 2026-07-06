@@ -474,7 +474,8 @@
     "coins": "moedas",
     "apply": "Solicitar",
     "timeout": "Tempo limite esgotado",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "mobileStorePaymentRequired": "As compras dentro do app móvel devem ser processadas com Apple In-App Purchase ou Google Play Billing. Use a versão web para Stripe enquanto ativamos os produtos da loja."
   },
   "explore": {
     "noLiveTitle": "Não há transmissões ao vivo agora",

@@ -173,8 +173,8 @@ app.use((err, req, res, next) => {
     return next(err);
   }
 
-  const statusCode = Number.isInteger(err.status) ? err.status : 500;
-  const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+  const safeStatusCode =
+    Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
   const message =
     safeStatusCode === 500 && process.env.NODE_ENV === "production"
       ? INTERNAL_SERVER_ERROR_MESSAGE

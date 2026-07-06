@@ -4,7 +4,7 @@ const DATABASE_ENV_VARS = ["MONGO_URI", "MONGODB_URI", "DATABASE_URL"];
 function getMissingEnvVars() {
   const missing = REQUIRED_ENV_VARS.filter((name) => !process.env[name]);
   if (!DATABASE_ENV_VARS.some((name) => process.env[name])) {
-    missing.push(DATABASE_ENV_VARS.join(" or "));
+    missing.push(`one of (${DATABASE_ENV_VARS.join(", ")})`);
   }
   return missing;
 }

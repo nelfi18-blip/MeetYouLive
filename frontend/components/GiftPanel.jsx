@@ -362,6 +362,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
                 return (
                   <button
                     key={g._id}
+                    role="button"
                     aria-label={formatGiftAriaLabel(g, r.label, isRestricted)}
                     aria-pressed={isSelected}
                     className={`gp-card${isSelected ? " gp-card-selected" : ""}${isRestricted ? " gp-card-restricted" : ""}`}

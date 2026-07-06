@@ -1,4 +1,6 @@
-const CACHE_NAME = "meetyoulive-v41";
+const CACHE_PREFIX = "meetyoulive";
+const CACHE_VERSION = "v42";
+const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -18,9 +20,7 @@ const NETWORK_ONLY_API_ROUTES = ["/api/user/me", "/api/feed"];
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.error("Failed to cache static assets:", err);
-      });
+      return cache.addAll(STATIC_ASSETS).catch(() => undefined);
     })
   );
   self.skipWaiting();
@@ -31,7 +31,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE_NAME)
+          .filter((k) => k.startsWith(`${CACHE_PREFIX}-`) && k !== CACHE_NAME)
           .map((k) => caches.delete(k))
       )
     )

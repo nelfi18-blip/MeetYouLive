@@ -77,11 +77,6 @@ const GiftOverlay = ({ giftQueue = [], onGiftProcessed }) => {
     // IMPORTANT: This component currently uses hardcoded Spanish text matching the live page's
     // current language pattern. The entire live page (/app/live/[id]/page.jsx) uses Spanish text
     // throughout. This component will be updated with i18n support when the live page migrates.
-    // 
-    // TODO: Implement i18n support using next-intl's useTranslations() hook
-    // when the live page migrates to the i18n system. Pattern:
-    // const t = useTranslations('giftOverlay');
-    // const sentText = t('sent'); // with keys in messages/{en,es,pt}.json
     const sentText = "envió"; // Spanish - matches current live page pattern
     
     return (

@@ -8,59 +8,63 @@ import { useEffect } from "react";
  */
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
-    // Only run in browser
     if (typeof window === "undefined") return;
 
-    // Check if service workers are supported
     if (!("serviceWorker" in navigator)) {
-      console.log("Service workers are not supported in this browser");
       return;
     }
 
     let updateInterval;
+    let cancelled = false;
+    const loadController = new AbortController();
+    const updateController = new AbortController();
+    const stateController = new AbortController();
 
-    // Register the main service worker
     const registerServiceWorker = async () => {
       try {
-        // Wait for page load to avoid impacting initial page performance
         if (document.readyState === "loading") {
           await new Promise((resolve) => {
-            window.addEventListener("load", resolve, { once: true });
+            window.addEventListener("load", resolve, {
+              once: true,
+              signal: loadController.signal,
+            });
           });
         }
 
         const registration = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
+        if (cancelled) return;
+        if (cancelled) return;
 
-        console.log("Service worker registered successfully:", registration.scope);
-
-        // Check for updates periodically (every hour)
         updateInterval = setInterval(() => {
           registration.update();
         }, 60 * 60 * 1000);
 
-        // Listen for updates
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing;
           if (!newWorker) return;
 
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              // New service worker available, could show a notification to refresh
-              console.log("New service worker available, please refresh the page");
+              window.dispatchEvent(new Event("meetyoulive:sw-update-ready"));
             }
-          });
-        });
+          }, { signal: stateController.signal });
+        }, { signal: updateController.signal });
       } catch (error) {
-        console.error("Service worker registration failed:", error);
+        if (!loadController.signal.aborted && typeof window.reportError === "function") {
+          window.reportError(error);
+        }
       }
     };
 
     registerServiceWorker();
 
-    // Cleanup function to clear the interval
     return () => {
+      cancelled = true;
+      loadController.abort();
+      updateController.abort();
+      stateController.abort();
       if (updateInterval) {
         clearInterval(updateInterval);
       }

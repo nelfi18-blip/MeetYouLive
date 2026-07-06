@@ -351,13 +351,6 @@ export default function OnboardingPage() {
         setError(validationError);
         continue;
       }
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.log("[onboarding-avatar-upload] selected file metadata", {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        lastModified: file.lastModified,
-      });
       try {
         const preview = await readPreview(file);
         if (!nextMainFile) {
@@ -484,8 +477,6 @@ export default function OnboardingPage() {
 
       const formData = new FormData();
       formData.append("avatar", uploadFile);
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.log("[onboarding-avatar-upload] request start", { url: uploadEndpoint });
       let uploadRes;
       try {
         uploadRes = await fetch(uploadEndpoint, {
@@ -498,11 +489,7 @@ export default function OnboardingPage() {
         console.warn("[onboarding-avatar-upload] network error", diagnostic);
         return { ok: false, message: errorLabels.serverConnecting, diagnostic };
       }
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.log("[onboarding-avatar-upload] response status", uploadRes.status);
       const uploadData = await parseUploadResponseBody(uploadRes);
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.log("[onboarding-avatar-upload] response body", uploadData);
       if (!uploadRes.ok) {
         const diagnostic = getAvatarUploadDiagnostic(uploadRes.status, uploadData, "Error al subir la foto");
         console.warn("[onboarding-avatar-upload] failed", diagnostic);
@@ -579,9 +566,7 @@ export default function OnboardingPage() {
         }
         finalProfilePhotos = mergeProfilePhotos(finalProfilePhotos, extraUpload.profilePhotos);
       }
-    } catch (err) {
-      // TODO(2026-05-31): Remove temporary upload debug logs after monitoring confirms fix stability.
-      console.error("[onboarding-avatar-upload] caught frontend error", err);
+    } catch {
       handleSaveFailure(errorLabels.photoUploadError);
       return;
     }

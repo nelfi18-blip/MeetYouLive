@@ -159,4 +159,29 @@ app.use("/api/onboarding", onboardingRoutes);
 // so Sentry captures unhandled errors from all routes above.
 app.use(sentryErrorHandler());
 
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    message: "Ruta no encontrada",
+  });
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const statusCode = Number.isInteger(err.status) ? err.status : 500;
+  const safeStatusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+  const message =
+    safeStatusCode === 500 && process.env.NODE_ENV === "production"
+      ? "Error interno del servidor"
+      : err.message || "Error interno del servidor";
+
+  return res.status(safeStatusCode).json({
+    ok: false,
+    message,
+  });
+});
+
 module.exports = app;

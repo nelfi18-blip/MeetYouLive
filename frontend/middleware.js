@@ -2,6 +2,42 @@ import { NextResponse } from "next/server";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 
+const PROTECTED_ROUTE_PREFIXES = [
+  "/agency",
+  "/call",
+  "/calls",
+  "/chats",
+  "/coins",
+  "/creator",
+  "/crush",
+  "/daily-reward",
+  "/dashboard",
+  "/exclusive",
+  "/explore",
+  "/feed",
+  "/gifts",
+  "/live",
+  "/matches",
+  "/notifications",
+  "/onboarding",
+  "/passes",
+  "/private-calls",
+  "/profile",
+  "/ranking",
+  "/referral",
+  "/rooms",
+  "/settings",
+  "/sparks",
+  "/subscription",
+  "/videos",
+  "/vip",
+  "/wallet",
+];
+
+function matchesRoutePrefix(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
@@ -81,20 +117,9 @@ export function middleware(request) {
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
-  const isProtectedRoute =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/feed") ||
-    pathname.startsWith("/profile") ||
-    pathname.startsWith("/creator") ||
-    pathname.startsWith("/chats") ||
-    pathname.startsWith("/calls") ||
-    pathname.startsWith("/coins") ||
-    pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/matches") ||
-    pathname.startsWith("/crush") ||
-    pathname.startsWith("/explore") ||
-    pathname.startsWith("/live") ||
-    pathname.startsWith("/wallet");
+  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some((prefix) =>
+    matchesRoutePrefix(pathname, prefix)
+  );
 
   // ── Admin routing ──────────────────────────────────────────────────────────
 

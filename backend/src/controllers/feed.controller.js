@@ -937,10 +937,6 @@ const getFeed = async (req, res) => {
         strictError: strictFeedError ? strictFeedError.message : "",
       };
     }
-    if (isFeedPhotoDiagnosticsEnabled()) {
-      // TODO: Remove after feed photo storage is verified in production.
-      console.debug("[Feed Photo Diagnostic]", serializedRecommendedProfiles.map(getFeedPhotoDiagnostic));
-    }
     if (isFeedCandidateDiagnosticsEnabled(req)) {
       const diagnosticLimit = Math.min(
         Math.max(parseInt(req.query.debugFeedCandidatesLimit, 10) || FEED_DIAGNOSTIC_DEFAULT_LIMIT, 1),
@@ -1736,8 +1732,6 @@ const sendGreeting = async (req, res) => {
       to: toUserId,
       message: message || "👋",
     });
-
-    // TODO: Optionally deduct coins and notify user via socket
 
     res.json({ ok: true, greeting });
   } catch (err) {

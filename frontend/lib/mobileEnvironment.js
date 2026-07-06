@@ -7,6 +7,7 @@ export function isNativeMobileApp() {
   const platform = typeof capacitor?.getPlatform === "function" ? capacitor.getPlatform() : "web";
   if (platform !== "ios" && platform !== "android") return false;
 
+  // Require Capacitor's injected native bridge so normal mobile browsers do not block Stripe.
   return (
     typeof capacitor?.nativePromise === "function" ||
     typeof capacitor?.nativeCallback === "function"

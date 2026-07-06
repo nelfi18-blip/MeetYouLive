@@ -967,5 +967,52 @@
     "visualNote": "Premium preview: no coins are deducted, Stripe is not activated, and no payout is generated.",
     "visualPreviewSent": "Preview sent",
     "sendVisual": "Send visual"
+  },
+  "activityCenter": {
+    "locale": "en-US",
+    "back": "Back",
+    "eyebrow": "Premium Activity Center",
+    "title": "Activity Center",
+    "subtitle": "All your notifications, matches, messages, calls, and important alerts in one place.",
+    "unreadLabel": "unread",
+    "unreadAria": "{count} unread notifications",
+    "categoriesAria": "Activity categories",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark read",
+    "updating": "Updating…",
+    "loading": "Loading premium activity…",
+    "loadingMore": "Loading…",
+    "loadMore": "Load more activity",
+    "errorTitle": "Could not load",
+    "retry": "Retry",
+    "emptyTitle": "No activity yet",
+    "emptyText": "New matches, messages, missed calls, gifts, followers, and system alerts will appear here.",
+    "futureTitle": "Prepared for future phases",
+    "futureText": "Push notifications, Firebase, emails, SMS, payments, and coins remain outside this sprint.",
+    "unreadBadge": "New",
+    "defaultMessage": "New premium activity",
+    "loadError": "Could not load the Activity Center",
+    "markReadError": "Could not mark as read",
+    "markAllError": "Could not update",
+    "categories": {
+      "all": "All",
+      "match": "Matches",
+      "message": "Messages",
+      "call": "Calls",
+      "gift": "Gifts",
+      "social": "Social",
+      "live": "Live",
+      "system": "System"
+    },
+    "date": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "time": {
+      "now": "Now",
+      "minutesAgo": "{count} min ago",
+      "hoursAgo": "{count} h ago",
+      "daysAgo": "{count} days ago"
+    }
   }
 }

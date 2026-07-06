@@ -967,5 +967,52 @@
     "visualNote": "Prévia Premium: não desconta moedas, não ativa Stripe e não gera payout.",
     "visualPreviewSent": "Prévia enviada",
     "sendVisual": "Enviar visual"
+  },
+  "activityCenter": {
+    "locale": "pt-BR",
+    "back": "Voltar",
+    "eyebrow": "Premium Activity Center",
+    "title": "Centro de Atividade",
+    "subtitle": "Todas as suas notificações, matches, mensagens, chamadas e avisos importantes em um só lugar.",
+    "unreadLabel": "não lidas",
+    "unreadAria": "{count} notificações não lidas",
+    "categoriesAria": "Categorias de atividade",
+    "markAllRead": "Marcar todas como lidas",
+    "markRead": "Marcar como lida",
+    "updating": "Atualizando…",
+    "loading": "Carregando atividade premium…",
+    "loadingMore": "Carregando…",
+    "loadMore": "Ver mais atividade",
+    "errorTitle": "Erro ao carregar",
+    "retry": "Tentar novamente",
+    "emptyTitle": "Sem atividade por enquanto",
+    "emptyText": "Novos matches, mensagens, chamadas perdidas, presentes, seguidores e avisos do sistema aparecerão aqui.",
+    "futureTitle": "Preparado para próximas fases",
+    "futureText": "Push notifications, Firebase, emails, SMS, cobranças e coins ficam fora deste sprint.",
+    "unreadBadge": "Novo",
+    "defaultMessage": "Nova atividade premium",
+    "loadError": "Erro ao carregar o Centro de Atividade",
+    "markReadError": "Não foi possível marcar como lida",
+    "markAllError": "Não foi possível atualizar",
+    "categories": {
+      "all": "Tudo",
+      "match": "Matches",
+      "message": "Mensagens",
+      "call": "Chamadas",
+      "gift": "Presentes",
+      "social": "Social",
+      "live": "Live",
+      "system": "Sistema"
+    },
+    "date": {
+      "today": "Hoje",
+      "yesterday": "Ontem"
+    },
+    "time": {
+      "now": "Agora",
+      "minutesAgo": "Há {count} min",
+      "hoursAgo": "Há {count} h",
+      "daysAgo": "Há {count} dias"
+    }
   }
 }

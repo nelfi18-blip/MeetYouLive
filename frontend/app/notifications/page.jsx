@@ -6,18 +6,19 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { clearToken } from "@/lib/token";
 import socket, { configureSocketAuth } from "@/lib/socket";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const CATEGORIES = [
-  { key: "all", label: "Todo", icon: "✨" },
-  { key: "match", label: "Matches", icon: "💞" },
-  { key: "message", label: "Mensajes", icon: "💬" },
-  { key: "call", label: "Llamadas", icon: "📞" },
-  { key: "gift", label: "Regalos", icon: "🎁" },
-  { key: "social", label: "Social", icon: "🫶" },
-  { key: "live", label: "Live", icon: "🔴" },
-  { key: "system", label: "Sistema", icon: "⚙️" },
+  { key: "all", labelKey: "activityCenter.categories.all", icon: "✨" },
+  { key: "match", labelKey: "activityCenter.categories.match", icon: "💞" },
+  { key: "message", labelKey: "activityCenter.categories.message", icon: "💬" },
+  { key: "call", labelKey: "activityCenter.categories.call", icon: "📞" },
+  { key: "gift", labelKey: "activityCenter.categories.gift", icon: "🎁" },
+  { key: "social", labelKey: "activityCenter.categories.social", icon: "🫶" },
+  { key: "live", labelKey: "activityCenter.categories.live", icon: "🔴" },
+  { key: "system", labelKey: "activityCenter.categories.system", icon: "⚙️" },
 ];
 
 const CATEGORY_BY_TYPE = {
@@ -72,7 +73,14 @@ function getAuthToken(session) {
 }
 
 function authHeader(token) {
-  return ["Bearer", token].join(" ");
+  return "Bearer ".concat(token);
+}
+
+function formatText(t, key, values = {}) {
+  return Object.entries(values).reduce(
+    (text, [name, value]) => text.replace(`{${name}}`, String(value)),
+    t(key)
+  );
 }
 
 function getCategory(type) {
@@ -83,74 +91,66 @@ function getCategoryConfig(category) {
   return CATEGORIES.find((item) => item.key === category) || CATEGORIES[CATEGORIES.length - 1];
 }
 
-function getActivityMeta(notif) {
+function getActivityMeta(notif, t) {
   const type = notif?.type || "system";
   const category = getCategory(type);
   const config = getCategoryConfig(category);
   const data = notif?.data || {};
   let href = "/dashboard";
-  let action = "Ver detalle";
 
   if (category === "match") {
     href = data.chatId ? `/chats/${data.chatId}` : "/matches";
-    action = data.chatId ? "Abrir chat" : "Ver matches";
   } else if (category === "message") {
     href = data.chatId ? `/chats/${data.chatId}` : "/chats";
-    action = "Abrir mensaje";
   } else if (category === "call") {
     href = data.callId ? `/call/${data.callId}` : "/calls";
-    action = "Ver llamadas";
   } else if (category === "gift") {
     href = data.liveId ? `/live/${data.liveId}` : "/gifts";
-    action = data.liveId ? "Entrar al live" : "Ver regalos";
   } else if (category === "social") {
     href = data.userId ? `/profile/${data.userId}` : "/crush";
-    action = "Ver actividad";
   } else if (category === "live") {
     href = data.liveId ? `/live/${data.liveId}` : "/live";
-    action = "Ver live";
   }
 
   return {
     category,
-    label: config.label,
+    label: t(config.labelKey),
     icon: config.icon,
     gradient: PREMIUM_GRADIENTS[category],
     href,
-    action,
   };
 }
 
-function formatDateTitle(date) {
+function formatDateTitle(date, t) {
   const day = new Date(date);
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
 
-  if (day.toDateString() === today.toDateString()) return "Hoy";
-  if (day.toDateString() === yesterday.toDateString()) return "Ayer";
-  return day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  if (day.toDateString() === today.toDateString()) return t("activityCenter.date.today");
+  if (day.toDateString() === yesterday.toDateString()) return t("activityCenter.date.yesterday");
+  return day.toLocaleDateString(t("activityCenter.locale"), { weekday: "long", day: "numeric", month: "long" });
 }
 
-function timeAgo(date) {
+function timeAgo(date, t) {
   const diff = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 1000));
-  if (diff < 60) return "Ahora";
-  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
-  if (diff < 604800) return `Hace ${Math.floor(diff / 86400)} días`;
-  return new Date(date).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  if (diff < 60) return t("activityCenter.time.now");
+  if (diff < 3600) return formatText(t, "activityCenter.time.minutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return formatText(t, "activityCenter.time.hoursAgo", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return formatText(t, "activityCenter.time.daysAgo", { count: Math.floor(diff / 86400) });
+  return new Date(date).toLocaleDateString(t("activityCenter.locale"), { day: "numeric", month: "short" });
 }
 
-function getGroups(notifications) {
+function getGroups(notifications, t) {
   const groups = [];
   const groupMap = new Map();
 
   notifications.forEach((notif) => {
     const createdAt = notif.createdAt || new Date().toISOString();
     const dateKey = new Date(createdAt).toDateString();
-    const meta = getActivityMeta(notif);
+    const meta = getActivityMeta(notif, t);
     if (!groupMap.has(dateKey)) {
-      const dateGroup = { key: dateKey, title: formatDateTitle(createdAt), categories: new Map() };
+      const dateGroup = { key: dateKey, title: formatDateTitle(createdAt, t), categories: new Map() };
       groupMap.set(dateKey, dateGroup);
       groups.push(dateGroup);
     }
@@ -172,9 +172,9 @@ function getGroups(notifications) {
   }));
 }
 
-function ActivityItem({ notif, onRead }) {
+function ActivityItem({ notif, onRead, t }) {
   const router = useRouter();
-  const meta = getActivityMeta(notif);
+  const meta = getActivityMeta(notif, t);
 
   const handleOpen = useCallback(async () => {
     if (!notif.isRead) {
@@ -192,19 +192,19 @@ function ActivityItem({ notif, onRead }) {
         <span className="activity-copy">
           <span className="activity-title-row">
             <span className="activity-title">{notif.title || meta.label}</span>
-            {!notif.isRead && <span className="activity-unread">Nuevo</span>}
+            {!notif.isRead && <span className="activity-unread">{t("activityCenter.unreadBadge")}</span>}
           </span>
-          <span className="activity-message">{notif.message || "Nueva actividad premium"}</span>
+          <span className="activity-message">{notif.message || t("activityCenter.defaultMessage")}</span>
           <span className="activity-meta">
             <span>{meta.label}</span>
             <span>•</span>
-            <span>{timeAgo(notif.createdAt)}</span>
+            <span>{timeAgo(notif.createdAt, t)}</span>
           </span>
         </span>
       </button>
       {!notif.isRead && (
-        <button className="read-inline" onClick={() => onRead(notif._id)} aria-label="Marcar como leído">
-          Marcar leído
+        <button className="read-inline" onClick={() => onRead(notif._id)} aria-label={t("activityCenter.markRead")}>
+          {t("activityCenter.markRead")}
         </button>
       )}
     </article>
@@ -214,6 +214,7 @@ function ActivityItem({ notif, onRead }) {
 export default function NotificationsPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -234,6 +235,8 @@ export default function NotificationsPage() {
     if (res.ok) {
       const data = await res.json();
       setUnreadCount(data.count || 0);
+    } else {
+      console.warn("[activity-center] unread count request failed", res.status);
     }
   }, [session]);
 
@@ -256,19 +259,19 @@ export default function NotificationsPage() {
         router.replace("/login");
         return;
       }
-      if (!res.ok) throw new Error("Error al cargar el Centro de Actividad");
+      if (!res.ok) throw new Error(t("activityCenter.loadError"));
       const data = await res.json();
       setNotifications((prev) => (append ? [...prev, ...(data.notifications || [])] : data.notifications || []));
       setHasMore(Boolean(data.hasMore));
       setPage(data.page || pageNum);
       fetchUnreadCount().catch(() => {});
     } catch (err) {
-      setError(err.message || "Error al cargar actividad");
+      setError(err.message || t("activityCenter.loadError"));
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [fetchUnreadCount, router, session]);
+  }, [fetchUnreadCount, router, session, t]);
 
   useEffect(() => {
     fetchNotifications(1, false);
@@ -319,7 +322,7 @@ export default function NotificationsPage() {
     return notifications.filter((notif) => getCategory(notif.type) === activeCategory);
   }, [activeCategory, notifications]);
 
-  const groupedNotifications = useMemo(() => getGroups(filteredNotifications), [filteredNotifications]);
+  const groupedNotifications = useMemo(() => getGroups(filteredNotifications, t), [filteredNotifications, t]);
 
   const markNotificationRead = useCallback(async (id) => {
     setNotifications((prev) => prev.map((notif) => (notif._id === id ? { ...notif, isRead: true } : notif)));
@@ -332,11 +335,11 @@ export default function NotificationsPage() {
         method: "PATCH",
         headers: { Authorization: authHeader(token) },
       });
-      if (!res.ok) throw new Error("No se pudo marcar como leído");
+      if (!res.ok) throw new Error(t("activityCenter.markReadError"));
     } catch {
       fetchNotifications(1, false);
     }
-  }, [fetchNotifications, session]);
+  }, [fetchNotifications, session, t]);
 
   const markAllRead = useCallback(async () => {
     const token = getAuthToken(session);
@@ -348,18 +351,18 @@ export default function NotificationsPage() {
         method: "PATCH",
         headers: { Authorization: authHeader(token) },
       });
-      if (!res.ok) throw new Error("No se pudo actualizar");
+      if (!res.ok) throw new Error(t("activityCenter.markAllError"));
       setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
       setUnreadCount(0);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("notif:read-all"));
       }
     } catch (err) {
-      setError(err.message || "No se pudieron marcar todas como leídas");
+      setError(err.message || t("activityCenter.markAllError"));
     } finally {
       setMarkingAll(false);
     }
-  }, [markingAll, session]);
+  }, [markingAll, session, t]);
 
   const loadMore = () => {
     if (loadingMore || !hasMore) return;
@@ -371,22 +374,23 @@ export default function NotificationsPage() {
     <main className="activity-page">
       <section className="activity-hero">
         <div className="hero-copy">
-          <Link href="/dashboard" className="back-link">← Volver</Link>
-          <p className="eyebrow">Premium Activity Center</p>
-          <h1>Centro de Actividad</h1>
-          <p className="hero-text">
-            Todas tus notificaciones, matches, mensajes, llamadas y avisos importantes en un solo lugar.
-          </p>
+          <Link href="/dashboard" className="back-link">← {t("activityCenter.back")}</Link>
+          <p className="eyebrow">{t("activityCenter.eyebrow")}</p>
+          <h1>{t("activityCenter.title")}</h1>
+          <p className="hero-text">{t("activityCenter.subtitle")}</p>
         </div>
-        <div className="hero-card" aria-label={`${unreadCount} notificaciones sin leer`}>
+        <div
+          className="hero-card"
+          aria-label={formatText(t, "activityCenter.unreadAria", { count: unreadCount })}
+        >
           <span className="hero-card-icon">🔔</span>
           <span className="hero-card-count">{unreadCount > 99 ? "99+" : unreadCount}</span>
-          <span className="hero-card-label">sin leer</span>
+          <span className="hero-card-label">{t("activityCenter.unreadLabel")}</span>
         </div>
       </section>
 
       <section className="activity-toolbar">
-        <div className="category-scroller" aria-label="Categorías de actividad">
+        <div className="category-scroller" aria-label={t("activityCenter.categoriesAria")}>
           {CATEGORIES.map((category) => {
             const stats = categoryStats[category.key] || { total: 0, unread: 0 };
             return (
@@ -396,7 +400,7 @@ export default function NotificationsPage() {
                 onClick={() => setActiveCategory(category.key)}
               >
                 <span>{category.icon}</span>
-                <span>{category.label}</span>
+                <span>{t(category.labelKey)}</span>
                 {stats.total > 0 && <strong>{stats.total}</strong>}
                 {stats.unread > 0 && <i />}
               </button>
@@ -404,33 +408,31 @@ export default function NotificationsPage() {
           })}
         </div>
         <button className="mark-all" onClick={markAllRead} disabled={markingAll || unreadCount === 0}>
-          {markingAll ? "Actualizando…" : "Marcar todas como leídas"}
+          {markingAll ? t("activityCenter.updating") : t("activityCenter.markAllRead")}
         </button>
       </section>
 
       {loading && (
         <section className="activity-state">
           <span className="spinner" />
-          <p>Cargando actividad premium…</p>
+          <p>{t("activityCenter.loading")}</p>
         </section>
       )}
 
       {!loading && error && (
         <section className="activity-state activity-state--error">
           <span>⚠️</span>
-          <h2>Error al cargar</h2>
+          <h2>{t("activityCenter.errorTitle")}</h2>
           <p>{error}</p>
-          <button onClick={() => fetchNotifications(1, false)}>Reintentar</button>
+          <button onClick={() => fetchNotifications(1, false)}>{t("activityCenter.retry")}</button>
         </section>
       )}
 
       {!loading && !error && filteredNotifications.length === 0 && (
         <section className="activity-empty">
           <span>🌙</span>
-          <h2>Sin actividad por ahora</h2>
-          <p>
-            Aquí aparecerán nuevos matches, mensajes, llamadas perdidas, regalos, seguidores y avisos del sistema.
-          </p>
+          <h2>{t("activityCenter.emptyTitle")}</h2>
+          <p>{t("activityCenter.emptyText")}</p>
         </section>
       )}
 
@@ -450,7 +452,7 @@ export default function NotificationsPage() {
                   </div>
                   <div className="activity-list">
                     {categoryGroup.items.map((notif) => (
-                      <ActivityItem key={notif._id} notif={notif} onRead={markNotificationRead} />
+                      <ActivityItem key={notif._id} notif={notif} onRead={markNotificationRead} t={t} />
                     ))}
                   </div>
                 </div>
@@ -460,15 +462,15 @@ export default function NotificationsPage() {
 
           {hasMore && (
             <button className="load-more" onClick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Cargando…" : "Ver más actividad"}
+              {loadingMore ? t("activityCenter.loadingMore") : t("activityCenter.loadMore")}
             </button>
           )}
         </section>
       )}
 
       <section className="future-panel">
-        <span>Preparado para próximas fases</span>
-        <p>Push notifications, Firebase, emails, SMS, cobros y coins quedan fuera de este sprint.</p>
+        <span>{t("activityCenter.futureTitle")}</span>
+        <p>{t("activityCenter.futureText")}</p>
       </section>
 
       <style jsx>{`

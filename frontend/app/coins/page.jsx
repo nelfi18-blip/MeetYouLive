@@ -191,10 +191,6 @@ export default function BuyCoinsPage() {
 
   const buy = async (pkg) => {
     setError("");
-    if (!PACKAGES.some((coinPackage) => coinPackage.value === pkg)) {
-      setError("Selecciona un paquete de Coins válido");
-      return;
-    }
     if (shouldUseNativeStorePayments()) {
       setError(t("common.mobileStorePaymentRequired"));
       return;
@@ -202,10 +198,6 @@ export default function BuyCoinsPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem("token") || session?.backendToken;
-      if (!token) {
-        setError("Debes iniciar sesión para comprar Coins");
-        return;
-      }
       const res = await fetch(`${API_URL}/api/payments/coins`, {
         method: "POST",
         headers: {
@@ -214,11 +206,13 @@ export default function BuyCoinsPage() {
         },
         body: JSON.stringify({ packageId: pkg }),
       });
-      let data = {};
+      let data;
       try {
         data = await res.json();
       } catch (parseError) {
         console.error("Invalid coin checkout response:", parseError);
+        setError("No se pudo leer la respuesta del servidor");
+        return;
       }
       if (!res.ok) {
         setError(getCheckoutErrorMessage(data));

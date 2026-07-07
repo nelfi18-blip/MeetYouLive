@@ -13,7 +13,7 @@ jest.mock("stripe", () =>
 );
 
 const { createCoinCheckoutSession } = require("../payment.controller.js");
-const { coinPurchaseSchema } = require("../../middlewares/validate.middleware.js");
+const { validate, coinPurchaseSchema } = require("../../middlewares/validate.middleware.js");
 
 function createMockResponse() {
   return {
@@ -48,6 +48,21 @@ describe("coin checkout", () => {
     const nonNumber = coinPurchaseSchema.safeParse({ packageId: "100" });
     expect(nonNumber.success).toBe(false);
     expect(nonNumber.error.errors[0].message).toBe("packageId debe ser un número");
+  });
+
+  test("validation middleware rejects invalid coin checkout requests before the controller", () => {
+    const req = { body: {} };
+    const res = createMockResponse();
+    const next = jest.fn();
+
+    validate(coinPurchaseSchema)(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message: "packageId es requerido",
+      errors: [{ field: "packageId", message: "packageId es requerido" }],
+    });
   });
 
   test("creates a Stripe Checkout session for a valid coin package", async () => {

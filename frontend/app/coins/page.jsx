@@ -174,24 +174,36 @@ export default function BuyCoinsPage() {
 
   const buy = async (pkg) => {
     setError("");
+    const token = localStorage.getItem("token") || session?.backendToken;
+    if (!token) {
+      setError("Debes iniciar sesión para comprar Coins");
+      return;
+    }
+    if (!Number.isInteger(pkg) || pkg <= 0) {
+      setError("Selecciona un paquete de Coins válido");
+      return;
+    }
     if (shouldUseNativeStorePayments()) {
       setError(t("common.mobileStorePaymentRequired"));
       return;
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem("token") || session?.backendToken;
       const res = await fetch(`${API_URL}/api/payments/coins`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ package: pkg }),
+        body: JSON.stringify({ packageId: pkg }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.message || "Error al iniciar el pago");
+        setError(data?.message || data?.errors?.[0]?.message || "Error al iniciar el pago");
+        return;
+      }
+      if (!data?.url) {
+        setError("Stripe no devolvió una URL de checkout");
         return;
       }
       window.location.href = data.url;

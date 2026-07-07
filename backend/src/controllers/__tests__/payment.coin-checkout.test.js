@@ -36,6 +36,20 @@ describe("coin checkout", () => {
     expect(result.error.errors[0].message).toBe("packageId es requerido");
   });
 
+  test("coin purchase schema rejects invalid packageId values", () => {
+    const nonInteger = coinPurchaseSchema.safeParse({ packageId: 100.5 });
+    expect(nonInteger.success).toBe(false);
+    expect(nonInteger.error.errors[0].message).toBe("packageId debe ser un número entero");
+
+    const negative = coinPurchaseSchema.safeParse({ packageId: -100 });
+    expect(negative.success).toBe(false);
+    expect(negative.error.errors[0].message).toBe("packageId debe ser un número positivo");
+
+    const nonNumber = coinPurchaseSchema.safeParse({ packageId: "100" });
+    expect(nonNumber.success).toBe(false);
+    expect(nonNumber.error.errors[0].message).toBe("packageId debe ser un número");
+  });
+
   test("creates a Stripe Checkout session for a valid coin package", async () => {
     mockCreateCheckoutSession.mockResolvedValue({ url: "https://checkout.stripe.test/session" });
 
@@ -62,5 +76,19 @@ describe("coin checkout", () => {
     );
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({ url: "https://checkout.stripe.test/session" });
+  });
+
+  test("rejects a non-existent coin package before creating a Stripe Checkout session", async () => {
+    const req = {
+      body: { packageId: 999 },
+      userId: "user-123",
+    };
+    const res = createMockResponse();
+
+    await createCoinCheckoutSession(req, res);
+
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: "Paquete de monedas inválido. Usa 100, 250, 700" });
   });
 });

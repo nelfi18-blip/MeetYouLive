@@ -191,11 +191,6 @@ export default function BuyCoinsPage() {
 
   const buy = async (pkg) => {
     setError("");
-    const token = localStorage.getItem("token") || session?.backendToken;
-    if (!token) {
-      setError("Debes iniciar sesión para comprar Coins");
-      return;
-    }
     if (!PACKAGES.some((coinPackage) => coinPackage.value === pkg)) {
       setError("Selecciona un paquete de Coins válido");
       return;
@@ -206,6 +201,11 @@ export default function BuyCoinsPage() {
     }
     setLoading(true);
     try {
+      const token = localStorage.getItem("token") || session?.backendToken;
+      if (!token) {
+        setError("Debes iniciar sesión para comprar Coins");
+        return;
+      }
       const res = await fetch(`${API_URL}/api/payments/coins`, {
         method: "POST",
         headers: {
@@ -225,7 +225,7 @@ export default function BuyCoinsPage() {
         return;
       }
       if (!data?.url) {
-        setError("Stripe no devolvió una URL de checkout");
+        setError("No se pudo obtener la URL de pago");
         return;
       }
       window.location.href = data.url;

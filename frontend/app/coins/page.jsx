@@ -89,6 +89,23 @@ const TX_TYPE_LABELS = {
   admin_adjustment: { label: "Ajuste admin", tone: "purple" },
 };
 
+function getCheckoutErrorMessage(data) {
+  if (typeof data?.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+  const firstError = Array.isArray(data?.errors) ? data.errors[0] : null;
+  if (typeof firstError?.message === "string" && firstError.message.trim()) {
+    return firstError.message;
+  }
+  if (typeof firstError === "string" && firstError.trim()) {
+    return firstError;
+  }
+  if (typeof data?.error === "string" && data.error.trim()) {
+    return data.error;
+  }
+  return "Error al iniciar el pago";
+}
+
 const COIN_USES = [
   {
     title: "Regalos premium",
@@ -187,11 +204,22 @@ export default function BuyCoinsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ package: pkg }),
+        body: JSON.stringify({ packageId: pkg }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseError) {
+        console.error("Invalid coin checkout response:", parseError);
+        setError("No se pudo leer la respuesta del servidor");
+        return;
+      }
       if (!res.ok) {
-        setError(data.message || "Error al iniciar el pago");
+        setError(getCheckoutErrorMessage(data));
+        return;
+      }
+      if (!data?.url) {
+        setError("No se pudo obtener la URL de pago");
         return;
       }
       window.location.href = data.url;

@@ -24,8 +24,8 @@ const SPARK_PACKAGES_MAP = SPARK_PACKAGES.reduce((acc, pkg) => {
 }, {});
 
 const createCoinCheckoutSession = async (req, res) => {
-  const { package: pkg } = req.body;
-  const coinPackage = COIN_PACKAGES[pkg];
+  const { packageId } = req.body;
+  const coinPackage = COIN_PACKAGES[packageId];
   if (!coinPackage) {
     const validIds = COIN_PACKAGES_LIST.map((p) => p.id).join(", ");
     return res.status(400).json({ message: `Paquete de monedas inválido. Usa ${validIds}` });
@@ -46,7 +46,7 @@ const createCoinCheckoutSession = async (req, res) => {
       ],
       metadata: {
         userId: req.userId,
-        packageId: String(pkg),
+        packageId: String(packageId),
         coins: String(coinPackage.coins),
         type: "coins",
       },

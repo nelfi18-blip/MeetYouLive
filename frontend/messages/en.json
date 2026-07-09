@@ -539,12 +539,13 @@
         "shortTitle": "Terms",
         "title": "Terms of Service",
         "description": "Terms for matches, chat, calls, video calls, live streams, gifts, coins, creators and moderation.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Acceptance and scope",
             "body": [
               "By accessing or using MeetYouLive you accept these Terms of Service and the linked policies. If you do not agree, you must not use the platform.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform.",
               "These terms apply to the website, apps, accounts, profiles, matches, chat, calls, video calls, live streams, gifts, coins, subscriptions, creator content and moderation tools."
             ]
           },
@@ -602,12 +603,13 @@
         "shortTitle": "Privacy",
         "title": "Privacy Policy",
         "description": "How we collect, use and protect data across profiles, matches, chat, calls, live streams, payments, reports and moderation.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Controller and contact",
             "body": [
-              "MeetYouLive processes personal data to operate the platform. Contact privacy@meetyoulive.net for privacy requests."
+              "MeetYouLive processes personal data to operate the platform. Contact privacy@meetyoulive.net for privacy requests.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -660,12 +662,13 @@
         "shortTitle": "Acceptable use",
         "title": "Acceptable Use Policy",
         "description": "Minimum rules for using MeetYouLive safely, legally and respectfully.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Principles",
             "body": [
-              "Use MeetYouLive to connect, talk, create and support content legally, safely and with consent. Do not use the platform to harm, deceive, harass, exploit or infringe rights."
+              "Use MeetYouLive to connect, talk, create and support content legally, safely and with consent. Do not use the platform to harm, deceive, harass, exploit or infringe rights.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -704,12 +707,13 @@
         "shortTitle": "Community",
         "title": "Community Guidelines",
         "description": "Behavior expectations for users, viewers, matches and creators.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Respect and consent",
             "body": [
-              "Respect every person. Consent must be clear, ongoing and revocable in chat, calls, video calls, live streams, gifts and any interaction."
+              "Respect every person. Consent must be clear, ongoing and revocable in chat, calls, video calls, live streams, gifts and any interaction.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -748,12 +752,13 @@
         "shortTitle": "Creators",
         "title": "Creator Policy",
         "description": "Rules for approved creators, monetization, gifts, coins, agencies, payouts and Stripe Connect.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Creator approval",
             "body": [
-              "Being a creator is a privilege subject to review, age, identity, quality, safety and compliance requirements. We may approve, reject, pause or remove creator status."
+              "Being a creator is a privilege subject to review, age, identity, quality, safety and compliance requirements. We may approve, reject, pause or remove creator status.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -792,12 +797,13 @@
         "shortTitle": "Payments",
         "title": "Payments & Refund Policy",
         "description": "Payments, coins, gifts, subscriptions, Stripe, Stripe Connect, purchases, payouts and refunds.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Payment processing",
             "body": [
-              "Purchases may be processed by Stripe, Stripe Connect or other authorized providers. Prices, taxes, currencies and available payment methods may vary by country and device."
+              "Purchases may be processed by Stripe, Stripe Connect or other authorized providers. Prices, taxes, currencies and available payment methods may vary by country and device.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -842,12 +848,13 @@
         "shortTitle": "DMCA",
         "title": "DMCA / Copyright Policy",
         "description": "Process for reporting copyright, trademark, likeness and intellectual property infringement.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Respect for intellectual property",
             "body": [
-              "MeetYouLive respects copyright, trademarks, likeness and other intellectual property rights. Users and creators should only publish content they own or are authorized to use."
+              "MeetYouLive respects copyright, trademarks, likeness and other intellectual property rights. Users and creators should only publish content they own or are authorized to use.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {
@@ -880,12 +887,13 @@
         "shortTitle": "Safety",
         "title": "Safety & Moderation Policy",
         "description": "Reports, review, moderation actions, suspensions, appeals and user protection.",
-        "lastUpdated": "July 4, 2026",
+        "lastUpdated": "July 9, 2026",
         "sections": [
           {
             "heading": "1. Goal",
             "body": [
-              "We want MeetYouLive to be safe for discovering people, matching, chatting, calling, streaming, creating and sending gifts. This policy explains how we handle risks and reports."
+              "We want MeetYouLive to be safe for discovering people, matching, chatting, calling, streaming, creating and sending gifts. This policy explains how we handle risks and reports.",
+              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC through https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
             ]
           },
           {

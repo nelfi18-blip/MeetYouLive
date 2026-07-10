@@ -77,7 +77,8 @@ export default function ModerationActions({
 
   const submitReport = async () => {
     if (!targetUserId || !requireToken()) return;
-    const finalReason = reason === "Other" && details.trim() ? `Other: ${details.trim()}` : reason;
+    const trimmedDetails = details.trim();
+    const finalReason = reason === "Other" && trimmedDetails ? `Other: ${trimmedDetails}` : reason;
     if (!window.confirm(`Report ${safeTargetName} for "${finalReason}"?`)) return;
 
     setSubmitting(true);

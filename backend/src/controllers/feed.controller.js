@@ -862,12 +862,12 @@ const getFeed = async (req, res) => {
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
     // Finalize after currentUserProfile loads so personal blocks are included.
-    const finalExcludedProfileIds = Array.from(excludedProfileIdsById.values());
+    const allExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
       locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-      const recommendedProfilesMatch = buildRecommendedProfilesMatch(finalExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(allExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
       recommendedProfilesPrimary = await User.aggregate(
         buildRecommendedProfilesPipeline(
           recommendedProfilesMatch,

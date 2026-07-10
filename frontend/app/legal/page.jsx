@@ -60,9 +60,29 @@ export default function LegalIndexPage() {
           transition: transform 0.15s, border-color 0.15s;
         }
         :global(.legal-card:hover) { transform: translateY(-2px); border-color: rgba(224,64,251,0.45); }
-        .legal-card-label { display: block; color: var(--accent-3); font-size: 0.75rem; font-weight: 800; line-height: 1.35; text-transform: uppercase; letter-spacing: 0.08em; overflow-wrap: anywhere; }
-        .legal-card-title { display: block; color: var(--text); font-size: 1.05rem; line-height: 1.35; overflow-wrap: anywhere; }
-        .legal-card-description { display: block; color: var(--text-muted); line-height: 1.6; overflow-wrap: anywhere; }
+        .legal-card-label {
+          display: block;
+          color: var(--accent-3);
+          font-size: 0.75rem;
+          font-weight: 800;
+          line-height: 1.35;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          overflow-wrap: break-word;
+        }
+        .legal-card-title {
+          display: block;
+          color: var(--text);
+          font-size: 1.05rem;
+          line-height: 1.35;
+          overflow-wrap: break-word;
+        }
+        .legal-card-description {
+          display: block;
+          color: var(--text-muted);
+          line-height: 1.6;
+          overflow-wrap: break-word;
+        }
         @media (max-width: 430px) {
           .legal-index { padding: 2rem 0.85rem 3.5rem; }
           .legal-grid { grid-template-columns: 1fr; }

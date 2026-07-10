@@ -17,12 +17,12 @@ const isChatBlocked = (currentUserId, participant) => {
   return participantBlockedUsers.some((id) => String(id) === currentId);
 };
 
-const getOtherChatParticipant = (chat, currentUserId) =>
+const getFirstOtherChatParticipant = (chat, currentUserId) =>
   chat?.participants?.find((participant) => String(participant?._id || participant) !== String(currentUserId));
 
 const hasChatBlock = (chat, currentUserId) => {
   const currentParticipant = chat?.participants?.find((participant) => String(participant?._id || participant) === String(currentUserId));
-  const otherParticipant = getOtherChatParticipant(chat, currentUserId);
+  const otherParticipant = getFirstOtherChatParticipant(chat, currentUserId);
   const currentBlockedUsers = Array.isArray(currentParticipant?.blockedUsers) ? currentParticipant.blockedUsers : [];
   return (
     isChatBlocked(currentUserId, otherParticipant) ||

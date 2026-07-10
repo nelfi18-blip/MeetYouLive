@@ -536,24 +536,20 @@ export default function CallPage() {
     [cleanupAgora, endCallOnServer, t]
   );
 
-  const handleEnd = async () => {
+  const leaveCallAndReturn = async (reason = "hangup") => {
     clearInterval(pollRef.current);
     clearInterval(tickRef.current);
     clearInterval(durationRef.current);
     clearTimeout(reconnectRef.current);
     await cleanupAgora();
-    await endCallOnServer("hangup");
+    await endCallOnServer(reason);
     router.replace(returnTo);
   };
 
+  const handleEnd = () => leaveCallAndReturn("hangup");
+
   const handleBlockedRemote = async () => {
-    clearInterval(pollRef.current);
-    clearInterval(tickRef.current);
-    clearInterval(durationRef.current);
-    clearTimeout(reconnectRef.current);
-    await cleanupAgora();
-    await endCallOnServer("blocked");
-    router.replace(returnTo);
+    await leaveCallAndReturn("blocked");
   };
 
   const toggleMute = () => {

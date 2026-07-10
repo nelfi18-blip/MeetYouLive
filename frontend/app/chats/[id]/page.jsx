@@ -11,6 +11,7 @@ import PremiumCommunicationActions from "@/components/PremiumCommunicationAction
 import socket, { configureSocketAuth } from "@/lib/socket";
 import { getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -62,6 +63,7 @@ export default function ChatConversationPage() {
   const [giftQueue, setGiftQueue] = useState([]);
   const [showScrollJump, setShowScrollJump] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [blockedConversation, setBlockedConversation] = useState(false);
   const messagesAreaRef = useRef(null);
   const bottomRef = useRef(null);
   const isNearBottomRef = useRef(true);
@@ -333,7 +335,7 @@ export default function ChatConversationPage() {
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sending || blockedConversation) return;
 
     const token = getBackendToken();
     setSending(true);
@@ -347,13 +349,17 @@ export default function ChatConversationPage() {
         },
         body: JSON.stringify({ text: text.trim() }),
       });
+      if (res.status === 403) {
+        setBlockedConversation(true);
+        throw new Error("No puedes enviar mensajes a este usuario");
+      }
       if (!res.ok) throw new Error("Error al enviar mensaje");
       const msg = await res.json();
       setMessages((prev) => mergeMessagesById(prev, msg));
       setText("");
       stopTyping();
-    } catch {
-      setError(t("chatPremium.sendError"));
+    } catch (err) {
+      setError(err.message || t("chatPremium.sendError"));
     } finally {
       setSending(false);
     }
@@ -400,6 +406,11 @@ export default function ChatConversationPage() {
   };
 
   const isCreator = otherUser?.role === "creator";
+  const handleBlockedUser = () => {
+    setBlockedConversation(true);
+    setText("");
+    router.replace("/chats");
+  };
   const handleGiftProcessed = useCallback((processedGift) => {
     setGiftQueue((prev) => prev.filter((gift) => gift.id !== processedGift.id));
   }, []);
@@ -497,10 +508,21 @@ export default function ChatConversationPage() {
           className="header-actions"
           buttonClassName="icon-action muted"
         />
+        {otherUser?._id && String(otherUser._id) !== String(currentUserId) && (
+          <ModerationActions
+            targetUserId={String(otherUser._id)}
+            targetName={otherName}
+            authToken={getBackendToken()}
+            onBlocked={handleBlockedUser}
+            className="chat-moderation-actions"
+            compact
+          />
+        )}
       </header>
 
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
+      {blockedConversation && <div className="error-banner">Esta conversación está bloqueada.</div>}
 
       <main ref={messagesAreaRef} className="messages-area" aria-label={t("chatPremium.messagesAria")} onScroll={handleMessagesScroll}>
         {loading && (
@@ -617,13 +639,13 @@ export default function ChatConversationPage() {
             value={text}
             onChange={handleTextChange}
             maxLength={2000}
-            disabled={sending}
+            disabled={sending || blockedConversation}
           />
         </div>
         <button
           type="submit"
           className="send-btn"
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() || sending || blockedConversation}
           aria-label={t("chatPremium.send")}
         >
           {sending ? (
@@ -689,6 +711,10 @@ export default function ChatConversationPage() {
           border-radius: 30px;
           box-shadow: 0 20px 52px rgba(4,2,12,0.48), inset 0 1px 0 rgba(255,255,255,0.1);
           backdrop-filter: blur(18px);
+        }
+        .chat-moderation-actions {
+          flex: 0 0 auto;
+          width: auto;
         }
         .chat-header::after {
           content: "";

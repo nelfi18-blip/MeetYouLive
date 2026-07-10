@@ -9,6 +9,7 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 import GiftPanel from "@/components/GiftPanel";
 import GiftOverlay from "@/components/GiftOverlay";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -545,6 +546,16 @@ export default function CallPage() {
     router.replace(returnTo);
   };
 
+  const handleBlockedRemote = async () => {
+    clearInterval(pollRef.current);
+    clearInterval(tickRef.current);
+    clearInterval(durationRef.current);
+    clearTimeout(reconnectRef.current);
+    await cleanupAgora();
+    await endCallOnServer("blocked");
+    router.replace(returnTo);
+  };
+
   const toggleMute = () => {
     if (localAudioTrackRef.current) {
       const newMuted = !muted;
@@ -912,6 +923,18 @@ export default function CallPage() {
             <span className="call-gift-emoji">🎁</span>
             <span>Regalo</span>
           </button>
+        )}
+
+        {remoteUserId && status !== "ringing" && (
+          <div className="call-moderation-actions">
+            <ModerationActions
+              targetUserId={remoteUserId}
+              targetName={remoteName}
+              authToken={token.current}
+              onBlocked={handleBlockedRemote}
+              compact
+            />
+          </div>
         )}
 
         {status !== "ringing" && (
@@ -1418,6 +1441,10 @@ export default function CallPage() {
           box-shadow: 0 22px 70px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.09);
           backdrop-filter: blur(22px);
           pointer-events: auto;
+        }
+        .call-moderation-actions {
+          flex: 0 0 auto;
+          min-width: 150px;
         }
 
         .call-controls__rail::-webkit-scrollbar {

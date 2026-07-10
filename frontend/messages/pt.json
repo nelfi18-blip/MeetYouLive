@@ -527,7 +527,7 @@
   "legal": {
     "eyebrow": "Legal e conformidade",
     "indexTitle": "Centro Legal do MeetYouLive",
-    "indexDescription": "Consulte as políticas que regulam o uso do MeetYouLive, incluindo segurança, privacidade, pagamentos, criadores, propriedade intelectual e moderação.",
+    "indexDescription": "Consulte as políticas que regulam o uso do MeetYouLive, incluindo segurança, privacidade, pagamentos, criadores, propriedade intelectual e moderação. O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC.",
     "navigationAria": "Políticas legais do MeetYouLive",
     "backToLegal": "Centro legal",
     "backToApp": "Voltar ao MeetYouLive",
@@ -545,7 +545,7 @@
             "heading": "1. Aceitação e alcance",
             "body": [
               "Ao acessar ou usar o MeetYouLive, você aceita estes Termos de Serviço e as políticas vinculadas. Se não concordar, não use a plataforma.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive.",
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive.",
               "Estes termos se aplicam ao site, apps, contas, perfis, matches, chat, chamadas, videochamadas, lives, presentes, coins, assinaturas, conteúdo de criadores e ferramentas de moderação."
             ]
           },
@@ -608,8 +608,8 @@
           {
             "heading": "1. Responsável e contato",
             "body": [
-              "O MeetYouLive trata dados pessoais para operar a plataforma. Para solicitações de privacidade, escreva para privacy@meetyoulive.net.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive trata dados pessoais para operar a plataforma. Solicitações de privacidade podem ser enviadas pelos fluxos de contato ou suporte dentro da plataforma.",
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -647,7 +647,7 @@
           {
             "heading": "7. Retenção, direitos e exclusão",
             "body": [
-              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição escrevendo para privacy@meetyoulive.net."
+              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição pelos fluxos de contato ou suporte dentro da plataforma."
             ]
           },
           {
@@ -668,7 +668,7 @@
             "heading": "1. Princípios",
             "body": [
               "Use o MeetYouLive para conectar, conversar, criar e apoiar conteúdo de forma legal, segura e consentida. Não use a plataforma para prejudicar, enganar, assediar, explorar ou infringir direitos.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -713,7 +713,7 @@
             "heading": "1. Respeito e consentimento",
             "body": [
               "Respeite cada pessoa. O consentimento deve ser claro, contínuo e revogável em chat, chamadas, videochamadas, lives, presentes e qualquer interação.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -758,7 +758,7 @@
             "heading": "1. Aprovação de criadores",
             "body": [
               "Ser criador é um privilégio sujeito a revisão, requisitos de idade, identidade, qualidade, segurança e conformidade. Podemos aprovar, rejeitar, pausar ou remover o status de criador.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -803,7 +803,7 @@
             "heading": "1. Processamento de pagamentos",
             "body": [
               "Compras podem ser processadas por Stripe, Stripe Connect ou outros provedores autorizados. Preços, impostos, moedas e métodos disponíveis podem variar por país e dispositivo.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -839,7 +839,7 @@
           {
             "heading": "7. Solicitações",
             "body": [
-              "Para dúvidas ou solicitações, escreva para support@meetyoulive.net com usuário, email, data, valor, identificador de transação e motivo."
+              "Para dúvidas ou solicitações, use os fluxos de contato ou suporte dentro da plataforma e inclua usuário, email da conta, data, valor, identificador de transação e motivo quando aplicável."
             ]
           }
         ]
@@ -854,13 +854,13 @@
             "heading": "1. Respeito à propriedade intelectual",
             "body": [
               "O MeetYouLive respeita direitos autorais, marcas, imagem e outros direitos de propriedade intelectual. Usuários e criadores só devem publicar conteúdo próprio ou autorizado.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
             "heading": "2. Notificação de infração",
             "body": [
-              "Envie reclamações para copyright@meetyoulive.net e inclua identificação da obra, conteúdo infrator, URL ou usuário, dados de contato, declaração de boa-fé, declaração de exatidão e assinatura física ou eletrônica."
+              "Envie reclamações de copyright pelos fluxos de contato ou suporte dentro da plataforma e inclua identificação da obra, conteúdo infrator, URL ou usuário, dados de contato, declaração de boa-fé, declaração de exatidão e assinatura física ou eletrônica."
             ]
           },
           {
@@ -893,7 +893,7 @@
             "heading": "1. Objetivo",
             "body": [
               "Queremos que o MeetYouLive seja seguro para descobrir pessoas, dar match, conversar, ligar, transmitir, criar e enviar presentes. Esta política explica como gerimos riscos e denúncias.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC por meio de https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
             ]
           },
           {
@@ -917,7 +917,7 @@
           {
             "heading": "5. Apelações",
             "body": [
-              "Quando uma decisão for apelável, você pode solicitar revisão em safety@meetyoulive.net. Inclua usuário, email, decisão afetada e contexto. Algumas medidas permanecerão durante a revisão para proteger a comunidade."
+              "Quando uma decisão for apelável, você pode solicitar revisão pelos fluxos de contato, suporte ou denúncia dentro da plataforma. Inclua usuário, email da conta, decisão afetada e contexto. Algumas medidas permanecerão durante a revisão para proteger a comunidade."
             ]
           },
           {

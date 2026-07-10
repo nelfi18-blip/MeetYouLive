@@ -16,13 +16,24 @@ export default function LegalIndexPage() {
         <p>{t("legal.indexDescription")}</p>
       </section>
       <section className="legal-grid" aria-label={t("legal.navigationAria")}>
-        {LEGAL_POLICIES.map((policy) => (
-          <Link key={policy.key} href={policy.href} className="legal-card">
-            <span>{t(`legal.policies.${policy.key}.shortTitle`)}</span>
-            <strong>{t(`legal.policies.${policy.key}.title`)}</strong>
-            <small>{t(`legal.policies.${policy.key}.description`)}</small>
-          </Link>
-        ))}
+        {LEGAL_POLICIES.map((policy) => {
+          const shortTitle = t(`legal.policies.${policy.key}.shortTitle`);
+          const title = t(`legal.policies.${policy.key}.title`);
+          const description = t(`legal.policies.${policy.key}.description`);
+
+          return (
+            <Link
+              key={policy.key}
+              href={policy.href}
+              className="legal-card"
+              aria-label={`${shortTitle} - ${title}. ${description}`}
+            >
+              <span>{shortTitle}</span>
+              <strong>{title}</strong>
+              <small>{description}</small>
+            </Link>
+          );
+        })}
       </section>
       <style jsx>{`
         .legal-index { min-height: 100vh; max-width: 1020px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }

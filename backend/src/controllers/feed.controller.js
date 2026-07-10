@@ -173,6 +173,8 @@ const getFeedDiagnosticUserSummary = (user = {}) => {
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
   `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent interestedIn discoveryPreferences maxDistanceKm discoveryScope onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
+const CURRENT_USER_FEED_FIELDS =
+  `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope blockedUsers`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {
@@ -821,9 +823,7 @@ const getFeed = async (req, res) => {
     }
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
-          .select(
-            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope blockedUsers`
-          )
+          .select(CURRENT_USER_FEED_FIELDS)
           .lean()
       : Promise.resolve(null);
 
@@ -861,12 +861,12 @@ const getFeed = async (req, res) => {
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
     // Finalize after currentUserProfile loads so personal blocks are included.
-    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
+    const finalExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
       locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(finalExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
       recommendedProfilesPrimary = await User.aggregate(
         buildRecommendedProfilesPipeline(
           recommendedProfilesMatch,

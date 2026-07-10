@@ -18,15 +18,15 @@ const isChatBlocked = (currentUserId, participant) => {
 };
 
 const getFirstOtherChatParticipant = (chat, currentUserId) =>
-  chat?.participants?.find((participant) => String(participant?._id || participant) !== String(currentUserId));
+  chat?.participants?.find((participant) => String(participant?._id) !== String(currentUserId));
 
 const hasChatBlock = (chat, currentUserId) => {
-  const currentParticipant = chat?.participants?.find((participant) => String(participant?._id || participant) === String(currentUserId));
+  const currentParticipant = chat?.participants?.find((participant) => String(participant?._id) === String(currentUserId));
   const otherParticipant = getFirstOtherChatParticipant(chat, currentUserId);
   const currentBlockedUsers = Array.isArray(currentParticipant?.blockedUsers) ? currentParticipant.blockedUsers : [];
   return (
     isChatBlocked(currentUserId, otherParticipant) ||
-    currentBlockedUsers.some((id) => String(id) === String(otherParticipant?._id || otherParticipant))
+    currentBlockedUsers.some((id) => String(id) === String(otherParticipant?._id))
   );
 };
 

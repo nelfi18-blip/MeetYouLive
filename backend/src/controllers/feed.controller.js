@@ -380,7 +380,7 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
   };
   if (currentUserId) {
     const blockedIds = currentUserProfile?.blockedUsers || [];
-    match._id = blockedIds.length ? { $nin: [currentUserId, ...blockedIds] } : { $ne: currentUserId };
+    match._id = { $nin: [currentUserId, ...blockedIds] };
     match.blockedUsers = { $ne: currentUserId };
   }
 

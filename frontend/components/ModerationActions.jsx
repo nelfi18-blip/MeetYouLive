@@ -93,7 +93,11 @@ export default function ModerationActions({
         throw new Error(data.message || "Could not block user.");
       }
       setStatus(`${safeTargetName} has been blocked.`);
-      await onBlocked?.(targetUserId);
+      try {
+        await onBlocked?.(targetUserId);
+      } catch {
+        setStatus(`${safeTargetName} has been blocked. Refresh if the page does not update.`);
+      }
     } catch (error) {
       setStatus(error.message || "Could not block user.");
     } finally {

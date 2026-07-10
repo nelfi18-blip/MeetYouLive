@@ -410,6 +410,7 @@ exports.getMatches = async (req, res) => {
         !theirBlockedUsers.some((id) => String(id) === String(req.userId));
     }).map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
+      delete user.blockedUsers;
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
         myInterests, myIntent, user.interests, user.intent
       );

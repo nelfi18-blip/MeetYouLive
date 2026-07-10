@@ -1,6 +1,7 @@
 const User = require("../../models/User.js");
 const Like = require("../../models/Like.js");
 const callRules = require("../../services/callRules.service.js");
+const compatibility = require("../../services/compatibility.service.js");
 
 const currentUserId = "507f1f77bcf86cd799439011";
 const otherUserId = "507f1f77bcf86cd799439012";
@@ -12,6 +13,7 @@ jest.mock("../../models/User.js", () => ({
 jest.mock("../../models/Like.js", () => ({
   findOneAndUpdate: jest.fn(),
   findOne: jest.fn(),
+  find: jest.fn(),
 }));
 
 jest.mock("../../models/Chat.js", () => ({}));
@@ -28,7 +30,7 @@ jest.mock("../../services/callRules.service.js", () => ({
   hasUserBlockBetween: jest.fn(),
 }));
 
-const { likeUser, checkMatch } = require("../match.controller.js");
+const { likeUser, checkMatch, getMatches } = require("../match.controller.js");
 
 const makeRes = () => {
   const res = {
@@ -42,6 +44,14 @@ const makeUserQuery = (value) => ({
   select: jest.fn(() => ({
     lean: jest.fn().mockResolvedValue(value),
   })),
+});
+
+const makeSelectQuery = (value) => ({
+  select: jest.fn().mockResolvedValue(value),
+});
+
+const makePopulateQuery = (value) => ({
+  populate: jest.fn().mockResolvedValue(value),
 });
 
 describe("match blocking", () => {
@@ -69,5 +79,34 @@ describe("match blocking", () => {
 
     expect(res.json).toHaveBeenCalledWith({ iLiked: false, theyLiked: false, match: false, blocked: true });
     expect(Like.findOne).not.toHaveBeenCalled();
+  });
+
+  test("does not expose block lists in matches response", async () => {
+    const matchedUser = {
+      _id: otherUserId,
+      username: "match",
+      interests: ["music"],
+      intent: "dating",
+      blockedUsers: [],
+      toObject() {
+        return { ...this };
+      },
+    };
+    User.findById.mockReturnValue(makeSelectQuery({ interests: ["music"], intent: "dating", blockedUsers: [] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([{ to: otherUserId }]))
+      .mockReturnValueOnce(makePopulateQuery([{ from: matchedUser }]));
+    compatibility.calculateCompatibility.mockReturnValue({ compatibilityScore: 100, sharedInterests: ["music"] });
+    const res = makeRes();
+
+    await getMatches({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      matches: [
+        expect.not.objectContaining({
+          blockedUsers: expect.anything(),
+        }),
+      ],
+    });
   });
 });

@@ -4,6 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const MODAL_FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled])",
+  "a[href]",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 export const REPORT_REASONS = [
   "Spam",
@@ -29,6 +37,7 @@ export default function ModerationActions({
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const closeButtonRef = useRef(null);
+  const modalCardRef = useRef(null);
 
   const token = useMemo(() => authToken || getToken() || "", [authToken]);
   const safeTargetName = targetName || "this user";
@@ -37,6 +46,28 @@ export default function ModerationActions({
   useEffect(() => {
     if (showReport) closeButtonRef.current?.focus();
   }, [showReport]);
+
+  const trapModalFocus = (event) => {
+    if (event.key !== "Tab" || !modalCardRef.current) return;
+
+    const focusableElements = Array.from(
+      modalCardRef.current.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)
+    );
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  };
 
   const requireToken = () => {
     if (token) return true;
@@ -122,8 +153,15 @@ export default function ModerationActions({
       </div>
 
       {showReport && (
-        <div className="moderation-modal" role="dialog" aria-modal="true" aria-label={`Report ${safeTargetName}`}>
-          <div className="moderation-modal__card">
+        <div
+          className="moderation-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="moderation-report-title"
+          aria-describedby="moderation-report-description"
+          onKeyDown={trapModalFocus}
+        >
+          <div className="moderation-modal__card" ref={modalCardRef}>
             <button
               ref={closeButtonRef}
               type="button"
@@ -134,8 +172,8 @@ export default function ModerationActions({
             >
               ×
             </button>
-            <h3>Report user</h3>
-            <p>Select a reason before confirming your report.</p>
+            <h3 id="moderation-report-title">Report user</h3>
+            <p id="moderation-report-description">Select a reason before confirming your report.</p>
             <label>
               Reason
               <select value={reason} onChange={(event) => setReason(event.target.value)} disabled={submitting}>

@@ -21,6 +21,7 @@ jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 
 const { sendMessage, getMessages } = require("../chat.controller.js");
+const { getChats } = require("../chat.controller.js");
 
 const makeRes = () => {
   const res = {
@@ -64,5 +65,22 @@ describe("chat blocking", () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ message: "No puedes ver esta conversación" });
     expect(Message.find).not.toHaveBeenCalled();
+  });
+
+  test("hides blocked chats from the chat list", async () => {
+    Chat.findOne.mockReset();
+    Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
+    Chat.find = jest.fn(() => ({
+      populate: jest.fn(() => ({
+        populate: jest.fn(() => ({
+          sort: jest.fn().mockResolvedValue([blockedChat]),
+        })),
+      })),
+    }));
+
+    const res = makeRes();
+    await getChats({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith([]);
   });
 });

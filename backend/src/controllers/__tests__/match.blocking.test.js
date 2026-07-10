@@ -81,7 +81,30 @@ describe("match blocking", () => {
     expect(Like.findOne).not.toHaveBeenCalled();
   });
 
-  test("does not expose block lists in matches response", async () => {
+  test("hides a historical mutual match after a block", async () => {
+    const matchedUser = {
+      _id: otherUserId,
+      username: "match",
+      interests: ["music"],
+      intent: "dating",
+      blockedUsers: [],
+      toObject() {
+        return { ...this };
+      },
+    };
+    User.findById.mockReturnValue(makeSelectQuery({ interests: ["music"], intent: "dating", blockedUsers: [otherUserId] }));
+    Like.find
+      .mockReturnValueOnce(makeSelectQuery([{ to: otherUserId }]))
+      .mockReturnValueOnce(makePopulateQuery([{ from: matchedUser }]));
+    const res = makeRes();
+
+    await getMatches({ userId: currentUserId }, res);
+
+    expect(res.json).toHaveBeenCalledWith({ matches: [] });
+    expect(compatibility.calculateCompatibility).not.toHaveBeenCalled();
+  });
+
+  test("does not expose block lists in visible matches response", async () => {
     const matchedUser = {
       _id: otherUserId,
       username: "match",

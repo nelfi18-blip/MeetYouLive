@@ -5,7 +5,6 @@ const { requireAdmin, requireModeratorOrAdmin } = require("../middlewares/admin.
 const { logStaffAction } = require("../services/audit.service.js");
 const Report = require("../models/Report.js");
 const User = require("../models/User.js");
-const Like = require("../models/Like.js");
 
 const router = Router();
 
@@ -48,15 +47,7 @@ router.post("/users/:id/block", verifyToken, moderationLimiter, async (req, res)
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    await Promise.all([
-      User.updateOne({ _id: req.userId }, { $addToSet: { blockedUsers: targetUser._id } }),
-      Like.deleteMany({
-        $or: [
-          { from: req.userId, to: targetUser._id },
-          { from: targetUser._id, to: req.userId },
-        ],
-      }),
-    ]);
+    await User.updateOne({ _id: req.userId }, { $addToSet: { blockedUsers: targetUser._id } });
 
     return res.json({ ok: true, blockedUserId: String(targetUser._id) });
   } catch (err) {

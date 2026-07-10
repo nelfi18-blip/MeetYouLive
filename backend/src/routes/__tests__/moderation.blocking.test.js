@@ -54,6 +54,12 @@ const makeFindByIdChain = (value) => ({
   })),
 });
 
+const makeReportFindChain = (value) => ({
+  populate: jest.fn(() => ({
+    sort: jest.fn().mockResolvedValue(value),
+  })),
+});
+
 describe("moderation user blocking", () => {
   let app;
 
@@ -62,10 +68,11 @@ describe("moderation user blocking", () => {
     app = makeApp();
     User.findById.mockReturnValue(makeFindByIdChain({ _id: targetUserId }));
     User.updateOne.mockResolvedValue({ modifiedCount: 1 });
-    Like.deleteMany.mockResolvedValue({ deletedCount: 2 });
+    Like.deleteMany.mockResolvedValue({ deletedCount: 0 });
+    Report.find.mockReturnValue(makeReportFindChain([]));
   });
 
-  test("blocks a user and removes likes in both directions", async () => {
+  test("blocks a user without deleting historical likes in either direction", async () => {
     const res = await request(app).post(`/api/moderation/users/${targetUserId}/block`).send({});
 
     expect(res.status).toBe(200);
@@ -74,12 +81,7 @@ describe("moderation user blocking", () => {
       { _id: currentUserId },
       { $addToSet: { blockedUsers: targetUserId } }
     );
-    expect(Like.deleteMany).toHaveBeenCalledWith({
-      $or: [
-        { from: currentUserId, to: targetUserId },
-        { from: targetUserId, to: currentUserId },
-      ],
-    });
+    expect(Like.deleteMany).not.toHaveBeenCalled();
   });
 
   test("double block remains idempotent through addToSet", async () => {
@@ -111,5 +113,24 @@ describe("moderation user blocking", () => {
 
     expect(res.status).toBe(400);
     expect(Report.create).not.toHaveBeenCalled();
+  });
+
+  test("keeps moderation history available after a user block", async () => {
+    const report = {
+      _id: "507f1f77bcf86cd799439099",
+      reporter: currentUserId,
+      targetType: "user",
+      targetId: targetUserId,
+      reason: "Harassment",
+      status: "pending",
+    };
+    Report.find.mockReturnValue(makeReportFindChain([report]));
+
+    await request(app).post(`/api/moderation/users/${targetUserId}/block`).send({});
+    const res = await request(app).get("/api/moderation/reports");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([report]);
+    expect(Report.find).toHaveBeenCalledWith({ status: "pending" });
   });
 });

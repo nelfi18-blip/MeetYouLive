@@ -377,7 +377,9 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
     ],
   };
   if (currentUserId) {
-    match._id = { $ne: currentUserId };
+    const blockedIds = currentUserProfile?.blockedUsers || [];
+    match._id = blockedIds.length ? { $nin: [currentUserId, ...blockedIds] } : { $ne: currentUserId };
+    match.blockedUsers = { $ne: currentUserId };
   }
 
   const profiles = await User.find(match)
@@ -817,12 +819,10 @@ const getFeed = async (req, res) => {
         likedProfileIdsRaw.forEach(addExcludedProfileId);
       }
     }
-    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
           .select(
-            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope`
+            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope blockedUsers`
           )
           .lean()
       : Promise.resolve(null);
@@ -848,6 +848,7 @@ const getFeed = async (req, res) => {
       if (Object.keys(compatibilityUpdates).length > 0) {
         User.updateOne({ _id: currentUserProfile._id }, { $set: compatibilityUpdates }).catch(() => {});
       }
+      (currentUserProfile.blockedUsers || []).forEach(addExcludedProfileId);
       const profileCompletion = getFeedProfileStatus(currentUserProfile);
       if (profileCompletion?.canAppearInFeed === true && currentUserProfile.onboardingComplete !== true) {
         currentUserProfile.onboardingComplete = true;
@@ -859,11 +860,12 @@ const getFeed = async (req, res) => {
     let locationMatch = null;
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
+    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
       locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch, currentUserId);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
       recommendedProfilesPrimary = await User.aggregate(
         buildRecommendedProfilesPipeline(
           recommendedProfilesMatch,

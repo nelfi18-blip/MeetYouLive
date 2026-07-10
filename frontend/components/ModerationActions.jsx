@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getToken } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -28,10 +28,15 @@ export default function ModerationActions({
   const [details, setDetails] = useState("");
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const closeButtonRef = useRef(null);
 
   const token = useMemo(() => authToken || getToken() || "", [authToken]);
   const safeTargetName = targetName || "this user";
   const disabled = submitting || !targetUserId;
+
+  useEffect(() => {
+    if (showReport) closeButtonRef.current?.focus();
+  }, [showReport]);
 
   const requireToken = () => {
     if (token) return true;
@@ -119,11 +124,21 @@ export default function ModerationActions({
       {showReport && (
         <div className="moderation-modal" role="dialog" aria-modal="true" aria-label={`Report ${safeTargetName}`}>
           <div className="moderation-modal__card">
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="moderation-modal__close"
+              onClick={() => setShowReport(false)}
+              aria-label="Close report dialog"
+              disabled={submitting}
+            >
+              ×
+            </button>
             <h3>Report user</h3>
             <p>Select a reason before confirming your report.</p>
             <label>
               Reason
-              <select value={reason} onChange={(event) => setReason(event.target.value)}>
+              <select value={reason} onChange={(event) => setReason(event.target.value)} disabled={submitting}>
                 {REPORT_REASONS.map((item) => (
                   <option key={item} value={item}>{item}</option>
                 ))}
@@ -132,7 +147,7 @@ export default function ModerationActions({
             {reason === "Other" && (
               <label>
                 Details
-                <textarea value={details} onChange={(event) => setDetails(event.target.value)} maxLength={500} />
+                <textarea value={details} onChange={(event) => setDetails(event.target.value)} maxLength={500} disabled={submitting} />
               </label>
             )}
             <div className="moderation-modal__actions">
@@ -201,6 +216,7 @@ export default function ModerationActions({
           padding: 1rem;
         }
         .moderation-modal__card {
+          position: relative;
           width: min(420px, 100%);
           border: 1px solid rgba(255, 255, 255, 0.14);
           border-radius: 24px;
@@ -208,6 +224,16 @@ export default function ModerationActions({
           box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
           color: #f8fafc;
           padding: 1.25rem;
+        }
+        .moderation-modal__close {
+          position: absolute;
+          top: 0.75rem;
+          right: 0.75rem;
+          width: 2rem;
+          height: 2rem;
+          display: grid;
+          place-items: center;
+          padding: 0;
         }
         h3 {
           margin: 0 0 0.35rem;

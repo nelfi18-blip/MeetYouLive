@@ -10,7 +10,7 @@ const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "financ
 // Query every legacy photo alias so serializer can promote the first real photo.
 const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role blockedUsers";
 
-const isChatBlocked = (currentUserId, participant) => {
+const hasParticipantBlockedUser = (currentUserId, participant) => {
   if (!participant?._id) return false;
   const currentId = String(currentUserId);
   const participantBlockedUsers = Array.isArray(participant.blockedUsers) ? participant.blockedUsers : [];
@@ -25,7 +25,7 @@ const hasChatBlock = (chat, currentUserId) => {
   const otherParticipant = getFirstOtherChatParticipant(chat, currentUserId);
   const currentBlockedUsers = Array.isArray(currentParticipant?.blockedUsers) ? currentParticipant.blockedUsers : [];
   return (
-    isChatBlocked(currentUserId, otherParticipant) ||
+    hasParticipantBlockedUser(currentUserId, otherParticipant) ||
     currentBlockedUsers.some((id) => String(id) === String(otherParticipant?._id))
   );
 };

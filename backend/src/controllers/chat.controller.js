@@ -138,10 +138,9 @@ const getMessages = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    });
+    }).populate("participants", "blockedUsers");
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
-    const participants = await User.find({ _id: { $in: chat.participants } }).select("blockedUsers").lean();
-    if (hasChatBlock({ participants }, req.userId)) {
+    if (hasChatBlock(chat, req.userId)) {
       return res.status(403).json({ message: "No puedes ver esta conversación" });
     }
 
@@ -180,10 +179,9 @@ const sendMessage = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    });
+    }).populate("participants", "blockedUsers");
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
-    const participants = await User.find({ _id: { $in: chat.participants } }).select("blockedUsers").lean();
-    if (hasChatBlock({ participants }, req.userId)) {
+    if (hasChatBlock(chat, req.userId)) {
       return res.status(403).json({ message: "No puedes enviar mensajes a este usuario" });
     }
 

@@ -860,6 +860,7 @@ const getFeed = async (req, res) => {
     let locationMatch = null;
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
+    // Finalize after currentUserProfile loads so personal blocks are included.
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);

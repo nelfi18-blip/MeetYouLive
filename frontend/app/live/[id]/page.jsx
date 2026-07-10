@@ -2864,6 +2864,14 @@ export default function LiveRoomPage() {
 
         .chat-gift-coins {
           font-size: 0.7rem;
+          font-weight: 800;
+          color: #fbbf24;
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.25);
+          border-radius: 999px;
+          padding: 0.08rem 0.4rem;
+          align-self: center;
+          flex-shrink: 0;
         }
         .creator-safety-actions {
           display: flex;

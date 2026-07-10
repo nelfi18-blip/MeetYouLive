@@ -208,6 +208,10 @@ exports.superCrushUser = async (req, res) => {
 
   const session = await mongoose.startSession();
   try {
+    if (await hasUserBlockBetween(req.userId, userId)) {
+      return res.status(403).json({ message: "No puedes hacer match con este usuario" });
+    }
+
     let matchCreated = false;
     let matchChatId = null;
 
@@ -223,9 +227,6 @@ exports.superCrushUser = async (req, res) => {
 
       const target = await User.findById(toObjId).session(session);
       if (!target) throw Object.assign(new Error("Perfil de destino no encontrado"), { status: 404 });
-      if (await hasUserBlockBetween(req.userId, userId)) {
-        throw Object.assign(new Error("No puedes hacer match con este usuario"), { status: 403 });
-      }
 
       // Deduct coins from sender
       await User.findByIdAndUpdate(fromObjId, { $inc: { coins: -SUPER_CRUSH_PRICE } }, { session });

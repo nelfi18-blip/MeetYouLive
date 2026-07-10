@@ -15,7 +15,7 @@ const moderationLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.post("/report", moderationLimiter, verifyToken, async (req, res) => {
+router.post("/report", verifyToken, moderationLimiter, async (req, res) => {
   const { targetType, targetId, reason } = req.body;
   if (!targetType || !targetId || !reason) {
     return res.status(400).json({ message: "targetType, targetId y reason son requeridos" });
@@ -37,7 +37,7 @@ router.post("/report", moderationLimiter, verifyToken, async (req, res) => {
   }
 });
 
-router.post("/users/:id/block", moderationLimiter, verifyToken, async (req, res) => {
+router.post("/users/:id/block", verifyToken, moderationLimiter, async (req, res) => {
   const targetUserId = String(req.params.id || "");
   if (!targetUserId || targetUserId === String(req.userId)) {
     return res.status(400).json({ message: "Usuario inválido" });

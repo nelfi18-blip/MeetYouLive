@@ -170,7 +170,9 @@ export default function ModerationActions({
               aria-label="Close report dialog"
               disabled={submitting}
             >
-              ×
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+              </svg>
             </button>
             <h3 id="moderation-report-title">Report user</h3>
             <p id="moderation-report-description">Select a reason before confirming your report.</p>

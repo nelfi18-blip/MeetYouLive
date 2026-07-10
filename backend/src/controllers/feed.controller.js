@@ -182,7 +182,7 @@ const RECOMMENDED_PROFILES_BASE_MATCH = {
   onboardingComplete: true,
 };
 
-const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch = {}) => {
+const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch = {}, currentUserId = null) => {
   const match = { ...RECOMMENDED_PROFILES_BASE_MATCH };
   if (excludedProfileIds.length) {
     match._id = { $nin: excludedProfileIds };
@@ -192,7 +192,11 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch =
   }
   return {
     ...match,
-    $and: [...(Array.isArray(match.$and) ? match.$and : []), FEED_PHOTO_CANDIDATE_MATCH],
+    $and: [
+      ...(Array.isArray(match.$and) ? match.$and : []),
+      ...(currentUserId ? [{ blockedUsers: { $ne: currentUserId } }] : []),
+      FEED_PHOTO_CANDIDATE_MATCH,
+    ],
   };
 };
 
@@ -859,7 +863,7 @@ const getFeed = async (req, res) => {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
       locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch, currentUserId);
       recommendedProfilesPrimary = await User.aggregate(
         buildRecommendedProfilesPipeline(
           recommendedProfilesMatch,
@@ -1233,6 +1237,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       $and: [
         {
           _id: { $nin: excludeIds },
+          blockedUsers: { $ne: currentUserId },
           role: "user", // Only regular users in match feed
           onboardingComplete: true,
           isBlocked: false,
@@ -1554,7 +1559,7 @@ const getFeedDiagnostics = async (req, res) => {
       likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)
     );
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
+    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, {}, viewerId);
 
     const [totalUserCandidates, totalAfterServerFilters, returnedProfiles, diagnosticUsers, targetByQuery] =
       await Promise.all([

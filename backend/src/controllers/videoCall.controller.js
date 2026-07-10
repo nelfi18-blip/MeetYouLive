@@ -8,6 +8,7 @@ const {
   normalizeCallType,
   assertSocialCallAllowed,
   assertPaidCreatorCallAllowed,
+  assertNotBlockedBetween,
   isPendingCallExpired,
   PENDING_CALL_TIMEOUT_MS,
 } = require("../services/callRules.service.js");
@@ -151,6 +152,8 @@ const inviteCall = async (req, res) => {
   let creatorPricePerMinute = 0;
 
   try {
+    await assertNotBlockedBetween(req.userId, recipientId);
+
     // For social calls: require mutual match
     if (callType === CALL_TYPES.SOCIAL) {
       await assertSocialCallAllowed(req.userId, recipientId);

@@ -5,6 +5,7 @@ const { requireAdmin, requireModeratorOrAdmin } = require("../middlewares/admin.
 const { logStaffAction } = require("../services/audit.service.js");
 const Report = require("../models/Report.js");
 const User = require("../models/User.js");
+const Like = require("../models/Like.js");
 
 const router = Router();
 
@@ -25,6 +26,33 @@ router.post("/report", moderationLimiter, verifyToken, async (req, res) => {
       targetType,
       targetId,
       reason,
+    });
+
+    router.post("/users/:id/block", moderationLimiter, verifyToken, async (req, res) => {
+      const targetUserId = String(req.params.id || "");
+      if (!targetUserId || targetUserId === String(req.userId)) {
+        return res.status(400).json({ message: "Usuario inválido" });
+      }
+      try {
+        const targetUser = await User.findById(targetUserId).select("_id").lean();
+        if (!targetUser) {
+          return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        await Promise.all([
+          User.updateOne({ _id: req.userId }, { $addToSet: { blockedUsers: targetUser._id } }),
+          Like.deleteMany({
+            $or: [
+              { from: req.userId, to: targetUser._id },
+              { from: targetUser._id, to: req.userId },
+            ],
+          }),
+        ]);
+
+        return res.json({ ok: true, blockedUserId: String(targetUser._id) });
+      } catch (err) {
+        return res.status(500).json({ message: err.message });
+      }
     });
     res.status(201).json(report);
   } catch (err) {

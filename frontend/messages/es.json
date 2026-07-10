@@ -539,12 +539,13 @@
         "shortTitle": "Términos",
         "title": "Términos de Servicio",
         "description": "Condiciones de uso para matches, chat, llamadas, videollamadas, directos, regalos, coins, creadores y moderación.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Aceptación y alcance",
             "body": [
               "Al acceder o usar MeetYouLive aceptas estos Términos de Servicio y las políticas vinculadas. Si no estás de acuerdo, no debes usar la plataforma.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive.",
               "Estos términos se aplican a la web, aplicaciones, cuentas, perfiles, matches, chat, llamadas, videollamadas, directos, regalos, coins, suscripciones, contenido de creadores y herramientas de moderación."
             ]
           },
@@ -602,12 +603,13 @@
         "shortTitle": "Privacidad",
         "title": "Política de Privacidad",
         "description": "Cómo recopilamos, usamos y protegemos datos en perfiles, matches, chat, llamadas, directos, pagos, reportes y moderación.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Responsable y contacto",
             "body": [
-              "MeetYouLive trata datos personales para operar la plataforma. Para consultas de privacidad escribe a privacy@meetyoulive.net."
+              "MeetYouLive trata datos personales para operar la plataforma. Para consultas de privacidad escribe a privacy@meetyoulive.net.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -660,12 +662,13 @@
         "shortTitle": "Uso aceptable",
         "title": "Política de Uso Aceptable",
         "description": "Reglas mínimas para usar MeetYouLive de forma segura, legal y respetuosa.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Principios",
             "body": [
-              "Usa MeetYouLive para conectar, conversar, crear y apoyar contenido de forma legal, segura y consentida. No uses la plataforma para dañar, engañar, acosar, explotar o infringir derechos."
+              "Usa MeetYouLive para conectar, conversar, crear y apoyar contenido de forma legal, segura y consentida. No uses la plataforma para dañar, engañar, acosar, explotar o infringir derechos.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -704,12 +707,13 @@
         "shortTitle": "Comunidad",
         "title": "Normas de la Comunidad",
         "description": "Expectativas de comportamiento para usuarios, espectadores, matches y creadores.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Respeto y consentimiento",
             "body": [
-              "Respeta a cada persona. El consentimiento debe ser claro, continuo y revocable en chat, llamadas, videollamadas, directos, regalos y cualquier interacción."
+              "Respeta a cada persona. El consentimiento debe ser claro, continuo y revocable en chat, llamadas, videollamadas, directos, regalos y cualquier interacción.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -748,12 +752,13 @@
         "shortTitle": "Creadores",
         "title": "Política de Creadores",
         "description": "Reglas para creadores aprobados, monetización, regalos, coins, agencias, payouts y Stripe Connect.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Aprobación de creadores",
             "body": [
-              "Ser creador es un privilegio sujeto a revisión, requisitos de edad, identidad, calidad, seguridad y cumplimiento. Podemos aprobar, rechazar, pausar o retirar el estado de creador."
+              "Ser creador es un privilegio sujeto a revisión, requisitos de edad, identidad, calidad, seguridad y cumplimiento. Podemos aprobar, rechazar, pausar o retirar el estado de creador.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -792,12 +797,13 @@
         "shortTitle": "Pagos",
         "title": "Política de Pagos y Reembolsos",
         "description": "Pagos, coins, regalos, suscripciones, Stripe, Stripe Connect, compras, payouts y reembolsos.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Procesamiento de pagos",
             "body": [
-              "Las compras pueden procesarse mediante Stripe, Stripe Connect u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo."
+              "Las compras pueden procesarse mediante Stripe, Stripe Connect u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -842,12 +848,13 @@
         "shortTitle": "DMCA",
         "title": "Política DMCA / Copyright",
         "description": "Proceso para reportar infracciones de derechos de autor, marcas, imagen y propiedad intelectual.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Respeto a la propiedad intelectual",
             "body": [
-              "MeetYouLive respeta derechos de autor, marcas, imagen y otros derechos de propiedad intelectual. Los usuarios y creadores solo deben publicar contenido propio o autorizado."
+              "MeetYouLive respeta derechos de autor, marcas, imagen y otros derechos de propiedad intelectual. Los usuarios y creadores solo deben publicar contenido propio o autorizado.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {
@@ -880,12 +887,13 @@
         "shortTitle": "Seguridad",
         "title": "Política de Seguridad y Moderación",
         "description": "Reportes, revisión, acciones de moderación, suspensiones, apelaciones y protección de usuarios.",
-        "lastUpdated": "4 de julio de 2026",
+        "lastUpdated": "9 de julio de 2026",
         "sections": [
           {
             "heading": "1. Objetivo",
             "body": [
-              "Queremos que MeetYouLive sea seguro para descubrir personas, hacer match, chatear, llamar, transmitir, crear y enviar regalos. Esta política explica cómo gestionamos riesgos y reportes."
+              "Queremos que MeetYouLive sea seguro para descubrir personas, hacer match, chatear, llamar, transmitir, crear y enviar regalos. Esta política explica cómo gestionamos riesgos y reportes.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC a través de https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
             ]
           },
           {

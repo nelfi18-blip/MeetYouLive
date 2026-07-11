@@ -44,7 +44,7 @@ const getHandshakeToken = (socket) => {
 
 const authenticateSocket = async (socket, next) => {
   const token = getHandshakeToken(socket);
-  if (!token) return next();
+  if (!token) return next(new Error("Authentication required"));
   if (!process.env.JWT_SECRET) return next(new Error("Socket auth unavailable"));
 
   try {
@@ -383,15 +383,14 @@ const initSocket = (httpServer) => {
     // ── Live Room presence ───────────────────────────────────────────────
     socket.on("join_live_room", async ({ liveId, user }) => {
       if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
-      if (socket._userId) {
-        try {
-          const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
-          if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
-            return;
-          }
-        } catch (_) {
+      if (!socket._userId) return;
+      try {
+        const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
+        if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
           return;
         }
+      } catch (_) {
+        return;
       }
       const roomKey = `live:${liveId}`;
       socket.join(roomKey);

@@ -406,6 +406,7 @@ export default function LiveRoomPage() {
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !meLoaded) return;
+    if (!token) return;
 
     configureSocketAuth(token);
     if (!socket.connected) socket.connect();
@@ -609,7 +610,7 @@ export default function LiveRoomPage() {
         {
           id: ++msgCounterRef.current,
           user: "Sistema",
-          userId: user?.userId || null,
+          userId: null,
           displayName: name,
           text: `👋 ${name} se unió al directo`,
           system: true,

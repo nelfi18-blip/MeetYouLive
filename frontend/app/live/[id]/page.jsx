@@ -137,6 +137,7 @@ export default function LiveRoomPage() {
 
   // Creator event controls
   const [triggeringEvent, setTriggeringEvent] = useState(false);
+  const [liveModerationStatus, setLiveModerationStatus] = useState("");
 
   // Seen gift IDs for dedup
   const seenGiftIdsRef = useRef(new Set());
@@ -606,6 +607,8 @@ export default function LiveRoomPage() {
         {
           id: ++msgCounterRef.current,
           user: "Sistema",
+          userId: user?.userId || null,
+          targetName: name,
           text: `👋 ${name} se unió al directo`,
           system: true,
         },
@@ -621,6 +624,20 @@ export default function LiveRoomPage() {
         { id: ++msgCounterRef.current, user: "Sistema", text: "📡 El directo ha terminado", system: true },
       ]);
       setTimeout(() => router.push("/live"), 3000);
+    };
+
+    const onLiveUserModerated = ({ liveId: moderatedLiveId, targetUserId, action }) => {
+      if (moderatedLiveId !== id || !currentUserId || String(targetUserId) !== String(currentUserId)) return;
+      const message = action === "ban"
+        ? "Has sido bloqueado de este directo por el creador."
+        : "Has sido expulsado de este directo por el creador.";
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: "Sistema", text: message, system: true },
+      ]);
+      socket.emit("leave_live_room", { liveId: id });
+      agoraClientRef.current?.leave().catch(() => {});
+      setTimeout(() => router.replace("/live"), 1200);
     };
 
     // Refresh leaderboard on battle score changes
@@ -706,6 +723,7 @@ export default function LiveRoomPage() {
     socket.on("super_gift", onSuperGift);
     socket.on("USER_JOINED_LIVE", onUserJoined);
     socket.on("LIVE_ENDED", onLiveEnded);
+    socket.on("LIVE_USER_MODERATED", onLiveUserModerated);
     socket.on("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
     socket.on("LIVE_RANKING_UPDATED", onRankingUpdated);
     socket.on("LIVE_EVENT_STARTED", onLiveEventStarted);
@@ -721,6 +739,7 @@ export default function LiveRoomPage() {
       socket.off("super_gift", onSuperGift);
       socket.off("USER_JOINED_LIVE", onUserJoined);
       socket.off("LIVE_ENDED", onLiveEnded);
+      socket.off("LIVE_USER_MODERATED", onLiveUserModerated);
       socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
       socket.off("LIVE_RANKING_UPDATED", onRankingUpdated);
       socket.off("LIVE_EVENT_STARTED", onLiveEventStarted);
@@ -1073,6 +1092,26 @@ export default function LiveRoomPage() {
       });
     } catch {
       // non-fatal
+    }
+  };
+
+  const handleLiveModeration = async (targetUserId, action, targetName) => {
+    if (!token || !targetUserId || !isCreator) return;
+    const actionLabel = action === "ban" ? "bloquear de este Live" : "expulsar";
+    if (!window.confirm(`¿Quieres ${actionLabel} a ${targetName || "este usuario"}?`)) return;
+
+    setLiveModerationStatus("");
+    try {
+      const res = await fetch(`${API_URL}/api/lives/${id}/moderation/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ targetUserId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "No se pudo aplicar la moderación");
+      setLiveModerationStatus(action === "ban" ? "Usuario bloqueado del Live." : "Usuario expulsado del Live.");
+    } catch (err) {
+      setLiveModerationStatus(err.message || "No se pudo aplicar la moderación");
     }
   };
 
@@ -1464,6 +1503,8 @@ export default function LiveRoomPage() {
                     authToken={token}
                     onBlocked={handleBlockedCreator}
                     compact
+                    showBlock={false}
+                    reportLabel="Reportar"
                   />
                 </div>
               )}
@@ -1722,6 +1763,8 @@ export default function LiveRoomPage() {
                       authToken={token}
                       onBlocked={handleBlockedCreator}
                       compact
+                      showBlock={false}
+                      reportLabel="Reportar"
                     />
                   </div>
                 )}
@@ -1796,6 +1839,11 @@ export default function LiveRoomPage() {
             <span>Chat en vivo</span>
             <span className="chat-header-live-dot" />
           </div>
+          {liveModerationStatus && (
+            <div className="live-moderation-status" role="status" aria-live="polite">
+              {liveModerationStatus}
+            </div>
+          )}
 
           <div className="chat-messages">
             {/* Low-activity prompts */}
@@ -1825,6 +1873,9 @@ export default function LiveRoomPage() {
                 fanRank === 0 && "chat-msg-top-fan",
                 fanRank > 0 && "chat-msg-vip-fan",
               ].filter(Boolean).join(" ");
+              const canModerateMessageUser =
+                isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
+              const moderationTargetName = msg.targetName || msg.user;
               return (
                 <div key={msg.id} className={chatMsgClass}>
                   {msg.system ? (
@@ -1847,6 +1898,32 @@ export default function LiveRoomPage() {
                       <span className="chat-user">{msg.user}</span>
                       <span className="chat-text">{msg.text}</span>
                     </>
+                  )}
+                  {canModerateMessageUser && (
+                    <div className="live-chat-moderation-actions">
+                      <ModerationActions
+                        targetUserId={String(msg.userId)}
+                        targetName={moderationTargetName}
+                        authToken={token}
+                        compact
+                        showBlock={false}
+                        reportLabel="Reportar"
+                      />
+                      <button
+                        type="button"
+                        className="live-chat-moderation-btn"
+                        onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
+                      >
+                        Expulsar
+                      </button>
+                      <button
+                        type="button"
+                        className="live-chat-moderation-btn danger"
+                        onClick={() => handleLiveModeration(String(msg.userId), "ban", moderationTargetName)}
+                      >
+                        Bloquear del Live
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -2883,6 +2960,38 @@ export default function LiveRoomPage() {
         .creator-safety-actions.inline {
           justify-content: flex-start;
           margin-left: auto;
+        }
+
+        .live-moderation-status {
+          margin: 0.45rem 0 0.2rem;
+          color: #c4b5fd;
+          font-size: 0.78rem;
+          font-weight: 800;
+        }
+
+        .live-chat-moderation-actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.35rem;
+          width: 100%;
+          margin-top: 0.35rem;
+        }
+
+        .live-chat-moderation-btn {
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.72);
+          color: #f8fafc;
+          cursor: pointer;
+          font-size: 0.78rem;
+          font-weight: 800;
+          padding: 0.48rem 0.7rem;
+        }
+
+        .live-chat-moderation-btn.danger {
+          border-color: rgba(248, 113, 113, 0.35);
+          color: #fecaca;
         }
 
         .chat-msg-gift {

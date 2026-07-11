@@ -1,10 +1,13 @@
 const { Router } = require("express");
+const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { verifyToken } = require("../middlewares/auth.middleware.js");
 const { requireAdmin, requireModeratorOrAdmin } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const Report = require("../models/Report.js");
 const User = require("../models/User.js");
+const Live = require("../models/Live.js");
+const Video = require("../models/Video.js");
 
 const router = Router();
 
@@ -19,10 +22,19 @@ router.post("/report", verifyToken, moderationLimiter, async (req, res) => {
   if (!targetType || !targetId || !reason) {
     return res.status(400).json({ message: "targetType, targetId y reason son requeridos" });
   }
+  if (!["video", "live", "user"].includes(targetType) || !mongoose.Types.ObjectId.isValid(String(targetId))) {
+    return res.status(400).json({ message: "Objetivo inválido" });
+  }
   if (targetType === "user" && String(targetId) === String(req.userId)) {
     return res.status(400).json({ message: "No puedes reportarte a ti mismo" });
   }
   try {
+    const targetModel = targetType === "user" ? User : targetType === "live" ? Live : Video;
+    const target = await targetModel.findById(targetId).select("_id").lean();
+    if (!target) {
+      return res.status(404).json({ message: "Objetivo no encontrado" });
+    }
+
     const report = await Report.create({
       reporter: req.userId,
       targetType,

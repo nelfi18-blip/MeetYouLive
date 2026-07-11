@@ -30,6 +30,8 @@ export default function ModerationActions({
   onBlocked,
   className = "",
   compact = false,
+  showBlock = true,
+  reportLabel = "Report user",
 }) {
   const [showReport, setShowReport] = useState(false);
   const [reason, setReason] = useState(REPORT_REASONS[0]);
@@ -146,11 +148,13 @@ export default function ModerationActions({
     <div className={`moderation-actions${compact ? " compact" : ""}${className ? ` ${className}` : ""}`}>
       <div className="moderation-actions__buttons">
         <button type="button" onClick={() => setShowReport(true)} disabled={disabled}>
-          Report user
+          {reportLabel}
         </button>
-        <button type="button" className="danger" onClick={blockUser} disabled={disabled}>
-          Block user
-        </button>
+        {showBlock && (
+          <button type="button" className="danger" onClick={blockUser} disabled={disabled}>
+            Block user
+          </button>
+        )}
       </div>
 
       {showReport && (

@@ -10,7 +10,6 @@ import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
-import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -1323,21 +1322,6 @@ export default function FeedPage() {
     }, ACTION_FEEDBACK_DURATION_MS);
   }, []);
 
-  const handleBlockedProfile = useCallback((blockedProfileId) => {
-    const blockedId = getNullableIdString(blockedProfileId);
-    if (!blockedId) return;
-    addSeenProfileId(blockedId);
-    const remainingProfiles = profilesRef.current.filter((profile) => getProfileId(profile) !== blockedId);
-    const nextIndex = Math.min(currentIndexRef.current, Math.max(remainingProfiles.length - 1, 0));
-    profilesRef.current = remainingProfiles;
-    currentIndexRef.current = nextIndex;
-    currentProfileIdRef.current = getCurrentProfileId(remainingProfiles, nextIndex);
-    setProfiles(remainingProfiles);
-    setCurrentIndex(nextIndex);
-    setLastAction(null);
-    writeCachedFeed(remainingProfiles, nextIndex);
-  }, []);
-
   /* --------------------------- Render --------------------------- */
   const currentProfile = profiles[currentIndex];
   const hasMoreProfiles = currentIndex < profiles.length && !!currentProfile;
@@ -1346,7 +1330,6 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
-  const currentProfileId = getProfileId(currentProfile);
   const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
   const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
@@ -1467,14 +1450,6 @@ export default function FeedPage() {
                 <IconStar />
                 <span>{t("feed.superLikeShortLabel")}</span>
               </button>
-            </div>
-            <div className="feed-moderation-actions">
-              <ModerationActions
-                targetUserId={currentProfileId}
-                targetName={currentProfile?.name || currentProfile?.username}
-                onBlocked={handleBlockedProfile}
-                compact
-              />
             </div>
           </div>
         ) : (
@@ -1634,13 +1609,6 @@ export default function FeedPage() {
           height: max(var(--feed-available-height), calc(var(--feed-deck-height) + var(--feed-section-top-padding)));
           padding: var(--feed-section-top-padding) 0 0;
           box-sizing: border-box;
-        }
-        .feed-moderation-actions {
-          position: relative;
-          z-index: 72;
-          display: flex;
-          justify-content: center;
-          margin-top: 0.75rem;
         }
         .feed-match-section--empty {
           align-items: center;

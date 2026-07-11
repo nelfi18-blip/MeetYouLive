@@ -32,6 +32,14 @@ const getToken = async (req, res) => {
   try {
     // Determine role: publisher for creator/call participant/approved guest, subscriber for viewer
     let role = RtcRole.SUBSCRIBER;
+    const liveAccess = await Live.findOne({ _id: channelName, isLive: true }).select("user bannedUsers").lean();
+    if (
+      liveAccess &&
+      String(liveAccess.user) !== String(req.userId) &&
+      (liveAccess.bannedUsers || []).some((userId) => String(userId) === String(req.userId))
+    ) {
+      return res.status(403).json({ message: "No puedes entrar a este directo" });
+    }
 
     if (roleParam !== "subscriber") {
       // Check once whether the requester is the live creator, a call participant, or an approved guest

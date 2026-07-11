@@ -381,8 +381,19 @@ const initSocket = (httpServer) => {
     });
 
     // ── Live Room presence ───────────────────────────────────────────────
-    socket.on("join_live_room", ({ liveId, user }) => {
+    socket.on("join_live_room", async ({ liveId, user }) => {
       if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
+      if (socket._userId) {
+        try {
+          const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
+          if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
+            socket.emit("LIVE_USER_MODERATED", { liveId, targetUserId: socket._userId, action: "ban" });
+            return;
+          }
+        } catch (_) {
+          return;
+        }
+      }
       const roomKey = `live:${liveId}`;
       socket.join(roomKey);
       socket._liveRoomId = liveId;
@@ -397,7 +408,11 @@ const initSocket = (httpServer) => {
 
       // Notify others that a new viewer joined
       if (user && user.username) {
-        socket.to(roomKey).emit("USER_JOINED_LIVE", { user, liveId });
+        const safeUser = {
+          username: String(user.username).slice(0, 100),
+          ...(socket._userId ? { userId: socket._userId } : {}),
+        };
+        socket.to(roomKey).emit("USER_JOINED_LIVE", { user: safeUser, liveId });
       }
     });
 
@@ -448,6 +463,12 @@ const initSocket = (httpServer) => {
       if (!text || typeof text !== "string") return;
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;
+
+      const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
+      if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
+        socket.emit("LIVE_USER_MODERATED", { liveId, targetUserId: socket._userId, action: "ban" });
+        return;
+      }
 
       // Resolve VIP status from the authenticated user record (not from client payload)
       let isVIP = false;

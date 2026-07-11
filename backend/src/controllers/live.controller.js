@@ -821,15 +821,15 @@ const moderateLiveUser = async (req, res) => {
       bannedUserIds.add(String(targetUser._id));
       live.bannedUsers = Array.from(bannedUserIds);
     }
-    if (live.moderationActions.length >= MAX_LIVE_MODERATION_ACTIONS) {
-      live.moderationActions = live.moderationActions.slice(-(MAX_LIVE_MODERATION_ACTIONS - 1));
-    }
     live.moderationActions.push({
       moderator: req.userId,
       target: targetUser._id,
       action,
       reason: sanitizeLiveModerationReason(reason),
     });
+    if (live.moderationActions.length > MAX_LIVE_MODERATION_ACTIONS) {
+      live.moderationActions = live.moderationActions.slice(-MAX_LIVE_MODERATION_ACTIONS);
+    }
     await live.save();
 
     const payload = {
@@ -839,7 +839,7 @@ const moderateLiveUser = async (req, res) => {
     };
     const io = getIO();
     if (io) {
-      // Socket connections join a legacy raw userId room during authentication.
+      // initSocket() joins authenticated users to their raw userId room for existing notification emitters.
       io.to(String(targetUser._id)).emit("LIVE_USER_MODERATED", payload);
       io.to(`live:${live._id}`).emit("LIVE_USER_REMOVED", payload);
       // Reuse the existing guest event so guest/video panels clear removed participants.

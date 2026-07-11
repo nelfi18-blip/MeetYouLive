@@ -1109,7 +1109,18 @@ export default function LiveRoomPage() {
   };
 
   const handleLiveModeration = async (targetUserId, action, targetName) => {
-    if (!token || !targetUserId || !isCreator) return;
+    if (!token) {
+      showLiveModerationStatus("Debes iniciar sesión para moderar.");
+      return;
+    }
+    if (!isCreator) {
+      showLiveModerationStatus("No tienes permisos para moderar este Live.");
+      return;
+    }
+    if (!targetUserId) {
+      showLiveModerationStatus("Usuario inválido.");
+      return;
+    }
     const actionLabel = action === "ban" ? "bloquear de este Live" : "expulsar";
     if (!window.confirm(`¿Quieres ${actionLabel} a ${targetName || "este usuario"}?`)) return;
 

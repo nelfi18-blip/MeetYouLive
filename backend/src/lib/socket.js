@@ -385,8 +385,12 @@ const initSocket = (httpServer) => {
       if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       if (socket._userId) {
         try {
-          const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
-          if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
+          try {
+            const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
+            if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
+              return;
+            }
+          } catch (_) {
             return;
           }
         } catch (_) {

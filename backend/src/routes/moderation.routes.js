@@ -22,8 +22,11 @@ router.post("/report", verifyToken, moderationLimiter, async (req, res) => {
   if (!targetType || !targetId || !reason) {
     return res.status(400).json({ message: "targetType, targetId y reason son requeridos" });
   }
-  if (!["video", "live", "user"].includes(targetType) || !mongoose.Types.ObjectId.isValid(String(targetId))) {
-    return res.status(400).json({ message: "Objetivo inválido" });
+  if (!["video", "live", "user"].includes(targetType)) {
+    return res.status(400).json({ message: "Tipo de objetivo inválido" });
+  }
+  if (!mongoose.Types.ObjectId.isValid(String(targetId))) {
+    return res.status(400).json({ message: "ID de objetivo inválido" });
   }
   if (targetType === "user" && String(targetId) === String(req.userId)) {
     return res.status(400).json({ message: "No puedes reportarte a ti mismo" });

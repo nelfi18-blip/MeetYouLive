@@ -825,8 +825,9 @@ const moderateLiveUser = async (req, res) => {
     live.guests = live.guests.filter((guest) => String(guest.userId) !== String(targetUser._id));
     live.guestRequests = live.guestRequests.filter((request) => String(request.userId) !== String(targetUser._id));
     if (action === "ban") {
-      const alreadyBanned = live.bannedUsers.some((userId) => String(userId) === String(targetUser._id));
-      if (!alreadyBanned) live.bannedUsers.push(targetUser._id);
+      const bannedUserIds = new Set(live.bannedUsers.map((userId) => String(userId)));
+      bannedUserIds.add(String(targetUser._id));
+      live.bannedUsers = Array.from(bannedUserIds);
     }
     if (live.moderationActions.length >= MAX_LIVE_MODERATION_ACTIONS) {
       live.moderationActions = live.moderationActions.slice(-(MAX_LIVE_MODERATION_ACTIONS - 1));
@@ -848,6 +849,7 @@ const moderateLiveUser = async (req, res) => {
     if (io) {
       io.to(String(targetUser._id)).emit("LIVE_USER_MODERATED", payload);
       io.to(`live:${live._id}`).emit("LIVE_USER_REMOVED", payload);
+      // Reuse the existing guest event so guest/video panels clear removed participants.
       io.to(`live:${live._id}`).emit("GUEST_LEFT", {
         liveId: String(live._id),
         userId: String(targetUser._id),

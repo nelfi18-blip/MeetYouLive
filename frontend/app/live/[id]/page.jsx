@@ -83,6 +83,7 @@ export default function LiveRoomPage() {
   const msgCounterRef = useRef(1);
   const giftEffectTimeoutRef = useRef(null);
   const recentGiftTimeoutRef = useRef(null);
+  const liveModerationStatusTimeoutRef = useRef(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUsername, setCurrentUsername] = useState("");
@@ -344,6 +345,7 @@ export default function LiveRoomPage() {
     return () => {
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
+      if (liveModerationStatusTimeoutRef.current) clearTimeout(liveModerationStatusTimeoutRef.current);
     };
   }, []);
 
@@ -608,7 +610,7 @@ export default function LiveRoomPage() {
           id: ++msgCounterRef.current,
           user: "Sistema",
           userId: user?.userId || null,
-          targetName: name,
+          displayName: name,
           text: `👋 ${name} se unió al directo`,
           system: true,
         },
@@ -1095,6 +1097,15 @@ export default function LiveRoomPage() {
     }
   };
 
+  const showLiveModerationStatus = (message) => {
+    setLiveModerationStatus(message);
+    if (liveModerationStatusTimeoutRef.current) clearTimeout(liveModerationStatusTimeoutRef.current);
+    liveModerationStatusTimeoutRef.current = setTimeout(() => {
+      liveModerationStatusTimeoutRef.current = null;
+      setLiveModerationStatus("");
+    }, 5000);
+  };
+
   const handleLiveModeration = async (targetUserId, action, targetName) => {
     if (!token || !targetUserId || !isCreator) return;
     const actionLabel = action === "ban" ? "bloquear de este Live" : "expulsar";
@@ -1109,9 +1120,9 @@ export default function LiveRoomPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "No se pudo aplicar la moderación");
-      setLiveModerationStatus(action === "ban" ? "Usuario bloqueado del Live." : "Usuario expulsado del Live.");
+      showLiveModerationStatus(action === "ban" ? "Usuario bloqueado del Live." : "Usuario expulsado del Live.");
     } catch (err) {
-      setLiveModerationStatus(err.message || "No se pudo aplicar la moderación");
+      showLiveModerationStatus(err.message || "No se pudo aplicar la moderación");
     }
   };
 
@@ -1875,7 +1886,7 @@ export default function LiveRoomPage() {
               ].filter(Boolean).join(" ");
               const canModerateMessageUser =
                 isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
-              const moderationTargetName = msg.targetName || msg.user;
+              const moderationTargetName = msg.displayName || msg.user;
               return (
                 <div key={msg.id} className={chatMsgClass}>
                   {msg.system ? (

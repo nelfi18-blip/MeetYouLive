@@ -16,7 +16,7 @@ const MAX_LIVE_PUSH_FOLLOWERS = 500;
 const MAX_LIVE_MODERATION_REASON_LENGTH = 200;
 const MAX_LIVE_MODERATION_ACTIONS = 200;
 
-function stripPrivateLiveFields(liveObj) {
+function removePrivateLiveFields(liveObj) {
   if (!liveObj) return liveObj;
   delete liveObj.paidViewers;
   delete liveObj.bannedUsers;
@@ -269,7 +269,7 @@ const getLiveById = async (req, res) => {
     const access = hasLiveAccess(live, req.userId);
     const vipAccess = await hasVipAccess(live, req.userId);
     const liveObj = live.toObject();
-    stripPrivateLiveFields(liveObj);
+    removePrivateLiveFields(liveObj);
     
     // Remove role from user object
     if (liveObj.user && liveObj.user.role) {
@@ -312,7 +312,7 @@ const joinLive = async (req, res) => {
 
     if (!live.isPrivate) {
       const liveObj = live.toObject();
-      stripPrivateLiveFields(liveObj);
+      removePrivateLiveFields(liveObj);
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -322,7 +322,7 @@ const joinLive = async (req, res) => {
     const creatorId = live.user.toString();
     if (creatorId === req.userId.toString()) {
       const liveObj = live.toObject();
-      stripPrivateLiveFields(liveObj);
+      removePrivateLiveFields(liveObj);
       liveObj.hasAccess = true;
       return res.json(liveObj);
     }
@@ -330,7 +330,7 @@ const joinLive = async (req, res) => {
     // Check if already paid
     if (live.paidViewers.some((pv) => pv.toString() === req.userId.toString())) {
       const liveObj = live.toObject();
-      stripPrivateLiveFields(liveObj);
+      removePrivateLiveFields(liveObj);
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -363,7 +363,7 @@ const joinLive = async (req, res) => {
     }
 
     const liveObj = live.toObject();
-    stripPrivateLiveFields(liveObj);
+    removePrivateLiveFields(liveObj);
     liveObj.hasAccess = true;
     trackEvent(req.userId, "live_join").catch(() => {});
     trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -405,7 +405,7 @@ const updateLiveSettings = async (req, res) => {
     if (!live) return res.status(404).json({ message: "Directo no encontrado, ya finalizado, o sin permisos" });
 
     const liveObj = live.toObject();
-    stripPrivateLiveFields(liveObj);
+    removePrivateLiveFields(liveObj);
     delete liveObj.streamKey;
     res.json(liveObj);
   } catch (err) {
@@ -828,15 +828,15 @@ const moderateLiveUser = async (req, res) => {
       const alreadyBanned = live.bannedUsers.some((userId) => String(userId) === String(targetUser._id));
       if (!alreadyBanned) live.bannedUsers.push(targetUser._id);
     }
+    if (live.moderationActions.length >= MAX_LIVE_MODERATION_ACTIONS) {
+      live.moderationActions = live.moderationActions.slice(-(MAX_LIVE_MODERATION_ACTIONS - 1));
+    }
     live.moderationActions.push({
       moderator: req.userId,
       target: targetUser._id,
       action,
       reason: sanitizeLiveModerationReason(reason),
     });
-    if (live.moderationActions.length > MAX_LIVE_MODERATION_ACTIONS) {
-      live.moderationActions = live.moderationActions.slice(-MAX_LIVE_MODERATION_ACTIONS);
-    }
     await live.save();
 
     const payload = {

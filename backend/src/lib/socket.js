@@ -387,7 +387,6 @@ const initSocket = (httpServer) => {
         try {
           const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
           if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
-            socket.emit("LIVE_USER_MODERATED", { liveId, targetUserId: socket._userId, action: "ban" });
             return;
           }
         } catch (_) {
@@ -466,7 +465,6 @@ const initSocket = (httpServer) => {
 
       const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
       if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
-        socket.emit("LIVE_USER_MODERATED", { liveId, targetUserId: socket._userId, action: "ban" });
         return;
       }
 

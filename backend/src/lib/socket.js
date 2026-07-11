@@ -44,7 +44,7 @@ const getHandshakeToken = (socket) => {
 
 const authenticateSocket = async (socket, next) => {
   const token = getHandshakeToken(socket);
-  if (!token) return next(new Error("Authentication required"));
+  if (!token) return next();
   if (!process.env.JWT_SECRET) return next(new Error("Socket auth unavailable"));
 
   try {
@@ -407,7 +407,7 @@ const initSocket = (httpServer) => {
       // Notify others that a new viewer joined
       if (user && user.username) {
         const safeUser = {
-          username: String(user.username).slice(0, 100),
+          username: String(user.username).replace(/[<>]/g, "").slice(0, 100),
           ...(socket._userId ? { userId: socket._userId } : {}),
         };
         socket.to(roomKey).emit("USER_JOINED_LIVE", { user: safeUser, liveId });

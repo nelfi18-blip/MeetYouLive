@@ -610,7 +610,7 @@ export default function LiveRoomPage() {
         {
           id: ++msgCounterRef.current,
           user: "Sistema",
-          userId: null,
+          userId: user?.userId || null,
           displayName: name,
           text: `👋 ${name} se unió al directo`,
           system: true,

@@ -629,7 +629,9 @@ export default function LiveRoomPage() {
     };
 
     const onLiveUserModerated = ({ liveId: moderatedLiveId, targetUserId, action }) => {
-      if (moderatedLiveId !== id || !currentUserId || String(targetUserId) !== String(currentUserId)) return;
+      const isSameLive = moderatedLiveId === id;
+      const isCurrentUserTarget = currentUserId && String(targetUserId) === String(currentUserId);
+      if (!isSameLive || !isCurrentUserTarget) return;
       const message = action === "ban"
         ? "Has sido bloqueado de este directo por el creador."
         : "Has sido expulsado de este directo por el creador.";

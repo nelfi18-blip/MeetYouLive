@@ -18,10 +18,8 @@ const MAX_LIVE_MODERATION_ACTIONS = 200;
 
 function removePrivateLiveFields(liveObj) {
   if (!liveObj) return liveObj;
-  delete liveObj.paidViewers;
-  delete liveObj.bannedUsers;
-  delete liveObj.moderationActions;
-  return liveObj;
+  const { paidViewers, bannedUsers, moderationActions, ...safeLiveObj } = liveObj;
+  return safeLiveObj;
 }
 
 function sanitizeLiveModerationReason(reason) {
@@ -268,8 +266,7 @@ const getLiveById = async (req, res) => {
 
     const access = hasLiveAccess(live, req.userId);
     const vipAccess = await hasVipAccess(live, req.userId);
-    const liveObj = live.toObject();
-    removePrivateLiveFields(liveObj);
+    const liveObj = removePrivateLiveFields(live.toObject());
     
     // Remove role from user object
     if (liveObj.user && liveObj.user.role) {
@@ -311,8 +308,7 @@ const joinLive = async (req, res) => {
     }
 
     if (!live.isPrivate) {
-      const liveObj = live.toObject();
-      removePrivateLiveFields(liveObj);
+      const liveObj = removePrivateLiveFields(live.toObject());
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -321,16 +317,14 @@ const joinLive = async (req, res) => {
 
     const creatorId = live.user.toString();
     if (creatorId === req.userId.toString()) {
-      const liveObj = live.toObject();
-      removePrivateLiveFields(liveObj);
+      const liveObj = removePrivateLiveFields(live.toObject());
       liveObj.hasAccess = true;
       return res.json(liveObj);
     }
 
     // Check if already paid
     if (live.paidViewers.some((pv) => pv.toString() === req.userId.toString())) {
-      const liveObj = live.toObject();
-      removePrivateLiveFields(liveObj);
+      const liveObj = removePrivateLiveFields(live.toObject());
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -362,8 +356,7 @@ const joinLive = async (req, res) => {
       await User.findByIdAndUpdate(creatorId, { $inc: { earningsCoins: live.entryCost } });
     }
 
-    const liveObj = live.toObject();
-    removePrivateLiveFields(liveObj);
+    const liveObj = removePrivateLiveFields(live.toObject());
     liveObj.hasAccess = true;
     trackEvent(req.userId, "live_join").catch(() => {});
     trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
@@ -404,8 +397,7 @@ const updateLiveSettings = async (req, res) => {
     );
     if (!live) return res.status(404).json({ message: "Directo no encontrado, ya finalizado, o sin permisos" });
 
-    const liveObj = live.toObject();
-    removePrivateLiveFields(liveObj);
+    const liveObj = removePrivateLiveFields(live.toObject());
     delete liveObj.streamKey;
     res.json(liveObj);
   } catch (err) {
@@ -847,6 +839,7 @@ const moderateLiveUser = async (req, res) => {
     };
     const io = getIO();
     if (io) {
+      // Socket connections join a legacy raw userId room during authentication.
       io.to(String(targetUser._id)).emit("LIVE_USER_MODERATED", payload);
       io.to(`live:${live._id}`).emit("LIVE_USER_REMOVED", payload);
       // Reuse the existing guest event so guest/video panels clear removed participants.

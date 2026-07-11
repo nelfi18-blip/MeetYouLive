@@ -49,9 +49,9 @@ const TOP_FAN_PROXIMITY_THRESHOLD   = 0.7;    // 70% of 3rd fan's coins = "close
 const GIFT_ACTIVITY_WINDOW_MS       = 10000;  // window for counting unique gifters
 const BOOST_QUANTITY_THRESHOLD      = 10;     // qty >= this triggers a boost moment
 const BOOST_MEGA_THRESHOLD          = 50;     // qty >= this triggers "mega" subtext
-const MIN_AGORA_RENEWAL_DELAY_MS    = 15000;
+const MIN_AGORA_RENEWAL_DELAY_MS    = 10000;
 const DEFAULT_AGORA_TOKEN_TTL_SECONDS = 60;
-const AGORA_RENEWAL_BUFFER_SECONDS  = 20;
+const AGORA_RENEWAL_BUFFER_SECONDS  = 30;
 
 export default function LiveRoomPage() {
   const { id } = useParams();

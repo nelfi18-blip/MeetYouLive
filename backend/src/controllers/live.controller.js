@@ -823,12 +823,13 @@ const moderateLiveUser = async (req, res) => {
     }
 
     const normalizedReason = sanitizeLiveModerationReason(reason);
+    const normalizedReasonKey = normalizedReason.toLowerCase();
     const targetId = String(targetUser._id);
     const duplicateAction = live.moderationActions.some(
       (entry) =>
         String(entry.target) === targetId &&
         entry.action === action &&
-        (entry.reason || "") === normalizedReason
+        String(entry.reason || "").trim().toLowerCase() === normalizedReasonKey
     );
 
     live.guests = live.guests.filter((guest) => String(guest.userId) !== targetId);
@@ -845,9 +846,9 @@ const moderateLiveUser = async (req, res) => {
         action,
         reason: normalizedReason,
       });
-    }
-    if (live.moderationActions.length > MAX_LIVE_MODERATION_ACTIONS) {
-      live.moderationActions = live.moderationActions.slice(-MAX_LIVE_MODERATION_ACTIONS);
+      if (live.moderationActions.length > MAX_LIVE_MODERATION_ACTIONS) {
+        live.moderationActions = live.moderationActions.slice(-MAX_LIVE_MODERATION_ACTIONS);
+      }
     }
     await live.save();
 

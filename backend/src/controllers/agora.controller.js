@@ -27,7 +27,7 @@ const getToken = async (req, res) => {
   const { channelName, role: roleParam } = req.query;
 
   if (!channelName || !/^[a-f0-9]{24}$/i.test(String(channelName))) {
-    return res.status(400).json({ message: "channelName es requerido" });
+    return res.status(400).json({ message: "channelName es requerido y debe ser un ObjectId válido" });
   }
 
   try {

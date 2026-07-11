@@ -89,12 +89,15 @@ describe("getToken", () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ channelName: callId, expiresIn: 3600 }));
   });
 
-  test("unvalidated channel names do not receive Agora tokens", async () => {
-    const res = makeRes();
+  test.each(["free-form-channel", "", null, undefined, "507f1f77bcf86cd79943901z", "507f1f77bcf86cd79943901"])(
+    "unvalidated channelName %p does not receive Agora tokens",
+    async (channelName) => {
+      const res = makeRes();
 
-    await getToken({ query: { channelName: "free-form-channel" }, userId: viewerUserId }, res);
+      await getToken({ query: { channelName }, userId: viewerUserId }, res);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(RtcTokenBuilder.buildTokenWithUid).not.toHaveBeenCalled();
-  });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(RtcTokenBuilder.buildTokenWithUid).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -8,7 +8,27 @@ const { emitChatMessage } = require("../lib/socket.js");
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 // Query every legacy photo alias so serializer can promote the first real photo.
-const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role";
+const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role blockedUsers";
+
+const hasParticipantBlockedUser = (currentUserId, participant) => {
+  if (!participant?._id) return false;
+  const currentId = String(currentUserId);
+  const participantBlockedUsers = Array.isArray(participant.blockedUsers) ? participant.blockedUsers : [];
+  return participantBlockedUsers.some((id) => String(id) === currentId);
+};
+
+const getFirstOtherChatParticipant = (chat, currentUserId) =>
+  chat?.participants?.find((participant) => String(participant?._id) !== String(currentUserId));
+
+const hasChatBlock = (chat, currentUserId) => {
+  const currentParticipant = chat?.participants?.find((participant) => String(participant?._id) === String(currentUserId));
+  const otherParticipant = getFirstOtherChatParticipant(chat, currentUserId);
+  const currentBlockedUsers = Array.isArray(currentParticipant?.blockedUsers) ? currentParticipant.blockedUsers : [];
+  return (
+    hasParticipantBlockedUser(currentUserId, otherParticipant) ||
+    currentBlockedUsers.some((id) => String(id) === String(otherParticipant?._id))
+  );
+};
 
 const getChats = async (req, res) => {
   try {
@@ -24,7 +44,7 @@ const getChats = async (req, res) => {
       const hasStaffMember = chat.participants.some((p) => 
         p && typeof p === 'object' && p.role && STAFF_ROLES.includes(p.role)
       );
-      return !hasStaffMember;
+      return !hasStaffMember && !hasChatBlock(chat, req.userId);
     });
 
     const result = filteredChats.map((chat) => ({
@@ -48,6 +68,9 @@ const getChatById = async (req, res) => {
       participants: req.userId,
     }).populate("participants", CHAT_USER_FIELDS);
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
+    if (hasChatBlock(chat, req.userId)) {
+      return res.status(403).json({ message: "No puedes abrir esta conversación" });
+    }
     const payload = chat.toObject();
     payload.participants = payload.participants.map((participant) =>
       withSerializedUserPhotoFields(req, participant)
@@ -68,9 +91,20 @@ const createOrGetChat = async (req, res) => {
   }
   try {
     // Check if recipient is a staff member
-    const recipient = await User.findById(recipientId).select("role");
+    const [recipient, currentUser] = await Promise.all([
+      User.findById(recipientId).select("role blockedUsers"),
+      User.findById(req.userId).select("blockedUsers"),
+    ]);
     if (!recipient) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    const currentBlockedUsers = Array.isArray(currentUser?.blockedUsers) ? currentUser.blockedUsers : [];
+    const recipientBlockedUsers = Array.isArray(recipient.blockedUsers) ? recipient.blockedUsers : [];
+    if (
+      currentBlockedUsers.some((id) => String(id) === String(recipientId)) ||
+      recipientBlockedUsers.some((id) => String(id) === String(req.userId))
+    ) {
+      return res.status(403).json({ message: "No puedes iniciar un chat con este usuario" });
     }
     if (STAFF_ROLES.includes(recipient.role)) {
       return res.status(403).json({ message: "No puedes iniciar un chat con personal administrativo" });
@@ -104,8 +138,11 @@ const getMessages = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    });
+    }).populate("participants", "blockedUsers");
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
+    if (hasChatBlock(chat, req.userId)) {
+      return res.status(403).json({ message: "No puedes ver esta conversación" });
+    }
 
     const query = { chat: req.params.chatId };
     const afterMessageId = req.query.after || req.query.afterMessageId || req.query.lastMessageId;
@@ -142,8 +179,11 @@ const sendMessage = async (req, res) => {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
       participants: req.userId,
-    });
+    }).populate("participants", "blockedUsers");
     if (!chat) return res.status(404).json({ message: "Chat no encontrado" });
+    if (hasChatBlock(chat, req.userId)) {
+      return res.status(403).json({ message: "No puedes enviar mensajes a este usuario" });
+    }
 
     const message = await Message.create({
       chat: req.params.chatId,

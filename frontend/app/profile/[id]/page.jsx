@@ -13,6 +13,7 @@ import { getToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isPaidCreatorCallCandidate } from "@/lib/callRules";
+import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_DISPLAYED_INTERESTS = 8;
@@ -304,6 +305,10 @@ export default function PublicProfilePage() {
     }
   };
 
+  const handleBlocked = () => {
+    router.replace("/feed");
+  };
+
   return (
     <main className="public-profile-page">
       {loading && (
@@ -412,6 +417,11 @@ export default function PublicProfilePage() {
                 </button>
               ) : null}
             </div>
+            <ModerationActions
+              targetUserId={profileId}
+              targetName={displayName}
+              onBlocked={handleBlocked}
+            />
             {likeStatus && <p className="profile-like-status" aria-live="polite">{likeStatus}</p>}
 
             <Link href="/feed" className="profile-secondary-link">← {t("publicProfile.backToFeed")}</Link>

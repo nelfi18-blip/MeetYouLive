@@ -173,6 +173,8 @@ const getFeedDiagnosticUserSummary = (user = {}) => {
 
 const FEED_DIAGNOSTIC_USER_FIELDS =
   `name username email role ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent interestedIn discoveryPreferences maxDistanceKm discoveryScope onboardingComplete isBlocked isSuspended lastActiveAt createdAt`;
+const CURRENT_USER_FEED_FIELDS =
+  `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope blockedUsers`;
 const FEED_DIAGNOSTIC_DEFAULT_LIMIT = 200;
 const FEED_DIAGNOSTIC_MAX_LIMIT = 1000;
 const RECOMMENDED_PROFILES_BASE_MATCH = {
@@ -182,7 +184,7 @@ const RECOMMENDED_PROFILES_BASE_MATCH = {
   onboardingComplete: true,
 };
 
-const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch = {}) => {
+const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch = {}, currentUserId = null) => {
   const match = { ...RECOMMENDED_PROFILES_BASE_MATCH };
   if (excludedProfileIds.length) {
     match._id = { $nin: excludedProfileIds };
@@ -192,7 +194,11 @@ const buildRecommendedProfilesMatch = (excludedProfileIds = [], discoveryMatch =
   }
   return {
     ...match,
-    $and: [...(Array.isArray(match.$and) ? match.$and : []), FEED_PHOTO_CANDIDATE_MATCH],
+    $and: [
+      ...(Array.isArray(match.$and) ? match.$and : []),
+      ...(currentUserId ? [{ blockedUsers: { $ne: currentUserId } }] : []),
+      FEED_PHOTO_CANDIDATE_MATCH,
+    ],
   };
 };
 
@@ -373,7 +379,10 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
     ],
   };
   if (currentUserId) {
-    match._id = { $ne: currentUserId };
+    const blockedIds = currentUserProfile?.blockedUsers || [];
+    const excludedIds = [currentUserId, ...blockedIds].map(toObjectIdOrNull).filter(Boolean);
+    match._id = { $nin: excludedIds };
+    match.blockedUsers = { $ne: currentUserId };
   }
 
   const profiles = await User.find(match)
@@ -813,13 +822,9 @@ const getFeed = async (req, res) => {
         likedProfileIdsRaw.forEach(addExcludedProfileId);
       }
     }
-    const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    
     const currentUserProfilePromise = authenticatedUserId
       ? User.findById(authenticatedUserId)
-          .select(
-            `name ${FEED_PHOTO_FIELDS} gender birthdate location locationPoint locationLabel interests intent onboardingComplete role isBlocked isSuspended interestedIn discoveryPreferences maxDistanceKm discoveryScope`
-          )
+          .select(CURRENT_USER_FEED_FIELDS)
           .lean()
       : Promise.resolve(null);
 
@@ -844,6 +849,7 @@ const getFeed = async (req, res) => {
       if (Object.keys(compatibilityUpdates).length > 0) {
         User.updateOne({ _id: currentUserProfile._id }, { $set: compatibilityUpdates }).catch(() => {});
       }
+      (currentUserProfile.blockedUsers || []).forEach(addExcludedProfileId);
       const profileCompletion = getFeedProfileStatus(currentUserProfile);
       if (profileCompletion?.canAppearInFeed === true && currentUserProfile.onboardingComplete !== true) {
         currentUserProfile.onboardingComplete = true;
@@ -855,11 +861,13 @@ const getFeed = async (req, res) => {
     let locationMatch = null;
     let strictFeedError = null;
     let recommendedProfilesPrimary = [];
+    // Finalize after currentUserProfile loads so personal blocks are included.
+    const allExcludedProfileIds = Array.from(excludedProfileIdsById.values());
     try {
       discoveryMatch = buildDiscoveryMatch(currentUserProfile);
       locationMatch = buildDiscoveryLocationMatch(currentUserProfile);
       const combinedDiscoveryMatch = combineDiscoveryFilters(discoveryMatch, locationMatch);
-      const recommendedProfilesMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, combinedDiscoveryMatch);
+      const recommendedProfilesMatch = buildRecommendedProfilesMatch(allExcludedProfileIds, combinedDiscoveryMatch, authenticatedUserId);
       recommendedProfilesPrimary = await User.aggregate(
         buildRecommendedProfilesPipeline(
           recommendedProfilesMatch,
@@ -1233,6 +1241,7 @@ const getMatchProfiles = async (req, count, currentUserId, likedIds) => {
       $and: [
         {
           _id: { $nin: excludeIds },
+          blockedUsers: { $ne: currentUserId },
           role: "user", // Only regular users in match feed
           onboardingComplete: true,
           isBlocked: false,
@@ -1554,7 +1563,7 @@ const getFeedDiagnostics = async (req, res) => {
       likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)
     );
     const uniqueExcludedProfileIds = Array.from(excludedProfileIdsById.values());
-    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds);
+    const feedMatch = buildRecommendedProfilesMatch(uniqueExcludedProfileIds, {}, viewerId);
 
     const [totalUserCandidates, totalAfterServerFilters, returnedProfiles, diagnosticUsers, targetByQuery] =
       await Promise.all([

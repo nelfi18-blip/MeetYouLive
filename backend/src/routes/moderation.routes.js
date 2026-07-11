@@ -14,10 +14,13 @@ const moderationLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.post("/report", moderationLimiter, verifyToken, async (req, res) => {
+router.post("/report", verifyToken, moderationLimiter, async (req, res) => {
   const { targetType, targetId, reason } = req.body;
   if (!targetType || !targetId || !reason) {
     return res.status(400).json({ message: "targetType, targetId y reason son requeridos" });
+  }
+  if (targetType === "user" && String(targetId) === String(req.userId)) {
+    return res.status(400).json({ message: "No puedes reportarte a ti mismo" });
   }
   try {
     const report = await Report.create({
@@ -26,9 +29,29 @@ router.post("/report", moderationLimiter, verifyToken, async (req, res) => {
       targetId,
       reason,
     });
+
     res.status(201).json(report);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/users/:id/block", verifyToken, moderationLimiter, async (req, res) => {
+  const targetUserId = String(req.params.id || "");
+  if (!targetUserId || targetUserId === String(req.userId)) {
+    return res.status(400).json({ message: "Usuario inválido" });
+  }
+  try {
+    const targetUser = await User.findById(targetUserId).select("_id").lean();
+    if (!targetUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    await User.updateOne({ _id: req.userId }, { $addToSet: { blockedUsers: targetUser._id } });
+
+    return res.json({ ok: true, blockedUserId: String(targetUser._id) });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 });
 

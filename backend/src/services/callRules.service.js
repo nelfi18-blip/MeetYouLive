@@ -20,7 +20,28 @@ async function hasMutualMatch(userId, otherUserId) {
   return Boolean(iLiked && theyLiked);
 }
 
+async function hasUserBlockBetween(userId, otherUserId) {
+  const [me, other] = await Promise.all([
+    User.findById(userId).select("blockedUsers").lean(),
+    User.findById(otherUserId).select("blockedUsers").lean(),
+  ]);
+  const myBlocked = Array.isArray(me?.blockedUsers) ? me.blockedUsers : [];
+  const otherBlocked = Array.isArray(other?.blockedUsers) ? other.blockedUsers : [];
+  return (
+    myBlocked.some((id) => String(id) === String(otherUserId)) ||
+    otherBlocked.some((id) => String(id) === String(userId))
+  );
+}
+
+async function assertNotBlockedBetween(userId, otherUserId) {
+  if (!(await hasUserBlockBetween(userId, otherUserId))) return;
+  const err = new Error("No puedes interactuar con este usuario");
+  err.statusCode = 403;
+  throw err;
+}
+
 async function assertSocialCallAllowed(userId, recipientId) {
+  await assertNotBlockedBetween(userId, recipientId);
   if (await hasMutualMatch(userId, recipientId)) return;
   const err = new Error("Solo puedes llamar a tus matches");
   err.statusCode = 403;
@@ -64,6 +85,8 @@ module.exports = {
   PENDING_CALL_TIMEOUT_MS,
   normalizeCallType,
   hasMutualMatch,
+  hasUserBlockBetween,
+  assertNotBlockedBetween,
   assertSocialCallAllowed,
   assertPaidCreatorCallAllowed,
   isPendingCallExpired,

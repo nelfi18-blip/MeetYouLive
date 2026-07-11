@@ -270,7 +270,7 @@ describe("getFeed", () => {
     );
     expect(User.find.mock.calls[2][0]).toEqual(
       expect.objectContaining({
-        _id: { $ne: expect.any(Object) },
+        _id: { $nin: [expect.any(Object)] },
         role: { $in: ["user", "User"] },
         isBlocked: { $ne: true },
         isSuspended: { $ne: true },
@@ -363,7 +363,7 @@ describe("getFeed", () => {
     const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
     const fallbackMatch = User.find.mock.calls[2][0];
     expect(strictMatch._id.$nin.map(String)).toEqual([currentUserId]);
-    expect(String(fallbackMatch._id.$ne)).toBe(currentUserId);
+    expect(fallbackMatch._id.$nin.map(String)).toEqual([currentUserId]);
     expect(Like.distinct).not.toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -393,8 +393,38 @@ describe("getFeed", () => {
     await getFeed(makeReq(), res);
 
     const fallbackMatch = User.find.mock.calls[2][0];
-    expect(String(fallbackMatch._id.$ne)).toBe(currentUserId);
+    expect(fallbackMatch._id.$nin.map(String)).toEqual([currentUserId]);
     expect(fallbackMatch.isBlocked).toEqual({ $ne: true });
     expect(fallbackMatch.isSuspended).toEqual({ $ne: true });
+  });
+
+  test("strict feed excludes users blocked by either side", async () => {
+    const { getFeed, User, Live, Like } = setupController();
+    const blockedUserId = "507f1f77bcf86cd799439099";
+    const viewer = {
+      ...currentUser,
+      blockedUsers: [blockedUserId],
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(viewer));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+
+    const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
+    expect(strictMatch._id.$nin.map(String)).toEqual([currentUserId, blockedUserId]);
+    expect(strictMatch.$and).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ blockedUsers: { $ne: expect.any(Object) } }),
+      ])
+    );
   });
 });

@@ -23,6 +23,7 @@ import LivePressureHints from "@/components/LivePressureHints";
 import PaywallModal from "@/components/PaywallModal";
 import GiftOverlay from "@/components/GiftOverlay";
 import LiveEventFeed from "@/components/LiveEventFeed";
+import ModerationActions from "@/components/ModerationActions";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import socket, { configureSocketAuth } from "@/lib/socket";
@@ -1340,6 +1341,9 @@ export default function LiveRoomPage() {
       ? creatorNameRaw.trim()
       : "Creador";
   const creatorInitial = creatorName.charAt(0).toUpperCase() || "C";
+  const handleBlockedCreator = () => {
+    router.replace("/live");
+  };
   const recentGiftRarity = recentGift?.rarity || "common";
   const rarityStyle = RARITY_STYLES?.[recentGiftRarity] || {};
   let creatorStatusBadges = [];
@@ -1452,7 +1456,16 @@ export default function LiveRoomPage() {
             </div>
             <div className="chr-right">
               {!isCreator && live.user?._id && (
-                <FollowButton targetId={String(live.user._id)} token={token} />
+                <div className="creator-safety-actions">
+                  <FollowButton targetId={String(live.user._id)} token={token} />
+                  <ModerationActions
+                    targetUserId={String(live.user._id)}
+                    targetName={creatorName}
+                    authToken={token}
+                    onBlocked={handleBlockedCreator}
+                    compact
+                  />
+                </div>
               )}
               <Link href="/live" className="chr-back-btn" title="Volver a directos">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1701,7 +1714,16 @@ export default function LiveRoomPage() {
                   </span>
                 </div>
                 {!isCreator && live.user?._id && (
-                  <FollowButton targetId={String(live.user._id)} token={token} />
+                  <div className="creator-safety-actions inline">
+                    <FollowButton targetId={String(live.user._id)} token={token} />
+                    <ModerationActions
+                      targetUserId={String(live.user._id)}
+                      targetName={creatorName}
+                      authToken={token}
+                      onBlocked={handleBlockedCreator}
+                      compact
+                    />
+                  </div>
                 )}
               </div>
 
@@ -2850,6 +2872,16 @@ export default function LiveRoomPage() {
           padding: 0.08rem 0.4rem;
           align-self: center;
           flex-shrink: 0;
+        }
+        .creator-safety-actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0.5rem;
+        }
+        .creator-safety-actions.inline {
+          justify-content: flex-start;
           margin-left: auto;
         }
 

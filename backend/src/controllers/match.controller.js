@@ -11,6 +11,7 @@ const { getIO } = require("../lib/socket.js");
 const { queueEvent } = require("../services/push.service.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { hasUserBlockBetween } = require("../services/callRules.service.js");
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -97,6 +98,9 @@ exports.likeUser = async (req, res) => {
     const targetUser = await User.findById(userId).select("_id isBlocked isSuspended").lean();
     if (!targetUser || targetUser.isBlocked === true || targetUser.isSuspended === true) {
       return res.status(404).json({ success: false, message: "Usuario no disponible" });
+    }
+    if (await hasUserBlockBetween(req.userId, userId)) {
+      return res.status(403).json({ success: false, message: "No puedes hacer match con este usuario" });
     }
 
     // Upsert the like (idempotent) – standard like only
@@ -204,6 +208,10 @@ exports.superCrushUser = async (req, res) => {
 
   const session = await mongoose.startSession();
   try {
+    if (await hasUserBlockBetween(req.userId, userId)) {
+      return res.status(403).json({ message: "No puedes hacer match con este usuario" });
+    }
+
     let matchCreated = false;
     let matchChatId = null;
 
@@ -382,9 +390,10 @@ exports.superCrushUser = async (req, res) => {
 // ─── Get all mutual matches ───────────────────────────────────────────────────
 exports.getMatches = async (req, res) => {
   try {
-    const me = await User.findById(req.userId).select("interests intent");
+    const me = await User.findById(req.userId).select("interests intent blockedUsers");
     const myInterests = me?.interests || [];
     const myIntent = me?.intent || "";
+    const blockedIds = new Set((me?.blockedUsers || []).map((id) => String(id)));
 
     const myLikes = await Like.find({ from: req.userId }).select("to");
     const myLikedIds = myLikes.map((l) => String(l.to));
@@ -392,10 +401,16 @@ exports.getMatches = async (req, res) => {
     const mutualLikes = await Like.find({
       from: { $in: myLikedIds },
       to: req.userId,
-    }).populate("from", MATCH_USER_FIELDS);
+    }).populate("from", `${MATCH_USER_FIELDS} blockedUsers`);
 
-    const matches = mutualLikes.map((l) => {
+    const matches = mutualLikes.filter((l) => {
+      const user = l.from?.toObject ? l.from.toObject() : l.from;
+      const theirBlockedUsers = Array.isArray(user?.blockedUsers) ? user.blockedUsers : [];
+      return !blockedIds.has(String(user?._id)) &&
+        !theirBlockedUsers.some((id) => String(id) === String(req.userId));
+    }).map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
+      delete user.blockedUsers;
       const { compatibilityScore, sharedInterests } = calculateCompatibility(
         myInterests, myIntent, user.interests, user.intent
       );
@@ -412,6 +427,9 @@ exports.getMatches = async (req, res) => {
 exports.checkMatch = async (req, res) => {
   const { userId } = req.params;
   try {
+    if (await hasUserBlockBetween(req.userId, userId)) {
+      return res.json({ iLiked: false, theyLiked: false, match: false, blocked: true });
+    }
     const iLiked    = await Like.findOne({ from: req.userId, to: userId });
     const theyLiked = await Like.findOne({ from: userId, to: req.userId });
     res.json({ iLiked: !!iLiked, theyLiked: !!theyLiked, match: !!iLiked && !!theyLiked });

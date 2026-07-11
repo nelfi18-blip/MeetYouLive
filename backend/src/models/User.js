@@ -218,6 +218,7 @@ const userSchema = new mongoose.Schema(
     crushBoostUntil: { type: Date, default: null },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followersCount: { type: Number, default: 0, min: 0 },
     lastActiveAt: { type: Date, default: null },
     reactivation: {

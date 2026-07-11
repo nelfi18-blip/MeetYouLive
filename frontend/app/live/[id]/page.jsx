@@ -788,6 +788,25 @@ export default function LiveRoomPage() {
     let localAudio;
     let localVideo;
     let cancelled = false;
+    let tokenRenewalTimer = null;
+    const role = isCreatorCheck ? "publisher" : "subscriber";
+
+    const fetchAgoraToken = async () => {
+      const tokenRes = await fetch(
+        `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
+      return tokenRes.json();
+    };
+
+    const handleAgoraRenewalFailure = () => {
+      if (cancelled) return;
+      setAgoraError("No se pudo renovar el acceso al directo");
+      socket.emit("leave_live_room", { liveId: id });
+      agoraClientRef.current?.leave().catch(() => {});
+      setTimeout(() => router.replace("/live"), 1200);
+    };
 
     const joinAgora = async () => {
       try {
@@ -795,17 +814,30 @@ export default function LiveRoomPage() {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
 
-        const role = isCreatorCheck ? "publisher" : "subscriber";
-        const tokenRes = await fetch(
-          `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
-        const { token: agoraToken, uid } = await tokenRes.json();
+        const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
+        function scheduleAgoraTokenRenewal(ttlSeconds) {
+          if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+          const delayMs = Math.max(15000, ((Number(ttlSeconds) || 60) - 20) * 1000);
+          tokenRenewalTimer = setTimeout(() => {
+            renewAgoraToken().catch(handleAgoraRenewalFailure);
+          }, delayMs);
+        }
+        async function renewAgoraToken() {
+          const { token: renewedToken, expiresIn: renewedExpiresIn } = await fetchAgoraToken();
+          if (cancelled || !agoraClientRef.current) return;
+          await agoraClientRef.current.renewToken(renewedToken);
+          scheduleAgoraTokenRenewal(renewedExpiresIn);
+        }
+        client.on("token-privilege-will-expire", () => {
+          renewAgoraToken().catch(handleAgoraRenewalFailure);
+        });
+        client.on("token-privilege-did-expire", () => {
+          renewAgoraToken().catch(handleAgoraRenewalFailure);
+        });
 
         if (isCreatorCheck) {
           await client.setClientRole("host");
@@ -872,6 +904,7 @@ export default function LiveRoomPage() {
 
         if (!cancelled) {
           setAgoraJoined(true);
+          scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
         }
       } catch (err) {
@@ -889,6 +922,7 @@ export default function LiveRoomPage() {
 
     return () => {
       cancelled = true;
+      if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;

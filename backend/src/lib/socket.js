@@ -251,6 +251,12 @@ const hasLiveHost = (liveId) => {
   return !!(hosts && hosts.size > 0);
 };
 
+const canJoinLiveRoom = async (liveId, userId) => {
+  if (!isObjectId(liveId) || !isObjectId(userId)) return false;
+  const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
+  return !!live && !(live.bannedUsers || []).some((bannedUserId) => String(bannedUserId) === String(userId));
+};
+
 const removeHostFromLive = (socketId, liveId) => {
   if (!liveId) return;
   const hosts = liveHosts.get(liveId);
@@ -270,6 +276,44 @@ const clearHostForLive = (socket, liveId) => {
   if (!liveId) return;
   removeHostFromLive(socket.id, liveId);
   if (socket._liveHostRoomId === liveId) socket._liveHostRoomId = null;
+};
+
+const removeViewerFromLive = (socketId, liveId) => {
+  if (!socketId || !liveId) return;
+  const viewers = liveViewers.get(liveId);
+  if (!viewers) return;
+  viewers.delete(socketId);
+  if (viewers.size === 0) liveViewers.delete(liveId);
+};
+
+const removeLiveUserFromRoom = async (liveId, targetUserId, payload = {}) => {
+  if (!io || !isObjectId(liveId) || !isObjectId(targetUserId)) return 0;
+
+  const roomKey = `live:${liveId}`;
+  const sockets = await io.in(roomKey).fetchSockets();
+  let removed = 0;
+
+  for (const roomSocket of sockets) {
+    const roomUserId = roomSocket.data?.userId || roomSocket._userId;
+    if (String(roomUserId) !== String(targetUserId)) continue;
+
+    roomSocket.leave(roomKey);
+    if (typeof roomSocket.emit === "function") {
+      roomSocket.emit("LIVE_USER_MODERATED", payload);
+    }
+    removeViewerFromLive(roomSocket.id, String(liveId));
+    clearHostForLive(roomSocket, String(liveId));
+    removed += 1;
+  }
+
+  if (removed > 0) {
+    io.to(roomKey).emit("VIEWER_COUNT_UPDATE", {
+      liveId: String(liveId),
+      count: getLiveViewerCount(String(liveId)),
+    });
+  }
+
+  return removed;
 };
 
 /**
@@ -385,10 +429,8 @@ const initSocket = (httpServer) => {
       if (!liveId || typeof liveId !== "string" || !OBJECT_ID_RE.test(liveId)) return;
       if (!socket._userId) return;
       try {
-        const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
-        if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
-          return;
-        }
+        const allowed = await canJoinLiveRoom(liveId, socket._userId);
+        if (!allowed) return;
       } catch (_) {
         return;
       }
@@ -462,10 +504,8 @@ const initSocket = (httpServer) => {
       const safeText = String(text).trim().slice(0, 200);
       if (!safeText) return;
 
-      const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
-      if (!live || (live.bannedUsers || []).some((userId) => String(userId) === socket._userId)) {
-        return;
-      }
+      const allowed = await canJoinLiveRoom(liveId, socket._userId);
+      if (!allowed) return;
 
       // Resolve VIP status from the authenticated user record (not from client payload)
       let isVIP = false;
@@ -729,6 +769,8 @@ module.exports = {
   getIO, 
   getOnlineUsers, 
   hasLiveHost, 
+  canJoinLiveRoom,
+  removeLiveUserFromRoom,
   getLiveEvent, 
   setLiveEvent, 
   clearLiveEvent,

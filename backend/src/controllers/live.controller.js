@@ -4,7 +4,15 @@ const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
-const { getIO, hasLiveHost, getLiveEvent, setLiveEvent, clearLiveEvent, clearAllEventsForLive } = require("../lib/socket.js");
+const {
+  getIO,
+  hasLiveHost,
+  getLiveEvent,
+  setLiveEvent,
+  clearLiveEvent,
+  clearAllEventsForLive,
+  removeLiveUserFromRoom,
+} = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
@@ -814,19 +822,30 @@ const moderateLiveUser = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    live.guests = live.guests.filter((guest) => String(guest.userId) !== String(targetUser._id));
-    live.guestRequests = live.guestRequests.filter((request) => String(request.userId) !== String(targetUser._id));
+    const normalizedReason = sanitizeLiveModerationReason(reason);
+    const targetId = String(targetUser._id);
+    const duplicateAction = live.moderationActions.some(
+      (entry) =>
+        String(entry.target) === targetId &&
+        entry.action === action &&
+        (entry.reason || "") === normalizedReason
+    );
+
+    live.guests = live.guests.filter((guest) => String(guest.userId) !== targetId);
+    live.guestRequests = live.guestRequests.filter((request) => String(request.userId) !== targetId);
     if (action === "ban") {
       const bannedUserIds = new Set(live.bannedUsers.map((userId) => String(userId)));
-      bannedUserIds.add(String(targetUser._id));
+      bannedUserIds.add(targetId);
       live.bannedUsers = Array.from(bannedUserIds);
     }
-    live.moderationActions.push({
-      moderator: req.userId,
-      target: targetUser._id,
-      action,
-      reason: sanitizeLiveModerationReason(reason),
-    });
+    if (!duplicateAction) {
+      live.moderationActions.push({
+        moderator: req.userId,
+        target: targetUser._id,
+        action,
+        reason: normalizedReason,
+      });
+    }
     if (live.moderationActions.length > MAX_LIVE_MODERATION_ACTIONS) {
       live.moderationActions = live.moderationActions.slice(-MAX_LIVE_MODERATION_ACTIONS);
     }
@@ -837,6 +856,7 @@ const moderateLiveUser = async (req, res) => {
       targetUserId: String(targetUser._id),
       action,
     };
+    await removeLiveUserFromRoom(String(live._id), String(targetUser._id), payload);
     const io = getIO();
     if (io) {
       // initSocket() joins authenticated users to their raw userId room for existing notification emitters.

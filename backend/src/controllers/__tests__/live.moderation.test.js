@@ -1,11 +1,12 @@
 const { moderateLiveUser } = require("../live.controller.js");
 const Live = require("../../models/Live.js");
 const User = require("../../models/User.js");
-const { getIO } = require("../../lib/socket.js");
+const { getIO, removeLiveUserFromRoom } = require("../../lib/socket.js");
 
 const hostUserId = "507f1f77bcf86cd799439011";
 const targetUserId = "507f1f77bcf86cd799439012";
 const liveId = "507f1f77bcf86cd799439013";
+const normalUserId = "507f1f77bcf86cd799439014";
 
 jest.mock("../../models/Live.js", () => ({
   findOne: jest.fn(),
@@ -33,6 +34,7 @@ const io = {
 
 jest.mock("../../lib/socket.js", () => ({
   getIO: jest.fn(),
+  removeLiveUserFromRoom: jest.fn(),
   hasLiveHost: jest.fn(),
   getLiveEvent: jest.fn(),
   setLiveEvent: jest.fn(),
@@ -74,6 +76,7 @@ describe("moderateLiveUser", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getIO.mockReturnValue(io);
+    removeLiveUserFromRoom.mockResolvedValue(1);
     mockTargetUser();
   });
 
@@ -91,6 +94,11 @@ describe("moderateLiveUser", () => {
     expect(live.moderationActions).toHaveLength(1);
     expect(live.moderationActions[0]).toMatchObject({ moderator: hostUserId, target: targetUserId, action: "kick" });
     expect(live.save).toHaveBeenCalled();
+    expect(removeLiveUserFromRoom).toHaveBeenCalledWith(
+      liveId,
+      targetUserId,
+      expect.objectContaining({ liveId, targetUserId, action: "kick" })
+    );
     expect(io.to).toHaveBeenCalledWith(targetUserId);
     expect(io.emit).toHaveBeenCalledWith("LIVE_USER_MODERATED", expect.objectContaining({ action: "kick" }));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, action: "kick" }));
@@ -106,6 +114,56 @@ describe("moderateLiveUser", () => {
 
     expect(live.bannedUsers.map(String)).toEqual([targetUserId]);
     expect(live.moderationActions[0]).toMatchObject({ action: "ban", reason: "spam" });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, action: "ban" }));
+  });
+
+  test("rejects moderation from non-host users without emitting events", async () => {
+    Live.findOne.mockResolvedValue(null);
+    const req = { params: { id: liveId, action: "kick" }, body: { targetUserId }, userId: normalUserId };
+    const res = makeRes();
+
+    await moderateLiveUser(req, res);
+
+    expect(Live.findOne).toHaveBeenCalledWith({ _id: liveId, user: normalUserId, isLive: true });
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(removeLiveUserFromRoom).not.toHaveBeenCalled();
+    expect(io.emit).not.toHaveBeenCalled();
+  });
+
+  test("keeps kick and ban scoped to the requested live only", async () => {
+    const live = makeLive();
+    Live.findOne.mockResolvedValue(live);
+    const req = {
+      params: { id: liveId, action: "ban" },
+      body: { targetUserId, liveId: "507f1f77bcf86cd799439099", channelName: "other-channel" },
+      userId: hostUserId,
+    };
+    const res = makeRes();
+
+    await moderateLiveUser(req, res);
+
+    expect(Live.findOne).toHaveBeenCalledWith({ _id: liveId, user: hostUserId, isLive: true });
+    expect(removeLiveUserFromRoom).toHaveBeenCalledWith(
+      liveId,
+      targetUserId,
+      expect.objectContaining({ liveId, targetUserId, action: "ban" })
+    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ liveId, targetUserId, action: "ban" }));
+  });
+
+  test("duplicate moderation requests are idempotent", async () => {
+    const live = makeLive({
+      bannedUsers: [targetUserId],
+      moderationActions: [{ moderator: hostUserId, target: targetUserId, action: "ban", reason: "spam" }],
+    });
+    Live.findOne.mockResolvedValue(live);
+    const req = { params: { id: liveId, action: "ban" }, body: { targetUserId, reason: "spam" }, userId: hostUserId };
+    const res = makeRes();
+
+    await moderateLiveUser(req, res);
+
+    expect(live.bannedUsers.map(String)).toEqual([targetUserId]);
+    expect(live.moderationActions).toHaveLength(1);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, action: "ban" }));
   });
 

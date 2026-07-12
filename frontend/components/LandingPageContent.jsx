@@ -39,7 +39,7 @@ export default function LandingPage() {
         callbackUrl: "/dashboard",
       });
     } catch {
-      setAuthError("No pudimos iniciar sesión con Google. Inténtalo de nuevo.");
+      setAuthError("No pudimos completar el inicio de sesión. Inténtalo de nuevo.");
     }
   };
 
@@ -90,7 +90,7 @@ export default function LandingPage() {
 
           <aside className="hero-card" aria-labelledby="hero-card-title">
             <div className="live-pill">● En vivo</div>
-            <h2 id="hero-card-title">Todo claro desde el primer minuto</h2>
+            <h2 id="hero-card-title">Todo claro desde el inicio</h2>
             <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
             <div className="stats-grid">
               <span>Match</span>
@@ -269,7 +269,7 @@ export default function LandingPage() {
         }
         .auth-error {
           margin: 0;
-          color: #fecdd3;
+          color: var(--error);
           font-size: 0.9rem;
           font-weight: 800;
           text-align: center;
@@ -404,7 +404,7 @@ export default function LandingPage() {
         }
         .feature-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 1rem;
           margin-top: 0.5rem;
         }

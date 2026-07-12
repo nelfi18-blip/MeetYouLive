@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { useState } from "react";
 import Logo from "@/components/Logo";
 
 const ADVANTAGES = [
-  "Registro gratis.",
-  "Inicio rápido con Google.",
-  "Pagos seguros con Stripe.",
-  "Comunidad moderada.",
-  "Plataforma segura.",
+  { id: "free-registration", text: "Registro gratis." },
+  { id: "google-start", text: "Inicio rápido con Google." },
+  { id: "stripe-payments", text: "Pagos seguros con Stripe." },
+  { id: "moderated-community", text: "Comunidad moderada." },
+  { id: "safe-platform", text: "Plataforma segura." },
 ];
 
 const STEPS = [
@@ -28,10 +29,18 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
-  const handleGoogleSignIn = () => {
-    signIn("google", {
-      callbackUrl: "/dashboard",
-    });
+  const [authError, setAuthError] = useState("");
+
+  const handleGoogleSignIn = async () => {
+    setAuthError("");
+
+    try {
+      await signIn("google", {
+        callbackUrl: "/dashboard",
+      });
+    } catch {
+      setAuthError("No pudimos iniciar sesión con Google. Inténtalo de nuevo.");
+    }
   };
 
   return (
@@ -64,6 +73,7 @@ export default function LandingPage() {
               <Link href="/register" className="email-link">
                 Crear cuenta con correo electrónico
               </Link>
+              {authError && <p className="auth-error">{authError}</p>}
               <div className="login-prompt">
                 <span>¿Ya tienes una cuenta?</span>
                 <Link href="/login">
@@ -73,14 +83,14 @@ export default function LandingPage() {
             </div>
             <ul className="advantage-list">
               {ADVANTAGES.map((advantage) => (
-                <li key={advantage}>{advantage}</li>
+                <li key={advantage.id}>{advantage.text}</li>
               ))}
             </ul>
           </div>
 
-          <div className="hero-card">
+          <aside className="hero-card" aria-labelledby="hero-card-title">
             <div className="live-pill">● En vivo</div>
-            <h2>Todo claro desde el primer minuto</h2>
+            <h2 id="hero-card-title">Todo claro desde el primer minuto</h2>
             <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
             <div className="stats-grid">
               <span>Match</span>
@@ -88,7 +98,7 @@ export default function LandingPage() {
               <span>Lives</span>
               <span>Coins</span>
             </div>
-          </div>
+          </aside>
         </div>
       </section>
 
@@ -110,8 +120,8 @@ export default function LandingPage() {
         <h2 id="features-title">Una plataforma simple, rápida y segura para empezar hoy.</h2>
         <div className="feature-grid">
           {ADVANTAGES.map((advantage) => (
-            <article key={advantage} className="feature-card">
-              <h3>{advantage}</h3>
+            <article key={advantage.id} className="feature-card">
+              <h3>{advantage.text}</h3>
             </article>
           ))}
         </div>
@@ -246,14 +256,23 @@ export default function LandingPage() {
           color: var(--accent-cyan);
           font-weight: 900;
           text-align: center;
+          text-decoration: underline;
+          text-underline-offset: 0.18em;
         }
         .email-link {
-          min-height: 48px;
+          min-height: 52px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-pill);
           background: rgba(34,211,238,0.09);
+        }
+        .auth-error {
+          margin: 0;
+          color: #fecdd3;
+          font-size: 0.9rem;
+          font-weight: 800;
+          text-align: center;
         }
         .login-prompt {
           display: grid;

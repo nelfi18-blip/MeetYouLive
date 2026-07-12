@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
 import Logo from "@/components/Logo";
 
 const ADVANTAGES = [
@@ -29,19 +28,10 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
-  const [authError, setAuthError] = useState("");
-
-  const handleGoogleSignIn = async () => {
-    setAuthError("");
-
-    try {
-      await signIn("google", {
-        callbackUrl: "/dashboard",
-      });
-    } catch (error) {
-      console.error("Google sign-in error:", error);
-      setAuthError("No pudimos completar el inicio de sesión. Inténtalo de nuevo.");
-    }
+  const handleGoogleSignIn = () => {
+    signIn("google", {
+      callbackUrl: "/dashboard",
+    });
   };
 
   return (
@@ -74,7 +64,6 @@ export default function LandingPage() {
               <Link href="/register" className="email-link">
                 Crear cuenta con correo electrónico
               </Link>
-              {authError && <p className="auth-error">{authError}</p>}
               <div className="login-prompt">
                 <span>¿Ya tienes una cuenta?</span>
                 <Link href="/login" className="login-link">
@@ -116,18 +105,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="features" aria-labelledby="features-title">
-        <p className="eyebrow">Ventajas para nuevos usuarios</p>
-        <h2 id="features-title">Una plataforma simple, rápida y segura para empezar hoy.</h2>
-        <div className="feature-grid">
-          {ADVANTAGES.map((advantage) => (
-            <article key={advantage.id} className="feature-card">
-              <h3>{advantage.text}</h3>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="trust-panel">
         <div>
           <p className="eyebrow">Operador</p>
@@ -137,14 +114,9 @@ export default function LandingPage() {
             proveedores de pago.
           </p>
         </div>
-        <div className="trust-actions">
-          <button type="button" className="primary-button large" onClick={handleGoogleSignIn}>
-            Continuar con Google
-          </button>
-          <Link href="/login" className="ghost-button large">
-            Iniciar sesión
-          </Link>
-        </div>
+        <Link href="/contact" className="ghost-button large">
+          Contacto y soporte
+        </Link>
       </section>
 
       <style jsx>{`
@@ -172,8 +144,7 @@ export default function LandingPage() {
           gap: 1rem;
           margin-bottom: clamp(2rem, 6vw, 4.5rem);
         }
-        .nav-actions,
-        .trust-actions {
+        .nav-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 0.8rem;
@@ -268,13 +239,6 @@ export default function LandingPage() {
           border-radius: var(--radius-pill);
           background: rgba(34,211,238,0.09);
         }
-        .auth-error {
-          margin: 0;
-          color: var(--error);
-          font-size: 0.9rem;
-          font-weight: 800;
-          text-align: center;
-        }
         .login-prompt {
           display: grid;
           gap: 0.25rem;
@@ -306,7 +270,6 @@ export default function LandingPage() {
         }
         .hero-card,
         .step-card,
-        .feature-card,
         .trust-panel {
           border: 1px solid var(--border);
           background: var(--grad-card);
@@ -368,12 +331,10 @@ export default function LandingPage() {
           font-weight: 800;
           background: rgba(255,255,255,0.05);
         }
-        .features,
         .how-it-works {
           display: grid;
           gap: 1rem;
         }
-        .features h2,
         .how-it-works h2,
         .trust-panel h2 {
           margin: 0;
@@ -403,20 +364,6 @@ export default function LandingPage() {
           font-size: 1.05rem;
           line-height: 1.65;
         }
-        .feature-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 1rem;
-          margin-top: 0.5rem;
-        }
-        .feature-card {
-          border-radius: 22px;
-          padding: 1.15rem;
-        }
-        .feature-card h3 {
-          margin: 0;
-          font-size: 1.05rem;
-        }
         .trust-panel p {
           margin: 0;
           line-height: 1.65;
@@ -438,9 +385,6 @@ export default function LandingPage() {
           .hero-grid {
             display: grid;
           }
-          .feature-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
           .trust-panel {
             align-items: flex-start;
             flex-direction: column;
@@ -454,8 +398,7 @@ export default function LandingPage() {
             align-items: flex-start;
             flex-direction: column;
           }
-          .nav-actions,
-          .trust-actions {
+          .nav-actions {
             width: 100%;
           }
           .primary-button,
@@ -471,9 +414,6 @@ export default function LandingPage() {
           }
           .hero-card {
             min-height: 300px;
-          }
-          .feature-grid {
-            grid-template-columns: 1fr;
           }
         }
       `}</style>

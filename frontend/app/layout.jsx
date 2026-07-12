@@ -8,6 +8,7 @@ import FloatingGoLiveButton from "../components/FloatingGoLiveButton";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import OfflineIndicator from "../components/OfflineIndicator";
 import InstallPrompt from "../components/InstallPrompt";
+import PublicFooterWrapper from "../components/PublicFooterWrapper";
 import { CANONICAL_SITE_URL, canonicalUrl } from "@/lib/site";
 
 export const metadata = {
@@ -158,6 +159,7 @@ export default function RootLayout({ children }) {
           <MainContentWrapper>
             {children}
           </MainContentWrapper>
+          <PublicFooterWrapper />
           <BottomNavWrapper />
           <IncomingCallNotification />
           <FloatingGoLiveButton />

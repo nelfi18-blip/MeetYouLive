@@ -25,10 +25,10 @@ export default function PublicFooterWrapper() {
   if (!pathname || !PUBLIC_FOOTER_ROUTES.has(pathname)) return null;
 
   return (
-    <footer className="public-footer" aria-label="Enlaces públicos">
+    <footer className="public-footer" aria-label="Public links">
       <div className="public-footer-inner">
         <strong>MeetYouLive</strong>
-        <nav aria-label="Legal y soporte">
+        <nav aria-label="Legal and support">
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Service</Link>
           <Link href="/refund">Refund Policy</Link>

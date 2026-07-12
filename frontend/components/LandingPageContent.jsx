@@ -76,7 +76,7 @@ export default function LandingPage() {
               {authError && <p className="auth-error">{authError}</p>}
               <div className="login-prompt">
                 <span>¿Ya tienes una cuenta?</span>
-                <Link href="/login">
+                <Link href="/login" className="login-link">
                   Iniciar sesión
                 </Link>
               </div>
@@ -252,7 +252,7 @@ export default function LandingPage() {
           font-size: 1.05rem;
         }
         .email-link,
-        .login-prompt :global(a) {
+        .login-link {
           color: var(--accent-cyan);
           font-weight: 900;
           text-align: center;

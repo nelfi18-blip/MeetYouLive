@@ -30,7 +30,7 @@ const STEPS = [
 export default function LandingPage() {
   const handleGoogleSignIn = () => {
     signIn("google", {
-      callbackUrl: `/login?callbackUrl=${encodeURIComponent("/dashboard")}`,
+      callbackUrl: "/dashboard",
     });
   };
 
@@ -57,7 +57,7 @@ export default function LandingPage() {
               Empieza gratis en menos de un minuto. Conoce personas, transmite en vivo, realiza videollamadas y
               apoya a tus creadores favoritos.
             </p>
-            <div className="signup-card" aria-label="Comienza en MeetYouLive">
+            <div className="signup-card">
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
                 Continuar con Google
               </button>
@@ -71,14 +71,14 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
-            <ul className="advantage-list" aria-label="Ventajas de MeetYouLive">
+            <ul className="advantage-list">
               {ADVANTAGES.map((advantage) => (
                 <li key={advantage}>{advantage}</li>
               ))}
             </ul>
           </div>
 
-          <div className="hero-card" aria-label="Resumen de servicios de MeetYouLive">
+          <div className="hero-card">
             <div className="live-pill">● En vivo</div>
             <h2>Todo claro desde el primer minuto</h2>
             <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
@@ -385,7 +385,7 @@ export default function LandingPage() {
         }
         .feature-grid {
           display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
           gap: 1rem;
           margin-top: 0.5rem;
         }

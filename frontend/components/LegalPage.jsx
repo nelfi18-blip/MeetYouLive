@@ -36,7 +36,7 @@ export default function LegalPage({ policyKey }) {
 
         <footer className="legal-footer">
           <LegalLinks compact />
-          <Link href="/login" className="app-link">{t("legal.backToApp")}</Link>
+          <Link href="/" className="app-link">{t("legal.backToApp")}</Link>
         </footer>
       </div>
 

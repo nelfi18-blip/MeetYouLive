@@ -794,52 +794,64 @@
         ]
       },
       "paymentsRefunds": {
-        "shortTitle": "Payments",
-        "title": "Payments & Refund Policy",
-        "description": "Payments, coins, gifts, subscriptions, Stripe, Stripe Connect, purchases, payouts and refunds.",
-        "lastUpdated": "July 9, 2026",
+        "shortTitle": "Refunds",
+        "title": "Refund Policy",
+        "description": "Refund rules for coins, Premium purchases, virtual gifts, eligible cases, non-refundable cases, request timing and contact procedure.",
+        "lastUpdated": "July 12, 2026",
         "sections": [
           {
-            "heading": "1. Payment processing",
+            "heading": "1. Policy scope",
             "body": [
-              "Purchases may be processed by Stripe, Stripe Connect or other authorized providers. Prices, taxes, currencies and available payment methods may vary by country and device.",
-              "MeetYouLive is operated by MEETYOULIVE TECHNOLOGIES LLC. The official MeetYouLive site is https://meetyoulive.net, and references to \"we,\" \"us\" or \"our\" mean that legal entity as operator of the MeetYouLive platform."
+              "This policy explains how MeetYouLive reviews refund requests for coins, Premium purchases, virtual gifts and other digital services offered by MEETYOULIVE TECHNOLOGIES LLC.",
+              "Purchases may be processed by Stripe, Stripe Connect or another authorized payment provider. Available prices, taxes, currencies and payment methods may vary by country and device."
             ]
           },
           {
-            "heading": "2. Coins, gifts and digital items",
+            "heading": "2. Coins purchases",
             "body": [
-              "Coins, gifts, Sparks and digital benefits are consumed inside MeetYouLive. They are not money, do not earn interest, are not transferable outside the platform and are normally non-refundable once delivered or used."
+              "Coins are a digital balance used inside MeetYouLive. Coins are not money, do not earn interest, cannot be transferred outside the platform and are generally non-refundable after they are credited or used.",
+              "If a coins purchase was charged but not credited, or if a duplicate charge occurred, contact support so we can review the transaction."
             ]
           },
           {
-            "heading": "3. Subscriptions and purchases",
+            "heading": "3. Premium purchases and subscriptions",
             "body": [
-              "Subscriptions renew under the terms shown at purchase. Cancellation and refund requests are handled through the MeetYouLive account flows, support or the payment provider when applicable."
+              "Premium features, subscriptions and passes are governed by the terms shown at checkout. Cancellation stops future renewal where applicable but does not automatically refund prior access already delivered.",
+              "A refund may be considered if Premium access was not activated because of a verifiable technical error or if a duplicate charge occurred."
             ]
           },
           {
-            "heading": "4. Refunds",
+            "heading": "4. Virtual gifts and creator interactions",
             "body": [
-              "We may consider refunds for duplicate charges, verified technical errors, missing credits or timely reported unauthorized use. Coins or gifts already consumed are not refundable unless required by law."
+              "Virtual gifts, Sparks and similar digital items are delivered instantly to support creators or enhance live, chat and video experiences. Gifts already sent, delivered or consumed are normally final and non-refundable.",
+              "Creator payouts may be reviewed separately under platform rules, anti-fraud checks and payment provider requirements."
             ]
           },
           {
-            "heading": "5. Chargebacks and disputes",
+            "heading": "5. Cases where a refund may apply",
             "body": [
-              "If you initiate a chargeback without contacting support, we may suspend features, coins, gifts, the account or payouts until the dispute is resolved. Payment fraud may result in permanent closure."
+              "We may approve a refund for duplicate charges, an accidental duplicate purchase, a verifiable technical error, a purchase not credited to the account, unauthorized use reported promptly, or any case where applicable law requires a refund.",
+              "We may request account email, username, payment date, amount, transaction identifier and a description of the issue before making a decision."
             ]
           },
           {
-            "heading": "6. Creator payouts",
+            "heading": "6. Cases where a refund does not apply",
             "body": [
-              "Creator payouts are subject to eligible balance, anti-fraud review, identity, taxes, platform rules, Stripe Connect and possible holds for disputes, reports or violations."
+              "Refunds generally do not apply to coins already spent, virtual gifts already sent, Premium access already used, dissatisfaction after receiving the purchased service, violations of platform rules, fraudulent activity, or chargebacks opened without first contacting support.",
+              "We may suspend access to coins, gifts, accounts or payouts while a payment dispute, fraud review or chargeback is pending."
             ]
           },
           {
-            "heading": "7. Requests",
+            "heading": "7. Request window",
             "body": [
-              "For questions or requests, use the in-platform contact or support flows and include username, account email, date, amount, transaction identifier and reason when applicable."
+              "Refund requests should be submitted within 14 days of the charge or as soon as possible after discovering the issue. Requests submitted after that period may be denied unless required by law or supported by exceptional circumstances."
+            ]
+          },
+          {
+            "heading": "8. Contact procedure",
+            "body": [
+              "To request a refund, email support@meetyoulive.net or use the available support/contact flow. Include your account email, username, payment date, amount, transaction ID and the reason for the request.",
+              "Support is available Monday to Friday, 9:00 AM – 6:00 PM (ET). We review requests in good faith and may process approved refunds through the original payment method when possible."
             ]
           }
         ]

@@ -794,52 +794,64 @@
         ]
       },
       "paymentsRefunds": {
-        "shortTitle": "Pagamentos",
-        "title": "Política de Pagamentos e Reembolsos",
-        "description": "Pagamentos, coins, presentes, assinaturas, Stripe, Stripe Connect, compras, payouts e reembolsos.",
-        "lastUpdated": "9 de julho de 2026",
+        "shortTitle": "Reembolsos",
+        "title": "Política de Reembolsos",
+        "description": "Regras de reembolso para coins, compras Premium, presentes virtuais, casos elegíveis, casos não reembolsáveis, prazos e contato.",
+        "lastUpdated": "12 de julho de 2026",
         "sections": [
           {
-            "heading": "1. Processamento de pagamentos",
+            "heading": "1. Escopo da política",
             "body": [
-              "Compras podem ser processadas por Stripe, Stripe Connect ou outros provedores autorizados. Preços, impostos, moedas e métodos disponíveis podem variar por país e dispositivo.",
-              "O MeetYouLive é operado pela MEETYOULIVE TECHNOLOGIES LLC. O site oficial do MeetYouLive é https://meetyoulive.net, e referências a \"nós\" ou \"nosso\" significam essa entidade legal como operadora da plataforma MeetYouLive."
+              "Esta política explica como o MeetYouLive analisa solicitações de reembolso para coins, compras Premium, presentes virtuais e outros serviços digitais oferecidos pela MEETYOULIVE TECHNOLOGIES LLC.",
+              "As compras podem ser processadas pela Stripe, Stripe Connect ou outro provedor autorizado. Preços, impostos, moedas e métodos disponíveis podem variar por país e dispositivo."
             ]
           },
           {
-            "heading": "2. Coins, presentes e bens digitais",
+            "heading": "2. Compras de Coins",
             "body": [
-              "Coins, presentes, Sparks e benefícios digitais são consumidos dentro do MeetYouLive. Não são dinheiro, não rendem juros, não são transferíveis fora da plataforma e normalmente não são reembolsáveis depois de entregues ou usados."
+              "Coins são um saldo digital usado dentro do MeetYouLive. Não são dinheiro, não geram juros, não podem ser transferidos para fora da plataforma e normalmente não são reembolsáveis depois de creditados ou usados.",
+              "Se uma compra de coins foi cobrada mas não creditada, ou se houve cobrança duplicada, entre em contato com o suporte para revisão da transação."
             ]
           },
           {
-            "heading": "3. Assinaturas e compras",
+            "heading": "3. Compras Premium e assinaturas",
             "body": [
-              "Assinaturas renovam conforme as condições exibidas na compra. Cancelamentos e pedidos de reembolso são tratados pelos fluxos da conta MeetYouLive, suporte ou provedor de pagamento quando aplicável."
+              "Recursos Premium, assinaturas e passes seguem as condições exibidas no checkout. O cancelamento interrompe renovações futuras quando aplicável, mas não reembolsa automaticamente acessos anteriores já entregues.",
+              "Um reembolso pode ser considerado se o acesso Premium não foi ativado por erro técnico verificável ou se ocorreu uma cobrança duplicada."
             ]
           },
           {
-            "heading": "4. Reembolsos",
+            "heading": "4. Presentes virtuais e interações com criadores",
             "body": [
-              "Podemos considerar reembolsos por cobranças duplicadas, erro técnico verificável, compra não creditada ou uso não autorizado reportado em tempo hábil. Coins ou presentes já consumidos não são reembolsáveis salvo obrigação legal."
+              "Presentes virtuais, Sparks e itens digitais semelhantes são entregues imediatamente para apoiar criadores ou melhorar experiências em lives, chats e videochamadas. Presentes já enviados, entregues ou consumidos normalmente são finais e não reembolsáveis.",
+              "Payouts de criadores podem ser analisados separadamente conforme regras da plataforma, verificações antifraude e requisitos do provedor de pagamento."
             ]
           },
           {
-            "heading": "5. Chargebacks e disputas",
+            "heading": "5. Casos em que o reembolso pode se aplicar",
             "body": [
-              "Se iniciar um chargeback sem contatar o suporte, podemos suspender recursos, coins, presentes, conta ou payouts até resolver a disputa. Fraude de pagamentos pode resultar em fechamento permanente."
+              "Podemos aprovar reembolsos por cobranças duplicadas, compra duplicada acidental, erro técnico verificável, compra não creditada na conta, uso não autorizado reportado rapidamente ou qualquer caso exigido pela lei aplicável.",
+              "Podemos solicitar email da conta, nome de usuário, data do pagamento, valor, identificador da transação e descrição do problema antes da decisão."
             ]
           },
           {
-            "heading": "6. Payouts de criadores",
+            "heading": "6. Casos em que o reembolso não se aplica",
             "body": [
-              "Payouts de criadores estão sujeitos a saldo elegível, revisão antifraude, identidade, impostos, regras da plataforma, Stripe Connect e possíveis retenções por disputas, denúncias ou violações."
+              "Em geral, reembolsos não se aplicam a coins já gastos, presentes virtuais já enviados, acesso Premium já usado, insatisfação após receber o serviço comprado, violação das regras da plataforma, atividade fraudulenta ou chargebacks abertos sem contato prévio com o suporte.",
+              "Podemos suspender acesso a coins, presentes, contas ou payouts enquanto uma disputa de pagamento, revisão antifraude ou chargeback estiver pendente."
             ]
           },
           {
-            "heading": "7. Solicitações",
+            "heading": "7. Prazo para solicitar",
             "body": [
-              "Para dúvidas ou solicitações, use os fluxos de contato ou suporte dentro da plataforma e inclua usuário, email da conta, data, valor, identificador de transação e motivo quando aplicável."
+              "Solicitações de reembolso devem ser enviadas em até 14 dias após a cobrança ou assim que o problema for descoberto. Solicitações após esse prazo podem ser negadas, salvo exigência legal ou circunstâncias excepcionais justificadas."
+            ]
+          },
+          {
+            "heading": "8. Procedimento de contato",
+            "body": [
+              "Para solicitar reembolso, envie email para support@meetyoulive.net ou use o fluxo de suporte/contato disponível. Inclua email da conta, nome de usuário, data do pagamento, valor, ID da transação e motivo da solicitação.",
+              "O suporte funciona de segunda a sexta, 9:00 AM – 6:00 PM (ET). Revisamos solicitações de boa-fé e, quando possível, processamos reembolsos aprovados pelo método de pagamento original."
             ]
           }
         ]

@@ -49,6 +49,9 @@ const TOP_FAN_PROXIMITY_THRESHOLD   = 0.7;    // 70% of 3rd fan's coins = "close
 const GIFT_ACTIVITY_WINDOW_MS       = 10000;  // window for counting unique gifters
 const BOOST_QUANTITY_THRESHOLD      = 10;     // qty >= this triggers a boost moment
 const BOOST_MEGA_THRESHOLD          = 50;     // qty >= this triggers "mega" subtext
+const MIN_AGORA_RENEWAL_DELAY_MS    = 10000;
+const DEFAULT_AGORA_TOKEN_TTL_SECONDS = 60;
+const AGORA_RENEWAL_BUFFER_SECONDS  = 30;
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -83,6 +86,7 @@ export default function LiveRoomPage() {
   const msgCounterRef = useRef(1);
   const giftEffectTimeoutRef = useRef(null);
   const recentGiftTimeoutRef = useRef(null);
+  const liveModerationStatusTimeoutRef = useRef(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUsername, setCurrentUsername] = useState("");
@@ -137,6 +141,7 @@ export default function LiveRoomPage() {
 
   // Creator event controls
   const [triggeringEvent, setTriggeringEvent] = useState(false);
+  const [liveModerationStatus, setLiveModerationStatus] = useState("");
 
   // Seen gift IDs for dedup
   const seenGiftIdsRef = useRef(new Set());
@@ -343,6 +348,7 @@ export default function LiveRoomPage() {
     return () => {
       if (giftEffectTimeoutRef.current) clearTimeout(giftEffectTimeoutRef.current);
       if (recentGiftTimeoutRef.current) clearTimeout(recentGiftTimeoutRef.current);
+      if (liveModerationStatusTimeoutRef.current) clearTimeout(liveModerationStatusTimeoutRef.current);
     };
   }, []);
 
@@ -403,6 +409,7 @@ export default function LiveRoomPage() {
   // ── Socket live room ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !meLoaded) return;
+    if (!token) return;
 
     configureSocketAuth(token);
     if (!socket.connected) socket.connect();
@@ -606,6 +613,8 @@ export default function LiveRoomPage() {
         {
           id: ++msgCounterRef.current,
           user: "Sistema",
+          userId: user?.userId || null,
+          displayName: name,
           text: `👋 ${name} se unió al directo`,
           system: true,
         },
@@ -621,6 +630,22 @@ export default function LiveRoomPage() {
         { id: ++msgCounterRef.current, user: "Sistema", text: "📡 El directo ha terminado", system: true },
       ]);
       setTimeout(() => router.push("/live"), 3000);
+    };
+
+    const onLiveUserModerated = ({ liveId: moderatedLiveId, targetUserId, action }) => {
+      const isSameLive = String(moderatedLiveId) === String(id);
+      const isCurrentUserTarget = currentUserId && String(targetUserId) === String(currentUserId);
+      if (!isSameLive || !isCurrentUserTarget) return;
+      const message = action === "ban"
+        ? "Has sido bloqueado de este directo por el creador."
+        : "Has sido expulsado de este directo por el creador.";
+      setChatMessages((prev) => [
+        ...prev,
+        { id: ++msgCounterRef.current, user: "Sistema", text: message, system: true },
+      ]);
+      socket.emit("leave_live_room", { liveId: id });
+      agoraClientRef.current?.leave().catch(() => {});
+      setTimeout(() => router.replace("/live"), 1200);
     };
 
     // Refresh leaderboard on battle score changes
@@ -706,6 +731,7 @@ export default function LiveRoomPage() {
     socket.on("super_gift", onSuperGift);
     socket.on("USER_JOINED_LIVE", onUserJoined);
     socket.on("LIVE_ENDED", onLiveEnded);
+    socket.on("LIVE_USER_MODERATED", onLiveUserModerated);
     socket.on("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
     socket.on("LIVE_RANKING_UPDATED", onRankingUpdated);
     socket.on("LIVE_EVENT_STARTED", onLiveEventStarted);
@@ -721,6 +747,7 @@ export default function LiveRoomPage() {
       socket.off("super_gift", onSuperGift);
       socket.off("USER_JOINED_LIVE", onUserJoined);
       socket.off("LIVE_ENDED", onLiveEnded);
+      socket.off("LIVE_USER_MODERATED", onLiveUserModerated);
       socket.off("BATTLE_SCORE_UPDATED", onBattleScoreUpdated);
       socket.off("LIVE_RANKING_UPDATED", onRankingUpdated);
       socket.off("LIVE_EVENT_STARTED", onLiveEventStarted);
@@ -764,6 +791,25 @@ export default function LiveRoomPage() {
     let localAudio;
     let localVideo;
     let cancelled = false;
+    let tokenRenewalTimer = null;
+    const role = isCreatorCheck ? "publisher" : "subscriber";
+
+    const fetchAgoraToken = async () => {
+      const tokenRes = await fetch(
+        `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
+        { headers: { Authorization: "Bearer " + token } }
+      );
+      if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
+      return tokenRes.json();
+    };
+
+    const handleAgoraRenewalFailure = () => {
+      if (cancelled) return;
+      setAgoraError("No se pudo renovar el acceso al directo");
+      socket.emit("leave_live_room", { liveId: id });
+      agoraClientRef.current?.leave().catch(() => {});
+      setTimeout(() => router.replace("/live"), 1200);
+    };
 
     const joinAgora = async () => {
       try {
@@ -771,17 +817,33 @@ export default function LiveRoomPage() {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
 
-        const role = isCreatorCheck ? "publisher" : "subscriber";
-        const tokenRes = await fetch(
-          `${API_URL}/api/agora/token?channelName=${encodeURIComponent(live._id)}&role=${role}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (!tokenRes.ok) throw new Error("No se pudo obtener token de Agora");
-        const { token: agoraToken, uid } = await tokenRes.json();
+        const { token: agoraToken, uid, expiresIn } = await fetchAgoraToken();
         if (cancelled) return;
 
         client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         agoraClientRef.current = client;
+        function scheduleAgoraTokenRenewal(ttlSeconds) {
+          if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+          const delayMs = Math.max(
+            MIN_AGORA_RENEWAL_DELAY_MS,
+            ((Number(ttlSeconds) || DEFAULT_AGORA_TOKEN_TTL_SECONDS) - AGORA_RENEWAL_BUFFER_SECONDS) * 1000
+          );
+          tokenRenewalTimer = setTimeout(() => {
+            renewAgoraToken().catch(handleAgoraRenewalFailure);
+          }, delayMs);
+        }
+        async function renewAgoraToken() {
+          const { token: renewedToken, expiresIn: renewedExpiresIn } = await fetchAgoraToken();
+          if (cancelled || !agoraClientRef.current) return;
+          await agoraClientRef.current.renewToken(renewedToken);
+          scheduleAgoraTokenRenewal(renewedExpiresIn);
+        }
+        client.on("token-privilege-will-expire", () => {
+          renewAgoraToken().catch(handleAgoraRenewalFailure);
+        });
+        client.on("token-privilege-did-expire", () => {
+          renewAgoraToken().catch(handleAgoraRenewalFailure);
+        });
 
         if (isCreatorCheck) {
           await client.setClientRole("host");
@@ -848,6 +910,7 @@ export default function LiveRoomPage() {
 
         if (!cancelled) {
           setAgoraJoined(true);
+          scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
         }
       } catch (err) {
@@ -865,6 +928,7 @@ export default function LiveRoomPage() {
 
     return () => {
       cancelled = true;
+      if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
@@ -1073,6 +1137,46 @@ export default function LiveRoomPage() {
       });
     } catch {
       // non-fatal
+    }
+  };
+
+  const showLiveModerationStatus = (message) => {
+    setLiveModerationStatus(message);
+    if (liveModerationStatusTimeoutRef.current) clearTimeout(liveModerationStatusTimeoutRef.current);
+    liveModerationStatusTimeoutRef.current = setTimeout(() => {
+      liveModerationStatusTimeoutRef.current = null;
+      setLiveModerationStatus("");
+    }, 5000);
+  };
+
+  const handleLiveModeration = async (targetUserId, action, targetName) => {
+    if (!token) {
+      showLiveModerationStatus("Debes iniciar sesión para moderar.");
+      return;
+    }
+    if (!isCreator) {
+      showLiveModerationStatus("No tienes permisos para moderar este Live.");
+      return;
+    }
+    if (!targetUserId) {
+      showLiveModerationStatus("Usuario inválido.");
+      return;
+    }
+    const actionLabel = action === "ban" ? "bloquear de este Live" : "expulsar";
+    if (!window.confirm(`¿Quieres ${actionLabel} a ${targetName || "este usuario"}?`)) return;
+
+    setLiveModerationStatus("");
+    try {
+      const res = await fetch(`${API_URL}/api/lives/${id}/moderation/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ targetUserId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "No se pudo aplicar la moderación");
+      showLiveModerationStatus(action === "ban" ? "Usuario bloqueado del Live." : "Usuario expulsado del Live.");
+    } catch (err) {
+      showLiveModerationStatus(err.message || "No se pudo aplicar la moderación");
     }
   };
 
@@ -1464,6 +1568,8 @@ export default function LiveRoomPage() {
                     authToken={token}
                     onBlocked={handleBlockedCreator}
                     compact
+                    showBlock={false}
+                    reportLabel="Reportar"
                   />
                 </div>
               )}
@@ -1722,6 +1828,8 @@ export default function LiveRoomPage() {
                       authToken={token}
                       onBlocked={handleBlockedCreator}
                       compact
+                      showBlock={false}
+                      reportLabel="Reportar"
                     />
                   </div>
                 )}
@@ -1796,6 +1904,11 @@ export default function LiveRoomPage() {
             <span>Chat en vivo</span>
             <span className="chat-header-live-dot" />
           </div>
+          {liveModerationStatus && (
+            <div className="live-moderation-status" role="status" aria-live="polite">
+              {liveModerationStatus}
+            </div>
+          )}
 
           <div className="chat-messages">
             {/* Low-activity prompts */}
@@ -1825,6 +1938,9 @@ export default function LiveRoomPage() {
                 fanRank === 0 && "chat-msg-top-fan",
                 fanRank > 0 && "chat-msg-vip-fan",
               ].filter(Boolean).join(" ");
+              const canModerateMessageUser =
+                isCreator && msg.userId && currentUserId && String(msg.userId) !== String(currentUserId);
+              const moderationTargetName = msg.displayName || msg.user;
               return (
                 <div key={msg.id} className={chatMsgClass}>
                   {msg.system ? (
@@ -1847,6 +1963,32 @@ export default function LiveRoomPage() {
                       <span className="chat-user">{msg.user}</span>
                       <span className="chat-text">{msg.text}</span>
                     </>
+                  )}
+                  {canModerateMessageUser && (
+                    <div className="live-chat-moderation-actions">
+                      <ModerationActions
+                        targetUserId={String(msg.userId)}
+                        targetName={moderationTargetName}
+                        authToken={token}
+                        compact
+                        showBlock={false}
+                        reportLabel="Reportar"
+                      />
+                      <button
+                        type="button"
+                        className="live-chat-moderation-btn"
+                        onClick={() => handleLiveModeration(String(msg.userId), "kick", moderationTargetName)}
+                      >
+                        Expulsar
+                      </button>
+                      <button
+                        type="button"
+                        className="live-chat-moderation-btn danger"
+                        onClick={() => handleLiveModeration(String(msg.userId), "ban", moderationTargetName)}
+                      >
+                        Bloquear del Live
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -2883,6 +3025,38 @@ export default function LiveRoomPage() {
         .creator-safety-actions.inline {
           justify-content: flex-start;
           margin-left: auto;
+        }
+
+        .live-moderation-status {
+          margin: 0.45rem 0 0.2rem;
+          color: #c4b5fd;
+          font-size: 0.78rem;
+          font-weight: 800;
+        }
+
+        .live-chat-moderation-actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.35rem;
+          width: 100%;
+          margin-top: 0.35rem;
+        }
+
+        .live-chat-moderation-btn {
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.72);
+          color: #f8fafc;
+          cursor: pointer;
+          font-size: 0.78rem;
+          font-weight: 800;
+          padding: 0.48rem 0.7rem;
+        }
+
+        .live-chat-moderation-btn.danger {
+          border-color: rgba(248, 113, 113, 0.35);
+          color: #fecaca;
         }
 
         .chat-msg-gift {

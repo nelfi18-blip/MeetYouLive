@@ -27,6 +27,17 @@ const topSupporterSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const liveModerationActionSchema = new mongoose.Schema(
+  {
+    moderator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    target: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    action: { type: String, enum: ["kick", "ban"], required: true },
+    reason: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 // userComboSchema: Documents the structure of combo entries stored in the userCombos Map.
 // IMPORTANT: Mongoose Maps with "of: schema" do NOT enforce validation on Map values.
 // The schema definition here serves ONLY as developer documentation for the expected structure.
@@ -62,6 +73,8 @@ const liveSchema = new mongoose.Schema(
     // Multi-guest streaming support (Tango-style)
     guests: { type: [guestSchema], default: [] },
     guestRequests: { type: [guestRequestSchema], default: [] },
+    bannedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    moderationActions: { type: [liveModerationActionSchema], default: [] },
     maxGuests: { type: Number, default: 3, min: 0, max: 10 },
     goal: {
       active:   { type: Boolean, default: false },

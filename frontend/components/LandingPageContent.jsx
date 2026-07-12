@@ -38,7 +38,8 @@ export default function LandingPage() {
       await signIn("google", {
         callbackUrl: "/dashboard",
       });
-    } catch {
+    } catch (error) {
+      console.error("Google sign-in error:", error);
       setAuthError("No pudimos completar el inicio de sesión. Inténtalo de nuevo.");
     }
   };

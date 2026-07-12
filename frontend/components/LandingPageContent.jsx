@@ -1,44 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import Logo from "@/components/Logo";
 
-const FEATURES = [
+const ADVANTAGES = [
+  "Registro gratis.",
+  "Inicio rápido con Google.",
+  "Pagos seguros con Stripe.",
+  "Comunidad moderada.",
+  "Plataforma segura.",
+];
+
+const STEPS = [
   {
-    title: "Match",
-    description: "Descubre personas compatibles y crea conexiones reales.",
+    title: "Paso 1",
+    description: "Crea tu cuenta con Google o correo.",
   },
   {
-    title: "Chat",
-    description: "Conversaciones privadas para conocer mejor a cada conexión.",
+    title: "Paso 2",
+    description: "Completa tu perfil y descubre personas.",
   },
   {
-    title: "Live Streaming",
-    description: "Directos interactivos para compartir momentos en tiempo real.",
-  },
-  {
-    title: "Video Calls",
-    description: "Llamadas de video para experiencias más cercanas y seguras.",
-  },
-  {
-    title: "Coins",
-    description: "Moneda digital para acceder a experiencias y apoyar contenido.",
-  },
-  {
-    title: "Regalos virtuales",
-    description: "Envía regalos durante lives, chats y experiencias premium.",
-  },
-  {
-    title: "Creadores de contenido",
-    description: "Herramientas para que creadores construyan comunidad.",
-  },
-  {
-    title: "Seguridad y moderación",
-    description: "Reportes, revisión y normas para proteger la comunidad.",
+    title: "Paso 3",
+    description: "Haz Match, conversa, transmite en vivo y disfruta de todas las funciones.",
   },
 ];
 
 export default function LandingPage() {
+  const handleGoogleSignIn = () => {
+    signIn("google", {
+      callbackUrl: `/login?callbackUrl=${encodeURIComponent("/dashboard")}`,
+    });
+  };
+
   return (
     <div className="landing-page">
       <section className="hero">
@@ -59,23 +54,34 @@ export default function LandingPage() {
             <p className="eyebrow">Plataforma social premium</p>
             <h1>Conecta, transmite en vivo y apoya a tus creadores favoritos.</h1>
             <p className="hero-description">
-              MeetYouLive combina match, chat, live streaming, video calls, coins y regalos virtuales en una
-              experiencia pública clara, moderna y segura para conocer personas y descubrir creadores.
+              Empieza gratis en menos de un minuto. Conoce personas, transmite en vivo, realiza videollamadas y
+              apoya a tus creadores favoritos.
             </p>
-            <div className="hero-actions">
-              <Link href="/register" className="primary-button large">
-                Crear cuenta
+            <div className="signup-card" aria-label="Comienza en MeetYouLive">
+              <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
+                Continuar con Google
+              </button>
+              <Link href="/register" className="email-link">
+                Crear cuenta con correo electrónico
               </Link>
-              <Link href="/login" className="ghost-button large">
-                Iniciar sesión
-              </Link>
+              <div className="login-prompt">
+                <span>¿Ya tienes una cuenta?</span>
+                <Link href="/login">
+                  Iniciar sesión
+                </Link>
+              </div>
             </div>
+            <ul className="advantage-list" aria-label="Ventajas de MeetYouLive">
+              {ADVANTAGES.map((advantage) => (
+                <li key={advantage}>{advantage}</li>
+              ))}
+            </ul>
           </div>
 
           <div className="hero-card" aria-label="Resumen de servicios de MeetYouLive">
             <div className="live-pill">● En vivo</div>
-            <h2>Experiencias interactivas</h2>
-            <p>Matches, conversaciones, directos, video llamadas y regalos virtuales en una comunidad moderada.</p>
+            <h2>Todo claro desde el primer minuto</h2>
+            <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
             <div className="stats-grid">
               <span>Match</span>
               <span>Chat</span>
@@ -86,14 +92,26 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="how-it-works" aria-labelledby="steps-title">
+        <p className="eyebrow">¿Cómo funciona?</p>
+        <h2 id="steps-title">Empieza en tres pasos simples.</h2>
+        <div className="steps-grid">
+          {STEPS.map((step) => (
+            <article key={step.title} className="step-card">
+              <span>{step.title}</span>
+              <p>{step.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="features" aria-labelledby="features-title">
-        <p className="eyebrow">Qué ofrece MeetYouLive</p>
-        <h2 id="features-title">Todo lo necesario para conectar y crear valor en vivo.</h2>
+        <p className="eyebrow">Ventajas para nuevos usuarios</p>
+        <h2 id="features-title">Una plataforma simple, rápida y segura para empezar hoy.</h2>
         <div className="feature-grid">
-          {FEATURES.map((feature) => (
-            <article key={feature.title} className="feature-card">
-              <h3>{feature.title}</h3>
-              <p>{feature.description}</p>
+          {ADVANTAGES.map((advantage) => (
+            <article key={advantage} className="feature-card">
+              <h3>{advantage}</h3>
             </article>
           ))}
         </div>
@@ -108,9 +126,14 @@ export default function LandingPage() {
             proveedores de pago.
           </p>
         </div>
-        <Link href="/contact" className="ghost-button large">
-          Contacto y soporte
-        </Link>
+        <div className="trust-actions">
+          <button type="button" className="primary-button large" onClick={handleGoogleSignIn}>
+            Continuar con Google
+          </button>
+          <Link href="/login" className="ghost-button large">
+            Iniciar sesión
+          </Link>
+        </div>
       </section>
 
       <style jsx>{`
@@ -139,7 +162,7 @@ export default function LandingPage() {
           margin-bottom: clamp(2rem, 6vw, 4.5rem);
         }
         .nav-actions,
-        .hero-actions {
+        .trust-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 0.8rem;
@@ -182,8 +205,10 @@ export default function LandingPage() {
           min-height: 44px;
           border-radius: var(--radius-pill);
           padding: 0.78rem 1.1rem;
+          font: inherit;
           font-weight: 900;
           border: 1px solid transparent;
+          cursor: pointer;
           transition: transform 0.15s ease, border-color 0.15s ease;
         }
         .primary-button {
@@ -200,12 +225,67 @@ export default function LandingPage() {
           min-height: 50px;
           padding-inline: 1.35rem;
         }
+        .signup-card {
+          display: grid;
+          gap: 0.9rem;
+          max-width: 430px;
+          margin-bottom: 1.4rem;
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          padding: 1rem;
+          background: rgba(255,255,255,0.07);
+          box-shadow: var(--shadow);
+        }
+        .main-cta {
+          width: 100%;
+          min-height: 58px;
+          font-size: 1.05rem;
+        }
+        .email-link,
+        .login-prompt :global(a) {
+          color: var(--accent-cyan);
+          font-weight: 900;
+          text-align: center;
+        }
+        .email-link {
+          min-height: 48px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-pill);
+          background: rgba(34,211,238,0.09);
+        }
+        .login-prompt {
+          display: grid;
+          gap: 0.25rem;
+          color: var(--text-muted);
+          text-align: center;
+          line-height: 1.45;
+        }
+        .advantage-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.7rem;
+          max-width: 660px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        .advantage-list li {
+          border: 1px solid var(--border-subtle);
+          border-radius: 16px;
+          padding: 0.85rem 0.95rem;
+          color: var(--text);
+          font-weight: 800;
+          background: rgba(255,255,255,0.05);
+        }
         .primary-button:hover,
         .ghost-button:hover {
           transform: translateY(-2px);
           border-color: var(--border-glow);
         }
         .hero-card,
+        .step-card,
         .feature-card,
         .trust-panel {
           border: 1px solid var(--border);
@@ -268,18 +348,44 @@ export default function LandingPage() {
           font-weight: 800;
           background: rgba(255,255,255,0.05);
         }
-        .features {
+        .features,
+        .how-it-works {
           display: grid;
           gap: 1rem;
         }
         .features h2,
+        .how-it-works h2,
         .trust-panel h2 {
           margin: 0;
           font-size: clamp(1.8rem, 4vw, 3rem);
         }
+        .steps-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 1rem;
+          margin-top: 0.5rem;
+        }
+        .step-card {
+          border-radius: 24px;
+          padding: clamp(1.15rem, 3vw, 1.5rem);
+        }
+        .step-card span {
+          display: inline-flex;
+          margin-bottom: 0.8rem;
+          color: var(--accent-cyan);
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .step-card p {
+          margin: 0;
+          color: var(--text);
+          font-size: 1.05rem;
+          line-height: 1.65;
+        }
         .feature-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 1rem;
           margin-top: 0.5rem;
         }
@@ -288,10 +394,9 @@ export default function LandingPage() {
           padding: 1.15rem;
         }
         .feature-card h3 {
-          margin: 0 0 0.55rem;
+          margin: 0;
           font-size: 1.05rem;
         }
-        .feature-card p,
         .trust-panel p {
           margin: 0;
           line-height: 1.65;
@@ -306,6 +411,7 @@ export default function LandingPage() {
         }
         @media (max-width: 900px) {
           .hero-grid,
+          .steps-grid,
           .trust-panel {
             grid-template-columns: 1fr;
           }
@@ -329,12 +435,19 @@ export default function LandingPage() {
             flex-direction: column;
           }
           .nav-actions,
-          .hero-actions {
+          .trust-actions {
             width: 100%;
           }
           .primary-button,
           .ghost-button {
             flex: 1;
+            min-height: 52px;
+          }
+          .signup-card {
+            max-width: none;
+          }
+          .advantage-list {
+            grid-template-columns: 1fr;
           }
           .hero-card {
             min-height: 300px;

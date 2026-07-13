@@ -30,6 +30,7 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_SEEN_PROFILE_IDS_KEY = "meetyoulive:feed:seenProfileIds:v1";
+const WELCOME_FEED_NOTICE_KEY = "meetyoulive:feed:welcomeNotice:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_PRELOAD_PROFILE_WINDOW = 3;
@@ -460,6 +461,7 @@ export default function FeedPage() {
   const [swipeLocked, setSwipeLocked] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(null);
+  const [welcomeNotice, setWelcomeNotice] = useState("");
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
   const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
@@ -569,6 +571,16 @@ export default function FeedPage() {
         clearTimeout(actionFeedbackTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const notice = window.sessionStorage.getItem(WELCOME_FEED_NOTICE_KEY) || "";
+      if (!notice) return;
+      window.sessionStorage.removeItem(WELCOME_FEED_NOTICE_KEY);
+      setWelcomeNotice(notice);
+    } catch {
+    }
   }, []);
 
   useEffect(() => {
@@ -1358,6 +1370,14 @@ export default function FeedPage() {
             </Link>
           </div>
         )}
+        {welcomeNotice && !showErrorState && (
+          <div className="feed-welcome-banner" role="status">
+            <span>{welcomeNotice}</span>
+            <button type="button" onClick={() => setWelcomeNotice("")} aria-label="Cerrar mensaje de bienvenida">
+              ×
+            </button>
+          </div>
+        )}
         {showLoadingState ? (
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
@@ -1650,6 +1670,45 @@ export default function FeedPage() {
           padding: 0.42rem 0.72rem;
           border-radius: 999px;
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        }
+
+        .feed-welcome-banner {
+          position: absolute;
+          top: max(8px, var(--feed-section-top-padding));
+          left: 50%;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          width: min(92vw, 440px);
+          padding: 0.75rem 0.9rem;
+          border: 1px solid rgba(52, 211, 153, 0.3);
+          border-radius: 16px;
+          background: rgba(13, 35, 31, 0.92);
+          color: #ecfdf5;
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+          transform: translateX(-50%);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+        .feed-welcome-banner span {
+          flex: 1;
+          min-width: 0;
+          font-size: 0.84rem;
+          line-height: 1.3;
+          font-weight: 700;
+        }
+        .feed-welcome-banner button {
+          flex: 0 0 auto;
+          width: 34px;
+          height: 34px;
+          border: 0;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+          font-size: 1.2rem;
+          line-height: 1;
+          cursor: pointer;
         }
 
         .feed-swipe-deck {

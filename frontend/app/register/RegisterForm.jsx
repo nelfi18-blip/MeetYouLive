@@ -5,9 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { signUp } from "@/lib/auth.service";
-import { setToken } from "@/lib/token";
+import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
+
+function getPostRegisterRedirectPath(user) {
+  if (user?.role === "admin") return "/admin";
+  if (user?.onboardingComplete === false) return "/onboarding";
+  return "/feed";
+}
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -40,8 +46,14 @@ export default function RegisterForm() {
   useEffect(() => {
     if (status === "loading") return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (token || status === "authenticated") {
-      router.replace("/feed");
+    if (token) {
+      fetchUserRole(token)
+        .then((user) => router.replace(getPostRegisterRedirectPath(user)))
+        .catch(() => router.replace("/feed"));
+      return;
+    }
+    if (status === "authenticated") {
+      router.replace("/login?callbackUrl=/feed");
     } else {
       setChecking(false);
     }
@@ -224,7 +236,7 @@ export default function RegisterForm() {
 
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/feed" })}
+          onClick={() => signIn("google", { callbackUrl: "/login?callbackUrl=/feed" })}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

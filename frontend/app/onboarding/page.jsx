@@ -15,7 +15,7 @@ import {
 } from "@/lib/avatarUpload";
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
-import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
+import { publishProfileUpdated } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -155,6 +155,7 @@ const INTERESTS = [
 
 // Step indices: 0=Welcome, 1=Path, 2=Profile, 3=Interests, 4=Photo
 const STEPS = ["Bienvenida", "Tu camino", "Sobre ti", "Intereses", "Tu foto"];
+const WELCOME_FEED_NOTICE_KEY = "meetyoulive:feed:welcomeNotice:v1";
 
 const VALUE_PROPS = [
   { emoji: "💖", title: "Haz match", desc: "Conecta con personas que comparten tus intereses" },
@@ -195,6 +196,13 @@ const PATHS = [
     glow: "rgba(251,191,36,0.35)",
   },
 ];
+
+const STEP_EXPLANATIONS = {
+  1: "Esto nos ayuda a ordenar tu primera experiencia, pero siempre podrás cambiar de sección después.",
+  2: "Usamos estos datos para mostrarte perfiles relevantes y evitar recomendaciones vacías o fuera de contexto.",
+  3: "Tus intereses aceleran los primeros matches y ayudan a cargar perfiles compatibles desde el inicio.",
+  4: "Una foto real genera confianza y permite que tu perfil aparezca correctamente en el feed.",
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -694,20 +702,13 @@ export default function OnboardingPage() {
         canAppearInFeed: sessionProfile?.canAppearInFeed === true,
         profileStatus: sessionProfile?.profileStatus || data.profileStatus || null,
       });
-      router.refresh();
-      if (selectedPath === "creator") {
-        try {
-          const creatorNotice =
-            sessionProfile?.creatorStatus === "pending" || sessionProfile?.role === "creator"
-              ? t("creatorRequest.profileSavedNotice")
-              : t("creatorRequest.profileSavedNextStepNotice");
-          sessionStorage.setItem(CREATOR_PROFILE_SAVED_NOTICE_KEY, creatorNotice);
-        } catch {
-          // Ignore storage failures; the creator request page still explains the next step.
-        }
-        router.replace("/creator-request?profileSaved=1");
-        return;
+      publishProfileUpdated(sessionProfile);
+      try {
+        sessionStorage.setItem(WELCOME_FEED_NOTICE_KEY, "¡Bienvenido a MeetYouLive! Tu perfil está listo y ya puedes explorar el feed.");
+      } catch {
+        // Ignore storage failures; the feed remains available without the one-time welcome notice.
       }
+      router.refresh();
       router.replace("/feed");
     } catch (err) {
       console.warn("[onboarding-save] request failed", err);
@@ -729,6 +730,9 @@ export default function OnboardingPage() {
         {/* Progress — hide on welcome step */}
         {step > 0 && (
           <div className="ob-progress">
+            <div className="ob-progress-summary" aria-live="polite">
+              Paso {step} de {STEPS.length - 1} · {displayedCompletionPercent}% completado
+            </div>
             {STEPS.slice(1).map((label, i) => {
               const idx = i + 1;
               return (
@@ -794,6 +798,7 @@ export default function OnboardingPage() {
             <div className="ob-section">
               <h2 className="ob-title">¿Qué quieres hacer?</h2>
               <p className="ob-subtitle">Elige tu camino — podrás cambiar después</p>
+              <p className="ob-why">{STEP_EXPLANATIONS[1]}</p>
 
               <div className="ob-paths">
                 {PATHS.map((path) => (
@@ -832,6 +837,7 @@ export default function OnboardingPage() {
             <div className="ob-section">
               <h2 className="ob-title">Cuéntanos sobre ti</h2>
               <p className="ob-subtitle">Esta información ayuda a otros usuarios a conocerte</p>
+              <p className="ob-why">{STEP_EXPLANATIONS[2]}</p>
 
               <div className="ob-field">
                 <label className="ob-label">Tu nombre *</label>
@@ -979,6 +985,7 @@ export default function OnboardingPage() {
             <div className="ob-section">
               <h2 className="ob-title">¿Qué te gusta?</h2>
               <p className="ob-subtitle">Selecciona al menos {MIN_INTERESTS} intereses (máximo {MAX_INTERESTS})</p>
+              <p className="ob-why">{STEP_EXPLANATIONS[3]}</p>
 
               <div className="ob-interests-grid">
                 {INTERESTS.map((interest) => (
@@ -1017,6 +1024,7 @@ export default function OnboardingPage() {
             <div className="ob-section">
               <h2 className="ob-title">Arma tu perfil de fotos</h2>
               <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Optimizamos fotos grandes antes de subirlas.</p>
+              <p className="ob-why">{STEP_EXPLANATIONS[4]}</p>
 
               <div className="ob-avatar-preview">
                 {safeMainPhotoPreview ? (
@@ -1098,13 +1106,7 @@ export default function OnboardingPage() {
               {/* Coin / Creator destination hook */}
               {selectedPath && (
                 <div className="ob-destination-hint">
-                  {selectedPath === "creator" ? (
-                    <>🌟 Al terminar irás a <strong>solicitar ser creador</strong> — aprobación rápida</>
-                  ) : selectedPath === "live" ? (
-                    <>🎥 Al terminar explorarás los <strong>directos en vivo</strong></>
-                  ) : (
-                    <>💖 Al terminar encontrarás tu <strong>Crush</strong></>
-                  )}
+                  ✨ Al terminar irás directo al <strong>Feed</strong> para empezar sin refrescar ni volver a iniciar sesión.
                 </div>
               )}
 
@@ -1192,6 +1194,18 @@ export default function OnboardingPage() {
           gap: 0;
           margin-bottom: 2rem;
           position: relative;
+          flex-wrap: wrap;
+          padding-top: 1.5rem;
+        }
+        .ob-progress-summary {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          text-align: center;
+          color: var(--text);
+          font-size: 0.78rem;
+          font-weight: 800;
         }
         .ob-progress-bar {
           position: absolute;
@@ -1281,7 +1295,17 @@ export default function OnboardingPage() {
         .ob-subtitle {
           color: var(--text-muted);
           font-size: 0.88rem;
-          margin-bottom: 1.75rem;
+          margin-bottom: 0.75rem;
+        }
+        .ob-why {
+          margin: 0 0 1.5rem;
+          padding: 0.75rem 0.9rem;
+          border: 1px solid rgba(34,211,238,0.18);
+          border-radius: var(--radius-sm);
+          background: rgba(34,211,238,0.07);
+          color: #dff7ff;
+          font-size: 0.82rem;
+          line-height: 1.45;
         }
 
         /* ── Welcome / Hero (Step 0) ── */
@@ -1701,10 +1725,22 @@ export default function OnboardingPage() {
         .divider-text::after { right: 0; }
 
         @media (max-width: 480px) {
-          .onboarding-card { padding: 2rem 1.25rem; }
+          .onboarding-root { align-items: flex-start; padding: 0.75rem; }
+          .onboarding-card { padding: 1.35rem 1rem; border-radius: 22px; }
           .ob-row { flex-direction: column; }
           .ob-hero-title { font-size: 1.55rem; }
           .ob-photo-item-actions { flex-direction: row; flex-wrap: wrap; }
+          .ob-progress { gap: 0.35rem 0; margin-bottom: 1.6rem; }
+          .ob-step { justify-content: center; }
+          .ob-step-label { display: none; }
+          .ob-btn-next,
+          .ob-btn-back,
+          .ob-upload-btn,
+          .ob-interest-pill,
+          .ob-path-card {
+            min-height: 48px;
+          }
+          .ob-actions-row { flex-direction: column-reverse; }
         }
       `}</style>
     </div>

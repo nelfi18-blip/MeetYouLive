@@ -10,6 +10,7 @@ import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
+import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -460,6 +461,7 @@ export default function FeedPage() {
   const [swipeLocked, setSwipeLocked] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(null);
+  const [welcomeNotice, setWelcomeNotice] = useState("");
   // Most recent completed swipe action available for undo: { profileId, actionType: "like" | "dislike" }.
   const [lastAction, setLastAction] = useState(null);
   const tokenRecoveryAttemptedRef = useRef(false);
@@ -569,6 +571,16 @@ export default function FeedPage() {
         clearTimeout(actionFeedbackTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const notice = window.sessionStorage.getItem(WELCOME_FEED_NOTICE_KEY) || "";
+      if (!notice) return;
+      window.sessionStorage.removeItem(WELCOME_FEED_NOTICE_KEY);
+      setWelcomeNotice(notice);
+    } catch {
+    }
   }, []);
 
   useEffect(() => {
@@ -1358,6 +1370,14 @@ export default function FeedPage() {
             </Link>
           </div>
         )}
+        {welcomeNotice && !showErrorState && (
+          <div className="feed-welcome-banner" role="status">
+            <span>{welcomeNotice}</span>
+            <button type="button" onClick={() => setWelcomeNotice("")} aria-label={t("feed.closeWelcomeNotice")}>
+              ×
+            </button>
+          </div>
+        )}
         {showLoadingState ? (
           <div className="feed-swipe-deck feed-swipe-deck--state" role="status" aria-live="polite">
             <div className="feed-loading">
@@ -1650,6 +1670,45 @@ export default function FeedPage() {
           padding: 0.42rem 0.72rem;
           border-radius: 999px;
           background: linear-gradient(135deg, #e040fb, #8b5cf6);
+        }
+
+        .feed-welcome-banner {
+          position: absolute;
+          top: max(8px, var(--feed-section-top-padding));
+          left: 50%;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          width: min(92vw, 440px);
+          padding: 0.75rem 0.9rem;
+          border: 1px solid rgba(52, 211, 153, 0.3);
+          border-radius: 16px;
+          background: rgba(13, 35, 31, 0.92);
+          color: #ecfdf5;
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+          transform: translateX(-50%);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+        .feed-welcome-banner span {
+          flex: 1;
+          min-width: 0;
+          font-size: 0.84rem;
+          line-height: 1.3;
+          font-weight: 700;
+        }
+        .feed-welcome-banner button {
+          flex: 0 0 auto;
+          width: 34px;
+          height: 34px;
+          border: 0;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+          font-size: 1.2rem;
+          line-height: 1;
+          cursor: pointer;
         }
 
         .feed-swipe-deck {

@@ -72,7 +72,129 @@
     "photoUploadError": "Could not upload the photo. Try again.",
     "sessionExpired": "Your session expired. Sign in again.",
     "tooManyAttempts": "Too many attempts. Wait a few seconds and try again.",
-    "photoRequired": "Upload at least one photo to continue"
+    "photoRequired": "Upload at least one photo to continue",
+    "feedDestinationHint": "✨ When you finish, you will go straight to the Feed so you can start without refreshing or signing in again.",
+    "steps": {
+      "welcome": "Welcome",
+      "path": "Your path",
+      "profile": "About you",
+      "interests": "Interests",
+      "photo": "Your photo"
+    },
+    "progressSummary": "Step {step} of {total} · {percent}% complete",
+    "heroTitle": "Welcome to",
+    "heroSubtitle": "The platform where real connections become unique moments",
+    "startButton": "Start now ✨",
+    "valueProps": {
+      "match": {
+        "title": "Make matches",
+        "desc": "Connect with people who share your interests"
+      },
+      "live": {
+        "title": "Connect live",
+        "desc": "Video calls and streams in real time"
+      },
+      "gifts": {
+        "title": "Send and receive gifts",
+        "desc": "Surprise your connections with virtual gifts"
+      },
+      "creator": {
+        "title": "Earn as a creator",
+        "desc": "Monetize your audience doing what you love"
+      }
+    },
+    "paths": {
+      "crush": {
+        "title": "Meet people",
+        "desc": "Find your ideal match and connect with real people near you.",
+        "hook": "🪙 Coins unlock exclusive interactions"
+      },
+      "live": {
+        "title": "Watch live streams",
+        "desc": "Join live streams, send gifts, and connect in real time.",
+        "hook": "🎁 With coins you can send gifts and enter VIP rooms"
+      },
+      "creator": {
+        "title": "Earn as a creator",
+        "desc": "Create your creator profile, go live, and get paid for your content.",
+        "hook": "💵 Approved creators receive real payouts"
+      }
+    },
+    "explanations": {
+      "path": "This helps us organize your first experience, but you can always switch sections later.",
+      "profile": "We use this information to show relevant profiles and avoid empty or out-of-context recommendations.",
+      "interests": "Your interests speed up first matches and help load compatible profiles from the start.",
+      "photo": "A real photo builds trust and lets your profile appear correctly in the feed."
+    },
+    "pathTitle": "What do you want to do?",
+    "pathSubtitle": "Choose your path — you can change it later",
+    "profileTitle": "Tell us about yourself",
+    "profileSubtitle": "This information helps other users get to know you",
+    "nameLabel": "Your name *",
+    "namePlaceholder": "What should people call you?",
+    "bioLabel": "About you",
+    "bioPlaceholder": "Tell us something interesting about yourself…",
+    "genderLabel": "Gender *",
+    "selectPlaceholder": "Select…",
+    "genderMale": "Man",
+    "genderFemale": "Woman",
+    "genderOther": "Other",
+    "genderPreferNot": "Prefer not to say",
+    "birthdateLabel": "Birthdate *",
+    "interestedInLabel": "I want to meet *",
+    "interestedInBoth": "Everyone",
+    "interestedInWomen": "Women",
+    "interestedInMen": "Men",
+    "interestsTitle": "What do you like?",
+    "interestsSubtitle": "Select at least {min} interests (maximum {max})",
+    "minimumHint": "(minimum {count})",
+    "photoTitle": "Build your photo profile",
+    "photoSubtitle": "Choose 1 main photo and up to {count} extra photos. We optimize large photos before uploading.",
+    "mainPhotoAlt": "Main photo",
+    "mainPhotoLabel": "Main photo",
+    "removeMainPhoto": "Remove main photo",
+    "extraPhotosAria": "Secondary photos",
+    "extraPhotoAlt": "Additional photo",
+    "makeMainPhoto": "Make main",
+    "removePhoto": "Remove",
+    "addPhotoAria": "Add photo",
+    "addPhotosLabel": "Add photos",
+    "photoLimitHint": "Maximum {count} photos total. Safe limit: {size} per photo.",
+    "confidenceHint": "💬 Is it hard to break the ice? Practice in our Confidence Room before connecting with someone real.",
+    "backButton": "← Back",
+    "continueButton": "Continue →",
+    "savingButton": "Saving…",
+    "finishButton": "Done! Enter →",
+    "interestOptions": [
+      "Music",
+      "Gaming",
+      "Art",
+      "Travel",
+      "Fitness",
+      "Cooking",
+      "Technology",
+      "Movies",
+      "Fashion",
+      "Photography",
+      "Nature",
+      "Books",
+      "Yoga",
+      "Sports",
+      "Dance",
+      "Meditation",
+      "Humor",
+      "Languages",
+      "Science",
+      "History"
+    ],
+    "invalidImage": "Select a valid image.",
+    "invalidImageFormat": "Invalid image format. Use JPG, PNG, WebP, or GIF.",
+    "invalidImageName": "Invalid file name. Use JPG, PNG, WebP, or GIF.",
+    "photoReadError": "Could not read one of the selected files.",
+    "uploadConfigError": "Could not start the upload. Server configuration is missing.",
+    "uploadUrlError": "Could not get the uploaded image URL.",
+    "missingFields": "Missing: {fields}",
+    "backendIncomplete": "The backend still reports the profile as incomplete."
   },
   "matchesPage": {
     "chatOpenError": "Could not open the chat",
@@ -463,7 +585,9 @@
     "profileIncompleteAction": "Complete profile",
     "preferencesBannerText": "You can improve recommendations by completing your preferences.",
     "preferencesBannerAction": "Complete",
-    "reloadProfiles": "Find new profiles"
+    "reloadProfiles": "Find new profiles",
+    "welcomeNotice": "Welcome to MeetYouLive! Your profile is ready and you can now explore the feed.",
+    "closeWelcomeNotice": "Close welcome message"
   },
   "common": {
     "loading": "Loading...",

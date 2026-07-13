@@ -72,7 +72,129 @@
     "photoUploadError": "Não foi possível enviar a foto. Tente novamente.",
     "sessionExpired": "Sua sessão expirou. Entre novamente.",
     "tooManyAttempts": "Muitas tentativas. Aguarde alguns segundos e tente novamente.",
-    "photoRequired": "Envie pelo menos uma foto para continuar"
+    "photoRequired": "Envie pelo menos uma foto para continuar",
+    "feedDestinationHint": "✨ Ao terminar, você irá direto para o Feed para começar sem atualizar a página nem entrar novamente.",
+    "steps": {
+      "welcome": "Boas-vindas",
+      "path": "Seu caminho",
+      "profile": "Sobre você",
+      "interests": "Interesses",
+      "photo": "Sua foto"
+    },
+    "progressSummary": "Passo {step} de {total} · {percent}% concluído",
+    "heroTitle": "Bem-vindo ao",
+    "heroSubtitle": "A plataforma onde conexões reais viram momentos únicos",
+    "startButton": "Começar agora ✨",
+    "valueProps": {
+      "match": {
+        "title": "Faça match",
+        "desc": "Conecte-se com pessoas que compartilham seus interesses"
+      },
+      "live": {
+        "title": "Conecte ao vivo",
+        "desc": "Videochamadas e transmissões em tempo real"
+      },
+      "gifts": {
+        "title": "Envie e receba presentes",
+        "desc": "Surpreenda suas conexões com presentes virtuais"
+      },
+      "creator": {
+        "title": "Ganhe como criador",
+        "desc": "Monetize sua audiência fazendo o que você ama"
+      }
+    },
+    "paths": {
+      "crush": {
+        "title": "Conhecer pessoas",
+        "desc": "Encontre seu match ideal e conecte-se com pessoas reais perto de você.",
+        "hook": "🪙 Coins liberam interações exclusivas"
+      },
+      "live": {
+        "title": "Ver lives",
+        "desc": "Entre em transmissões ao vivo, envie presentes e conecte-se em tempo real.",
+        "hook": "🎁 Com coins você pode enviar presentes e entrar em salas VIP"
+      },
+      "creator": {
+        "title": "Ganhar como criador",
+        "desc": "Crie seu perfil de criador, transmita ao vivo e receba pelo seu conteúdo.",
+        "hook": "💵 Criadores aprovados recebem pagamentos reais"
+      }
+    },
+    "explanations": {
+      "path": "Isso nos ajuda a organizar sua primeira experiência, mas você sempre poderá mudar de seção depois.",
+      "profile": "Usamos esses dados para mostrar perfis relevantes e evitar recomendações vazias ou fora de contexto.",
+      "interests": "Seus interesses aceleram os primeiros matches e ajudam a carregar perfis compatíveis desde o início.",
+      "photo": "Uma foto real gera confiança e permite que seu perfil apareça corretamente no feed."
+    },
+    "pathTitle": "O que você quer fazer?",
+    "pathSubtitle": "Escolha seu caminho — você poderá mudar depois",
+    "profileTitle": "Conte-nos sobre você",
+    "profileSubtitle": "Essas informações ajudam outros usuários a conhecer você",
+    "nameLabel": "Seu nome *",
+    "namePlaceholder": "Como você quer ser chamado?",
+    "bioLabel": "Sobre você",
+    "bioPlaceholder": "Conte algo interessante sobre você…",
+    "genderLabel": "Gênero *",
+    "selectPlaceholder": "Selecione…",
+    "genderMale": "Homem",
+    "genderFemale": "Mulher",
+    "genderOther": "Outro",
+    "genderPreferNot": "Prefiro não dizer",
+    "birthdateLabel": "Data de nascimento *",
+    "interestedInLabel": "Quero conhecer *",
+    "interestedInBoth": "Todos",
+    "interestedInWomen": "Mulheres",
+    "interestedInMen": "Homens",
+    "interestsTitle": "Do que você gosta?",
+    "interestsSubtitle": "Selecione pelo menos {min} interesses (máximo {max})",
+    "minimumHint": "(mínimo {count})",
+    "photoTitle": "Monte seu perfil de fotos",
+    "photoSubtitle": "Escolha 1 foto principal e até {count} fotos extras. Otimizamos fotos grandes antes do envio.",
+    "mainPhotoAlt": "Foto principal",
+    "mainPhotoLabel": "Foto principal",
+    "removeMainPhoto": "Remover principal",
+    "extraPhotosAria": "Fotos secundárias",
+    "extraPhotoAlt": "Foto adicional",
+    "makeMainPhoto": "Tornar principal",
+    "removePhoto": "Remover",
+    "addPhotoAria": "Adicionar foto",
+    "addPhotosLabel": "Adicionar fotos",
+    "photoLimitHint": "Máximo de {count} fotos no total. Limite seguro: {size} por foto.",
+    "confidenceHint": "💬 É difícil quebrar o gelo? Pratique em nossa Sala de Confiança antes de se conectar com alguém real.",
+    "backButton": "← Voltar",
+    "continueButton": "Continuar →",
+    "savingButton": "Salvando…",
+    "finishButton": "Pronto! Entrar →",
+    "interestOptions": [
+      "Música",
+      "Gaming",
+      "Arte",
+      "Viagens",
+      "Fitness",
+      "Culinária",
+      "Tecnologia",
+      "Cinema",
+      "Moda",
+      "Fotografia",
+      "Natureza",
+      "Livros",
+      "Yoga",
+      "Esportes",
+      "Dança",
+      "Meditação",
+      "Humor",
+      "Idiomas",
+      "Ciência",
+      "História"
+    ],
+    "invalidImage": "Selecione uma imagem válida.",
+    "invalidImageFormat": "Formato de imagem inválido. Use JPG, PNG, WebP ou GIF.",
+    "invalidImageName": "Nome de arquivo inválido. Use JPG, PNG, WebP ou GIF.",
+    "photoReadError": "Não foi possível ler um dos arquivos selecionados.",
+    "uploadConfigError": "Não foi possível iniciar o envio. Falta a configuração do servidor.",
+    "uploadUrlError": "Não foi possível obter a URL da imagem enviada.",
+    "missingFields": "Falta: {fields}",
+    "backendIncomplete": "O backend ainda informa que o perfil está incompleto."
   },
   "matchesPage": {
     "chatOpenError": "Não foi possível abrir o chat",
@@ -463,7 +585,9 @@
     "profileIncompleteAction": "Completar perfil",
     "preferencesBannerText": "Você pode melhorar suas recomendações completando suas preferências.",
     "preferencesBannerAction": "Completar",
-    "reloadProfiles": "Buscar novos perfis"
+    "reloadProfiles": "Buscar novos perfis",
+    "welcomeNotice": "Bem-vindo ao MeetYouLive! Seu perfil está pronto e você já pode explorar o feed.",
+    "closeWelcomeNotice": "Fechar mensagem de boas-vindas"
   },
   "common": {
     "loading": "Carregando...",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { normalizeCallbackPath } from "@/lib/redirects";
-import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
+import { normalizeCallbackPath } from "./lib/redirects.js";
+import { CANONICAL_HOST, canonicalUrl } from "./lib/site.js";
 
 const PROTECTED_ROUTE_PREFIXES = [
   "/agency",
@@ -33,6 +33,18 @@ const PROTECTED_ROUTE_PREFIXES = [
   "/vip",
   "/wallet",
 ];
+
+export const PUBLIC_ROUTE_PATHS = new Set([
+  "/",
+  "/privacy",
+  "/terms",
+  "/refund",
+  "/contact",
+]);
+
+export function isPublicRoute(pathname) {
+  return PUBLIC_ROUTE_PATHS.has(pathname);
+}
 
 function matchesRoutePrefix(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -91,10 +103,9 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // ── Homepage Protection ────────────────────────────────────────────────────
-  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
-  // This is a public landing page that should never redirect to admin or auth pages.
-  if (pathname === "/") {
+  // ── Public routes ──────────────────────────────────────────────────────────
+  // These pages must ALWAYS be accessible to everyone without auth redirects.
+  if (isPublicRoute(pathname)) {
     return withCanonicalHostIndexing(request, NextResponse.next());
   }
 

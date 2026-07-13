@@ -157,8 +157,8 @@ export default function LandingPage() {
           <p>
             Operador oficial de MeetYouLive.
             <br />
-            Plataforma social premium para conocer personas, transmitir en vivo y apoyar a creadores de contenido
-            mediante pagos seguros.
+            Plataforma social premium para conocer personas, transmitir en vivo y apoyar a creadores de contenido mediante
+            pagos seguros.
           </p>
         </div>
         <Link href="/contact" className="ghost-button large">
@@ -228,7 +228,7 @@ export default function LandingPage() {
         }
         .primary-button,
         .ghost-button {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
           min-height: 44px;
@@ -280,7 +280,7 @@ export default function LandingPage() {
         }
         .email-link {
           min-height: 52px;
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-pill);

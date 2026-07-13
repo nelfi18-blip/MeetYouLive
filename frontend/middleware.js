@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 import { normalizeCallbackPath } from "./lib/redirects.js";
 import { CANONICAL_HOST, canonicalUrl } from "./lib/site.js";
 

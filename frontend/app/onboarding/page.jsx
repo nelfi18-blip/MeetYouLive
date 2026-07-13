@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -147,67 +147,62 @@ const getSafeUploadErrorMessage = (status, labels) => {
   return labels.photoUploadError;
 };
 
-const INTERESTS = [
-  "Música", "Gaming", "Arte", "Viajes", "Fitness",
-  "Cocina", "Tecnología", "Cine", "Moda", "Fotografía",
-  "Naturaleza", "Libros", "Yoga", "Deportes", "Danza",
-  "Meditación", "Humor", "Idiomas", "Ciencia", "Historia",
-];
-
-// Step indices: 0=Welcome, 1=Path, 2=Profile, 3=Interests, 4=Photo
-const STEPS = ["Bienvenida", "Tu camino", "Sobre ti", "Intereses", "Tu foto"];
-
-const VALUE_PROPS = [
-  { emoji: "💖", title: "Haz match", desc: "Conecta con personas que comparten tus intereses" },
-  { emoji: "🎥", title: "Conecta en vivo", desc: "Videollamadas y streams en tiempo real" },
-  { emoji: "🎁", title: "Envía y recibe regalos", desc: "Sorprende a tus conexiones con regalos virtuales" },
-  { emoji: "💰", title: "Gana como creador", desc: "Monetiza tu audiencia haciendo lo que amas" },
-];
-
-const PATHS = [
-  {
-    id: "crush",
-    emoji: "💖",
-    title: "Conocer personas",
-    desc: "Encuentra tu match ideal y conecta con gente real cerca de ti.",
-    hook: "🪙 Los coins te dan acceso a interacciones exclusivas",
-    route: "/crush",
-    color: "#ff2d78",
-    glow: "rgba(255,45,120,0.35)",
-  },
-  {
-    id: "live",
-    emoji: "🎥",
-    title: "Ver directos",
-    desc: "Únete a streams en vivo, envía regalos y conéctate en tiempo real.",
-    hook: "🎁 Con coins puedes enviar regalos y entrar a salas VIP",
-    route: "/live",
-    color: "#818cf8",
-    glow: "rgba(129,140,248,0.35)",
-  },
-  {
-    id: "creator",
-    emoji: "🌟",
-    title: "Ganar como creador",
-    desc: "Crea tu perfil de creador, transmite en vivo y cobra por tu contenido.",
-    hook: "💵 Los creadores aprobados reciben pagos reales",
-    route: "/creator-request",
-    color: "#fbbf24",
-    glow: "rgba(251,191,36,0.35)",
-  },
-];
-
-const STEP_EXPLANATIONS = {
-  1: "Esto nos ayuda a ordenar tu primera experiencia, pero siempre podrás cambiar de sección después.",
-  2: "Usamos estos datos para mostrarte perfiles relevantes y evitar recomendaciones vacías o fuera de contexto.",
-  3: "Tus intereses aceleran los primeros matches y ayudan a cargar perfiles compatibles desde el inicio.",
-  4: "Una foto real genera confianza y permite que tu perfil aparezca correctamente en el feed.",
-};
-
 export default function OnboardingPage() {
   const router = useRouter();
   const { update: updateSession } = useSession();
   const { t } = useLanguage();
+  const steps = useMemo(() => [
+    t("onboarding.steps.welcome"),
+    t("onboarding.steps.path"),
+    t("onboarding.steps.profile"),
+    t("onboarding.steps.interests"),
+    t("onboarding.steps.photo"),
+  ], [t]);
+  const valueProps = useMemo(() => [
+    { emoji: "💖", title: t("onboarding.valueProps.match.title"), desc: t("onboarding.valueProps.match.desc") },
+    { emoji: "🎥", title: t("onboarding.valueProps.live.title"), desc: t("onboarding.valueProps.live.desc") },
+    { emoji: "🎁", title: t("onboarding.valueProps.gifts.title"), desc: t("onboarding.valueProps.gifts.desc") },
+    { emoji: "💰", title: t("onboarding.valueProps.creator.title"), desc: t("onboarding.valueProps.creator.desc") },
+  ], [t]);
+  const paths = useMemo(() => [
+    {
+      id: "crush",
+      emoji: "💖",
+      title: t("onboarding.paths.crush.title"),
+      desc: t("onboarding.paths.crush.desc"),
+      hook: t("onboarding.paths.crush.hook"),
+      color: "#ff2d78",
+      glow: "rgba(255,45,120,0.35)",
+    },
+    {
+      id: "live",
+      emoji: "🎥",
+      title: t("onboarding.paths.live.title"),
+      desc: t("onboarding.paths.live.desc"),
+      hook: t("onboarding.paths.live.hook"),
+      color: "#818cf8",
+      glow: "rgba(129,140,248,0.35)",
+    },
+    {
+      id: "creator",
+      emoji: "🌟",
+      title: t("onboarding.paths.creator.title"),
+      desc: t("onboarding.paths.creator.desc"),
+      hook: t("onboarding.paths.creator.hook"),
+      color: "#fbbf24",
+      glow: "rgba(251,191,36,0.35)",
+    },
+  ], [t]);
+  const stepExplanations = useMemo(() => ({
+    1: t("onboarding.explanations.path"),
+    2: t("onboarding.explanations.profile"),
+    3: t("onboarding.explanations.interests"),
+    4: t("onboarding.explanations.photo"),
+  }), [t]);
+  const interestOptions = useMemo(() => {
+    const options = t("onboarding.interestOptions");
+    return Array.isArray(options) ? options : [];
+  }, [t]);
   const errorLabels = {
     serverConnecting: t("onboarding.serverConnecting"),
     profileSaveError: t("onboarding.profileSaveError"),
@@ -328,9 +323,9 @@ export default function OnboardingPage() {
   };
 
   const validateAvatarFile = (file) => {
-    if (!file) return "Selecciona una imagen válida.";
-    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.";
-    if (!hasAllowedAvatarExtension(file.name)) return "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.";
+    if (!file) return t("onboarding.invalidImage");
+    if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type)) return t("onboarding.invalidImageFormat");
+    if (!hasAllowedAvatarExtension(file.name)) return t("onboarding.invalidImageName");
     return "";
   };
 
@@ -369,7 +364,7 @@ export default function OnboardingPage() {
         }
         totalPhotos += 1;
       } catch {
-        setError("No se pudo leer uno de los archivos seleccionados.");
+        setError(t("onboarding.photoReadError"));
       }
     }
 
@@ -471,7 +466,7 @@ export default function OnboardingPage() {
 
     const uploadPhotoFile = async (file, { setAsMain = false } = {}) => {
       const uploadEndpoint = buildUploadEndpoint({ setAsMain });
-      if (!uploadEndpoint) return { ok: false, message: "No se pudo iniciar la subida. Falta la configuración del servidor." };
+      if (!uploadEndpoint) return { ok: false, message: t("onboarding.uploadConfigError") };
       const uploadFile = await compressAvatarImage(file);
       if (uploadFile.size > AVATAR_UPLOAD_MAX_BYTES) {
         const diagnostic = getAvatarUploadDiagnostic(413, {
@@ -511,7 +506,7 @@ export default function OnboardingPage() {
       const uploadPhotos = collectUploadPhotoUrls(uploadData);
       const normalizedAvatar = uploadPhotos[0] || "";
       if (!normalizedAvatar) {
-        return { ok: false, message: "No se pudo obtener la URL de la imagen subida." };
+        return { ok: false, message: t("onboarding.uploadUrlError") };
       }
       try {
         await updateSession?.();
@@ -664,7 +659,9 @@ export default function OnboardingPage() {
             },
           });
         }
-        const missingMessage = missingLabels.length ? `Te falta: ${missingLabels.join(" / ")}` : "El backend aún reporta el perfil incompleto.";
+        const missingMessage = missingLabels.length
+          ? t("onboarding.missingFields").replace("{fields}", missingLabels.join(" / "))
+          : t("onboarding.backendIncomplete");
         handleSaveFailure(missingMessage);
         return;
       }
@@ -731,9 +728,12 @@ export default function OnboardingPage() {
         {step > 0 && (
           <div className="ob-progress">
             <div className="ob-progress-summary" aria-live="polite">
-              Paso {step} de {STEPS.length - 1} · {displayedCompletionPercent}% completado
+              {t("onboarding.progressSummary")
+                .replace("{step}", String(step))
+                .replace("{total}", String(steps.length - 1))
+                .replace("{percent}", String(displayedCompletionPercent))}
             </div>
-            {STEPS.slice(1).map((label, i) => {
+            {steps.slice(1).map((label, i) => {
               const idx = i + 1;
               return (
                 <div key={label} className={`ob-step${idx === step ? " active" : idx < step ? " done" : ""}`}>
@@ -763,12 +763,12 @@ export default function OnboardingPage() {
           {step === 0 && (
             <div className="ob-section">
               <div className="ob-hero">
-                <h1 className="ob-hero-title">Bienvenido a <span className="ob-hero-accent">MeetYouLive</span></h1>
-                <p className="ob-hero-sub">La plataforma donde conexiones reales se convierten en momentos únicos</p>
+                <h1 className="ob-hero-title">{t("onboarding.heroTitle")} <span className="ob-hero-accent">MeetYouLive</span></h1>
+                <p className="ob-hero-sub">{t("onboarding.heroSubtitle")}</p>
               </div>
 
               <div className="ob-value-grid">
-                {VALUE_PROPS.map((vp) => (
+                {valueProps.map((vp) => (
                   <div key={vp.title} className="ob-value-card">
                     <span className="ob-value-emoji">{vp.emoji}</span>
                     <div>
@@ -781,7 +781,7 @@ export default function OnboardingPage() {
 
               <div className="ob-actions">
                 <button className="btn btn-primary ob-btn-next ob-btn-hero" onClick={() => goToStep(1)}>
-                  Empezar ahora ✨
+                  {t("onboarding.startButton")}
                 </button>
               </div>
               <p className="ob-legal-hint">
@@ -796,12 +796,12 @@ export default function OnboardingPage() {
           ────────────────────────────────────────── */}
           {step === 1 && (
             <div className="ob-section">
-              <h2 className="ob-title">¿Qué quieres hacer?</h2>
-              <p className="ob-subtitle">Elige tu camino — podrás cambiar después</p>
-              <p className="ob-why">{STEP_EXPLANATIONS[1]}</p>
+              <h2 className="ob-title">{t("onboarding.pathTitle")}</h2>
+              <p className="ob-subtitle">{t("onboarding.pathSubtitle")}</p>
+              <p className="ob-why">{stepExplanations[1]}</p>
 
               <div className="ob-paths">
-                {PATHS.map((path) => (
+                {paths.map((path) => (
                   <button
                     key={path.id}
                     className={`ob-path-card${selectedPath === path.id ? " selected" : ""}`}
@@ -821,10 +821,10 @@ export default function OnboardingPage() {
 
               <div className="ob-actions ob-actions-row" style={{ marginTop: "1.5rem" }}>
                 <button className="btn ob-btn-back" onClick={() => goToStep(0)}>
-                  ← Atrás
+                  {t("onboarding.backButton")}
                 </button>
                 <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
-                  Continuar →
+                  {t("onboarding.continueButton")}
                 </button>
               </div>
             </div>
@@ -835,15 +835,15 @@ export default function OnboardingPage() {
           ────────────────────────────────────────── */}
           {step === 2 && (
             <div className="ob-section">
-              <h2 className="ob-title">Cuéntanos sobre ti</h2>
-              <p className="ob-subtitle">Esta información ayuda a otros usuarios a conocerte</p>
-              <p className="ob-why">{STEP_EXPLANATIONS[2]}</p>
+              <h2 className="ob-title">{t("onboarding.profileTitle")}</h2>
+              <p className="ob-subtitle">{t("onboarding.profileSubtitle")}</p>
+              <p className="ob-why">{stepExplanations[2]}</p>
 
               <div className="ob-field">
-                <label className="ob-label">Tu nombre *</label>
+                <label className="ob-label">{t("onboarding.nameLabel")}</label>
                 <input
                   className="input"
-                  placeholder="¿Cómo quieres que te llamen?"
+                  placeholder={t("onboarding.namePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={60}
@@ -851,10 +851,10 @@ export default function OnboardingPage() {
               </div>
 
               <div className="ob-field">
-                <label className="ob-label">Sobre ti</label>
+                <label className="ob-label">{t("onboarding.bioLabel")}</label>
                 <textarea
                   className="input ob-textarea"
-                  placeholder="Cuéntanos algo interesante sobre ti…"
+                  placeholder={t("onboarding.bioPlaceholder")}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   maxLength={300}
@@ -865,22 +865,22 @@ export default function OnboardingPage() {
 
               <div className="ob-row">
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Género *</label>
+                  <label className="ob-label">{t("onboarding.genderLabel")}</label>
                   <select
                     className="input"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                   >
-                    <option value="">Selecciona…</option>
-                    <option value="male">Hombre</option>
-                    <option value="female">Mujer</option>
-                    <option value="other">Otro</option>
-                    <option value="prefer_not_to_say">Prefiero no decirlo</option>
+                    <option value="">{t("onboarding.selectPlaceholder")}</option>
+                    <option value="male">{t("onboarding.genderMale")}</option>
+                    <option value="female">{t("onboarding.genderFemale")}</option>
+                    <option value="other">{t("onboarding.genderOther")}</option>
+                    <option value="prefer_not_to_say">{t("onboarding.genderPreferNot")}</option>
                   </select>
                 </div>
 
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Fecha de nacimiento *</label>
+                  <label className="ob-label">{t("onboarding.birthdateLabel")}</label>
                   <input
                     className="input"
                     type="date"
@@ -904,15 +904,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="ob-field ob-field-half">
-                  <label className="ob-label">Quiero conocer *</label>
+                  <label className="ob-label">{t("onboarding.interestedInLabel")}</label>
                   <select
                     className="input"
                     value={interestedIn}
                     onChange={(e) => setInterestedIn(e.target.value)}
                   >
-                    <option value="both">Todos</option>
-                    <option value="female">Mujeres</option>
-                    <option value="male">Hombres</option>
+                    <option value="both">{t("onboarding.interestedInBoth")}</option>
+                    <option value="female">{t("onboarding.interestedInWomen")}</option>
+                    <option value="male">{t("onboarding.interestedInMen")}</option>
                   </select>
                 </div>
               </div>
@@ -969,10 +969,10 @@ export default function OnboardingPage() {
 
               <div className="ob-actions ob-actions-row">
                 <button className="btn ob-btn-back" onClick={() => goToStep(1)}>
-                  ← Atrás
+                  {t("onboarding.backButton")}
                 </button>
                 <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
-                  Continuar →
+                  {t("onboarding.continueButton")}
                 </button>
               </div>
             </div>
@@ -983,12 +983,16 @@ export default function OnboardingPage() {
           ────────────────────────────────────────── */}
           {step === 3 && (
             <div className="ob-section">
-              <h2 className="ob-title">¿Qué te gusta?</h2>
-              <p className="ob-subtitle">Selecciona al menos {MIN_INTERESTS} intereses (máximo {MAX_INTERESTS})</p>
-              <p className="ob-why">{STEP_EXPLANATIONS[3]}</p>
+              <h2 className="ob-title">{t("onboarding.interestsTitle")}</h2>
+              <p className="ob-subtitle">
+                {t("onboarding.interestsSubtitle")
+                  .replace("{min}", String(MIN_INTERESTS))
+                  .replace("{max}", String(MAX_INTERESTS))}
+              </p>
+              <p className="ob-why">{stepExplanations[3]}</p>
 
               <div className="ob-interests-grid">
-                {INTERESTS.map((interest) => (
+                {interestOptions.map((interest) => (
                   <button
                     key={interest}
                     className={`ob-interest-pill${interests.includes(interest) ? " selected" : ""}`}
@@ -1002,16 +1006,16 @@ export default function OnboardingPage() {
               <div className="ob-selected-count">
                 {interests.length}/{MAX_INTERESTS} seleccionados
                 {interests.length < MIN_INTERESTS && (
-                  <span className="ob-min-hint"> (mínimo {MIN_INTERESTS})</span>
+                  <span className="ob-min-hint"> {t("onboarding.minimumHint").replace("{count}", String(MIN_INTERESTS))}</span>
                 )}
               </div>
 
               <div className="ob-actions ob-actions-row">
                 <button className="btn ob-btn-back" onClick={() => goToStep(2)}>
-                  ← Atrás
+                  {t("onboarding.backButton")}
                 </button>
                 <button className="btn btn-primary ob-btn-next" onClick={handleNext}>
-                  Continuar →
+                  {t("onboarding.continueButton")}
                 </button>
               </div>
             </div>
@@ -1022,15 +1026,17 @@ export default function OnboardingPage() {
           ────────────────────────────────────────── */}
           {step === 4 && (
             <div className="ob-section">
-              <h2 className="ob-title">Arma tu perfil de fotos</h2>
-              <p className="ob-subtitle">Elige 1 foto principal y hasta {MAX_EXTRA_PROFILE_PHOTOS} fotos extra. Optimizamos fotos grandes antes de subirlas.</p>
-              <p className="ob-why">{STEP_EXPLANATIONS[4]}</p>
+              <h2 className="ob-title">{t("onboarding.photoTitle")}</h2>
+              <p className="ob-subtitle">
+                {t("onboarding.photoSubtitle").replace("{count}", String(MAX_EXTRA_PROFILE_PHOTOS))}
+              </p>
+              <p className="ob-why">{stepExplanations[4]}</p>
 
               <div className="ob-avatar-preview">
                 {safeMainPhotoPreview ? (
                   <img
                     src={safeMainPhotoPreview}
-                    alt="Foto principal"
+                    alt={t("onboarding.mainPhotoAlt")}
                     className="ob-avatar-img"
                     onError={() => { setMainPhotoFile(null); setMainPhotoPreview(""); }}
                   />
@@ -1040,26 +1046,26 @@ export default function OnboardingPage() {
                   </div>
                 )}
               </div>
-              <div className="ob-main-label">Foto principal</div>
+              <div className="ob-main-label">{t("onboarding.mainPhotoLabel")}</div>
 
               {safeMainPhotoPreview && (
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
                   <button type="button" className="btn ob-btn-back" onClick={handleRemoveMainPhoto} disabled={loading}>
-                    Eliminar principal
+                    {t("onboarding.removeMainPhoto")}
                   </button>
                 </div>
               )}
 
-              <div className="ob-photo-grid" role="region" aria-label="Fotos secundarias">
+              <div className="ob-photo-grid" role="region" aria-label={t("onboarding.extraPhotosAria")}>
                   {visibleExtraPhotoFiles.map((photo) => (
                     <div key={photo.id} className="ob-photo-item">
-                      <img src={photo.safePreview} alt="Foto adicional" className="ob-photo-item-img" />
+                      <img src={photo.safePreview} alt={t("onboarding.extraPhotoAlt")} className="ob-photo-item-img" />
                       <div className="ob-photo-item-actions">
                         <button type="button" className="btn ob-btn-back ob-btn-photo" onClick={() => handleMakeMainPhoto(photo.id)} disabled={loading}>
-                          Hacer principal
+                          {t("onboarding.makeMainPhoto")}
                         </button>
                         <button type="button" className="btn ob-btn-back ob-btn-photo" onClick={() => handleRemoveExtraPhoto(photo.id)} disabled={loading}>
-                          Eliminar
+                          {t("onboarding.removePhoto")}
                         </button>
                       </div>
                     </div>
@@ -1071,7 +1077,7 @@ export default function OnboardingPage() {
                       className="ob-photo-item ob-photo-empty-slot"
                       onClick={() => addPhotosInputRef.current?.click()}
                       disabled={loading || selectedPhotoCount >= MAX_PROFILE_PHOTOS}
-                      aria-label="Agregar foto"
+                      aria-label={t("onboarding.addPhotoAria")}
                     >
                       <span>+</span>
                     </button>
@@ -1079,7 +1085,7 @@ export default function OnboardingPage() {
                 </div>
 
               <div className="ob-field">
-                <label className="ob-label">Agregar fotos</label>
+                <label className="ob-label">{t("onboarding.addPhotosLabel")}</label>
                 <button
                   type="button"
                   className="ob-upload-btn"
@@ -1100,7 +1106,11 @@ export default function OnboardingPage() {
                     e.target.value = "";
                   }}
                 />
-                <span className="ob-hint">Máximo {MAX_PROFILE_PHOTOS} fotos en total. Límite seguro: {AVATAR_UPLOAD_MAX_LABEL} por foto.</span>
+                <span className="ob-hint">
+                  {t("onboarding.photoLimitHint")
+                    .replace("{count}", String(MAX_PROFILE_PHOTOS))
+                    .replace("{size}", AVATAR_UPLOAD_MAX_LABEL)}
+                </span>
               </div>
 
               {/* Coin / Creator destination hook */}
@@ -1112,19 +1122,19 @@ export default function OnboardingPage() {
 
               {/* Confidence room hint */}
               <div className="ob-confidence-hint">
-                💬 ¿Te cuesta romper el hielo? Practica en nuestra <strong>Sala de Confianza</strong> antes de conectar con alguien real.
+                {t("onboarding.confidenceHint")}
               </div>
 
               <div className="ob-actions ob-actions-row">
                 <button className="btn ob-btn-back" onClick={() => goToStep(3)}>
-                  ← Atrás
+                  {t("onboarding.backButton")}
                 </button>
                 <button
                   className="btn btn-primary ob-btn-next"
                   onClick={finish}
                   disabled={loading}
                 >
-                  {loading ? "Guardando…" : "¡Listo! Entrar →"}
+                  {loading ? t("onboarding.savingButton") : t("onboarding.finishButton")}
                 </button>
               </div>
             </div>

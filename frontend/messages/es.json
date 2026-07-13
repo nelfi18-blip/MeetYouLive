@@ -73,7 +73,128 @@
     "sessionExpired": "Tu sesión expiró. Inicia sesión de nuevo.",
     "tooManyAttempts": "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.",
     "photoRequired": "Sube al menos una foto para continuar",
-    "feedDestinationHint": "✨ Al terminar irás directo al Feed para empezar sin refrescar ni volver a iniciar sesión."
+    "feedDestinationHint": "✨ Al terminar irás directo al Feed para empezar sin refrescar ni volver a iniciar sesión.",
+    "steps": {
+      "welcome": "Bienvenida",
+      "path": "Tu camino",
+      "profile": "Sobre ti",
+      "interests": "Intereses",
+      "photo": "Tu foto"
+    },
+    "progressSummary": "Paso {step} de {total} · {percent}% completado",
+    "heroTitle": "Bienvenido a",
+    "heroSubtitle": "La plataforma donde conexiones reales se convierten en momentos únicos",
+    "startButton": "Empezar ahora ✨",
+    "valueProps": {
+      "match": {
+        "title": "Haz match",
+        "desc": "Conecta con personas que comparten tus intereses"
+      },
+      "live": {
+        "title": "Conecta en vivo",
+        "desc": "Videollamadas y streams en tiempo real"
+      },
+      "gifts": {
+        "title": "Envía y recibe regalos",
+        "desc": "Sorprende a tus conexiones con regalos virtuales"
+      },
+      "creator": {
+        "title": "Gana como creador",
+        "desc": "Monetiza tu audiencia haciendo lo que amas"
+      }
+    },
+    "paths": {
+      "crush": {
+        "title": "Conocer personas",
+        "desc": "Encuentra tu match ideal y conecta con gente real cerca de ti.",
+        "hook": "🪙 Los coins te dan acceso a interacciones exclusivas"
+      },
+      "live": {
+        "title": "Ver directos",
+        "desc": "Únete a streams en vivo, envía regalos y conéctate en tiempo real.",
+        "hook": "🎁 Con coins puedes enviar regalos y entrar a salas VIP"
+      },
+      "creator": {
+        "title": "Ganar como creador",
+        "desc": "Crea tu perfil de creador, transmite en vivo y cobra por tu contenido.",
+        "hook": "💵 Los creadores aprobados reciben pagos reales"
+      }
+    },
+    "explanations": {
+      "path": "Esto nos ayuda a ordenar tu primera experiencia, pero siempre podrás cambiar de sección después.",
+      "profile": "Usamos estos datos para mostrarte perfiles relevantes y evitar recomendaciones vacías o fuera de contexto.",
+      "interests": "Tus intereses aceleran los primeros matches y ayudan a cargar perfiles compatibles desde el inicio.",
+      "photo": "Una foto real genera confianza y permite que tu perfil aparezca correctamente en el feed."
+    },
+    "pathTitle": "¿Qué quieres hacer?",
+    "pathSubtitle": "Elige tu camino — podrás cambiar después",
+    "profileTitle": "Cuéntanos sobre ti",
+    "profileSubtitle": "Esta información ayuda a otros usuarios a conocerte",
+    "nameLabel": "Tu nombre *",
+    "namePlaceholder": "¿Cómo quieres que te llamen?",
+    "bioLabel": "Sobre ti",
+    "bioPlaceholder": "Cuéntanos algo interesante sobre ti…",
+    "genderLabel": "Género *",
+    "selectPlaceholder": "Selecciona…",
+    "genderMale": "Hombre",
+    "genderFemale": "Mujer",
+    "genderOther": "Otro",
+    "genderPreferNot": "Prefiero no decirlo",
+    "birthdateLabel": "Fecha de nacimiento *",
+    "interestedInLabel": "Quiero conocer *",
+    "interestedInBoth": "Todos",
+    "interestedInWomen": "Mujeres",
+    "interestedInMen": "Hombres",
+    "interestsTitle": "¿Qué te gusta?",
+    "interestsSubtitle": "Selecciona al menos {min} intereses (máximo {max})",
+    "minimumHint": "(mínimo {count})",
+    "photoTitle": "Arma tu perfil de fotos",
+    "photoSubtitle": "Elige 1 foto principal y hasta {count} fotos extra. Optimizamos fotos grandes antes de subirlas.",
+    "mainPhotoAlt": "Foto principal",
+    "mainPhotoLabel": "Foto principal",
+    "removeMainPhoto": "Eliminar principal",
+    "extraPhotosAria": "Fotos secundarias",
+    "extraPhotoAlt": "Foto adicional",
+    "makeMainPhoto": "Hacer principal",
+    "removePhoto": "Eliminar",
+    "addPhotoAria": "Agregar foto",
+    "addPhotosLabel": "Agregar fotos",
+    "photoLimitHint": "Máximo {count} fotos en total. Límite seguro: {size} por foto.",
+    "confidenceHint": "💬 ¿Te cuesta romper el hielo? Practica en nuestra Sala de Confianza antes de conectar con alguien real.",
+    "backButton": "← Atrás",
+    "continueButton": "Continuar →",
+    "savingButton": "Guardando…",
+    "finishButton": "¡Listo! Entrar →",
+    "interestOptions": [
+      "Música",
+      "Gaming",
+      "Arte",
+      "Viajes",
+      "Fitness",
+      "Cocina",
+      "Tecnología",
+      "Cine",
+      "Moda",
+      "Fotografía",
+      "Naturaleza",
+      "Libros",
+      "Yoga",
+      "Deportes",
+      "Danza",
+      "Meditación",
+      "Humor",
+      "Idiomas",
+      "Ciencia",
+      "Historia"
+    ],
+    "invalidImage": "Selecciona una imagen válida.",
+    "invalidImageFormat": "Formato de imagen no válido. Usa JPG, PNG, WebP o GIF.",
+    "invalidImageName": "Nombre de archivo no válido. Usa JPG, PNG, WebP o GIF.",
+    "photoReadError": "No se pudo leer uno de los archivos seleccionados.",
+    "uploadConfigError": "No se pudo iniciar la subida. Falta la configuración del servidor.",
+    "uploadUrlError": "No se pudo obtener la URL de la imagen subida.",
+    "missingFields": "Te falta: {fields}",
+    "backendIncomplete": "El backend aún reporta el perfil incompleto."
   },
   "matchesPage": {
     "chatOpenError": "No se pudo abrir el chat",

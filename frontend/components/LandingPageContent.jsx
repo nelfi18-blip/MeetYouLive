@@ -386,7 +386,7 @@ export default function LandingPage() {
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.7rem;
         }
-        .stats-grid span {
+        .stats-grid > span {
           border: 1px solid var(--border-subtle);
           border-radius: 16px;
           padding: 0.8rem;
@@ -398,6 +398,10 @@ export default function LandingPage() {
           gap: 0.45rem;
         }
         .feature-icon {
+          border: 0;
+          border-radius: 0;
+          padding: 0;
+          background: transparent;
           font-size: 1.1rem;
         }
         .how-it-works {

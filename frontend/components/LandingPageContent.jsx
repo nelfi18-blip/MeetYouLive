@@ -169,7 +169,7 @@ export default function LandingPage() {
       <style jsx>{`
         .landing-page {
           display: grid;
-          gap: clamp(2rem, 5vw, 3.2rem);
+          gap: clamp(2rem, 5vw, 3rem);
           padding-bottom: 2rem;
         }
         .hero {
@@ -497,6 +497,11 @@ export default function LandingPage() {
             flex-direction: column;
           }
         }
+        @media (max-width: 768px) {
+          .security-strip {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
         @media (max-width: 560px) {
           .hero {
             border-radius: 24px;
@@ -535,6 +540,9 @@ export default function LandingPage() {
             margin-top: 2rem;
           }
           .stats-grid {
+            grid-template-columns: 1fr;
+          }
+          .security-strip {
             grid-template-columns: 1fr;
           }
           h1 {

@@ -1,42 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
-
-const PROTECTED_ROUTE_PREFIXES = [
-  "/agency",
-  "/call",
-  "/calls",
-  "/chats",
-  "/coins",
-  "/creator",
-  "/crush",
-  "/daily-reward",
-  "/dashboard",
-  "/exclusive",
-  "/explore",
-  "/feed",
-  "/gifts",
-  "/live",
-  "/matches",
-  "/notifications",
-  "/onboarding",
-  "/passes",
-  "/private-calls",
-  "/profile",
-  "/ranking",
-  "/referral",
-  "/rooms",
-  "/settings",
-  "/sparks",
-  "/subscription",
-  "/videos",
-  "/vip",
-  "/wallet",
-];
-
-function matchesRoutePrefix(pathname, prefix) {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
-}
+import { isProtectedRoutePath, isPublicRoute } from "@/lib/publicAccess";
 
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
@@ -91,10 +56,9 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // ── Homepage Protection ────────────────────────────────────────────────────
-  // The homepage (/) must ALWAYS be accessible to everyone without redirects.
-  // This is a public landing page that should never redirect to admin or auth pages.
-  if (pathname === "/") {
+  // ── Public routes ──────────────────────────────────────────────────────────
+  // These pages must ALWAYS be accessible to everyone without auth redirects.
+  if (isPublicRoute(pathname)) {
     return withCanonicalHostIndexing(request, NextResponse.next());
   }
 
@@ -117,9 +81,7 @@ export function middleware(request) {
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
-  const isProtectedRoute = PROTECTED_ROUTE_PREFIXES.some((prefix) =>
-    matchesRoutePrefix(pathname, prefix)
-  );
+  const isProtectedRoute = isProtectedRoutePath(pathname);
 
   // ── Admin routing ──────────────────────────────────────────────────────────
 

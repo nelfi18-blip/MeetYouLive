@@ -533,7 +533,15 @@ router.post("/google-session", authLimiter, async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-    const safeUser = { id: user._id, email: user.email, name: user.name, username: user.username, role: user.role };
+    const safeUser = {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      username: user.username,
+      role: user.role,
+      onboardingComplete: user.onboardingComplete === true,
+      creatorStatus: user.creatorStatus,
+    };
     console.log(`[google-session] Token issued successfully for email: ${email}`);
     res.json({ ok: true, token, user: safeUser });
   } catch (err) {

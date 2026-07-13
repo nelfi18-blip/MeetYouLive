@@ -524,6 +524,78 @@
     "submitError": "Could not submit the request. Try again.",
     "pendingReviewNotice": "Your request has been submitted. An administrator will review it soon and we will notify you by email."
   },
+  "landing": {
+    "nav": {
+      "login": "Log in",
+      "register": "Sign up"
+    },
+    "hero": {
+      "eyebrow": "Premium social platform",
+      "title": "Connect, go live and support your favorite creators.",
+      "description": "Start free in less than a minute. Meet people, go live, make video calls and support your favorite creators."
+    },
+    "cta": {
+      "google": "Continue with Google",
+      "email": "Create account with email",
+      "existingAccount": "Already have an account?",
+      "login": "Log in",
+      "note": {
+        "free": "Free registration.",
+        "noCommitment": "No commitment.",
+        "oneMinute": "Only takes one minute."
+      }
+    },
+    "advantages": {
+      "freeRegistration": "Free registration",
+      "googleStart": "Quick start with Google",
+      "stripePayments": "Secure payments with Stripe",
+      "moderatedCommunity": "Moderated community",
+      "safePlatform": "Protected platform"
+    },
+    "heroCard": {
+      "livePill": "Live",
+      "title": "Everything you can do",
+      "description": "Match, chat, live streams, video calls, coins and virtual gifts in a moderated community."
+    },
+    "features": {
+      "match": "Match",
+      "chat": "Chat",
+      "live": "Live",
+      "videoCalls": "Video Calls",
+      "coins": "Coins",
+      "gifts": "Gifts"
+    },
+    "howItWorks": {
+      "eyebrow": "How does it work?",
+      "title": "Start in three simple steps."
+    },
+    "steps": {
+      "step1": {
+        "title": "Step 1",
+        "description": "Create your account with Google or email."
+      },
+      "step2": {
+        "title": "Step 2",
+        "description": "Complete your profile and discover people."
+      },
+      "step3": {
+        "title": "Step 3",
+        "description": "Match, chat, go live and enjoy every feature."
+      }
+    },
+    "trust": {
+      "ariaLabel": "Trust and security",
+      "stripe": "Payments processed through Stripe",
+      "moderation": "Moderated community",
+      "privacy": "Data protection",
+      "international": "Platform available internationally"
+    },
+    "operator": {
+      "eyebrow": "Operator",
+      "description": "Official operator of MeetYouLive. Premium social platform to meet people, go live and support content creators through secure payments.",
+      "contact": "Contact and support"
+    }
+  },
   "legal": {
     "eyebrow": "Legal and compliance",
     "indexTitle": "MeetYouLive Legal Center",

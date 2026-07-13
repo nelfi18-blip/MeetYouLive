@@ -3,50 +3,53 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import Logo from "@/components/Logo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const ADVANTAGES = [
-  { id: "free-registration", text: "Registro gratuito" },
-  { id: "google-start", text: "Inicio rápido con Google" },
-  { id: "stripe-payments", text: "Pagos seguros con Stripe" },
-  { id: "moderated-community", text: "Comunidad moderada" },
-  { id: "safe-platform", text: "Plataforma protegida" },
+  { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
+  { id: "google-start", textKey: "landing.advantages.googleStart" },
+  { id: "stripe-payments", textKey: "landing.advantages.stripePayments" },
+  { id: "moderated-community", textKey: "landing.advantages.moderatedCommunity" },
+  { id: "safe-platform", textKey: "landing.advantages.safePlatform" },
 ];
 
 const FEATURES = [
-  { id: "match", icon: "💘", label: "Match" },
-  { id: "chat", icon: "💬", label: "Chat" },
-  { id: "live", icon: "📡", label: "Live" },
-  { id: "video-calls", icon: "🎥", label: "Video Calls" },
-  { id: "coins", icon: "🪙", label: "Coins" },
-  { id: "gifts", icon: "🎁", label: "Regalos" },
+  { id: "match", icon: "💘", labelKey: "landing.features.match" },
+  { id: "chat", icon: "💬", labelKey: "landing.features.chat" },
+  { id: "live", icon: "📡", labelKey: "landing.features.live" },
+  { id: "video-calls", icon: "🎥", labelKey: "landing.features.videoCalls" },
+  { id: "coins", icon: "🪙", labelKey: "landing.features.coins" },
+  { id: "gifts", icon: "🎁", labelKey: "landing.features.gifts" },
 ];
 
 const STEPS = [
   {
     icon: "⚡",
-    title: "Paso 1",
-    description: "Crea tu cuenta con Google o correo.",
+    titleKey: "landing.steps.step1.title",
+    descriptionKey: "landing.steps.step1.description",
   },
   {
     icon: "✨",
-    title: "Paso 2",
-    description: "Completa tu perfil y descubre personas.",
+    titleKey: "landing.steps.step2.title",
+    descriptionKey: "landing.steps.step2.description",
   },
   {
     icon: "🚀",
-    title: "Paso 3",
-    description: "Haz Match, conversa, transmite en vivo y disfruta de todas las funciones.",
+    titleKey: "landing.steps.step3.title",
+    descriptionKey: "landing.steps.step3.description",
   },
 ];
 
 const TRUST_ITEMS = [
-  { id: "stripe", icon: "🔒", text: "Pagos procesados mediante Stripe" },
-  { id: "moderation", icon: "🛡️", text: "Comunidad moderada" },
-  { id: "privacy", icon: "🔐", text: "Protección de datos" },
-  { id: "international", icon: "🌍", text: "Plataforma disponible internacionalmente" },
+  { id: "stripe", icon: "🔒", textKey: "landing.trust.stripe" },
+  { id: "moderation", icon: "🛡️", textKey: "landing.trust.moderation" },
+  { id: "privacy", icon: "🔐", textKey: "landing.trust.privacy" },
+  { id: "international", icon: "🌍", textKey: "landing.trust.international" },
 ];
 
 export default function LandingPage() {
+  const { t } = useLanguage();
+
   const handleGoogleSignIn = () => {
     signIn("google", {
       callbackUrl: "/dashboard",
@@ -60,62 +63,61 @@ export default function LandingPage() {
           <Logo size="lg" />
           <div className="nav-actions">
             <Link href="/login" className="ghost-button">
-              Iniciar sesión
+              {t("landing.nav.login")}
             </Link>
             <Link href="/register" className="primary-button">
-              Registrarse
+              {t("landing.nav.register")}
             </Link>
           </div>
         </nav>
 
         <div className="hero-grid">
           <div className="hero-copy">
-            <p className="eyebrow">Plataforma social premium</p>
-            <h1>Conecta, transmite en vivo y apoya a tus creadores favoritos.</h1>
+            <p className="eyebrow">{t("landing.hero.eyebrow")}</p>
+            <h1>{t("landing.hero.title")}</h1>
             <p className="hero-description">
-              Empieza gratis en menos de un minuto. Conoce personas, transmite en vivo, realiza videollamadas y
-              apoya a tus creadores favoritos.
+              {t("landing.hero.description")}
             </p>
             <div className="signup-card">
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
-                Continuar con Google
+                {t("landing.cta.google")}
               </button>
               <Link href="/register" className="email-link">
-                Crear cuenta con correo electrónico
+                {t("landing.cta.email")}
               </Link>
               <div className="login-prompt">
-                <span>¿Ya tienes una cuenta?</span>
+                <span>{t("landing.cta.existingAccount")}</span>
                 <Link href="/login" className="login-link">
-                  Iniciar sesión
+                  {t("landing.cta.login")}
                 </Link>
               </div>
               <p className="cta-note">
-                <span>Registro gratuito.</span>
-                <span>Sin compromiso.</span>
-                <span>Solo toma un minuto.</span>
+                <span>{t("landing.cta.note.free")}</span>
+                <span>{t("landing.cta.note.noCommitment")}</span>
+                <span>{t("landing.cta.note.oneMinute")}</span>
               </p>
             </div>
             <ul className="advantage-list">
               {ADVANTAGES.map((advantage) => (
                 <li key={advantage.id}>
                   <span aria-hidden="true">✓</span>
-                  {advantage.text}
+                  {t(advantage.textKey)}
                 </li>
               ))}
             </ul>
           </div>
 
           <aside className="hero-card" aria-labelledby="hero-card-title">
-            <div className="live-pill">● En vivo</div>
-            <h2 id="hero-card-title">Todo lo que puedes hacer</h2>
-            <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
+            <div className="live-pill">● {t("landing.heroCard.livePill")}</div>
+            <h2 id="hero-card-title">{t("landing.heroCard.title")}</h2>
+            <p>{t("landing.heroCard.description")}</p>
             <div className="stats-grid">
               {FEATURES.map((feature) => (
                 <span key={feature.id}>
                   <span className="feature-icon" aria-hidden="true">
                     {feature.icon}
                   </span>
-                  {feature.label}
+                  {t(feature.labelKey)}
                 </span>
               ))}
             </div>
@@ -124,41 +126,40 @@ export default function LandingPage() {
       </section>
 
       <section className="how-it-works" aria-labelledby="steps-title">
-        <p className="eyebrow">¿Cómo funciona?</p>
-        <h2 id="steps-title">Empieza en tres pasos simples.</h2>
+        <p className="eyebrow">{t("landing.howItWorks.eyebrow")}</p>
+        <h2 id="steps-title">{t("landing.howItWorks.title")}</h2>
         <div className="steps-grid">
           {STEPS.map((step) => (
-            <article key={step.title} className="step-card">
+            <article key={step.titleKey} className="step-card">
               <div className="step-icon" aria-hidden="true">
                 {step.icon}
               </div>
-              <span>{step.title}</span>
-              <p>{step.description}</p>
+              <span>{t(step.titleKey)}</span>
+              <p>{t(step.descriptionKey)}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="security-strip" aria-label="Confianza y seguridad">
+      <section className="security-strip" aria-label={t("landing.trust.ariaLabel")}>
         {TRUST_ITEMS.map((item) => (
           <div key={item.id} className="security-item">
             <span aria-hidden="true">{item.icon}</span>
-            <strong>{item.text}</strong>
+            <strong>{t(item.textKey)}</strong>
           </div>
         ))}
       </section>
 
       <section className="trust-panel">
         <div>
-          <p className="eyebrow">Operador</p>
+          <p className="eyebrow">{t("landing.operator.eyebrow")}</p>
           <h2>MEETYOULIVE TECHNOLOGIES LLC</h2>
           <p>
-            Operador oficial de MeetYouLive. Plataforma social premium para conocer personas, transmitir en vivo y apoyar
-            a creadores de contenido mediante pagos seguros.
+            {t("landing.operator.description")}
           </p>
         </div>
         <Link href="/contact" className="ghost-button large">
-          Contacto y soporte
+          {t("landing.operator.contact")}
         </Link>
       </section>
 

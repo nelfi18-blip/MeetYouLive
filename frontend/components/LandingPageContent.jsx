@@ -297,7 +297,7 @@ export default function LandingPage() {
           margin: 0;
           color: var(--text);
           font-size: 0.93rem;
-          font-weight: 850;
+          font-weight: 900;
           line-height: 1.45;
           text-align: center;
         }

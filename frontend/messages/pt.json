@@ -524,6 +524,78 @@
     "submitError": "Não foi possível enviar a solicitação. Tente novamente.",
     "pendingReviewNotice": "Sua solicitação foi enviada. Um administrador a revisará em breve e notificaremos você por email."
   },
+  "landing": {
+    "nav": {
+      "login": "Entrar",
+      "register": "Registrar-se"
+    },
+    "hero": {
+      "eyebrow": "Plataforma social premium",
+      "title": "Conecte-se, faça lives e apoie seus criadores favoritos.",
+      "description": "Comece grátis em menos de um minuto. Conheça pessoas, faça lives, realize videochamadas e apoie seus criadores favoritos."
+    },
+    "cta": {
+      "google": "Continuar com Google",
+      "email": "Criar conta com email",
+      "existingAccount": "Já tem uma conta?",
+      "login": "Entrar",
+      "note": {
+        "free": "Registro gratuito.",
+        "noCommitment": "Sem compromisso.",
+        "oneMinute": "Leva apenas um minuto."
+      }
+    },
+    "advantages": {
+      "freeRegistration": "Registro gratuito",
+      "googleStart": "Início rápido com Google",
+      "stripePayments": "Pagamentos seguros com Stripe",
+      "moderatedCommunity": "Comunidade moderada",
+      "safePlatform": "Plataforma protegida"
+    },
+    "heroCard": {
+      "livePill": "Ao vivo",
+      "title": "Tudo o que você pode fazer",
+      "description": "Match, chat, lives, videochamadas, coins e presentes virtuais em uma comunidade moderada."
+    },
+    "features": {
+      "match": "Match",
+      "chat": "Chat",
+      "live": "Live",
+      "videoCalls": "Video Calls",
+      "coins": "Coins",
+      "gifts": "Presentes"
+    },
+    "howItWorks": {
+      "eyebrow": "Como funciona?",
+      "title": "Comece em três passos simples."
+    },
+    "steps": {
+      "step1": {
+        "title": "Passo 1",
+        "description": "Crie sua conta com Google ou email."
+      },
+      "step2": {
+        "title": "Passo 2",
+        "description": "Complete seu perfil e descubra pessoas."
+      },
+      "step3": {
+        "title": "Passo 3",
+        "description": "Dê match, converse, faça lives e aproveite todos os recursos."
+      }
+    },
+    "trust": {
+      "ariaLabel": "Confiança e segurança",
+      "stripe": "Pagamentos processados pela Stripe",
+      "moderation": "Comunidade moderada",
+      "privacy": "Proteção de dados",
+      "international": "Plataforma disponível internacionalmente"
+    },
+    "operator": {
+      "eyebrow": "Operador",
+      "description": "Operador oficial do MeetYouLive. Plataforma social premium para conhecer pessoas, fazer lives e apoiar criadores de conteúdo por meio de pagamentos seguros.",
+      "contact": "Contato e suporte"
+    }
+  },
   "legal": {
     "eyebrow": "Legal e conformidade",
     "indexTitle": "Centro Legal do MeetYouLive",

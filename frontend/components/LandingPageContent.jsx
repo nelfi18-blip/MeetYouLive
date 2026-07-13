@@ -3,31 +3,53 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import Logo from "@/components/Logo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const ADVANTAGES = [
-  { id: "free-registration", text: "Registro gratis." },
-  { id: "google-start", text: "Inicio rápido con Google." },
-  { id: "stripe-payments", text: "Pagos seguros con Stripe." },
-  { id: "moderated-community", text: "Comunidad moderada." },
-  { id: "safe-platform", text: "Plataforma segura." },
+  { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
+  { id: "google-start", textKey: "landing.advantages.googleStart" },
+  { id: "stripe-payments", textKey: "landing.advantages.stripePayments" },
+  { id: "moderated-community", textKey: "landing.advantages.moderatedCommunity" },
+  { id: "safe-platform", textKey: "landing.advantages.safePlatform" },
+];
+
+const FEATURES = [
+  { id: "match", icon: "💘", labelKey: "landing.features.match" },
+  { id: "chat", icon: "💬", labelKey: "landing.features.chat" },
+  { id: "live", icon: "📡", labelKey: "landing.features.live" },
+  { id: "video-calls", icon: "🎥", labelKey: "landing.features.videoCalls" },
+  { id: "coins", icon: "🪙", labelKey: "landing.features.coins" },
+  { id: "gifts", icon: "🎁", labelKey: "landing.features.gifts" },
 ];
 
 const STEPS = [
   {
-    title: "Paso 1",
-    description: "Crea tu cuenta con Google o correo.",
+    icon: "⚡",
+    titleKey: "landing.steps.step1.title",
+    descriptionKey: "landing.steps.step1.description",
   },
   {
-    title: "Paso 2",
-    description: "Completa tu perfil y descubre personas.",
+    icon: "✨",
+    titleKey: "landing.steps.step2.title",
+    descriptionKey: "landing.steps.step2.description",
   },
   {
-    title: "Paso 3",
-    description: "Haz Match, conversa, transmite en vivo y disfruta de todas las funciones.",
+    icon: "🚀",
+    titleKey: "landing.steps.step3.title",
+    descriptionKey: "landing.steps.step3.description",
   },
 ];
 
+const TRUST_ITEMS = [
+  { id: "stripe", icon: "🔒", textKey: "landing.trust.stripe" },
+  { id: "moderation", icon: "🛡️", textKey: "landing.trust.moderation" },
+  { id: "privacy", icon: "🔐", textKey: "landing.trust.privacy" },
+  { id: "international", icon: "🌍", textKey: "landing.trust.international" },
+];
+
 export default function LandingPage() {
+  const { t } = useLanguage();
+
   const handleGoogleSignIn = () => {
     signIn("google", {
       callbackUrl: "/dashboard",
@@ -41,88 +63,110 @@ export default function LandingPage() {
           <Logo size="lg" />
           <div className="nav-actions">
             <Link href="/login" className="ghost-button">
-              Iniciar sesión
+              {t("landing.nav.login")}
             </Link>
             <Link href="/register" className="primary-button">
-              Registrarse
+              {t("landing.nav.register")}
             </Link>
           </div>
         </nav>
 
         <div className="hero-grid">
           <div className="hero-copy">
-            <p className="eyebrow">Plataforma social premium</p>
-            <h1>Conecta, transmite en vivo y apoya a tus creadores favoritos.</h1>
+            <p className="eyebrow">{t("landing.hero.eyebrow")}</p>
+            <h1>{t("landing.hero.title")}</h1>
             <p className="hero-description">
-              Empieza gratis en menos de un minuto. Conoce personas, transmite en vivo, realiza videollamadas y
-              apoya a tus creadores favoritos.
+              {t("landing.hero.description")}
             </p>
             <div className="signup-card">
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
-                Continuar con Google
+                {t("landing.cta.google")}
               </button>
               <Link href="/register" className="email-link">
-                Crear cuenta con correo electrónico
+                {t("landing.cta.email")}
               </Link>
               <div className="login-prompt">
-                <span>¿Ya tienes una cuenta?</span>
+                <span>{t("landing.cta.existingAccount")}</span>
                 <Link href="/login" className="login-link">
-                  Iniciar sesión
+                  {t("landing.cta.login")}
                 </Link>
               </div>
+              <p className="cta-note">
+                <span>{t("landing.cta.note.free")}</span>
+                <span>{t("landing.cta.note.noCommitment")}</span>
+                <span>{t("landing.cta.note.oneMinute")}</span>
+              </p>
             </div>
             <ul className="advantage-list">
               {ADVANTAGES.map((advantage) => (
-                <li key={advantage.id}>{advantage.text}</li>
+                <li key={advantage.id}>
+                  <span aria-hidden="true">✓</span>
+                  {t(advantage.textKey)}
+                </li>
               ))}
             </ul>
           </div>
 
           <aside className="hero-card" aria-labelledby="hero-card-title">
-            <div className="live-pill">● En vivo</div>
-            <h2 id="hero-card-title">Todo claro desde el inicio</h2>
-            <p>Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada.</p>
+            <div className="live-pill">● {t("landing.heroCard.livePill")}</div>
+            <h2 id="hero-card-title">{t("landing.heroCard.title")}</h2>
+            <p>{t("landing.heroCard.description")}</p>
             <div className="stats-grid">
-              <span>Match</span>
-              <span>Chat</span>
-              <span>Lives</span>
-              <span>Coins</span>
+              {FEATURES.map((feature) => (
+                <span key={feature.id}>
+                  <span className="feature-icon" aria-hidden="true">
+                    {feature.icon}
+                  </span>
+                  {t(feature.labelKey)}
+                </span>
+              ))}
             </div>
           </aside>
         </div>
       </section>
 
       <section className="how-it-works" aria-labelledby="steps-title">
-        <p className="eyebrow">¿Cómo funciona?</p>
-        <h2 id="steps-title">Empieza en tres pasos simples.</h2>
+        <p className="eyebrow">{t("landing.howItWorks.eyebrow")}</p>
+        <h2 id="steps-title">{t("landing.howItWorks.title")}</h2>
         <div className="steps-grid">
           {STEPS.map((step) => (
-            <article key={step.title} className="step-card">
-              <span>{step.title}</span>
-              <p>{step.description}</p>
+            <article key={step.titleKey} className="step-card">
+              <div className="step-icon" aria-hidden="true">
+                {step.icon}
+              </div>
+              <span>{t(step.titleKey)}</span>
+              <p>{t(step.descriptionKey)}</p>
             </article>
           ))}
         </div>
       </section>
 
+      <section className="security-strip" aria-label={t("landing.trust.ariaLabel")}>
+        {TRUST_ITEMS.map((item) => (
+          <div key={item.id} className="security-item">
+            <span aria-hidden="true">{item.icon}</span>
+            <strong>{t(item.textKey)}</strong>
+          </div>
+        ))}
+      </section>
+
       <section className="trust-panel">
         <div>
-          <p className="eyebrow">Operador</p>
+          <p className="eyebrow">{t("landing.operator.eyebrow")}</p>
           <h2>MEETYOULIVE TECHNOLOGIES LLC</h2>
           <p>
-            Información legal, políticas y contacto están disponibles públicamente para usuarios, revisores y
-            proveedores de pago.
+            {t("landing.operator.description")}
           </p>
         </div>
         <Link href="/contact" className="ghost-button large">
-          Contacto y soporte
+          {t("landing.operator.contact")}
         </Link>
       </section>
 
       <style jsx>{`
         .landing-page {
           display: grid;
-          gap: 4rem;
+          gap: clamp(2rem, 5vw, 3rem);
           padding-bottom: 2rem;
         }
         .hero {
@@ -130,7 +174,7 @@ export default function LandingPage() {
           overflow: hidden;
           border: 1px solid var(--border);
           border-radius: 32px;
-          padding: clamp(1.2rem, 3vw, 2.25rem);
+          padding: clamp(1rem, 2.5vw, 2rem);
           background:
             radial-gradient(circle at 80% 10%, rgba(34,211,238,0.22), transparent 34%),
             radial-gradient(circle at 16% 24%, rgba(224,64,251,0.22), transparent 30%),
@@ -142,7 +186,7 @@ export default function LandingPage() {
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
-          margin-bottom: clamp(2rem, 6vw, 4.5rem);
+          margin-bottom: clamp(1.2rem, 4vw, 3rem);
         }
         .nav-actions {
           display: flex;
@@ -169,12 +213,12 @@ export default function LandingPage() {
         h1 {
           margin: 0;
           max-width: 780px;
-          font-size: clamp(2.5rem, 7vw, 5.8rem);
-          line-height: 0.95;
+          font-size: clamp(2.25rem, 6.4vw, 5.4rem);
+          line-height: 0.97;
           letter-spacing: -0.08em;
         }
         .hero-description {
-          margin: 1.2rem 0 1.6rem;
+          margin: 1rem 0 1.25rem;
           max-width: 660px;
           font-size: clamp(1rem, 2vw, 1.2rem);
           line-height: 1.75;
@@ -209,18 +253,18 @@ export default function LandingPage() {
         }
         .signup-card {
           display: grid;
-          gap: 0.9rem;
+          gap: 0.75rem;
           max-width: 430px;
-          margin-bottom: 1.4rem;
+          margin-bottom: 1rem;
           border: 1px solid var(--border);
           border-radius: 24px;
-          padding: 1rem;
+          padding: 0.9rem;
           background: rgba(255,255,255,0.07);
           box-shadow: var(--shadow);
         }
         .main-cta {
           width: 100%;
-          min-height: 58px;
+          min-height: 56px;
           font-size: 1.05rem;
         }
         .email-link,
@@ -233,7 +277,7 @@ export default function LandingPage() {
         }
         .email-link {
           min-height: 52px;
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-pill);
@@ -246,22 +290,41 @@ export default function LandingPage() {
           text-align: center;
           line-height: 1.45;
         }
+        .cta-note {
+          margin: 0;
+          color: var(--text);
+          font-size: 0.93rem;
+          font-weight: 900;
+          line-height: 1.45;
+          text-align: center;
+        }
+        .cta-note span {
+          display: block;
+        }
         .advantage-list {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.7rem;
-          max-width: 660px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.55rem;
+          max-width: 680px;
           margin: 0;
           padding: 0;
           list-style: none;
         }
         .advantage-list li {
           border: 1px solid var(--border-subtle);
-          border-radius: 16px;
-          padding: 0.85rem 0.95rem;
+          border-radius: var(--radius-pill);
+          padding: 0.55rem 0.75rem;
           color: var(--text);
           font-weight: 800;
           background: rgba(255,255,255,0.05);
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          line-height: 1.2;
+        }
+        .advantage-list li span {
+          color: var(--accent-green);
+          font-weight: 900;
         }
         .primary-button:hover,
         .ghost-button:hover {
@@ -278,7 +341,7 @@ export default function LandingPage() {
         .hero-card {
           border-radius: 28px;
           padding: clamp(1.25rem, 3vw, 2rem);
-          min-height: 360px;
+          min-height: 340px;
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
@@ -311,7 +374,7 @@ export default function LandingPage() {
           z-index: 1;
         }
         .hero-card h2 {
-          margin: 4rem 0 0.65rem;
+          margin: 3rem 0 0.65rem;
           font-size: clamp(1.6rem, 4vw, 2.4rem);
         }
         .hero-card p {
@@ -323,13 +386,23 @@ export default function LandingPage() {
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 0.7rem;
         }
-        .stats-grid span {
+        .stats-grid > span {
           border: 1px solid var(--border-subtle);
           border-radius: 16px;
           padding: 0.8rem;
           color: var(--text);
           font-weight: 800;
           background: rgba(255,255,255,0.05);
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+        }
+        .feature-icon {
+          border: 0;
+          border-radius: 0;
+          padding: 0;
+          background: transparent;
+          font-size: 1.1rem;
         }
         .how-it-works {
           display: grid;
@@ -350,6 +423,17 @@ export default function LandingPage() {
           border-radius: 24px;
           padding: clamp(1.15rem, 3vw, 1.5rem);
         }
+        .step-icon {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          margin-bottom: 0.9rem;
+          border: 1px solid var(--border-subtle);
+          border-radius: 14px;
+          background: rgba(34,211,238,0.1);
+          font-size: 1.25rem;
+        }
         .step-card span {
           display: inline-flex;
           margin-bottom: 0.8rem;
@@ -367,6 +451,28 @@ export default function LandingPage() {
         .trust-panel p {
           margin: 0;
           line-height: 1.65;
+        }
+        .security-strip {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 0.8rem;
+        }
+        .security-item {
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 1rem;
+          background: rgba(255,255,255,0.05);
+          box-shadow: var(--shadow-sm);
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+        }
+        .security-item span {
+          font-size: 1.2rem;
+        }
+        .security-item strong {
+          color: var(--text);
+          line-height: 1.35;
         }
         .trust-panel {
           border-radius: 28px;
@@ -393,10 +499,13 @@ export default function LandingPage() {
         @media (max-width: 560px) {
           .hero {
             border-radius: 24px;
+            padding: 0.9rem;
           }
           .hero-nav {
             align-items: flex-start;
             flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
           }
           .nav-actions {
             width: 100%;
@@ -404,16 +513,41 @@ export default function LandingPage() {
           .primary-button,
           .ghost-button {
             flex: 1;
-            min-height: 52px;
+            min-height: 46px;
           }
           .signup-card {
             max-width: none;
+            padding: 0.8rem;
           }
           .advantage-list {
-            grid-template-columns: 1fr;
+            gap: 0.45rem;
+          }
+          .advantage-list li {
+            font-size: 0.9rem;
+            padding: 0.48rem 0.65rem;
           }
           .hero-card {
-            min-height: 300px;
+            min-height: auto;
+            padding: 1rem;
+          }
+          .hero-card h2 {
+            margin-top: 2rem;
+          }
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+          .security-strip {
+            grid-template-columns: 1fr;
+          }
+          h1 {
+            font-size: clamp(2rem, 11vw, 3.2rem);
+          }
+          .hero-description {
+            margin: 0.85rem 0 1rem;
+            line-height: 1.55;
+          }
+          .main-cta {
+            min-height: 52px;
           }
         }
       `}</style>

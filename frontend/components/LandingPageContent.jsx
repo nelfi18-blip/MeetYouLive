@@ -228,7 +228,7 @@ export default function LandingPage() {
         }
         .primary-button,
         .ghost-button {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           min-height: 44px;
@@ -317,7 +317,7 @@ export default function LandingPage() {
           color: var(--text);
           font-weight: 800;
           background: rgba(255,255,255,0.05);
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 0.45rem;
           line-height: 1.2;
@@ -393,7 +393,7 @@ export default function LandingPage() {
           color: var(--text);
           font-weight: 800;
           background: rgba(255,255,255,0.05);
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 0.45rem;
         }

@@ -90,11 +90,9 @@ export default function LandingPage() {
                 </Link>
               </div>
               <p className="cta-note">
-                Registro gratuito.
-                <br />
-                Sin compromiso.
-                <br />
-                Solo toma un minuto.
+                <span>Registro gratuito.</span>
+                <span>Sin compromiso.</span>
+                <span>Solo toma un minuto.</span>
               </p>
             </div>
             <ul className="advantage-list">
@@ -155,10 +153,8 @@ export default function LandingPage() {
           <p className="eyebrow">Operador</p>
           <h2>MEETYOULIVE TECHNOLOGIES LLC</h2>
           <p>
-            Operador oficial de MeetYouLive.
-            <br />
-            Plataforma social premium para conocer personas, transmitir en vivo y apoyar a creadores de contenido mediante
-            pagos seguros.
+            Operador oficial de MeetYouLive. Plataforma social premium para conocer personas, transmitir en vivo y apoyar
+            a creadores de contenido mediante pagos seguros.
           </p>
         </div>
         <Link href="/contact" className="ghost-button large">
@@ -300,6 +296,9 @@ export default function LandingPage() {
           font-weight: 900;
           line-height: 1.45;
           text-align: center;
+        }
+        .cta-note span {
+          display: block;
         }
         .advantage-list {
           display: flex;
@@ -454,7 +453,7 @@ export default function LandingPage() {
         }
         .security-strip {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
           gap: 0.8rem;
         }
         .security-item {
@@ -485,7 +484,6 @@ export default function LandingPage() {
         @media (max-width: 900px) {
           .hero-grid,
           .steps-grid,
-          .security-strip,
           .trust-panel {
             grid-template-columns: 1fr;
           }
@@ -495,11 +493,6 @@ export default function LandingPage() {
           .trust-panel {
             align-items: flex-start;
             flex-direction: column;
-          }
-        }
-        @media (max-width: 768px) {
-          .security-strip {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (max-width: 560px) {

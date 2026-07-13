@@ -72,7 +72,8 @@
     "photoUploadError": "No se pudo subir la foto. Inténtalo de nuevo.",
     "sessionExpired": "Tu sesión expiró. Inicia sesión de nuevo.",
     "tooManyAttempts": "Demasiados intentos. Espera unos segundos e inténtalo de nuevo.",
-    "photoRequired": "Sube al menos una foto para continuar"
+    "photoRequired": "Sube al menos una foto para continuar",
+    "feedDestinationHint": "✨ Al terminar irás directo al Feed para empezar sin refrescar ni volver a iniciar sesión."
   },
   "matchesPage": {
     "chatOpenError": "No se pudo abrir el chat",
@@ -463,7 +464,9 @@
     "profileIncompleteAction": "Completar perfil",
     "preferencesBannerText": "Puedes mejorar tus recomendaciones completando tus preferencias.",
     "preferencesBannerAction": "Completar",
-    "reloadProfiles": "Buscar nuevos perfiles"
+    "reloadProfiles": "Buscar nuevos perfiles",
+    "welcomeNotice": "¡Bienvenido a MeetYouLive! Tu perfil está listo y ya puedes explorar el feed.",
+    "closeWelcomeNotice": "Cerrar mensaje de bienvenida"
   },
   "common": {
     "loading": "Cargando...",

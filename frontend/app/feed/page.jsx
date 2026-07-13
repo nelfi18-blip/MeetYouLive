@@ -10,6 +10,7 @@ import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
+import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -30,7 +31,6 @@ const FETCH_TIMEOUT_MS = 15000;
 const FEED_CACHE_KEY = "meetyoulive:feed:v1";
 const FEED_CURRENT_PROFILE_KEY = "meetyoulive:feed:currentProfileId:v1";
 const FEED_SEEN_PROFILE_IDS_KEY = "meetyoulive:feed:seenProfileIds:v1";
-const WELCOME_FEED_NOTICE_KEY = "meetyoulive:feed:welcomeNotice:v1";
 const FEED_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const FEED_SEEN_PROFILE_IDS_LIMIT = 500;
 const FEED_PRELOAD_PROFILE_WINDOW = 3;
@@ -1373,7 +1373,7 @@ export default function FeedPage() {
         {welcomeNotice && !showErrorState && (
           <div className="feed-welcome-banner" role="status">
             <span>{welcomeNotice}</span>
-            <button type="button" onClick={() => setWelcomeNotice("")} aria-label="Cerrar mensaje de bienvenida">
+            <button type="button" onClick={() => setWelcomeNotice("")} aria-label={t("feed.closeWelcomeNotice")}>
               ×
             </button>
           </div>

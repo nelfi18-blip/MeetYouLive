@@ -16,6 +16,7 @@ import {
 import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } from "@/lib/imageHelpers";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { publishProfileUpdated } from "@/lib/profileSync";
+import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -155,7 +156,6 @@ const INTERESTS = [
 
 // Step indices: 0=Welcome, 1=Path, 2=Profile, 3=Interests, 4=Photo
 const STEPS = ["Bienvenida", "Tu camino", "Sobre ti", "Intereses", "Tu foto"];
-const WELCOME_FEED_NOTICE_KEY = "meetyoulive:feed:welcomeNotice:v1";
 
 const VALUE_PROPS = [
   { emoji: "💖", title: "Haz match", desc: "Conecta con personas que comparten tus intereses" },
@@ -704,7 +704,7 @@ export default function OnboardingPage() {
       });
       publishProfileUpdated(sessionProfile);
       try {
-        sessionStorage.setItem(WELCOME_FEED_NOTICE_KEY, "¡Bienvenido a MeetYouLive! Tu perfil está listo y ya puedes explorar el feed.");
+        sessionStorage.setItem(WELCOME_FEED_NOTICE_KEY, t("feed.welcomeNotice"));
       } catch {
         // Ignore storage failures; the feed remains available without the one-time welcome notice.
       }
@@ -1106,7 +1106,7 @@ export default function OnboardingPage() {
               {/* Coin / Creator destination hook */}
               {selectedPath && (
                 <div className="ob-destination-hint">
-                  ✨ Al terminar irás directo al <strong>Feed</strong> para empezar sin refrescar ni volver a iniciar sesión.
+                  {t("onboarding.feedDestinationHint")}
                 </div>
               )}
 

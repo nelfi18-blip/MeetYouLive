@@ -72,7 +72,8 @@
     "photoUploadError": "Could not upload the photo. Try again.",
     "sessionExpired": "Your session expired. Sign in again.",
     "tooManyAttempts": "Too many attempts. Wait a few seconds and try again.",
-    "photoRequired": "Upload at least one photo to continue"
+    "photoRequired": "Upload at least one photo to continue",
+    "feedDestinationHint": "✨ When you finish, you will go straight to the Feed so you can start without refreshing or signing in again."
   },
   "matchesPage": {
     "chatOpenError": "Could not open the chat",
@@ -463,7 +464,9 @@
     "profileIncompleteAction": "Complete profile",
     "preferencesBannerText": "You can improve recommendations by completing your preferences.",
     "preferencesBannerAction": "Complete",
-    "reloadProfiles": "Find new profiles"
+    "reloadProfiles": "Find new profiles",
+    "welcomeNotice": "Welcome to MeetYouLive! Your profile is ready and you can now explore the feed.",
+    "closeWelcomeNotice": "Close welcome message"
   },
   "common": {
     "loading": "Loading...",

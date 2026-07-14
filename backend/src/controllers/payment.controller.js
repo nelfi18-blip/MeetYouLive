@@ -205,7 +205,6 @@ const handlePaymentCompleted = async (session) => {
         throw new Error(`Coins package not found for session ${session.id}`);
       }
 
-      const emailFromSession = session.customer_details?.email || session.customer_email || null;
       let user = null;
       if (userId && mongoose.Types.ObjectId.isValid(userId)) {
         user = await User.findById(userId);
@@ -370,15 +369,10 @@ const handlePaymentCompleted = async (session) => {
           metadataUserId: userId,
         });
       }
-      if (!user && emailFromSession) {
-        user = await User.findOne({ email: emailFromSession });
-      }
-
       if (!user) {
         console.error("[sparks webhook] user not found", {
           sessionId: session.id,
           metadataUserId: userId || null,
-          emailFromSession,
         });
         throw new Error(`User not found for sparks webhook session ${session.id}`);
       }

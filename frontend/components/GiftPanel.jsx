@@ -143,6 +143,15 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   /* ── Send gift ──────────────────────────────────────────────────────── */
   const handleConfirmSend = async () => {
     if (!selectedGift) return;
+    if (!visualOnly && !OBJECT_ID_RE.test(String(receiverId || ""))) {
+      setSendError("Destinatario inválido");
+      return;
+    }
+    if (!visualOnly && (!selectedGift?.slug || !GIFT_SLUG_RE.test(String(selectedGift.slug)))) {
+      setSendError("Regalo inválido");
+      return;
+    }
+
     setSending(true);
     setSendError("");
 
@@ -178,15 +187,6 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         setQuantity(1);
         if (onGiftSent) onGiftSent(data);
         setTimeout(() => setSendSuccess(""), 3000);
-        return;
-      }
-
-      if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
-        setSendError("Destinatario inválido");
-        return;
-      }
-      if (!selectedGift?.slug || !GIFT_SLUG_RE.test(String(selectedGift.slug))) {
-        setSendError("Regalo inválido");
         return;
       }
 

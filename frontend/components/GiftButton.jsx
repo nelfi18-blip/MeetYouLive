@@ -52,18 +52,18 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     if (!selected) return;
     setError("");
     setSuccess("");
+    if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
+      setError("Destinatario inválido");
+      return;
+    }
+    if (!selected?.slug || !GIFT_SLUG_RE.test(String(selected.slug))) {
+      setError("Regalo inválido");
+      return;
+    }
+
     setLoading(true);
     const totalCost = bundleTotal(selected.coinCost, quantity);
     try {
-      if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
-        setError("Destinatario inválido");
-        return;
-      }
-      if (!selected?.slug || !GIFT_SLUG_RE.test(String(selected.slug))) {
-        setError("Regalo inválido");
-        return;
-      }
-
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",

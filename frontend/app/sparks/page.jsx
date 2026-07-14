@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -74,6 +76,7 @@ function formatDate(iso) {
 
 export default function SparksPage() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [boostLoading, setBoostLoading] = useState("");
   const [error, setError] = useState("");
@@ -117,7 +120,9 @@ export default function SparksPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Error al iniciar el pago"); return; }
-      window.location.href = data.url;
+      if (!redirectToTrustedCheckout(data.url)) {
+        setError(t("common.invalidPaymentUrl"));
+      }
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

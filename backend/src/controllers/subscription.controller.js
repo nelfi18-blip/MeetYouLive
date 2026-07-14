@@ -4,10 +4,30 @@ const User = require("../models/User.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripeClient;
+
+const getStripe = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  if (!secretKey) {
+    return null;
+  }
+  if (!stripeClient) {
+    stripeClient = new Stripe(secretKey);
+  }
+  return stripeClient;
+};
+
+const getFrontendUrl = () => process.env.FRONTEND_URL || null;
 
 const createSubscriptionSession = async (req, res) => {
   try {
+    const stripe = getStripe();
+    const frontendUrl = getFrontendUrl();
+    const priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
+    if (!stripe || !frontendUrl || !priceId) {
+      return res.status(503).json({ message: "Servicio de suscripción no configurado" });
+    }
+
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
@@ -32,13 +52,13 @@ const createSubscriptionSession = async (req, res) => {
       customer: customerId,
       line_items: [
         {
-          price: process.env.STRIPE_SUBSCRIPTION_PRICE_ID,
+          price: priceId,
           quantity: 1,
         },
       ],
       metadata: { userId: String(req.userId) },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment/cancel`,
     });
 
     res.json({ url: session.url });
@@ -54,6 +74,12 @@ const createSubscriptionSession = async (req, res) => {
  */
 const createTierSubscriptionSession = async (req, res) => {
   try {
+    const stripe = getStripe();
+    const frontendUrl = getFrontendUrl();
+    if (!stripe || !frontendUrl) {
+      return res.status(503).json({ message: "Servicio de suscripción no configurado" });
+    }
+
     const { tier } = req.body;
     if (!TIER_IDS.includes(tier)) {
       return res.status(400).json({
@@ -90,8 +116,8 @@ const createTierSubscriptionSession = async (req, res) => {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { userId: String(req.userId), vipTier: tier },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/vip`,
+      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/vip`,
     });
 
     res.json({ url: session.url });
@@ -131,6 +157,11 @@ const getSubscriptionStatus = async (req, res) => {
 
 const cancelSubscription = async (req, res) => {
   try {
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(503).json({ message: "Servicio de suscripción no configurado" });
+    }
+
     const sub = await Subscription.findOne({ user: req.userId });
     if (!sub?.stripeSubscriptionId) {
       return res.status(404).json({ message: "No hay suscripción activa" });
@@ -149,6 +180,11 @@ const cancelSubscription = async (req, res) => {
 };
 
 const handleSubscriptionWebhook = async (event) => {
+  const stripe = getStripe();
+  if (!stripe) {
+    throw new Error("Stripe is not configured");
+  }
+
   const session = event.data.object;
   const userId = session.metadata?.userId;
   if (!userId) {

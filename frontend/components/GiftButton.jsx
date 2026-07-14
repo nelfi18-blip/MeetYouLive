@@ -2,8 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+const GIFT_SLUG_RE = /^[a-z0-9-]+$/i;
+const VALID_GIFT_CONTEXTS = new Set(["live", "profile", "private_call"]);
+
+const resolveGiftContext = (context, liveId) =>
+  VALID_GIFT_CONTEXTS.has(context) ? context : liveId ? "live" : "profile";
 
 const RARITY_STYLES = {
   common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"     },
@@ -23,6 +30,7 @@ const buildSendLabel = (gift, qty) => {
 };
 
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -46,6 +54,15 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     if (!selected) return;
     setError("");
     setSuccess("");
+    if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
+      setError(t("common.invalidRecipient"));
+      return;
+    }
+    if (!selected?.slug || !GIFT_SLUG_RE.test(String(selected.slug))) {
+      setError(t("common.invalidGift"));
+      return;
+    }
+
     setLoading(true);
     const totalCost = bundleTotal(selected.coinCost, quantity);
     try {
@@ -60,7 +77,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           receiverId,
           giftSlug: selected.slug,
           quantity,
-          context: context || (liveId ? "live" : "profile"),
+          context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
         }),
       });

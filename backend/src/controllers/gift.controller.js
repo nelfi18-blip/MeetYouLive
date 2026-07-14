@@ -118,14 +118,20 @@ const transferCoins = async (senderId, receiverId, amount, session) => {
   const senderObjId = new mongoose.Types.ObjectId(senderId);
   const receiverObjId = new mongoose.Types.ObjectId(receiverId);
 
-  const sender = await User.findById(senderObjId).session(session);
-  if (!sender) throw Object.assign(new Error("Sender no encontrado"), { status: 404 });
-  if (sender.coins < amount) throw Object.assign(new Error("Monedas insuficientes"), { status: 400 });
+  const sender = await User.findOneAndUpdate(
+    { _id: senderObjId, coins: { $gte: amount } },
+    { $inc: { coins: -amount } },
+    { new: true, session, select: "_id coins" }
+  );
+  if (!sender) {
+    const exists = await User.exists({ _id: senderObjId }).session(session);
+    throw Object.assign(new Error(exists ? "Monedas insuficientes" : "Sender no encontrado"), {
+      status: exists ? 400 : 404,
+    });
+  }
 
   const receiver = await User.findById(receiverObjId).session(session);
   if (!receiver) throw Object.assign(new Error("Receiver no encontrado"), { status: 404 });
-
-  await User.findByIdAndUpdate(senderObjId, { $inc: { coins: -amount } }, { session });
 
   // Only credit earningsCoins to approved creators or subCreators
   const canEarn = (receiver.role === "creator" || receiver.role === "subCreator") && receiver.creatorStatus === "approved";
@@ -277,35 +283,39 @@ const sendGift = async (req, res) => {
   const amount = Math.floor(catalogItem.coinCost * quantity * (1 - bundleDiscount)); // total cost — always calculated server-side
 
   const session = await mongoose.startSession();
-  // Declared outside the transaction so it's accessible when building the Gift document
   let transferResult = { canEarn: false, platformShare: 0, agencyShare: 0, creatorNetShare: 0, referrerId: null, agencyPercentageApplied: 0 };
+  let giftDoc;
+  let effectiveCreatorShare = 0;
   try {
     await session.withTransaction(async () => {
       transferResult = await transferCoins(req.userId, receiverId, amount, session);
+
+      const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
+      // Accurately reflect whether the receiver earned from this gift
+      effectiveCreatorShare = canEarn ? creatorNetShare : 0;
+
+      const resolvedContextId = contextId || liveId || null;
+      const [createdGift] = await Gift.create([{
+        sender: req.userId,
+        receiver: receiverId,
+        giftCatalogItem: catalogItem._id,
+        live: liveId || undefined,
+        quantity,
+        unitCost: catalogItem.coinCost,
+        coinCost: amount,
+        creatorShare: effectiveCreatorShare,
+        platformShare,
+        agencyShare: agencyShare || 0,
+        referrerId: referrerId || undefined,
+        agencyPercentageApplied: agencyPercentageApplied || 0,
+        context: resolvedContext,
+        contextId: resolvedContextId,
+        message,
+      }], { session });
+      giftDoc = createdGift;
     });
 
-    const { canEarn, platformShare, agencyShare, creatorNetShare, referrerId, agencyPercentageApplied } = transferResult;
-    // Accurately reflect whether the receiver earned from this gift
-    const effectiveCreatorShare = canEarn ? creatorNetShare : 0;
-
-    const resolvedContextId = contextId || liveId || null;
-    const giftDoc = await Gift.create({
-      sender: req.userId,
-      receiver: receiverId,
-      giftCatalogItem: catalogItem._id,
-      live: liveId || undefined,
-      quantity,
-      unitCost: catalogItem.coinCost,
-      coinCost: amount,
-      creatorShare: effectiveCreatorShare,
-      platformShare,
-      agencyShare: agencyShare || 0,
-      referrerId: referrerId || undefined,
-      agencyPercentageApplied: agencyPercentageApplied || 0,
-      context: resolvedContext,
-      contextId: resolvedContextId,
-      message,
-    });
+    const { agencyShare, referrerId } = transferResult;
     await giftDoc.populate("sender", "username name");
     await giftDoc.populate("giftCatalogItem", "name icon coinCost rarity isSuper type animationType animationUrl soundUrl");
 

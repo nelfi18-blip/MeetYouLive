@@ -599,7 +599,11 @@
     "apply": "Solicitar",
     "timeout": "Tiempo de espera agotado",
     "retry": "Reintentar",
-    "mobileStorePaymentRequired": "Las compras dentro de la app móvil deben procesarse con Apple In-App Purchase o Google Play Billing. Usa la versión web para Stripe mientras activamos los productos de tienda."
+    "mobileStorePaymentRequired": "Las compras dentro de la app móvil deben procesarse con Apple In-App Purchase o Google Play Billing. Usa la versión web para Stripe mientras activamos los productos de tienda.",
+    "invalidPaymentUrl": "URL de pago inválida",
+    "invalidServerResponse": "No se pudo leer la respuesta del servidor",
+    "invalidRecipient": "Destinatario inválido",
+    "invalidGift": "Regalo inválido"
   },
   "explore": {
     "noLiveTitle": "No hay directos en este momento",

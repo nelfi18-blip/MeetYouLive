@@ -6,7 +6,18 @@ const User = require("../models/User.js");
 const { handlePaymentCompleted } = require("../controllers/payment.controller.js");
 const { handleSubscriptionWebhook } = require("../controllers/subscription.controller.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripeClient;
+
+const getStripe = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  if (!secretKey) {
+    return null;
+  }
+  if (!stripeClient) {
+    stripeClient = new Stripe(secretKey);
+  }
+  return stripeClient;
+};
 const SUBSCRIPTION_EVENTS = new Set([
   "checkout.session.completed",
   "invoice.payment_succeeded",
@@ -32,6 +43,14 @@ router.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
+    const stripe = getStripe();
+    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error("[stripe webhook] Stripe webhook is not configured", {
+        hasStripeSecretKey: Boolean(process.env.STRIPE_SECRET_KEY),
+        hasWebhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      });
+      return res.status(503).json({ message: "Webhook de Stripe no configurado" });
+    }
 
     let event;
     try {

@@ -12,6 +12,7 @@ import PurchasePackageCard from "@/components/ui/PurchasePackageCard";
 import TransactionListCard from "@/components/ui/TransactionListCard";
 import NeonBadge from "@/components/ui/NeonBadge";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   ArrowRightIcon,
@@ -211,7 +212,7 @@ export default function BuyCoinsPage() {
         data = await res.json();
       } catch (parseError) {
         console.error("Invalid coin checkout response:", parseError);
-        setError("No se pudo leer la respuesta del servidor");
+        setError(t("common.invalidServerResponse"));
         return;
       }
       if (!res.ok) {
@@ -222,7 +223,9 @@ export default function BuyCoinsPage() {
         setError("No se pudo obtener la URL de pago");
         return;
       }
-      window.location.href = data.url;
+      if (!redirectToTrustedCheckout(data.url)) {
+        setError(t("common.invalidPaymentUrl"));
+      }
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const WEBHOOK_DELAY_MS = 3000;
+const BALANCE_POLL_ATTEMPTS = 6;
+const BALANCE_POLL_INTERVAL_MS = 1000;
 
 function SuccessContent() {
   const { data: session } = useSession();
@@ -21,26 +22,39 @@ function SuccessContent() {
 
   useEffect(() => {
     let cancelled = false;
-    const timer = setTimeout(async () => {
+    let timer;
+
+    const sleep = () => new Promise((resolve) => {
+      timer = setTimeout(resolve, BALANCE_POLL_INTERVAL_MS);
+    });
+
+    const syncPayment = async () => {
       const authToken = getBackendToken();
 
       if (authToken) {
         const headers = { Authorization: `Bearer ${authToken}` };
-        try {
-          const balanceRes = await fetch(`${API_URL}/api/user/coins`, { headers });
-          if (balanceRes.ok) {
-            const balanceData = await balanceRes.json();
-            const nextBalance = Number.isFinite(balanceData?.coins) ? balanceData.coins : null;
-            if (!cancelled) setBalance(nextBalance);
+        for (let attempt = 0; attempt < BALANCE_POLL_ATTEMPTS && !cancelled; attempt += 1) {
+          try {
+            const balanceRes = await fetch(`${API_URL}/api/user/coins`, { headers });
+            if (balanceRes.ok) {
+              const balanceData = await balanceRes.json();
+              const nextBalance = Number.isFinite(balanceData?.coins) ? balanceData.coins : null;
+              if (nextBalance !== null) {
+                if (!cancelled) setBalance(nextBalance);
+                break;
+              }
+            }
+          } catch (error) {
+            console.warn("[payment/success] coin balance refetch failed", error);
           }
-        } catch (error) {
-          console.warn("[payment/success] coin balance refetch failed", error);
-          // Continue to dashboard even if refetch fails.
+          await sleep();
         }
       }
 
       if (!cancelled) router.replace("/feed");
-    }, WEBHOOK_DELAY_MS);
+    };
+
+    syncPayment();
 
     return () => {
       cancelled = true;

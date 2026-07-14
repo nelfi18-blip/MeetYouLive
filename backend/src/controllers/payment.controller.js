@@ -9,7 +9,20 @@ const { SPARK_PACKAGES } = require("./sparks.controller.js");
 const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripeClient;
+
+const getStripe = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  if (!secretKey) {
+    return null;
+  }
+  if (!stripeClient) {
+    stripeClient = new Stripe(secretKey);
+  }
+  return stripeClient;
+};
+
+const getFrontendUrl = () => process.env.FRONTEND_URL || null;
 
 // Build a lookup map from the canonical COIN_PACKAGES list: { id -> { coins, priceUsd } }
 const COIN_PACKAGES = COIN_PACKAGES_LIST.reduce((acc, pkg) => {
@@ -31,6 +44,12 @@ const createCoinCheckoutSession = async (req, res) => {
     return res.status(400).json({ message: `Paquete de monedas inválido. Usa ${validIds}` });
   }
   try {
+    const stripe = getStripe();
+    const frontendUrl = getFrontendUrl();
+    if (!stripe || !frontendUrl) {
+      return res.status(503).json({ message: "Servicio de pagos no configurado" });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -50,8 +69,8 @@ const createCoinCheckoutSession = async (req, res) => {
         coins: String(coinPackage.coins),
         type: "coins",
       },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment/cancel`,
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -66,6 +85,12 @@ const createSparkCheckoutSession = async (req, res) => {
     return res.status(400).json({ message: "Paquete de sparks inválido. Usa 50, 150, 300 o 600" });
   }
   try {
+    const stripe = getStripe();
+    const frontendUrl = getFrontendUrl();
+    if (!stripe || !frontendUrl) {
+      return res.status(503).json({ message: "Servicio de pagos no configurado" });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -84,8 +109,8 @@ const createSparkCheckoutSession = async (req, res) => {
         sparks: String(sparkPackage.sparks),
         type: "sparks",
       },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment/cancel`,
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -95,6 +120,12 @@ const createSparkCheckoutSession = async (req, res) => {
 
 const createCheckoutSession = async (req, res) => {
   try {
+    const stripe = getStripe();
+    const frontendUrl = getFrontendUrl();
+    if (!stripe || !frontendUrl) {
+      return res.status(503).json({ message: "Servicio de pagos no configurado" });
+    }
+
     const video = await Video.findById(req.params.videoId);
     if (!video) return res.status(404).json({ message: "Vídeo no encontrado" });
     if (!video.isPrivate || video.price <= 0) {
@@ -122,14 +153,37 @@ const createCheckoutSession = async (req, res) => {
         amount: String(video.price),
         type: "video",
       },
-      success_url: `${process.env.FRONTEND_URL}/payment/success?token={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`,
+      success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment/cancel`,
     });
 
     res.json({ url: session.url });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+const resolveWebhookUser = async (session, context) => {
+  const userId = session.metadata?.userId;
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    if (userId) {
+      console.warn(`[${context} webhook] invalid metadata userId format`, {
+        sessionId: session.id,
+        metadataUserId: userId,
+      });
+    }
+    throw new Error(`User not found for ${context} webhook session ${session.id}`);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    console.error(`[${context} webhook] user not found`, {
+      sessionId: session.id,
+      metadataUserId: userId,
+    });
+    throw new Error(`User not found for ${context} webhook session ${session.id}`);
+  }
+  return user;
 };
 
 const handlePaymentCompleted = async (session) => {
@@ -174,35 +228,13 @@ const handlePaymentCompleted = async (session) => {
         throw new Error(`Coins package not found for session ${session.id}`);
       }
 
-      const emailFromSession = session.customer_details?.email || session.customer_email || null;
-      let user = null;
-      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else if (userId) {
-        console.warn("[coins webhook] invalid metadata userId format", {
-          sessionId: session.id,
-          metadataUserId: userId,
-        });
-      }
-      if (!user && emailFromSession) {
-        user = await User.findOne({ email: emailFromSession });
-      }
+      const user = await resolveWebhookUser(session, "coins");
 
       console.log("[coins webhook] user lookup", {
         sessionId: session.id,
         metadataUserId: userId || null,
-        emailFromSession,
         resolvedUserId: user?._id ? String(user._id) : null,
       });
-
-      if (!user) {
-        console.error("[coins webhook] user not found", {
-          sessionId: session.id,
-          metadataUserId: userId || null,
-          emailFromSession,
-        });
-        throw new Error(`User not found for coins webhook session ${session.id}`);
-      }
 
       const previousCoins = user.coins || 0;
       let duplicateCompleted = false;
@@ -329,6 +361,8 @@ const handlePaymentCompleted = async (session) => {
         throw new Error(`Invalid spark count for session ${session.id}`);
       }
 
+      const user = await resolveWebhookUser(session, "sparks");
+
       let duplicateCompleted = false;
       let processedTxId = null;
       const dbSession = await mongoose.startSession();
@@ -347,7 +381,7 @@ const handlePaymentCompleted = async (session) => {
             const [createdTx] = await SparkTransaction.create(
               [
                 {
-                  userId,
+                  userId: user._id,
                   type: "purchase",
                   amount: sparkCount,
                   reason: `Compra de ${sparkCount} Sparks via Stripe`,
@@ -374,7 +408,7 @@ const handlePaymentCompleted = async (session) => {
 
           // Atomically update user balance
           const updatedUser = await User.findByIdAndUpdate(
-            userId,
+            user._id,
             { $inc: { sparks: sparkCount } },
             { new: true, session: dbSession }
           );
@@ -382,7 +416,7 @@ const handlePaymentCompleted = async (session) => {
           if (!updatedUser) {
             console.error("[sparks webhook] User not found during update", {
               sessionId: session.id,
-              userId,
+              userId: String(user._id),
               txId: String(tx._id),
             });
             tx.status = "failed";
@@ -409,7 +443,7 @@ const handlePaymentCompleted = async (session) => {
 
       console.log("[sparks webhook] spark increment success", {
         sessionId: session.id,
-        userId,
+        userId: String(user._id),
         txId: processedTxId,
         incrementBy: sparkCount,
       });

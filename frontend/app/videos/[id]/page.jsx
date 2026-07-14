@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function VideoDetailPage() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const [video, setVideo] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
@@ -56,7 +59,9 @@ export default function VideoDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al crear el pago");
-      window.location.href = data.url;
+      if (!redirectToTrustedCheckout(data.url)) {
+        throw new Error(t("common.invalidPaymentUrl"));
+      }
     } catch (err) {
       setPurchaseError(err.message);
     } finally {

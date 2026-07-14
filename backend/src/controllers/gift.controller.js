@@ -125,7 +125,7 @@ const transferCoins = async (senderId, receiverId, amount, session) => {
   );
   if (!sender) {
     const exists = await User.exists({ _id: senderObjId }).session(session);
-    throw Object.assign(new Error(exists ? "Monedas insuficientes" : "Sender no encontrado"), {
+    throw Object.assign(new Error(exists ? "Insufficient coins" : "Sender not found"), {
       status: exists ? 400 : 404,
     });
   }

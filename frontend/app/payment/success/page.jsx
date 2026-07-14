@@ -32,7 +32,7 @@ function SuccessContent() {
       const authToken = getBackendToken();
 
       if (authToken) {
-        const headers = { Authorization: "Bearer " + authToken };
+        const headers = { Authorization: `Bearer ${authToken}` };
         for (let attempt = 0; attempt < BALANCE_POLL_ATTEMPTS && !cancelled; attempt += 1) {
           try {
             const balanceRes = await fetch(`${API_URL}/api/user/coins`, { headers });

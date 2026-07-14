@@ -163,6 +163,29 @@ const createCheckoutSession = async (req, res) => {
   }
 };
 
+const resolveWebhookUser = async (session, context) => {
+  const userId = session.metadata?.userId;
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    if (userId) {
+      console.warn(`[${context} webhook] invalid metadata userId format`, {
+        sessionId: session.id,
+        metadataUserId: userId,
+      });
+    }
+    throw new Error(`User not found for ${context} webhook session ${session.id}`);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    console.error(`[${context} webhook] user not found`, {
+      sessionId: session.id,
+      metadataUserId: userId,
+    });
+    throw new Error(`User not found for ${context} webhook session ${session.id}`);
+  }
+  return user;
+};
+
 const handlePaymentCompleted = async (session) => {
   const { userId, videoId, amount, type, coins, sparks } = session.metadata;
   console.log("[stripe payment webhook] checkout.session.completed received", {
@@ -205,34 +228,13 @@ const handlePaymentCompleted = async (session) => {
         throw new Error(`Coins package not found for session ${session.id}`);
       }
 
-      let user = null;
-      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else if (userId) {
-        console.warn("[coins webhook] invalid metadata userId format", {
-          sessionId: session.id,
-          metadataUserId: userId,
-        });
-      }
-      if (!user && emailFromSession) {
-        user = await User.findOne({ email: emailFromSession });
-      }
+      const user = await resolveWebhookUser(session, "coins");
 
       console.log("[coins webhook] user lookup", {
         sessionId: session.id,
         metadataUserId: userId || null,
-        emailFromSession,
         resolvedUserId: user?._id ? String(user._id) : null,
       });
-
-      if (!user) {
-        console.error("[coins webhook] user not found", {
-          sessionId: session.id,
-          metadataUserId: userId || null,
-          emailFromSession,
-        });
-        throw new Error(`User not found for coins webhook session ${session.id}`);
-      }
 
       const previousCoins = user.coins || 0;
       let duplicateCompleted = false;
@@ -359,23 +361,7 @@ const handlePaymentCompleted = async (session) => {
         throw new Error(`Invalid spark count for session ${session.id}`);
       }
 
-      const emailFromSession = session.customer_details?.email || session.customer_email || null;
-      let user = null;
-      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else if (userId) {
-        console.warn("[sparks webhook] invalid metadata userId format", {
-          sessionId: session.id,
-          metadataUserId: userId,
-        });
-      }
-      if (!user) {
-        console.error("[sparks webhook] user not found", {
-          sessionId: session.id,
-          metadataUserId: userId || null,
-        });
-        throw new Error(`User not found for sparks webhook session ${session.id}`);
-      }
+      const user = await resolveWebhookUser(session, "sparks");
 
       let duplicateCompleted = false;
       let processedTxId = null;

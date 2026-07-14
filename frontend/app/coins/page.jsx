@@ -212,7 +212,7 @@ export default function BuyCoinsPage() {
         data = await res.json();
       } catch (parseError) {
         console.error("Invalid coin checkout response:", parseError);
-        setError("No se pudo leer la respuesta del servidor");
+        setError(t("common.invalidServerResponse"));
         return;
       }
       if (!res.ok) {
@@ -224,7 +224,7 @@ export default function BuyCoinsPage() {
         return;
       }
       if (!redirectToTrustedCheckout(data.url)) {
-        setError("URL de pago inválida");
+        setError(t("common.invalidPaymentUrl"));
       }
     } catch {
       setError("No se pudo conectar con el servidor");

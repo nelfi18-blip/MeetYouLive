@@ -106,10 +106,10 @@ export default function SubscriptionPage() {
       try {
         data = await res.json();
       } catch {
-        throw new Error("No se pudo leer la respuesta del servidor");
+        throw new Error(t("common.invalidServerResponse"));
       }
       if (!res.ok) throw new Error(data?.message || "Error al crear la sesión de pago");
-      if (!redirectToTrustedCheckout(data?.url)) throw new Error("URL de pago inválida");
+      if (!redirectToTrustedCheckout(data?.url)) throw new Error(t("common.invalidPaymentUrl"));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -136,7 +136,7 @@ export default function SubscriptionPage() {
       try {
         data = await res.json();
       } catch {
-        throw new Error("No se pudo leer la respuesta del servidor");
+        throw new Error(t("common.invalidServerResponse"));
       }
       if (!res.ok) throw new Error(data?.message || "Error al cancelar");
       setStatus("canceled");

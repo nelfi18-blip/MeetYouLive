@@ -121,7 +121,7 @@ const transferCoins = async (senderId, receiverId, amount, session) => {
   const sender = await User.findOneAndUpdate(
     { _id: senderObjId, coins: { $gte: amount } },
     { $inc: { coins: -amount } },
-    { new: true, session, select: "_id" }
+    { new: true, session, select: "_id coins" }
   );
   if (!sender) {
     const exists = await User.exists({ _id: senderObjId }).session(session);

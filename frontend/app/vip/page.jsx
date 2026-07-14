@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -30,6 +31,7 @@ const TIER_DISPLAY = {
 
 export default function VIPPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [tiers, setTiers] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function VIPPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Error al procesar la suscripción."); return; }
-      if (!redirectToTrustedCheckout(data.url)) setError("URL de pago inválida");
+      if (!redirectToTrustedCheckout(data.url)) setError(t("common.invalidPaymentUrl"));
     } catch {
       setError("Error de conexión. Inténtalo de nuevo.");
     } finally {

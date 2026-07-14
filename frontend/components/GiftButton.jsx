@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
@@ -29,6 +30,7 @@ const buildSendLabel = (gift, qty) => {
 };
 
 export default function GiftButton({ receiverId, liveId, context, onGiftSent }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -53,11 +55,11 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     setError("");
     setSuccess("");
     if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
-      setError("Destinatario inválido");
+      setError(t("common.invalidRecipient"));
       return;
     }
     if (!selected?.slug || !GIFT_SLUG_RE.test(String(selected.slug))) {
-      setError("Regalo inválido");
+      setError(t("common.invalidGift"));
       return;
     }
 

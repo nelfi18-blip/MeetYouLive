@@ -144,11 +144,11 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
   const handleConfirmSend = async () => {
     if (!selectedGift) return;
     if (!visualOnly && !OBJECT_ID_RE.test(String(receiverId || ""))) {
-      setSendError("Destinatario inválido");
+      setSendError(t("common.invalidRecipient"));
       return;
     }
     if (!visualOnly && (!selectedGift?.slug || !GIFT_SLUG_RE.test(String(selectedGift.slug)))) {
-      setSendError("Regalo inválido");
+      setSendError(t("common.invalidGift"));
       return;
     }
 

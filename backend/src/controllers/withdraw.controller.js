@@ -1,6 +1,7 @@
 const WithdrawalRequest = require("../models/WithdrawalRequest");
 const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
+const mongoose = require("mongoose");
 const { logStaffAction } = require("../services/audit.service");
 
 // Minimum withdrawal amount in coins
@@ -15,6 +16,8 @@ const MIN_REJECTION_REASON_LENGTH = 10;
  * Creator requests a withdrawal from their coin balance
  */
 exports.requestWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
+  let insufficientBalance = null;
   try {
     const userId = req.userId;
     const { amountCoins } = req.body;
@@ -27,66 +30,70 @@ exports.requestWithdrawal = async (req, res) => {
       });
     }
 
-    // Check for existing pending/approved requests first
-    const existingRequest = await WithdrawalRequest.findOne({
-      userId,
-      status: { $in: ["pending", "approved"] },
-    });
-
-    if (existingRequest) {
-      return res.status(400).json({
-        message: "Ya tienes una solicitud de retiro pendiente",
-      });
-    }
-
-    // Atomically deduct coins from user's earnings balance
-    // This prevents race conditions and ensures sufficient funds
-    const user = await User.findOneAndUpdate(
-      {
-        _id: userId,
-        earningsCoins: { $gte: amountCoins },
-      },
-      {
-        $inc: { earningsCoins: -amountCoins },
-      },
-      {
-        new: true,
-        select: "earningsCoins role creatorStatus",
-      }
-    );
-
-    // If user not found or insufficient balance
-    if (!user) {
-      const userCheck = await User.findById(userId).select("earningsCoins");
-      if (!userCheck) {
-        return res.status(404).json({ message: "Usuario no encontrado" });
-      }
-      return res.status(400).json({
-        message: "Saldo insuficiente",
-        available: userCheck.earningsCoins || 0,
-        requested: amountCoins,
-      });
-    }
-
     // Calculate USD amount
     const amountUSD = amountCoins / COINS_PER_USD;
+    let withdrawalRequest;
 
-    // Create withdrawal request
-    const withdrawalRequest = await WithdrawalRequest.create({
-      userId,
-      amountCoins,
-      amountUSD,
-      status: "pending",
-    });
+    await session.withTransaction(async () => {
+      // Check for existing pending/approved requests inside the transaction.
+      const existingRequest = await WithdrawalRequest.findOne({
+        userId,
+        status: { $in: ["pending", "approved"] },
+      }).session(session);
 
-    // Create coin transaction record
-    await CoinTransaction.create({
-      userId,
-      type: "admin_adjustment",
-      amount: -amountCoins,
-      reason: "Retiro solicitado - monedas bloqueadas temporalmente",
-      status: "completed",
-      metadata: { withdrawalType: "request", withdrawalId: withdrawalRequest._id },
+      if (existingRequest) {
+        throw Object.assign(new Error("Ya tienes una solicitud de retiro pendiente"), { status: 400 });
+      }
+
+      // Atomically deduct coins from user's earnings balance.
+      const user = await User.findOneAndUpdate(
+        {
+          _id: userId,
+          earningsCoins: { $gte: amountCoins },
+        },
+        {
+          $inc: { earningsCoins: -amountCoins },
+        },
+        {
+          new: true,
+          select: "earningsCoins role creatorStatus",
+          session,
+        }
+      );
+
+      if (!user) {
+        const userCheck = await User.findById(userId).select("earningsCoins").session(session);
+        if (!userCheck) {
+          throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+        }
+        insufficientBalance = userCheck.earningsCoins || 0;
+        throw Object.assign(new Error("Saldo insuficiente"), { status: 400 });
+      }
+
+      // Create withdrawal request
+      const [createdRequest] = await WithdrawalRequest.create(
+        [{
+          userId,
+          amountCoins,
+          amountUSD,
+          status: "pending",
+        }],
+        { session }
+      );
+      withdrawalRequest = createdRequest;
+
+      // Create coin transaction record
+      await CoinTransaction.create(
+        [{
+          userId,
+          type: "admin_adjustment",
+          amount: -amountCoins,
+          reason: "Retiro solicitado - monedas bloqueadas temporalmente",
+          status: "completed",
+          metadata: { withdrawalType: "request", withdrawalId: withdrawalRequest._id },
+        }],
+        { session }
+      );
     });
 
     return res.status(201).json({
@@ -95,8 +102,23 @@ exports.requestWithdrawal = async (req, res) => {
       request: withdrawalRequest,
     });
   } catch (error) {
+    if (error.status === 400 && error.message === "Saldo insuficiente") {
+      return res.status(400).json({
+        message: "Saldo insuficiente",
+        available: insufficientBalance,
+        requested: req.body.amountCoins,
+      });
+    }
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Ya tienes una solicitud de retiro pendiente" });
+    }
     console.error("Error requesting withdrawal:", error);
     return res.status(500).json({ message: "Error al procesar solicitud de retiro" });
+  } finally {
+    await session.endSession();
   }
 };
 

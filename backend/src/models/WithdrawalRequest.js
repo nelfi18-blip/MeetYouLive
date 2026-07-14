@@ -33,6 +33,14 @@ const withdrawalRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+withdrawalRequestSchema.index(
+  { userId: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ["pending", "approved"] } },
+  }
+);
+
 const WithdrawalRequest = mongoose.model("WithdrawalRequest", withdrawalRequestSchema);
 
 module.exports = WithdrawalRequest;

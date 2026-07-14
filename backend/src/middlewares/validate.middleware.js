@@ -9,6 +9,14 @@ const coinPurchaseSchema = z.object({
     .positive("packageId debe ser un número positivo"),
 });
 
+const sparkPurchaseSchema = z.object({
+  package: z
+    .number({ required_error: "package es requerido", invalid_type_error: "package debe ser un número" })
+    .int("package debe ser un número entero")
+    .positive("package debe ser un número positivo")
+    .refine((value) => [50, 150, 300, 600].includes(value), "Paquete de sparks inválido. Usa 50, 150, 300 o 600"),
+});
+
 const sparkBoostSchema = z.object({
   boostType: z.enum(
     ["visibility_boost", "super_interest", "speed_dating", "room_entry"],
@@ -21,6 +29,10 @@ const giftSendSchema = z.object({
   giftSlug: z.string().optional(),
   recipientId: z.string().optional(),
   receiverId: z.string().optional(),
+  liveId: z.string().optional(),
+  context: z.enum(["live", "profile", "private_call"]).optional(),
+  contextId: z.string().optional().nullable(),
+  message: z.string().max(500, "message no puede superar 500 caracteres").optional(),
   quantity: z
     .number({ invalid_type_error: "quantity debe ser un número" })
     .int("quantity debe ser un entero")
@@ -33,7 +45,10 @@ const giftSendSchema = z.object({
 ).refine(
   (data) => data.recipientId || data.receiverId,
   { message: "Se requiere recipientId o receiverId", path: ["recipientId"] }
-);
+).transform((data) => ({
+  ...data,
+  receiverId: data.receiverId || data.recipientId,
+}));
 
 const payoutRequestSchema = z.object({
   amount: z
@@ -127,6 +142,7 @@ function validate(schema) {
 module.exports = {
   validate,
   coinPurchaseSchema,
+  sparkPurchaseSchema,
   sparkBoostSchema,
   giftSendSchema,
   payoutRequestSchema,

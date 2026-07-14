@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -117,7 +118,9 @@ export default function SparksPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Error al iniciar el pago"); return; }
-      window.location.href = data.url;
+      if (!redirectToTrustedCheckout(data.url)) {
+        setError("URL de pago inválida");
+      }
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {

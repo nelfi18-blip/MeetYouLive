@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -61,7 +62,10 @@ export default function SubscriptionPage() {
     }
 
     fetch(`${API_URL}/api/subscriptions/status`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     })
       .then((res) => {
         if (res.status === 401) {
@@ -93,11 +97,19 @@ export default function SubscriptionPage() {
     try {
       const res = await fetch(`${API_URL}/api/subscriptions/checkout`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al crear la sesión de pago");
-      window.location.href = data.url;
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("No se pudo leer la respuesta del servidor");
+      }
+      if (!res.ok) throw new Error(data?.message || "Error al crear la sesión de pago");
+      if (!redirectToTrustedCheckout(data?.url)) throw new Error("URL de pago inválida");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -115,10 +127,18 @@ export default function SubscriptionPage() {
     try {
       const res = await fetch(`${API_URL}/api/subscriptions/cancel`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Error al cancelar");
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("No se pudo leer la respuesta del servidor");
+      }
+      if (!res.ok) throw new Error(data?.message || "Error al cancelar");
       setStatus("canceled");
       setSuccess("Tu suscripción ha sido cancelada.");
     } catch (err) {

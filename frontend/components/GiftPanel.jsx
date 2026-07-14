@@ -7,6 +7,12 @@ import { getGiftTier } from "../lib/giftTiers";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+const GIFT_SLUG_RE = /^[a-z0-9-]+$/i;
+const VALID_GIFT_CONTEXTS = new Set(["live", "profile", "private_call"]);
+
+const resolveGiftContext = (context, liveId) =>
+  VALID_GIFT_CONTEXTS.has(context) ? context : liveId ? "live" : "profile";
 
 /* ─── Rarity visual config ─────────────────────────────────────────────── */
 const RARITY = {
@@ -149,7 +155,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           visualOnly: true,
           quantity,
           coinCost: totalCost,
-          context: context || (liveId ? "live" : "profile"),
+          context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
           giftCatalogItem: {
             _id: selectedGift._id,
@@ -175,6 +181,15 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
         return;
       }
 
+      if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
+        setSendError("Destinatario inválido");
+        return;
+      }
+      if (!selectedGift?.slug || !GIFT_SLUG_RE.test(String(selectedGift.slug))) {
+        setSendError("Regalo inválido");
+        return;
+      }
+
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",
@@ -186,7 +201,7 @@ export default function GiftPanel({ receiverId, liveId, context, onClose, onGift
           receiverId,
           giftSlug: selectedGift.slug,
           quantity,
-          context: context || (liveId ? "live" : "profile"),
+          context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
         }),
       });

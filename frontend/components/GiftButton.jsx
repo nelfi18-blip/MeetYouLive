@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { BUNDLE_CONFIG, bundleTotal, bundleSavings } from "../lib/giftBundles";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+const GIFT_SLUG_RE = /^[a-z0-9-]+$/i;
+const VALID_GIFT_CONTEXTS = new Set(["live", "profile", "private_call"]);
+
+const resolveGiftContext = (context, liveId) =>
+  VALID_GIFT_CONTEXTS.has(context) ? context : liveId ? "live" : "profile";
 
 const RARITY_STYLES = {
   common:    { color: "#94a3b8", glow: "rgba(148,163,184,0.35)",  label: "Común"     },
@@ -49,6 +55,15 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
     setLoading(true);
     const totalCost = bundleTotal(selected.coinCost, quantity);
     try {
+      if (!OBJECT_ID_RE.test(String(receiverId || ""))) {
+        setError("Destinatario inválido");
+        return;
+      }
+      if (!selected?.slug || !GIFT_SLUG_RE.test(String(selected.slug))) {
+        setError("Regalo inválido");
+        return;
+      }
+
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/gifts/send`, {
         method: "POST",
@@ -60,7 +75,7 @@ export default function GiftButton({ receiverId, liveId, context, onGiftSent }) 
           receiverId,
           giftSlug: selected.slug,
           quantity,
-          context: context || (liveId ? "live" : "profile"),
+          context: resolveGiftContext(context, liveId),
           contextId: liveId || null,
         }),
       });

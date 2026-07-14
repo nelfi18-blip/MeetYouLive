@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -75,7 +76,7 @@ export default function VIPPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Error al procesar la suscripción."); return; }
-      if (data.url) window.location.href = data.url;
+      if (!redirectToTrustedCheckout(data.url)) setError("URL de pago inválida");
     } catch {
       setError("Error de conexión. Inténtalo de nuevo.");
     } finally {

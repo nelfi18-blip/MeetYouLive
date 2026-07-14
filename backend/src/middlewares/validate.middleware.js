@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { SPARK_PACKAGE_IDS } = require("../config/spark-packages.js");
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,10 @@ const sparkPurchaseSchema = z.object({
     .number({ required_error: "package es requerido", invalid_type_error: "package debe ser un número" })
     .int("package debe ser un número entero")
     .positive("package debe ser un número positivo")
-    .refine((value) => [50, 150, 300, 600].includes(value), "Paquete de sparks inválido. Usa 50, 150, 300 o 600"),
+    .refine(
+      (value) => SPARK_PACKAGE_IDS.includes(value),
+      `Paquete de sparks inválido. Usa ${SPARK_PACKAGE_IDS.join(", ")}`
+    ),
 });
 
 const sparkBoostSchema = z.object({

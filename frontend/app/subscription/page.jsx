@@ -63,7 +63,6 @@ export default function SubscriptionPage() {
 
     fetch(`${API_URL}/api/subscriptions/status`, {
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
     })

@@ -125,7 +125,7 @@ const createSubscriptionSession = async (req, res) => {
       customerId = customer.id;
       // Persist the customer ID immediately so future calls reuse the same
       // Stripe customer even if the checkout webhook hasn't fired yet.
-      await Subscription.findOneAndUpdate(
+      const sub = await Subscription.findOneAndUpdate(
         { user: req.userId },
         { user: req.userId, stripeCustomerId: customerId },
         { upsert: true, new: true }
@@ -365,7 +365,7 @@ const handleSubscriptionWebhook = async (event) => {
       subscriptionId,
       stripeSubscription,
     });
-    const sub = await Subscription.findOneAndUpdate(
+    await Subscription.findOneAndUpdate(
       existingSub ? { _id: existingSub._id } : { user: userId },
       {
         user: userId,

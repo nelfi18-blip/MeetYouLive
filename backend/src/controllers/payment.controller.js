@@ -12,11 +12,12 @@ const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 let stripeClient;
 
 const getStripe = () => {
-  if (!process.env.STRIPE_SECRET_KEY && process.env.NODE_ENV !== "test") {
+  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  if (!secretKey) {
     return null;
   }
   if (!stripeClient) {
-    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder");
+    stripeClient = new Stripe(secretKey);
   }
   return stripeClient;
 };

@@ -97,7 +97,9 @@ const resolveSubscriptionUserId = async ({ stripe, metadata = {}, customerId, su
     }
   }
 
-  throw new Error(`User not found for subscription webhook subscription=${subscriptionId || "unknown"} customer=${customerId || "unknown"}`);
+  throw new Error(
+    `User not found for subscription webhook after checking local subscription records, event metadata, subscription metadata, and customer metadata: subscription=${subscriptionId || "unknown"} customer=${customerId || "unknown"}`
+  );
 };
 
 const createSubscriptionSession = async (req, res) => {
@@ -331,7 +333,7 @@ const handleSubscriptionWebhook = async (event) => {
       subscriptionId,
       stripeSubscription,
     });
-    const sub = await Subscription.findOneAndUpdate(
+    await Subscription.findOneAndUpdate(
       existingSub ? { _id: existingSub._id } : { user: userId },
       {
         user: userId,
@@ -403,9 +405,8 @@ const handleSubscriptionWebhook = async (event) => {
       },
       { upsert: true, new: true }
     );
-    if (sub?.user) {
-      await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipExpiresAt: null });
-    }
+    // Keep access during Stripe's retry window; subscription.deleted is the
+    // authoritative event that revokes Premium/VIP access.
   }
 };
 

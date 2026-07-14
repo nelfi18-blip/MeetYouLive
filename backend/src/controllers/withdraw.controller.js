@@ -162,24 +162,31 @@ exports.listWithdrawals = async (req, res) => {
  * Future enhancement: integrate Stripe Connect for automatic payouts.
  */
 exports.approveWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
+  let request;
   try {
     const { id } = req.params;
 
-    const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
-    if (!request) {
-      return res.status(404).json({ message: "Solicitud no encontrada" });
-    }
+    await session.withTransaction(async () => {
+      request = await WithdrawalRequest.findOneAndUpdate(
+        { _id: id, status: "pending" },
+        { $set: { status: "approved" } },
+        { new: true, session }
+      );
 
-    if (request.status !== "pending") {
-      return res.status(400).json({
-        message: "Solo se pueden aprobar solicitudes pendientes",
-        currentStatus: request.status,
-      });
-    }
+      if (!request) {
+        const current = await WithdrawalRequest.findById(id).session(session);
+        if (!current) {
+          throw Object.assign(new Error("Solicitud no encontrada"), { status: 404 });
+        }
+        throw Object.assign(new Error("Solo se pueden aprobar solicitudes pendientes"), {
+          status: 400,
+          currentStatus: current.status,
+        });
+      }
+    });
 
-    // Update status to approved
-    request.status = "approved";
-    await request.save();
+    await request.populate("userId", "username email");
 
     // Log admin action for audit trail
     await logStaffAction({
@@ -213,8 +220,16 @@ exports.approveWithdrawal = async (req, res) => {
       note: "MANUAL PAYOUT REQUIRED: This approval does not trigger automatic Stripe payment. Admin must manually send funds.",
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        message: error.message,
+        ...(error.currentStatus ? { currentStatus: error.currentStatus } : {}),
+      });
+    }
     console.error("Error approving withdrawal:", error);
     return res.status(500).json({ message: "Error al aprobar solicitud de retiro" });
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -223,49 +238,61 @@ exports.approveWithdrawal = async (req, res) => {
  * Reject a withdrawal request and restore coins (admin only)
  */
 exports.rejectWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
+  let request;
   try {
     const { id } = req.params;
     const { reason } = req.body;
 
     // Validate reason is provided and meaningful
-    if (!reason || typeof reason !== "string" || reason.trim().length < MIN_REJECTION_REASON_LENGTH) {
+    if (typeof reason !== "string" || reason.trim().length < MIN_REJECTION_REASON_LENGTH) {
       return res.status(400).json({
         message: `Razón de rechazo es requerida (mínimo ${MIN_REJECTION_REASON_LENGTH} caracteres)`,
       });
     }
+    const trimmedReason = reason.trim();
 
-    const request = await WithdrawalRequest.findById(id).populate("userId", "username email");
-    if (!request) {
-      return res.status(404).json({ message: "Solicitud no encontrada" });
-    }
+    await session.withTransaction(async () => {
+      request = await WithdrawalRequest.findOneAndUpdate(
+        { _id: id, status: "pending" },
+        { $set: { status: "rejected" } },
+        { new: true, session }
+      );
 
-    if (request.status !== "pending") {
-      return res.status(400).json({
-        message: "Solo se pueden rechazar solicitudes pendientes",
-        currentStatus: request.status,
-      });
-    }
+      if (!request) {
+        const current = await WithdrawalRequest.findById(id).session(session);
+        if (!current) {
+          throw Object.assign(new Error("Solicitud no encontrada"), { status: 404 });
+        }
+        throw Object.assign(new Error("Solo se pueden rechazar solicitudes pendientes"), {
+          status: 400,
+          currentStatus: current.status,
+        });
+      }
 
-    // Restore coins to user's earnings balance
-    const user = await User.findById(request.userId);
-    if (user) {
-      user.earningsCoins = (user.earningsCoins || 0) + request.amountCoins;
-      await user.save();
+      const user = await User.findByIdAndUpdate(
+        request.userId,
+        { $inc: { earningsCoins: request.amountCoins } },
+        { new: true, session, select: "_id" }
+      );
+      if (!user) {
+        throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+      }
 
-      // Create coin transaction record
-      await CoinTransaction.create({
-        userId: request.userId,
-        type: "admin_adjustment",
-        amount: request.amountCoins,
-        reason: `Retiro rechazado - ${reason.trim()}`,
-        status: "completed",
-        metadata: { withdrawalId: request._id, withdrawalRejection: true },
-      });
-    }
+      await CoinTransaction.create(
+        [{
+          userId: request.userId,
+          type: "admin_adjustment",
+          amount: request.amountCoins,
+          reason: `Retiro rechazado - ${trimmedReason}`,
+          status: "completed",
+          metadata: { withdrawalId: request._id, withdrawalRejection: true },
+        }],
+        { session }
+      );
+    });
 
-    // Update status to rejected
-    request.status = "rejected";
-    await request.save();
+    await request.populate("userId", "username email");
 
     // Log admin action for audit trail
     await logStaffAction({
@@ -281,7 +308,7 @@ exports.rejectWithdrawal = async (req, res) => {
         withdrawalId: String(request._id),
         previousStatus: "pending",
         newStatus: "rejected",
-        reason: reason.trim(),
+        reason: trimmedReason,
         coinsRestored: true,
       },
       ipAddress: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
@@ -292,7 +319,7 @@ exports.rejectWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountCoins: request.amountCoins,
-      reason,
+      reason: trimmedReason,
     });
 
     return res.json({
@@ -301,8 +328,16 @@ exports.rejectWithdrawal = async (req, res) => {
       request,
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        message: error.message,
+        ...(error.currentStatus ? { currentStatus: error.currentStatus } : {}),
+      });
+    }
     console.error("Error rejecting withdrawal:", error);
     return res.status(500).json({ message: "Error al rechazar solicitud de retiro" });
+  } finally {
+    await session.endSession();
   }
 };
 

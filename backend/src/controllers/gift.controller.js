@@ -77,8 +77,8 @@ const seedGiftCatalog = async () => {
   }
 };
 
-// Shared helper: record coin transactions for a completed gift (fire-and-forget)
-const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, giftDocId, extra = {}) => {
+// Shared helper: record coin transactions for a completed gift.
+const recordGiftTransactions = async (senderId, receiverId, amount, creatorNetShare, giftDocId, extra = {}, session = null) => {
   const txMeta = { giftId: giftDocId, ...extra };
   const txDocs = [
     {
@@ -102,7 +102,7 @@ const recordGiftTransactions = (senderId, receiverId, amount, creatorNetShare, g
     });
   }
   // Agency earning transaction is recorded separately in the send flow
-  CoinTransaction.create(txDocs).catch((err) => console.error("[gift tx] Failed to record transactions:", err));
+  await CoinTransaction.create(txDocs, session ? { session } : undefined);
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.
@@ -313,25 +313,26 @@ const sendGift = async (req, res) => {
         message,
       }], { session });
       giftDoc = createdGift;
+
+      await recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null }, session);
+
+      if (agencyShare > 0 && referrerId) {
+        await CoinTransaction.create(
+          [{
+            userId: referrerId,
+            type: "agency_earned",
+            amount: agencyShare,
+            reason: `Comisión de agencia por regalo de ${req.userId}`,
+            status: "completed",
+            metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
+          }],
+          { session }
+        );
+      }
     });
 
-    const { agencyShare, referrerId } = transferResult;
     await giftDoc.populate("sender", "username name");
     await giftDoc.populate("giftCatalogItem", "name icon coinCost rarity isSuper type animationType animationUrl soundUrl");
-
-    recordGiftTransactions(req.userId, receiverId, amount, effectiveCreatorShare, giftDoc._id, { liveId: liveId || null });
-
-    // Record agency earnings transaction (fire-and-forget)
-    if (agencyShare > 0 && referrerId) {
-      CoinTransaction.create({
-        userId: referrerId,
-        type: "agency_earned",
-        amount: agencyShare,
-        reason: `Comisión de agencia por regalo de ${req.userId}`,
-        status: "completed",
-        metadata: { giftId: giftDoc._id, subCreatorId: String(receiverId) },
-      }).catch((err) => console.error("[agency tx] Failed to record agency earning:", err));
-    }
 
     // Update receiver's profile gift stats (fire-and-forget)
     // DESIGN NOTE: This uses a two-step update pattern with eventual consistency.

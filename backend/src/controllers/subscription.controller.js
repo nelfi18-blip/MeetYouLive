@@ -1,4 +1,5 @@
 const Stripe = require("stripe");
+const mongoose = require("mongoose");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
@@ -19,6 +20,86 @@ const getStripe = () => {
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || null;
 
+const normalizeObjectId = (value) => {
+  if (!value || !mongoose.Types.ObjectId.isValid(String(value))) return null;
+  return String(value);
+};
+
+const getStripeId = (value) => {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id || null;
+};
+
+const getSubscriptionIdFromInvoice = (invoice) =>
+  getStripeId(invoice.subscription) ||
+  getStripeId(invoice.subscription_details?.subscription) ||
+  getStripeId(invoice.parent?.subscription_details?.subscription) ||
+  getStripeId(invoice.lines?.data?.[0]?.subscription);
+
+const resolveVipTier = (...sources) => {
+  for (const source of sources) {
+    const tier = source?.vipTier || source?.tier;
+    if (TIER_IDS.includes(tier)) return tier;
+  }
+  return null;
+};
+
+const resolveVipTierFromStripeSubscription = (stripeSubscription) => {
+  const metadataTier = resolveVipTier(stripeSubscription?.metadata);
+  if (metadataTier) return metadataTier;
+
+  const priceIds = stripeSubscription?.items?.data
+    ?.map((item) => getStripeId(item.price))
+    .filter(Boolean) || [];
+  return TIER_IDS.find((tier) => priceIds.includes(getStripePriceId(tier))) || null;
+};
+
+const getCurrentPeriodEnd = (stripeSubscription, fallbackUnix) => {
+  const periodEnd = stripeSubscription?.current_period_end || fallbackUnix;
+  return periodEnd ? new Date(periodEnd * 1000) : null;
+};
+
+const findSubscriptionRecord = async ({ userId, customerId, subscriptionId }) => {
+  if (subscriptionId) {
+    const sub = await Subscription.findOne({ stripeSubscriptionId: subscriptionId });
+    if (sub) return sub;
+  }
+  if (customerId) {
+    const sub = await Subscription.findOne({ stripeCustomerId: customerId });
+    if (sub) return sub;
+  }
+  if (normalizeObjectId(userId)) {
+    return Subscription.findOne({ user: userId });
+  }
+  return null;
+};
+
+const resolveSubscriptionUserId = async ({ stripe, metadata = {}, customerId, subscriptionId, stripeSubscription }) => {
+  const existingSub = await findSubscriptionRecord({
+    userId: metadata.userId,
+    customerId,
+    subscriptionId,
+  });
+
+  const candidateUserId =
+    normalizeObjectId(existingSub?.user) ||
+    normalizeObjectId(metadata.userId) ||
+    normalizeObjectId(stripeSubscription?.metadata?.userId);
+  if (candidateUserId) {
+    return { userId: candidateUserId, existingSub };
+  }
+
+  if (customerId) {
+    const customer = await stripe.customers.retrieve(customerId);
+    const customerUserId = normalizeObjectId(customer?.metadata?.userId);
+    if (customerUserId) {
+      return { userId: customerUserId, existingSub };
+    }
+  }
+
+  throw new Error(`User not found for subscription webhook subscription=${subscriptionId || "unknown"} customer=${customerId || "unknown"}`);
+};
+
 const createSubscriptionSession = async (req, res) => {
   try {
     const stripe = getStripe();
@@ -35,7 +116,10 @@ const createSubscriptionSession = async (req, res) => {
     let customerId = sub?.stripeCustomerId;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email });
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: String(req.userId) },
+      });
       customerId = customer.id;
       // Persist the customer ID immediately so future calls reuse the same
       // Stripe customer even if the checkout webhook hasn't fired yet.
@@ -57,6 +141,7 @@ const createSubscriptionSession = async (req, res) => {
         },
       ],
       metadata: { userId: String(req.userId) },
+      subscription_data: { metadata: { userId: String(req.userId) } },
       success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/payment/cancel`,
     });
@@ -101,7 +186,10 @@ const createTierSubscriptionSession = async (req, res) => {
     let customerId = sub?.stripeCustomerId;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email });
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: String(req.userId) },
+      });
       customerId = customer.id;
       await Subscription.findOneAndUpdate(
         { user: req.userId },
@@ -116,6 +204,7 @@ const createTierSubscriptionSession = async (req, res) => {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { userId: String(req.userId), vipTier: tier },
+      subscription_data: { metadata: { userId: String(req.userId), vipTier: tier } },
       success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/vip`,
     });
@@ -186,23 +275,25 @@ const handleSubscriptionWebhook = async (event) => {
   }
 
   const session = event.data.object;
-  const userId = session.metadata?.userId;
-  if (!userId) {
-    console.warn(`[subscription webhook] No userId in metadata for event ${event.type} (${event.id})`);
-    return;
-  }
-
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
-    const periodEnd = new Date(stripeSubscription.current_period_end * 1000);
+    const periodEnd = getCurrentPeriodEnd(stripeSubscription);
     // vipTier is set in metadata when using createTierSubscriptionSession; falls back to null for legacy checkout
-    const vipTier = TIER_IDS.includes(session.metadata?.vipTier) ? session.metadata.vipTier : null;
+    const vipTier = resolveVipTier(session.metadata, stripeSubscription.metadata) ||
+      resolveVipTierFromStripeSubscription(stripeSubscription);
+    const { userId } = await resolveSubscriptionUserId({
+      stripe,
+      metadata: session.metadata,
+      customerId: getStripeId(session.customer),
+      subscriptionId: getStripeId(session.subscription),
+      stripeSubscription,
+    });
     await Subscription.findOneAndUpdate(
       { user: userId },
       {
         user: userId,
-        stripeCustomerId: session.customer,
-        stripeSubscriptionId: session.subscription,
+        stripeCustomerId: getStripeId(session.customer),
+        stripeSubscriptionId: getStripeId(session.subscription),
         status: "active",
         currentPeriodEnd: periodEnd,
       },
@@ -220,34 +311,67 @@ const handleSubscriptionWebhook = async (event) => {
   if (event.type === "invoice.payment_succeeded") {
     // Re-activate premium on successful renewal (e.g. after past_due recovery)
     const invoiceObj = event.data.object;
+    const customerId = getStripeId(invoiceObj.customer);
+    const subscriptionId = getSubscriptionIdFromInvoice(invoiceObj);
+    const stripeSubscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
     // Try to get period end from invoice line items first (no extra API call)
     let periodEnd = null;
     const linePeriodEnd = invoiceObj.lines?.data?.[0]?.period?.end;
     if (linePeriodEnd) {
       periodEnd = new Date(linePeriodEnd * 1000);
-    } else if (invoiceObj.subscription) {
-      try {
-        const stripeSub = await stripe.subscriptions.retrieve(invoiceObj.subscription);
-        periodEnd = new Date(stripeSub.current_period_end * 1000);
-      } catch (_) {
-        // non-fatal: period end is best-effort for renewal
-      }
+    } else {
+      periodEnd = getCurrentPeriodEnd(stripeSubscription);
     }
+    const vipTier = resolveVipTier(invoiceObj.metadata, stripeSubscription?.metadata) ||
+      resolveVipTierFromStripeSubscription(stripeSubscription);
+    const { userId, existingSub } = await resolveSubscriptionUserId({
+      stripe,
+      metadata: invoiceObj.metadata,
+      customerId,
+      subscriptionId,
+      stripeSubscription,
+    });
     const sub = await Subscription.findOneAndUpdate(
-      { stripeCustomerId: invoiceObj.customer },
-      { status: "active", ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}) },
-      { new: true }
+      existingSub ? { _id: existingSub._id } : { user: userId },
+      {
+        user: userId,
+        stripeCustomerId: customerId,
+        ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
+        status: "active",
+        ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}),
+      },
+      { upsert: true, new: true }
     );
     if (sub?.user) {
-      await User.findByIdAndUpdate(sub.user, { isPremium: true, isVIP: true, ...(periodEnd ? { vipExpiresAt: periodEnd } : {}) });
+      await User.findByIdAndUpdate(sub.user, {
+        isPremium: true,
+        isVIP: true,
+        ...(vipTier ? { vipTier } : {}),
+        ...(periodEnd ? { vipExpiresAt: periodEnd } : {}),
+      });
     }
   }
 
   if (event.type === "customer.subscription.deleted") {
+    const stripeSubscription = event.data.object;
+    const subscriptionId = getStripeId(stripeSubscription.id);
+    const customerId = getStripeId(stripeSubscription.customer);
+    const { userId, existingSub } = await resolveSubscriptionUserId({
+      stripe,
+      metadata: stripeSubscription.metadata,
+      customerId,
+      subscriptionId,
+      stripeSubscription,
+    });
     const sub = await Subscription.findOneAndUpdate(
-      { stripeSubscriptionId: event.data.object.id },
-      { status: "canceled" },
-      { new: true }
+      existingSub ? { _id: existingSub._id } : { user: userId },
+      {
+        user: userId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        status: "canceled",
+      },
+      { upsert: true, new: true }
     );
     // Revoke premium access and VIP status when subscription is fully deleted in Stripe
     if (sub?.user) {
@@ -258,13 +382,30 @@ const handleSubscriptionWebhook = async (event) => {
   }
 
   if (event.type === "invoice.payment_failed") {
-    await Subscription.findOneAndUpdate(
-      { stripeCustomerId: event.data.object.customer },
-      { status: "past_due" }
+    const invoiceObj = event.data.object;
+    const customerId = getStripeId(invoiceObj.customer);
+    const subscriptionId = getSubscriptionIdFromInvoice(invoiceObj);
+    const stripeSubscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
+    const { userId, existingSub } = await resolveSubscriptionUserId({
+      stripe,
+      metadata: invoiceObj.metadata,
+      customerId,
+      subscriptionId,
+      stripeSubscription,
+    });
+    const sub = await Subscription.findOneAndUpdate(
+      existingSub ? { _id: existingSub._id } : { user: userId },
+      {
+        user: userId,
+        stripeCustomerId: customerId,
+        ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
+        status: "past_due",
+      },
+      { upsert: true, new: true }
     );
-    // Do not revoke isPremium on first failure; Stripe will retry and
-    // fire invoice.payment_succeeded if the charge eventually succeeds.
-    // isPremium is revoked when the subscription is fully deleted above.
+    if (sub?.user) {
+      await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipExpiresAt: null });
+    }
   }
 };
 

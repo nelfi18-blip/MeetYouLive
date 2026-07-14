@@ -102,7 +102,7 @@ const recordGiftTransactions = async (senderId, receiverId, amount, creatorNetSh
     });
   }
   // Agency earning transaction is recorded separately in the send flow
-  await CoinTransaction.create([txDocs].flat(), { session: session || undefined });
+  await CoinTransaction.create(txDocs, { session: session || undefined });
 };
 
 // Shared helper: transfer coins and credit creator earnings within a session.

@@ -5,7 +5,7 @@ import Image from "next/image";
 const SIZE_MAP = {
   sm: { icon: 34, iconH: 24, text: "1rem" },
   md: { icon: 44, iconH: 31, text: "1.22rem" },
-  lg: { icon: 58, iconH: 40, text: "1.52rem" },
+  lg: { icon: 68, iconH: 47, text: "1.52rem" },
 };
 
 export default function Logo({ size = "md" }) {

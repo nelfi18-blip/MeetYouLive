@@ -167,15 +167,19 @@ export default function CallPage() {
     }
     configureSocketAuth(token.current);
     if (!socket.connected) socket.connect();
+    let cancelled = false;
+    let loadController = null;
+    let loadTimeoutId = null;
 
     const load = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CALL_CONNECT_TIMEOUT_MS);
+      loadController = new AbortController();
+      loadTimeoutId = setTimeout(() => loadController.abort(), CALL_CONNECT_TIMEOUT_MS);
       try {
         const res = await fetch(`${API_URL}/api/calls/${id}`, {
           headers: { Authorization: `Bearer ${token.current}` },
-          signal: controller.signal,
+          signal: loadController.signal,
         });
+        if (cancelled) return;
         if (res.status === 401) {
           clearToken();
           router.replace("/login");
@@ -218,14 +222,20 @@ export default function CallPage() {
           }
         }
       } catch (err) {
+        if (cancelled) return;
         setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
         setStatus("ended");
       } finally {
-        clearTimeout(timeoutId);
+        if (loadTimeoutId) clearTimeout(loadTimeoutId);
       }
     };
 
     load();
+    return () => {
+      cancelled = true;
+      if (loadTimeoutId) clearTimeout(loadTimeoutId);
+      loadController?.abort();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 

@@ -991,7 +991,7 @@ export default function LiveRoomPage() {
     const text = chatInput.trim();
     if (!text) return;
     if (!socket.connected) {
-      setChatSendError("Chat sin conexión. Reintentando conexión…");
+      setChatSendError("Chat sin conexión. Intenta enviar de nuevo cuando vuelva la conexión.");
       return;
     }
 
@@ -3205,7 +3205,7 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
-            --live-mobile-chat-height: min(420px, 58dvh); /* Leaves roughly 42dvh for video, quick actions, and safe-area spacing. */
+            --live-mobile-chat-height: min(420px, 58dvh); /* Approximate split; browser UI can reduce the remaining space for video/actions. */
             height: var(--live-mobile-chat-height);
             position: static;
           }

@@ -713,8 +713,8 @@ export default function ChatConversationPage() {
 
       <style jsx>{`
         .chat-page {
-          --chat-desktop-chrome-offset: 140px; /* App navbar + page spacing outside this conversation shell. */
-          --chat-mobile-chrome-offset: 120px; /* Compact mobile navbar/header spacing outside this conversation shell. */
+          --chat-desktop-chrome-offset: 140px; /* Mirrors current root layout navbar/page gutters; update with BottomNav/MainContent chrome changes. */
+          --chat-mobile-chrome-offset: 120px; /* Compact mobile root chrome offset; keep aligned with BottomNavWrapper/MainContentWrapper spacing. */
           display: flex;
           flex-direction: column;
           height: calc(100dvh - var(--chat-desktop-chrome-offset));

@@ -186,6 +186,7 @@ export default function LandingPage() {
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
+          min-height: 52px;
           margin-bottom: clamp(1.2rem, 4vw, 3rem);
         }
         .nav-actions {

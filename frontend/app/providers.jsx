@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
@@ -9,6 +10,8 @@ import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { initNativePushNotifications } from "@/lib/nativePush";
+import { fetchUserRole, activateAdminSession } from "@/lib/token";
+import { isProtectedRoutePath } from "@/lib/publicAccess";
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -107,10 +110,44 @@ function SocketManager() {
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }
 
+function AdminRoleGuard() {
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!pathname || pathname.startsWith("/admin") || status === "loading") return;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("switch") === "1") return;
+
+    const token =
+      session?.backendToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("admin_token") || localStorage.getItem("token") : null);
+    if (!token) return;
+
+    let cancelled = false;
+    fetchUserRole(token, 8000, 0)
+      .then((user) => {
+        if (cancelled || user?.role !== "admin") return;
+        activateAdminSession(token, user);
+        if (isProtectedRoutePath(pathname) || pathname === "/login" || pathname === "/register") {
+          router.replace("/admin");
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router, session?.backendToken, status]);
+
+  return null;
+}
+
 export default function Providers({ children }) {
   return (
     <SessionProvider>
       <LanguageProvider>
+        <AdminRoleGuard />
         {children}
         <SocketManager />
       </LanguageProvider>

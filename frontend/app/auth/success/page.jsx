@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { setToken, fetchUserRole } from "@/lib/token";
+import { setToken, fetchUserRole, activateAdminSession } from "@/lib/token";
 
 /**
  * Inner component that reads search params and performs the redirect.
@@ -23,6 +23,7 @@ function AuthSuccessHandler() {
       // Check if user is admin and redirect accordingly
       fetchUserRole(token).then((user) => {
         if (user?.role === "admin") {
+          activateAdminSession(token, user);
           router.replace("/admin");
         } else if (user?.onboardingComplete === false) {
           router.replace("/onboarding");

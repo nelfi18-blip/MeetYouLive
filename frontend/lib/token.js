@@ -56,6 +56,27 @@ export function setAdminToken(token) {
   document.cookie = `${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
 }
 
+/** Promote a verified admin backend token into the admin-only session store. */
+export function activateAdminSession(token, user = null) {
+  if (typeof window === "undefined" || !token) return;
+  setAdminToken(token);
+  localStorage.removeItem("token");
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  if (user) {
+    localStorage.setItem(
+      "admin_user",
+      JSON.stringify({
+        id: user.id || user._id || "",
+        name: user.name || "",
+        username: user.username || "",
+        email: user.email || "",
+        role: user.role || "admin",
+      })
+    );
+  }
+}
+
 /** Remove admin token from localStorage and clear the admin-session cookie. */
 export function clearAdminToken() {
   if (typeof window === "undefined") return;

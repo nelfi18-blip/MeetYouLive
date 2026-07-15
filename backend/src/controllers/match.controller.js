@@ -95,8 +95,8 @@ exports.likeUser = async (req, res) => {
     return res.status(400).json({ success: false, message: "Usuario inválido" });
   }
   try {
-    const targetUser = await User.findById(userId).select("_id isBlocked isSuspended").lean();
-    if (!targetUser || targetUser.isBlocked === true || targetUser.isSuspended === true) {
+    const targetUser = await User.findById(userId).select("_id role isBlocked isSuspended").lean();
+    if (!targetUser || targetUser.role === "admin" || targetUser.isBlocked === true || targetUser.isSuspended === true) {
       return res.status(404).json({ success: false, message: "Usuario no disponible" });
     }
     if (await hasUserBlockBetween(req.userId, userId)) {
@@ -227,6 +227,7 @@ exports.superCrushUser = async (req, res) => {
 
       const target = await User.findById(toObjId).session(session);
       if (!target) throw Object.assign(new Error("Perfil de destino no encontrado"), { status: 404 });
+      if (target.role === "admin") throw Object.assign(new Error("Perfil de destino no encontrado"), { status: 404 });
 
       // Deduct coins from sender
       await User.findByIdAndUpdate(fromObjId, { $inc: { coins: -SUPER_CRUSH_PRICE } }, { session });
@@ -406,7 +407,8 @@ exports.getMatches = async (req, res) => {
     const matches = mutualLikes.filter((l) => {
       const user = l.from?.toObject ? l.from.toObject() : l.from;
       const theirBlockedUsers = Array.isArray(user?.blockedUsers) ? user.blockedUsers : [];
-      return !blockedIds.has(String(user?._id)) &&
+      return user?.role !== "admin" &&
+        !blockedIds.has(String(user?._id)) &&
         !theirBlockedUsers.some((id) => String(id) === String(req.userId));
     }).map((l) => {
       const user = l.from.toObject ? l.from.toObject() : l.from;
@@ -427,6 +429,10 @@ exports.getMatches = async (req, res) => {
 exports.checkMatch = async (req, res) => {
   const { userId } = req.params;
   try {
+    const targetUser = await User.findById(userId).select("role").lean();
+    if (!targetUser || targetUser.role === "admin") {
+      return res.json({ iLiked: false, theyLiked: false, match: false });
+    }
     if (await hasUserBlockBetween(req.userId, userId)) {
       return res.json({ iLiked: false, theyLiked: false, match: false, blocked: true });
     }
@@ -754,7 +760,7 @@ exports.getLikesReceived = async (req, res) => {
     const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
 
     const nonMutual = incomingLikes.filter(
-      (l) => !myLikedSet.has(String(l.from._id))
+      (l) => l.from?.role !== "admin" && !myLikedSet.has(String(l.from._id))
     );
 
     const revealed = [];

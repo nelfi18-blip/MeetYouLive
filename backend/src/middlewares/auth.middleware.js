@@ -30,10 +30,11 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("isBlocked");
+    const user = await User.findById(decoded.id).select("isBlocked role");
     if (!user) return sendAuthError(req, res, 401, "Token inválido", "SESSION_EXPIRED", "Unauthorized");
     if (user.isBlocked) return sendAuthError(req, res, 403, "Tu cuenta ha sido bloqueada", "AUTH_FAILED", "Forbidden");
     req.userId = decoded.id;
+    req.userRole = user.role || "";
 
     // Stamp lastActiveAt and clear any pending reactivation notifications (fire-and-forget)
     User.updateOne(
@@ -62,9 +63,10 @@ const optionalVerifyToken = async (req, res, next) => {
   if (!process.env.JWT_SECRET) return next();
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("isBlocked");
+    const user = await User.findById(decoded.id).select("isBlocked role");
     if (user && !user.isBlocked) {
       req.userId = decoded.id;
+      req.userRole = user.role || "";
     }
   } catch {
     // ignore invalid token
@@ -72,4 +74,30 @@ const optionalVerifyToken = async (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, optionalVerifyToken };
+/**
+ * Blocks admin accounts from social endpoints while allowing normal users.
+ * verifyToken/optionalVerifyToken populate req.userRole; the DB lookup is a
+ * defensive fallback for tests or older custom middleware chains that only set
+ * req.userId.
+ */
+const blockAdminSocialAccess = async (req, res, next) => {
+  try {
+    if (!req.userId) return next();
+    let role = req.userRole;
+    if (!role) {
+      // Defensive fallback for older tests/custom middleware chains that set
+      // req.userId without going through verifyToken/optionalVerifyToken.
+      const user = await User.findById(req.userId).select("role").lean();
+      role = user?.role || "";
+      req.userRole = role;
+    }
+    if (role === "admin") {
+      return res.status(403).json({ message: "Los administradores deben usar el panel /admin" });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { verifyToken, optionalVerifyToken, blockAdminSocialAccess };

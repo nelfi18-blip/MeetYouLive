@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, blockAdminSocialAccess } = require("../middlewares/auth.middleware.js");
 const {
   likeUser,
   unlikeUser,
@@ -33,19 +33,19 @@ const superCrushLimiter = rateLimit({
   message: { success: false, message: "Demasiados Super Crushes enviados, intenta de nuevo más tarde" },
 });
 
-router.post("/like/:userId",         matchLimiter,      verifyToken, likeUser);
-router.delete("/like/:userId",       matchLimiter,      verifyToken, unlikeUser);
-router.post("/super-crush/:userId",  superCrushLimiter, verifyToken, superCrushUser);
-router.get("/",                      matchLimiter,      verifyToken, getMatches);
-router.get("/config",                matchLimiter,      verifyToken, getCrushConfig);
-router.get("/stats",                 matchLimiter,      verifyToken, getCrushStats);
-router.get("/check/:userId",         matchLimiter,      verifyToken, checkMatch);
-router.post("/boost",                matchLimiter,      verifyToken, boostCrush);
-router.post("/boost-pack",           matchLimiter,      verifyToken, purchaseBoostPack);
-router.post("/unlock-swipes",        matchLimiter,      verifyToken, unlockSwipes);
-router.get("/boost-status",          matchLimiter,      verifyToken, getBoostStatus);
-router.get("/boost-active-count",    matchLimiter,      verifyToken, getBoostActiveCount);
-router.get("/likes-received",        matchLimiter,      verifyToken, getLikesReceived);
-router.post("/unlock-likes",         matchLimiter,      verifyToken, unlockAllLikes);
+router.post("/like/:userId",         matchLimiter,      verifyToken, blockAdminSocialAccess, likeUser);
+router.delete("/like/:userId",       matchLimiter,      verifyToken, blockAdminSocialAccess, unlikeUser);
+router.post("/super-crush/:userId",  superCrushLimiter, verifyToken, blockAdminSocialAccess, superCrushUser);
+router.get("/",                      matchLimiter,      verifyToken, blockAdminSocialAccess, getMatches);
+router.get("/config",                matchLimiter,      verifyToken, blockAdminSocialAccess, getCrushConfig);
+router.get("/stats",                 matchLimiter,      verifyToken, blockAdminSocialAccess, getCrushStats);
+router.get("/check/:userId",         matchLimiter,      verifyToken, blockAdminSocialAccess, checkMatch);
+router.post("/boost",                matchLimiter,      verifyToken, blockAdminSocialAccess, boostCrush);
+router.post("/boost-pack",           matchLimiter,      verifyToken, blockAdminSocialAccess, purchaseBoostPack);
+router.post("/unlock-swipes",        matchLimiter,      verifyToken, blockAdminSocialAccess, unlockSwipes);
+router.get("/boost-status",          matchLimiter,      verifyToken, blockAdminSocialAccess, getBoostStatus);
+router.get("/boost-active-count",    matchLimiter,      verifyToken, blockAdminSocialAccess, getBoostActiveCount);
+router.get("/likes-received",        matchLimiter,      verifyToken, blockAdminSocialAccess, getLikesReceived);
+router.post("/unlock-likes",         matchLimiter,      verifyToken, blockAdminSocialAccess, unlockAllLikes);
 
 module.exports = router;

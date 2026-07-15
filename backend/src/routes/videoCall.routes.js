@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, blockAdminSocialAccess } = require("../middlewares/auth.middleware.js");
 const {
   inviteCall,
   getIncoming,
@@ -23,16 +23,16 @@ const callLimiter = rateLimit({
   message: { message: "Demasiadas solicitudes, intenta de nuevo más tarde" },
 });
 
-router.post("/", callLimiter, verifyToken, inviteCall);
-router.get("/incoming", callLimiter, verifyToken, getIncoming);
-router.get("/history", callLimiter, verifyToken, getCallHistory);
-router.get("/:id", callLimiter, verifyToken, getCallById);
-router.patch("/:id/respond", callLimiter, verifyToken, respondCall);
-router.patch("/:id/end", callLimiter, verifyToken, endCall);
-router.post("/:id/tick", callLimiter, verifyToken, tickCall);
-router.put("/:id/offer", callLimiter, verifyToken, submitOffer);
-router.put("/:id/answer", callLimiter, verifyToken, submitAnswer);
-router.post("/:id/candidates", callLimiter, verifyToken, addCandidates);
-router.get("/:id/candidates", callLimiter, verifyToken, getCandidates);
+router.post("/", callLimiter, verifyToken, blockAdminSocialAccess, inviteCall);
+router.get("/incoming", callLimiter, verifyToken, blockAdminSocialAccess, getIncoming);
+router.get("/history", callLimiter, verifyToken, blockAdminSocialAccess, getCallHistory);
+router.get("/:id", callLimiter, verifyToken, blockAdminSocialAccess, getCallById);
+router.patch("/:id/respond", callLimiter, verifyToken, blockAdminSocialAccess, respondCall);
+router.patch("/:id/end", callLimiter, verifyToken, blockAdminSocialAccess, endCall);
+router.post("/:id/tick", callLimiter, verifyToken, blockAdminSocialAccess, tickCall);
+router.put("/:id/offer", callLimiter, verifyToken, blockAdminSocialAccess, submitOffer);
+router.put("/:id/answer", callLimiter, verifyToken, blockAdminSocialAccess, submitAnswer);
+router.post("/:id/candidates", callLimiter, verifyToken, blockAdminSocialAccess, addCandidates);
+router.get("/:id/candidates", callLimiter, verifyToken, blockAdminSocialAccess, getCandidates);
 
 module.exports = router;

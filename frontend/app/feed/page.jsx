@@ -157,12 +157,7 @@ function preloadProfileImage(url) {
 }
 
 function shouldLogProfileCompletionDiagnostics() {
-  if (process.env.NODE_ENV !== "production") return true;
-  try {
-    return localStorage.getItem("meetyoulive:debug:profileCompletion") === "true";
-  } catch {
-    return false;
-  }
+  return process.env.NODE_ENV !== "production";
 }
 
 function getCurrentProfileId(profiles, currentIndex) {

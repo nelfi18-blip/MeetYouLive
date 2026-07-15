@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken, optionalVerifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, optionalVerifyToken, blockAdminSocialAccess } = require("../middlewares/auth.middleware.js");
 const {
   getFeed,
   getHybridFeed,
@@ -22,18 +22,18 @@ const feedLimiter = rateLimit({
 });
 
 // Simple feed endpoint - public access with optional token
-router.get("/",            feedLimiter, optionalVerifyToken, getFeed);
+router.get("/",            feedLimiter, optionalVerifyToken, blockAdminSocialAccess, getFeed);
 
 // Feed endpoints
-router.get("/hybrid",      feedLimiter, verifyToken, getHybridFeed);
-router.get("/live-only",   feedLimiter, verifyToken, getLiveOnlyFeed);
-router.get("/match-only",  feedLimiter, verifyToken, getMatchOnlyFeed);
-router.get("/top",         feedLimiter, verifyToken, getTopFeed);
+router.get("/hybrid",      feedLimiter, verifyToken, blockAdminSocialAccess, getHybridFeed);
+router.get("/live-only",   feedLimiter, verifyToken, blockAdminSocialAccess, getLiveOnlyFeed);
+router.get("/match-only",  feedLimiter, verifyToken, blockAdminSocialAccess, getMatchOnlyFeed);
+router.get("/top",         feedLimiter, verifyToken, blockAdminSocialAccess, getTopFeed);
 
 // Hook system endpoints
-router.post("/track-visit",    feedLimiter, verifyToken, trackProfileVisit);
-router.get("/visits",          feedLimiter, verifyToken, getRecentVisits);
-router.post("/send-greeting",  feedLimiter, verifyToken, sendGreeting);
-router.get("/greetings",       feedLimiter, verifyToken, getReceivedGreetings);
+router.post("/track-visit",    feedLimiter, verifyToken, blockAdminSocialAccess, trackProfileVisit);
+router.get("/visits",          feedLimiter, verifyToken, blockAdminSocialAccess, getRecentVisits);
+router.post("/send-greeting",  feedLimiter, verifyToken, blockAdminSocialAccess, sendGreeting);
+router.get("/greetings",       feedLimiter, verifyToken, blockAdminSocialAccess, getReceivedGreetings);
 
 module.exports = router;

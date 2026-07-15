@@ -21,6 +21,7 @@ export const PROTECTED_ROUTE_PREFIXES = [
   "/feed",
   "/gifts",
   "/live",
+  "/match",
   "/matches",
   "/notifications",
   "/onboarding",

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { login as authLogin } from "@/lib/auth.service";
 import { normalizeCallbackPath } from "@/lib/redirects";
-import { setToken, clearToken, fetchUserRole } from "@/lib/token";
+import { setToken, clearToken, fetchUserRole, activateAdminSession } from "@/lib/token";
 import { SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE } from "@/lib/token";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
@@ -29,6 +29,12 @@ function getPostLoginRedirectPath(user, fallbackPath) {
   if (user?.role === "admin") return "/admin";
   if (user?.onboardingComplete === false) return "/onboarding";
   return fallbackPath;
+}
+
+function syncAdminSessionIfNeeded(token, user) {
+  if (user?.role === "admin") {
+    activateAdminSession(token, user);
+  }
 }
 
 function MailIcon() {
@@ -136,6 +142,7 @@ function LoginForm() {
       
       // Check if user is admin and redirect accordingly
       fetchUserRole(localToken).then((user) => {
+        syncAdminSessionIfNeeded(localToken, user);
         router.replace(getPostLoginRedirectPath(user, userRedirectPath));
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
@@ -161,6 +168,7 @@ function LoginForm() {
         
         // Check if user is admin and redirect accordingly
         fetchUserRole(session.backendToken).then((user) => {
+          syncAdminSessionIfNeeded(session.backendToken, user);
           const dest = getPostLoginRedirectPath(user, userRedirectPath);
           console.log(`[login] Redirecting to ${dest}`);
           router.replace(dest);
@@ -208,6 +216,7 @@ function LoginForm() {
                 // router navigation completes.
                 setToken(data.token);
                 const user = await fetchUserRole(data.token, 15000, 1);
+                syncAdminSessionIfNeeded(data.token, user);
                 router.replace(getPostLoginRedirectPath(user, userRedirectPath));
                 return;
               }
@@ -468,6 +477,7 @@ function LoginForm() {
         
         // Check if user is admin and redirect accordingly
         const user = await fetchUserRole(data.token);
+        syncAdminSessionIfNeeded(data.token, user);
         router.replace(getPostLoginRedirectPath(user, userRedirectPath));
         return;
       }

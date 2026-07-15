@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const rateLimit = require("express-rate-limit");
-const { verifyToken } = require("../middlewares/auth.middleware.js");
+const { verifyToken, blockAdminSocialAccess } = require("../middlewares/auth.middleware.js");
 const { requireAdmin } = require("../middlewares/admin.middleware.js");
 const { validate, giftSendSchema } = require("../middlewares/validate.middleware.js");
 const { fraudCheck } = require("../middlewares/fraud.middleware.js");
@@ -25,18 +25,18 @@ const giftLimiter = rateLimit({
 });
 
 router.get("/", getGiftCatalog);
-router.post("/", giftLimiter, verifyToken, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
-router.post("/send", giftLimiter, verifyToken, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
-router.get("/received", giftLimiter, verifyToken, getReceivedGifts);
+router.post("/", giftLimiter, verifyToken, blockAdminSocialAccess, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
+router.post("/send", giftLimiter, verifyToken, blockAdminSocialAccess, fraudCheck({ checkSelfGift: true, checkNewAccount: true }), validate(giftSendSchema), sendGift);
+router.get("/received", giftLimiter, verifyToken, blockAdminSocialAccess, getReceivedGifts);
 
 // Profile gift stats and top supporters
 router.get("/profile-stats/:userId", getProfileGiftStats);
 router.get("/top-supporters/:userId", getTopSupporters);
 
 // Admin: gift catalog management
-router.get("/catalog", verifyToken, requireAdmin, adminGetCatalog);
-router.post("/catalog", verifyToken, requireAdmin, adminCreateCatalogItem);
-router.patch("/catalog/:id", verifyToken, requireAdmin, adminUpdateCatalogItem);
-router.delete("/catalog/:id", verifyToken, requireAdmin, adminDeleteCatalogItem);
+router.get("/catalog", giftLimiter, verifyToken, requireAdmin, adminGetCatalog);
+router.post("/catalog", giftLimiter, verifyToken, requireAdmin, adminCreateCatalogItem);
+router.patch("/catalog/:id", giftLimiter, verifyToken, requireAdmin, adminUpdateCatalogItem);
+router.delete("/catalog/:id", giftLimiter, verifyToken, requireAdmin, adminDeleteCatalogItem);
 
 module.exports = router;

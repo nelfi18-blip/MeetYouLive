@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
@@ -9,6 +10,11 @@ import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { initNativePushNotifications } from "@/lib/nativePush";
+import { fetchUserRole, activateAdminSession } from "@/lib/token";
+import { isProtectedRoutePath } from "@/lib/publicAccess";
+
+const ADMIN_ROLE_CHECK_TIMEOUT_MS = 8000;
+const ADMIN_ROLE_CHECK_RETRIES = 1;
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -41,6 +47,7 @@ function SocketManager() {
 
   // Initialise FCM push notifications once the user is authenticated
   useEffect(() => {
+    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return;
     const backendToken =
       session?.backendToken ||
       (typeof window !== "undefined" ? localStorage.getItem("token") : null);
@@ -61,6 +68,7 @@ function SocketManager() {
   }, []);
 
   useEffect(() => {
+    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return;
     // Resolve the backend JWT: OAuth users have it on session, email/password
     // users store it in localStorage.
     const backendToken =
@@ -107,10 +115,55 @@ function SocketManager() {
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }
 
+/**
+ * Verifies the authenticated role on route changes and moves admin users into
+ * the admin-only session flow. It redirects admins away from protected social
+ * routes to `/admin` while respecting the explicit account-switching flow.
+ */
+function AdminRoleGuard() {
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!pathname || pathname.startsWith("/admin") || status === "loading") return;
+    // Account switching intentionally lands on /login?switch=1; do not bounce
+    // an existing admin session back to /admin until the switch flow clears auth.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("switch") === "1") return;
+
+    const token =
+      session?.backendToken ||
+      (typeof window !== "undefined" ? localStorage.getItem("admin_token") || localStorage.getItem("token") : null);
+    if (!token) return;
+
+    let cancelled = false;
+    fetchUserRole(token, ADMIN_ROLE_CHECK_TIMEOUT_MS, ADMIN_ROLE_CHECK_RETRIES)
+      .then((user) => {
+        if (cancelled || user?.role !== "admin") return;
+        activateAdminSession(token, user);
+        if (isProtectedRoutePath(pathname) || pathname === "/login" || pathname === "/register") {
+          router.replace("/admin");
+        }
+      })
+      .catch((error) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[AdminRoleGuard] role check failed:", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, router, session?.backendToken, status]);
+
+  return null;
+}
+
 export default function Providers({ children }) {
   return (
     <SessionProvider>
       <LanguageProvider>
+        <AdminRoleGuard />
         {children}
         <SocketManager />
       </LanguageProvider>

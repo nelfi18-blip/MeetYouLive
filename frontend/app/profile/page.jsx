@@ -37,7 +37,7 @@ const PROFILE_STATUS_FIELDS = [
   "hasInterests",
 ];
 
-const shouldShowProfileDiagnostics = (profile) => process.env.NODE_ENV !== "production" || profile?.role === "admin";
+const shouldShowProfileDiagnostics = () => process.env.NODE_ENV !== "production";
 
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";

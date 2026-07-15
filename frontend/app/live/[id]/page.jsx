@@ -52,6 +52,15 @@ const BOOST_MEGA_THRESHOLD          = 50;     // qty >= this triggers "mega" sub
 const MIN_AGORA_RENEWAL_DELAY_MS    = 10000;
 const DEFAULT_AGORA_TOKEN_TTL_SECONDS = 60;
 const AGORA_RENEWAL_BUFFER_SECONDS  = 30;
+const LIVE_JOIN_TIMEOUT_MS = 20000;
+
+function isPermissionDeniedError(err) {
+  return (
+    err?.name === "NotAllowedError" ||
+    err?.name === "PermissionDeniedError" ||
+    err?.code === "PERMISSION_DENIED"
+  );
+}
 
 export default function LiveRoomPage() {
   const { id } = useParams();
@@ -82,6 +91,8 @@ export default function LiveRoomPage() {
     { id: 0, user: "Sistema", text: "¡Bienvenido al directo! 🎉", system: true },
   ]);
   const [chatInput, setChatInput] = useState("");
+  const [chatSendError, setChatSendError] = useState("");
+  const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const chatEndRef = useRef(null);
   const msgCounterRef = useRef(1);
   const giftEffectTimeoutRef = useRef(null);
@@ -343,6 +354,25 @@ export default function LiveRoomPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  useEffect(() => {
+    const markConnected = () => setSocketState("connected");
+    const markConnecting = () => setSocketState("connecting");
+    const markDisconnected = () => setSocketState("disconnected");
+
+    setSocketState(socket.connected ? "connected" : "connecting");
+    socket.on("connect", markConnected);
+    socket.on("reconnect_attempt", markConnecting);
+    socket.on("connect_error", markDisconnected);
+    socket.on("disconnect", markDisconnected);
+
+    return () => {
+      socket.off("connect", markConnected);
+      socket.off("reconnect_attempt", markConnecting);
+      socket.off("connect_error", markDisconnected);
+      socket.off("disconnect", markDisconnected);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -792,6 +822,7 @@ export default function LiveRoomPage() {
     let localVideo;
     let cancelled = false;
     let tokenRenewalTimer = null;
+    let joinTimeoutTimer = null;
     const role = isCreatorCheck ? "publisher" : "subscriber";
 
     const fetchAgoraToken = async () => {
@@ -813,6 +844,11 @@ export default function LiveRoomPage() {
 
     const joinAgora = async () => {
       try {
+        joinTimeoutTimer = setTimeout(() => {
+          if (!cancelled) {
+            setAgoraError("La conexión al directo está tardando demasiado. Revisa tu conexión e intenta volver a entrar.");
+          }
+        }, LIVE_JOIN_TIMEOUT_MS);
         if (!AGORA_APP_ID) throw new Error("No se pudo obtener token de Agora");
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         if (cancelled) return;
@@ -909,14 +945,17 @@ export default function LiveRoomPage() {
         }
 
         if (!cancelled) {
+          if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
+          setAgoraError("");
           setAgoraJoined(true);
           scheduleAgoraTokenRenewal(expiresIn);
           setTimeout(() => setShowEntryAnim(false), 2000);
         }
       } catch (err) {
+        if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
         if (!cancelled) {
           setAgoraError(
-            err?.message?.includes("cámara") || err?.message?.includes("mic")
+            isPermissionDeniedError(err)
               ? "Permite el acceso a cámara/micrófono para transmitir"
               : "No se pudo conectar al canal de video"
           );
@@ -929,6 +968,7 @@ export default function LiveRoomPage() {
     return () => {
       cancelled = true;
       if (tokenRenewalTimer) clearTimeout(tokenRenewalTimer);
+      if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
@@ -950,7 +990,12 @@ export default function LiveRoomPage() {
     e.preventDefault();
     const text = chatInput.trim();
     if (!text) return;
+    if (!socket.connected) {
+      setChatSendError("Chat sin conexión. Intenta enviar de nuevo cuando vuelva la conexión.");
+      return;
+    }
 
+    setChatSendError("");
     // Add message locally immediately (optimistic, sender sees it as "Tú")
     setChatMessages((prev) => [
       ...prev,
@@ -966,6 +1011,12 @@ export default function LiveRoomPage() {
       liveId: id,
       text,
       user: { username: currentUsername || "Anónimo", ...(currentUserId ? { userId: currentUserId } : {}) },
+    }, (response) => {
+      if (response && response.ok === false) {
+        setChatSendError(response.message || "No se pudo enviar el mensaje.");
+      } else {
+        setChatSendError("");
+      }
     });
   };
 
@@ -1904,6 +1955,12 @@ export default function LiveRoomPage() {
             <span>Chat en vivo</span>
             <span className="chat-header-live-dot" />
           </div>
+          {socketState !== "connected" && (
+            <div className="live-chat-status" role="status">
+              {socketState === "connecting" ? "Reconectando chat…" : "Chat sin conexión. Reintentando…"}
+            </div>
+          )}
+          {chatSendError && <div className="live-chat-status live-chat-status-error">{chatSendError}</div>}
           {liveModerationStatus && (
             <div className="live-moderation-status" role="status" aria-live="polite">
               {liveModerationStatus}
@@ -3034,6 +3091,23 @@ export default function LiveRoomPage() {
           font-weight: 800;
         }
 
+        .live-chat-status {
+          margin: 0.45rem 0.75rem 0;
+          padding: 0.48rem 0.65rem;
+          border-radius: 12px;
+          border: 1px solid rgba(250,204,21,0.24);
+          background: rgba(250,204,21,0.08);
+          color: #fde68a;
+          font-size: 0.74rem;
+          font-weight: 800;
+        }
+
+        .live-chat-status-error {
+          border-color: rgba(248,113,113,0.32);
+          background: rgba(248,113,113,0.1);
+          color: #fecaca;
+        }
+
         .live-chat-moderation-actions {
           display: flex;
           flex-wrap: wrap;
@@ -3131,7 +3205,8 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
-            height: 400px;
+            --live-mobile-chat-height: min(420px, 58dvh); /* Approximate split; browser UI can reduce the remaining space for video/actions. */
+            height: var(--live-mobile-chat-height);
             position: static;
           }
         }
@@ -3199,7 +3274,7 @@ export default function LiveRoomPage() {
         .chat-form {
           display: flex;
           gap: 0.5rem;
-          padding: 0.75rem;
+          padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
           border-top: 1px solid var(--border);
           flex-shrink: 0;
           background: rgba(10,4,24,0.8);

@@ -16,6 +16,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
+const CALL_CONNECT_TIMEOUT_MS = 20000;
 const AUTO_RETURN_DELAY_MS = 3000;
 const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 const SPEAKER_VOLUME_FULL = 100;
@@ -166,12 +167,19 @@ export default function CallPage() {
     }
     configureSocketAuth(token.current);
     if (!socket.connected) socket.connect();
+    let cancelled = false;
+    let loadController = null;
+    let loadTimeoutId = null;
 
     const load = async () => {
+      loadController = new AbortController();
+      loadTimeoutId = setTimeout(() => loadController.abort(), CALL_CONNECT_TIMEOUT_MS);
       try {
         const res = await fetch(`${API_URL}/api/calls/${id}`, {
           headers: { Authorization: `Bearer ${token.current}` },
+          signal: loadController.signal,
         });
+        if (cancelled) return;
         if (res.status === 401) {
           clearToken();
           router.replace("/login");
@@ -213,13 +221,21 @@ export default function CallPage() {
             pollForAcceptance(data);
           }
         }
-      } catch {
-        setError("Error de conexión");
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
         setStatus("ended");
+      } finally {
+        if (loadTimeoutId) clearTimeout(loadTimeoutId);
       }
     };
 
     load();
+    return () => {
+      cancelled = true;
+      if (loadTimeoutId) clearTimeout(loadTimeoutId);
+      loadController?.abort();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 
@@ -319,6 +335,23 @@ export default function CallPage() {
       // ignore; socket/polling state will reconcile when available
     }
   }, [apiHeaders, id]);
+
+  useEffect(() => {
+    if (status !== "connecting") return undefined;
+    let active = true;
+    const timer = setTimeout(() => {
+      if (!active) return;
+      endCallOnServer("connect_timeout").catch(() => {});
+      cleanupAgora().catch(() => {});
+      setError("La conexión está tardando demasiado. Revisa cámara, micrófono y red.");
+      setStatus("ended");
+    }, CALL_CONNECT_TIMEOUT_MS);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [cleanupAgora, endCallOnServer, status]);
 
   const respondFromCall = useCallback(async (action) => {
     if (!callRef.current || status !== "ringing") return;
@@ -741,7 +774,7 @@ export default function CallPage() {
         <div className="call-identity">
           <div className="call-identity-avatar">
             {remoteAvatar ? (
-              <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
+              <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" loading="eager" decoding="async" />
             ) : (
               remoteInitial
             )}
@@ -781,7 +814,7 @@ export default function CallPage() {
             <div className="call-avatar-ring" />
             <div className="call-remote-avatar">
               {remoteAvatar ? (
-                <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
+                <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" loading="eager" decoding="async" />
               ) : (
                 remoteInitial
               )}

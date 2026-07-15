@@ -57,8 +57,8 @@ const LIVE_JOIN_TIMEOUT_MS = 20000;
 function isPermissionDeniedError(err) {
   return (
     err?.name === "NotAllowedError" ||
-    err?.code === "PERMISSION_DENIED" ||
-    /permission|denied|not allowed|camera|microphone|mic|cámara|micrófono/i.test(err?.message || "")
+    err?.name === "PermissionDeniedError" ||
+    err?.code === "PERMISSION_DENIED"
   );
 }
 
@@ -3204,8 +3204,8 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
-            /* Keep chat visible without pushing the video/actions off small mobile viewports. */
-            height: min(420px, 58dvh);
+            --live-mobile-chat-height: min(420px, 58dvh); /* Leaves roughly 42dvh for video, quick actions, and safe-area spacing. */
+            height: var(--live-mobile-chat-height);
             position: static;
           }
         }

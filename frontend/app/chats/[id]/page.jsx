@@ -713,9 +713,11 @@ export default function ChatConversationPage() {
 
       <style jsx>{`
         .chat-page {
+          --chat-desktop-chrome-offset: 140px; /* App navbar + page spacing outside this conversation shell. */
+          --chat-mobile-chrome-offset: 120px; /* Compact mobile navbar/header spacing outside this conversation shell. */
           display: flex;
           flex-direction: column;
-          height: calc(100dvh - 140px);
+          height: calc(100dvh - var(--chat-desktop-chrome-offset));
           min-height: 560px;
           gap: 0.82rem;
           position: relative;
@@ -1222,7 +1224,7 @@ export default function ChatConversationPage() {
         @keyframes giftIconBounce { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2) rotate(-10deg); } 50% { transform: scale(1.1) rotate(10deg); } 75% { transform: scale(1.15) rotate(-5deg); } }
 
         @media (max-width: 720px) {
-          .chat-page { height: calc(100dvh - 120px); min-height: 520px; }
+          .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; }
           .chat-header { border-radius: 22px; padding: 0.78rem; }
           .back-btn span { display: none; }
           .peer-avatar-wrap { width: 44px; height: 44px; }

@@ -16,6 +16,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_MS = 1000; // polling interval for call acceptance
 // Short Agora reconnect grace; separate from backend pending-invite timeout.
 const RECONNECT_GRACE_MS = 15000;
+const CALL_CONNECT_TIMEOUT_MS = 20000;
 const AUTO_RETURN_DELAY_MS = 3000;
 const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
 const SPEAKER_VOLUME_FULL = 100;
@@ -319,6 +320,20 @@ export default function CallPage() {
       // ignore; socket/polling state will reconcile when available
     }
   }, [apiHeaders, id]);
+
+  useEffect(() => {
+    if (status !== "loading" && status !== "connecting") return undefined;
+    const timer = setTimeout(async () => {
+      if (status === "connecting") {
+        await endCallOnServer("connect_timeout");
+        await cleanupAgora();
+      }
+      setError("La conexión está tardando demasiado. Revisa cámara, micrófono y red.");
+      setStatus("ended");
+    }, CALL_CONNECT_TIMEOUT_MS);
+
+    return () => clearTimeout(timer);
+  }, [cleanupAgora, endCallOnServer, status]);
 
   const respondFromCall = useCallback(async (action) => {
     if (!callRef.current || status !== "ringing") return;
@@ -741,7 +756,7 @@ export default function CallPage() {
         <div className="call-identity">
           <div className="call-identity-avatar">
             {remoteAvatar ? (
-              <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
+              <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" loading="eager" decoding="async" />
             ) : (
               remoteInitial
             )}
@@ -781,7 +796,7 @@ export default function CallPage() {
             <div className="call-avatar-ring" />
             <div className="call-remote-avatar">
               {remoteAvatar ? (
-                <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" />
+                <img src={remoteAvatar} alt={remoteName} className="call-avatar-img" loading="eager" decoding="async" />
               ) : (
                 remoteInitial
               )}

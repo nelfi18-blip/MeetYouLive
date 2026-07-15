@@ -64,6 +64,7 @@ export default function ChatConversationPage() {
   const [showScrollJump, setShowScrollJump] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [blockedConversation, setBlockedConversation] = useState(false);
+  const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const messagesAreaRef = useRef(null);
   const bottomRef = useRef(null);
   const isNearBottomRef = useRef(true);
@@ -203,6 +204,25 @@ export default function ChatConversationPage() {
       socket.off("USER_OFFLINE", handleOffline);
     };
   }, [otherUser?._id]);
+
+  useEffect(() => {
+    const markConnected = () => setSocketState("connected");
+    const markConnecting = () => setSocketState("connecting");
+    const markDisconnected = () => setSocketState("disconnected");
+
+    setSocketState(socket.connected ? "connected" : "connecting");
+    socket.on("connect", markConnected);
+    socket.on("reconnect_attempt", markConnecting);
+    socket.on("connect_error", markDisconnected);
+    socket.on("disconnect", markDisconnected);
+
+    return () => {
+      socket.off("connect", markConnected);
+      socket.off("reconnect_attempt", markConnecting);
+      socket.off("connect_error", markDisconnected);
+      socket.off("disconnect", markDisconnected);
+    };
+  }, []);
 
   const fetchNewMessages = useCallback(async () => {
     const token = getBackendToken();
@@ -483,7 +503,7 @@ export default function ChatConversationPage() {
               <div className="peer-avatar-wrap" data-online={isOtherOnline}>
                 <div className="peer-avatar avatar-placeholder">
                   {otherImage ? (
-                    <img src={otherImage} alt={otherName} className="peer-avatar-img" />
+                    <img src={otherImage} alt={otherName} className="peer-avatar-img" loading="eager" decoding="async" />
                   ) : (
                     otherName[0].toUpperCase()
                   )}
@@ -523,6 +543,11 @@ export default function ChatConversationPage() {
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
       {blockedConversation && <div className="error-banner">Esta conversación está bloqueada.</div>}
+      {!loading && socketState !== "connected" && (
+        <div className="connection-banner" role="status">
+          {socketState === "connecting" ? "Reconectando chat…" : "Chat sin conexión. Reintentando en segundo plano…"}
+        </div>
+      )}
 
       <main ref={messagesAreaRef} className="messages-area" aria-label={t("chatPremium.messagesAria")} onScroll={handleMessagesScroll}>
         {loading && (
@@ -559,7 +584,7 @@ export default function ChatConversationPage() {
               {!isMine && (
                 <div className="bubble-avatar avatar-placeholder">
                   {senderImage ? (
-                    <img src={senderImage} alt={senderName} className="bubble-avatar-img" />
+                    <img src={senderImage} alt={senderName} className="bubble-avatar-img" loading="lazy" decoding="async" />
                   ) : (
                     senderName[0].toUpperCase()
                   )}
@@ -690,7 +715,7 @@ export default function ChatConversationPage() {
         .chat-page {
           display: flex;
           flex-direction: column;
-          height: calc(100vh - 140px);
+          height: calc(100dvh - 140px);
           min-height: 560px;
           gap: 0.82rem;
           position: relative;
@@ -1004,10 +1029,21 @@ export default function ChatConversationPage() {
         }
         .scroll-jump:hover { transform: translateX(-50%) translateY(-1px); border-color: rgba(34,211,238,0.56); }
 
+        .connection-banner {
+          padding: 0.7rem 0.9rem;
+          border-radius: 18px;
+          border: 1px solid rgba(250,204,21,0.28);
+          background: rgba(250,204,21,0.09);
+          color: #fde68a;
+          font-size: 0.86rem;
+          font-weight: 800;
+          text-align: center;
+        }
+
         .chat-input-bar {
           display: flex;
           gap: 0.7rem;
-          padding: 0.72rem;
+          padding: 0.72rem 0.72rem max(0.72rem, env(safe-area-inset-bottom));
           align-items: center;
           background:
             radial-gradient(circle at 8% 0%, rgba(224,64,251,0.14), transparent 36%),
@@ -1186,7 +1222,7 @@ export default function ChatConversationPage() {
         @keyframes giftIconBounce { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.2) rotate(-10deg); } 50% { transform: scale(1.1) rotate(10deg); } 75% { transform: scale(1.15) rotate(-5deg); } }
 
         @media (max-width: 720px) {
-          .chat-page { height: calc(100vh - 120px); min-height: 520px; }
+          .chat-page { height: calc(100dvh - 120px); min-height: 520px; }
           .chat-header { border-radius: 22px; padding: 0.78rem; }
           .back-btn span { display: none; }
           .peer-avatar-wrap { width: 44px; height: 44px; }
@@ -1194,7 +1230,7 @@ export default function ChatConversationPage() {
           .icon-action { width: 36px; height: 36px; border-radius: 13px; }
           .header-actions .camera-action,
           .header-actions .voice-action { display: none; }
-          .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem; }
+          .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem 0.58rem max(0.58rem, env(safe-area-inset-bottom)); }
           .composer-actions { gap: 0.32rem; }
           .composer-btn { width: 36px; height: 36px; border-radius: 13px; }
           .composer-actions .muted { display: none; }

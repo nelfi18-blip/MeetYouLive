@@ -74,6 +74,12 @@ const optionalVerifyToken = async (req, res, next) => {
   next();
 };
 
+/**
+ * Blocks admin accounts from social endpoints while allowing normal users.
+ * verifyToken/optionalVerifyToken populate req.userRole; the DB lookup is a
+ * defensive fallback for tests or older custom middleware chains that only set
+ * req.userId.
+ */
 const blockAdminSocialAccess = async (req, res, next) => {
   try {
     if (!req.userId) return next();

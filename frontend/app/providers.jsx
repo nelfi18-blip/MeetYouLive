@@ -115,6 +115,11 @@ function SocketManager() {
   return <NotificationCenter notifications={notifications} onDismiss={dismiss} />;
 }
 
+/**
+ * Verifies the authenticated role on route changes and moves admin users into
+ * the admin-only session flow. It redirects admins away from protected social
+ * routes to `/admin` while respecting the explicit account-switching flow.
+ */
 function AdminRoleGuard() {
   const { data: session, status } = useSession();
   const pathname = usePathname();

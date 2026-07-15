@@ -56,7 +56,12 @@ export function setAdminToken(token) {
   document.cookie = `${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
 }
 
-/** Promote a verified admin backend token into the admin-only session store. */
+/**
+ * Promote a verified admin backend token into admin-only session storage.
+ * Stores the token under `admin_token`, clears regular user token/cookie state
+ * so social middleware does not treat the session as a normal user session, and
+ * optionally persists admin user metadata for the admin shell.
+ */
 export function activateAdminSession(token, user = null) {
   if (typeof window === "undefined" || !token) return;
   setAdminToken(token);

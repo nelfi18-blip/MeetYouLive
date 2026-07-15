@@ -169,9 +169,12 @@ export default function CallPage() {
     if (!socket.connected) socket.connect();
 
     const load = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CALL_CONNECT_TIMEOUT_MS);
       try {
         const res = await fetch(`${API_URL}/api/calls/${id}`, {
           headers: { Authorization: `Bearer ${token.current}` },
+          signal: controller.signal,
         });
         if (res.status === 401) {
           clearToken();
@@ -214,9 +217,11 @@ export default function CallPage() {
             pollForAcceptance(data);
           }
         }
-      } catch {
-        setError("Error de conexión");
+      } catch (err) {
+        setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
         setStatus("ended");
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
@@ -322,7 +327,7 @@ export default function CallPage() {
   }, [apiHeaders, id]);
 
   useEffect(() => {
-    if (status !== "loading" && status !== "connecting") return undefined;
+    if (status !== "connecting") return undefined;
     let active = true;
     const timer = setTimeout(async () => {
       if (!active) return;

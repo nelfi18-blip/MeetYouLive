@@ -1015,6 +1015,8 @@ export default function LiveRoomPage() {
     }, (response) => {
       if (response && response.ok === false) {
         setChatSendError(response.message || "No se pudo enviar el mensaje.");
+      } else {
+        setChatSendError("");
       }
     });
   };

@@ -54,6 +54,14 @@ const DEFAULT_AGORA_TOKEN_TTL_SECONDS = 60;
 const AGORA_RENEWAL_BUFFER_SECONDS  = 30;
 const LIVE_JOIN_TIMEOUT_MS = 20000;
 
+function isPermissionDeniedError(err) {
+  return (
+    err?.name === "NotAllowedError" ||
+    err?.code === "PERMISSION_DENIED" ||
+    /permission|denied|not allowed|camera|microphone|mic|cámara|micrófono/i.test(err?.message || "")
+  );
+}
+
 export default function LiveRoomPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -946,12 +954,8 @@ export default function LiveRoomPage() {
       } catch (err) {
         if (joinTimeoutTimer) clearTimeout(joinTimeoutTimer);
         if (!cancelled) {
-          const denied =
-            err?.name === "NotAllowedError" ||
-            err?.code === "PERMISSION_DENIED" ||
-            /permission|denied|not allowed|camera|microphone|mic|cámara|micrófono/i.test(err?.message || "");
           setAgoraError(
-            denied
+            isPermissionDeniedError(err)
               ? "Permite el acceso a cámara/micrófono para transmitir"
               : "No se pudo conectar al canal de video"
           );
@@ -3200,6 +3204,7 @@ export default function LiveRoomPage() {
 
         @media (max-width: 900px) {
           .room-chat {
+            /* Keep chat visible without pushing the video/actions off small mobile viewports. */
             height: min(420px, 58dvh);
             position: static;
           }

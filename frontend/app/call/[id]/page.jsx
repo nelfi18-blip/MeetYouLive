@@ -323,16 +323,22 @@ export default function CallPage() {
 
   useEffect(() => {
     if (status !== "loading" && status !== "connecting") return undefined;
+    let active = true;
     const timer = setTimeout(async () => {
+      if (!active) return;
       if (status === "connecting") {
         await endCallOnServer("connect_timeout");
         await cleanupAgora();
       }
+      if (!active) return;
       setError("La conexión está tardando demasiado. Revisa cámara, micrófono y red.");
       setStatus("ended");
     }, CALL_CONNECT_TIMEOUT_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [cleanupAgora, endCallOnServer, status]);
 
   const respondFromCall = useCallback(async (action) => {

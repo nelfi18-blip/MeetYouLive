@@ -503,7 +503,7 @@ export default function ChatConversationPage() {
               <div className="peer-avatar-wrap" data-online={isOtherOnline}>
                 <div className="peer-avatar avatar-placeholder">
                   {otherImage ? (
-                    <img src={otherImage} alt={otherName} className="peer-avatar-img" loading="eager" decoding="async" />
+                    <img src={otherImage} alt={otherName} className="peer-avatar-img" decoding="async" />
                   ) : (
                     otherName[0].toUpperCase()
                   )}

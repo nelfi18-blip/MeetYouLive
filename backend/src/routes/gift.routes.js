@@ -34,9 +34,9 @@ router.get("/profile-stats/:userId", getProfileGiftStats);
 router.get("/top-supporters/:userId", getTopSupporters);
 
 // Admin: gift catalog management
-router.get("/catalog", verifyToken, requireAdmin, adminGetCatalog);
-router.post("/catalog", verifyToken, requireAdmin, adminCreateCatalogItem);
-router.patch("/catalog/:id", verifyToken, requireAdmin, adminUpdateCatalogItem);
-router.delete("/catalog/:id", verifyToken, requireAdmin, adminDeleteCatalogItem);
+router.get("/catalog", giftLimiter, verifyToken, requireAdmin, adminGetCatalog);
+router.post("/catalog", giftLimiter, verifyToken, requireAdmin, adminCreateCatalogItem);
+router.patch("/catalog/:id", giftLimiter, verifyToken, requireAdmin, adminUpdateCatalogItem);
+router.delete("/catalog/:id", giftLimiter, verifyToken, requireAdmin, adminDeleteCatalogItem);
 
 module.exports = router;

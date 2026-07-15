@@ -79,6 +79,8 @@ const blockAdminSocialAccess = async (req, res, next) => {
     if (!req.userId) return next();
     let role = req.userRole;
     if (!role) {
+      // Defensive fallback for older tests/custom middleware chains that set
+      // req.userId without going through verifyToken/optionalVerifyToken.
       const user = await User.findById(req.userId).select("role").lean();
       role = user?.role || "";
       req.userRole = role;

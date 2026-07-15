@@ -759,9 +759,10 @@ exports.getLikesReceived = async (req, res) => {
 
     const myLikedSet = new Set(myLikes.map((l) => String(l.to)));
 
-    const nonMutual = incomingLikes.filter(
-      (l) => l.from?.role !== "admin" && !myLikedSet.has(String(l.from._id))
-    );
+    const nonMutual = incomingLikes.filter((l) => {
+      const fromUser = l.from?.toObject ? l.from.toObject() : l.from;
+      return fromUser?.role !== "admin" && !myLikedSet.has(String(fromUser?._id));
+    });
 
     const revealed = [];
     const locked = [];

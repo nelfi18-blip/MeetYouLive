@@ -13,6 +13,9 @@ import { initNativePushNotifications } from "@/lib/nativePush";
 import { fetchUserRole, activateAdminSession } from "@/lib/token";
 import { isProtectedRoutePath } from "@/lib/publicAccess";
 
+const ADMIN_ROLE_CHECK_TIMEOUT_MS = 8000;
+const ADMIN_ROLE_CHECK_RETRIES = 0;
+
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
   try {
@@ -119,6 +122,8 @@ function AdminRoleGuard() {
 
   useEffect(() => {
     if (!pathname || pathname.startsWith("/admin") || status === "loading") return;
+    // Account switching intentionally lands on /login?switch=1; do not bounce
+    // an existing admin session back to /admin until the switch flow clears auth.
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("switch") === "1") return;
 
     const token =
@@ -127,7 +132,7 @@ function AdminRoleGuard() {
     if (!token) return;
 
     let cancelled = false;
-    fetchUserRole(token, 8000, 0)
+    fetchUserRole(token, ADMIN_ROLE_CHECK_TIMEOUT_MS, ADMIN_ROLE_CHECK_RETRIES)
       .then((user) => {
         if (cancelled || user?.role !== "admin") return;
         activateAdminSession(token, user);

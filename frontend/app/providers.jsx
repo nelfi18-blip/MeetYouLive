@@ -44,6 +44,7 @@ function SocketManager() {
 
   // Initialise FCM push notifications once the user is authenticated
   useEffect(() => {
+    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return;
     const backendToken =
       session?.backendToken ||
       (typeof window !== "undefined" ? localStorage.getItem("token") : null);
@@ -64,6 +65,7 @@ function SocketManager() {
   }, []);
 
   useEffect(() => {
+    if (typeof document !== "undefined" && document.cookie.includes("admin-session=")) return;
     // Resolve the backend JWT: OAuth users have it on session, email/password
     // users store it in localStorage.
     const backendToken =

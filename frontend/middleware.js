@@ -99,14 +99,8 @@ export function middleware(request) {
   }
 
   // Admin users must not access regular user pages.
-  // Redirect to /admin/blocked only for protected routes so they see an explanation.
-  // For auth pages, redirect directly to /admin (they shouldn't be logging in again).
   if (adminSession && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin/blocked";
-    url.search = "";
-    url.searchParams.set("from", pathname);
-    return withCanonicalHostIndexing(request, NextResponse.redirect(url));
+    return redirectToPath(request, "/admin");
   }
 
   // Admins on auth pages (trying to login again) → send to admin dashboard

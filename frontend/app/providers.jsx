@@ -14,7 +14,7 @@ import { fetchUserRole, activateAdminSession } from "@/lib/token";
 import { isProtectedRoutePath } from "@/lib/publicAccess";
 
 const ADMIN_ROLE_CHECK_TIMEOUT_MS = 8000;
-const ADMIN_ROLE_CHECK_RETRIES = 0;
+const ADMIN_ROLE_CHECK_RETRIES = 1;
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -145,7 +145,11 @@ function AdminRoleGuard() {
           router.replace("/admin");
         }
       })
-      .catch(() => {});
+      .catch((error) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[AdminRoleGuard] role check failed:", error);
+        }
+      });
 
     return () => {
       cancelled = true;

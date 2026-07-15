@@ -992,7 +992,6 @@ export default function LiveRoomPage() {
     if (!text) return;
     if (!socket.connected) {
       setChatSendError("Chat sin conexión. Reintentando conexión…");
-      socket.connect();
       return;
     }
 

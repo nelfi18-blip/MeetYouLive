@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
+import { animate, motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { getUserPhotoSelection, getDisplayName, getBioText, normalizeImageUrl } from "@/lib/imageHelpers";
 import Link from "next/link";
 
@@ -162,7 +162,7 @@ const SwipeCard = memo(function({
       setHasSwiped(false);
       setExitX(0);
       setExitY(0);
-      x.set(0);
+      animate(x, 0, { type: "spring", stiffness: 260, damping: 28 });
       return;
     }
 

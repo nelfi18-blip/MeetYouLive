@@ -329,13 +329,10 @@ export default function CallPage() {
   useEffect(() => {
     if (status !== "connecting") return undefined;
     let active = true;
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       if (!active) return;
-      if (status === "connecting") {
-        await endCallOnServer("connect_timeout");
-        await cleanupAgora();
-      }
-      if (!active) return;
+      endCallOnServer("connect_timeout").catch(() => {});
+      cleanupAgora().catch(() => {});
       setError("La conexión está tardando demasiado. Revisa cámara, micrófono y red.");
       setStatus("ended");
     }, CALL_CONNECT_TIMEOUT_MS);

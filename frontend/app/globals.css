@@ -3261,20 +3261,20 @@ main.main-content:has(.admin-shell) {
     transform: scale(1);
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
   }
-
-  @keyframes navLiveGlow {
-    0%, 100% {
-      opacity: 0.72;
-      transform: scale(0.94);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.06);
-    }
-  }
   50% {
     transform: scale(1.1);
     box-shadow: 0 2px 16px rgba(239, 68, 68, 0.8);
+  }
+}
+
+@keyframes navLiveGlow {
+  0%, 100% {
+    opacity: 0.72;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
   }
 }
 

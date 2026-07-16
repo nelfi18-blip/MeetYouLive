@@ -402,10 +402,10 @@ export default function ChatsPage() {
   };
 
   return (
-    <div className="chats-page">
+    <div className="chats-page" aria-labelledby="meet-hub-title">
       <header className="meet-hub-heading">
         <span className="meet-hub-kicker">{t("chatPremium.meetHubKicker")}</span>
-        <h1>{t("chatPremium.meetHubTitle")}</h1>
+        <h1 id="meet-hub-title">{t("chatPremium.meetHubTitle")}</h1>
       </header>
 
       <nav className="secondary-tabs" aria-label={t("chatPremium.secondaryHubAria")}>
@@ -426,10 +426,10 @@ export default function ChatsPage() {
 
       {activeHubTab === "chats" && (
         <>
-          <section className="conversation-priority-head">
+          <section className="conversation-priority-head" aria-labelledby="meet-hub-conversations-title">
             <div>
               <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
-              <h2>{t("chatPremium.conversationsFirstTitle")}</h2>
+              <h2 id="meet-hub-conversations-title">{t("chatPremium.conversationsFirstTitle")}</h2>
             </div>
           </section>
 

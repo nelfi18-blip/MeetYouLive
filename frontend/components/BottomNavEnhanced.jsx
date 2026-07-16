@@ -9,6 +9,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getHomePath } from "@/lib/token";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const formatBadgeCount = (count) => (count > 99 ? "99+" : count);
 
 export default function BottomNavEnhanced() {
   const pathname = usePathname();
@@ -177,7 +178,7 @@ export default function BottomNavEnhanced() {
           <span className="nav-label">Hub</span>
           {newMatchesCount > 0 && (
             <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
-              {newMatchesCount > 99 ? "99+" : newMatchesCount}
+              {formatBadgeCount(newMatchesCount)}
             </span>
           )}
         </Link>
@@ -223,7 +224,7 @@ export default function BottomNavEnhanced() {
           <span className="nav-label">Meet Hub</span>
           {unreadCount > 0 && (
             <span className="nav-badge nav-badge-pulse" aria-label={`${unreadCount} unread messages`}>
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {formatBadgeCount(unreadCount)}
             </span>
           )}
         </Link>

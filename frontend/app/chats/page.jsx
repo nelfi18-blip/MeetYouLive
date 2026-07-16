@@ -63,6 +63,7 @@ const createContactSummary = (user) => ({
 });
 
 const getCallActivityAt = (call) => call?.startedAt || call?.createdAt || call?.endedAt;
+const getChatActivityAt = (chat) => chat?.lastMessage?.createdAt || chat?.updatedAt;
 
 const getOtherParticipant = (chat) =>
   chat?.participants?.find((participant) => String(participant._id) !== String(chat.currentUserId)) || {};
@@ -305,13 +306,9 @@ export default function ChatsPage() {
     () => [...contactSummaries].sort((a, b) => b.score - a.score || b.activityAt - a.activityAt).slice(0, 4),
     [contactSummaries]
   );
-  const recentConversations = useMemo(
-    () => [...chats].sort((a, b) => getActivityTime(b.lastMessage?.createdAt || b.updatedAt) - getActivityTime(a.lastMessage?.createdAt || a.updatedAt)).slice(0, 3),
-    [chats]
-  );
   const latestCalls = useMemo(() => calls.slice(0, 3), [calls]);
   const sortedChats = useMemo(
-    () => [...chats].sort((a, b) => getActivityTime(b.lastMessage?.createdAt || b.updatedAt) - getActivityTime(a.lastMessage?.createdAt || a.updatedAt)),
+    () => [...chats].sort((a, b) => getActivityTime(getChatActivityAt(b)) - getActivityTime(getChatActivityAt(a))),
     [chats]
   );
 
@@ -337,22 +334,6 @@ export default function ChatsPage() {
           <span>{t(`chatPremium.${statusKey}`)}</span>
         </div>
       </div>
-    );
-  };
-
-  const renderConversationCard = (chat) => {
-    const other = getOtherParticipant(chat);
-    const name = getDisplayName(other);
-    const isOnline = onlineUserIds.has(String(other._id));
-    const inCall = activePeerId && String(other._id) === activePeerId;
-    return (
-      <Link key={chat._id} href={`/chats/${chat._id}`} className="mini-row-link">
-        <ContactAvatar user={other} name={name} online={isOnline} inCall={inCall} size="sm" />
-        <div>
-          <strong>{name}</strong>
-          <span>{getMessagePreview(chat.lastMessage, t("chatPremium.defaultPreview"))}</span>
-        </div>
-      </Link>
     );
   };
 
@@ -467,7 +448,7 @@ export default function ChatsPage() {
             const lastMsg = chat.lastMessage;
             const isOnline = onlineUserIds.has(String(other._id));
             const inCall = activePeerId && String(other._id) === activePeerId;
-            const lastDate = lastMsg?.createdAt || chat.updatedAt;
+            const lastDate = getChatActivityAt(chat);
             const lastTime = formatChatTime(lastDate, locale, t("chatPremium.yesterday"));
 
             return (

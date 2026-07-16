@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
@@ -112,6 +112,7 @@ function ContactAvatar({ user, name, online, inCall, size = "md" }) {
 
 export default function ChatsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
   const locale = t("chatPremium.locale");
@@ -357,6 +358,7 @@ export default function ChatsPage() {
   const activeCallName = activeCallPeer ? getDisplayName(activeCallPeer) : t("chatPremium.noActiveCall");
   const activeCallIsVideo = activeCall?.mediaType !== "audio";
   const activeCallCardClassName = ["active-call-card", activeCall ? "live" : ""].filter(Boolean).join(" ");
+  const getNavClassName = (baseClassName, href) => [baseClassName, pathname === href ? "active" : ""].filter(Boolean).join(" ");
 
   return (
     <div className="chats-page">
@@ -483,9 +485,9 @@ export default function ChatsPage() {
 
       <section className="secondary-hub" aria-label={t("chatPremium.secondaryHubAria")}>
         <div className="secondary-tabs" aria-label={t("chatPremium.secondaryTools")}>
-          <Link href="/chats" className="secondary-tab active"><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
-          <Link href="/calls" className="secondary-tab"><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-          <Link href="/explore" className="secondary-tab"><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+          <Link href="/chats" className={getNavClassName("secondary-tab", "/chats")}><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
+          <Link href="/calls" className={getNavClassName("secondary-tab", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
+          <Link href="/explore" className={getNavClassName("secondary-tab", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
         </div>
 
         <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>
@@ -498,9 +500,9 @@ export default function ChatsPage() {
             </div>
           </Link>
           <div className="quick-actions">
-            <Link href="/chats" className="quick-action active"><MessageIcon /> {t("chatPremium.openChats")}</Link>
-            <Link href="/calls" className="quick-action"><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-            <Link href="/explore" className="quick-action"><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+            <Link href="/chats" className={getNavClassName("quick-action", "/chats")}><MessageIcon /> {t("chatPremium.openChats")}</Link>
+            <Link href="/calls" className={getNavClassName("quick-action", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
+            <Link href="/explore" className={getNavClassName("quick-action", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
           </div>
         </section>
 

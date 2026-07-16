@@ -15,7 +15,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CALL_REFRESH_EVENT_NAMES = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
 const ACTIVE_CALL_STATUSES = new Set(["pending", "accepted"]);
 const CHAT_REFRESH_DEBOUNCE_MS = 800;
-const HUB_TABS = ["chats", "calls", "favorites", "contacts"];
+const HUB_TABS = [
+  { id: "chats", labelKey: "tabChats" },
+  { id: "calls", labelKey: "tabCalls" },
+  { id: "favorites", labelKey: "tabFavorites" },
+  { id: "contacts", labelKey: "tabContacts" },
+];
 const FAVORITES_LIMIT = 8;
 
 const formatChatTime = (value, locale, yesterdayLabel) => {
@@ -212,7 +217,7 @@ export default function ChatsPage() {
       const chatData = await chatRes.json();
       setChats(Array.isArray(chatData) ? chatData : []);
 
-      const [historyResult, incomingResult, livesResult] = await Promise.allSettled([
+      const [callHistoryResult, incomingResult, livesResult] = await Promise.allSettled([
         fetch(`${API_URL}/api/calls/history?limit=12`, {
           headers: { Authorization: "Bearer " + token },
           cache: "no-store",
@@ -227,8 +232,8 @@ export default function ChatsPage() {
         }),
       ]);
 
-      if (historyResult.status === "fulfilled" && historyResult.value.ok) {
-        const data = await safeJson(historyResult.value);
+      if (callHistoryResult.status === "fulfilled" && callHistoryResult.value.ok) {
+        const data = await safeJson(callHistoryResult.value);
         setCalls(Array.isArray(data?.calls) ? data.calls : []);
       }
       if (incomingResult.status === "fulfilled" && incomingResult.value.ok) {
@@ -353,9 +358,7 @@ export default function ChatsPage() {
 
   const contactItems = useMemo(() => getContactItems(sortedChats, calls), [sortedChats, calls]);
   const favoriteItems = useMemo(
-    () => contactItems
-      .filter((item) => item.unreadCount > 0 || item.source === "chat")
-      .slice(0, FAVORITES_LIMIT),
+    () => contactItems.slice(0, FAVORITES_LIMIT),
     [contactItems]
   );
 
@@ -375,17 +378,17 @@ export default function ChatsPage() {
   return (
     <div className="chats-page">
       <nav className="secondary-tabs" aria-label={t("chatPremium.secondaryHubAria")}>
-        {HUB_TABS.map((tab) => (
+        {HUB_TABS.map(({ id, labelKey }) => (
           <button
-            key={tab}
+            key={id}
             type="button"
-            aria-current={activeHubTab === tab ? "page" : undefined}
-            className={["secondary-tab", activeHubTab === tab ? "active" : ""].filter(Boolean).join(" ")}
-            onClick={() => setActiveHubTab(tab)}
+            aria-current={activeHubTab === id ? "page" : undefined}
+            className={["secondary-tab", activeHubTab === id ? "active" : ""].filter(Boolean).join(" ")}
+            onClick={() => setActiveHubTab(id)}
           >
-            {getTabIcon(tab)}
-            {t(`chatPremium.tab${tab[0].toUpperCase()}${tab.slice(1)}`)}
-            <span>{getTabCount(tab)}</span>
+            {getTabIcon(id)}
+            {t(`chatPremium.${labelKey}`)}
+            <span>{getTabCount(id)}</span>
           </button>
         ))}
       </nav>
@@ -583,7 +586,7 @@ export default function ChatsPage() {
                         <div className="chat-name">{displayName}</div>
                         {item.unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</span>}
                       </div>
-                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || t("chatPremium.recentConversations")}</span></div>
+                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || t("chatPremium.defaultPreview")}</span></div>
                     </div>
                   </Link>
                 );

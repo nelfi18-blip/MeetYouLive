@@ -6,14 +6,17 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { formatBadgeCount } from "@/lib/formatUtils";
 import { getHomePath } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const formatBadgeCount = (count) => (count > 99 ? "99+" : count);
+const getBearerHeader = (token) => ["Bearer", token].join(" ");
 
 export default function BottomNavEnhanced() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
@@ -26,7 +29,7 @@ export default function BottomNavEnhanced() {
     if (!token) return;
 
     fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: "Bearer " + token },
+      headers: { Authorization: getBearerHeader(token) },
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -52,13 +55,13 @@ export default function BottomNavEnhanced() {
       try {
         const [chatsRes, matchesRes, livesRes] = await Promise.all([
           fetch(`${API_URL}/api/chat/unread-count`, {
-            headers: { Authorization: "Bearer " + session.backendToken },
+            headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
           fetch(`${API_URL}/api/matches/new-count`, {
-            headers: { Authorization: "Bearer " + session.backendToken },
+            headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
           fetch(`${API_URL}/api/lives`, {
-            headers: { Authorization: "Bearer " + session.backendToken },
+            headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
         ]);
 
@@ -94,21 +97,21 @@ export default function BottomNavEnhanced() {
   const createMenuItems = [
     {
       icon: "🔴",
-      label: canGoLive ? "Start Live" : "Live Rooms",
+      label: canGoLive ? t("nav.startLive") : t("nav.liveRooms"),
       href: primaryLiveHref,
       color: "#ef4444",
       show: true,
     },
     {
       icon: "👑",
-      label: "Creator Center",
+      label: t("nav.creatorCenter"),
       href: "/creator",
       color: "#8b5cf6",
       show: true,
     },
     {
       icon: "🪙",
-      label: "Coins & Gifts",
+      label: t("nav.coinsGifts"),
       href: "/coins",
       color: "#22d3ee",
       show: true,
@@ -175,7 +178,7 @@ export default function BottomNavEnhanced() {
             <path d="M5 10.5V20h14v-9.5" />
             <path d="M9.5 20v-5h5v5" />
           </svg>
-          <span className="nav-label">Hub</span>
+          <span className="nav-label">{t("nav.hub")}</span>
           {newMatchesCount > 0 && (
             <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
               {formatBadgeCount(newMatchesCount)}
@@ -189,7 +192,7 @@ export default function BottomNavEnhanced() {
             <path d="m4 12 8 4 8-4" />
             <path d="m4 17 8 4 8-4" />
           </svg>
-          <span className="nav-label">Discover</span>
+          <span className="nav-label">{t("nav.discover")}</span>
         </Link>
 
         <button
@@ -213,7 +216,7 @@ export default function BottomNavEnhanced() {
               <rect x="3" y="6" width="12" height="12" rx="3" />
             </svg>
           </motion.div>
-          <span className="create-live-label">{liveCount > 0 ? "LIVE" : "GO"}</span>
+          <span className="create-live-label">{liveCount > 0 ? t("nav.liveCtaActive") : t("nav.liveCtaInactive")}</span>
         </button>
 
         <Link href="/chats" className={`nav-item ${isActive("/chats") ? "active" : ""}`}>
@@ -221,7 +224,7 @@ export default function BottomNavEnhanced() {
             <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />
             <path d="M8 9h8M8 13h5" />
           </svg>
-          <span className="nav-label">Meet Hub</span>
+          <span className="nav-label">{t("nav.meetHub")}</span>
           {unreadCount > 0 && (
             <span className="nav-badge nav-badge-pulse" aria-label={`${unreadCount} unread messages`}>
               {formatBadgeCount(unreadCount)}
@@ -234,7 +237,7 @@ export default function BottomNavEnhanced() {
             <circle cx="12" cy="8" r="4" />
             <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
           </svg>
-          <span className="nav-label">You</span>
+          <span className="nav-label">{t("nav.you")}</span>
         </Link>
       </nav>
     </>

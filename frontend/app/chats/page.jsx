@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { formatBadgeCount } from "@/lib/formatUtils";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -414,6 +415,7 @@ export default function ChatsPage() {
             key={id}
             type="button"
             aria-current={activeHubTab === id ? "page" : undefined}
+            aria-label={`${t(`chatPremium.${labelKey}`)} (${getTabCount(id)})`}
             className={["secondary-tab", activeHubTab === id ? "active" : ""].filter(Boolean).join(" ")}
             onClick={() => setActiveHubTab(id)}
           >
@@ -526,7 +528,7 @@ export default function ChatsPage() {
                     </div>
                     <div className="chat-side">
                       {lastTime && <time className="chat-time" dateTime={getIsoDateTime(lastDate)}>{lastTime}</time>}
-                      {unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
+                      {unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{formatBadgeCount(unreadCount)}</span>}
                     </div>
                   </div>
                   <div className="chat-preview-row">
@@ -632,7 +634,7 @@ export default function ChatsPage() {
                     <div className="chat-info">
                       <div className="chat-topline">
                         <div className="chat-name">{displayName}</div>
-                        {item.unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</span>}
+                        {item.unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{formatBadgeCount(item.unreadCount)}</span>}
                       </div>
                       <div className="chat-preview-row"><span className="chat-preview">{item.preview || t("chatPremium.defaultPreview")}</span></div>
                     </div>
@@ -701,7 +703,7 @@ export default function ChatsPage() {
         .search-shell input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; }
         .search-shell input::placeholder { color: var(--text-dim); }
         .conversation-priority-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 0 0.2rem; }
-        .conversation-priority-head h1, .conversation-priority-head h2 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
+        .conversation-priority-head h2 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
         .conversation-priority-head > span { flex-shrink: 0; color: var(--accent-cyan); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
         .section-kicker { color: var(--text-dim); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }
         .hub-panel, .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }

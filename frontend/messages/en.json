@@ -19,7 +19,17 @@
     "goLive": "Go Live",
     "logout": "Log out",
     "switchAccount": "Switch account",
-    "switchAccountConfirm": "Switch account? This will log you out."
+    "switchAccountConfirm": "Switch account? This will log you out.",
+    "hub": "Hub",
+    "discover": "Discover",
+    "meetHub": "Meet Hub",
+    "you": "You",
+    "startLive": "Start Live",
+    "liveRooms": "Live Rooms",
+    "creatorCenter": "Creator Center",
+    "coinsGifts": "Coins & Gifts",
+    "liveCtaActive": "LIVE",
+    "liveCtaInactive": "GO"
   },
   "adminBlocked": {
     "title": "Access Restricted",

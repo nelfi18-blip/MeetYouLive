@@ -19,7 +19,17 @@
     "goLive": "Ir en vivo",
     "logout": "Cerrar sesión",
     "switchAccount": "Cambiar cuenta",
-    "switchAccountConfirm": "¿Cambiar de cuenta? Esto cerrará tu sesión actual."
+    "switchAccountConfirm": "¿Cambiar de cuenta? Esto cerrará tu sesión actual.",
+    "hub": "Hub",
+    "discover": "Descubrir",
+    "meetHub": "Meet Hub",
+    "you": "Tú",
+    "startLive": "Iniciar Live",
+    "liveRooms": "Live Rooms",
+    "creatorCenter": "Creator Center",
+    "coinsGifts": "Coins y regalos",
+    "liveCtaActive": "LIVE",
+    "liveCtaInactive": "IR"
   },
   "adminBlocked": {
     "title": "Acceso Restringido",

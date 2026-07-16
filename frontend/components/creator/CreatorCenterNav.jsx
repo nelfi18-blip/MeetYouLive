@@ -22,7 +22,7 @@ export default function CreatorCenterNav() {
     <nav className="creator-center-nav" aria-label="Creator Center">
       {CREATOR_CENTER_LINKS.map((item) => {
         const itemPath = item.href.split("#")[0];
-        const isActive = pathname === itemPath && (item.href === itemPath || pathname === "/creator/content");
+        const isActive = item.href === itemPath && pathname === itemPath;
         return (
           <Link key={item.href} href={item.href} className={`creator-center-link${isActive ? " active" : ""}`}>
             {item.label}

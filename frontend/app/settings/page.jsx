@@ -37,7 +37,7 @@ const SETTINGS_SECTIONS = [
   {
     title: "Acciones de cuenta",
     items: [
-      { label: "Delete Account", description: "Solicita eliminación de cuenta desde soporte.", href: "/contact?subject=delete-account", icon: "🗑️", danger: true },
+      { label: "Eliminar cuenta", description: "Solicita eliminación de cuenta desde soporte.", href: "/contact?subject=delete-account", icon: "🗑️", danger: true },
     ],
   },
 ];
@@ -81,7 +81,7 @@ export default function SettingsPage() {
           <button type="button" className="logout-button" onClick={handleLogout}>
             <span aria-hidden="true">🚪</span>
             <span>
-              <strong>Logout</strong>
+              <strong>Cerrar sesión</strong>
               <small>Cierra sesión y desconecta servicios en tiempo real.</small>
             </span>
           </button>

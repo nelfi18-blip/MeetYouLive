@@ -58,7 +58,7 @@ const getActivityTime = (value) => {
 const safeJson = (response) => response.json().catch(() => ({}));
 
 const getChatActivityAt = (chat) => chat?.lastMessage?.createdAt || chat?.updatedAt;
-const getCallActivityAt = (call) => call?.startedAt || call?.createdAt || call?.updatedAt;
+const getCallActivityAt = (call) => call?.endedAt || call?.startedAt || call?.createdAt || call?.updatedAt;
 
 const getOtherParticipant = (chat) =>
   chat?.participants?.find((participant) => String(participant._id) !== String(chat.currentUserId)) || {};
@@ -88,6 +88,7 @@ const getContactItems = (chats, calls) => {
       source: "chat",
       preview: getMessagePreview(chat.lastMessage, ""),
       unreadCount: getUnreadCount(chat),
+      score: getUnreadCount(chat) * 5 + 2,
     });
   });
 
@@ -98,6 +99,7 @@ const getContactItems = (chats, calls) => {
     const activityAt = getCallActivityAt(call);
     const existing = byId.get(id);
     const activityTime = getActivityTime(activityAt);
+    const score = (existing?.score || 0) + 1;
     if (!existing || activityTime > existing.activityTime) {
       byId.set(id, {
         user,
@@ -108,7 +110,10 @@ const getContactItems = (chats, calls) => {
         call,
         preview: existing?.preview || "",
         unreadCount: existing?.unreadCount || 0,
+        score,
       });
+    } else {
+      byId.set(id, { ...existing, score });
     }
   });
 
@@ -150,6 +155,17 @@ function MessageIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87" />
+      <path d="M16 3.13a4 4 0 010 7.75" />
     </svg>
   );
 }
@@ -358,7 +374,7 @@ export default function ChatsPage() {
 
   const contactItems = useMemo(() => getContactItems(sortedChats, calls), [sortedChats, calls]);
   const favoriteItems = useMemo(
-    () => contactItems.slice(0, FAVORITES_LIMIT),
+    () => [...contactItems].sort((a, b) => b.score - a.score || b.activityTime - a.activityTime).slice(0, FAVORITES_LIMIT),
     [contactItems]
   );
 
@@ -371,7 +387,7 @@ export default function ChatsPage() {
   const getTabIcon = (tab) => {
     if (tab === "calls") return <PhoneIcon />;
     if (tab === "favorites") return <StarIcon />;
-    if (tab === "contacts") return <VideoIcon />;
+    if (tab === "contacts") return <UsersIcon />;
     return <MessageIcon />;
   };
 
@@ -475,7 +491,7 @@ export default function ChatsPage() {
             const isTyping = typingUserIds.has(otherId);
             const inCall = activePeerId && otherId === activePeerId;
             const activeLive = liveByUserId.get(otherId);
-            const isLive = Boolean(activeLive || (other.isLive && other.liveId));
+            const isLive = Boolean(activeLive);
             const unreadCount = getUnreadCount(chat);
             const membershipBadge = getMembershipBadge(other);
             const statusKey = isLive ? "statusLive" : inCall ? "statusInCall" : isTyping ? "statusTyping" : isOnline ? "statusOnline" : "statusOffline";
@@ -622,7 +638,7 @@ export default function ChatsPage() {
                         <div className="chat-name">{displayName}</div>
                         {lastTime && <time className="chat-time" dateTime={getIsoDateTime(item.activityAt)}>{lastTime}</time>}
                       </div>
-                      <div className="chat-preview-row"><span className="chat-preview">{item.source === "call" ? t("chatPremium.latestCalls") : t("chatPremium.recentConversations")}</span></div>
+                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || (item.source === "call" ? t("chatPremium.latestCalls") : t("chatPremium.defaultPreview"))}</span></div>
                     </div>
                   </Link>
                 );

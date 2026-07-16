@@ -310,17 +310,21 @@ export default function ChatsPage() {
     [chats]
   );
   const latestCalls = useMemo(() => calls.slice(0, 3), [calls]);
+  const sortedChats = useMemo(
+    () => [...chats].sort((a, b) => getActivityTime(b.lastMessage?.createdAt || b.updatedAt) - getActivityTime(a.lastMessage?.createdAt || a.updatedAt)),
+    [chats]
+  );
 
   const filteredChats = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return chats;
-    return chats.filter((chat) => {
+    if (!query) return sortedChats;
+    return sortedChats.filter((chat) => {
       const other = getOtherParticipant(chat);
       const displayName = getDisplayName(other).toLowerCase();
       const lastMessage = String(getMessagePreview(chat.lastMessage, "")).toLowerCase();
       return displayName.includes(query) || lastMessage.includes(query);
     });
-  }, [chats, searchTerm]);
+  }, [searchTerm, sortedChats]);
 
   const renderMiniContact = (contact, index) => {
     const name = getDisplayName(contact.user);
@@ -386,53 +390,6 @@ export default function ChatsPage() {
             <span>{t("chatPremium.private")}</span>
           </div>
         </div>
-        <div className="hero-stats" aria-label={t("chatPremium.summaryAria")}>
-          <div><strong>{totalChats}</strong><span>{t("chatPremium.chats")}</span></div>
-          <div><strong>{newMessageSignals}</strong><span>{t("chatPremium.newMessageSignals")}</span></div>
-          <div><strong>{missedCalls}</strong><span>{t("chatPremium.missedCallSignals")}</span></div>
-          <div><strong>{activeCall ? 1 : 0}</strong><span>{t("chatPremium.activeCalls")}</span></div>
-        </div>
-      </section>
-
-      <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>
-        <Link href={activeCall ? `/call/${activeCall._id}?returnTo=${encodeURIComponent("/chats")}` : "/calls"} className={activeCallCardClassName}>
-          <div className="active-call-icon">{activeCallIsVideo ? <VideoIcon /> : <PhoneIcon />}</div>
-          <div>
-            <span className="card-kicker">{activeCall ? t("chatPremium.activeCall") : t("chatPremium.noActiveCall")}</span>
-            <strong>{activeCall ? activeCallName : t("chatPremium.communicationReady")}</strong>
-            <p>{activeCall ? t("chatPremium.continueCall") : t("chatPremium.noActiveCallText")}</p>
-          </div>
-        </Link>
-        <div className="quick-actions">
-          <Link href="/chats" className="quick-action active"><MessageIcon /> {t("chatPremium.openChats")}</Link>
-          <Link href="/calls" className="quick-action"><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-          <Link href="/explore" className="quick-action"><VideoIcon /> {t("chatPremium.findContacts")}</Link>
-        </div>
-      </section>
-
-      <section className="status-legend" aria-label={t("chatPremium.statusLegend")}> 
-        {["statusOnline", "statusInCall", "statusTyping", "statusCalling", "statusOffline"].map((key) => (
-          <span key={key} data-status={key}>{t(`chatPremium.${key}`)}</span>
-        ))}
-      </section>
-
-      <section className="premium-board" aria-label={t("chatPremium.premiumCardsAria")}>
-        <article className="premium-card">
-          <div className="card-head"><span>{t("chatPremium.recentContacts")}</span><strong>{recentContacts.length}</strong></div>
-          <div className="mini-stack">{recentContacts.length ? recentContacts.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noRecentContacts")}</p>}</div>
-        </article>
-        <article className="premium-card">
-          <div className="card-head"><span>{t("chatPremium.recentConversations")}</span><strong>{recentConversations.length}</strong></div>
-          <div className="mini-stack">{recentConversations.length ? recentConversations.map(renderConversationCard) : <p className="muted-copy">{t("chatPremium.emptyText")}</p>}</div>
-        </article>
-        <article className="premium-card">
-          <div className="card-head"><span>{t("chatPremium.latestCalls")}</span><strong>{latestCalls.length}</strong></div>
-          <div className="mini-stack">{latestCalls.length ? latestCalls.map(renderCallCard) : <p className="muted-copy">{t("chatPremium.noRecentCalls")}</p>}</div>
-        </article>
-        <article className="premium-card">
-          <div className="card-head"><span>{t("chatPremium.favoriteUsers")}</span><strong>{favoriteUsers.length}</strong></div>
-          <div className="mini-stack">{favoriteUsers.length ? favoriteUsers.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noFavorites")}</p>}</div>
-        </article>
       </section>
 
       <section className="chat-toolbar" aria-label={t("chatPremium.searchConversationsAria")}>
@@ -449,13 +406,17 @@ export default function ChatsPage() {
             aria-label={t("chatPremium.searchConversationsAria")}
           />
         </div>
-        <Link href="/calls" className="toolbar-badge" aria-label={t("chatPremium.openCallHistory")}>
-          <span className="pulse-dot" />
-          {missedCalls} {t("chatPremium.missedCallSignals")}
-        </Link>
       </section>
 
       {error && <div className="banner-error">{error}</div>}
+
+      <section className="conversation-priority-head">
+        <div>
+          <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
+          <h2>{t("chatPremium.conversationsFirstTitle")}</h2>
+        </div>
+        <span>{filteredChats.length} {t("chatPremium.chats")}</span>
+      </section>
 
       {loading && (
         <div className="chats-list" aria-label={t("chatPremium.loadingConversations")}>
@@ -539,6 +500,60 @@ export default function ChatsPage() {
         </div>
       )}
 
+      <section className="secondary-hub" aria-label={t("chatPremium.secondaryHubAria")}>
+        <div className="secondary-tabs" aria-label={t("chatPremium.secondaryTools")}>
+          <Link href="/chats" className="secondary-tab active"><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
+          <Link href="/calls" className="secondary-tab"><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
+          <Link href="/explore" className="secondary-tab"><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+        </div>
+
+        <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>
+          <Link href={activeCall ? `/call/${activeCall._id}?returnTo=${encodeURIComponent("/chats")}` : "/calls"} className={activeCallCardClassName}>
+            <div className="active-call-icon">{activeCallIsVideo ? <VideoIcon /> : <PhoneIcon />}</div>
+            <div>
+              <span className="card-kicker">{activeCall ? t("chatPremium.activeCall") : t("chatPremium.noActiveCall")}</span>
+              <strong>{activeCall ? activeCallName : t("chatPremium.communicationReady")}</strong>
+              <p>{activeCall ? t("chatPremium.continueCall") : t("chatPremium.noActiveCallText")}</p>
+            </div>
+          </Link>
+          <div className="quick-actions">
+            <Link href="/chats" className="quick-action active"><MessageIcon /> {t("chatPremium.openChats")}</Link>
+            <Link href="/calls" className="quick-action"><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
+            <Link href="/explore" className="quick-action"><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+          </div>
+        </section>
+
+        <section className="status-legend" aria-label={t("chatPremium.statusLegend")}> 
+          {["statusOnline", "statusInCall", "statusTyping", "statusCalling", "statusOffline"].map((key) => (
+            <span key={key} data-status={key}>{t(`chatPremium.${key}`)}</span>
+          ))}
+        </section>
+
+        <section className="premium-board" aria-label={t("chatPremium.premiumCardsAria")}>
+          <article className="premium-card">
+            <div className="card-head"><span>{t("chatPremium.stats")}</span><strong>{totalChats}</strong></div>
+            <div className="stats-grid" aria-label={t("chatPremium.summaryAria")}>
+              <div><strong>{totalChats}</strong><span>{t("chatPremium.chats")}</span></div>
+              <div><strong>{newMessageSignals}</strong><span>{t("chatPremium.newMessageSignals")}</span></div>
+              <div><strong>{missedCalls}</strong><span>{t("chatPremium.missedCallSignals")}</span></div>
+              <div><strong>{activeCall ? 1 : 0}</strong><span>{t("chatPremium.activeCalls")}</span></div>
+            </div>
+          </article>
+          <article className="premium-card">
+            <div className="card-head"><span>{t("chatPremium.favoriteUsers")}</span><strong>{favoriteUsers.length}</strong></div>
+            <div className="mini-stack">{favoriteUsers.length ? favoriteUsers.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noFavorites")}</p>}</div>
+          </article>
+          <article className="premium-card">
+            <div className="card-head"><span>{t("chatPremium.latestCalls")}</span><strong>{latestCalls.length}</strong></div>
+            <div className="mini-stack">{latestCalls.length ? latestCalls.map(renderCallCard) : <p className="muted-copy">{t("chatPremium.noRecentCalls")}</p>}</div>
+          </article>
+          <article className="premium-card">
+            <div className="card-head"><span>{t("chatPremium.recentContacts")}</span><strong>{recentContacts.length}</strong></div>
+            <div className="mini-stack">{recentContacts.length ? recentContacts.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noRecentContacts")}</p>}</div>
+          </article>
+        </section>
+      </section>
+
       <style jsx>{`
         .chats-page { --chat-page-gap: 1rem; display: flex; flex-direction: column; gap: var(--chat-page-gap); position: relative; }
         .chat-hero { position: relative; overflow: hidden; display: flex; justify-content: space-between; gap: 1.25rem; padding: 1.45rem; border: 1px solid rgba(236,124,255,0.34); border-radius: 32px; background: radial-gradient(circle at 12% 16%, rgba(224,64,251,0.34), transparent 34%), radial-gradient(circle at 88% 4%, rgba(34,211,238,0.24), transparent 36%), radial-gradient(circle at 74% 86%, rgba(124,58,237,0.24), transparent 38%), linear-gradient(145deg, rgba(32,18,68,0.92), rgba(15,8,33,0.96)); box-shadow: 0 22px 58px rgba(4,2,12,0.46), inset 0 1px 0 rgba(255,255,255,0.1); }
@@ -549,10 +564,10 @@ export default function ChatsPage() {
         .page-subtitle { max-width: 620px; margin: 0; color: rgba(237,231,255,0.74); }
         .hero-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1rem; }
         .hero-pills span { padding: 0.34rem 0.62rem; border-radius: var(--radius-pill); border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.78); font-size: 0.72rem; font-weight: 800; }
-        .hero-stats { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(84px, 1fr)); gap: 0.65rem; align-self: stretch; }
-        .hero-stats div { display: flex; flex-direction: column; justify-content: center; min-width: 84px; padding: 0.8rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.035)); backdrop-filter: blur(12px); }
-        .hero-stats strong { color: #fff; font-size: 1.3rem; line-height: 1; }
-        .hero-stats span { margin-top: 0.25rem; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+        .secondary-hub { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
+        .secondary-tabs { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0.45rem; border: 1px solid rgba(236,124,255,0.16); border-radius: 22px; background: rgba(15,8,32,0.5); }
+        .secondary-tab { display: inline-flex; align-items: center; gap: 0.48rem; padding: 0.58rem 0.78rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 900; transition: all var(--transition); }
+        .secondary-tab:hover, .secondary-tab.active { color: #fff; border-color: rgba(34,211,238,0.34); background: rgba(34,211,238,0.09); }
         .communication-shell { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr); gap: 0.9rem; }
         .active-call-card, .premium-card, .quick-actions { border: 1px solid rgba(236,124,255,0.2); border-radius: 28px; background: radial-gradient(circle at 0% 0%, rgba(224,64,251,0.14), transparent 38%), rgba(15,8,32,0.72); box-shadow: 0 16px 38px rgba(4,2,12,0.34), inset 0 1px 0 rgba(255,255,255,0.06); }
         .active-call-card { display: flex; gap: 1rem; align-items: center; padding: 1rem; transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition); }
@@ -587,13 +602,19 @@ export default function ChatsPage() {
         .mini-row-link time { flex-shrink: 0; color: var(--text-dim); font-size: 0.68rem; font-weight: 900; }
         .call-mini[data-tone="missed"] { border-color: rgba(248,113,113,0.22); }
         .muted-copy { margin: 0; color: var(--text-muted); font-size: 0.84rem; line-height: 1.4; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+        .stats-grid div { display: flex; flex-direction: column; min-width: 0; padding: 0.68rem; border-radius: 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); }
+        .stats-grid strong { color: #fff; font-size: 1.1rem; line-height: 1; }
+        .stats-grid span { margin-top: 0.24rem; color: var(--text-dim); font-size: 0.68rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
         .chat-toolbar { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem; border: 1px solid rgba(236,124,255,0.2); border-radius: 24px; background: rgba(15,8,32,0.58); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter: blur(16px); }
         .search-shell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.62rem; height: 48px; padding: 0 0.9rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; color: var(--text-dim); background: linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%), rgba(7,4,18,0.58); transition: border-color var(--transition), box-shadow var(--transition), background var(--transition); }
         .search-shell:focus-within { border-color: rgba(34,211,238,0.42); box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 0 24px rgba(124,58,237,0.14); background: rgba(10,5,26,0.78); }
         .search-shell input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; }
         .search-shell input::placeholder { color: var(--text-dim); }
-        .toolbar-badge { display: inline-flex; align-items: center; gap: 0.46rem; flex-shrink: 0; height: 48px; padding: 0 0.9rem; border: 1px solid rgba(52,211,153,0.18); border-radius: 18px; color: var(--accent-green); background: rgba(52,211,153,0.08); font-size: 0.76rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
-        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 0 0 rgba(52,211,153,0.42); animation: pulseDot 1.8s ease-out infinite; }
+        .conversation-priority-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 0 0.2rem; }
+        .conversation-priority-head h2 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
+        .conversation-priority-head > span { flex-shrink: 0; color: var(--accent-cyan); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
+        .section-kicker { color: var(--text-dim); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }
         .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }
         .chat-row { position: relative; display: flex; align-items: center; gap: 1rem; padding: 1rem; cursor: pointer; overflow: hidden; transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition), background var(--transition); border: 1px solid rgba(236,124,255,0.2); border-radius: 26px; background: radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.07), transparent 40%), rgba(15,8,32,0.82); box-shadow: 0 14px 34px rgba(4,2,12,0.36), inset 0 1px 0 rgba(255,255,255,0.06); }
         .chat-row::before { content: ""; position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 10% 50%, rgba(224,64,251,0.18), transparent 35%); transition: opacity var(--transition); pointer-events: none; }
@@ -642,10 +663,11 @@ export default function ChatsPage() {
         @media (max-width: 820px) { .communication-shell { grid-template-columns: 1fr; } }
         @media (max-width: 720px) {
           .chat-hero { flex-direction: column; border-radius: 24px; padding: 1.15rem; }
-          .hero-stats { grid-template-columns: repeat(2, 1fr); }
           .premium-board { grid-template-columns: 1fr; }
-          .chat-toolbar { flex-direction: column; align-items: stretch; border-radius: 22px; }
-          .toolbar-badge { width: 100%; justify-content: center; height: 42px; }
+          .chat-toolbar { border-radius: 22px; }
+          .secondary-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.6rem; }
+          .secondary-tab { flex-shrink: 0; }
+          .conversation-priority-head { align-items: start; flex-direction: column; gap: 0.35rem; }
           .status-legend { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.85rem; }
           .status-legend span { flex-shrink: 0; }
           .chat-row { border-radius: 22px; padding: 0.85rem; gap: 0.8rem; }

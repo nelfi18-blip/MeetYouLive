@@ -2209,7 +2209,7 @@ function FeedHeader() {
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="MeetYouLive" className="feed-header-logo" />
+        <img src="/logo.svg" alt="" className="feed-header-logo" />
       </Link>
 
       <style jsx>{`

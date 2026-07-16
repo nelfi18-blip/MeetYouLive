@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const CREATOR_CENTER_LINKS = [
   { href: "/creator", label: "Dashboard" },
@@ -17,12 +18,20 @@ const CREATOR_CENTER_LINKS = [
 
 export default function CreatorCenterNav() {
   const pathname = usePathname();
+  const [hash, setHash] = useState("");
+
+  useEffect(() => {
+    const updateHash = () => setHash(window.location.hash);
+    updateHash();
+    window.addEventListener("hashchange", updateHash);
+    return () => window.removeEventListener("hashchange", updateHash);
+  }, []);
 
   return (
     <nav className="creator-center-nav" aria-label="Creator Center">
       {CREATOR_CENTER_LINKS.map((item) => {
-        const itemPath = item.href.split("#")[0];
-        const isActive = item.href === itemPath && pathname === itemPath;
+        const [itemPath, itemHash] = item.href.split("#");
+        const isActive = itemHash ? pathname === itemPath && hash === `#${itemHash}` : pathname === itemPath && !hash;
         return (
           <Link key={item.href} href={item.href} className={`creator-center-link${isActive ? " active" : ""}`}>
             {item.label}

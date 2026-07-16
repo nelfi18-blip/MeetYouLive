@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,8 +14,14 @@ import socket, { configureSocketAuth } from "@/lib/socket";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const CALL_REFRESH_EVENT_NAMES = ["CALL_INCOMING", "CALL_ACCEPTED", "CALL_REJECTED", "CALL_ENDED", "CALL_MISSED"];
 const ACTIVE_CALL_STATUSES = new Set(["pending", "accepted"]);
-const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CHAT_REFRESH_DEBOUNCE_MS = 800;
+const HUB_TABS = [
+  { id: "chats", labelKey: "tabChats" },
+  { id: "calls", labelKey: "tabCalls" },
+  { id: "favorites", labelKey: "tabFavorites" },
+  { id: "contacts", labelKey: "tabContacts" },
+];
+const FAVORITES_LIMIT = 8;
 
 const formatChatTime = (value, locale, yesterdayLabel) => {
   if (!value) return "";
@@ -50,20 +57,8 @@ const getActivityTime = (value) => {
 
 const safeJson = (response) => response.json().catch(() => ({}));
 
-const isRecentActivity = (value, now = Date.now()) =>
-  Boolean(value) && now - getActivityTime(value) < RECENT_WINDOW_MS;
-
-const createContactSummary = (user) => ({
-  user,
-  activityAt: 0,
-  contexts: new Set(),
-  messageCount: 0,
-  callCount: 0,
-  isOnline: false,
-});
-
-const getCallActivityAt = (call) => call?.startedAt || call?.createdAt || call?.endedAt;
 const getChatActivityAt = (chat) => chat?.lastMessage?.createdAt || chat?.updatedAt;
+const getCallActivityAt = (call) => call?.endedAt || call?.startedAt || call?.createdAt || call?.updatedAt;
 
 const getOtherParticipant = (chat) =>
   chat?.participants?.find((participant) => String(participant._id) !== String(chat.currentUserId)) || {};
@@ -71,6 +66,65 @@ const getOtherParticipant = (chat) =>
 const getCallPeer = (call) => call?.peer || call?.caller || call?.recipient || null;
 
 const getCallPeerId = (call) => String(getCallPeer(call)?._id || "");
+
+const getUnreadCount = (chat) => {
+  const rawCount = chat?.unreadCount ?? chat?.unreadMessagesCount ?? chat?.unread;
+  const count = Number(rawCount);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+};
+
+const getContactItems = (chats, calls) => {
+  const byId = new Map();
+  chats.forEach((chat) => {
+    const user = getOtherParticipant(chat);
+    const id = String(user?._id || "");
+    if (!id) return;
+    const activityAt = getChatActivityAt(chat);
+    byId.set(id, {
+      user,
+      chatId: chat._id,
+      activityAt,
+      activityTime: getActivityTime(activityAt),
+      source: "chat",
+      preview: getMessagePreview(chat.lastMessage, ""),
+      unreadCount: getUnreadCount(chat),
+      score: getUnreadCount(chat) * 5 + 2,
+    });
+  });
+
+  calls.forEach((call) => {
+    const user = getCallPeer(call);
+    const id = String(user?._id || "");
+    if (!id) return;
+    const activityAt = getCallActivityAt(call);
+    const existing = byId.get(id);
+    const activityTime = getActivityTime(activityAt);
+    const score = (existing?.score || 0) + 1;
+    if (!existing || activityTime > existing.activityTime) {
+      byId.set(id, {
+        user,
+        chatId: existing?.chatId || null,
+        activityAt,
+        activityTime,
+        source: "call",
+        call,
+        preview: existing?.preview || "",
+        unreadCount: existing?.unreadCount || 0,
+        score,
+      });
+    } else {
+      byId.set(id, { ...existing, score });
+    }
+  });
+
+  return [...byId.values()].sort((a, b) => b.activityTime - a.activityTime);
+};
+
+const getMembershipBadge = (user) => {
+  if (user?.isVIP || user?.vipTier || user?.subscriptionTier === "vip" || user?.membership === "vip") return "vip";
+  if (user?.isPremium || user?.subscriptionTier === "premium" || user?.membership === "premium") return "premium";
+  return null;
+};
 
 function PhoneIcon() {
   return (
@@ -89,10 +143,29 @@ function VideoIcon() {
   );
 }
 
+function StarIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 function MessageIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87" />
+      <path d="M16 3.13a4 4 0 010 7.75" />
     </svg>
   );
 }
@@ -112,17 +185,19 @@ function ContactAvatar({ user, name, online, inCall, size = "md" }) {
 
 export default function ChatsPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const { data: session, status: sessionStatus } = useSession();
   const { t } = useLanguage();
   const locale = t("chatPremium.locale");
   const [chats, setChats] = useState([]);
   const [calls, setCalls] = useState([]);
   const [incomingCall, setIncomingCall] = useState(null);
+  const [liveByUserId, setLiveByUserId] = useState(() => new Map());
   const [onlineUserIds, setOnlineUserIds] = useState(() => new Set());
+  const [typingUserIds, setTypingUserIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeHubTab, setActiveHubTab] = useState("chats");
   const refreshTimerRef = useRef(null);
 
   const getBackendToken = useCallback(
@@ -158,7 +233,7 @@ export default function ChatsPage() {
       const chatData = await chatRes.json();
       setChats(Array.isArray(chatData) ? chatData : []);
 
-      const [historyResult, incomingResult] = await Promise.allSettled([
+      const [callHistoryResult, incomingResult, livesResult] = await Promise.allSettled([
         fetch(`${API_URL}/api/calls/history?limit=12`, {
           headers: { Authorization: "Bearer " + token },
           cache: "no-store",
@@ -167,15 +242,30 @@ export default function ChatsPage() {
           headers: { Authorization: "Bearer " + token },
           cache: "no-store",
         }),
+        fetch(`${API_URL}/api/lives`, {
+          headers: { Authorization: "Bearer " + token },
+          cache: "no-store",
+        }),
       ]);
 
-      if (historyResult.status === "fulfilled" && historyResult.value.ok) {
-        const data = await safeJson(historyResult.value);
+      if (callHistoryResult.status === "fulfilled" && callHistoryResult.value.ok) {
+        const data = await safeJson(callHistoryResult.value);
         setCalls(Array.isArray(data?.calls) ? data.calls : []);
       }
       if (incomingResult.status === "fulfilled" && incomingResult.value.ok) {
         const data = await safeJson(incomingResult.value);
         setIncomingCall(data?.call || null);
+      }
+      if (livesResult.status === "fulfilled" && livesResult.value.ok) {
+        const data = await safeJson(livesResult.value);
+        const liveMap = new Map();
+        if (Array.isArray(data)) {
+          data.forEach((live) => {
+            const userId = String(live?.user?._id || "");
+            if (userId) liveMap.set(userId, live);
+          });
+        }
+        setLiveByUserId(liveMap);
       }
     } catch {
       setError(t("chatPremium.loadError"));
@@ -219,9 +309,27 @@ export default function ChatsPage() {
         fetchChats({ silent: true });
       }, CHAT_REFRESH_DEBOUNCE_MS);
     };
+    const markTyping = ({ userId }) => {
+      if (!userId) return;
+      setTypingUserIds((prev) => {
+        const next = new Set(prev);
+        next.add(String(userId));
+        return next;
+      });
+    };
+    const clearTyping = ({ userId }) => {
+      if (!userId) return;
+      setTypingUserIds((prev) => {
+        const next = new Set(prev);
+        next.delete(String(userId));
+        return next;
+      });
+    };
 
     socket.on("USER_ONLINE", markOnline);
     socket.on("USER_OFFLINE", markOffline);
+    socket.on("typing:start", markTyping);
+    socket.on("typing:stop", clearTyping);
     socket.on("message:new", refreshChats);
     socket.on("message:sent", refreshChats);
     socket.on("chat:unread_count_updated", refreshChats);
@@ -229,6 +337,8 @@ export default function ChatsPage() {
     return () => {
       socket.off("USER_ONLINE", markOnline);
       socket.off("USER_OFFLINE", markOffline);
+      socket.off("typing:start", markTyping);
+      socket.off("typing:stop", clearTyping);
       socket.off("message:new", refreshChats);
       socket.off("message:sent", refreshChats);
       socket.off("chat:unread_count_updated", refreshChats);
@@ -240,74 +350,12 @@ export default function ChatsPage() {
     };
   }, [fetchChats]);
 
-  const totalChats = chats.length;
-  const chatsWithMessages = useMemo(() => chats.filter((chat) => chat.lastMessage).length, [chats]);
-  const missedCalls = useMemo(() => calls.filter((call) => call.status === "missed").length, [calls]);
-  const newMessageSignals = useMemo(() => {
-    const now = Date.now();
-    return chats.filter((chat) => isRecentActivity(chat.lastMessage?.createdAt, now)).length;
-  }, [chats]);
-
   const activeCall = useMemo(() => {
     if (incomingCall) return { ...incomingCall, direction: "incoming", peer: incomingCall.caller };
     return calls.find((call) => ACTIVE_CALL_STATUSES.has(call.rawStatus || call.status)) || null;
   }, [calls, incomingCall]);
 
   const activePeerId = getCallPeerId(activeCall);
-
-  const contactSummaries = useMemo(() => {
-    const contacts = new Map();
-    const recordContactActivity = ({ user, activityAt, context, isOnline, messageCount = 0, callCount = 0 }) => {
-      const id = String(user?._id || "");
-      if (!id) return;
-      const previous = contacts.get(id) || createContactSummary(user);
-      contacts.set(id, {
-        ...previous,
-        user: { ...previous.user, ...user },
-        activityAt: Math.max(previous.activityAt, getActivityTime(activityAt)),
-        contexts: new Set([...previous.contexts, context]),
-        messageCount: previous.messageCount + messageCount,
-        callCount: previous.callCount + callCount,
-        isOnline: previous.isOnline || Boolean(isOnline) || onlineUserIds.has(id),
-      });
-    };
-
-    chats.forEach((chat) => {
-      const other = getOtherParticipant(chat);
-      recordContactActivity({
-        user: other,
-        activityAt: chat.lastMessage?.createdAt || chat.updatedAt,
-        context: "chat",
-        isOnline: onlineUserIds.has(String(other?._id || "")),
-        messageCount: chat.lastMessage ? 1 : 0,
-      });
-    });
-
-    calls.forEach((call) => {
-      recordContactActivity({
-        user: call.peer,
-        activityAt: getCallActivityAt(call),
-        context: "call",
-        isOnline: call.isPeerOnline,
-        callCount: 1,
-      });
-    });
-
-    return Array.from(contacts.values())
-      .map((contact) => ({
-        ...contact,
-        inCall: activePeerId && String(contact.user?._id) === activePeerId,
-        score: contact.messageCount + contact.callCount + (contact.isOnline ? 2 : 0),
-      }))
-      .sort((a, b) => b.activityAt - a.activityAt);
-  }, [activePeerId, calls, chats, onlineUserIds]);
-
-  const recentContacts = useMemo(() => contactSummaries.slice(0, 4), [contactSummaries]);
-  const favoriteUsers = useMemo(
-    () => [...contactSummaries].sort((a, b) => b.score - a.score || b.activityAt - a.activityAt).slice(0, 4),
-    [contactSummaries]
-  );
-  const latestCalls = useMemo(() => calls.slice(0, 3), [calls]);
   const sortedChats = useMemo(
     () => [...chats].sort((a, b) => getActivityTime(getChatActivityAt(b)) - getActivityTime(getChatActivityAt(a))),
     [chats]
@@ -324,85 +372,74 @@ export default function ChatsPage() {
     });
   }, [searchTerm, sortedChats]);
 
-  const renderMiniContact = (contact, index) => {
-    const name = getDisplayName(contact.user);
-    const statusKey = contact.inCall ? "statusInCall" : contact.isOnline ? "statusOnline" : "statusOffline";
-    return (
-      <div key={contact.user?._id || index} className="mini-contact">
-        <ContactAvatar user={contact.user} name={name} online={contact.isOnline} inCall={contact.inCall} size="sm" />
-        <div>
-          <strong>{name}</strong>
-          <span>{t(`chatPremium.${statusKey}`)}</span>
-        </div>
-      </div>
-    );
-  };
+  const contactItems = useMemo(() => getContactItems(sortedChats, calls), [sortedChats, calls]);
+  const favoriteItems = useMemo(
+    () => [...contactItems].sort((a, b) => b.score - a.score || b.activityTime - a.activityTime).slice(0, FAVORITES_LIMIT),
+    [contactItems]
+  );
 
-  const renderCallCard = (call) => {
-    const name = getDisplayName(call.peer);
-    const isVideo = call.mediaType !== "audio";
-    const callAt = getCallActivityAt(call);
-    return (
-      <Link key={call._id} href="/calls" className="mini-row-link call-mini" data-tone={call.status === "missed" ? "missed" : "default"}>
-        <ContactAvatar user={call.peer} name={name} online={call.isPeerOnline} inCall={ACTIVE_CALL_STATUSES.has(call.rawStatus || call.status)} size="sm" />
-        <div>
-          <strong>{name}</strong>
-          <span>{isVideo ? t("callHistory.video") : t("callHistory.voice")} · {t(`callHistory.statuses.${call.status}`)}</span>
-        </div>
-        {callAt && <time>{formatChatTime(callAt, locale, t("chatPremium.yesterday"))}</time>}
-      </Link>
-    );
+  const getTabCount = (tab) => {
+    if (tab === "chats") return filteredChats.length;
+    if (tab === "calls") return calls.length;
+    if (tab === "favorites") return favoriteItems.length;
+    return contactItems.length;
   };
-
-  const activeCallPeer = getCallPeer(activeCall);
-  const activeCallName = activeCallPeer ? getDisplayName(activeCallPeer) : t("chatPremium.noActiveCall");
-  const activeCallIsVideo = activeCall?.mediaType !== "audio";
-  const activeCallCardClassName = ["active-call-card", activeCall ? "live" : ""].filter(Boolean).join(" ");
-  const isActiveNav = (href) => pathname === href;
-  const getNavClassName = (baseClassName, href) => [baseClassName, isActiveNav(href) ? "active" : ""].filter(Boolean).join(" ");
+  const getTabIcon = (tab) => {
+    if (tab === "calls") return <PhoneIcon />;
+    if (tab === "favorites") return <StarIcon />;
+    if (tab === "contacts") return <UsersIcon />;
+    return <MessageIcon />;
+  };
 
   return (
     <div className="chats-page">
-      <section className="chat-hero">
-        <div className="hero-copy">
-          <span className="eyebrow">{t("chatPremium.communicationEyebrow")}</span>
-          <h1 className="page-title">{t("chatPremium.communicationTitle")}</h1>
-          <p className="page-subtitle">{t("chatPremium.communicationSubtitle")}</p>
-          <div className="hero-pills" aria-hidden="true">
-            <span>{t("chatPremium.premiumUI")}</span>
-            <span>{t("chatPremium.realtime")}</span>
-            <span>{t("chatPremium.private")}</span>
-          </div>
-        </div>
-      </section>
+      <nav className="secondary-tabs" aria-label={t("chatPremium.secondaryHubAria")}>
+        {HUB_TABS.map(({ id, labelKey }) => (
+          <button
+            key={id}
+            type="button"
+            aria-current={activeHubTab === id ? "page" : undefined}
+            className={["secondary-tab", activeHubTab === id ? "active" : ""].filter(Boolean).join(" ")}
+            onClick={() => setActiveHubTab(id)}
+          >
+            {getTabIcon(id)}
+            {t(`chatPremium.${labelKey}`)}
+            <span>{getTabCount(id)}</span>
+          </button>
+        ))}
+      </nav>
 
-      <section className="chat-toolbar" aria-label={t("chatPremium.searchConversationsAria")}>
-        <div className="search-shell">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-          </svg>
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t("chatPremium.searchPlaceholder")}
-            aria-label={t("chatPremium.searchConversationsAria")}
-          />
-        </div>
-      </section>
+      {activeHubTab === "chats" && (
+        <>
+          <section className="conversation-priority-head">
+            <div>
+              <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
+              <h1>{t("chatPremium.conversationsFirstTitle")}</h1>
+            </div>
+            <span>{filteredChats.length} {t("chatPremium.chats")}</span>
+          </section>
+
+          <section className="chat-toolbar" aria-label={t("chatPremium.searchConversationsAria")}>
+            <div className="search-shell">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t("chatPremium.searchPlaceholder")}
+                aria-label={t("chatPremium.searchConversationsAria")}
+              />
+            </div>
+          </section>
+        </>
+      )}
 
       {error && <div className="banner-error">{error}</div>}
 
-      <section className="conversation-priority-head">
-        <div>
-          <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
-          <h2>{t("chatPremium.conversationsFirstTitle")}</h2>
-        </div>
-        <span>{filteredChats.length} {t("chatPremium.chats")}</span>
-      </section>
-
-      {loading && (
+      {activeHubTab === "chats" && loading && (
         <div className="chats-list" aria-label={t("chatPremium.loadingConversations")}>
           {[...Array(5)].map((_, i) => (
             <div key={i} className="chat-row skeleton-row">
@@ -417,7 +454,7 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {!loading && chats.length === 0 && (
+      {activeHubTab === "chats" && !loading && chats.length === 0 && (
         <div className="empty-state">
           <div className="empty-orb"><MessageIcon /></div>
           <span className="empty-kicker">{t("chatPremium.emptyKicker")}</span>
@@ -429,7 +466,7 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {!loading && chats.length > 0 && filteredChats.length === 0 && (
+      {activeHubTab === "chats" && !loading && chats.length > 0 && filteredChats.length === 0 && (
         <div className="empty-state compact">
           <div className="empty-orb">
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -443,33 +480,46 @@ export default function ChatsPage() {
         </div>
       )}
 
-      {!loading && filteredChats.length > 0 && (
+      {activeHubTab === "chats" && !loading && filteredChats.length > 0 && (
         <div className="chats-list">
           {filteredChats.map((chat) => {
             const other = getOtherParticipant(chat);
             const displayName = getDisplayName(other);
             const lastMsg = chat.lastMessage;
-            const isOnline = onlineUserIds.has(String(other._id));
-            const inCall = activePeerId && String(other._id) === activePeerId;
+            const otherId = String(other._id || "");
+            const isOnline = onlineUserIds.has(otherId);
+            const isTyping = typingUserIds.has(otherId);
+            const inCall = activePeerId && otherId === activePeerId;
+            const activeLive = liveByUserId.get(otherId);
+            const isLive = Boolean(activeLive);
+            const unreadCount = getUnreadCount(chat);
+            const membershipBadge = getMembershipBadge(other);
+            const statusKey = isLive ? "statusLive" : inCall ? "statusInCall" : isTyping ? "statusTyping" : isOnline ? "statusOnline" : "statusOffline";
             const lastDate = getChatActivityAt(chat);
             const lastTime = formatChatTime(lastDate, locale, t("chatPremium.yesterday"));
 
             return (
-              <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row">
+              <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row" data-unread={unreadCount > 0 ? "true" : "false"}>
                 <ContactAvatar user={other} name={displayName} online={isOnline} inCall={inCall} />
 
                 <div className="chat-info">
                   <div className="chat-topline">
-                    <div className="chat-name">{displayName}</div>
-                    {lastTime && <time className="chat-time" dateTime={getIsoDateTime(lastDate)}>{lastTime}</time>}
+                    <div className="chat-name-wrap">
+                      <div className="chat-name">{displayName}</div>
+                      <span className="status-pill" data-status={statusKey}>{t(`chatPremium.${statusKey}`)}</span>
+                    </div>
+                    <div className="chat-side">
+                      {lastTime && <time className="chat-time" dateTime={getIsoDateTime(lastDate)}>{lastTime}</time>}
+                      {unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{unreadCount > 99 ? "99+" : unreadCount}</span>}
+                    </div>
                   </div>
                   <div className="chat-preview-row">
                     <span className="chat-preview">{getMessagePreview(lastMsg, t("chatPremium.defaultPreview"))}</span>
                   </div>
-                  <div className="chat-meta-row">
-                    <span>{inCall ? t("chatPremium.statusInCall") : isOnline ? t("chatPremium.online") : t("chatPremium.privateChat")}</span>
-                    <span className="meta-separator" />
-                    <span>{lastMsg ? t("chatPremium.lastMessageLabel") : t("chatPremium.newThreadLabel")}</span>
+                  <div className="chat-badges" aria-label={t("chatPremium.badgesAria")}>
+                    {isLive && <span className="profile-badge live">{t("chatPremium.liveBadge")}</span>}
+                    {isApprovedCreator(other) && <span className="profile-badge creator">{t("chatPremium.creatorBadge")}</span>}
+                    {membershipBadge && <span className={`profile-badge ${membershipBadge}`}>{t(`chatPremium.${membershipBadge}Badge`)}</span>}
                   </div>
                 </div>
 
@@ -484,59 +534,119 @@ export default function ChatsPage() {
         </div>
       )}
 
-      <section className="secondary-hub" aria-label={t("chatPremium.secondaryHubAria")}>
-        <div className="secondary-tabs" role="tablist" aria-label={t("chatPremium.secondaryTools")}>
-          <Link href="/chats" role="tab" aria-selected={isActiveNav("/chats")} className={getNavClassName("secondary-tab", "/chats")}><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
-          <Link href="/calls" role="tab" aria-selected={isActiveNav("/calls")} className={getNavClassName("secondary-tab", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-          <Link href="/explore" role="tab" aria-selected={isActiveNav("/explore")} className={getNavClassName("secondary-tab", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
-        </div>
-
-        <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>
-          <Link href={activeCall ? `/call/${activeCall._id}?returnTo=${encodeURIComponent("/chats")}` : "/calls"} className={activeCallCardClassName}>
-            <div className="active-call-icon">{activeCallIsVideo ? <VideoIcon /> : <PhoneIcon />}</div>
+      {activeHubTab === "calls" && (
+        <section className="hub-panel" aria-labelledby="hub-calls-title">
+          <div className="conversation-priority-head">
             <div>
-              <span className="card-kicker">{activeCall ? t("chatPremium.activeCall") : t("chatPremium.noActiveCall")}</span>
-              <strong>{activeCall ? activeCallName : t("chatPremium.communicationReady")}</strong>
-              <p>{activeCall ? t("chatPremium.continueCall") : t("chatPremium.noActiveCallText")}</p>
+              <span className="section-kicker">{t("chatPremium.latestCalls")}</span>
+              <h1 id="hub-calls-title">{t("chatPremium.tabCalls")}</h1>
             </div>
-          </Link>
-          <div className="quick-actions">
-            <Link href="/chats" className={getNavClassName("quick-action", "/chats")}><MessageIcon /> {t("chatPremium.openChats")}</Link>
-            <Link href="/calls" className={getNavClassName("quick-action", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-            <Link href="/explore" className={getNavClassName("quick-action", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+            <span>{calls.length}</span>
           </div>
-        </section>
-
-        <section className="status-legend" aria-label={t("chatPremium.statusLegend")}> 
-          {["statusOnline", "statusInCall", "statusTyping", "statusCalling", "statusOffline"].map((key) => (
-            <span key={key} data-status={key}>{t(`chatPremium.${key}`)}</span>
-          ))}
-        </section>
-
-        <section className="premium-board" aria-label={t("chatPremium.premiumCardsAria")}>
-          <article className="premium-card">
-            <div className="card-head"><span>{t("chatPremium.stats")}</span><strong>{totalChats}</strong></div>
-            <div className="stats-grid" aria-label={t("chatPremium.summaryAria")}>
-              <div><strong>{totalChats}</strong><span>{t("chatPremium.chats")}</span></div>
-              <div><strong>{newMessageSignals}</strong><span>{t("chatPremium.newMessageSignals")}</span></div>
-              <div><strong>{missedCalls}</strong><span>{t("chatPremium.missedCallSignals")}</span></div>
-              <div><strong>{activeCall ? 1 : 0}</strong><span>{t("chatPremium.activeCalls")}</span></div>
+          {calls.length === 0 ? (
+            <div className="empty-state compact"><p>{t("chatPremium.noRecentCalls")}</p></div>
+          ) : (
+            <div className="chats-list">
+              {calls.map((call) => {
+                const peer = getCallPeer(call) || {};
+                const displayName = getDisplayName(peer);
+                const peerId = String(peer._id || "");
+                const isOnline = onlineUserIds.has(peerId) || call.isPeerOnline;
+                const lastDate = getCallActivityAt(call);
+                const lastTime = formatChatTime(lastDate, locale, t("chatPremium.yesterday"));
+                return (
+                  <article key={call._id} className="chat-row">
+                    <ContactAvatar user={peer} name={displayName} online={isOnline} inCall={ACTIVE_CALL_STATUSES.has(call.rawStatus || call.status)} />
+                    <div className="chat-info">
+                      <div className="chat-topline">
+                        <div className="chat-name-wrap">
+                          <div className="chat-name">{displayName}</div>
+                          <span className="status-pill">{t(`callHistory.statuses.${call.status}`)}</span>
+                        </div>
+                        {lastTime && <time className="chat-time" dateTime={getIsoDateTime(lastDate)}>{lastTime}</time>}
+                      </div>
+                      <div className="chat-preview-row">
+                        <span className="chat-preview">{t(`callHistory.directions.${call.direction}`)} · {call.mediaType === "audio" ? t("callHistory.voice") : t("callHistory.video")}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          </article>
-          <article className="premium-card">
-            <div className="card-head"><span>{t("chatPremium.favoriteUsers")}</span><strong>{favoriteUsers.length}</strong></div>
-            <div className="mini-stack">{favoriteUsers.length ? favoriteUsers.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noFavorites")}</p>}</div>
-          </article>
-          <article className="premium-card">
-            <div className="card-head"><span>{t("chatPremium.latestCalls")}</span><strong>{latestCalls.length}</strong></div>
-            <div className="mini-stack">{latestCalls.length ? latestCalls.map(renderCallCard) : <p className="muted-copy">{t("chatPremium.noRecentCalls")}</p>}</div>
-          </article>
-          <article className="premium-card">
-            <div className="card-head"><span>{t("chatPremium.recentContacts")}</span><strong>{recentContacts.length}</strong></div>
-            <div className="mini-stack">{recentContacts.length ? recentContacts.map(renderMiniContact) : <p className="muted-copy">{t("chatPremium.noRecentContacts")}</p>}</div>
-          </article>
+          )}
         </section>
-      </section>
+      )}
+
+      {activeHubTab === "favorites" && (
+        <section className="hub-panel" aria-labelledby="hub-favorites-title">
+          <div className="conversation-priority-head">
+            <div>
+              <span className="section-kicker">{t("chatPremium.tabFavorites")}</span>
+              <h1 id="hub-favorites-title">{t("chatPremium.tabFavorites")}</h1>
+            </div>
+            <span>{favoriteItems.length}</span>
+          </div>
+          {favoriteItems.length === 0 ? (
+            <div className="empty-state compact"><p>{t("chatPremium.noFavorites")}</p></div>
+          ) : (
+            <div className="chats-list">
+              {favoriteItems.map((item) => {
+                const displayName = getDisplayName(item.user);
+                const userId = String(item.user?._id || "");
+                const href = item.chatId ? `/chats/${item.chatId}` : `/profile/${userId}`;
+                return (
+                  <Link key={userId} href={href} className="chat-row" data-unread={item.unreadCount > 0 ? "true" : "false"}>
+                    <ContactAvatar user={item.user} name={displayName} online={onlineUserIds.has(userId)} inCall={activePeerId === userId} />
+                    <div className="chat-info">
+                      <div className="chat-topline">
+                        <div className="chat-name">{displayName}</div>
+                        {item.unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</span>}
+                      </div>
+                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || t("chatPremium.defaultPreview")}</span></div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeHubTab === "contacts" && (
+        <section className="hub-panel" aria-labelledby="hub-contacts-title">
+          <div className="conversation-priority-head">
+            <div>
+              <span className="section-kicker">{t("chatPremium.recentContacts")}</span>
+              <h1 id="hub-contacts-title">{t("chatPremium.tabContacts")}</h1>
+            </div>
+            <span>{contactItems.length}</span>
+          </div>
+          {contactItems.length === 0 ? (
+            <div className="empty-state compact"><p>{t("chatPremium.noRecentContacts")}</p></div>
+          ) : (
+            <div className="chats-list">
+              {contactItems.map((item) => {
+                const displayName = getDisplayName(item.user);
+                const userId = String(item.user?._id || "");
+                const href = item.chatId ? `/chats/${item.chatId}` : `/profile/${userId}`;
+                const lastTime = formatChatTime(item.activityAt, locale, t("chatPremium.yesterday"));
+                return (
+                  <Link key={userId} href={href} className="chat-row">
+                    <ContactAvatar user={item.user} name={displayName} online={onlineUserIds.has(userId)} inCall={activePeerId === userId} />
+                    <div className="chat-info">
+                      <div className="chat-topline">
+                        <div className="chat-name">{displayName}</div>
+                        {lastTime && <time className="chat-time" dateTime={getIsoDateTime(item.activityAt)}>{lastTime}</time>}
+                      </div>
+                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || (item.source === "call" ? t("chatPremium.latestCalls") : t("chatPremium.defaultPreview"))}</span></div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <style jsx>{`
         .chats-page { --chat-page-gap: 1rem; display: flex; flex-direction: column; gap: var(--chat-page-gap); position: relative; }
@@ -544,63 +654,22 @@ export default function ChatsPage() {
         .chat-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.08) 45%, transparent 70%); transform: translateX(-100%); animation: heroShimmer 7s ease-in-out infinite; pointer-events: none; }
         .hero-copy { position: relative; z-index: 1; max-width: 680px; }
         .eyebrow { display: inline-flex; width: fit-content; margin-bottom: 0.55rem; padding: 0.28rem 0.65rem; border-radius: var(--radius-pill); border: 1px solid rgba(34,211,238,0.28); background: rgba(34,211,238,0.08); color: var(--accent-cyan); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-        .page-title { margin-bottom: 0.25rem; font-size: clamp(2rem, 4vw, 3.3rem); letter-spacing: -0.05em; }
-        .page-subtitle { max-width: 620px; margin: 0; color: rgba(237,231,255,0.74); }
-        .hero-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1rem; }
-        .hero-pills span { padding: 0.34rem 0.62rem; border-radius: var(--radius-pill); border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.78); font-size: 0.72rem; font-weight: 800; }
-        .secondary-hub { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.4rem; }
-        .secondary-tabs { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0.45rem; border: 1px solid rgba(236,124,255,0.16); border-radius: 22px; background: rgba(15,8,32,0.5); }
-        .secondary-tab { display: inline-flex; align-items: center; gap: 0.48rem; padding: 0.58rem 0.78rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 900; transition: all var(--transition); }
+                .secondary-tabs { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0.45rem; border: 1px solid rgba(236,124,255,0.16); border-radius: 22px; background: rgba(15,8,32,0.5); }
+        .secondary-tab { display: inline-flex; align-items: center; gap: 0.48rem; padding: 0.58rem 0.78rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 900; transition: all var(--transition); cursor: pointer; }
+        .secondary-tab span { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.36rem; border-radius: var(--radius-pill); background: rgba(255,255,255,0.07); color: var(--text); font-size: 0.68rem; }
         .secondary-tab:hover, .secondary-tab.active { color: #fff; border-color: rgba(34,211,238,0.34); background: rgba(34,211,238,0.09); }
-        .communication-shell { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr); gap: 0.9rem; }
-        .active-call-card, .premium-card, .quick-actions { border: 1px solid rgba(236,124,255,0.2); border-radius: 28px; background: radial-gradient(circle at 0% 0%, rgba(224,64,251,0.14), transparent 38%), rgba(15,8,32,0.72); box-shadow: 0 16px 38px rgba(4,2,12,0.34), inset 0 1px 0 rgba(255,255,255,0.06); }
-        .active-call-card { display: flex; gap: 1rem; align-items: center; padding: 1rem; transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition); }
-        .active-call-card:hover { transform: translateY(-2px); border-color: rgba(34,211,238,0.42); box-shadow: 0 22px 48px rgba(4,2,12,0.46), 0 0 28px rgba(124,58,237,0.18); }
-        .active-call-card.live { border-color: rgba(52,211,153,0.34); background: radial-gradient(circle at 0% 0%, rgba(52,211,153,0.16), transparent 35%), rgba(15,8,32,0.82); }
-        .active-call-icon { width: 54px; height: 54px; flex-shrink: 0; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.18); }
-        .card-kicker { color: var(--accent-cyan); font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
-        .active-call-card strong { display: block; margin-top: 0.18rem; color: var(--text); font-size: 1.05rem; }
-        .active-call-card p { margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.86rem; }
-        .quick-actions { display: grid; gap: 0.55rem; padding: 0.75rem; }
-        .quick-action { display: flex; align-items: center; gap: 0.55rem; padding: 0.78rem 0.9rem; border-radius: 18px; border: 1px solid rgba(255,255,255,0.08); color: var(--text-muted); background: rgba(255,255,255,0.045); font-weight: 900; transition: all var(--transition); }
-        .quick-action:hover, .quick-action.active { color: #fff; border-color: rgba(34,211,238,0.34); background: rgba(34,211,238,0.09); }
-        .status-legend { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.72rem; border: 1px solid rgba(236,124,255,0.16); border-radius: 22px; background: rgba(15,8,32,0.5); }
-        .status-legend span { display: inline-flex; align-items: center; gap: 0.38rem; padding: 0.35rem 0.62rem; border-radius: var(--radius-pill); color: var(--text-muted); background: rgba(255,255,255,0.055); font-size: 0.72rem; font-weight: 900; }
-        .status-legend span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
-        .status-legend span[data-status="statusOnline"]::before { background: var(--accent-green); box-shadow: 0 0 12px rgba(52,211,153,0.8); }
-        .status-legend span[data-status="statusInCall"]::before { background: var(--accent-cyan); box-shadow: 0 0 12px rgba(34,211,238,0.8); }
-        .status-legend span[data-status="statusTyping"]::before { background: #fbbf24; }
-        .status-legend span[data-status="statusCalling"]::before { background: var(--accent-2); animation: pulseDot 1.5s ease-out infinite; }
-        .premium-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem; }
-        .premium-card { min-width: 0; padding: 0.95rem; }
-        .card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.8rem; }
-        .card-head span { color: var(--text); font-weight: 950; }
-        .card-head strong { color: var(--accent-cyan); padding: 0.18rem 0.48rem; border-radius: var(--radius-pill); background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.16); }
-        .mini-stack { display: flex; flex-direction: column; gap: 0.62rem; min-height: 84px; }
-        .mini-contact, .mini-row-link { display: flex; align-items: center; gap: 0.68rem; min-width: 0; padding: 0.56rem; border-radius: 18px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.06); }
-        .mini-row-link { transition: all var(--transition); }
-        .mini-row-link:hover { border-color: rgba(34,211,238,0.28); background: rgba(34,211,238,0.07); }
-        .mini-contact div, .mini-row-link div { min-width: 0; flex: 1; }
-        .mini-contact strong, .mini-row-link strong { display: block; color: var(--text); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-contact span, .mini-row-link span { display: block; color: var(--text-dim); font-size: 0.72rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mini-row-link time { flex-shrink: 0; color: var(--text-dim); font-size: 0.68rem; font-weight: 900; }
-        .call-mini[data-tone="missed"] { border-color: rgba(248,113,113,0.22); }
-        .muted-copy { margin: 0; color: var(--text-muted); font-size: 0.84rem; line-height: 1.4; }
-        .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
-        .stats-grid div { display: flex; flex-direction: column; min-width: 0; padding: 0.68rem; border-radius: 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); }
-        .stats-grid strong { color: #fff; font-size: 1.1rem; line-height: 1; }
-        .stats-grid span { margin-top: 0.24rem; color: var(--text-dim); font-size: 0.68rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
         .chat-toolbar { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem; border: 1px solid rgba(236,124,255,0.2); border-radius: 24px; background: rgba(15,8,32,0.58); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter: blur(16px); }
         .search-shell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.62rem; height: 48px; padding: 0 0.9rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; color: var(--text-dim); background: linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%), rgba(7,4,18,0.58); transition: border-color var(--transition), box-shadow var(--transition), background var(--transition); }
         .search-shell:focus-within { border-color: rgba(34,211,238,0.42); box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 0 24px rgba(124,58,237,0.14); background: rgba(10,5,26,0.78); }
         .search-shell input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; }
         .search-shell input::placeholder { color: var(--text-dim); }
         .conversation-priority-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 0 0.2rem; }
-        .conversation-priority-head h2 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
+        .conversation-priority-head h1 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
         .conversation-priority-head > span { flex-shrink: 0; color: var(--accent-cyan); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
         .section-kicker { color: var(--text-dim); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }
-        .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }
+        .hub-panel, .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }
         .chat-row { position: relative; display: flex; align-items: center; gap: 1rem; padding: 1rem; cursor: pointer; overflow: hidden; transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition), background var(--transition); border: 1px solid rgba(236,124,255,0.2); border-radius: 26px; background: radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.07), transparent 40%), rgba(15,8,32,0.82); box-shadow: 0 14px 34px rgba(4,2,12,0.36), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .chat-row[data-unread="true"] { border-color: rgba(34,211,238,0.34); box-shadow: 0 16px 38px rgba(4,2,12,0.38), 0 0 26px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.06); }
         .chat-row::before { content: ""; position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 10% 50%, rgba(224,64,251,0.18), transparent 35%); transition: opacity var(--transition); pointer-events: none; }
         .chat-row:hover { border-color: rgba(34,211,238,0.38); background: rgba(22,12,45,0.92); box-shadow: 0 20px 48px rgba(4,2,12,0.5), 0 0 26px rgba(124,58,237,0.2); transform: translateY(-2px); }
         .chat-row:hover::before { opacity: 1; }
@@ -617,13 +686,26 @@ export default function ChatsPage() {
         .call-dot { background: var(--accent-cyan); box-shadow: 0 0 12px rgba(34,211,238,0.9); animation: pulseDot 1.5s ease-out infinite; }
         .avatar-ring.sm .online-dot, .avatar-ring.sm .call-dot { width: 11px; height: 11px; right: 0; bottom: 1px; border-width: 2px; }
         .chat-info { position: relative; z-index: 1; flex: 1; min-width: 0; }
-        .chat-topline { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+        .chat-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+        .chat-name-wrap { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.46rem; }
         .chat-name { font-weight: 900; color: var(--text); font-size: 1.02rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .chat-side { display: flex; align-items: center; gap: 0.42rem; flex-shrink: 0; }
+        .status-pill { display: inline-flex; align-items: center; gap: 0.32rem; padding: 0.18rem 0.48rem; border-radius: var(--radius-pill); color: var(--text-muted); background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.06); font-size: 0.66rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
+        .status-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+        .status-pill[data-status="statusOnline"]::before { background: var(--accent-green); box-shadow: 0 0 12px rgba(52,211,153,0.75); }
+        .status-pill[data-status="statusTyping"]::before { background: #fbbf24; animation: pulseDot 1.5s ease-out infinite; }
+        .status-pill[data-status="statusInCall"]::before { background: var(--accent-cyan); box-shadow: 0 0 12px rgba(34,211,238,0.75); }
+        .status-pill[data-status="statusLive"] { color: #fecaca; border-color: rgba(248,113,113,0.24); background: rgba(239,68,68,0.1); }
+        .status-pill[data-status="statusLive"]::before { background: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.75); animation: pulseDot 1.5s ease-out infinite; }
         .chat-preview-row { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.24rem; min-width: 0; }
         .chat-preview { color: var(--text-muted); font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-        .chat-meta-row { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.42rem; color: var(--text-dim); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-        .meta-separator { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.18); }
+        .chat-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; min-height: 1.35rem; margin-top: 0.44rem; }
+        .profile-badge { display: inline-flex; align-items: center; width: fit-content; padding: 0.18rem 0.48rem; border-radius: var(--radius-pill); font-size: 0.64rem; font-weight: 950; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.055); color: rgba(255,255,255,0.78); }
+        .profile-badge.live { color: #fee2e2; border-color: rgba(248,113,113,0.34); background: rgba(239,68,68,0.14); }
+        .profile-badge.creator { color: #fde68a; border-color: rgba(251,191,36,0.28); background: rgba(251,191,36,0.1); }
+        .profile-badge.premium, .profile-badge.vip { color: #e9d5ff; border-color: rgba(216,180,254,0.3); background: rgba(124,58,237,0.16); }
         .chat-time { flex-shrink: 0; color: rgba(255,255,255,0.72); font-size: 0.72rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: var(--radius-pill); background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.07); }
+        .unread-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.34rem; border-radius: var(--radius-pill); color: #04111d; background: var(--accent-cyan); font-size: 0.68rem; font-weight: 950; box-shadow: 0 0 18px rgba(34,211,238,0.38); }
         .chat-arrow { position: relative; z-index: 1; color: var(--text-dim); opacity: 0.42; transition: all var(--transition); display: flex; flex-shrink: 0; }
         .banner-error { background: var(--error-bg); border: 1px solid rgba(248,113,113,0.35); color: var(--error); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 600; }
         .empty-state { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 0.8rem; padding: 4rem 2rem; text-align: center; border: 1px dashed rgba(139,92,246,0.34); border-radius: 28px; background: radial-gradient(circle at 50% 0%, rgba(224,64,251,0.18), transparent 36%), rgba(15,8,32,0.54); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
@@ -647,17 +729,13 @@ export default function ChatsPage() {
         @media (max-width: 820px) { .communication-shell { grid-template-columns: 1fr; } }
         @media (max-width: 720px) {
           .chat-hero { flex-direction: column; border-radius: 24px; padding: 1.15rem; }
-          .premium-board { grid-template-columns: 1fr; }
           .chat-toolbar { border-radius: 22px; }
           .secondary-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.6rem; }
           .secondary-tab { flex-shrink: 0; }
           .conversation-priority-head { align-items: start; flex-direction: column; gap: 0.35rem; }
-          .status-legend { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.85rem; }
-          .status-legend span { flex-shrink: 0; }
           .chat-row { border-radius: 22px; padding: 0.85rem; gap: 0.8rem; }
           .avatar-ring { width: 52px; height: 52px; }
           .chat-arrow { display: none; }
-          .chat-meta-row { display: none; }
           .chat-time { padding: 0; border: 0; background: transparent; }
         }
       `}</style>

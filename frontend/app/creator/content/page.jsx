@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import { VideoIcon, PhotoIcon } from "@/components/ContentIcons";
+import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -177,6 +178,8 @@ export default function CreatorContentPage() {
           <span>{view === "create" ? "Ver listado" : "Nuevo contenido"}</span>
         </button>
       </div>
+
+      <CreatorCenterNav />
 
       {/* Create form */}
       {view === "create" && (
@@ -756,5 +759,4 @@ function ContentItemCard({ item }) {
     </Link>
   );
 }
-
 

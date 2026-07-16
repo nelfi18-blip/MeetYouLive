@@ -9,6 +9,7 @@ import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
 import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
+import socket from "@/lib/socket";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { normalizeUserImages } from "@/lib/imageHelpers";
@@ -541,6 +542,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
+    socket.disconnect();
     clearToken();
     signOut({ callbackUrl: "/login" });
   };

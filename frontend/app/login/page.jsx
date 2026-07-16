@@ -126,7 +126,6 @@ function LoginForm() {
     
     // If switching accounts, skip all auto-redirect logic and show the login form
     if (isSwitching) {
-      console.log("[login] Account switch detected - forcing user to login page");
       setChecking(false);
       return;
     }
@@ -163,14 +162,12 @@ function LoginForm() {
         // navigation has already started.
         timeoutIdsRef.current.forEach(clearTimeout);
         timeoutIdsRef.current = [];
-        console.log("[login] session.backendToken available – saving token and checking user role");
         setToken(session.backendToken);
         
         // Check if user is admin and redirect accordingly
         fetchUserRole(session.backendToken).then((user) => {
           syncAdminSessionIfNeeded(session.backendToken, user);
           const dest = getPostLoginRedirectPath(user, userRedirectPath);
-          console.log(`[login] Redirecting to ${dest}`);
           router.replace(dest);
         }).catch((error) => {
           console.error("[login] Error checking user role:", error);
@@ -196,7 +193,6 @@ function LoginForm() {
         const retryDelay = 4000;
 
         const tryFetchToken = async (attempt) => {
-          console.log(`[login] backend-token attempt ${attempt}/${maxAttempts}`);
           setInfo(`Conectando con el servidor… (${attempt}/${maxAttempts})`);
 
           try {
@@ -206,7 +202,6 @@ function LoginForm() {
               const data = await response.json();
 
               if (data?.token) {
-                console.log(`[login] Token received on attempt ${attempt}/${maxAttempts} – redirecting to feed`);
                 // Cancel any pending retries so they don't fire after navigation.
                 timeoutIdsRef.current.forEach(clearTimeout);
                 timeoutIdsRef.current = [];

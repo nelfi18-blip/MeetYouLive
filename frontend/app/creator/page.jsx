@@ -8,6 +8,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import PremiumSectionHeader from "@/components/ui/PremiumSectionHeader";
 import CreatorHeroCard from "@/components/creator/CreatorHeroCard";
+import CreatorCenterNav from "@/components/creator/CreatorCenterNav";
 import EarningsStatCard from "@/components/creator/EarningsStatCard";
 import MonetizationHistoryCard from "@/components/creator/MonetizationHistoryCard";
 import CreatorProgressCard from "@/components/creator/CreatorProgressCard";
@@ -333,6 +334,8 @@ export default function CreatorPage() {
         cta={statusConfig.cta}
       />
 
+      <CreatorCenterNav />
+
       {error ? (
         <FuturisticCard className="feedback-banner" accent="pink" hover={false}>
           <span className="feedback-icon"><AlertIcon size={15} /></span>
@@ -356,7 +359,7 @@ export default function CreatorPage() {
 
       {isApproved ? (
         <>
-          <section>
+          <section id="earnings">
             <PremiumSectionHeader
               title="Resumen de ganancias"
               subtitle="Visualiza tu dinero y actividad de monetización en segundos."
@@ -376,19 +379,21 @@ export default function CreatorPage() {
             </div>
           </section>
 
-          <section id="monetization-history">
+          <section id="gifts">
             <MonetizationHistoryCard items={earnings?.recentMonetizationActivity || []} />
           </section>
 
-          <CreatorProgressCard
-            creatorLevel={creatorLevel}
-            consistencyDays={dashboard?.consistencyDays || 0}
-          />
+          <section id="live-stats">
+            <CreatorProgressCard
+              creatorLevel={creatorLevel}
+              consistencyDays={dashboard?.consistencyDays || 0}
+            />
+          </section>
 
-          <FuturisticCard className="quick-actions-card" accent="purple" hover={false}>
+          <FuturisticCard id="wallet" className="quick-actions-card" accent="purple" hover={false}>
             <PremiumSectionHeader
-              title="Acciones rápidas"
-              subtitle="Activa las acciones que más impactan tu monetización."
+              title="Wallet y retiros"
+              subtitle="Gestiona tu balance, retiros y acciones clave de monetización."
             />
             <CreatorQuickActions
               canMonetize
@@ -405,6 +410,27 @@ export default function CreatorPage() {
                 Necesitas al menos {minPayoutCoins} monedas para solicitar retiro.
               </p>
             ) : null}
+          </FuturisticCard>
+
+          <FuturisticCard className="structure-card" accent="cyan" hover={false}>
+            <PremiumSectionHeader
+              title="Arquitectura del Creator Center"
+              subtitle="Secciones preparadas para operar el centro de creador sin añadir funciones experimentales."
+            />
+            <div className="structure-grid">
+              <div id="followers" className="structure-item">
+                <strong>Followers</strong>
+                <span>Preparado para métricas y gestión de seguidores.</span>
+              </div>
+              <div id="withdrawals" className="structure-item">
+                <strong>Withdrawals</strong>
+                <span>Conectado al flujo actual de solicitudes de retiro.</span>
+              </div>
+              <div id="creator-settings" className="structure-item">
+                <strong>Creator Settings</strong>
+                <span>Listo para preferencias del creador y monetización.</span>
+              </div>
+            </div>
           </FuturisticCard>
 
           {agencyData && (
@@ -525,7 +551,8 @@ export default function CreatorPage() {
         }
         .quick-actions-card,
         .state-card,
-        .agency-card {
+        .agency-card,
+        .structure-card {
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -616,9 +643,37 @@ export default function CreatorPage() {
           white-space: nowrap;
         }
         .agency-manage-btn:hover { background: rgba(34,211,238,0.2); }
+        .structure-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.6rem;
+        }
+        .structure-item {
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          border-radius: 12px;
+          padding: 0.72rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.28rem;
+        }
+        .structure-item strong {
+          color: #e0f2fe;
+          font-size: 0.84rem;
+        }
+        .structure-item span {
+          color: var(--text-muted);
+          font-size: 0.75rem;
+          line-height: 1.45;
+        }
         @media (min-width: 760px) {
           .stats-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 760px) {
+          .structure-grid {
+            grid-template-columns: 1fr;
           }
         }
         @media (min-width: 1100px) {

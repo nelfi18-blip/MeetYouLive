@@ -156,10 +156,6 @@ function preloadProfileImage(url) {
   image.src = url;
 }
 
-function shouldLogProfileCompletionDiagnostics() {
-  return process.env.NODE_ENV !== "production";
-}
-
 function getCurrentProfileId(profiles, currentIndex) {
   return getProfileId(profiles[currentIndex]);
 }
@@ -918,13 +914,6 @@ export default function FeedPage() {
       const data = await feedRes.json();
       setFeedDebug(data?.debug || null);
       setViewerProfileStatus(data?.viewerProfileStatus || null);
-      if (data?.viewerProfileStatus?.canAppearInFeed === false && shouldLogProfileCompletionDiagnostics()) {
-        console.log("[feed-profile-completion]", {
-          missingFields: data.viewerProfileStatus.missingFields || data.missingFields || [],
-          currentValues: data.viewerProfileStatus.currentValues || null,
-          profileCompletionStatus: data.profileCompletionStatus || null,
-        });
-      }
       const currentUserId = currentUserIdRef.current;
       const feedProfiles = Array.isArray(data?.recommendedProfiles)
         ? data.recommendedProfiles
@@ -2220,7 +2209,7 @@ function FeedHeader() {
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className="feed-header-logo" />
+        <img src="/logo.svg" alt="MeetYouLive" className="feed-header-logo" />
       </Link>
 
       <style jsx>{`

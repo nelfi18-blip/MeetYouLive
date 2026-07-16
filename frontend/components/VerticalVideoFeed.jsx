@@ -46,17 +46,14 @@ export default function VerticalVideoFeed({ videos = [] }) {
 
   const handleLike = async () => {
     // Handle like logic
-    console.log("Liked video:", currentVideo._id);
   };
 
   const handleFollow = async () => {
     // Handle follow logic
-    console.log("Follow creator:", currentVideo.creator._id);
   };
 
   const handleGift = () => {
     // Open gift panel
-    console.log("Send gift to:", currentVideo.creator._id);
   };
 
   if (!currentVideo) {

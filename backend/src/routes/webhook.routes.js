@@ -74,7 +74,15 @@ router.post(
       });
 
       if (event.type === "checkout.session.completed" && event.data.object.mode === "payment") {
-        await handlePaymentCompleted(event.data.object);
+        if (event.data.object.payment_status !== "paid") {
+          console.warn("[stripe webhook] unpaid checkout session ignored", {
+            eventId: event.id,
+            sessionId: event.data.object.id,
+            paymentStatus: event.data.object.payment_status,
+          });
+        } else {
+          await handlePaymentCompleted(event.data.object);
+        }
       } else if (SUBSCRIPTION_EVENTS.has(event.type)) {
         await handleSubscriptionWebhook(event);
       } else if (CONNECT_EVENTS.has(event.type)) {

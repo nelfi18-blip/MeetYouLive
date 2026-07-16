@@ -118,7 +118,7 @@ export default function CreatorQuickActions({
       {canMonetize ? (
         <>
           <Tile href="/live/start" label="Ir en vivo" icon={<VideoIcon size={14} />} />
-          <Tile href="#monetization-history" label="Ver historial" icon={<HistoryIcon size={14} />} />
+          <Tile href="#gifts" label="Ver historial" icon={<HistoryIcon size={14} />} />
           <button
             type="button"
             className="qa-btn"
@@ -135,7 +135,7 @@ export default function CreatorQuickActions({
       <Tile href="/profile" label="Editar perfil de creador" icon={<SparkIcon size={14} />} muted={!canMonetize} />
       <Tile href={profileHref} label="Compartir perfil" icon={<ArrowRightIcon size={14} />} muted={!canMonetize} />
       <Tile href="/creator/content" label="Mi contenido" icon={<ContentIcon size={14} />} muted={!canMonetize} />
-      <Tile href="#monetization-history" label="Ver regalos recibidos" icon={<GiftIcon size={14} />} muted={!canMonetize} />
+      <Tile href="#gifts" label="Ver regalos recibidos" icon={<GiftIcon size={14} />} muted={!canMonetize} />
       {canMonetize && (
         <Tile href="/agency" label="Mi red de creadores" icon={<NetworkIcon size={14} />} />
       )}

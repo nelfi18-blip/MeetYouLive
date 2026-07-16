@@ -14,7 +14,6 @@ export async function POST(req) {
       console.warn("⚠️ API URL env var not set, using fallback:", FALLBACK_URL);
     }
 
-    console.log("🌐 Proxy admin/login a:", apiUrl);
 
     const response = await fetch(`${apiUrl}/api/admin/login`, {
       method: "POST",

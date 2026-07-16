@@ -10,6 +10,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
+import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -116,6 +117,7 @@ export default function Navbar() {
   }, [session]);
 
   const handleLogout = () => {
+    socket.disconnect();
     clearToken();
     signOut({ callbackUrl: "/login" });
   };

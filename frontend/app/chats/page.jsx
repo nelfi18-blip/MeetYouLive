@@ -81,6 +81,7 @@ const getContactItems = (chats, calls) => {
       activityAt,
       activityTime: getActivityTime(activityAt),
       source: "chat",
+      preview: getMessagePreview(chat.lastMessage, ""),
       unreadCount: getUnreadCount(chat),
     });
   });
@@ -100,6 +101,7 @@ const getContactItems = (chats, calls) => {
         activityTime,
         source: "call",
         call,
+        preview: existing?.preview || "",
         unreadCount: existing?.unreadCount || 0,
       });
     }
@@ -581,7 +583,7 @@ export default function ChatsPage() {
                         <div className="chat-name">{displayName}</div>
                         {item.unreadCount > 0 && <span className="unread-badge" aria-label={t("chatPremium.unreadMessages")}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</span>}
                       </div>
-                      <div className="chat-preview-row"><span className="chat-preview">{t("chatPremium.noFavorites")}</span></div>
+                      <div className="chat-preview-row"><span className="chat-preview">{item.preview || t("chatPremium.recentConversations")}</span></div>
                     </div>
                   </Link>
                 );

@@ -198,12 +198,16 @@ export default function BottomNavEnhanced() {
         <button
           onClick={toggleCreateMenu}
           className={`nav-item-create ${showCreateMenu ? "active" : ""}`}
-          aria-label={canGoLive ? "Open live and creator actions" : "Open live rooms and creator actions"}
+          aria-label={
+            liveCount > 0
+              ? `${t("nav.liveRooms")} (${liveCount})`
+              : canGoLive ? t("nav.openLiveCreatorActions") : t("nav.openLiveRoomActions")
+          }
           aria-expanded={showCreateMenu}
         >
           {liveCount > 0 && (
             <span className="live-count-dot" aria-label={`${liveCount} active live rooms`}>
-              {liveCount > 9 ? "9+" : liveCount}
+              {formatBadgeCount(liveCount)}
             </span>
           )}
           <motion.div
@@ -216,7 +220,7 @@ export default function BottomNavEnhanced() {
               <rect x="3" y="6" width="12" height="12" rx="3" />
             </svg>
           </motion.div>
-          <span className="create-live-label">{liveCount > 0 ? t("nav.liveCtaActive") : t("nav.liveCtaInactive")}</span>
+          <span className="create-live-label" aria-live="polite">{liveCount > 0 ? t("nav.liveCtaActive") : t("nav.liveCtaInactive")}</span>
         </button>
 
         <Link href="/chats" className={`nav-item ${isActive("/chats") ? "active" : ""}`}>

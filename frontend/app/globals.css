@@ -2981,6 +2981,7 @@ main.main-content:has(.admin-shell) {
    Bottom Navigation Enhanced
    ========================================================= */
 .bottom-nav-enhanced {
+  --premium-nav-border-bg: rgba(15,8,33,0.96);
   position: fixed;
   left: 50%;
   right: auto;
@@ -3165,7 +3166,7 @@ main.main-content:has(.admin-shell) {
   border-radius: 999px;
   color: #fff;
   background: linear-gradient(135deg, #ef4444, #ff4fa3);
-  border: 2px solid rgba(15,8,33,0.96);
+  border: 2px solid var(--premium-nav-border-bg);
   font-size: 0.68rem;
   font-weight: 950;
   box-shadow: 0 0 18px rgba(239,68,68,0.65);

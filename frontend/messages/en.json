@@ -29,7 +29,9 @@
     "creatorCenter": "Creator Center",
     "coinsGifts": "Coins & Gifts",
     "liveCtaActive": "LIVE",
-    "liveCtaInactive": "GO"
+    "liveCtaInactive": "GO",
+    "openLiveCreatorActions": "Open live and creator actions",
+    "openLiveRoomActions": "Open live rooms and creator actions"
   },
   "adminBlocked": {
     "title": "Access Restricted",
@@ -409,6 +411,8 @@
     "liveRoomFallback": "Live room open now",
     "liveNowLabel": "Live now",
     "liveViewers": "{count} viewers inside",
+    "liveViewerSingular": "1 viewer inside",
+    "liveViewersPlural": "viewers inside",
     "liveJoinNow": "Join the room",
     "noRecentContacts": "Recent contacts will appear here after chats or calls.",
     "noRecentCalls": "Your latest voice and video calls will appear here.",

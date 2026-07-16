@@ -137,6 +137,9 @@ const getLiveViewerCount = (live) => {
   return Number.isFinite(count) && count > 0 ? count : 0;
 };
 
+const getLiveViewerLabel = (count, t) =>
+  count === 1 ? t("chatPremium.liveViewerSingular") : `${count} ${t("chatPremium.liveViewersPlural")}`;
+
 function PhoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -421,14 +424,13 @@ export default function ChatsPage() {
           >
             {getTabIcon(id)}
             {t(`chatPremium.${labelKey}`)}
-            <span className="sr-only">{getTabCount(id)}</span>
           </button>
         ))}
       </nav>
 
       {activeHubTab === "chats" && (
         <>
-          <section className="conversation-priority-head" aria-labelledby="meet-hub-conversations-title">
+          <section className="conversation-priority-head">
             <div>
               <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
               <h2 id="meet-hub-conversations-title">{t("chatPremium.conversationsFirstTitle")}</h2>
@@ -549,7 +551,7 @@ export default function ChatsPage() {
                         <strong>{liveTitle}</strong>
                         <small>
                           {liveViewerCount > 0
-                            ? t("chatPremium.liveViewers").replace("{count}", liveViewerCount)
+                            ? getLiveViewerLabel(liveViewerCount, t)
                             : t("chatPremium.liveJoinNow")}
                         </small>
                       </div>

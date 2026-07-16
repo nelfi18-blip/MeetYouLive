@@ -29,7 +29,9 @@
     "creatorCenter": "Creator Center",
     "coinsGifts": "Coins e presentes",
     "liveCtaActive": "LIVE",
-    "liveCtaInactive": "IR"
+    "liveCtaInactive": "IR",
+    "openLiveCreatorActions": "Abrir ações de live e creator",
+    "openLiveRoomActions": "Abrir live rooms e ações de creator"
   },
   "adminBlocked": {
     "title": "Acesso Restrito",
@@ -409,6 +411,8 @@
     "liveRoomFallback": "Sala ao vivo aberta agora",
     "liveNowLabel": "Ao vivo",
     "liveViewers": "{count} espectadores dentro",
+    "liveViewerSingular": "1 espectador dentro",
+    "liveViewersPlural": "espectadores dentro",
     "liveJoinNow": "Entre na sala",
     "noRecentContacts": "Contatos recentes aparecerão aqui após chats ou chamadas.",
     "noRecentCalls": "Suas últimas chamadas de voz e vídeo aparecerão aqui.",

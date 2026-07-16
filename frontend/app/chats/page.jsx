@@ -358,7 +358,8 @@ export default function ChatsPage() {
   const activeCallName = activeCallPeer ? getDisplayName(activeCallPeer) : t("chatPremium.noActiveCall");
   const activeCallIsVideo = activeCall?.mediaType !== "audio";
   const activeCallCardClassName = ["active-call-card", activeCall ? "live" : ""].filter(Boolean).join(" ");
-  const getNavClassName = (baseClassName, href) => [baseClassName, pathname === href ? "active" : ""].filter(Boolean).join(" ");
+  const isActiveNav = (href) => pathname === href;
+  const getNavClassName = (baseClassName, href) => [baseClassName, isActiveNav(href) ? "active" : ""].filter(Boolean).join(" ");
 
   return (
     <div className="chats-page">
@@ -484,10 +485,10 @@ export default function ChatsPage() {
       )}
 
       <section className="secondary-hub" aria-label={t("chatPremium.secondaryHubAria")}>
-        <div className="secondary-tabs" aria-label={t("chatPremium.secondaryTools")}>
-          <Link href="/chats" className={getNavClassName("secondary-tab", "/chats")}><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
-          <Link href="/calls" className={getNavClassName("secondary-tab", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
-          <Link href="/explore" className={getNavClassName("secondary-tab", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
+        <div className="secondary-tabs" role="tablist" aria-label={t("chatPremium.secondaryTools")}>
+          <Link href="/chats" role="tab" aria-selected={isActiveNav("/chats")} className={getNavClassName("secondary-tab", "/chats")}><MessageIcon /> {t("chatPremium.recentConversations")}</Link>
+          <Link href="/calls" role="tab" aria-selected={isActiveNav("/calls")} className={getNavClassName("secondary-tab", "/calls")}><PhoneIcon /> {t("chatPremium.openCallHistory")}</Link>
+          <Link href="/explore" role="tab" aria-selected={isActiveNav("/explore")} className={getNavClassName("secondary-tab", "/explore")}><VideoIcon /> {t("chatPremium.findContacts")}</Link>
         </div>
 
         <section className="communication-shell" aria-label={t("chatPremium.quickAccessAria")}>

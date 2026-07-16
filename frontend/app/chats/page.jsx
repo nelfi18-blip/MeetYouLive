@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator } from "@/lib/creatorUtils";
 import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -63,9 +64,6 @@ const getUnreadCount = (chat) => {
   const count = Number(rawCount);
   return Number.isFinite(count) && count > 0 ? count : 0;
 };
-
-const isCreatorUser = (user) =>
-  user?.role === "creator" || user?.creatorStatus === "approved" || user?.isVerifiedCreator === true;
 
 const getMembershipBadge = (user) => {
   if (user?.isVIP) return "vip";
@@ -174,6 +172,7 @@ export default function ChatsPage() {
           cache: "no-store",
         }),
         fetch(`${API_URL}/api/lives`, {
+          headers: { Authorization: "Bearer " + token },
           cache: "no-store",
         }),
       ]);
@@ -427,7 +426,7 @@ export default function ChatsPage() {
                   </div>
                   <div className="chat-badges" aria-label={t("chatPremium.badgesAria")}>
                     {isLive && <span className="profile-badge live">{t("chatPremium.liveBadge")}</span>}
-                    {isCreatorUser(other) && <span className="profile-badge creator">{t("chatPremium.creatorBadge")}</span>}
+                    {isApprovedCreator(other) && <span className="profile-badge creator">{t("chatPremium.creatorBadge")}</span>}
                     {membershipBadge && <span className={`profile-badge ${membershipBadge}`}>{t(`chatPremium.${membershipBadge}Badge`)}</span>}
                   </div>
                 </div>

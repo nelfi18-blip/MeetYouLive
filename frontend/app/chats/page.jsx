@@ -126,6 +126,16 @@ const getMembershipBadge = (user) => {
   return null;
 };
 
+const getLiveTitle = (live, fallback) => {
+  if (typeof live?.title === "string" && live.title.trim()) return live.title.trim();
+  return fallback;
+};
+
+const getLiveViewerCount = (live) => {
+  const count = Number(live?.viewerCount);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+};
+
 function PhoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -393,6 +403,11 @@ export default function ChatsPage() {
 
   return (
     <div className="chats-page">
+      <header className="meet-hub-heading">
+        <span className="meet-hub-kicker">{t("chatPremium.meetHubKicker")}</span>
+        <h1>{t("chatPremium.meetHubTitle")}</h1>
+      </header>
+
       <nav className="secondary-tabs" aria-label={t("chatPremium.secondaryHubAria")}>
         {HUB_TABS.map(({ id, labelKey }) => (
           <button
@@ -404,7 +419,7 @@ export default function ChatsPage() {
           >
             {getTabIcon(id)}
             {t(`chatPremium.${labelKey}`)}
-            <span>{getTabCount(id)}</span>
+            <span className="sr-only">{getTabCount(id)}</span>
           </button>
         ))}
       </nav>
@@ -414,9 +429,8 @@ export default function ChatsPage() {
           <section className="conversation-priority-head">
             <div>
               <span className="section-kicker">{t("chatPremium.recentConversations")}</span>
-              <h1>{t("chatPremium.conversationsFirstTitle")}</h1>
+              <h2>{t("chatPremium.conversationsFirstTitle")}</h2>
             </div>
-            <span>{filteredChats.length} {t("chatPremium.chats")}</span>
           </section>
 
           <section className="chat-toolbar" aria-label={t("chatPremium.searchConversationsAria")}>
@@ -497,6 +511,8 @@ export default function ChatsPage() {
             const statusKey = isLive ? "statusLive" : inCall ? "statusInCall" : isTyping ? "statusTyping" : isOnline ? "statusOnline" : "statusOffline";
             const lastDate = getChatActivityAt(chat);
             const lastTime = formatChatTime(lastDate, locale, t("chatPremium.yesterday"));
+            const liveTitle = getLiveTitle(activeLive, t("chatPremium.liveRoomFallback"));
+            const liveViewerCount = getLiveViewerCount(activeLive);
 
             return (
               <Link key={chat._id} href={`/chats/${chat._id}`} className="chat-row" data-unread={unreadCount > 0 ? "true" : "false"}>
@@ -521,6 +537,22 @@ export default function ChatsPage() {
                     {isApprovedCreator(other) && <span className="profile-badge creator">{t("chatPremium.creatorBadge")}</span>}
                     {membershipBadge && <span className={`profile-badge ${membershipBadge}`}>{t(`chatPremium.${membershipBadge}Badge`)}</span>}
                   </div>
+                  {isLive && (
+                    <div className="live-room-preview">
+                      <div className="live-room-signal">
+                        <span />
+                        {t("chatPremium.liveNowLabel")}
+                      </div>
+                      <div className="live-room-copy">
+                        <strong>{liveTitle}</strong>
+                        <small>
+                          {liveViewerCount > 0
+                            ? t("chatPremium.liveViewers").replace("{count}", liveViewerCount)
+                            : t("chatPremium.liveJoinNow")}
+                        </small>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="chat-arrow" aria-hidden="true">
@@ -650,21 +682,26 @@ export default function ChatsPage() {
 
       <style jsx>{`
         .chats-page { --chat-page-gap: 1rem; display: flex; flex-direction: column; gap: var(--chat-page-gap); position: relative; }
+        .meet-hub-heading { position: relative; overflow: hidden; padding: 1.35rem 1.2rem 1.15rem; border-radius: 30px; border: 1px solid rgba(255,255,255,0.12); background: radial-gradient(circle at 12% 16%, rgba(224,64,251,0.28), transparent 36%), radial-gradient(circle at 88% 8%, rgba(34,211,238,0.18), transparent 38%), linear-gradient(145deg, rgba(24,14,52,0.9), rgba(9,5,22,0.82)); box-shadow: 0 20px 54px rgba(4,2,12,0.42), inset 0 1px 0 rgba(255,255,255,0.1); }
+        .meet-hub-heading::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 10%, rgba(255,255,255,0.08) 42%, transparent 68%); transform: translateX(-120%); animation: heroShimmer 7s ease-in-out infinite; pointer-events: none; }
+        .meet-hub-kicker { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 0.42rem; color: var(--accent-cyan); font-size: 0.72rem; font-weight: 950; letter-spacing: 0.12em; text-transform: uppercase; }
+        .meet-hub-kicker::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 14px rgba(52,211,153,0.85); animation: pulseDot 1.7s ease-out infinite; }
+        .meet-hub-heading h1 { position: relative; z-index: 1; margin: 0.22rem 0 0; color: #fff; font-size: clamp(2rem, 7vw, 3.6rem); line-height: 0.95; letter-spacing: -0.075em; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         .chat-hero { position: relative; overflow: hidden; display: flex; justify-content: space-between; gap: 1.25rem; padding: 1.45rem; border: 1px solid rgba(236,124,255,0.34); border-radius: 32px; background: radial-gradient(circle at 12% 16%, rgba(224,64,251,0.34), transparent 34%), radial-gradient(circle at 88% 4%, rgba(34,211,238,0.24), transparent 36%), radial-gradient(circle at 74% 86%, rgba(124,58,237,0.24), transparent 38%), linear-gradient(145deg, rgba(32,18,68,0.92), rgba(15,8,33,0.96)); box-shadow: 0 22px 58px rgba(4,2,12,0.46), inset 0 1px 0 rgba(255,255,255,0.1); }
         .chat-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,0.08) 45%, transparent 70%); transform: translateX(-100%); animation: heroShimmer 7s ease-in-out infinite; pointer-events: none; }
         .hero-copy { position: relative; z-index: 1; max-width: 680px; }
         .eyebrow { display: inline-flex; width: fit-content; margin-bottom: 0.55rem; padding: 0.28rem 0.65rem; border-radius: var(--radius-pill); border: 1px solid rgba(34,211,238,0.28); background: rgba(34,211,238,0.08); color: var(--accent-cyan); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-                .secondary-tabs { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0.45rem; border: 1px solid rgba(236,124,255,0.16); border-radius: 22px; background: rgba(15,8,32,0.5); }
-        .secondary-tab { display: inline-flex; align-items: center; gap: 0.48rem; padding: 0.58rem 0.78rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 900; transition: all var(--transition); cursor: pointer; }
-        .secondary-tab span { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.36rem; border-radius: var(--radius-pill); background: rgba(255,255,255,0.07); color: var(--text); font-size: 0.68rem; }
-        .secondary-tab:hover, .secondary-tab.active { color: #fff; border-color: rgba(34,211,238,0.34); background: rgba(34,211,238,0.09); }
+                .secondary-tabs { display: flex; flex-wrap: wrap; gap: 0.55rem; padding: 0.45rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; background: rgba(15,8,32,0.42); backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+        .secondary-tab { display: inline-flex; align-items: center; justify-content: center; gap: 0.48rem; padding: 0.68rem 0.92rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.045); color: var(--text-muted); font-size: 0.78rem; font-weight: 900; transition: all var(--transition-slow); cursor: pointer; }
+        .secondary-tab:hover, .secondary-tab.active { color: #fff; transform: translateY(-1px); border-color: rgba(34,211,238,0.34); background: radial-gradient(circle at 50% 0%, rgba(34,211,238,0.16), transparent 70%), rgba(224,64,251,0.1); box-shadow: 0 10px 26px rgba(4,2,12,0.22), 0 0 20px rgba(34,211,238,0.08); }
         .chat-toolbar { display: flex; align-items: center; gap: 0.8rem; padding: 0.75rem; border: 1px solid rgba(236,124,255,0.2); border-radius: 24px; background: rgba(15,8,32,0.58); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter: blur(16px); }
         .search-shell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.62rem; height: 48px; padding: 0 0.9rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; color: var(--text-dim); background: linear-gradient(135deg, rgba(255,255,255,0.07), transparent 45%), rgba(7,4,18,0.58); transition: border-color var(--transition), box-shadow var(--transition), background var(--transition); }
         .search-shell:focus-within { border-color: rgba(34,211,238,0.42); box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 0 24px rgba(124,58,237,0.14); background: rgba(10,5,26,0.78); }
         .search-shell input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; }
         .search-shell input::placeholder { color: var(--text-dim); }
         .conversation-priority-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 0 0.2rem; }
-        .conversation-priority-head h1 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
+        .conversation-priority-head h1, .conversation-priority-head h2 { margin: 0.14rem 0 0; color: var(--text); font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -0.03em; }
         .conversation-priority-head > span { flex-shrink: 0; color: var(--accent-cyan); font-size: 0.75rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
         .section-kicker { color: var(--text-dim); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }
         .hub-panel, .chats-list { display: flex; flex-direction: column; gap: 0.78rem; }
@@ -704,6 +741,12 @@ export default function ChatsPage() {
         .profile-badge.live { color: #fee2e2; border-color: rgba(248,113,113,0.34); background: rgba(239,68,68,0.14); }
         .profile-badge.creator { color: #fde68a; border-color: rgba(251,191,36,0.28); background: rgba(251,191,36,0.1); }
         .profile-badge.premium, .profile-badge.vip { color: #e9d5ff; border-color: rgba(216,180,254,0.3); background: rgba(124,58,237,0.16); }
+        .live-room-preview { display: flex; align-items: center; gap: 0.65rem; margin-top: 0.58rem; padding: 0.58rem 0.7rem; border: 1px solid rgba(239,68,68,0.22); border-radius: 18px; background: linear-gradient(135deg, rgba(239,68,68,0.13), rgba(224,64,251,0.08) 54%, rgba(34,211,238,0.06)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 24px rgba(239,68,68,0.08); }
+        .live-room-signal { display: inline-flex; align-items: center; gap: 0.36rem; flex-shrink: 0; color: #fecaca; font-size: 0.62rem; font-weight: 950; letter-spacing: 0.08em; text-transform: uppercase; }
+        .live-room-signal span { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 14px rgba(239,68,68,0.85); animation: pulseDot 1.4s ease-out infinite; }
+        .live-room-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.08rem; }
+        .live-room-copy strong { color: #fff; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .live-room-copy small { color: var(--text-muted); font-size: 0.7rem; font-weight: 750; }
         .chat-time { flex-shrink: 0; color: rgba(255,255,255,0.72); font-size: 0.72rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: var(--radius-pill); background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.07); }
         .unread-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.34rem; border-radius: var(--radius-pill); color: #04111d; background: var(--accent-cyan); font-size: 0.68rem; font-weight: 950; box-shadow: 0 0 18px rgba(34,211,238,0.38); }
         .chat-arrow { position: relative; z-index: 1; color: var(--text-dim); opacity: 0.42; transition: all var(--transition); display: flex; flex-shrink: 0; }

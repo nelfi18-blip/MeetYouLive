@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import BottomNav from "./BottomNav";
+import BottomNavEnhanced from "./BottomNavEnhanced";
 import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 
 export default function BottomNavWrapper() {
@@ -11,5 +11,5 @@ export default function BottomNavWrapper() {
 
   if (!shouldShow) return null;
   
-  return <BottomNav />;
+  return <BottomNavEnhanced />;
 }

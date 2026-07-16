@@ -16,48 +16,49 @@ export default function BottomNavEnhanced() {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newMatchesCount, setNewMatchesCount] = useState(0);
+  const [liveCount, setLiveCount] = useState(0);
   const [showNewMatchAnimation, setShowNewMatchAnimation] = useState(false);
   const [role, setRole] = useState("");
-  
-  // Fetch user role
+
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
-    
+
     fetch(`${API_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: "Bearer " + token },
     })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setRole(d.role || ""); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setRole(d.role || "");
+      })
       .catch(() => {});
   }, [session]);
-  
-  // Get role-aware home path
+
   const homePath = useMemo(() => getHomePath(role), [role]);
-  
+
   const isActive = (path) => {
-    if (path === homePath) {
-      // Home is active if we're on the home path or the root path
-      return pathname === "/" || pathname === homePath;
-    }
+    if (path === homePath) return pathname === "/" || pathname === homePath;
     return pathname?.startsWith(path);
   };
 
   const canGoLive = session?.user && isApprovedCreator(session.user);
+  const primaryLiveHref = canGoLive ? "/live/start" : "/live";
 
-  // Fetch unread counts
   useEffect(() => {
     if (!session?.backendToken) return;
 
     const fetchCounts = async () => {
       try {
-        const [chatsRes, matchesRes] = await Promise.all([
+        const [chatsRes, matchesRes, livesRes] = await Promise.all([
           fetch(`${API_URL}/api/chat/unread-count`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` }
+            headers: { Authorization: "Bearer " + session.backendToken },
           }),
           fetch(`${API_URL}/api/matches/new-count`, {
-            headers: { Authorization: `Bearer ${session.backendToken}` }
-          })
+            headers: { Authorization: "Bearer " + session.backendToken },
+          }),
+          fetch(`${API_URL}/api/lives`, {
+            headers: { Authorization: "Bearer " + session.backendToken },
+          }),
         ]);
 
         if (chatsRes.ok) {
@@ -74,47 +75,49 @@ export default function BottomNavEnhanced() {
           }
           setNewMatchesCount(newCount);
         }
+
+        if (livesRes.ok) {
+          const livesData = await livesRes.json();
+          setLiveCount(Array.isArray(livesData) ? livesData.length : 0);
+        }
       } catch (error) {
-        console.error('Error fetching counts:', error);
+        console.error("Error fetching navigation activity:", error);
       }
     };
 
     fetchCounts();
-    const interval = setInterval(fetchCounts, 30000); // Poll every 30s
+    const interval = setInterval(fetchCounts, 30000);
     return () => clearInterval(interval);
   }, [session, newMatchesCount]);
 
   const createMenuItems = [
     {
-      icon: "📹",
-      label: "Go Live",
-      href: "/golive",
+      icon: "🔴",
+      label: canGoLive ? "Start Live" : "Live Rooms",
+      href: primaryLiveHref,
       color: "#ef4444",
-      show: canGoLive,
+      show: true,
     },
     {
-      icon: "📷",
-      label: "Upload Video",
-      href: "/videos/upload",
+      icon: "👑",
+      label: "Creator Center",
+      href: "/creator",
       color: "#8b5cf6",
       show: true,
     },
     {
-      icon: "📖",
-      label: "Add Story",
-      href: "/stories/create",
-      color: "#3b82f6",
+      icon: "🪙",
+      label: "Coins & Gifts",
+      href: "/coins",
+      color: "#22d3ee",
       show: true,
     },
   ];
 
-  const toggleCreateMenu = () => {
-    setShowCreateMenu(!showCreateMenu);
-  };
+  const toggleCreateMenu = () => setShowCreateMenu((value) => !value);
 
   return (
     <>
-      {/* Create Menu Overlay */}
       <AnimatePresence>
         {showCreateMenu && (
           <>
@@ -132,7 +135,7 @@ export default function BottomNavEnhanced() {
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
               transition={{ type: "spring", damping: 25 }}
             >
-              {createMenuItems.filter(item => item.show).map((item, index) => (
+              {createMenuItems.filter((item) => item.show).map((item, index) => (
                 <motion.div
                   key={item.label}
                   initial={{ opacity: 0, y: 10 }}
@@ -144,10 +147,7 @@ export default function BottomNavEnhanced() {
                     className="create-menu-item"
                     onClick={() => setShowCreateMenu(false)}
                   >
-                    <div
-                      className="create-menu-icon"
-                      style={{ background: item.color }}
-                    >
+                    <div className="create-menu-icon" style={{ background: item.color }}>
                       {item.icon}
                     </div>
                     <span>{item.label}</span>
@@ -159,8 +159,7 @@ export default function BottomNavEnhanced() {
         )}
       </AnimatePresence>
 
-      {/* Bottom Navigation Bar */}
-      <nav className="bottom-nav-enhanced">
+      <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           {showNewMatchAnimation && (
             <motion.div
@@ -170,63 +169,71 @@ export default function BottomNavEnhanced() {
               transition={{ duration: 0.6, repeat: 3 }}
             />
           )}
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 11.5 12 4l9 7.5" />
+            <path d="M5 10.5V20h14v-9.5" />
+            <path d="M9.5 20v-5h5v5" />
           </svg>
-          <span>Home</span>
+          <span className="nav-label">Hub</span>
           {newMatchesCount > 0 && (
             <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
-              {newMatchesCount > 99 ? '99+' : newMatchesCount}
+              {newMatchesCount > 99 ? "99+" : newMatchesCount}
             </span>
           )}
         </Link>
 
         <Link href="/explore" className={`nav-item ${isActive("/explore") ? "active" : ""}`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3 4 7l8 4 8-4-8-4Z" />
+            <path d="m4 12 8 4 8-4" />
+            <path d="m4 17 8 4 8-4" />
           </svg>
-          <span>Explore</span>
+          <span className="nav-label">Discover</span>
         </Link>
 
-        {/* Create Button */}
         <button
           onClick={toggleCreateMenu}
           className={`nav-item-create ${showCreateMenu ? "active" : ""}`}
-          aria-label="Create content"
+          aria-label={canGoLive ? "Open live and creator actions" : "Open live rooms and creator actions"}
           aria-expanded={showCreateMenu}
         >
+          {liveCount > 0 && (
+            <span className="live-count-dot" aria-label={`${liveCount} active live rooms`}>
+              {liveCount > 9 ? "9+" : liveCount}
+            </span>
+          )}
           <motion.div
             className="create-btn-icon"
-            animate={{ rotate: showCreateMenu ? 45 : 0 }}
+            animate={{ rotate: showCreateMenu ? 45 : 0, scale: showCreateMenu ? 0.94 : 1 }}
             transition={{ type: "spring", stiffness: 200 }}
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
+            <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 10.5 21 7v10l-6-3.5" />
+              <rect x="3" y="6" width="12" height="12" rx="3" />
             </svg>
           </motion.div>
+          <span className="create-live-label">{liveCount > 0 ? "LIVE" : "GO"}</span>
         </button>
 
         <Link href="/chats" className={`nav-item ${isActive("/chats") ? "active" : ""}`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />
+            <path d="M8 9h8M8 13h5" />
           </svg>
-          <span>Inbox</span>
+          <span className="nav-label">Meet Hub</span>
           {unreadCount > 0 && (
             <span className="nav-badge nav-badge-pulse" aria-label={`${unreadCount} unread messages`}>
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Link>
 
         <Link href="/profile" className={`nav-item ${isActive("/profile") ? "active" : ""}`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
           </svg>
-          <span>Profile</span>
+          <span className="nav-label">You</span>
         </Link>
       </nav>
     </>

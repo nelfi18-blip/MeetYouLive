@@ -66,10 +66,8 @@ const getUnreadCount = (chat) => {
 };
 
 const getMembershipBadge = (user) => {
-  if (user?.isVIP) return "vip";
-  if (user?.vipTier) return "vip";
+  if (user?.isVIP || user?.vipTier || user?.subscriptionTier === "vip" || user?.membership === "vip") return "vip";
   if (user?.isPremium) return "premium";
-  if (user?.subscriptionTier === "vip" || user?.membership === "vip") return "vip";
   if (user?.subscriptionTier === "premium" || user?.membership === "premium") return "premium";
   return null;
 };
@@ -481,7 +479,7 @@ export default function ChatsPage() {
         .call-dot { background: var(--accent-cyan); box-shadow: 0 0 12px rgba(34,211,238,0.9); animation: pulseDot 1.5s ease-out infinite; }
         .avatar-ring.sm .online-dot, .avatar-ring.sm .call-dot { width: 11px; height: 11px; right: 0; bottom: 1px; border-width: 2px; }
         .chat-info { position: relative; z-index: 1; flex: 1; min-width: 0; }
-        .chat-topline { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
+        .chat-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
         .chat-name-wrap { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.46rem; }
         .chat-name { font-weight: 900; color: var(--text); font-size: 1.02rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .chat-side { display: flex; align-items: center; gap: 0.42rem; flex-shrink: 0; }

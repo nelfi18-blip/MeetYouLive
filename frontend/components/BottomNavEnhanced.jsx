@@ -12,6 +12,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const getBearerHeader = (token) => ["Bearer", token].join(" ");
+// Treat the public root and legacy dashboard as Home states while preserving
+// the role-aware Home link returned by getHomePath().
 const HOME_ACTIVE_PATHS = new Set(["/", "/dashboard"]);
 
 export default function BottomNavEnhanced() {

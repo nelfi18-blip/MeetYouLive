@@ -173,8 +173,8 @@ export default function InteractionBar({
         }
 
         /* Safe-area handling is folded into the bottom calc() above so the
-           dock always sits above .bottom-nav-enhanced (72/68px tall) + the
-           device safe-area inset, never overlapping the bottom nav. */
+           dock always sits above the premium bottom nav and device safe-area
+           inset, never overlapping the bottom nav. */
       `}</style>
     </>
   );

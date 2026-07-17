@@ -41,7 +41,7 @@ export default function BottomNavEnhanced() {
   const homePath = useMemo(() => getHomePath(role), [role]);
 
   const isActive = (path) => {
-    if (path === homePath) return pathname === "/" || pathname === homePath;
+    if (path === homePath) return pathname === "/" || pathname === homePath || pathname === "/dashboard";
     return pathname?.startsWith(path);
   };
 

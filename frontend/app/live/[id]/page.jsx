@@ -27,6 +27,7 @@ import ModerationActions from "@/components/ModerationActions";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
 import { getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -64,6 +65,7 @@ function isPermissionDeniedError(err) {
 }
 
 export default function LiveRoomPage() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const router = useRouter();
 
@@ -1767,10 +1769,12 @@ export default function LiveRoomPage() {
             </div>
 
             <div className="video-activity-pills" aria-label="Actividad del directo">
-              <span className="vap-pill vap-live">🔴 EN VIVO</span>
-              <span className="vap-pill vap-viewers">👁 {viewerCount} espectadores</span>
+              <span className="vap-pill vap-live">{t("liveRoomUi.live")}</span>
+              <span className="vap-pill vap-viewers">
+                👁 {t("liveRoomUi.viewers").replace("{count}", String(viewerCount))}
+              </span>
               <span className="vap-pill vap-chat" aria-live="off">
-                {socketState === "connected" ? "💬 Chat activo" : "⚡ Reconectando"}
+                {socketState === "connected" ? t("liveRoomUi.chatActive") : t("liveRoomUi.reconnecting")}
               </span>
             </div>
 
@@ -1778,15 +1782,15 @@ export default function LiveRoomPage() {
               <div className="video-floating-actions" aria-label="Acciones rápidas del live">
                 <button type="button" className="video-fab gift" onClick={() => setShowGiftPanel(true)}>
                   <span>🎁</span>
-                  <small>Regalo</small>
+                  <small>{t("liveRoomUi.gift")}</small>
                 </button>
                 <button type="button" className="video-fab chat" onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}>
                   <span>💬</span>
-                  <small>Chat</small>
+                  <small>{t("liveRoomUi.chat")}</small>
                 </button>
                 <Link href={creatorProfileHref} className="video-fab profile">
                   <span>👤</span>
-                  <small>Perfil</small>
+                  <small>{t("liveRoomUi.profile")}</small>
                 </Link>
               </div>
             )}
@@ -1949,7 +1953,7 @@ export default function LiveRoomPage() {
         <div className="room-chat">
           <div className="viewer-panel">
             <div className="viewer-panel-header">
-              <span>👥 Audiencia</span>
+              <span>{t("liveRoomUi.audience")}</span>
               <strong>{viewerCount}</strong>
             </div>
             <div className="viewer-stack">
@@ -1962,12 +1966,15 @@ export default function LiveRoomPage() {
                 </span>
               ))}
               {extraViewerCount > 0 && (
-                <span className="viewer-more" aria-label={`${extraViewerCount} más espectadores`}>
+                <span
+                  className="viewer-more"
+                  aria-label={t("liveRoomUi.moreViewers").replace("{count}", String(extraViewerCount))}
+                >
                   +{extraViewerCount}
                 </span>
               )}
             </div>
-            <p>Entradas, regalos y chat aparecen en tiempo real con animaciones discretas.</p>
+            <p>{t("liveRoomUi.activityDescription")}</p>
           </div>
 
           <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />

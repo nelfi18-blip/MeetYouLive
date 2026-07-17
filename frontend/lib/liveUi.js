@@ -5,10 +5,10 @@
 export const RECENT_LIVE_WINDOW_MS = 45 * 60 * 1000;
 export const RECENT_LIVE_WINDOW_MINUTES = Math.round(RECENT_LIVE_WINDOW_MS / 60000);
 
-export function formatLiveDuration(live) {
+export function formatLiveDuration(live, nowLabel = "Now") {
   const startedAt = live?.startedAt || live?.createdAt;
   const startTime = startedAt ? new Date(startedAt).getTime() : NaN;
-  if (!Number.isFinite(startTime)) return "Ahora";
+  if (!Number.isFinite(startTime)) return nowLabel;
 
   const minutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
   if (minutes < 60) return `${minutes} min`;

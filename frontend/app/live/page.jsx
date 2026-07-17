@@ -34,7 +34,7 @@ function normalizeLive(live) {
     title:
       typeof live.title === "string" && live.title.trim()
         ? live.title.trim()
-        : "Directo en vivo",
+        : "",
     viewerCount: Number.isFinite(Number(live.viewerCount)) ? Math.max(0, Number(live.viewerCount)) : 0,
     giftsTotal: Number.isFinite(Number(live.giftsTotal)) ? Math.max(0, Number(live.giftsTotal)) : 0,
   };
@@ -202,20 +202,20 @@ export default function LivePage() {
         <div className="hero-orb orb-a" />
         <div className="hero-orb orb-b" />
         <div className="hero-copy">
-          <span className="hero-kicker"><span /> Live Rooms Premium</span>
-          <h1>Descubre lives que se sienten vivos desde el primer segundo.</h1>
+          <span className="hero-kicker"><span /> {t("liveDiscovery.heroKicker")}</span>
+          <h1>{t("liveDiscovery.heroTitle")}</h1>
           <p>
-            Salas en directo, creadores destacados y momentos con regalos, chat y actividad en tiempo real.
+            {t("liveDiscovery.heroSubtitle")}
           </p>
           <div className="hero-stats">
-            <span><strong>{lives.length}</strong> salas activas</span>
-            <span><strong>{totalViewers}</strong> espectadores</span>
-            <span><strong>{liveCreators.length}</strong> creadores live</span>
+            <span><strong>{lives.length}</strong> {t("liveDiscovery.activeRooms")}</span>
+            <span><strong>{totalViewers}</strong> {t("liveDiscovery.viewers")}</span>
+            <span><strong>{liveCreators.length}</strong> {t("liveDiscovery.liveCreators")}</span>
           </div>
         </div>
         <div className="hero-actions">
-          <Link href="/live/start" className="hero-start">🚀 Iniciar Live</Link>
-          <a href="#active-lives" className="hero-discover">Explorar salas</a>
+          <Link href="/live/start" className="hero-start">{t("liveDiscovery.startLive")}</Link>
+          <a href="#active-lives" className="hero-discover">{t("liveDiscovery.exploreRooms")}</a>
         </div>
       </section>
 
@@ -224,10 +224,14 @@ export default function LivePage() {
       <section className="featured-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Destacado</span>
-            <h2>Lives más populares ahora</h2>
+            <span className="eyebrow">{t("liveDiscovery.featuredEyebrow")}</span>
+            <h2>{t("liveDiscovery.featuredTitle")}</h2>
           </div>
-          {featuredLive && <span className="live-now-chip">🔴 {featuredLive.viewerCount} viendo</span>}
+          {featuredLive && (
+            <span className="live-now-chip">
+              {t("liveDiscovery.liveNowWatching").replace("{count}", String(featuredLive.viewerCount))}
+            </span>
+          )}
         </div>
 
         {loading ? (
@@ -235,20 +239,20 @@ export default function LivePage() {
         ) : featuredLive ? (
           <div className="featured-banner">
             <div className="featured-copy">
-              <span className="featured-badge">🔥 Tendencia ahora</span>
-              <h3>{featuredLive.title}</h3>
+              <span className="featured-badge">{t("liveDiscovery.featuredBadge")}</span>
+              <h3>{featuredLive.title || t("liveDiscovery.fallbackTitle")}</h3>
               <p>
-                @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive)}
+                @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive, t("liveCard.now"))}
               </p>
               <div className="featured-metrics">
-                <span>👁 {featuredLive.viewerCount} espectadores</span>
+                <span>👁 {featuredLive.viewerCount} {t("liveDiscovery.viewers")}</span>
                 <span>🎁 {featuredLive.giftsTotal || 0} coins</span>
-                <span>🔴 EN VIVO</span>
+                <span>{t("liveRoomUi.live")}</span>
               </div>
               <div className="featured-actions">
-                <Link href={`/live/${featuredLive._id}`} className="featured-enter">Entrar al Live</Link>
-                <button type="button" onClick={() => openGiftPanel(featuredLive)}>Enviar regalo</button>
-                <button type="button" onClick={() => handleShare(featuredLive)}>Compartir</button>
+                <Link href={`/live/${featuredLive._id}`} className="featured-enter">{t("liveDiscovery.enterLive")}</Link>
+                <button type="button" onClick={() => openGiftPanel(featuredLive)}>{t("liveDiscovery.sendGift")}</button>
+                <button type="button" onClick={() => handleShare(featuredLive)}>{t("liveDiscovery.share")}</button>
               </div>
             </div>
             <LiveCard live={featuredLive} token={token} variant="featured" onShare={handleShare} onGift={openGiftPanel} />
@@ -256,9 +260,9 @@ export default function LivePage() {
         ) : (
           <div className="empty-premium">
             <span>🎥</span>
-            <h3>No hay lives activos ahora</h3>
-            <p>Sé el primer creador en encender una sala premium.</p>
-            <Link href="/live/start">Iniciar Live</Link>
+            <h3>{t("liveDiscovery.emptyNoLivesTitle")}</h3>
+            <p>{t("liveDiscovery.emptyNoLivesSubtitle")}</p>
+            <Link href="/live/start">{t("liveDiscovery.startLive")}</Link>
           </div>
         )}
       </section>
@@ -267,8 +271,8 @@ export default function LivePage() {
         <section className="creators-section">
           <div className="section-heading compact">
             <div>
-              <span className="eyebrow">Creadores en vivo</span>
-              <h2>Carrusel live</h2>
+              <span className="eyebrow">{t("liveDiscovery.creatorsEyebrow")}</span>
+              <h2>{t("liveDiscovery.creatorsTitle")}</h2>
             </div>
           </div>
           <div className="creator-carousel" aria-label="Creadores transmitiendo en vivo">
@@ -284,7 +288,9 @@ export default function LivePage() {
                         <span className="creator-live-dot" />
                       </span>
                       <span className="creator-name">@{name}</span>
-                      <span className="creator-viewers">{live.viewerCount} viendo</span>
+                      <span className="creator-viewers">
+                        {t("liveDiscovery.creatorViewing").replace("{count}", String(live.viewerCount))}
+                      </span>
                     </Link>
                   );
                 })}
@@ -298,7 +304,7 @@ export default function LivePage() {
           <input
             type="text"
             aria-label="Buscar lives"
-            placeholder="Buscar por creador, título o categoría…"
+            placeholder={t("liveDiscovery.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -324,10 +330,14 @@ export default function LivePage() {
       <section id="active-lives" className="active-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Descubrimiento</span>
-            <h2>Salas activas · {activeFilterLabel}</h2>
+            <span className="eyebrow">{t("liveDiscovery.discoverEyebrow")}</span>
+            <h2>{t("liveDiscovery.activeRoomsHeading")} · {activeFilterLabel}</h2>
           </div>
-          {!loading && <span className="section-count">{filteredLives.length} sala{filteredLives.length !== 1 ? "s" : ""}</span>}
+          {!loading && (
+            <span className="section-count">
+              {filteredLives.length} {filteredLives.length === 1 ? t("liveDiscovery.roomSingular") : t("liveDiscovery.roomPlural")}
+            </span>
+          )}
         </div>
 
         <div className="streams-grid">
@@ -348,7 +358,7 @@ export default function LivePage() {
         {!loading && filteredLives.length === 0 && !error && (
           <div className="empty-premium">
             <span>🔎</span>
-            <h3>Sin resultados</h3>
+            <h3>{t("liveDiscovery.emptyResultsTitle")}</h3>
             <p>
               {activeFilter === "near"
                 ? t("liveDiscovery.emptyNear")

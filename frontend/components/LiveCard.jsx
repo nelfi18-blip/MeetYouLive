@@ -13,6 +13,7 @@ import {
   getUserImage,
 } from "@/lib/imageHelpers";
 import { formatLiveDuration, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function normalizeNumber(value) {
   const number = Number(value);
@@ -27,11 +28,12 @@ export default function LiveCard({
   onShare,
   onGift,
 }) {
+  const { t } = useLanguage();
   if (!live || typeof live !== "object" || !live._id) return null;
 
   const username = getDisplayName(live.user);
   const initial = getInitial(username);
-  const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
+  const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : t("liveDiscovery.fallbackTitle");
   const liveThumb = getLiveThumbnail(live);
   const avatar = getUserImage(live.user);
   const gradient = getGradientForUser(live.user?._id || live._id);
@@ -41,7 +43,7 @@ export default function LiveCard({
   const liveStartedAt = live.startedAt || live.createdAt;
   const isNew = liveStartedAt ? Date.now() - new Date(liveStartedAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
   const isBattle = live.battle?.active === true || live.isVsActive === true;
-  const duration = formatLiveDuration(live);
+  const duration = formatLiveDuration(live, t("liveCard.now"));
   const profileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const statusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },
@@ -52,7 +54,11 @@ export default function LiveCard({
   return (
     <>
       <article className={`live-card ${variant === "featured" ? "featured" : ""} animate-slide-up ${staggerClass}`}>
-        <Link href={`/live/${live._id}`} className="live-card-link" aria-label={`Entrar al live ${safeTitle}`}>
+        <Link
+          href={`/live/${live._id}`}
+          className="live-card-link"
+          aria-label={t("liveCard.enterAria").replace("{title}", safeTitle)}
+        >
           <div className="live-thumb">
             {liveThumb ? (
               <img src={liveThumb} alt={safeTitle} className="live-thumb-img" />
@@ -97,9 +103,9 @@ export default function LiveCard({
               </div>
               <div className="live-user-copy">
                 <span className="live-username">@{username}</span>
-                <span className="live-user-meta">{safeViewerCount} espectadores · {duration}</span>
+                <span className="live-user-meta">{safeViewerCount} {t("liveCard.viewers")} · {duration}</span>
               </div>
-              {isCreatorApproved && <span className="live-creator-badge">Creator</span>}
+              {isCreatorApproved && <span className="live-creator-badge">{t("liveCard.creator")}</span>}
             </div>
 
             {statusBadges.length > 0 && <StatusBadges badges={statusBadges} compact />}
@@ -109,9 +115,9 @@ export default function LiveCard({
           </div>
         </Link>
 
-        <div className="live-actions" aria-label={`Acciones para ${safeTitle}`}>
+        <div className="live-actions" aria-label={t("liveCard.actionsFor").replace("{title}", safeTitle)}>
           <Link href={`/live/${live._id}`} className="action-primary">
-            Entrar
+            {t("liveCard.enter")}
           </Link>
           {live.user?._id && (
             <span className="follow-wrap">
@@ -119,13 +125,13 @@ export default function LiveCard({
             </span>
           )}
           <button type="button" className="action-chip" onClick={() => onShare?.(live)}>
-            Compartir
+            {t("liveCard.share")}
           </button>
           <button type="button" className="action-chip gift" onClick={() => onGift?.(live)}>
-            Regalo
+            {t("liveCard.gift")}
           </button>
           <Link href={profileHref} className="action-chip profile">
-            Perfil
+            {t("liveCard.profile")}
           </Link>
         </div>
       </article>

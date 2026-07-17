@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 export default function ContactPage() {
+  const [submitted, setSubmitted] = useState(false);
+
   function handleContactSubmit(event) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -17,6 +20,7 @@ export default function ContactPage() {
       ].join("\n")
     );
 
+    setSubmitted(true);
     window.location.href = `mailto:support@meetyoulive.net?subject=${subject}&body=${body}`;
   }
 
@@ -85,6 +89,11 @@ export default function ContactPage() {
           <button className="primary-button" type="submit">
             Send request
           </button>
+          {submitted && (
+            <p className="form-note" role="status">
+              If your email app did not open, email support@meetyoulive.net directly with the details above.
+            </p>
+          )}
         </form>
       </section>
 
@@ -183,6 +192,10 @@ export default function ContactPage() {
         }
         textarea {
           resize: vertical;
+        }
+        .form-note {
+          color: var(--text-muted);
+          font-size: 0.86rem;
         }
         .primary-button {
           display: inline-flex;

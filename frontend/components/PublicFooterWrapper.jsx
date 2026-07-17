@@ -41,6 +41,7 @@ const FOOTER_LINKS = [
   "helpCenter",
   "contact",
 ];
+const LEGAL_POLICY_BY_KEY = new Map(LEGAL_POLICIES.map((policy) => [policy.key, policy]));
 
 export default function PublicFooterWrapper() {
   const pathname = usePathname();
@@ -54,7 +55,7 @@ export default function PublicFooterWrapper() {
         <strong>MeetYouLive</strong>
         <nav aria-label="Legal and support">
           {FOOTER_LINKS.map((policyKey) => {
-            const policy = LEGAL_POLICIES.find((item) => item.key === policyKey);
+            const policy = LEGAL_POLICY_BY_KEY.get(policyKey);
             if (!policy) return null;
 
             return (

@@ -11,12 +11,20 @@ export default function sitemap() {
     '',              // Homepage
     '/login',        // Login page
     '/register',     // Registration page
+    '/about',
+    '/how-it-works',
     '/legal',        // Legal center
+    '/security',
+    '/community-guidelines',
     '/terms',        // Terms of service
     '/privacy',      // Privacy policy
+    '/cookies',
     '/acceptable-use',
-    '/community-guidelines',
+    '/content-policy',
     '/creator-policy',
+    '/help-center',
+    '/contact',
+    '/refund',
     '/payments-refunds', // Payments and refund policy
     '/dmca',
     '/safety-moderation' 

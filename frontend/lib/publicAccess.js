@@ -1,8 +1,22 @@
 export const PUBLIC_ROUTE_PATHS = new Set([
   "/",
+  "/about",
+  "/how-it-works",
+  "/legal",
+  "/security",
+  "/community-guidelines",
   "/privacy",
   "/terms",
+  "/cookies",
   "/refund",
+  "/refunds",
+  "/payments-refunds",
+  "/acceptable-use",
+  "/content-policy",
+  "/creator-policy",
+  "/help-center",
+  "/dmca",
+  "/safety-moderation",
   "/contact",
 ]);
 

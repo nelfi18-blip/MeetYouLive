@@ -1286,5 +1286,10 @@
     "chatsMessage": "The conversation was not lost. Try again to reconnect to your messages.",
     "liveTitle": "We could not load Live",
     "liveMessage": "The live session was not changed. Try again to reconnect."
+  },
+  "liveDiscovery": {
+    "emptyNear": "No lives with location data are available right now.",
+    "emptyNew": "No new lives in the last {minutes} minutes.",
+    "emptyDefault": "Try another chip or search for a different creator."
   }
 }

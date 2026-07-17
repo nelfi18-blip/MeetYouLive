@@ -1286,5 +1286,10 @@
     "chatsMessage": "La conversación no se perdió. Reintenta para reconectar con tus mensajes.",
     "liveTitle": "No pudimos cargar Live",
     "liveMessage": "La sesión en vivo no se modificó. Reintenta para reconectar."
+  },
+  "liveDiscovery": {
+    "emptyNear": "No hay lives con datos de ubicación disponibles ahora.",
+    "emptyNew": "No hay lives nuevos en los últimos {minutes} minutos.",
+    "emptyDefault": "Prueba otro chip o busca un creador diferente."
   }
 }

@@ -8,7 +8,8 @@ import GiftPanel from "@/components/GiftPanel";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
-import { RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { formatLiveDuration, RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL_MS = 20000;
@@ -70,18 +71,8 @@ function hasLocationHint(live) {
   );
 }
 
-function getDuration(live) {
-  const startedAt = live?.startedAt || live?.createdAt;
-  const started = startedAt ? new Date(startedAt).getTime() : NaN;
-  if (!Number.isFinite(started)) return "Ahora";
-  const minutes = Math.max(1, Math.floor((Date.now() - started) / 60000));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
-
 export default function LivePage() {
+  const { t } = useLanguage();
   const [lives, setLives] = useState([]);
   const [newLiveIds, setNewLiveIds] = useState([]);
   const [error, setError] = useState("");
@@ -247,7 +238,7 @@ export default function LivePage() {
               <span className="featured-badge">🔥 Tendencia ahora</span>
               <h3>{featuredLive.title}</h3>
               <p>
-                @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {getDuration(featuredLive)}
+                @{getDisplayName(featuredLive.user)} · {featuredLive.category || "Live"} · {formatLiveDuration(featuredLive)}
               </p>
               <div className="featured-metrics">
                 <span>👁 {featuredLive.viewerCount} espectadores</span>
@@ -360,10 +351,10 @@ export default function LivePage() {
             <h3>Sin resultados</h3>
             <p>
               {activeFilter === "near"
-                ? "No hay lives con datos de ubicación disponibles ahora."
+                ? t("liveDiscovery.emptyNear")
                 : activeFilter === "new"
-                  ? `No hay lives nuevos en los últimos ${RECENT_LIVE_WINDOW_MINUTES} minutos.`
-                : "Prueba otro chip o busca un creador diferente."}
+                  ? t("liveDiscovery.emptyNew").replace("{minutes}", String(RECENT_LIVE_WINDOW_MINUTES))
+                  : t("liveDiscovery.emptyDefault")}
             </p>
           </div>
         )}

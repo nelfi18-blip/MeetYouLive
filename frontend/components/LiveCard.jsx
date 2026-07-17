@@ -12,20 +12,7 @@ import {
   getGradientForUser,
   getUserImage,
 } from "@/lib/imageHelpers";
-import { RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
-
-function getLiveDuration(live) {
-  const startedAt = live?.startedAt || live?.createdAt;
-  const startTime = startedAt ? new Date(startedAt).getTime() : NaN;
-  if (!Number.isFinite(startTime)) return "Ahora";
-
-  const minutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
-  if (minutes < 60) return `${minutes} min`;
-
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-}
+import { formatLiveDuration, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 
 function normalizeNumber(value) {
   const number = Number(value);
@@ -54,7 +41,7 @@ export default function LiveCard({
   const liveStartedAt = live.startedAt || live.createdAt;
   const isNew = liveStartedAt ? Date.now() - new Date(liveStartedAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
   const isBattle = live.battle?.active === true || live.isVsActive === true;
-  const duration = getLiveDuration(live);
+  const duration = formatLiveDuration(live);
   const profileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const statusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },

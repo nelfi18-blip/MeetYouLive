@@ -157,6 +157,20 @@ export default function LandingPage() {
           <p>
             {t("landing.operator.description")}
           </p>
+          <dl className="operator-details">
+            <div>
+              <dt>{t("landing.operator.websiteLabel")}</dt>
+              <dd>
+                <a href="https://meetyoulive.net">https://meetyoulive.net</a>
+              </dd>
+            </div>
+            <div>
+              <dt>{t("landing.operator.supportEmailLabel")}</dt>
+              <dd>
+                <a href="mailto:meetyoulive@gmail.com">meetyoulive@gmail.com</a>
+              </dd>
+            </div>
+          </dl>
         </div>
         <Link href="/contact" className="ghost-button large">
           {t("landing.operator.contact")}
@@ -452,6 +466,28 @@ export default function LandingPage() {
         .trust-panel p {
           margin: 0;
           line-height: 1.65;
+        }
+        .operator-details {
+          display: grid;
+          gap: 0.55rem;
+          margin: 1rem 0 0;
+        }
+        .operator-details div {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem 0.6rem;
+          align-items: baseline;
+        }
+        .operator-details dt {
+          color: var(--text-muted);
+          font-weight: 800;
+        }
+        .operator-details dd {
+          margin: 0;
+        }
+        .operator-details a {
+          color: var(--accent-cyan);
+          font-weight: 900;
         }
         .security-strip {
           display: grid;

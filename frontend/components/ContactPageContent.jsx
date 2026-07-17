@@ -21,7 +21,7 @@ export default function ContactPage() {
     );
 
     setSubmitted(true);
-    window.location.href = `mailto:support@meetyoulive.net?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:meetyoulive@gmail.com?subject=${subject}&body=${body}`;
   }
 
   return (
@@ -41,9 +41,15 @@ export default function ContactPage() {
           <p>MEETYOULIVE TECHNOLOGIES LLC</p>
         </article>
         <article className="contact-card">
+          <h2>Website</h2>
+          <p>
+            <a href="https://meetyoulive.net">https://meetyoulive.net</a>
+          </p>
+        </article>
+        <article className="contact-card">
           <h2>Support email</h2>
           <p>
-            <a href="mailto:support@meetyoulive.net">support@meetyoulive.net</a>
+            <a href="mailto:meetyoulive@gmail.com">meetyoulive@gmail.com</a>
           </p>
         </article>
         <article className="contact-card">
@@ -91,7 +97,7 @@ export default function ContactPage() {
           </button>
           {submitted && (
             <p className="form-note" role="status">
-              If your email app did not open, email support@meetyoulive.net directly with the details above.
+              If your email app did not open, email meetyoulive@gmail.com directly with the details above.
             </p>
           )}
         </form>
@@ -146,7 +152,7 @@ export default function ContactPage() {
         }
         .contact-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 1rem;
         }
         .contact-card,

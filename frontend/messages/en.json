@@ -756,6 +756,8 @@
     "operator": {
       "eyebrow": "Operator",
       "description": "Official operator of MeetYouLive. Premium social platform to meet people, go live and support content creators through secure payments.",
+      "websiteLabel": "Website:",
+      "supportEmailLabel": "Support email:",
       "contact": "Contact and support"
     }
   },

@@ -3,6 +3,23 @@
 import Link from "next/link";
 
 export default function ContactPage() {
+  function handleContactSubmit(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const subject = encodeURIComponent(`MeetYouLive support: ${formData.get("topic") || "Support"}`);
+    const body = encodeURIComponent(
+      [
+        `Name: ${formData.get("name") || ""}`,
+        `Email: ${formData.get("email") || ""}`,
+        `Topic: ${formData.get("topic") || ""}`,
+        "",
+        formData.get("message") || "",
+      ].join("\n")
+    );
+
+    window.location.href = `mailto:support@meetyoulive.net?subject=${subject}&body=${body}`;
+  }
+
   return (
     <div className="contact-page">
       <section className="contact-hero">
@@ -42,7 +59,7 @@ export default function ContactPage() {
             email, transaction ID if applicable, and a clear description of your request.
           </p>
         </div>
-        <form action="mailto:support@meetyoulive.net" method="post" encType="text/plain">
+        <form onSubmit={handleContactSubmit}>
           <label>
             Name
             <input name="name" autoComplete="name" required />

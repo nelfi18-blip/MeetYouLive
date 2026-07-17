@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LEGAL_POLICIES } from "@/lib/legalPolicies";
 
 const PUBLIC_FOOTER_ROUTES = new Set([
   "/",
@@ -26,22 +28,23 @@ const PUBLIC_FOOTER_ROUTES = new Set([
 ]);
 
 const FOOTER_LINKS = [
-  { href: "/about", label: "About" },
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/security", label: "Security" },
-  { href: "/community-guidelines", label: "Community Guidelines" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms" },
-  { href: "/cookies", label: "Cookie Policy" },
-  { href: "/refund", label: "Refund Policy" },
-  { href: "/content-policy", label: "Content Policy" },
-  { href: "/creator-policy", label: "Creator Policy" },
-  { href: "/help-center", label: "Help Center" },
-  { href: "/contact", label: "Contact" },
+  "about",
+  "howItWorks",
+  "security",
+  "communityGuidelines",
+  "privacy",
+  "terms",
+  "cookies",
+  "paymentsRefunds",
+  "contentPolicy",
+  "creatorPolicy",
+  "helpCenter",
+  "contact",
 ];
 
 export default function PublicFooterWrapper() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   if (!pathname || !PUBLIC_FOOTER_ROUTES.has(pathname)) return null;
 
@@ -50,9 +53,16 @@ export default function PublicFooterWrapper() {
       <div className="public-footer-inner">
         <strong>MeetYouLive</strong>
         <nav aria-label="Legal and support">
-          {FOOTER_LINKS.map((link) => (
-            <Link key={link.href} href={link.href}>{link.label}</Link>
-          ))}
+          {FOOTER_LINKS.map((policyKey) => {
+            const policy = LEGAL_POLICIES.find((item) => item.key === policyKey);
+            if (!policy) return null;
+
+            return (
+              <Link key={policy.key} href={policy.href}>
+                {t(`legal.policies.${policy.key}.shortTitle`)}
+              </Link>
+            );
+          })}
         </nav>
         <span>© {new Date().getFullYear()} MEETYOULIVE TECHNOLOGIES LLC</span>
       </div>

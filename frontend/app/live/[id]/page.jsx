@@ -1953,7 +1953,7 @@ export default function LiveRoomPage() {
                 {creatorAvatar ? <img src={creatorAvatar} alt={creatorName} /> : creatorInitial}
               </span>
               {topFanIds.slice(0, 3).map((fanId, index) => (
-                <span className="viewer-avatar fan" key={fanId} title={topFanNamesRef.current[fanId] || `Fan #${index + 1}`}>
+                <span className="viewer-avatar fan" key={fanId} title={topFanNamesRef.current[fanId] || "Top Fan"}>
                   {FAN_MEDALS[index]}
                 </span>
               ))}

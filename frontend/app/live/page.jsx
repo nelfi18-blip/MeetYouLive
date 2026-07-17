@@ -8,6 +8,7 @@ import GiftPanel from "@/components/GiftPanel";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
+import { RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL_MS = 20000;
@@ -38,9 +39,9 @@ function normalizeLive(live) {
   };
 }
 
-function isNewLive(live) {
+function isRecentLive(live) {
   if (!live?.createdAt) return false;
-  return Date.now() - new Date(live.createdAt).getTime() < 45 * 60 * 1000;
+  return Date.now() - new Date(live.createdAt).getTime() < RECENT_LIVE_WINDOW_MS;
 }
 
 function liveText(live) {
@@ -158,10 +159,9 @@ export default function LivePage() {
     if (selected.id === "popular") {
       result = sortedLives;
     } else if (selected.id === "new") {
-      result = result.filter(isNewLive);
+      result = result.filter(isRecentLive);
     } else if (selected.id === "near") {
-      const nearby = result.filter(hasLocationHint);
-      result = nearby.length > 0 ? nearby : result;
+      result = result.filter(hasLocationHint);
     } else if (selected.id !== "all") {
       result = result.filter((live) => selected.terms?.some((term) => liveText(live).includes(term)));
     }
@@ -356,7 +356,11 @@ export default function LivePage() {
           <div className="empty-premium">
             <span>🔎</span>
             <h3>Sin resultados</h3>
-            <p>Prueba otro chip o busca un creador diferente.</p>
+            <p>
+              {activeFilter === "near"
+                ? "No hay lives con datos de ubicación disponibles ahora."
+                : "Prueba otro chip o busca un creador diferente."}
+            </p>
           </div>
         )}
       </section>

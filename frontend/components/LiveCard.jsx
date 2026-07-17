@@ -12,6 +12,7 @@ import {
   getGradientForUser,
   getUserImage,
 } from "@/lib/imageHelpers";
+import { RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 
 function getLiveDuration(live) {
   const startedAt = live?.startedAt || live?.createdAt;
@@ -50,7 +51,7 @@ export default function LiveCard({
   const safeViewerCount = normalizeNumber(live.viewerCount ?? live.viewers ?? live.viewersCount);
   const safeGiftsTotal = normalizeNumber(live.giftsTotal ?? live.totalCoinsEarned);
   const isCreatorApproved = isApprovedCreator(live.user);
-  const isNew = live.createdAt ? Date.now() - new Date(live.createdAt).getTime() < 20 * 60 * 1000 : false;
+  const isNew = live.createdAt ? Date.now() - new Date(live.createdAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
   const isBattle = live.battle?.active === true || live.isVsActive === true;
   const duration = getLiveDuration(live);
   const profileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";

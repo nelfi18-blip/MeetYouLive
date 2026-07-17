@@ -756,6 +756,8 @@
     "operator": {
       "eyebrow": "Operador",
       "description": "Operador oficial de MeetYouLive. Plataforma social premium para conocer personas, transmitir en vivo y apoyar a creadores de contenido mediante pagos seguros.",
+      "websiteLabel": "Sitio web:",
+      "supportEmailLabel": "Correo de soporte:",
       "contact": "Contacto y soporte"
     }
   },
@@ -1161,7 +1163,7 @@
           {
             "heading": "8. Procedimiento de contacto",
             "body": [
-              "Para solicitar un reembolso, escribe a support@meetyoulive.net o usa el flujo de soporte/contacto disponible. Incluye email de la cuenta, usuario, fecha de pago, importe, ID de transacción y motivo de la solicitud.",
+              "Para solicitar un reembolso, escribe a meetyoulive@gmail.com o usa el flujo de soporte/contacto disponible. Incluye email de la cuenta, usuario, fecha de pago, importe, ID de transacción y motivo de la solicitud.",
               "El horario de soporte es lunes a viernes, 9:00 AM – 6:00 PM (ET). Revisamos las solicitudes de buena fe y, cuando sea posible, procesamos reembolsos aprobados al método de pago original."
             ]
           }

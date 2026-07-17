@@ -756,6 +756,8 @@
     "operator": {
       "eyebrow": "Operator",
       "description": "Official operator of MeetYouLive. Premium social platform to meet people, go live and support content creators through secure payments.",
+      "websiteLabel": "Website:",
+      "supportEmailLabel": "Support email:",
       "contact": "Contact and support"
     }
   },
@@ -1161,7 +1163,7 @@
           {
             "heading": "8. Contact procedure",
             "body": [
-              "To request a refund, email support@meetyoulive.net or use the available support/contact flow. Include your account email, username, payment date, amount, transaction ID and the reason for the request.",
+              "To request a refund, email meetyoulive@gmail.com or use the available support/contact flow. Include your account email, username, payment date, amount, transaction ID and the reason for the request.",
               "Support is available Monday to Friday, 9:00 AM – 6:00 PM (ET). We review requests in good faith and may process approved refunds through the original payment method when possible."
             ]
           }

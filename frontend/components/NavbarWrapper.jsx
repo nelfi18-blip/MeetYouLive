@@ -3,10 +3,10 @@
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 
-// Routes where the global Navbar (top bar + embedded mobile .bottom-nav)
+// Routes where the global Navbar (top bar)
 // must not render. /feed has its own sticky in-page header and uses the
-// modern <BottomNav /> from BottomNavWrapper, so rendering the global Navbar
-// here would duplicate the header and bottom nav.
+// premium navigation from BottomNavWrapper, so rendering the global Navbar
+// here would duplicate the header.
 const HIDDEN_ROUTES = ["/login", "/register", "/", "/onboarding", "/feed"];
 
 export default function NavbarWrapper() {

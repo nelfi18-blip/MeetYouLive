@@ -573,16 +573,6 @@ main.main-content:has(.admin-shell) {
   box-shadow: var(--glow-pink);
 }
 
-/* bottom nav fallback */
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  backdrop-filter: blur(24px) saturate(1.8);
-  background: rgba(6,4,17,0.92);
-  border-top: 1px solid var(--border);
-}
-
 /* =========================================================
    Utility: Divider text
    ========================================================= */
@@ -822,68 +812,6 @@ main.main-content:has(.admin-shell) {
 /* =========================================================
    Modern Mobile App UI Styles
    ========================================================= */
-
-/* Bottom Navigation */
-.bottom-nav-modern {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  background: rgba(15, 8, 33, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(224, 64, 251, 0.2);
-  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom));
-  z-index: 1000;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.bottom-nav-modern .nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  color: var(--text-muted);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.bottom-nav-modern .nav-item svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 2;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.bottom-nav-modern .nav-item span {
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.bottom-nav-modern .nav-item.active {
-  color: var(--accent);
-}
-
-.bottom-nav-modern .nav-item.active svg {
-  stroke: var(--accent);
-  filter: drop-shadow(0 0 8px rgba(224, 64, 251, 0.5));
-  transform: scale(1.1);
-}
-
-.bottom-nav-modern .nav-item:hover {
-  color: var(--accent);
-  transform: translateY(-2px);
-}
-
-.bottom-nav-modern .nav-item:active {
-  transform: translateY(0);
-}
 
 /* Modern Top Bar */
 .modern-top-bar {
@@ -2358,96 +2286,6 @@ main.main-content:has(.admin-shell) {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
-}
-
-/* =========================================================
-   Bottom Navigation Enhanced
-   ========================================================= */
-.bottom-nav-modern {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  min-height: 72px;
-  background: rgba(15, 8, 33, 0.95);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(224, 64, 251, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding: 0 16px;
-  padding-bottom: env(safe-area-inset-bottom);
-  z-index: 1000;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-  touch-action: pan-y;
-}
-
-.bottom-nav-modern .nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s ease;
-  padding: 8px 12px;
-  border-radius: 12px;
-  min-width: 60px;
-  pointer-events: auto;
-  touch-action: manipulation;
-}
-
-.bottom-nav-modern .nav-item svg {
-  transition: all 0.2s ease;
-}
-
-.bottom-nav-modern .nav-item span {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.bottom-nav-modern .nav-item:hover {
-  color: var(--text);
-  background: rgba(224, 64, 251, 0.08);
-}
-
-.bottom-nav-modern .nav-item.active {
-  color: var(--accent);
-  background: rgba(224, 64, 251, 0.12);
-}
-
-.bottom-nav-modern .nav-item.active svg {
-  filter: drop-shadow(0 0 8px rgba(224, 64, 251, 0.6));
-  transform: scale(1.1);
-}
-
-@media (max-width: 640px) {
-  .bottom-nav-modern {
-    min-height: 68px;
-  }
-  
-  .bottom-nav-modern .nav-item {
-    min-width: 50px;
-    padding: 6px 8px;
-  }
-  
-  .bottom-nav-modern .nav-item span {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 380px) {
-  .bottom-nav-modern .nav-item {
-    min-width: 44px;
-    padding: 6px;
-  }
-
-  .bottom-nav-modern .nav-item span {
-    display: none;
-  }
 }
 
 /* =========================================================

@@ -169,15 +169,6 @@ export default function Navbar() {
     { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
   ], [homePath]);
   
-  // Bottom nav link definitions with dynamic home path
-  const BOTTOM_NAV_DEFS = useMemo(() => [
-    { href: homePath,     key: "nav.home",    icon: HomeIcon    },
-    { href: "/matches",   key: "nav.match",   icon: MatchIcon   },
-    { href: "/live",      key: "nav.live",    icon: LiveIcon    },
-    { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
-    { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
-  ], [homePath]);
-  
   // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
     effectiveRole === "admin"
@@ -323,25 +314,6 @@ export default function Navbar() {
           )}
         </div>
       </nav>
-
-      {!shouldUseModernBottomNav && (
-        <nav className="bottom-nav">
-          {BOTTOM_NAV_DEFS.map((link) => {
-            const active = pathname === link.href;
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`bottom-nav-item${active ? " active" : ""}`}
-              >
-                <Icon />
-                <span>{t(link.key)}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
 
       <style jsx>{`
         .navbar {
@@ -708,71 +680,10 @@ export default function Navbar() {
           color: var(--text-dim, #444);
         }
 
-        /* ── Bottom nav ────────── */
-        .bottom-nav {
-          display: none;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 200;
-          background: rgba(20,12,46,0.86);
-          backdrop-filter: blur(14px) saturate(1.2);
-          -webkit-backdrop-filter: blur(14px) saturate(1.2);
-          border-top: 1px solid rgba(224,64,251,0.24);
-          box-shadow: 0 -8px 24px rgba(4,2,12,0.4);
-          padding: 0.5rem 0 env(safe-area-inset-bottom, 0.5rem) 0;
-        }
-
-        .bottom-nav-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex: 1;
-          font-size: 0.55rem;
-          font-weight: 700;
-          gap: 0.25rem;
-          color: var(--text-muted) !important;
-          transition: all var(--transition);
-          padding: 0.4rem 0.2rem;
-          border-radius: var(--radius-xs);
-          letter-spacing: 0.03em;
-          text-transform: uppercase;
-          line-height: 1.2;
-          min-height: 56px;
-        }
-
-        .bottom-nav-item span {
-          display: block;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-          text-align: center;
-        }
-
-        .bottom-nav-item :global(svg) {
-          flex-shrink: 0;
-          margin-bottom: 0.15rem;
-        }
-
-        .bottom-nav-item:hover { color: var(--text) !important; }
-
-        .bottom-nav-item.active {
-          color: #fff !important;
-          background: rgba(224,64,251,0.12);
-        }
-        .bottom-nav-item.active :global(svg) {
-          filter: drop-shadow(0 0 6px rgba(224,64,251,0.9));
-          stroke: var(--accent);
-        }
-
         @media (max-width: 768px) {
           .navbar { display: none; }
           .navbar-links { display: none; }
           .navbar-username { display: none; }
-          .bottom-nav { display: flex; }
         }
 
         @media (max-width: 1024px) {

@@ -28,6 +28,7 @@ export default function ContactPage() {
         <article className="contact-card">
           <h2>Support hours</h2>
           <p>Monday to Friday, 9:00 AM – 6:00 PM (ET).</p>
+          <p>Estimated response time: 24–48 business hours.</p>
           <p>Urgent safety reports are reviewed as soon as possible.</p>
         </article>
       </section>
@@ -37,13 +38,37 @@ export default function ContactPage() {
           <p className="eyebrow">Contact form</p>
           <h2>Need help?</h2>
           <p>
-            Email support with your account email, transaction ID if applicable, and a clear description of your
-            request. A public contact form may be added later without changing payment or authentication logic.
+            Send account, billing, safety, creator or compliance requests to our support team. Include your account
+            email, transaction ID if applicable, and a clear description of your request.
           </p>
         </div>
-        <a className="primary-button" href="mailto:support@meetyoulive.net">
-          Email support
-        </a>
+        <form action="mailto:support@meetyoulive.net" method="post" encType="text/plain">
+          <label>
+            Name
+            <input name="name" autoComplete="name" required />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          <label>
+            Topic
+            <select name="topic" defaultValue="Support">
+              <option>Support</option>
+              <option>Billing</option>
+              <option>Safety</option>
+              <option>Creator</option>
+              <option>Legal / Compliance</option>
+            </select>
+          </label>
+          <label>
+            Message
+            <textarea name="message" rows="5" required />
+          </label>
+          <button className="primary-button" type="submit">
+            Send request
+          </button>
+        </form>
       </section>
 
       <section className="policy-links" aria-label="Public policies">
@@ -111,15 +136,42 @@ export default function ContactPage() {
           font-weight: 800;
         }
         .contact-panel {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
+          display: grid;
+          grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1.1fr);
+          gap: 1.25rem;
+        }
+        form,
+        label {
+          display: grid;
+          gap: 0.45rem;
+        }
+        form {
+          gap: 0.75rem;
+        }
+        label {
+          color: var(--text);
+          font-size: 0.9rem;
+          font-weight: 800;
+        }
+        input,
+        select,
+        textarea {
+          width: 100%;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          background: rgba(255,255,255,0.06);
+          color: var(--text);
+          font: inherit;
+          padding: 0.8rem 0.9rem;
+        }
+        textarea {
+          resize: vertical;
         }
         .primary-button {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          border: 0;
           min-height: 48px;
           border-radius: var(--radius-pill);
           padding: 0.8rem 1.25rem;
@@ -127,6 +179,7 @@ export default function ContactPage() {
           background: var(--grad-primary);
           box-shadow: var(--shadow-accent);
           white-space: nowrap;
+          cursor: pointer;
         }
         .policy-links div {
           display: flex;
@@ -138,8 +191,7 @@ export default function ContactPage() {
             grid-template-columns: 1fr;
           }
           .contact-panel {
-            align-items: flex-start;
-            flex-direction: column;
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

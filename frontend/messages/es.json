@@ -770,6 +770,237 @@
     "registrationNotice": "Al crear una cuenta aceptas nuestros Términos, Política de Privacidad, normas de comunidad y políticas de pagos.",
     "onboardingNotice": "Al continuar aceptas usar MeetYouLive conforme a nuestras políticas legales y de seguridad.",
     "policies": {
+      "about": {
+        "shortTitle": "Sobre",
+        "title": "Sobre MeetYouLive",
+        "description": "Qué es MeetYouLive, qué servicios digitales ofrece y cómo funcionan coins, membresías y regalos virtuales.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Qué es MeetYouLive",
+            "body": [
+              "MeetYouLive es una plataforma social para conocer personas, hacer match, chatear, realizar videollamadas, participar en transmisiones en vivo, seguir creadores y crear conexiones en tiempo real.",
+              "La plataforma combina funciones de comunidad, entretenimiento digital, live streaming, regalos virtuales, monedas virtuales y membresías Premium y VIP."
+            ]
+          },
+          {
+            "heading": "2. Servicios digitales",
+            "body": [
+              "MeetYouLive no vende productos físicos. Todas las compras dentro de la plataforma corresponden a servicios digitales, acceso digital, membresías, monedas virtuales o regalos virtuales para usar dentro de MeetYouLive."
+            ]
+          },
+          {
+            "heading": "3. Coins y valor dentro de la plataforma",
+            "body": [
+              "Las monedas virtuales o coins sirven para activar experiencias digitales, enviar regalos virtuales, apoyar creadores o acceder a funciones habilitadas. Las coins no tienen valor monetario fuera de MeetYouLive, no son dinero, no son depósito y no pueden canjearse fuera de la plataforma."
+            ]
+          },
+          {
+            "heading": "4. Membresías Premium y VIP",
+            "body": [
+              "Las membresías Premium y VIP ofrecen acceso a funciones digitales adicionales, ventajas de experiencia, visibilidad o herramientas de interacción según lo indicado al momento de la compra. Su disponibilidad puede variar por país, dispositivo o versión de la aplicación."
+            ]
+          },
+          {
+            "heading": "5. Creadores y comunidad",
+            "body": [
+              "Los usuarios pueden seguir creadores, participar en directos y enviar regalos virtuales. Los creadores aprobados deben cumplir requisitos de identidad, seguridad, contenido y cumplimiento legal antes de monetizar o recibir retiros."
+            ]
+          }
+        ]
+      },
+      "howItWorks": {
+        "shortTitle": "Cómo funciona",
+        "title": "Cómo funciona MeetYouLive",
+        "description": "Resumen de cuenta, perfiles, matches, chat, videollamadas, directos, coins, regalos y membresías.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Crear cuenta y perfil",
+            "body": [
+              "Los usuarios crean una cuenta, completan su perfil y deben cumplir los requisitos de edad, seguridad y autenticidad establecidos en nuestras políticas."
+            ]
+          },
+          {
+            "heading": "2. Descubrir, hacer match y chatear",
+            "body": [
+              "Puedes descubrir perfiles, hacer match y conversar mediante chat. Algunas funciones pueden requerir coins, membresía o disponibilidad técnica."
+            ]
+          },
+          {
+            "heading": "3. Videollamadas y transmisiones en vivo",
+            "body": [
+              "MeetYouLive permite videollamadas y experiencias live cuando están disponibles. Los participantes deben respetar consentimiento, privacidad, normas de comunidad y controles de moderación."
+            ]
+          },
+          {
+            "heading": "4. Coins, regalos y membresías",
+            "body": [
+              "Las coins se compran como saldo digital para usar dentro de la plataforma. Los regalos virtuales se entregan digitalmente y las membresías Premium o VIP habilitan beneficios digitales descritos al comprar."
+            ]
+          },
+          {
+            "heading": "5. Pagos y soporte",
+            "body": [
+              "Los pagos pueden procesarse por Stripe u otros proveedores autorizados. Si tienes un problema con una compra digital, contacta soporte con tu cuenta, fecha, importe e identificador de transacción."
+            ]
+          }
+        ]
+      },
+      "security": {
+        "shortTitle": "Seguridad",
+        "title": "Seguridad en MeetYouLive",
+        "description": "Herramientas y controles para reportar, bloquear, moderar, revisar contenido, prevenir fraude y proteger menores.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Reportar usuarios",
+            "body": [
+              "Puedes reportar perfiles, mensajes, directos, llamadas, regalos, pagos o contenido que parezca abusivo, ilegal, fraudulento o contrario a nuestras políticas. Los reportes ayudan a priorizar revisiones de seguridad."
+            ]
+          },
+          {
+            "heading": "2. Bloquear usuarios",
+            "body": [
+              "Las herramientas de bloqueo permiten limitar interacciones no deseadas. Bloquear puede impedir mensajes, contactos o visibilidad según la función disponible."
+            ]
+          },
+          {
+            "heading": "3. Moderación y revisión de contenido",
+            "body": [
+              "Usamos revisión humana, señales técnicas, reportes, controles de contenido y medidas de cumplimiento para retirar contenido, pausar funciones, cerrar directos, limitar cuentas o suspender accesos cuando corresponda."
+            ]
+          },
+          {
+            "heading": "4. Protección contra fraude",
+            "body": [
+              "Monitoreamos patrones de pago, regalos, chargebacks, automatización, suplantación, spam, estafas y manipulación de ingresos. Podemos retener transacciones, pausar payouts o solicitar información adicional."
+            ]
+          },
+          {
+            "heading": "5. Protección de menores",
+            "body": [
+              "MeetYouLive prohíbe cualquier explotación, sexualización, grooming, acoso o riesgo hacia menores. Podemos actuar de forma inmediata, preservar evidencias y escalar reportes a proveedores o autoridades competentes."
+            ]
+          },
+          {
+            "heading": "6. Verificación de cuentas",
+            "body": [
+              "Podemos solicitar verificación de correo, teléfono, edad, identidad, elegibilidad de creador o información de pago para proteger usuarios, creadores, proveedores y la integridad de la plataforma."
+            ]
+          }
+        ]
+      },
+      "communityGuidelines": {
+        "shortTitle": "Comunidad",
+        "title": "Normas de la Comunidad",
+        "description": "Expectativas de comportamiento para usuarios, espectadores, matches y creadores.",
+        "lastUpdated": "9 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Respeto y consentimiento",
+            "body": [
+              "Respeta a cada persona. El consentimiento debe ser claro, continuo y revocable en chat, llamadas, videollamadas, directos, regalos y cualquier interacción.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
+            ]
+          },
+          {
+            "heading": "2. Seguridad en citas y matches",
+            "body": [
+              "No compartas información sensible demasiado pronto, no presiones para encuentros, pagos externos o contenido íntimo y reporta comportamientos sospechosos. MeetYouLive no verifica todas las afirmaciones de usuarios."
+            ]
+          },
+          {
+            "heading": "3. Conducta y contenido prohibidos",
+            "body": [
+              "Prohibimos acoso, spam, estafas, suplantación, contenido ilegal, violencia, pornografía ilegal, venta de drogas, armas, fraude financiero, explotación, odio, amenazas y cualquier actividad que ponga en riesgo a usuarios o terceros."
+            ]
+          },
+          {
+            "heading": "3. Directos y salas",
+            "body": [
+              "Los creadores y participantes deben mantener conversaciones seguras, evitar incitación al odio, humillación, explotación, actividades ilegales o contenido no autorizado. Los anfitriones deben colaborar con la moderación."
+            ]
+          },
+          {
+            "heading": "4. Regalos y apoyo",
+            "body": [
+              "Los regalos son voluntarios. No prometas resultados románticos, sexuales, financieros o de contacto fuera de plataforma a cambio de coins o regalos."
+            ]
+          },
+          {
+            "heading": "5. Reportes",
+            "body": [
+              "Usa las herramientas de reporte para abuso, acoso, fraude, menores en riesgo, infracción de derechos o contenido prohibido. Los reportes falsos o abusivos también pueden sancionarse."
+            ]
+          },
+          {
+            "heading": "6. Consecuencias",
+            "body": [
+              "Podemos advertir, limitar, retirar contenido, suspender funciones o cerrar cuentas. En casos graves podemos actuar sin aviso previo."
+            ]
+          }
+        ]
+      },
+      "privacy": {
+        "shortTitle": "Privacidad",
+        "title": "Política de Privacidad",
+        "description": "Cómo recopilamos, usamos y protegemos datos en perfiles, matches, chat, llamadas, directos, pagos, reportes y moderación.",
+        "lastUpdated": "9 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Responsable y contacto",
+            "body": [
+              "MeetYouLive trata datos personales para operar la plataforma. Las solicitudes de privacidad pueden enviarse mediante los flujos de contacto o soporte dentro de la plataforma.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
+            ]
+          },
+          {
+            "heading": "2. Datos que recopilamos",
+            "body": [
+              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada, fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
+              "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
+            ]
+          },
+          {
+            "heading": "3. Uso de datos",
+            "body": [
+              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales."
+            ]
+          },
+          {
+            "heading": "4. Comunicaciones, imagen y voz",
+            "body": [
+              "Las funciones de directos, llamadas y videollamadas pueden transmitir imagen, voz, mensajes, regalos y metadatos técnicos. No debes grabar ni redistribuir contenido de otros sin autorización cuando la ley o nuestras políticas lo prohíban.",
+              "Podemos revisar contenido reportado o señales asociadas para seguridad, prevención de abuso y cumplimiento."
+            ]
+          },
+          {
+            "heading": "5. Menores y seguridad",
+            "body": [
+              "Aplicamos medidas para reducir riesgos para menores, incluyendo restricciones, reportes, revisión y suspensión. Si detectas contenido o conducta que ponga en riesgo a un menor, repórtalo de inmediato."
+            ]
+          },
+          {
+            "heading": "6. Compartición y proveedores",
+            "body": [
+              "Podemos compartir datos con proveedores de infraestructura, pagos, streaming, notificaciones, analítica operativa, soporte, moderación, cumplimiento legal y prevención de fraude. No vendemos datos personales."
+            ]
+          },
+          {
+            "heading": "7. Retención, derechos y eliminación",
+            "body": [
+              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma."
+            ]
+          },
+          {
+            "heading": "8. Seguridad y cambios",
+            "body": [
+              "Usamos medidas razonables de seguridad técnica y organizativa, pero ningún sistema es totalmente seguro. Podemos actualizar esta política y notificaremos cambios materiales cuando corresponda."
+            ]
+          }
+        ]
+      },
       "terms": {
         "shortTitle": "Términos",
         "title": "Términos de Servicio",
@@ -834,196 +1065,40 @@
           }
         ]
       },
-      "privacy": {
-        "shortTitle": "Privacidad",
-        "title": "Política de Privacidad",
-        "description": "Cómo recopilamos, usamos y protegemos datos en perfiles, matches, chat, llamadas, directos, pagos, reportes y moderación.",
-        "lastUpdated": "9 de julio de 2026",
+      "cookies": {
+        "shortTitle": "Cookies",
+        "title": "Política de Cookies",
+        "description": "Cómo MeetYouLive usa cookies y tecnologías similares para sesión, seguridad, preferencias y mejora del servicio.",
+        "lastUpdated": "17 de julio de 2026",
         "sections": [
           {
-            "heading": "1. Responsable y contacto",
+            "heading": "1. Qué son las cookies",
             "body": [
-              "MeetYouLive trata datos personales para operar la plataforma. Las solicitudes de privacidad pueden enviarse mediante los flujos de contacto o soporte dentro de la plataforma.",
-              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
+              "Las cookies y tecnologías similares son pequeños archivos o identificadores que ayudan a recordar sesión, preferencias, idioma, seguridad, rendimiento y funcionamiento básico del sitio o la aplicación."
             ]
           },
           {
-            "heading": "2. Datos que recopilamos",
+            "heading": "2. Cookies necesarias",
             "body": [
-              "Podemos recopilar datos de cuenta, perfil, edad, ubicación aproximada, fotos, preferencias, idioma, matches, likes, chats, llamadas, videollamadas, directos, regalos, coins, transacciones, solicitudes de creador, reportes y señales técnicas.",
-              "No almacenamos números completos de tarjeta cuando el pago lo procesa Stripe. Stripe, Stripe Connect u otros proveedores pueden tratar datos financieros bajo sus propias políticas."
+              "Usamos cookies necesarias para inicio de sesión, seguridad, prevención de fraude, equilibrio de carga, protección contra abuso y funciones esenciales. Sin estas cookies, algunas partes de MeetYouLive no funcionarían correctamente."
             ]
           },
           {
-            "heading": "3. Uso de datos",
+            "heading": "3. Preferencias y experiencia",
             "body": [
-              "Usamos datos para crear cuentas, personalizar descubrimiento y matches, habilitar chat, llamadas y directos, procesar pagos, administrar coins y regalos, apoyar creadores, prevenir fraude, moderar contenido, responder reportes y cumplir obligaciones legales."
+              "Podemos usar almacenamiento local o cookies para recordar idioma, preferencias de interfaz, consentimiento, avisos vistos y opciones de experiencia dentro de la plataforma."
             ]
           },
           {
-            "heading": "4. Comunicaciones, imagen y voz",
+            "heading": "4. Analítica operativa",
             "body": [
-              "Las funciones de directos, llamadas y videollamadas pueden transmitir imagen, voz, mensajes, regalos y metadatos técnicos. No debes grabar ni redistribuir contenido de otros sin autorización cuando la ley o nuestras políticas lo prohíban.",
-              "Podemos revisar contenido reportado o señales asociadas para seguridad, prevención de abuso y cumplimiento."
+              "Podemos usar mediciones agregadas o técnicas para entender rendimiento, errores y uso general del servicio. No vendemos datos personales a terceros."
             ]
           },
           {
-            "heading": "5. Menores y seguridad",
+            "heading": "5. Gestión de cookies",
             "body": [
-              "Aplicamos medidas para reducir riesgos para menores, incluyendo restricciones, reportes, revisión y suspensión. Si detectas contenido o conducta que ponga en riesgo a un menor, repórtalo de inmediato."
-            ]
-          },
-          {
-            "heading": "6. Compartición y proveedores",
-            "body": [
-              "Podemos compartir datos con proveedores de infraestructura, pagos, streaming, notificaciones, analítica operativa, soporte, moderación, cumplimiento legal y prevención de fraude. No vendemos datos personales."
-            ]
-          },
-          {
-            "heading": "7. Retención, derechos y eliminación",
-            "body": [
-              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma."
-            ]
-          },
-          {
-            "heading": "8. Seguridad y cambios",
-            "body": [
-              "Usamos medidas razonables de seguridad técnica y organizativa, pero ningún sistema es totalmente seguro. Podemos actualizar esta política y notificaremos cambios materiales cuando corresponda."
-            ]
-          }
-        ]
-      },
-      "acceptableUse": {
-        "shortTitle": "Uso aceptable",
-        "title": "Política de Uso Aceptable",
-        "description": "Reglas mínimas para usar MeetYouLive de forma segura, legal y respetuosa.",
-        "lastUpdated": "9 de julio de 2026",
-        "sections": [
-          {
-            "heading": "1. Principios",
-            "body": [
-              "Usa MeetYouLive para conectar, conversar, crear y apoyar contenido de forma legal, segura y consentida. No uses la plataforma para dañar, engañar, acosar, explotar o infringir derechos.",
-              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
-            ]
-          },
-          {
-            "heading": "2. Conducta prohibida",
-            "body": [
-              "Está prohibido el acoso, amenazas, odio, spam, fraude, suplantación, manipulación de pagos, evasión de bloqueos, scraping, automatización abusiva, malware, ingeniería social o intentos de acceder a cuentas o sistemas ajenos."
-            ]
-          },
-          {
-            "heading": "3. Contenido prohibido",
-            "body": [
-              "No publiques contenido ilegal, explotación sexual, contenido que ponga en riesgo a menores, violencia extrema, instrucciones para daño real, doxxing, desnudez no consentida, extorsión, terrorismo, tráfico, drogas ilegales o infracciones de propiedad intelectual."
-            ]
-          },
-          {
-            "heading": "4. Chat, llamadas y directos",
-            "body": [
-              "En mensajes, llamadas, videollamadas y directos debes respetar consentimiento, límites y privacidad. No presiones a otros para compartir datos, imágenes, pagos externos, contenido íntimo o comunicaciones fuera de plataforma."
-            ]
-          },
-          {
-            "heading": "5. Pagos, coins y regalos",
-            "body": [
-              "No uses coins, regalos, suscripciones, reembolsos, chargebacks o Stripe Connect para fraude, lavado, monetización engañosa, auto-regalos artificiales o manipulación de rankings."
-            ]
-          },
-          {
-            "heading": "6. Cumplimiento",
-            "body": [
-              "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
-            ]
-          }
-        ]
-      },
-      "communityGuidelines": {
-        "shortTitle": "Comunidad",
-        "title": "Normas de la Comunidad",
-        "description": "Expectativas de comportamiento para usuarios, espectadores, matches y creadores.",
-        "lastUpdated": "9 de julio de 2026",
-        "sections": [
-          {
-            "heading": "1. Respeto y consentimiento",
-            "body": [
-              "Respeta a cada persona. El consentimiento debe ser claro, continuo y revocable en chat, llamadas, videollamadas, directos, regalos y cualquier interacción.",
-              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
-            ]
-          },
-          {
-            "heading": "2. Seguridad en citas y matches",
-            "body": [
-              "No compartas información sensible demasiado pronto, no presiones para encuentros, pagos externos o contenido íntimo y reporta comportamientos sospechosos. MeetYouLive no verifica todas las afirmaciones de usuarios."
-            ]
-          },
-          {
-            "heading": "3. Directos y salas",
-            "body": [
-              "Los creadores y participantes deben mantener conversaciones seguras, evitar incitación al odio, humillación, explotación, actividades ilegales o contenido no autorizado. Los anfitriones deben colaborar con la moderación."
-            ]
-          },
-          {
-            "heading": "4. Regalos y apoyo",
-            "body": [
-              "Los regalos son voluntarios. No prometas resultados románticos, sexuales, financieros o de contacto fuera de plataforma a cambio de coins o regalos."
-            ]
-          },
-          {
-            "heading": "5. Reportes",
-            "body": [
-              "Usa las herramientas de reporte para abuso, acoso, fraude, menores en riesgo, infracción de derechos o contenido prohibido. Los reportes falsos o abusivos también pueden sancionarse."
-            ]
-          },
-          {
-            "heading": "6. Consecuencias",
-            "body": [
-              "Podemos advertir, limitar, retirar contenido, suspender funciones o cerrar cuentas. En casos graves podemos actuar sin aviso previo."
-            ]
-          }
-        ]
-      },
-      "creatorPolicy": {
-        "shortTitle": "Creadores",
-        "title": "Política de Creadores",
-        "description": "Reglas para creadores aprobados, monetización, regalos, coins, agencias, payouts y Stripe Connect.",
-        "lastUpdated": "9 de julio de 2026",
-        "sections": [
-          {
-            "heading": "1. Aprobación de creadores",
-            "body": [
-              "Ser creador es un privilegio sujeto a revisión, requisitos de edad, identidad, calidad, seguridad y cumplimiento. Podemos aprobar, rechazar, pausar o retirar el estado de creador.",
-              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
-            ]
-          },
-          {
-            "heading": "2. Contenido y conducta",
-            "body": [
-              "Los creadores son responsables de directos, vídeos, salas, perfiles, promociones y comunicación con fans. Deben cumplir las Normas de la Comunidad, Uso Aceptable, propiedad intelectual y reglas de la plataforma."
-            ]
-          },
-          {
-            "heading": "3. Monetización, regalos y coins",
-            "body": [
-              "Los ingresos de creador pueden derivarse de regalos, contenido premium, llamadas u otras funciones habilitadas. Los balances internos no equivalen a dinero hasta que MeetYouLive valide requisitos y procese un payout permitido."
-            ]
-          },
-          {
-            "heading": "4. Stripe Connect, agencias y payouts",
-            "body": [
-              "Podemos usar Stripe Connect u otros proveedores para verificar identidad, cumplimiento fiscal y pagos. Las agencias o relaciones de sub-creadores solo son válidas cuando están activas y aceptadas por las partes según la plataforma."
-            ]
-          },
-          {
-            "heading": "5. Fraude y manipulación",
-            "body": [
-              "Está prohibido inflar regalos, rankings o ingresos con cuentas falsas, pagos propios, chargebacks coordinados, promesas engañosas, tráfico comprado o cualquier manipulación."
-            ]
-          },
-          {
-            "heading": "6. Suspensión de monetización",
-            "body": [
-              "Podemos retener, ajustar o cancelar payouts por fraude, disputas, infracciones, requisitos legales, sanciones de proveedor, riesgo para usuarios o investigación de reportes."
+              "Puedes gestionar cookies desde la configuración de tu navegador o dispositivo. Bloquear cookies necesarias puede afectar inicio de sesión, pagos, seguridad o funciones interactivas."
             ]
           }
         ]
@@ -1038,7 +1113,8 @@
             "heading": "1. Alcance de la política",
             "body": [
               "Esta política explica cómo MeetYouLive revisa solicitudes de reembolso para coins, compras Premium, regalos virtuales y otros servicios digitales ofrecidos por MEETYOULIVE TECHNOLOGIES LLC.",
-              "Las compras pueden procesarse mediante Stripe, Stripe Connect u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo."
+              "Las compras pueden procesarse mediante Stripe, Stripe Connect u otros proveedores autorizados. Los precios, impuestos, divisas y métodos disponibles pueden variar por país y dispositivo.",
+              "Las compras de coins, Premium, VIP y regalos virtuales son servicios digitales. Los reembolsos se evalúan únicamente cuando exista cobro duplicado, error técnico verificable, fraude comprobado o una obligación legal aplicable."
             ]
           },
           {
@@ -1087,6 +1163,221 @@
             "body": [
               "Para solicitar un reembolso, escribe a support@meetyoulive.net o usa el flujo de soporte/contacto disponible. Incluye email de la cuenta, usuario, fecha de pago, importe, ID de transacción y motivo de la solicitud.",
               "El horario de soporte es lunes a viernes, 9:00 AM – 6:00 PM (ET). Revisamos las solicitudes de buena fe y, cuando sea posible, procesamos reembolsos aprobados al método de pago original."
+            ]
+          }
+        ]
+      },
+      "contentPolicy": {
+        "shortTitle": "Contenido",
+        "title": "Política de Contenido",
+        "description": "Reglas para perfiles, fotos, vídeos, chats, videollamadas, directos, regalos, creadores y contenido generado por usuarios.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Contenido permitido",
+            "body": [
+              "Puedes compartir contenido propio, legal, autorizado y respetuoso en perfiles, fotos, vídeos, chats, videollamadas, directos y espacios de creador."
+            ]
+          },
+          {
+            "heading": "2. Contenido prohibido",
+            "body": [
+              "Está prohibido publicar o transmitir contenido ilegal, violencia extrema, explotación o riesgo para menores, pornografía ilegal, contenido íntimo no consentido, doxxing, acoso, odio, estafas, venta de drogas, armas, fraude financiero o infracciones de propiedad intelectual."
+            ]
+          },
+          {
+            "heading": "3. Derechos y autorizaciones",
+            "body": [
+              "Debes contar con derechos o permisos para todo contenido que publiques. No uses imagen, voz, marcas, música, vídeos o materiales de terceros sin autorización cuando sea requerida."
+            ]
+          },
+          {
+            "heading": "4. Revisión y moderación",
+            "body": [
+              "Podemos revisar contenido reportado, señales de riesgo y contenido de creadores. El incumplimiento puede causar retirada, limitación de visibilidad, suspensión de directos, bloqueo de funciones o cierre de cuenta."
+            ]
+          },
+          {
+            "heading": "5. Experiencias en vivo",
+            "body": [
+              "En lives, videollamadas y chats debes respetar consentimiento, límites y privacidad. No grabes, redistribuyas ni presiones a otros para compartir contenido íntimo o datos personales."
+            ]
+          }
+        ]
+      },
+      "creatorPolicy": {
+        "shortTitle": "Creadores",
+        "title": "Política de Creadores",
+        "description": "Reglas para creadores aprobados, monetización, regalos, coins, agencias, payouts y Stripe Connect.",
+        "lastUpdated": "9 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Aprobación de creadores",
+            "body": [
+              "Ser creador es un privilegio sujeto a revisión, requisitos de edad, identidad, calidad, seguridad y cumplimiento. Podemos aprobar, rechazar, pausar o retirar el estado de creador.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
+            ]
+          },
+          {
+            "heading": "2. Contenido y conducta",
+            "body": [
+              "Los creadores son responsables de directos, vídeos, salas, perfiles, promociones y comunicación con fans. Deben cumplir las Normas de la Comunidad, Uso Aceptable, propiedad intelectual y reglas de la plataforma."
+            ]
+          },
+          {
+            "heading": "3. Monetización, regalos y coins",
+            "body": [
+              "Los ingresos de creador pueden derivarse de regalos, contenido premium, llamadas u otras funciones habilitadas. Los balances internos no equivalen a dinero hasta que MeetYouLive valide requisitos y procese un payout permitido."
+            ]
+          },
+          {
+            "heading": "4. Comisiones y retiros",
+            "body": [
+              "Los creadores pueden generar ingresos mediante regalos, contenido premium, llamadas u otras funciones habilitadas. Las comisiones, splits, saldos elegibles, mínimos de retiro, revisión de cuenta y tiempos de payout se aplican según las reglas visibles en la plataforma y los requisitos de Stripe Connect."
+            ]
+          },
+          {
+            "heading": "4. Stripe Connect, agencias y payouts",
+            "body": [
+              "Podemos usar Stripe Connect u otros proveedores para verificar identidad, cumplimiento fiscal y pagos. Las agencias o relaciones de sub-creadores solo son válidas cuando están activas y aceptadas por las partes según la plataforma."
+            ]
+          },
+          {
+            "heading": "5. Fraude y manipulación",
+            "body": [
+              "Está prohibido inflar regalos, rankings o ingresos con cuentas falsas, pagos propios, chargebacks coordinados, promesas engañosas, tráfico comprado o cualquier manipulación."
+            ]
+          },
+          {
+            "heading": "6. Suspensión de monetización",
+            "body": [
+              "Podemos retener, ajustar o cancelar payouts por fraude, disputas, infracciones, requisitos legales, sanciones de proveedor, riesgo para usuarios o investigación de reportes."
+            ]
+          }
+        ]
+      },
+      "helpCenter": {
+        "shortTitle": "Ayuda",
+        "title": "Centro de Ayuda",
+        "description": "Preguntas frecuentes sobre cuenta, perfil, coins, Premium, VIP, Creator, Live, chat, videollamadas, pagos y seguridad.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": [
+          {
+            "heading": "Cuenta",
+            "body": [
+              "Puedes crear una cuenta con los métodos disponibles, mantener tus datos actualizados y contactar soporte si pierdes acceso o detectas actividad sospechosa."
+            ]
+          },
+          {
+            "heading": "Perfil",
+            "body": [
+              "Completa tu nombre, fotos, preferencias e información pública de forma auténtica. Los perfiles falsos, engañosos o que infrinjan derechos pueden ser limitados o suspendidos."
+            ]
+          },
+          {
+            "heading": "Monedas",
+            "body": [
+              "Las coins son saldo digital interno para funciones, regalos virtuales y experiencias dentro de MeetYouLive. No tienen valor monetario fuera de la plataforma."
+            ]
+          },
+          {
+            "heading": "Premium",
+            "body": [
+              "Premium habilita beneficios digitales descritos al comprar. Revisa precio, renovación, funciones incluidas y condiciones antes de confirmar el pago."
+            ]
+          },
+          {
+            "heading": "VIP",
+            "body": [
+              "VIP puede ofrecer ventajas digitales adicionales, acceso o visibilidad según disponibilidad. Las condiciones específicas se muestran en la experiencia de compra."
+            ]
+          },
+          {
+            "heading": "Creator",
+            "body": [
+              "Los creadores deben solicitar aprobación, cumplir requisitos de seguridad y contenido, y mantener una cuenta elegible para monetización, comisiones y retiros."
+            ]
+          },
+          {
+            "heading": "Live",
+            "body": [
+              "Los directos permiten interactuar en tiempo real, recibir mensajes y regalos virtuales. Deben cumplir las Normas de la Comunidad y la Política de Contenido."
+            ]
+          },
+          {
+            "heading": "Chat",
+            "body": [
+              "El chat permite conversar con otros usuarios según las reglas de la plataforma. Reporta spam, acoso, estafas, suplantación o solicitudes sospechosas."
+            ]
+          },
+          {
+            "heading": "Videollamadas",
+            "body": [
+              "Las videollamadas son experiencias digitales en tiempo real. Respeta consentimiento, privacidad y límites; reporta cualquier conducta insegura."
+            ]
+          },
+          {
+            "heading": "Pagos",
+            "body": [
+              "Los pagos pueden procesarse por Stripe u otros proveedores. Para incidencias, envía cuenta, fecha, importe, método e identificador de transacción a soporte."
+            ]
+          },
+          {
+            "heading": "Seguridad",
+            "body": [
+              "Usa reportar y bloquear cuando sea necesario. Revisamos riesgos de fraude, contenido prohibido, protección de menores y verificación de cuentas."
+            ]
+          }
+        ]
+      },
+      "contact": {
+        "shortTitle": "Contacto",
+        "title": "Contacto",
+        "description": "Correo de soporte, formulario de contacto y tiempo estimado de respuesta para usuarios, pagos, seguridad y cumplimiento.",
+        "lastUpdated": "17 de julio de 2026",
+        "sections": []
+      },
+      "acceptableUse": {
+        "shortTitle": "Uso aceptable",
+        "title": "Política de Uso Aceptable",
+        "description": "Reglas mínimas para usar MeetYouLive de forma segura, legal y respetuosa.",
+        "lastUpdated": "9 de julio de 2026",
+        "sections": [
+          {
+            "heading": "1. Principios",
+            "body": [
+              "Usa MeetYouLive para conectar, conversar, crear y apoyar contenido de forma legal, segura y consentida. No uses la plataforma para dañar, engañar, acosar, explotar o infringir derechos.",
+              "MeetYouLive es operado por MEETYOULIVE TECHNOLOGIES LLC. El sitio oficial de MeetYouLive es https://meetyoulive.net, y las referencias a \"nosotros\" o \"nuestro\" significan esa entidad legal como operadora de la plataforma MeetYouLive."
+            ]
+          },
+          {
+            "heading": "2. Conducta prohibida",
+            "body": [
+              "Está prohibido el acoso, amenazas, odio, spam, fraude, suplantación, manipulación de pagos, evasión de bloqueos, scraping, automatización abusiva, malware, ingeniería social o intentos de acceder a cuentas o sistemas ajenos."
+            ]
+          },
+          {
+            "heading": "3. Contenido prohibido",
+            "body": [
+              "No publiques contenido ilegal, explotación sexual, contenido que ponga en riesgo a menores, violencia extrema, instrucciones para daño real, doxxing, desnudez no consentida, extorsión, terrorismo, tráfico, drogas ilegales o infracciones de propiedad intelectual."
+            ]
+          },
+          {
+            "heading": "4. Chat, llamadas y directos",
+            "body": [
+              "En mensajes, llamadas, videollamadas y directos debes respetar consentimiento, límites y privacidad. No presiones a otros para compartir datos, imágenes, pagos externos, contenido íntimo o comunicaciones fuera de plataforma."
+            ]
+          },
+          {
+            "heading": "5. Pagos, coins y regalos",
+            "body": [
+              "No uses coins, regalos, suscripciones, reembolsos, chargebacks o Stripe Connect para fraude, lavado, monetización engañosa, auto-regalos artificiales o manipulación de rankings."
+            ]
+          },
+          {
+            "heading": "6. Cumplimiento",
+            "body": [
+              "El incumplimiento puede generar retirada de contenido, pérdida de acceso a funciones, bloqueo de directos, suspensión de payouts, suspensión de cuenta o reporte a autoridades y proveedores."
             ]
           }
         ]
@@ -1147,6 +1438,12 @@
             "heading": "2. Reportes y señales",
             "body": [
               "Podemos recibir reportes de usuarios, señales técnicas, patrones de fraude, alertas de proveedores y revisiones internas. Los reportes pueden referirse a perfiles, chats, llamadas, directos, regalos, pagos o contenido."
+            ]
+          },
+          {
+            "heading": "3. Reportar, bloquear y verificar",
+            "body": [
+              "Los usuarios pueden reportar o bloquear cuentas desde las herramientas disponibles. Podemos solicitar verificación de cuenta, edad, identidad o información adicional para proteger contra fraude, suplantación y riesgos de seguridad."
             ]
           },
           {

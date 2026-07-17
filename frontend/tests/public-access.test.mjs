@@ -6,7 +6,27 @@ import {
 } from "../lib/publicAccess.js";
 
 const HOSTS = ["meetyoulive.net", "www.meetyoulive.net"];
-const PUBLIC_PATHS = ["/", "/privacy", "/terms", "/refund", "/contact"];
+const PUBLIC_PATHS = [
+  "/",
+  "/about",
+  "/how-it-works",
+  "/legal",
+  "/security",
+  "/community-guidelines",
+  "/privacy",
+  "/terms",
+  "/cookies",
+  "/refund",
+  "/refunds",
+  "/payments-refunds",
+  "/acceptable-use",
+  "/content-policy",
+  "/creator-policy",
+  "/help-center",
+  "/dmca",
+  "/safety-moderation",
+  "/contact",
+];
 const SESSION_COOKIES = {
   "auth-session": "backend-session",
   "__Secure-next-auth.session-token": "next-auth-session",

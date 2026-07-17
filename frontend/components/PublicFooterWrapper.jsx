@@ -5,19 +5,40 @@ import { usePathname } from "next/navigation";
 
 const PUBLIC_FOOTER_ROUTES = new Set([
   "/",
+  "/about",
+  "/how-it-works",
   "/legal",
   "/privacy",
   "/terms",
+  "/cookies",
   "/refund",
   "/refunds",
   "/payments-refunds",
   "/contact",
   "/acceptable-use",
   "/community-guidelines",
+  "/content-policy",
   "/creator-policy",
   "/dmca",
+  "/help-center",
+  "/security",
   "/safety-moderation",
 ]);
+
+const FOOTER_LINKS = [
+  { href: "/about", label: "About" },
+  { href: "/how-it-works", label: "How it works" },
+  { href: "/security", label: "Security" },
+  { href: "/community-guidelines", label: "Community Guidelines" },
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms" },
+  { href: "/cookies", label: "Cookie Policy" },
+  { href: "/refund", label: "Refund Policy" },
+  { href: "/content-policy", label: "Content Policy" },
+  { href: "/creator-policy", label: "Creator Policy" },
+  { href: "/help-center", label: "Help Center" },
+  { href: "/contact", label: "Contact" },
+];
 
 export default function PublicFooterWrapper() {
   const pathname = usePathname();
@@ -29,10 +50,9 @@ export default function PublicFooterWrapper() {
       <div className="public-footer-inner">
         <strong>MeetYouLive</strong>
         <nav aria-label="Legal and support">
-          <Link href="/privacy">Privacy Policy</Link>
-          <Link href="/terms">Terms of Service</Link>
-          <Link href="/refund">Refund Policy</Link>
-          <Link href="/contact">Contact</Link>
+          {FOOTER_LINKS.map((link) => (
+            <Link key={link.href} href={link.href}>{link.label}</Link>
+          ))}
         </nav>
         <span>© {new Date().getFullYear()} MEETYOULIVE TECHNOLOGIES LLC</span>
       </div>
@@ -51,7 +71,7 @@ export default function PublicFooterWrapper() {
           color: var(--text-muted);
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: center;
           gap: 1rem;
           padding: 1rem 1.15rem;
           box-shadow: var(--shadow-sm);
@@ -66,6 +86,7 @@ export default function PublicFooterWrapper() {
           justify-content: center;
           gap: 0.85rem 1rem;
           font-size: 0.9rem;
+          max-width: 760px;
         }
         nav :global(a) {
           color: var(--accent-cyan);

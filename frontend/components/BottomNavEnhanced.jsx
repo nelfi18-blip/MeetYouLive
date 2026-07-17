@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const getBearerHeader = (token) => ["Bearer", token].join(" ");
+const HOME_ACTIVE_PATHS = new Set(["/", "/dashboard"]);
 
 export default function BottomNavEnhanced() {
   const pathname = usePathname();
@@ -41,7 +42,7 @@ export default function BottomNavEnhanced() {
   const homePath = useMemo(() => getHomePath(role), [role]);
 
   const isActive = (path) => {
-    if (path === homePath) return pathname === "/" || pathname === homePath || pathname === "/dashboard";
+    if (path === homePath) return HOME_ACTIVE_PATHS.has(pathname) || pathname === homePath;
     return pathname?.startsWith(path);
   };
 

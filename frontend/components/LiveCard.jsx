@@ -1,203 +1,192 @@
 "use client";
 
 import Link from "next/link";
-import Badge from "./Badge";
+import FollowButton from "./FollowButton";
 import StatusBadges from "./StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { getLiveThumbnail, getDisplayName, getInitial, getGradientForUser } from "@/lib/imageHelpers";
+import {
+  getLiveThumbnail,
+  getDisplayName,
+  getInitial,
+  getGradientForUser,
+  getUserImage,
+} from "@/lib/imageHelpers";
+import { formatLiveDuration, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-/**
- * Reusable LiveCard component for live-stream listings.
- *
- * Props:
- *  - live: { _id, title, description, viewerCount, giftsTotal, giftsCount,
- *            totalCoinsEarned, isTrending, isPrivate, entryCost, 
- *            user: { username, avatar, creatorStatus }, category, battle: { active } }
- *  - index: optional index for staggered animations
- */
-export default function LiveCard({ live, index = 0 }) {
+function normalizeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
+
+export default function LiveCard({
+  live,
+  index = 0,
+  token = "",
+  variant = "default",
+  onShare,
+  onGift,
+}) {
+  const { t } = useLanguage();
   if (!live || typeof live !== "object" || !live._id) return null;
 
   const username = getDisplayName(live.user);
   const initial = getInitial(username);
-  const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : "Directo en vivo";
+  const safeTitle = typeof live.title === "string" && live.title.trim() ? live.title.trim() : t("liveDiscovery.fallbackTitle");
   const liveThumb = getLiveThumbnail(live);
+  const avatar = getUserImage(live.user);
   const gradient = getGradientForUser(live.user?._id || live._id);
-  
-  // Support multiple viewer count field names
-  const rawViewerCount = live.viewerCount ?? live.viewers ?? live.viewersCount ?? 0;
-  const safeViewerCount = Number.isFinite(rawViewerCount) ? Math.max(0, rawViewerCount) : 0;
-  
-  const safeGiftsTotal = Number.isFinite(live.giftsTotal) ? Math.max(0, live.giftsTotal) : 0;
-  const safeTotalCoins = Number.isFinite(live.totalCoinsEarned) ? Math.max(0, live.totalCoinsEarned) : 0;
-
-  // Use the canonical creator check helper
+  const safeViewerCount = normalizeNumber(live.viewerCount ?? live.viewers ?? live.viewersCount);
+  const safeGiftsTotal = normalizeNumber(live.giftsTotal ?? live.totalCoinsEarned);
   const isCreatorApproved = isApprovedCreator(live.user);
-  
-  // Check if live is new (created less than 10 minutes ago)
-  const isNew = live.createdAt ? (Date.now() - new Date(live.createdAt).getTime()) < 10 * 60 * 1000 : false;
-  
-  // Check if battle mode is active
-  const isBattle = live.battle?.active === true;
-
+  const liveStartedAt = live.startedAt || live.createdAt;
+  const isNew = liveStartedAt ? Date.now() - new Date(liveStartedAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
+  const isBattle = live.battle?.active === true || live.isVsActive === true;
+  const duration = formatLiveDuration(live, t("liveCard.now"));
+  const profileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const statusBadges = computeStatusBadges(
     { ...live.user, isLive: true, liveId: live._id },
     { viewerCount: safeViewerCount, giftsTotal: safeGiftsTotal },
   );
-
-  // Stagger animation class
-  const staggerClass = index < 5 ? `stagger-${index + 1}` : '';
+  const staggerClass = index < 5 ? `stagger-${index + 1}` : "";
 
   return (
     <>
-      <Link 
-        href={`/live/${live._id}`} 
-        className={`live-card hover-lift animate-slide-up ${staggerClass} ${live.isTrending ? 'trending-glow' : ''}`}
-      >
-        {/* Thumbnail */}
-        <div className="live-thumb">
-          {liveThumb ? (
-            <img src={liveThumb} alt={safeTitle} className="live-thumb-img" />
-          ) : (
-            <div className="live-thumb-fallback">
-              <div className="live-thumb-fallback-bg" style={{ background: gradient }} />
-              <div className="live-thumb-fallback-glow" style={{
-                background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15), transparent 60%)'
-              }} />
-              <div className="live-thumb-avatar">
-                {live.user?.avatar ? (
-                  <img src={live.user.avatar} alt={username} />
-                ) : (
-                  initial
-                )}
+      <article className={`live-card ${variant === "featured" ? "featured" : ""} animate-slide-up ${staggerClass}`}>
+        <Link
+          href={`/live/${live._id}`}
+          className="live-card-link"
+          aria-label={t("liveCard.enterAria").replace("{title}", safeTitle)}
+        >
+          <div className="live-thumb">
+            {liveThumb ? (
+              <img src={liveThumb} alt={safeTitle} className="live-thumb-img" />
+            ) : (
+              <div className="live-thumb-fallback">
+                <div className="live-thumb-fallback-bg" style={{ background: gradient }} />
+                <div className="live-thumb-fallback-glow" />
+                <div className="live-thumb-avatar">
+                  {avatar ? <img src={avatar} alt={username} /> : initial}
+                </div>
+                <div className="live-thumb-play-icon">▶</div>
               </div>
-              <div className="live-thumb-play-icon">▶</div>
-              <div className="live-thumb-fallback-label">En vivo</div>
+            )}
+
+            <div className="live-thumb-shade" />
+
+            <div className="live-thumb-badges">
+              <span className="live-badge-enhanced">🔴 EN VIVO</span>
+              {live.category && <span className="live-category-tag">{live.category}</span>}
+              {isBattle && <span className="live-vs-badge">⚔️ VS</span>}
             </div>
-          )}
 
-          <div className="live-thumb-badges">
-            <span className="live-badge-enhanced">EN VIVO</span>
-            {live.category && (
-              <span className="live-category-tag">{live.category}</span>
-            )}
-            {isBattle && (
-              <span className="live-vs-badge">⚔️ VS</span>
-            )}
-          </div>
-
-          {/* Top tags - trending, top creator, new */}
-          <div className="live-top-tags">
-            {live.isTrending && (
-              <span className="live-tag-trending animate-pulse-intense">🔥 TRENDING</span>
-            )}
-            {isCreatorApproved && safeViewerCount >= 50 && (
-              <span className="live-tag-top">⭐ TOP</span>
-            )}
-            {isNew && (
-              <span className="live-tag-new animate-bounce-in">✨ NUEVO</span>
-            )}
-          </div>
-
-          {live.isPrivate && (
-            <span className="live-private-badge">🔒 PRIVADO</span>
-          )}
-
-          <div className="live-thumb-stats">
-            {safeViewerCount >= 0 && (
-              <span className="live-stat-chip glass-effect">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-                {safeViewerCount}
-              </span>
-            )}
-            {safeTotalCoins > 0 && (
-              <span className="live-stat-chip live-stat-coins glass-effect">
-                💎 {safeTotalCoins}
-              </span>
-            )}
-          </div>
-
-          <div className="live-thumb-play">▶</div>
-        </div>
-
-        {/* Body */}
-        <div className="live-body">
-          <div className="live-user-row">
-            <div className="live-avatar">
-              {live.user?.avatar ? (
-                <img src={live.user.avatar} alt={username} className="live-avatar-img" />
-              ) : (
-                initial
-              )}
-              <span className="live-avatar-dot animate-pulse-intense" />
+            <div className="live-top-tags">
+              {(live.isTrending || safeViewerCount >= 50) && <span className="live-tag-trending">🔥 Popular</span>}
+              {isNew && <span className="live-tag-new">✨ Nuevo</span>}
+              {live.isVipOnly && <span className="live-tag-vip">💎 VIP</span>}
+              {live.isPrivate && <span className="live-tag-private">🔒 Premium</span>}
             </div>
-            <span className="live-username">@{username}</span>
-            {isCreatorApproved && (
-              <span className="live-creator-badge">⭐</span>
-            )}
-            {live.isPrivate && live.entryCost != null && (
-              <span className="live-entry-cost" style={{ marginLeft: "auto" }}>🪙 {live.entryCost}</span>
-            )}
+
+            <div className="live-thumb-stats">
+              <span className="live-stat-chip viewer-pulse">👁 {safeViewerCount}</span>
+              <span className="live-stat-chip">⏱ {duration}</span>
+              {safeGiftsTotal > 0 && <span className="live-stat-chip live-stat-coins">💎 {safeGiftsTotal}</span>}
+            </div>
           </div>
-          {statusBadges.length > 0 && (
-            <StatusBadges badges={statusBadges} compact />
-          )}
-          <div className="live-title">{safeTitle}</div>
-          {live.description && (
-            <div className="live-desc">{live.description}</div>
-          )}
-          <div className="live-join-row">
-            <span className="live-join-btn btn-shimmer">🎥 Entrar</span>
+
+          <div className="live-body">
+            <div className="live-user-row">
+              <div className="live-avatar">
+                {avatar ? <img src={avatar} alt={username} className="live-avatar-img" /> : initial}
+                <span className="live-avatar-dot" />
+              </div>
+              <div className="live-user-copy">
+                <span className="live-username">@{username}</span>
+                <span className="live-user-meta">{safeViewerCount} {t("liveCard.viewers")} · {duration}</span>
+              </div>
+              {isCreatorApproved && <span className="live-creator-badge">{t("liveCard.creator")}</span>}
+            </div>
+
+            {statusBadges.length > 0 && <StatusBadges badges={statusBadges} compact />}
+
+            <div className="live-title">{safeTitle}</div>
+            {live.description && <div className="live-desc">{live.description}</div>}
           </div>
+        </Link>
+
+        <div className="live-actions" aria-label={t("liveCard.actionsFor").replace("{title}", safeTitle)}>
+          <Link href={`/live/${live._id}`} className="action-primary">
+            {t("liveCard.enter")}
+          </Link>
+          {live.user?._id && (
+            <span className="follow-wrap">
+              <FollowButton targetId={String(live.user._id)} token={token} />
+            </span>
+          )}
+          <button type="button" className="action-chip" onClick={() => onShare?.(live)}>
+            {t("liveCard.share")}
+          </button>
+          <button type="button" className="action-chip gift" onClick={() => onGift?.(live)}>
+            {t("liveCard.gift")}
+          </button>
+          <Link href={profileHref} className="action-chip profile">
+            {t("liveCard.profile")}
+          </Link>
         </div>
-      </Link>
+      </article>
 
       <style jsx>{`
         .live-card {
+          position: relative;
           overflow: hidden;
-          cursor: pointer;
-          border: 1px solid rgba(224, 64, 251, 0.16);
+          border: 1px solid rgba(224, 64, 251, 0.18);
           border-radius: var(--radius);
-          background: linear-gradient(135deg, rgba(30,12,60,0.9) 0%, rgba(12,5,25,0.95) 100%);
-          transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
-                      box-shadow 0.35s cubic-bezier(0.4,0,0.2,1),
-                      border-color 0.2s ease;
-          display: block;
-          text-decoration: none;
-          -webkit-tap-highlight-color: transparent;
+          background:
+            radial-gradient(circle at 20% 0%, rgba(224,64,251,0.18), transparent 34%),
+            linear-gradient(145deg, rgba(24,10,52,0.92), rgba(8,4,22,0.96));
+          box-shadow: 0 18px 45px rgba(0,0,0,0.24), 0 0 30px rgba(139,92,246,0.08);
+          transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.2s ease;
         }
 
         .live-card:hover {
-          border-color: rgba(139, 92, 246, 0.55);
-          box-shadow: var(--shadow), 0 0 40px rgba(139, 92, 246, 0.28);
-          transform: translateY(-5px);
+          border-color: rgba(34,211,238,0.38);
+          box-shadow: 0 20px 55px rgba(0,0,0,0.32), 0 0 42px rgba(224,64,251,0.2);
+          transform: translateY(-4px);
         }
 
-        .live-card:active {
-          transform: scale(0.97) translateY(-2px);
-          box-shadow: var(--shadow), 0 0 20px rgba(139, 92, 246, 0.18);
-        }
+        .live-card.featured .live-thumb { height: 270px; }
+        .live-card-link { display: block; color: inherit; text-decoration: none; }
 
-        /* Thumbnail - increased height for stronger presence */
         .live-thumb {
-          height: 200px;
+          height: 210px;
           position: relative;
           overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: #05020d;
         }
 
         .live-thumb-img {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
+          transform: scale(1.01);
+          transition: transform 0.5s ease;
+        }
+
+        .live-card:hover .live-thumb-img { transform: scale(1.06); }
+
+        .live-thumb-shade {
           position: absolute;
           inset: 0;
+          background:
+            linear-gradient(to top, rgba(5,2,13,0.82), rgba(5,2,13,0.08) 55%),
+            radial-gradient(circle at 80% 12%, rgba(34,211,238,0.18), transparent 28%);
+          z-index: 1;
         }
 
         .live-thumb-fallback {
@@ -207,25 +196,24 @@ export default function LiveCard({ live, index = 0 }) {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.8rem;
+          gap: 0.75rem;
         }
 
-        .live-thumb-fallback-bg {
+        .live-thumb-fallback-bg,
+        .live-thumb-fallback-glow {
           position: absolute;
           inset: 0;
         }
 
         .live-thumb-fallback-glow {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
+          background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.18), transparent 46%);
         }
 
         .live-thumb-avatar {
           position: relative;
           z-index: 1;
-          width: 70px;
-          height: 70px;
+          width: 76px;
+          height: 76px;
           border-radius: 50%;
           overflow: hidden;
           background: var(--grad-primary);
@@ -234,12 +222,13 @@ export default function LiveCard({ live, index = 0 }) {
           justify-content: center;
           color: #fff;
           font-weight: 900;
-          font-size: 1.8rem;
-          border: 3px solid rgba(224,64,251,0.5);
-          box-shadow: 0 4px 16px rgba(139,92,246,0.4);
+          font-size: 1.85rem;
+          border: 3px solid rgba(255,255,255,0.32);
+          box-shadow: 0 0 26px rgba(224,64,251,0.45);
         }
 
-        .live-thumb-avatar img {
+        .live-thumb-avatar img,
+        .live-avatar-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
@@ -248,244 +237,154 @@ export default function LiveCard({ live, index = 0 }) {
         .live-thumb-play-icon {
           position: relative;
           z-index: 1;
-          font-size: 2.5rem;
-          color: rgba(255,255,255,0.6);
-          animation: playPulse 2s ease-in-out infinite;
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(255,255,255,0.13);
+          border: 1px solid rgba(255,255,255,0.22);
+          backdrop-filter: blur(10px);
+          animation: playPulse 2.2s ease-in-out infinite;
         }
 
         @keyframes playPulse {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.1); opacity: 0.9; }
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(224,64,251,0); }
+          50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(224,64,251,0.32); }
         }
 
-        .live-thumb-fallback-label {
-          position: relative;
-          z-index: 1;
-          font-size: 0.9rem;
-          font-weight: 800;
-          color: rgba(255,255,255,0.7);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .live-thumb-badges {
+        .live-thumb-badges,
+        .live-top-tags,
+        .live-thumb-stats {
           position: absolute;
-          top: 0.75rem;
-          left: 0.75rem;
           z-index: 2;
           display: flex;
-          gap: 0.4rem;
+          gap: 0.38rem;
           align-items: center;
           flex-wrap: wrap;
         }
 
-        .live-category-tag {
-          font-size: 0.6rem;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          padding: 0.2rem 0.55rem;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.08);
-          color: var(--text-muted);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(8px);
-        }
+        .live-thumb-badges { top: 0.75rem; left: 0.75rem; }
+        .live-top-tags { top: 0.75rem; right: 0.75rem; flex-direction: column; align-items: flex-end; }
+        .live-thumb-stats { bottom: 0.75rem; left: 0.75rem; right: 0.75rem; justify-content: space-between; }
 
-        .live-vs-badge {
-          font-size: 0.62rem;
-          font-weight: 900;
-          letter-spacing: 0.05em;
-          padding: 0.2rem 0.6rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.25));
-          color: #fca5a5;
-          border: 1px solid rgba(239,68,68,0.4);
-          backdrop-filter: blur(8px);
-        }
-
-        /* Top right tags */
-        .live-top-tags {
-          position: absolute;
-          top: 0.75rem;
-          right: 0.75rem;
-          z-index: 2;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-          align-items: flex-end;
-        }
-
-        .live-tag-trending {
-          font-size: 0.62rem;
-          font-weight: 900;
-          letter-spacing: 0.06em;
-          padding: 0.22rem 0.65rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.3));
-          color: #fff;
-          border: 1px solid rgba(239,68,68,0.5);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 2px 12px rgba(239,68,68,0.3);
-          animation: trendingPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes trendingPulse {
-          0%, 100% { transform: scale(1); box-shadow: 0 2px 12px rgba(239,68,68,0.3); }
-          50% { transform: scale(1.05); box-shadow: 0 4px 20px rgba(239,68,68,0.5); }
-        }
-
-        .live-tag-top {
-          font-size: 0.6rem;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          padding: 0.2rem 0.6rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25));
-          color: #fde68a;
-          border: 1px solid rgba(251,191,36,0.4);
-          backdrop-filter: blur(10px);
-        }
-
-        .live-tag-new {
-          font-size: 0.6rem;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          padding: 0.2rem 0.6rem;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(124,58,237,0.25));
-          color: #c4b5fd;
-          border: 1px solid rgba(139,92,246,0.4);
-          backdrop-filter: blur(10px);
-        }
-
-        .live-private-badge {
-          position: absolute;
-          bottom: 3rem;
-          right: 0.75rem;
-          z-index: 2;
-          background: rgba(139,92,246,0.85);
-          color: #fff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          padding: 0.22rem 0.65rem;
-          border-radius: 999px;
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(139,92,246,0.5);
-        }
-
-        .live-thumb-stats {
-          position: absolute;
-          bottom: 0.75rem;
-          right: 0.75rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          z-index: 2;
-        }
-
+        .live-category-tag,
+        .live-vs-badge,
+        .live-tag-trending,
+        .live-tag-new,
+        .live-tag-vip,
+        .live-tag-private,
         .live-stat-chip {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
-          background: rgba(6,4,17,0.85);
-          color: var(--text);
-          font-size: 0.75rem;
-          font-weight: 700;
-          padding: 0.28rem 0.7rem;
+          gap: 0.25rem;
           border-radius: 999px;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(7,3,18,0.58);
+          color: #fff;
+          backdrop-filter: blur(12px);
+          font-size: 0.68rem;
+          font-weight: 850;
+          padding: 0.24rem 0.62rem;
+          white-space: nowrap;
         }
 
-        .live-stat-coins {
-          background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(124,58,237,0.3));
-          color: #c4b5fd;
-          border-color: rgba(139,92,246,0.3);
+        .live-tag-trending { color: #fecaca; border-color: rgba(248,113,113,0.36); background: rgba(239,68,68,0.18); }
+        .live-tag-new { color: #bae6fd; border-color: rgba(34,211,238,0.35); background: rgba(34,211,238,0.12); }
+        .live-tag-vip { color: #fde68a; border-color: rgba(251,191,36,0.42); background: rgba(251,191,36,0.12); }
+        .live-tag-private { color: #e9d5ff; border-color: rgba(192,132,252,0.34); background: rgba(139,92,246,0.16); }
+        .live-stat-coins { color: #fde68a; }
+
+        .viewer-pulse { animation: viewerPulse 1.8s ease-in-out infinite; }
+        @keyframes viewerPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.28); }
+          50% { box-shadow: 0 0 0 5px rgba(34,211,238,0); }
         }
 
-        /* Body */
         .live-body {
-          padding: 1rem 1.1rem;
+          padding: 1rem 1rem 0.75rem;
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 0.48rem;
         }
 
         .live-user-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
 
         .live-avatar {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: var(--grad-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-          font-weight: 800;
-          font-size: 0.75rem;
-          flex-shrink: 0;
-          overflow: hidden;
           position: relative;
-          border: 1.5px solid rgba(224,64,251,0.4);
-        }
-
-        .live-avatar-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          background: var(--grad-primary);
+          color: #fff;
+          font-weight: 900;
+          border: 2px solid rgba(224,64,251,0.45);
         }
 
         .live-avatar-dot {
           position: absolute;
-          bottom: 0;
-          right: 0;
-          width: 7px;
-          height: 7px;
+          right: 1px;
+          bottom: 1px;
+          width: 10px;
+          height: 10px;
           border-radius: 50%;
           background: #ef4444;
-          border: 1.5px solid rgba(12,5,25,0.95);
-          animation: liveDotPulse 1.4s infinite;
+          border: 2px solid #12071f;
+          animation: liveDotPulse 1.3s infinite;
         }
 
         @keyframes liveDotPulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(0.8); }
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(0.72); opacity: 0.65; }
+        }
+
+        .live-user-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.08rem;
+          flex: 1;
         }
 
         .live-username {
-          font-size: 0.78rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-
-        .live-creator-badge {
-          font-size: 0.72rem;
-          line-height: 1;
-          margin-left: 0.1rem;
-        }
-
-        .live-entry-cost {
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: #a78bfa;
-          background: rgba(139,92,246,0.12);
-          border: 1px solid rgba(139,92,246,0.28);
-          border-radius: 999px;
-          padding: 0.18rem 0.55rem;
+          font-size: 0.85rem;
+          color: var(--text);
+          font-weight: 850;
+          overflow: hidden;
+          text-overflow: ellipsis;
           white-space: nowrap;
         }
 
+        .live-user-meta {
+          font-size: 0.7rem;
+          color: var(--text-dim);
+          font-weight: 650;
+        }
+
+        .live-creator-badge {
+          font-size: 0.62rem;
+          color: #fde68a;
+          background: rgba(251,191,36,0.12);
+          border: 1px solid rgba(251,191,36,0.32);
+          border-radius: 999px;
+          padding: 0.16rem 0.48rem;
+          font-weight: 900;
+        }
+
         .live-title {
-          font-weight: 700;
+          font-weight: 900;
           color: var(--text);
-          font-size: 0.95rem;
-          line-height: 1.35;
+          font-size: 1rem;
+          line-height: 1.3;
         }
 
         .live-desc {
@@ -495,32 +394,58 @@ export default function LiveCard({ live, index = 0 }) {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          line-height: 1.4;
+          line-height: 1.42;
         }
 
-        .live-join-row {
-          margin-top: 0.15rem;
+        .live-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          flex-wrap: wrap;
+          padding: 0 1rem 1rem;
         }
 
-        .live-join-btn {
+        .action-primary,
+        .action-chip {
           display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
-          background: linear-gradient(135deg, rgba(224,64,251,0.18), rgba(139,92,246,0.18));
-          border: 1px solid rgba(224,64,251,0.35);
-          color: #e040fb;
-          font-size: 0.75rem;
-          font-weight: 800;
-          padding: 0.3rem 0.85rem;
+          justify-content: center;
+          min-height: 32px;
           border-radius: 999px;
-          letter-spacing: 0.02em;
-          transition: all 0.18s;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.05);
+          color: var(--text-muted);
+          text-decoration: none;
+          cursor: pointer;
+          font-size: 0.76rem;
+          font-weight: 850;
+          padding: 0.34rem 0.78rem;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
 
-        .live-card:hover .live-join-btn {
-          background: linear-gradient(135deg, rgba(224,64,251,0.3), rgba(139,92,246,0.3));
-          border-color: rgba(224,64,251,0.6);
-          box-shadow: 0 0 12px rgba(224,64,251,0.25);
+        .action-primary {
+          background: linear-gradient(135deg, #e040fb, #22d3ee);
+          border: none;
+          color: #fff;
+          box-shadow: 0 0 18px rgba(224,64,251,0.28);
+        }
+
+        .action-chip.gift { color: #f0abfc; border-color: rgba(224,64,251,0.28); }
+        .action-chip.profile { color: #67e8f9; border-color: rgba(34,211,238,0.25); }
+
+        .action-primary:hover,
+        .action-chip:hover {
+          transform: translateY(-1px);
+          background: rgba(255,255,255,0.09);
+          box-shadow: 0 0 16px rgba(139,92,246,0.18);
+        }
+
+        .action-primary:hover { background: linear-gradient(135deg, #ec5fff, #38e4ff); }
+
+        .follow-wrap :global(.follow-btn) {
+          min-height: 32px;
+          padding: 0.34rem 0.78rem;
+          font-size: 0.76rem;
         }
       `}</style>
     </>

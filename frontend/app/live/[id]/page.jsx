@@ -26,6 +26,8 @@ import LiveEventFeed from "@/components/LiveEventFeed";
 import ModerationActions from "@/components/ModerationActions";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
+import { getUserImage } from "@/lib/imageHelpers";
+import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -63,6 +65,7 @@ function isPermissionDeniedError(err) {
 }
 
 export default function LiveRoomPage() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const router = useRouter();
 
@@ -1496,6 +1499,8 @@ export default function LiveRoomPage() {
       ? creatorNameRaw.trim()
       : "Creador";
   const creatorInitial = creatorName.charAt(0).toUpperCase() || "C";
+  const creatorAvatar = getUserImage(live.user);
+  const creatorProfileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";
   const handleBlockedCreator = () => {
     router.replace("/live");
   };
@@ -1517,9 +1522,14 @@ export default function LiveRoomPage() {
   const showGoalUrgency  = !isCreator && goalData?.active && !goalData?.completed && goalData?.target > 0;
   const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
+  // One visible avatar is the host; top fan avatars are also displayed, so +N only counts remaining viewers.
+  const extraViewerCount = Math.max(0, viewerCount - 1 - topFanIds.length);
 
   return (
     <div className="room">
+      <div className="room-bg-glow room-bg-glow-a" />
+      <div className="room-bg-glow room-bg-glow-b" />
+
       {/* ── Non-blocking pressure hint overlay ── */}
       <LivePressureHints hint={pressureHint} />
 
@@ -1579,8 +1589,8 @@ export default function LiveRoomPage() {
           <div className="creator-header-bar">
             <div className="chr-left">
               <div className="chr-avatar">
-                {live.user?.avatar ? (
-                  <img src={live.user.avatar} alt={creatorName} className="chr-avatar-img" />
+                {creatorAvatar ? (
+                  <img src={creatorAvatar} alt={creatorName} className="chr-avatar-img" />
                 ) : (
                   creatorInitial
                 )}
@@ -1633,6 +1643,8 @@ export default function LiveRoomPage() {
           </div>
 
           <div className="video-wrap">
+            <div className="video-ambient-glow" />
+
             {/* Agora video containers */}
             {isCreator ? (
               <div
@@ -1745,12 +1757,43 @@ export default function LiveRoomPage() {
               <div className="overlay-right">
                 <div className="creator-chip">
                   <div className="creator-avatar">
-                    {creatorInitial}
+                    {creatorAvatar ? (
+                      <img src={creatorAvatar} alt={creatorName} className="creator-avatar-img" />
+                    ) : (
+                      creatorInitial
+                    )}
                   </div>
                   <span>@{creatorName}</span>
                 </div>
               </div>
             </div>
+
+            <div className="video-activity-pills" aria-label="Actividad del directo">
+              <span className="vap-pill vap-live">{t("liveRoomUi.live")}</span>
+              <span className="vap-pill vap-viewers">
+                👁 {t("liveRoomUi.viewers").replace("{count}", String(viewerCount))}
+              </span>
+              <span className="vap-pill vap-chat" aria-live="off">
+                {socketState === "connected" ? t("liveRoomUi.chatActive") : t("liveRoomUi.reconnecting")}
+              </span>
+            </div>
+
+            {!isCreator && (
+              <div className="video-floating-actions" aria-label="Acciones rápidas del live">
+                <button type="button" className="video-fab gift" onClick={() => setShowGiftPanel(true)}>
+                  <span>🎁</span>
+                  <small>{t("liveRoomUi.gift")}</small>
+                </button>
+                <button type="button" className="video-fab chat" onClick={() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" })}>
+                  <span>💬</span>
+                  <small>{t("liveRoomUi.chat")}</small>
+                </button>
+                <Link href={creatorProfileHref} className="video-fab profile">
+                  <span>👤</span>
+                  <small>{t("liveRoomUi.profile")}</small>
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className="action-bar">
@@ -1858,8 +1901,8 @@ export default function LiveRoomPage() {
             <div className="stream-meta">
               <div className="stream-creator-row">
                 <div className="avatar-placeholder" style={{ width: 40, height: 40, fontSize: "1rem", overflow: "hidden", flexShrink: 0 }}>
-                  {live.user?.avatar ? (
-                    <img src={live.user.avatar} alt={creatorName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                  {creatorAvatar ? (
+                    <img src={creatorAvatar} alt={creatorName} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                   ) : (
                     creatorInitial
                   )}
@@ -1908,6 +1951,32 @@ export default function LiveRoomPage() {
         </div>
 
         <div className="room-chat">
+          <div className="viewer-panel">
+            <div className="viewer-panel-header">
+              <span>{t("liveRoomUi.audience")}</span>
+              <strong>{viewerCount}</strong>
+            </div>
+            <div className="viewer-stack">
+              <span className="viewer-avatar host">
+                {creatorAvatar ? <img src={creatorAvatar} alt={creatorName} /> : creatorInitial}
+              </span>
+              {topFanIds.slice(0, 3).map((fanId, index) => (
+                <span className="viewer-avatar fan" key={fanId} title={topFanNamesRef.current[fanId] || "Top Fan"}>
+                  {FAN_MEDALS[index]}
+                </span>
+              ))}
+              {extraViewerCount > 0 && (
+                <span
+                  className="viewer-more"
+                  aria-label={t("liveRoomUi.moreViewers").replace("{count}", String(extraViewerCount))}
+                >
+                  +{extraViewerCount}
+                </span>
+              )}
+            </div>
+            <p>{t("liveRoomUi.activityDescription")}</p>
+          </div>
+
           <TopGifters liveId={id} refreshTrigger={giftRefreshTrigger} />
 
           {/* ── Top Supporter Badge ── */}
@@ -2115,9 +2184,33 @@ export default function LiveRoomPage() {
 
       <style jsx>{`
         .room {
+          position: relative;
           display: flex;
           flex-direction: column;
           gap: 0;
+        }
+
+        .room-bg-glow {
+          position: fixed;
+          width: 360px;
+          height: 360px;
+          border-radius: 50%;
+          pointer-events: none;
+          filter: blur(8px);
+          opacity: 0.35;
+          z-index: -1;
+        }
+
+        .room-bg-glow-a {
+          top: 8%;
+          left: -120px;
+          background: radial-gradient(circle, rgba(224,64,251,0.36), transparent 66%);
+        }
+
+        .room-bg-glow-b {
+          right: -140px;
+          bottom: 10%;
+          background: radial-gradient(circle, rgba(34,211,238,0.28), transparent 64%);
         }
 
         /* ── Urgency countdown bar ── */
@@ -2336,6 +2429,7 @@ export default function LiveRoomPage() {
 
         /* ── Premium Creator Header Bar ── */
         .creator-header-bar {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -2346,6 +2440,22 @@ export default function LiveRoomPage() {
           border-radius: var(--radius);
           backdrop-filter: blur(16px);
           box-shadow: 0 0 28px rgba(224,64,251,0.08), var(--shadow);
+          overflow: hidden;
+        }
+
+        .creator-header-bar::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(34,211,238,0.08), transparent);
+          transform: translateX(-100%);
+          animation: roomHeaderSweep 6s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        @keyframes roomHeaderSweep {
+          0%, 55% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
 
         .chr-left {
@@ -2512,7 +2622,33 @@ export default function LiveRoomPage() {
           border-radius: var(--radius);
           overflow: hidden;
           border: 1px solid rgba(255,15,138,0.25);
-          box-shadow: 0 0 40px rgba(255,15,138,0.15), var(--shadow);
+          box-shadow: 0 26px 70px rgba(0,0,0,0.36), 0 0 45px rgba(255,15,138,0.17), var(--shadow);
+          isolation: isolate;
+        }
+
+        .video-wrap::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 -120px 130px rgba(8,3,20,0.28);
+        }
+
+        .video-ambient-glow {
+          position: absolute;
+          inset: -30%;
+          z-index: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(circle at 18% 20%, rgba(224,64,251,0.16), transparent 28%),
+            radial-gradient(circle at 82% 18%, rgba(34,211,238,0.12), transparent 26%);
+          animation: ambientFloat 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes ambientFloat {
+          from { transform: translate3d(-1%, -1%, 0) scale(1); }
+          to { transform: translate3d(1.5%, 1%, 0) scale(1.03); }
         }
 
         .agora-video-container {
@@ -2521,6 +2657,7 @@ export default function LiveRoomPage() {
           width: 100%;
           height: 100%;
           background: #000;
+          z-index: 0;
         }
 
         .video-joining {
@@ -2640,6 +2777,122 @@ export default function LiveRoomPage() {
           z-index: 3;
         }
 
+        .video-activity-pills {
+          position: absolute;
+          top: 0.75rem;
+          left: 0.75rem;
+          right: 0.75rem;
+          z-index: 5;
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          flex-wrap: wrap;
+          pointer-events: none;
+        }
+
+        .vap-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(7,3,18,0.6);
+          color: #fff;
+          backdrop-filter: blur(12px);
+          font-size: 0.68rem;
+          font-weight: 900;
+          padding: 0.25rem 0.65rem;
+          box-shadow: 0 0 18px rgba(0,0,0,0.18);
+        }
+
+        .vap-live {
+          border-color: rgba(248,113,113,0.38);
+          background: rgba(239,68,68,0.2);
+          animation: vapLivePulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes vapLivePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); }
+          50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+        }
+
+        .vap-viewers {
+          border-color: rgba(34,211,238,0.28);
+          color: #a5f3fc;
+        }
+
+        .vap-chat {
+          border-color: rgba(224,64,251,0.3);
+          color: #f0abfc;
+        }
+
+        .video-floating-actions {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 6;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+
+        .video-fab {
+          width: 56px;
+          min-height: 56px;
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(7,3,18,0.58);
+          color: #fff;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.1rem;
+          text-decoration: none;
+          cursor: pointer;
+          backdrop-filter: blur(14px);
+          box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .video-fab span {
+          font-size: 1.12rem;
+          line-height: 1;
+        }
+
+        .video-fab small {
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.02em;
+        }
+
+        .video-fab.gift {
+          border-color: rgba(224,64,251,0.44);
+          background: linear-gradient(135deg, rgba(224,64,251,0.26), rgba(139,92,246,0.18));
+          animation: roomGiftGlow 2.4s ease-in-out infinite;
+        }
+
+        @keyframes roomGiftGlow {
+          0%, 100% { box-shadow: 0 10px 28px rgba(0,0,0,0.25), 0 0 10px rgba(224,64,251,0.18); }
+          50% { box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 24px rgba(224,64,251,0.42); }
+        }
+
+        .video-fab.chat {
+          border-color: rgba(34,211,238,0.34);
+          color: #a5f3fc;
+        }
+
+        .video-fab.profile {
+          border-color: rgba(251,191,36,0.26);
+          color: #fde68a;
+        }
+
+        .video-fab:hover {
+          transform: translateY(-2px) scale(1.03);
+          border-color: rgba(255,255,255,0.28);
+        }
+
         .overlay-left,
         .overlay-right {
           display: flex;
@@ -2674,6 +2927,13 @@ export default function LiveRoomPage() {
           font-weight: 900;
           color: #fff;
           flex-shrink: 0;
+          overflow: hidden;
+        }
+
+        .creator-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .recent-gift-badge {
@@ -3194,13 +3454,95 @@ export default function LiveRoomPage() {
         .room-chat {
           display: flex;
           flex-direction: column;
-          background: rgba(14,5,32,0.92);
-          border: 1px solid var(--border);
+          background:
+            radial-gradient(circle at 0% 0%, rgba(224,64,251,0.1), transparent 34%),
+            linear-gradient(180deg, rgba(16,6,38,0.94), rgba(8,3,21,0.96));
+          border: 1px solid rgba(224,64,251,0.18);
           border-radius: var(--radius);
           overflow: hidden;
           height: 540px;
           position: sticky;
           top: 1rem;
+          box-shadow: 0 18px 50px rgba(0,0,0,0.24), 0 0 24px rgba(224,64,251,0.07);
+          backdrop-filter: blur(18px);
+        }
+
+        .viewer-panel {
+          padding: 0.8rem 0.9rem;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.025);
+        }
+
+        .viewer-panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.7rem;
+          color: var(--text);
+          font-size: 0.82rem;
+          font-weight: 900;
+          margin-bottom: 0.6rem;
+        }
+
+        .viewer-panel-header strong {
+          color: #67e8f9;
+          font-size: 0.95rem;
+        }
+
+        .viewer-stack {
+          display: flex;
+          align-items: center;
+          margin-bottom: 0.55rem;
+        }
+
+        .viewer-avatar,
+        .viewer-more {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          margin-left: -0.4rem;
+          border: 2px solid rgba(12,5,28,0.98);
+          background: var(--grad-primary);
+          color: #fff;
+          font-size: 0.8rem;
+          font-weight: 900;
+          overflow: hidden;
+          box-shadow: 0 0 14px rgba(224,64,251,0.14);
+        }
+
+        .viewer-avatar:first-child { margin-left: 0; }
+
+        .viewer-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .viewer-avatar.host {
+          border-color: rgba(224,64,251,0.58);
+        }
+
+        .viewer-avatar.fan {
+          background: linear-gradient(135deg, rgba(251,191,36,0.26), rgba(224,64,251,0.2));
+        }
+
+        .viewer-more {
+          width: auto;
+          min-width: 38px;
+          padding: 0 0.5rem;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.07);
+          color: var(--text-muted);
+          font-size: 0.72rem;
+        }
+
+        .viewer-panel p {
+          margin: 0;
+          color: var(--text-dim);
+          font-size: 0.72rem;
+          line-height: 1.4;
         }
 
         @media (max-width: 900px) {
@@ -3216,8 +3558,8 @@ export default function LiveRoomPage() {
           align-items: center;
           gap: 0.5rem;
           padding: 0.75rem 1rem;
-          background: rgba(224,64,251,0.06);
-          border-bottom: 1px solid var(--border);
+          background: linear-gradient(90deg, rgba(224,64,251,0.1), rgba(34,211,238,0.05));
+          border-bottom: 1px solid rgba(255,255,255,0.08);
           font-size: 0.875rem;
           font-weight: 700;
           color: var(--text);
@@ -3248,10 +3590,25 @@ export default function LiveRoomPage() {
           font-size: 0.82rem;
           line-height: 1.4;
           word-break: break-word;
+          width: fit-content;
+          max-width: 100%;
+          padding: 0.3rem 0.48rem;
+          border-radius: 0.78rem;
+          background: rgba(255,255,255,0.035);
+          border: 1px solid rgba(255,255,255,0.045);
+          animation: chatAppear 0.24s ease both;
+        }
+
+        @keyframes chatAppear {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .chat-msg-system {
           justify-content: center;
+          width: 100%;
+          background: transparent;
+          border: none;
         }
 
         .chat-user {
@@ -3275,15 +3632,16 @@ export default function LiveRoomPage() {
           display: flex;
           gap: 0.5rem;
           padding: 0.75rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
-          border-top: 1px solid var(--border);
+          border-top: 1px solid rgba(255,255,255,0.08);
           flex-shrink: 0;
-          background: rgba(10,4,24,0.8);
+          background: rgba(7,3,18,0.78);
+          backdrop-filter: blur(14px);
         }
 
         .chat-input {
           flex: 1;
           background: rgba(255,255,255,0.05);
-          border: 1px solid var(--border);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: var(--radius-pill);
           color: var(--text);
           font-size: 0.82rem;

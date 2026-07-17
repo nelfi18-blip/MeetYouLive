@@ -1509,6 +1509,7 @@ export default function FeedPage() {
           --feed-viewport-height: 100vh;
           --feed-stable-viewport-height: var(--feed-viewport-height);
           --feed-available-height: calc(var(--feed-viewport-height) - var(--feed-header-height) - var(--feed-bottom-nav-height));
+          --feed-action-dock-bottom: clamp(30px, calc(var(--feed-stable-viewport-height) * 0.02 + 18px), 42px);
           --feed-mobile-profile-glow-x: 12%;
           --feed-mobile-profile-glow-y: 58%;
           /* Use a direct viewport-based deck height so refresh/address-bar changes cannot collapse the card to the global fallback size. */
@@ -1768,11 +1769,11 @@ export default function FeedPage() {
           box-sizing: border-box;
           min-height: 0;
           height: var(--feed-info-panel-height);
-          padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(3.8rem, calc(var(--feed-stable-viewport-height) * 0.076), 4.85rem);
+          padding: clamp(0.78rem, 2.8vw, 1rem) clamp(0.9rem, 3.4vw, 1.15rem) clamp(5.1rem, calc(var(--feed-stable-viewport-height) * 0.088), 6.15rem);
           /* Full-card photo overlay: image stays dominant while the bottom gradient keeps text readable. */
           background:
             radial-gradient(circle at 80% 15%, rgba(224, 64, 251, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 9, 35, 0.58) 24%, rgba(12, 7, 27, 0.98) 100%);
+            linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(16, 9, 35, 0.52) 24%, rgba(12, 7, 27, 0.9) 100%);
           border-top: 0;
           gap: clamp(0.25rem, 1.2vw, 0.45rem);
         }
@@ -1869,7 +1870,7 @@ export default function FeedPage() {
         .feed-action-dock {
           position: absolute;
           left: 50%;
-          bottom: clamp(8px, calc(var(--feed-stable-viewport-height) * 0.02), 18px);
+          bottom: var(--feed-action-dock-bottom);
           z-index: 70;
           display: grid;
           /* Keep primary positive actions on the right for mobile thumb reach. */
@@ -2033,6 +2034,7 @@ export default function FeedPage() {
             --feed-deck-width: min(calc(100vw - 8px), 452px);
             --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
             --feed-image-panel-height: 100%;
+            --feed-action-dock-bottom: max(32px, calc(var(--feed-safe-bottom) + 30px));
           }
 
           .feed-match-section {
@@ -2058,11 +2060,11 @@ export default function FeedPage() {
           :global(.feed-swipe-deck .swipe-card-info) {
             height: auto;
             min-height: 36%;
-            padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 6.75rem;
+            padding: 8.4rem clamp(1.14rem, 4.8vw, 1.45rem) 8rem;
             border-top: 0;
             background:
               radial-gradient(circle at var(--feed-mobile-profile-glow-x) var(--feed-mobile-profile-glow-y), rgba(224, 64, 251, 0.18), transparent 30%),
-              linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 16%, rgba(0, 0, 0, 0.62) 46%, rgba(7, 4, 17, 0.94) 82%, rgba(7, 4, 17, 0.995) 100%);
+              linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.12) 18%, rgba(0, 0, 0, 0.54) 48%, rgba(7, 4, 17, 0.82) 84%, rgba(7, 4, 17, 0.9) 100%);
             gap: 0.48rem;
           }
 
@@ -2129,7 +2131,6 @@ export default function FeedPage() {
           }
 
           .feed-action-dock {
-            bottom: max(12px, calc(var(--feed-safe-bottom) + 10px));
             width: min(95%, 432px);
             gap: clamp(0.38rem, 2vw, 0.68rem);
           }
@@ -2137,6 +2138,16 @@ export default function FeedPage() {
           .feed-action-btn {
             --feed-action-btn-size: clamp(56px, 15vw, 68px);
             border-color: rgba(255, 255, 255, 0.24);
+          }
+        }
+
+        @media (max-width: 768px) and (max-height: 720px) {
+          .feed-page {
+            --feed-action-dock-bottom: max(28px, calc(var(--feed-safe-bottom) + 26px));
+          }
+
+          :global(.feed-swipe-deck .swipe-card-info) {
+            padding-bottom: 7.35rem;
           }
         }
 

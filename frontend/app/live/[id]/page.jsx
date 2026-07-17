@@ -1764,7 +1764,7 @@ export default function LiveRoomPage() {
               </div>
             </div>
 
-            <div className="video-activity-pills" aria-label="Actividad del directo">
+            <div className="video-activity-pills" aria-label="Actividad del directo" aria-live="polite">
               <span className="vap-pill vap-live">🔴 EN VIVO</span>
               <span className="vap-pill vap-viewers">👁 {viewerCount} espectadores</span>
               <span className="vap-pill vap-chat">{socketState === "connected" ? "💬 Chat activo" : "⚡ Reconectando"}</span>

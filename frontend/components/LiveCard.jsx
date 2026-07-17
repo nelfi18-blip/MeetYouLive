@@ -51,7 +51,8 @@ export default function LiveCard({
   const safeViewerCount = normalizeNumber(live.viewerCount ?? live.viewers ?? live.viewersCount);
   const safeGiftsTotal = normalizeNumber(live.giftsTotal ?? live.totalCoinsEarned);
   const isCreatorApproved = isApprovedCreator(live.user);
-  const isNew = live.createdAt ? Date.now() - new Date(live.createdAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
+  const liveStartedAt = live.startedAt || live.createdAt;
+  const isNew = liveStartedAt ? Date.now() - new Date(liveStartedAt).getTime() < RECENT_LIVE_WINDOW_MS : false;
   const isBattle = live.battle?.active === true || live.isVsActive === true;
   const duration = getLiveDuration(live);
   const profileHref = live.user?._id ? `/profile/${live.user._id}` : "/profile";

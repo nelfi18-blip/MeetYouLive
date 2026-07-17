@@ -40,8 +40,9 @@ function normalizeLive(live) {
 }
 
 function isRecentLive(live) {
-  if (!live?.createdAt) return false;
-  return Date.now() - new Date(live.createdAt).getTime() < RECENT_LIVE_WINDOW_MS;
+  const startedAt = live?.startedAt || live?.createdAt;
+  if (!startedAt) return false;
+  return Date.now() - new Date(startedAt).getTime() < RECENT_LIVE_WINDOW_MS;
 }
 
 function liveText(live) {
@@ -318,6 +319,7 @@ export default function LivePage() {
               key={filter.id}
               className={`filter-chip${activeFilter === filter.id ? " active" : ""}`}
               onClick={() => setActiveFilter(filter.id)}
+              title={filter.id === "near" ? "Muestra lives con datos de ubicación disponibles" : undefined}
             >
               <span>{filter.icon}</span>
               {filter.label}
@@ -359,6 +361,8 @@ export default function LivePage() {
             <p>
               {activeFilter === "near"
                 ? "No hay lives con datos de ubicación disponibles ahora."
+                : activeFilter === "new"
+                  ? "No hay lives nuevos en los últimos 45 minutos."
                 : "Prueba otro chip o busca un creador diferente."}
             </p>
           </div>

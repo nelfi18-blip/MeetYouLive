@@ -1520,6 +1520,7 @@ export default function LiveRoomPage() {
   const showGoalUrgency  = !isCreator && goalData?.active && !goalData?.completed && goalData?.target > 0;
   const showUrgencyBar   = showBoostUrgency || showGoalUrgency;
   const goalRemaining    = showGoalUrgency ? Math.max(0, (goalData.target || 0) - (goalData.progress || 0)) : 0;
+  const extraViewerCount = Math.max(0, viewerCount - 1 - topFanIds.length);
 
   return (
     <div className="room">
@@ -1764,10 +1765,12 @@ export default function LiveRoomPage() {
               </div>
             </div>
 
-            <div className="video-activity-pills" aria-label="Actividad del directo" aria-live="polite">
+            <div className="video-activity-pills" aria-label="Actividad del directo">
               <span className="vap-pill vap-live">🔴 EN VIVO</span>
               <span className="vap-pill vap-viewers">👁 {viewerCount} espectadores</span>
-              <span className="vap-pill vap-chat">{socketState === "connected" ? "💬 Chat activo" : "⚡ Reconectando"}</span>
+              <span className="vap-pill vap-chat" aria-live="polite" aria-atomic="true">
+                {socketState === "connected" ? "💬 Chat activo" : "⚡ Reconectando"}
+              </span>
             </div>
 
             {!isCreator && (
@@ -1957,7 +1960,7 @@ export default function LiveRoomPage() {
                   {FAN_MEDALS[index]}
                 </span>
               ))}
-              <span className="viewer-more">+{Math.max(0, viewerCount - 1 - topFanIds.length)}</span>
+              {extraViewerCount > 0 && <span className="viewer-more">+{extraViewerCount}</span>}
             </div>
             <p>Entradas, regalos y chat aparecen en tiempo real con animaciones discretas.</p>
           </div>

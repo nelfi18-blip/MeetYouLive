@@ -8,7 +8,7 @@ import GiftPanel from "@/components/GiftPanel";
 import { notify } from "@/lib/notify";
 import { filterActiveLives } from "@/lib/liveFilters";
 import { getDisplayName, getInitial, getUserImage } from "@/lib/imageHelpers";
-import { RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
+import { RECENT_LIVE_WINDOW_MINUTES, RECENT_LIVE_WINDOW_MS } from "@/lib/liveUi";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL_MS = 20000;
@@ -362,7 +362,7 @@ export default function LivePage() {
               {activeFilter === "near"
                 ? "No hay lives con datos de ubicación disponibles ahora."
                 : activeFilter === "new"
-                  ? "No hay lives nuevos en los últimos 45 minutos."
+                  ? `No hay lives nuevos en los últimos ${RECENT_LIVE_WINDOW_MINUTES} minutos.`
                 : "Prueba otro chip o busca un creador diferente."}
             </p>
           </div>

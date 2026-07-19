@@ -26,7 +26,7 @@ const GLOBAL_ERROR_COPY = {
   },
 };
 
-function getErrorLanguage() {
+function snapshotErrorLanguage() {
   if (typeof window === "undefined") return DEFAULT_LANG;
   return (
     normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY)) ||
@@ -37,7 +37,7 @@ function getErrorLanguage() {
 export default function GlobalError({ error, reset }) {
   // Snapshot the language once; this isolated error boundary should stay stable
   // while the user decides whether to retry the failed render.
-  const [lang] = useState(getErrorLanguage);
+  const [lang] = useState(snapshotErrorLanguage);
   const copy = GLOBAL_ERROR_COPY[lang] || GLOBAL_ERROR_COPY[DEFAULT_LANG];
 
   useEffect(() => {

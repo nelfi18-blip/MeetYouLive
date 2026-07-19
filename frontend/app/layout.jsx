@@ -105,6 +105,8 @@ export default async function RootLayout({ children }) {
   const headerStore = await headers();
   const initialLang = resolveInitialLanguage({
     storedLanguage: cookieStore.get(LANGUAGE_COOKIE)?.value,
+    // Middleware sends the resolved request language for first render; the raw
+    // Accept-Language fallback keeps layout safe if middleware is bypassed.
     acceptLanguage: headerStore.get(LANGUAGE_HEADER) || headerStore.get("accept-language"),
   });
 

@@ -6,9 +6,9 @@ import enMessages from "@/messages/en.json";
 import ptMessages from "@/messages/pt.json";
 import {
   DEFAULT_LANG,
-  LANGUAGE_COOKIE,
   LANGUAGE_STORAGE_KEY,
   SUPPORTED_LANGS,
+  createLanguageCookieValue,
   normalizeLanguage,
 } from "@/lib/language";
 
@@ -19,7 +19,7 @@ const messages = { es: esMessages, en: enMessages, pt: ptMessages };
 function persistLanguage(lang) {
   if (typeof document !== "undefined") {
     document.documentElement.lang = lang;
-    document.cookie = `${LANGUAGE_COOKIE}=${lang}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    document.cookie = createLanguageCookieValue(lang);
   }
   if (typeof localStorage !== "undefined") {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);

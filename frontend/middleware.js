@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 import { isProtectedRoutePath, isPublicRoute } from "@/lib/publicAccess";
-import { LANGUAGE_COOKIE, LANGUAGE_HEADER, resolveInitialLanguage } from "@/lib/language";
+import { LANGUAGE_COOKIE, LANGUAGE_COOKIE_MAX_AGE, LANGUAGE_HEADER, resolveInitialLanguage } from "@/lib/language";
 
 function languageAwareNext(request) {
   const requestHeaders = new Headers(request.headers);
@@ -20,7 +20,7 @@ function languageAwareNext(request) {
   if (request.cookies.get(LANGUAGE_COOKIE)?.value !== initialLang) {
     response.cookies.set(LANGUAGE_COOKIE, initialLang, {
       path: "/",
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: LANGUAGE_COOKIE_MAX_AGE,
       sameSite: "lax",
     });
   }

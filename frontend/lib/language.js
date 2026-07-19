@@ -3,6 +3,7 @@ export const DEFAULT_LANG = "en";
 export const LANGUAGE_STORAGE_KEY = "preferredLanguage";
 export const LANGUAGE_COOKIE = "preferredLanguage";
 export const LANGUAGE_HEADER = "x-meetyoulive-language";
+export const LANGUAGE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export function normalizeLanguage(value) {
   if (!value || typeof value !== "string") return null;
@@ -18,10 +19,11 @@ export function detectLanguageFromAcceptLanguage(acceptLanguage) {
     .map((entry) => {
       const [tag, ...params] = entry.trim().split(";");
       const qParam = params.find((param) => param.trim().startsWith("q="));
-      const q = qParam ? Number.parseFloat(qParam.split("=")[1]) : 1;
+      const qParts = qParam?.split("=");
+      const qValue = qParts?.length === 2 && qParts[1].trim() ? Number.parseFloat(qParts[1]) : 1;
       return {
         lang: normalizeLanguage(tag),
-        q: Number.isFinite(q) ? q : 0,
+        q: Number.isFinite(qValue) ? qValue : 0,
       };
     })
     .filter((entry) => entry.lang && entry.q > 0);
@@ -51,4 +53,8 @@ export function resolveInitialLanguage({ storedLanguage, acceptLanguage } = {}) 
     detectLanguageFromAcceptLanguage(acceptLanguage) ||
     DEFAULT_LANG
   );
+}
+
+export function createLanguageCookieValue(lang) {
+  return `${LANGUAGE_COOKIE}=${lang}; Path=/; Max-Age=${LANGUAGE_COOKIE_MAX_AGE}; SameSite=Lax`;
 }

@@ -1,15 +1,43 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  DEFAULT_LANG,
+  LANGUAGE_STORAGE_KEY,
+  detectLanguageFromNavigator,
+  normalizeLanguage,
+} from "@/lib/language";
 
 const GLOBAL_ERROR_COPY = {
-  brand: "MeetYouLive",
-  title: "Algo salió mal",
-  message: "Recarga la página o inténtalo nuevamente en unos segundos.",
-  retry: "Reintentar",
+  es: {
+    title: "Algo salió mal",
+    message: "Recarga la página o inténtalo nuevamente en unos segundos.",
+    retry: "Reintentar",
+  },
+  en: {
+    title: "Something went wrong",
+    message: "Refresh the page or try again in a few seconds.",
+    retry: "Try again",
+  },
+  pt: {
+    title: "Algo deu errado",
+    message: "Recarregue a página ou tente novamente em alguns segundos.",
+    retry: "Tentar novamente",
+  },
 };
 
+function getErrorLanguage() {
+  if (typeof window === "undefined") return DEFAULT_LANG;
+  return (
+    normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY)) ||
+    detectLanguageFromNavigator(navigator)
+  );
+}
+
 export default function GlobalError({ error, reset }) {
+  const lang = getErrorLanguage();
+  const copy = GLOBAL_ERROR_COPY[lang] || GLOBAL_ERROR_COPY[DEFAULT_LANG];
+
   useEffect(() => {
     if (typeof window !== "undefined" && typeof window.reportError === "function") {
       window.reportError(error);
@@ -17,7 +45,7 @@ export default function GlobalError({ error, reset }) {
   }, [error]);
 
   return (
-    <html lang="es">
+    <html lang={lang}>
       <body>
         <main
           role="alert"
@@ -35,11 +63,11 @@ export default function GlobalError({ error, reset }) {
         >
           <section style={{ maxWidth: "32rem" }}>
             <p style={{ color: "#ff4ecd", fontWeight: 800, letterSpacing: "0.08em" }}>
-              {GLOBAL_ERROR_COPY.brand}
+              MeetYouLive
             </p>
-            <h1>{GLOBAL_ERROR_COPY.title}</h1>
+            <h1>{copy.title}</h1>
             <p style={{ color: "#c8c1df", lineHeight: 1.5 }}>
-              {GLOBAL_ERROR_COPY.message}
+              {copy.message}
             </p>
             <button
               type="button"
@@ -56,7 +84,7 @@ export default function GlobalError({ error, reset }) {
                 cursor: "pointer",
               }}
             >
-              {GLOBAL_ERROR_COPY.retry}
+              {copy.retry}
             </button>
           </section>
         </main>

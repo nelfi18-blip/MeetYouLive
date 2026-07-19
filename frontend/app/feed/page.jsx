@@ -1180,7 +1180,7 @@ export default function FeedPage() {
         actionUrl = `${API_URL}/api/matches/super-crush/${encodeURIComponent(targetProfileIdString)}`;
       } else if (isLike) {
         actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`;
-      } else if (!isLike) {
+      } else {
         actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}?action=dislike`;
       }
       const res = await fetch(actionUrl, {

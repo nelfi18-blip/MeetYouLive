@@ -199,7 +199,7 @@ exports.unlikeUser = async (req, res) => {
       }
       await Dislike.updateOne(
         { from: req.userId, to: userId },
-        { from: req.userId, to: userId },
+        { $setOnInsert: { from: req.userId, to: userId } },
         { upsert: true }
       );
       trackEvent(req.userId, "swipe").catch(() => {});

@@ -380,9 +380,11 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
     ],
   };
   const sanitizedExcludedIds = Array.isArray(additionalExcludedProfileIds) ? additionalExcludedProfileIds : [];
-  const excludedIdsById = new Map(
-    sanitizedExcludedIds.map(toObjectIdOrNull).filter(Boolean).map((id) => [id.toString(), id])
-  );
+  const excludedIdsById = sanitizedExcludedIds.reduce((idsById, profileId) => {
+    const objectId = toObjectIdOrNull(profileId);
+    if (objectId) idsById.set(objectId.toString(), objectId);
+    return idsById;
+  }, new Map());
 
   if (currentUserId) {
     const blockedIds = currentUserProfile?.blockedUsers || [];

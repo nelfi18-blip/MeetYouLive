@@ -640,7 +640,7 @@ const tickCall = async (req, res) => {
     await dbSession.withTransaction(async () => {
       const claimedCall = await VideoCall.findOneAndUpdate(
         {
-          _id: call._id,
+          _id: req.params.id,
           status: "accepted",
           type: CALL_TYPES.PAID_CREATOR,
           $or: [{ lastBilledAt: null }, { lastBilledAt: { $lte: minBillingIntervalAt } }],
@@ -655,7 +655,7 @@ const tickCall = async (req, res) => {
       }
 
       const updatedCaller = await User.findOneAndUpdate(
-        { _id: call.caller, coins: { $gte: pricePerMinute } },
+        { _id: claimedCall.caller, coins: { $gte: pricePerMinute } },
         { $inc: { coins: -pricePerMinute } },
         { new: true, session: dbSession }
       );
@@ -672,7 +672,7 @@ const tickCall = async (req, res) => {
         return;
       }
 
-      await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } }, { session: dbSession });
+      await User.findByIdAndUpdate(claimedCall.recipient, { $inc: { earningsCoins: creatorNetShare } }, { session: dbSession });
 
       if (agencyShare > 0 && referrerId) {
         await User.findByIdAndUpdate(referrerId, {
@@ -688,26 +688,26 @@ const tickCall = async (req, res) => {
           agencyShare,
         },
       };
-      if (referrerId && !call.referrerId) {
+      if (referrerId && !claimedCall.referrerId) {
         tickUpdate.$set = { referrerId, agencyPercentageApplied };
       }
-      await VideoCall.findByIdAndUpdate(call._id, tickUpdate, { session: dbSession });
+      await VideoCall.findByIdAndUpdate(claimedCall._id, tickUpdate, { session: dbSession });
 
-      const txMeta = { callId: String(call._id), billedAt: now.toISOString() };
+      const txMeta = { callId: String(claimedCall._id), billedAt: now.toISOString() };
       const txDocs = [
         {
-          userId: call.caller,
+          userId: claimedCall.caller,
           type: "private_call",
           amount: -pricePerMinute,
-          reason: `Minuto adicional en llamada privada con ${call.recipient}`,
+          reason: `Minuto adicional en llamada privada con ${claimedCall.recipient}`,
           status: "completed",
           metadata: txMeta,
         },
         {
-          userId: call.recipient,
+          userId: claimedCall.recipient,
           type: "private_call",
           amount: creatorNetShare,
-          reason: `Minuto adicional en llamada privada de ${call.caller}`,
+          reason: `Minuto adicional en llamada privada de ${claimedCall.caller}`,
           status: "completed",
           metadata: txMeta,
         },
@@ -719,7 +719,7 @@ const tickCall = async (req, res) => {
           amount: agencyShare,
           reason: `Comisión de agencia por minuto de llamada privada`,
           status: "completed",
-          metadata: { ...txMeta, subCreatorId: String(call.recipient) },
+          metadata: { ...txMeta, subCreatorId: String(claimedCall.recipient) },
         });
       }
       await CoinTransaction.create(txDocs, { session: dbSession });

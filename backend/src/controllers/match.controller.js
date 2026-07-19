@@ -197,7 +197,7 @@ exports.unlikeUser = async (req, res) => {
       if (await hasUserBlockBetween(req.userId, userId)) {
         return res.status(403).json({ success: false, message: "No puedes interactuar con este usuario" });
       }
-      await Dislike.findOneAndUpdate(
+      await Dislike.updateOne(
         { from: req.userId, to: userId },
         { from: req.userId, to: userId },
         { upsert: true }

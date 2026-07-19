@@ -1175,9 +1175,12 @@ export default function FeedPage() {
         throw new Error(t("feed.sessionExpired"));
       }
 
-      const actionUrl = isSuper
-        ? `${API_URL}/api/matches/super-crush/${encodeURIComponent(targetProfileIdString)}`
-        : `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}${isLike ? "" : "?action=dislike"}`;
+      let actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`;
+      if (isSuper) {
+        actionUrl = `${API_URL}/api/matches/super-crush/${encodeURIComponent(targetProfileIdString)}`;
+      } else if (!isLike) {
+        actionUrl += "?action=dislike";
+      }
       const res = await fetch(actionUrl, {
         method: isLike || isSuper ? "POST" : "DELETE",
         headers: { Authorization: "Bearer " + authToken },

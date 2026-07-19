@@ -379,11 +379,9 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
       { username: { $exists: true, $type: "string", $ne: "" } },
     ],
   };
+  const profileIds = Array.isArray(additionalExcludedProfileIds) ? additionalExcludedProfileIds : [];
   const excludedIdsById = new Map(
-    (Array.isArray(additionalExcludedProfileIds) ? additionalExcludedProfileIds : [])
-      .map(toObjectIdOrNull)
-      .filter(Boolean)
-      .map((id) => [id.toString(), id])
+    profileIds.map(toObjectIdOrNull).filter(Boolean).map((id) => [id.toString(), id])
   );
 
   if (currentUserId) {

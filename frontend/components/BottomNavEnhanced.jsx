@@ -52,13 +52,7 @@ export default function BottomNavEnhanced() {
     return pathname?.startsWith(path);
   };
 
-  const canGoLive = isApprovedCreator({
-    role: viewerRole || session?.backendUser?.role || session?.user?.role,
-    creatorStatus:
-      viewerCreatorStatus ||
-      session?.backendUser?.creatorStatus ||
-      session?.user?.creatorStatus,
-  });
+  const canGoLive = isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus });
   const primaryLiveHref = canGoLive ? "/live/start" : "/live";
 
   useEffect(() => {

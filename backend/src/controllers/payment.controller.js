@@ -478,7 +478,6 @@ const handlePaymentCompleted = async (session) => {
           user: userId,
           video: videoId,
           amount: parsedAmount,
-          stripeSessionId: session.id,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }

@@ -49,9 +49,7 @@ const createClientMessageId = (fallbackCounter) => {
     crypto.getRandomValues(values);
     return `${Date.now()}-${values[0].toString(36)}${values[1].toString(36)}`;
   }
-  const performanceTick =
-    typeof performance !== "undefined" ? Math.round(performance.now() * 1000) : 0;
-  return `${Date.now()}-${performanceTick}-${fallbackCounter}`;
+  return `${Date.now()}-${fallbackCounter}-${Math.random().toString(36).slice(2)}`;
 };
 
 export default function ChatConversationPage() {

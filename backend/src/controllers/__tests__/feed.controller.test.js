@@ -48,10 +48,14 @@ const setupController = () => {
   const Like = {
     distinct: jest.fn(),
   };
+  const Dislike = {
+    distinct: jest.fn(() => Promise.resolve([])),
+  };
 
   jest.doMock("../../models/User.js", () => User);
   jest.doMock("../../models/Live.js", () => Live);
   jest.doMock("../../models/Like.js", () => Like);
+  jest.doMock("../../models/Dislike.js", () => Dislike);
   jest.doMock("../../models/UserVisit.js", () => ({}));
   jest.doMock("../../models/Greeting.js", () => ({}));
   jest.doMock("../../models/Gift.js", () => ({}));
@@ -64,7 +68,7 @@ const setupController = () => {
   }));
 
   const { getFeed } = require("../feed.controller.js");
-  return { getFeed, User, Live, Like };
+  return { getFeed, User, Live, Like, Dislike };
 };
 
 const currentUser = {
@@ -103,10 +107,11 @@ describe("getFeed", () => {
     jest.dontMock("../../models/User.js");
     jest.dontMock("../../models/Live.js");
     jest.dontMock("../../models/Like.js");
+    jest.dontMock("../../models/Dislike.js");
   });
 
   test("returns strict feedMode when strict feed has candidates", async () => {
-    const { getFeed, User, Live, Like } = setupController();
+    const { getFeed, User, Live, Like, Dislike } = setupController();
     const strictProfile = {
       _id: otherUserId,
       name: "Strict Candidate",
@@ -122,6 +127,7 @@ describe("getFeed", () => {
     User.find.mockReturnValue(makeQueryChain([]));
     Live.find.mockReturnValue(makeQueryChain([]));
     Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
 
     const res = makeRes();
     await getFeed(makeReq(), res);
@@ -161,7 +167,7 @@ describe("getFeed", () => {
       { $in: ["", null, "men", "male", "both"] },
     ],
   ])("strict feed applies %s discovery gender preferences", async (preferenceType, viewer, expectedGender, expectedInterestedIn) => {
-    const { getFeed, User, Live, Like } = setupController();
+    const { getFeed, User, Live, Like, Dislike } = setupController();
     const strictProfile = {
       _id: otherUserId,
       name: "Strict Candidate",
@@ -179,6 +185,7 @@ describe("getFeed", () => {
     User.find.mockReturnValue(makeQueryChain([]));
     Live.find.mockReturnValue(makeQueryChain([]));
     Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
 
     const res = makeRes();
     await getFeed(makeReq(), res);
@@ -233,8 +240,52 @@ describe("getFeed", () => {
     );
   });
 
+  test("strict feed excludes client seen profiles and all prior outgoing evaluations", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const candidateId = "507f1f77bcf86cd799439020";
+    const likedId = "507f1f77bcf86cd799439021";
+    const dislikedId = "507f1f77bcf86cd799439022";
+    const superCrushId = "507f1f77bcf86cd799439023";
+    const seenId = "507f1f77bcf86cd799439024";
+    const strictProfile = {
+      _id: candidateId,
+      name: "Strict Candidate",
+      username: "strict_candidate",
+      avatar: "https://example.com/strict.jpg",
+      profilePhotos: ["https://example.com/strict.jpg"],
+      images: [{ url: "https://example.com/strict.jpg", isPrimary: true }],
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(currentUser));
+    User.aggregate.mockResolvedValue([strictProfile]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find.mockReturnValue(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([likedId, superCrushId]);
+    Dislike.distinct.mockResolvedValue([dislikedId]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ exclude: seenId }), res);
+
+    const strictMatch = User.aggregate.mock.calls[0][0][0].$match;
+    const excludedIds = strictMatch._id.$nin.map(String);
+    expect(Like.distinct).toHaveBeenCalledWith("to", { from: expect.any(Object) });
+    expect(Dislike.distinct).toHaveBeenCalledWith("to", { from: expect.any(Object) });
+    expect(excludedIds).toEqual(
+      expect.arrayContaining([currentUserId, likedId, dislikedId, superCrushId, seenId])
+    );
+    expect(excludedIds).toHaveLength(5);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        feedMode: "strict",
+        profiles: [expect.objectContaining({ _id: candidateId })],
+      })
+    );
+  });
+
   test("returns betaFallback feedMode when strict feed has no candidates", async () => {
-    const { getFeed, User, Live, Like } = setupController();
+    const { getFeed, User, Live, Like, Dislike } = setupController();
     const fallbackProfile = {
       _id: otherUserId,
       name: "Fallback Candidate",
@@ -274,6 +325,52 @@ describe("getFeed", () => {
         role: { $in: ["user", "User"] },
         isBlocked: { $ne: true },
         isSuspended: { $ne: true },
+      })
+    );
+  });
+
+  test("betaFallback excludes client seen profiles and all prior outgoing evaluations", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+    const fallbackId = "507f1f77bcf86cd799439030";
+    const likedId = "507f1f77bcf86cd799439031";
+    const dislikedId = "507f1f77bcf86cd799439032";
+    const superCrushId = "507f1f77bcf86cd799439033";
+    const seenId = "507f1f77bcf86cd799439034";
+    const fallbackProfile = {
+      _id: fallbackId,
+      name: "Fallback Candidate",
+      username: "fallback_candidate",
+      role: "User",
+      isBlocked: false,
+      isSuspended: false,
+      avatar: "/uploads/fallback.jpg",
+    };
+
+    User.findById.mockReturnValue(makeQueryChain(currentUser));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([fallbackProfile]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([likedId, superCrushId]);
+    Dislike.distinct.mockResolvedValue([dislikedId]);
+
+    const res = makeRes();
+    await getFeed(makeReq({ exclude: seenId, limit: "10" }), res);
+
+    const fallbackMatch = User.find.mock.calls[2][0];
+    const excludedIds = fallbackMatch._id.$nin.map(String);
+    expect(excludedIds).toEqual(
+      expect.arrayContaining([currentUserId, likedId, dislikedId, superCrushId, seenId])
+    );
+    expect(excludedIds).toHaveLength(5);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        feedMode: "betaFallback",
+        profiles: [expect.objectContaining({ _id: fallbackId })],
       })
     );
   });

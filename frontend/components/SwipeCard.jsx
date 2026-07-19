@@ -139,10 +139,6 @@ const SwipeCard = memo(function({
 
     if (!profileId) return;
 
-    setHasSwiped(true);
-    setExitX(getSwipeExitX(direction));
-    setExitY(direction === "up" ? -SUPER_LIKE_EXIT_DISTANCE_Y : 0);
-
     // Haptic feedback (vibration) on mobile
     if (typeof navigator !== "undefined" && navigator.vibrate) {
       navigator.vibrate(direction === "up" ? SUPER_LIKE_VIBRATION_MS : STANDARD_VIBRATION_MS);
@@ -166,6 +162,9 @@ const SwipeCard = memo(function({
       return;
     }
 
+    setHasSwiped(true);
+    setExitX(getSwipeExitX(direction));
+    setExitY(direction === "up" ? -SUPER_LIKE_EXIT_DISTANCE_Y : 0);
     swipeTimeoutRef.current = setTimeout(() => {
       onExitComplete?.(profileId, direction);
     }, SWIPE_EXIT_DELAY_MS);

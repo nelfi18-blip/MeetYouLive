@@ -24,17 +24,21 @@ const normalizeClientMessageId = (value) => {
   if (typeof value !== "string") return "";
   const clientMessageId = value.trim();
   if (!clientMessageId) return "";
-  if (clientMessageId.length > 128 || !/^[a-zA-Z0-9._:-]+$/.test(clientMessageId)) return null;
+  if (clientMessageId.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(clientMessageId)) return null;
   return clientMessageId;
 };
 
-const sendExistingMessage = async (req, res, messageId) => {
-  const populated = await Message.findById(messageId).populate("sender", CHAT_USER_FIELDS);
+const sendPopulatedMessage = (req, res, populated) => {
   if (!populated) return false;
   const payload = populated.toObject();
   payload.sender = withSerializedUserPhotoFields(req, payload.sender);
   res.json(payload);
   return true;
+};
+
+const sendExistingClientMessage = async (req, res, chatId, clientMessageId) => {
+  const existing = await Message.findOne({ chat: chatId, clientMessageId }).populate("sender", CHAT_USER_FIELDS);
+  return sendPopulatedMessage(req, res, existing);
 };
 
 const hasChatBlock = (chat, currentUserId) => {
@@ -207,8 +211,7 @@ const sendMessage = async (req, res) => {
     }
 
     if (clientMessageId) {
-      const existing = await Message.findOne({ chat: req.params.chatId, clientMessageId }).select("_id");
-      if (existing && await sendExistingMessage(req, res, existing._id)) return;
+      if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
     }
 
     const message = await Message.create({
@@ -241,8 +244,7 @@ const sendMessage = async (req, res) => {
     trackEvent(req.userId, "message").catch(() => {});
   } catch (err) {
     if (err?.code === 11000 && clientMessageId) {
-      const existing = await Message.findOne({ chat: req.params.chatId, clientMessageId }).select("_id");
-      if (existing && await sendExistingMessage(req, res, existing._id)) return;
+      if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
     }
     res.status(500).json({ message: err.message });
   }

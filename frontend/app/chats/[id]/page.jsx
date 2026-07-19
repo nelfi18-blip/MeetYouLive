@@ -40,11 +40,19 @@ const mergeMessagesById = (current, incoming) => {
   return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
+let clientMessageCounter = 0;
+
 const createClientMessageId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const values = new Uint32Array(2);
+    crypto.getRandomValues(values);
+    return `${Date.now()}-${values[0].toString(36)}${values[1].toString(36)}`;
+  }
+  clientMessageCounter += 1;
+  return `${Date.now()}-${clientMessageCounter}`;
 };
 
 export default function ChatConversationPage() {

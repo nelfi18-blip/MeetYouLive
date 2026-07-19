@@ -54,7 +54,7 @@ const makeChatQuery = (value) => ({
 });
 
 const makeMessageFindOneQuery = (value) => ({
-  select: jest.fn().mockResolvedValue(value),
+  populate: jest.fn().mockResolvedValue(value),
 });
 
 describe("chat blocking", () => {
@@ -163,8 +163,7 @@ describe("chat message idempotency", () => {
         };
       },
     };
-    Message.findOne.mockReturnValue(makeMessageFindOneQuery({ _id: existingMessageId }));
-    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(populatedMessage));
 
     const res = makeRes();
     await sendMessage(

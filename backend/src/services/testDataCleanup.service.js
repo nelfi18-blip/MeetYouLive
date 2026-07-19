@@ -263,6 +263,7 @@ async function cleanupTestData(rawOptions = {}) {
   const inVideos = { $in: ids.videoIds };
   const inExclusiveContent = { $in: ids.exclusiveContentIds };
   const inSocialRooms = { $in: ids.socialRoomIds };
+  const reportTargetIds = [...testUserIds, ...ids.liveIds, ...ids.videoIds];
 
   const messageQuery = { $or: [{ sender: inUsers }, { chat: inChats }] };
   const chatQuery = { _id: inChats };
@@ -270,7 +271,19 @@ async function cleanupTestData(rawOptions = {}) {
 
   const deletionPlan = [
     ["accessPasses", AccessPass, { holder: inUsers }],
-    ["agencyRelationships", AgencyRelationship, { $or: [{ parentCreator: inUsers }, { subCreator: inUsers }, { createdBy: inUsers }, { approvedBy: inUsers }, { "percentageHistory.changedBy": inUsers }] }],
+    [
+      "agencyRelationships",
+      AgencyRelationship,
+      {
+        $or: [
+          { parentCreator: inUsers },
+          { subCreator: inUsers },
+          { createdBy: inUsers },
+          { approvedBy: inUsers },
+          { "percentageHistory.changedBy": inUsers },
+        ],
+      },
+    ],
     ["analyticsEvents", AnalyticsEvent, { userId: inUsers }],
     ["messages", Message, messageQuery],
     ["chats", Chat, chatQuery],
@@ -290,7 +303,7 @@ async function cleanupTestData(rawOptions = {}) {
     ["purchases", Purchase, { $or: [{ user: inUsers }, { video: inVideos }] }],
     ["pushAnalytics", PushAnalytic, { userId: inUsers }],
     ["pushEvents", PushEvent, { userId: inUsers }],
-    ["reports", Report, { $or: [{ reporter: inUsers }, { targetId: { $in: [...testUserIds, ...ids.liveIds, ...ids.videoIds] } }] }],
+    ["reports", Report, { $or: [{ reporter: inUsers }, { targetId: { $in: reportTargetIds } }] }],
     ["simulationResponses", SimulationResponse, { $or: [{ user: inUsers }, { likedBy: inUsers }] }],
     ["simulationUnlocks", SimulationUnlock, { user: inUsers }],
     ["socialRoomMessages", SocialRoomMessage, { $or: [{ sender: inUsers }, { room: inSocialRooms }] }],
@@ -406,7 +419,7 @@ function formatCleanupReport(report) {
   lines.push(`Lives selected/deleted: ${report.counts.lives}`);
   lines.push(`Chats selected/deleted: ${report.counts.chats}`);
   lines.push(`Messages selected/deleted: ${report.counts.messages}`);
-  lines.push("Administrative/system configuration collections touched: none.");
+  lines.push("Administrative/system configuration collections: none touched.");
   if (report.preservedAmbiguousUsers.length) {
     lines.push(`Preserved ambiguous test-like users: ${report.preservedAmbiguousUsers.length}`);
   }

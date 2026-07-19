@@ -52,7 +52,7 @@ describe("test data cleanup safety", () => {
     expect(filter.$or).toHaveLength(1);
   });
 
-  test("formats required Spanish handoff counts", () => {
+  test("formats cleanup report summary", () => {
     const report = {
       dryRun: true,
       counts: { users: 2, creators: 1, lives: 3, chats: 4, messages: 5 },
@@ -60,7 +60,7 @@ describe("test data cleanup safety", () => {
     };
 
     expect(formatCleanupReport(report)).toContain("Users selected/deleted: 2");
-    expect(formatCleanupReport(report)).toContain("Administrative/system configuration collections touched: none");
+    expect(formatCleanupReport(report)).toContain("Administrative/system configuration collections: none touched");
     expect(formatCleanupReport(report)).toContain("Preserved ambiguous test-like users: 1");
   });
 });

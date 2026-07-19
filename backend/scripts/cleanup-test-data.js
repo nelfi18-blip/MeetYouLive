@@ -89,9 +89,16 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error(`Cleanup failed: ${error.message}`);
+    console.error("Cleanup failed. Review selectors, database connectivity, and confirmation arguments.");
+    if (process.env.NODE_ENV !== "production") {
+      console.error(error.name || "Error");
+    }
     process.exitCode = 1;
   })
   .finally(async () => {
-    await mongoose.connection.close().catch(() => {});
+    await mongoose.connection.close().catch(() => {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Failed to close MongoDB connection cleanly.");
+      }
+    });
   });

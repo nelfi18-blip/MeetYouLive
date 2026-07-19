@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Like = require("../models/Like.js");
+const Dislike = require("../models/Dislike.js");
 const Chat = require("../models/Chat.js");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
@@ -185,6 +186,26 @@ exports.unlikeUser = async (req, res) => {
     return res.status(400).json({ success: false, message: "Usuario inválido" });
   }
   try {
+    if (req.query.action === "dislike") {
+      if (String(userId) === String(req.userId)) {
+        return res.status(400).json({ success: false, message: "No puedes rechazar tu propio perfil" });
+      }
+      const targetUser = await User.findById(userId).select("_id role isBlocked isSuspended").lean();
+      if (!targetUser || targetUser.role === "admin" || targetUser.isBlocked === true || targetUser.isSuspended === true) {
+        return res.status(404).json({ success: false, message: "Usuario no disponible" });
+      }
+      if (await hasUserBlockBetween(req.userId, userId)) {
+        return res.status(403).json({ success: false, message: "No puedes interactuar con este usuario" });
+      }
+      await Dislike.updateOne(
+        { from: req.userId, to: userId },
+        { $setOnInsert: { from: req.userId, to: userId } },
+        { upsert: true }
+      );
+      trackEvent(req.userId, "swipe").catch(() => {});
+      return res.json({ success: true, match: false, message: "Perfil descartado" });
+    }
+
     await Like.deleteOne({ from: req.userId, to: userId });
     res.json({ success: true, match: false, message: "Like removido" });
   } catch (err) {
@@ -379,7 +400,7 @@ exports.superCrushUser = async (req, res) => {
       }
     }
 
-    res.json({ match: matchCreated, superCrushPrice: SUPER_CRUSH_PRICE });
+    res.json({ success: true, match: matchCreated, superCrushPrice: SUPER_CRUSH_PRICE });
   } catch (err) {
     const status = err.status || 500;
     res.status(status).json({ message: err.message });

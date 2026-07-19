@@ -198,7 +198,9 @@ function readCachedFeed() {
     if (!raw) return getEmptyCachedFeed();
 
     const parsed = JSON.parse(raw);
-    const cachedProfiles = sanitizeFeedProfiles(parsed?.profiles);
+    const seenProfileIds = new Set(readSeenProfileIds());
+    const cachedProfiles = sanitizeFeedProfiles(parsed?.profiles)
+      .filter((profile) => !seenProfileIds.has(getProfileId(profile)));
     const cachedIndex = Number.isInteger(parsed?.currentIndex) ? parsed.currentIndex : 0;
     const cachedCurrentProfileId = getNullableIdString(parsed?.currentProfileId);
     const timestamp = Number(parsed?.timestamp) || 0;
@@ -474,6 +476,7 @@ export default function FeedPage() {
   const lastActionRef = useRef(null);
   const preloadedImageUrlsRef = useRef(new Set());
   const actionFeedbackTimeoutRef = useRef(null);
+  const processedProfileIdsRef = useRef(new Set(readSeenProfileIds()));
 
   const logFeedLayoutDiagnostic = useCallback((reason) => {
     if (typeof window === "undefined") return;
@@ -920,7 +923,9 @@ export default function FeedPage() {
         : Array.isArray(data?.profiles)
           ? data.profiles
           : [];
-      const uniqueProfiles = sanitizeFeedProfiles(feedProfiles, currentUserId);
+      const processedProfileIds = processedProfileIdsRef.current;
+      const uniqueProfiles = sanitizeFeedProfiles(feedProfiles, currentUserId)
+        .filter((profile) => !processedProfileIds.has(getProfileId(profile)));
       const profileIds = new Set(uniqueProfiles.map(getProfileId).filter(Boolean));
       const previousCurrentProfile = profileIdBeforeRefresh
         ? profilesBeforeRefresh.find((profile) => getProfileId(profile) === profileIdBeforeRefresh)
@@ -1114,7 +1119,8 @@ export default function FeedPage() {
   };
 
   const handleSwipe = async (profileId, direction) => {
-    const isLike = direction === "right" || direction === "up";
+    const isLike = direction === "right";
+    const isSuper = direction === "up";
     const activeProfiles = profilesRef.current;
     const activeIndex = currentIndexRef.current;
     const activeProfile = activeProfiles[activeIndex];
@@ -1169,8 +1175,16 @@ export default function FeedPage() {
         throw new Error(t("feed.sessionExpired"));
       }
 
-      const res = await fetch(`${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`, {
-        method: isLike ? "POST" : "DELETE",
+      let actionUrl;
+      if (isSuper) {
+        actionUrl = `${API_URL}/api/matches/super-crush/${encodeURIComponent(targetProfileIdString)}`;
+      } else if (isLike) {
+        actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`;
+      } else {
+        actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}?action=dislike`;
+      }
+      const res = await fetch(actionUrl, {
+        method: isLike || isSuper ? "POST" : "DELETE",
         headers: { Authorization: "Bearer " + authToken },
         signal: controller.signal,
         cache: "no-store",
@@ -1182,20 +1196,23 @@ export default function FeedPage() {
 
       // The match API contract requires explicit success:true before the deck advances.
       if (!res.ok || data?.success !== true) {
-        throw new Error(data?.message || (isLike ? t("feed.likeError") : t("feed.passError")));
+        throw new Error(data?.message || (isLike || isSuper ? t("feed.likeError") : t("feed.passError")));
       }
 
+      processedProfileIdsRef.current.add(targetProfileIdString);
       addSeenProfileId(targetProfileIdString);
-      setLastAction({ profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
+      setLastAction(isSuper ? null : { profileId: targetProfileIdString, actionType: isLike ? "like" : "dislike" });
       return true;
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      setError(
-        err.name === "AbortError"
-          ? t("feed.serverStarting")
-          : err.message || (isLike ? t("feed.likeError") : t("feed.passError"))
-      );
+      let message = err.message;
+      if (err.name === "AbortError") {
+        message = t("feed.serverStarting");
+      } else if (!message) {
+        message = isLike || isSuper ? t("feed.likeError") : t("feed.passError");
+      }
+      setError(message);
       return false;
     } finally {
       clearTimeout(timeoutId);
@@ -1235,7 +1252,7 @@ export default function FeedPage() {
     triggerActionFeedback("undo");
 
     try {
-      if (action.actionType === "like") {
+      if (action.actionType === "like" || action.actionType === "dislike") {
         if (!API_URL || !authToken) {
           throw new Error(t("feed.sessionExpired"));
         }
@@ -1253,6 +1270,7 @@ export default function FeedPage() {
 
       currentIndexRef.current = targetIndex;
       currentProfileIdRef.current = action.profileId;
+      processedProfileIdsRef.current.delete(action.profileId);
       removeSeenProfileId(action.profileId);
       setCurrentIndex(targetIndex);
       writeCachedFeed(activeProfiles, targetIndex);
@@ -1475,7 +1493,7 @@ export default function FeedPage() {
                   {t("feed.undoLabel")}
                 </button>
               )}
-              <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true, ignoreExclude: true })}>
+              <button type="button" className="feed-empty-btn" onClick={() => loadFeed({ fresh: true })}>
                 {t("feed.reloadProfiles")}
               </button>
             </div>

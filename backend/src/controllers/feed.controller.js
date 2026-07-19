@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const Live = require("../models/Live.js");
 const Like = require("../models/Like.js");
+const Dislike = require("../models/Dislike.js");
 const UserVisit = require("../models/UserVisit.js");
 const Greeting = require("../models/Greeting.js");
 const Gift = require("../models/Gift.js");
@@ -365,7 +366,7 @@ const serializeFeedProfilesAllowingMissingPhotos = (req, profiles, limit) =>
     .filter((profile) => profile._id)
     .slice(0, limit);
 
-const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = null) => {
+const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = null, additionalExcludedProfileIds = []) => {
   const limit = parseFeedLimit(req.query.limit);
   const discoveryMatch = buildDiscoveryMatch(currentUserProfile);
   const match = {
@@ -378,11 +379,23 @@ const getBetaFallbackProfiles = async (req, currentUserId, currentUserProfile = 
       { username: { $exists: true, $type: "string", $ne: "" } },
     ],
   };
+  const sanitizedExcludedIds = Array.isArray(additionalExcludedProfileIds) ? additionalExcludedProfileIds : [];
+  const excludedIdsById = sanitizedExcludedIds.reduce((idsById, profileId) => {
+    const objectId = toObjectIdOrNull(profileId);
+    if (objectId) idsById.set(objectId.toString(), objectId);
+    return idsById;
+  }, new Map());
+
   if (currentUserId) {
     const blockedIds = currentUserProfile?.blockedUsers || [];
-    const excludedIds = [currentUserId, ...blockedIds].map(toObjectIdOrNull).filter(Boolean);
-    match._id = { $nin: excludedIds };
+    [currentUserId, ...blockedIds].map(toObjectIdOrNull).filter(Boolean).forEach((id) => {
+      excludedIdsById.set(id.toString(), id);
+    });
     match.blockedUsers = { $ne: currentUserId };
+  }
+  const excludedIds = Array.from(excludedIdsById.values());
+  if (excludedIds.length) {
+    match._id = { $nin: excludedIds };
   }
 
   const profiles = await User.find(match)
@@ -815,11 +828,16 @@ const getFeed = async (req, res) => {
       if (objectId) excludedProfileIdsById.set(objectId.toString(), objectId);
     };
     let likedProfileIdsRaw = [];
+    let dislikedProfileIdsRaw = [];
     if (authenticatedUserId) {
       addExcludedProfileId(authenticatedUserId);
       if (!ignoreExclude) {
-        likedProfileIdsRaw = await Like.distinct("to", { from: authenticatedUserId });
+        [likedProfileIdsRaw, dislikedProfileIdsRaw] = await Promise.all([
+          Like.distinct("to", { from: authenticatedUserId }),
+          Dislike.distinct("to", { from: authenticatedUserId }),
+        ]);
         likedProfileIdsRaw.forEach(addExcludedProfileId);
+        dislikedProfileIdsRaw.forEach(addExcludedProfileId);
       }
     }
     const currentUserProfilePromise = authenticatedUserId
@@ -925,7 +943,7 @@ const getFeed = async (req, res) => {
           viewer: currentUserProfile,
           viewerId: authenticatedUserId ? authenticatedUserId.toString() : "",
           likedProfileIds: new Set(likedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
-          dislikedProfileIds: new Set(),
+          dislikedProfileIds: new Set(dislikedProfileIdsRaw.map((profileId) => String(profileId)).filter(Boolean)),
           clientExcludedProfileIds,
           returnedProfileIds: returnedProfileIdSet,
           discoveryMatch,
@@ -935,7 +953,12 @@ const getFeed = async (req, res) => {
         console.log("[Feed Zero Candidate Excluded Users]", JSON.stringify(excludedUsers));
       }
 
-      serializedRecommendedProfiles = await getBetaFallbackProfiles(req, authenticatedUserId, currentUserProfile);
+      serializedRecommendedProfiles = await getBetaFallbackProfiles(
+        req,
+        authenticatedUserId,
+        currentUserProfile,
+        allExcludedProfileIds
+      );
       feedMode = "betaFallback";
       returnedProfileIdSet = new Set(serializedRecommendedProfiles.map((profile) => String(profile._id)));
       fallbackDebug = {
@@ -1054,7 +1077,23 @@ const getFeed = async (req, res) => {
             .catch(() => null)
         : null;
       const fallbackDiscoveryMatch = buildDiscoveryMatch(fallbackViewerProfile);
-      const fallbackProfiles = await getBetaFallbackProfiles(req, authenticatedUserId, fallbackViewerProfile);
+      const fallbackExcludedIds = [authenticatedUserId, ...parseExcludedProfileIds(req.query.exclude)].filter(Boolean);
+      if (authenticatedUserId && !ignoreExclude) {
+        const [fallbackLikedProfileIds, fallbackDislikedProfileIds] = await Promise.all([
+          Like.distinct("to", { from: authenticatedUserId }).catch(() => []),
+          Dislike.distinct("to", { from: authenticatedUserId }).catch(() => []),
+        ]);
+        [...fallbackLikedProfileIds, ...fallbackDislikedProfileIds].forEach((profileId) => {
+          const objectId = toObjectIdOrNull(profileId);
+          if (objectId) fallbackExcludedIds.push(objectId);
+        });
+      }
+      const fallbackProfiles = await getBetaFallbackProfiles(
+        req,
+        authenticatedUserId,
+        fallbackViewerProfile,
+        fallbackExcludedIds
+      );
       const matchedProfiles = fallbackProfiles.length;
       res.set("Cache-Control", "no-store");
       return res.json({

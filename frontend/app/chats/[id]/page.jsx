@@ -40,9 +40,7 @@ const mergeMessagesById = (current, incoming) => {
   return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
-let clientMessageCounter = 0;
-
-const createClientMessageId = () => {
+const createClientMessageId = (fallbackCounter) => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
@@ -51,8 +49,9 @@ const createClientMessageId = () => {
     crypto.getRandomValues(values);
     return `${Date.now()}-${values[0].toString(36)}${values[1].toString(36)}`;
   }
-  clientMessageCounter += 1;
-  return `${Date.now()}-${clientMessageCounter}`;
+  const performanceTick =
+    typeof performance !== "undefined" ? Math.round(performance.now() * 1000) : 0;
+  return `${Date.now()}-${performanceTick}-${fallbackCounter}`;
 };
 
 export default function ChatConversationPage() {
@@ -85,6 +84,7 @@ export default function ChatConversationPage() {
   const isNearBottomRef = useRef(true);
   const lastMessageCountRef = useRef(0);
   const lastMessageIdRef = useRef(null);
+  const clientMessageCounterRef = useRef(0);
   const getBackendToken = useCallback(
     () =>
       // OAuth users receive the backend JWT from NextAuth; email/password users keep it in localStorage.
@@ -378,7 +378,8 @@ export default function ChatConversationPage() {
       router.replace("/login");
       return;
     }
-    const clientMessageId = createClientMessageId();
+    clientMessageCounterRef.current += 1;
+    const clientMessageId = createClientMessageId(clientMessageCounterRef.current);
     setSending(true);
     setError("");
     try {

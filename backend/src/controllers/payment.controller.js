@@ -461,8 +461,11 @@ const handlePaymentCompleted = async (session) => {
   // Default: video purchase
   try {
     const parsedAmount = Number.parseFloat(amount);
-    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(videoId)) {
-      throw new Error(`Invalid video purchase metadata for session ${session.id}`);
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error(`Invalid userId in video purchase metadata for session ${session.id}`);
+    }
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+      throw new Error(`Invalid videoId in video purchase metadata for session ${session.id}`);
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       throw new Error(`Invalid video purchase amount for session ${session.id}`);

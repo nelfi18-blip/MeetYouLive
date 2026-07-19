@@ -596,8 +596,9 @@ const getCandidates = async (req, res) => {
 
 // POST /api/calls/:id/tick — per-minute billing for active paid calls
 const tickCall = async (req, res) => {
-  const dbSession = await mongoose.startSession();
+  let dbSession;
   try {
+    dbSession = await mongoose.startSession();
     const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
@@ -628,9 +629,13 @@ const tickCall = async (req, res) => {
     const agencyPercentageApplied = agencyPercentage || 0;
 
     const now = new Date();
+    // Allow a small tolerance below 60s so legitimate client ticks are not
+    // rejected due to timer drift or network latency, while duplicate retries
+    // in the same minute remain idempotent.
     const minBillingIntervalAt = new Date(now.getTime() - 55 * 1000);
     let endedForInsufficientCoins = false;
     let duplicateTick = false;
+    let endedCallForEvent = null;
 
     await dbSession.withTransaction(async () => {
       const claimedCall = await VideoCall.findOneAndUpdate(
@@ -638,7 +643,6 @@ const tickCall = async (req, res) => {
           _id: call._id,
           status: "accepted",
           type: CALL_TYPES.PAID_CREATOR,
-          callCoins: pricePerMinute,
           $or: [{ lastBilledAt: null }, { lastBilledAt: { $lte: minBillingIntervalAt } }],
         },
         { $set: { lastBilledAt: now } },
@@ -663,9 +667,7 @@ const tickCall = async (req, res) => {
           claimedCall.totalDurationSeconds = Math.floor((claimedCall.endedAt - claimedCall.startedAt) / 1000);
         }
         await claimedCall.save({ session: dbSession });
-        call.status = claimedCall.status;
-        call.endedAt = claimedCall.endedAt;
-        call.totalDurationSeconds = claimedCall.totalDurationSeconds;
+        endedCallForEvent = claimedCall;
         endedForInsufficientCoins = true;
         return;
       }
@@ -728,7 +730,7 @@ const tickCall = async (req, res) => {
     }
 
     if (endedForInsufficientCoins) {
-      emitCallEvent(call, "CALL_ENDED", { reason: "insufficient_coins" });
+      emitCallEvent(endedCallForEvent || call, "CALL_ENDED", { reason: "insufficient_coins" });
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
 
@@ -736,7 +738,9 @@ const tickCall = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   } finally {
-    await dbSession.endSession();
+    if (dbSession) {
+      await dbSession.endSession();
+    }
   }
 };
 

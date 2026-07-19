@@ -4,20 +4,27 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import esMessages from "@/messages/es.json";
 import enMessages from "@/messages/en.json";
 import ptMessages from "@/messages/pt.json";
+import {
+  DEFAULT_LANG,
+  LANGUAGE_COOKIE,
+  LANGUAGE_STORAGE_KEY,
+  SUPPORTED_LANGS,
+  detectLanguageFromNavigator,
+  normalizeLanguage,
+} from "@/lib/language";
 
-export const SUPPORTED_LANGS = ["es", "en", "pt"];
-export const DEFAULT_LANG = "es";
-const STORAGE_KEY = "preferredLanguage";
+export { DEFAULT_LANG, SUPPORTED_LANGS };
 
 const messages = { es: esMessages, en: enMessages, pt: ptMessages };
 
-/**
- * Detect the browser's preferred language, returning a supported lang code or the default.
- */
-function detectBrowserLang() {
-  if (typeof navigator === "undefined") return DEFAULT_LANG;
-  const browserLang = (navigator.language || "").split("-")[0].toLowerCase();
-  return SUPPORTED_LANGS.includes(browserLang) ? browserLang : DEFAULT_LANG;
+function persistLanguage(lang) {
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = lang;
+    document.cookie = `${LANGUAGE_COOKIE}=${lang}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  }
 }
 
 const LanguageContext = createContext({
@@ -28,23 +35,16 @@ const LanguageContext = createContext({
   supportedLangs: SUPPORTED_LANGS,
 });
 
-export function LanguageProvider({ children }) {
-  // Start with the default lang to avoid SSR hydration mismatch.
-  // The actual language is resolved on the client inside the first useEffect.
-  const [lang, setLangState] = useState(DEFAULT_LANG);
+export function LanguageProvider({ children, initialLang = DEFAULT_LANG }) {
+  const [lang, setLangState] = useState(() => normalizeLanguage(initialLang) || DEFAULT_LANG);
 
   useEffect(() => {
-    // Priority: localStorage (cached user preference) > browser > default
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && SUPPORTED_LANGS.includes(saved)) {
-      setLangState(saved);
-      document.documentElement.lang = saved;
-    } else {
-      const detected = detectBrowserLang();
-      setLangState(detected);
-      document.documentElement.lang = detected;
-    }
-  }, []);
+    // Priority: manual localStorage preference > server/cookie initial language > browser > English fallback.
+    const saved = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
+    const nextLang = saved || normalizeLanguage(initialLang) || detectLanguageFromNavigator(navigator);
+    setLangState(nextLang);
+    persistLanguage(nextLang);
+  }, [initialLang]);
 
   // Keep the html[lang] attribute in sync whenever the language changes.
   useEffect(() => {
@@ -56,9 +56,10 @@ export function LanguageProvider({ children }) {
    * Persists the choice to localStorage so it survives page reloads.
    */
   const setLang = useCallback((newLang) => {
-    if (!SUPPORTED_LANGS.includes(newLang)) return;
-    setLangState(newLang);
-    localStorage.setItem(STORAGE_KEY, newLang);
+    const normalized = normalizeLanguage(newLang);
+    if (!normalized) return;
+    setLangState(normalized);
+    persistLanguage(normalized);
   }, []);
 
   /**
@@ -67,9 +68,10 @@ export function LanguageProvider({ children }) {
    * detection that ran on mount (requirement: saved > browser > default).
    */
   const syncFromUser = useCallback((preferredLanguage) => {
-    if (preferredLanguage && SUPPORTED_LANGS.includes(preferredLanguage)) {
-      setLangState(preferredLanguage);
-      localStorage.setItem(STORAGE_KEY, preferredLanguage);
+    const normalized = normalizeLanguage(preferredLanguage);
+    if (normalized) {
+      setLangState(normalized);
+      persistLanguage(normalized);
     }
   }, []);
 

@@ -10,6 +10,8 @@ import OfflineIndicator from "../components/OfflineIndicator";
 import InstallPrompt from "../components/InstallPrompt";
 import PublicFooterWrapper from "../components/PublicFooterWrapper";
 import { CANONICAL_SITE_URL, canonicalUrl } from "@/lib/site";
+import { cookies, headers } from "next/headers";
+import { LANGUAGE_COOKIE, LANGUAGE_HEADER, resolveInitialLanguage } from "@/lib/language";
 
 export const metadata = {
   metadataBase: new URL(CANONICAL_SITE_URL),
@@ -98,7 +100,14 @@ export const viewport = {
   themeColor: "#0f0821",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const initialLang = resolveInitialLanguage({
+    storedLanguage: cookieStore.get(LANGUAGE_COOKIE)?.value,
+    acceptLanguage: headerStore.get(LANGUAGE_HEADER) || headerStore.get("accept-language"),
+  });
+
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -129,7 +138,7 @@ export default function RootLayout({ children }) {
   };
 
   return (
-    <html lang="es">
+    <html lang={initialLang}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -151,7 +160,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <Providers>
+        <Providers initialLang={initialLang}>
           <ServiceWorkerRegistration />
           <OfflineIndicator />
           <InstallPrompt />

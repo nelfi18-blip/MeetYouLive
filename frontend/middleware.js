@@ -2,6 +2,30 @@ import { NextResponse } from "next/server";
 import { normalizeCallbackPath } from "@/lib/redirects";
 import { CANONICAL_HOST, canonicalUrl } from "@/lib/site";
 import { isProtectedRoutePath, isPublicRoute } from "@/lib/publicAccess";
+import { LANGUAGE_COOKIE, LANGUAGE_HEADER, resolveInitialLanguage } from "@/lib/language";
+
+function languageAwareNext(request) {
+  const requestHeaders = new Headers(request.headers);
+  const initialLang = resolveInitialLanguage({
+    storedLanguage: request.cookies.get(LANGUAGE_COOKIE)?.value,
+    acceptLanguage: request.headers.get("accept-language"),
+  });
+  requestHeaders.set(LANGUAGE_HEADER, initialLang);
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+  if (request.cookies.get(LANGUAGE_COOKIE)?.value !== initialLang) {
+    response.cookies.set(LANGUAGE_COOKIE, initialLang, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  }
+  return response;
+}
 
 function withCanonicalHostIndexing(request, response) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
@@ -59,7 +83,7 @@ export function middleware(request) {
   // ── Public routes ──────────────────────────────────────────────────────────
   // These pages must ALWAYS be accessible to everyone without auth redirects.
   if (isPublicRoute(pathname)) {
-    return withCanonicalHostIndexing(request, NextResponse.next());
+    return withCanonicalHostIndexing(request, languageAwareNext(request));
   }
 
   // Cookie set by email/password login AND by the dashboard once the backend
@@ -126,7 +150,7 @@ export function middleware(request) {
     return redirectToLogin(request);
   }
 
-  return withCanonicalHostIndexing(request, NextResponse.next());
+  return withCanonicalHostIndexing(request, languageAwareNext(request));
 }
 
 export const config = {

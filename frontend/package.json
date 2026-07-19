@@ -7,6 +7,7 @@
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
     "test:public-access": "node --test tests/public-access.test.mjs",
+    "test:language": "node --test tests/language-detection.test.mjs",
     "start": "next start",
     "build:mobile": "NEXT_MOBILE_BUILD=true next build && npx cap sync",
     "cap:sync": "npx cap sync",

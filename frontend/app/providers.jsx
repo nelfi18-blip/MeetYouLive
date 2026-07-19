@@ -159,10 +159,10 @@ function AdminRoleGuard() {
   return null;
 }
 
-export default function Providers({ children }) {
+export default function Providers({ children, initialLang }) {
   return (
     <SessionProvider>
-      <LanguageProvider>
+      <LanguageProvider initialLang={initialLang}>
         <AdminRoleGuard />
         {children}
         <SocketManager />

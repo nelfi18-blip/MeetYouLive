@@ -27,6 +27,7 @@ describe("coin checkout", () => {
   beforeEach(() => {
     mockCreateCheckoutSession.mockReset();
     process.env.FRONTEND_URL = "https://example.com";
+    process.env.STRIPE_SECRET_KEY = "sk_test_unit";
   });
 
   describe("video purchase webhook safety", () => {

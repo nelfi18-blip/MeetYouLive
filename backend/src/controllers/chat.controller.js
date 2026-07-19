@@ -257,6 +257,7 @@ const sendMessage = async (req, res) => {
   } catch (err) {
     if (isClientMessageDuplicateError(err, clientMessageId)) {
       if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
+      return res.status(500).json({ message: "No se pudo confirmar el mensaje duplicado" });
     }
     res.status(500).json({ message: err.message });
   }

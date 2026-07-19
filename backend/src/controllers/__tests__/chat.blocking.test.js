@@ -23,6 +23,8 @@ jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }
 jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 
+const { trackEvent } = require("../../services/missions.service.js");
+const { emitChatMessage } = require("../../lib/socket.js");
 const { sendMessage, getMessages } = require("../chat.controller.js");
 const { getChats } = require("../chat.controller.js");
 
@@ -107,6 +109,8 @@ describe("chat message idempotency", () => {
     Chat.findOne.mockReturnValue(makeChatQuery(openChat));
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
     Chat.findByIdAndUpdate.mockResolvedValue({});
+    emitChatMessage.mockResolvedValue();
+    trackEvent.mockResolvedValue();
   });
 
   test("persists a valid clientMessageId with the message", async () => {
@@ -143,7 +147,7 @@ describe("chat message idempotency", () => {
       clientMessageId,
     });
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId: "client-1" }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId }));
   });
 
   test("returns an existing message when clientMessageId was already processed", async () => {

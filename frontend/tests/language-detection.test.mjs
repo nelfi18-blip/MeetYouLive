@@ -29,6 +29,7 @@ test("keeps persisted manual preference before request language", () => {
   assert.equal(resolveInitialLanguage({ storedLanguage: "pt", acceptLanguage: "es-ES" }), "pt");
   assert.equal(resolveInitialLanguage({ storedLanguage: "en-US", acceptLanguage: "es-ES" }), "en");
   assert.equal(resolveInitialLanguage({ storedLanguage: "fr", acceptLanguage: "pt-BR" }), "pt");
+  assert.equal(resolveInitialLanguage({ storedLanguage: "fr", acceptLanguage: "de-DE" }), DEFAULT_LANG);
 });
 
 test("normalizes only supported languages", () => {

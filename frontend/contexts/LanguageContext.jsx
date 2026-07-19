@@ -38,7 +38,7 @@ export function LanguageProvider({ children, initialLang = DEFAULT_LANG }) {
   const [lang, setLangState] = useState(() => normalizeLanguage(initialLang) || DEFAULT_LANG);
 
   useEffect(() => {
-    // Priority: manual localStorage preference > server/cookie initial language > English fallback.
+    // Priority: manual localStorage preference > server/cookie initial language > DEFAULT_LANG.
     const saved = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
     const nextLang = saved || normalizeLanguage(initialLang) || DEFAULT_LANG;
     setLangState(nextLang);

@@ -40,12 +40,13 @@ const mergeMessagesById = (current, incoming) => {
   return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
+const formatHexUuid = (hex) =>
+  `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+
 const createClientMessageId = (fallbackCounter) => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  const formatHexUuid = (hex) =>
-    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
     const values = new Uint16Array(8);
     crypto.getRandomValues(values);

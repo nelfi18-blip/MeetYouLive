@@ -9,6 +9,7 @@ const { emitChatMessage } = require("../lib/socket.js");
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 // Query every legacy photo alias so serializer can promote the first real photo.
 const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role blockedUsers";
+const CLIENT_MESSAGE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 const hasParticipantBlockedUser = (currentUserId, participant) => {
   if (!participant?._id) return false;
@@ -24,9 +25,14 @@ const normalizeClientMessageId = (value) => {
   if (typeof value !== "string") return "";
   const clientMessageId = value.trim();
   if (!clientMessageId) return "";
-  if (clientMessageId.length > 128 || !/^[a-f0-9-]+$/i.test(clientMessageId)) return null;
+  if (!CLIENT_MESSAGE_ID_PATTERN.test(clientMessageId)) return null;
   return clientMessageId;
 };
+
+const isClientMessageDuplicateError = (err, clientMessageId) =>
+  err?.code === 11000 &&
+  Boolean(clientMessageId) &&
+  (err?.keyPattern?.clientMessageId || err?.keyValue?.clientMessageId === clientMessageId);
 
 const sendPopulatedMessage = (req, res, populated) => {
   if (!populated) return false;
@@ -247,7 +253,7 @@ const sendMessage = async (req, res) => {
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});
   } catch (err) {
-    if (err?.code === 11000 && clientMessageId) {
+    if (isClientMessageDuplicateError(err, clientMessageId)) {
       if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
     }
     res.status(500).json({ message: err.message });

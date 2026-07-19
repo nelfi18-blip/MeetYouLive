@@ -460,14 +460,14 @@ const handlePaymentCompleted = async (session) => {
 
   // Default: video purchase
   try {
-    const parsedAmount = Number.parseFloat(amount);
+    const validatedAmount = Number.parseFloat(amount);
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       throw new Error(`Invalid userId in video purchase metadata for session ${session.id}`);
     }
     if (!mongoose.Types.ObjectId.isValid(videoId)) {
       throw new Error(`Invalid videoId in video purchase metadata for session ${session.id}`);
     }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    if (!Number.isFinite(validatedAmount) || validatedAmount <= 0) {
       throw new Error(`Invalid video purchase amount for session ${session.id}`);
     }
 
@@ -477,7 +477,7 @@ const handlePaymentCompleted = async (session) => {
         $setOnInsert: {
           user: userId,
           video: videoId,
-          amount: parsedAmount,
+          amount: validatedAmount,
           stripeSessionId: session.id,
         },
       },
@@ -488,7 +488,7 @@ const handlePaymentCompleted = async (session) => {
       purchaseId: String(purchase._id),
       userId,
       videoId,
-      amount: parsedAmount,
+      amount: validatedAmount,
     });
   } catch (err) {
     console.error("[video webhook] caught error while processing purchase", {

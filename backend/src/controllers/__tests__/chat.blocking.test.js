@@ -53,11 +53,15 @@ const makeChatQuery = (value) => ({
   populate: jest.fn().mockResolvedValue(value),
 });
 
+const makeMessageFindOneQuery = (value) => ({
+  select: jest.fn().mockResolvedValue(value),
+});
+
 describe("chat blocking", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
-    Message.findOne.mockResolvedValue(null);
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
   });
 
   test("rejects messages after a unilateral block", async () => {
@@ -100,7 +104,7 @@ describe("chat message idempotency", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Chat.findOne.mockReturnValue(makeChatQuery(openChat));
-    Message.findOne.mockResolvedValue(null);
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
     Chat.findByIdAndUpdate.mockResolvedValue({});
   });
 
@@ -159,7 +163,7 @@ describe("chat message idempotency", () => {
         };
       },
     };
-    Message.findOne.mockResolvedValue({ _id: existingMessageId });
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery({ _id: existingMessageId }));
     Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
 
     const res = makeRes();

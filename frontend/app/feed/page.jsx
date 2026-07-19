@@ -1175,11 +1175,13 @@ export default function FeedPage() {
         throw new Error(t("feed.sessionExpired"));
       }
 
-      let actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`;
+      let actionUrl;
       if (isSuper) {
         actionUrl = `${API_URL}/api/matches/super-crush/${encodeURIComponent(targetProfileIdString)}`;
+      } else if (isLike) {
+        actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}`;
       } else if (!isLike) {
-        actionUrl += "?action=dislike";
+        actionUrl = `${API_URL}/api/matches/like/${encodeURIComponent(targetProfileIdString)}?action=dislike`;
       }
       const res = await fetch(actionUrl, {
         method: isLike || isSuper ? "POST" : "DELETE",
@@ -1204,11 +1206,13 @@ export default function FeedPage() {
     } catch (err) {
       console.error("Swipe action error:", err);
       unlockSwipe();
-      setError(
-        err.name === "AbortError"
-          ? t("feed.serverStarting")
-          : err.message || (isLike || isSuper ? t("feed.likeError") : t("feed.passError"))
-      );
+      let message = err.message;
+      if (err.name === "AbortError") {
+        message = t("feed.serverStarting");
+      } else if (!message) {
+        message = isLike || isSuper ? t("feed.likeError") : t("feed.passError");
+      }
+      setError(message);
       return false;
     } finally {
       clearTimeout(timeoutId);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   DEFAULT_LANG,
   LANGUAGE_STORAGE_KEY,
@@ -35,7 +35,7 @@ function getErrorLanguage() {
 }
 
 export default function GlobalError({ error, reset }) {
-  const lang = getErrorLanguage();
+  const [lang] = useState(getErrorLanguage);
   const copy = GLOBAL_ERROR_COPY[lang] || GLOBAL_ERROR_COPY[DEFAULT_LANG];
 
   useEffect(() => {

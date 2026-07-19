@@ -9,7 +9,6 @@ import {
   LANGUAGE_COOKIE,
   LANGUAGE_STORAGE_KEY,
   SUPPORTED_LANGS,
-  detectLanguageFromNavigator,
   normalizeLanguage,
 } from "@/lib/language";
 
@@ -39,17 +38,12 @@ export function LanguageProvider({ children, initialLang = DEFAULT_LANG }) {
   const [lang, setLangState] = useState(() => normalizeLanguage(initialLang) || DEFAULT_LANG);
 
   useEffect(() => {
-    // Priority: manual localStorage preference > server/cookie initial language > browser > English fallback.
+    // Priority: manual localStorage preference > server/cookie initial language > English fallback.
     const saved = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY));
-    const nextLang = saved || normalizeLanguage(initialLang) || detectLanguageFromNavigator(navigator);
+    const nextLang = saved || normalizeLanguage(initialLang) || DEFAULT_LANG;
     setLangState(nextLang);
     persistLanguage(nextLang);
   }, [initialLang]);
-
-  // Keep the html[lang] attribute in sync whenever the language changes.
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
 
   /**
    * Change the UI language.

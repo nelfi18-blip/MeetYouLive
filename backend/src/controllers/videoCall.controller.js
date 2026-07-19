@@ -72,7 +72,7 @@ const findBlockingCall = async (callerId, recipientId) => {
   return null;
 };
 
-const getCallId = (call) => String(call?._id || call || "");
+const normalizeCallId = (callOrId) => String(callOrId?._id || callOrId || "");
 
 const getPaidCallSplit = async (recipientId, coins, session) => {
   const agencyRel = await AgencyRelationship.findOne({
@@ -90,7 +90,7 @@ const getPaidCallSplit = async (recipientId, coins, session) => {
 };
 
 const buildInitialBillingTransactions = (call, split, now) => {
-  const callId = getCallId(call);
+  const callId = normalizeCallId(call);
   const txDocs = [
     {
       userId: call.caller,
@@ -149,7 +149,7 @@ const shouldRefundInitialCharge = (call) =>
   !call.initialChargeCreditedAt &&
   !call.refundedAt;
 
-const createRefundTransaction = (call, now, session) =>
+const createRefundTransactionRecord = (call, now, session) =>
   CoinTransaction.create([
     {
       userId: call.caller,
@@ -158,16 +158,16 @@ const createRefundTransaction = (call, now, session) =>
       reason: `Reembolso de llamada privada no aceptada con ${call.recipient}`,
       status: "completed",
       metadata: {
-        callId: getCallId(call),
+        callId: normalizeCallId(call),
         recipientId: String(call.recipient),
         refundedAt: now.toISOString(),
-        idempotencyKey: `${getCallId(call)}:pending-refund`,
+        idempotencyKey: `${normalizeCallId(call)}:pending-refund`,
       },
     },
   ], { session });
 
 const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
-  const callId = getCallId(callOrId);
+  const callId = normalizeCallId(callOrId);
   if (!callId || !Object.values(PENDING_FINAL_STATUSES).includes(finalStatus)) return callOrId;
 
   const dbSession = await mongoose.startSession();
@@ -196,7 +196,7 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
         );
         claimedCall.refundedAt = now;
         await claimedCall.save({ session: dbSession });
-        await createRefundTransaction(claimedCall, now, dbSession);
+        await createRefundTransactionRecord(claimedCall, now, dbSession);
       }
     });
   } finally {
@@ -458,8 +458,7 @@ const respondCall = async (req, res) => {
   let eventCall = null;
 
   try {
-    const initialCall = await VideoCall.findById(req.params.id);
-    const call = initialCall;
+    const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
     if (isPendingCallExpired(call)) {
@@ -533,8 +532,9 @@ const respondCall = async (req, res) => {
         }
       }
 
-      // status:"pending" is the authoritative concurrency claim; the billing
-      // marker is an extra idempotency guard for first-minute crediting.
+      // status:"pending" is the required concurrency claim. The billing marker
+      // is a defensive idempotency guard so first-minute crediting cannot be
+      // repeated if status and billing fields ever diverge.
       acceptedCall = await VideoCall.findOneAndUpdate(
         { _id: pendingCall._id, status: "pending", initialChargeCreditedAt: null },
         update,

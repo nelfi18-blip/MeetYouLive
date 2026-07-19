@@ -52,7 +52,9 @@ const createClientMessageId = (fallbackCounter) => {
     crypto.getRandomValues(values);
     return formatHexUuid(Array.from(values, (value) => value.toString(16).padStart(4, "0")).join(""));
   }
-  const fallbackHex = `${Date.now().toString(16)}${fallbackCounter.toString(16)}`.padEnd(32, "0").slice(0, 32);
+  const fallbackHex = `${Date.now().toString(16)}${fallbackCounter.toString(16)}${Math.random().toString(16).slice(2)}`
+    .padEnd(32, "0")
+    .slice(0, 32);
   return formatHexUuid(fallbackHex);
 };
 

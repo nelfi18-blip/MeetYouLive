@@ -22,11 +22,12 @@ const getFirstOtherChatParticipant = (chat, currentUserId) =>
   chat?.participants?.find((participant) => String(participant?._id) !== String(currentUserId));
 
 const normalizeClientMessageId = (value) => {
-  if (typeof value !== "string") return "";
+  const emptyResult = { value: "", invalid: false };
+  if (typeof value !== "string") return emptyResult;
   const clientMessageId = value.trim();
-  if (!clientMessageId) return "";
-  if (!CLIENT_MESSAGE_ID_PATTERN.test(clientMessageId)) return null;
-  return clientMessageId;
+  if (!clientMessageId) return emptyResult;
+  if (!CLIENT_MESSAGE_ID_PATTERN.test(clientMessageId)) return { value: "", invalid: true };
+  return { value: clientMessageId, invalid: false };
 };
 
 const isClientMessageDuplicateError = (err, clientMessageId) =>
@@ -206,10 +207,11 @@ const sendMessage = async (req, res) => {
   if (!text || !text.trim()) {
     return res.status(400).json({ message: "text es requerido" });
   }
-  const clientMessageId = normalizeClientMessageId(req.body.clientMessageId);
-  if (clientMessageId === null) {
+  const normalizedClientMessageId = normalizeClientMessageId(req.body.clientMessageId);
+  if (normalizedClientMessageId.invalid) {
     return res.status(400).json({ message: "clientMessageId inválido" });
   }
+  const clientMessageId = normalizedClientMessageId.value;
   try {
     const chat = await Chat.findOne({
       _id: req.params.chatId,

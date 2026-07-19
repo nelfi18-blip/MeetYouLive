@@ -29,6 +29,7 @@ const videocallSchema = new mongoose.Schema(
     callerCandidates: [{ type: String }],
     calleeCandidates: [{ type: String }],
     endedAt: { type: Date, default: null },
+    lastBilledAt: { type: Date, default: null },
     totalDurationSeconds: { type: Number, default: 0, min: 0 },
     totalCoinsCharged: { type: Number, default: 0, min: 0 },
     creatorShare: { type: Number, default: 0, min: 0 },

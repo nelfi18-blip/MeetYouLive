@@ -271,7 +271,7 @@ function LoginForm() {
       setChecking(false);
       setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
       clearToken();
-      signOut({ redirect: false });
+      await signOut({ redirect: false });
       return;
     }
 

@@ -9,7 +9,7 @@ const { handleSubscriptionWebhook } = require("../controllers/subscription.contr
 let stripeClient;
 
 const getStripe = () => {
-  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     return null;
   }
@@ -61,7 +61,7 @@ router.post(
         hasSignatureHeader: Boolean(sig),
         errorType: err?.type || "signature_verification_error",
       });
-      return res.status(400).json({ message: `Webhook error: ${err.message}` });
+      return res.status(400).json({ message: "Firma de webhook inválida" });
     }
 
     try {
@@ -114,7 +114,7 @@ router.post(
         eventType: event?.type,
         message: err.message,
       });
-      return res.status(500).json({ message: err.message });
+      return res.status(500).json({ message: "Error procesando webhook de Stripe" });
     }
 
     res.json({ received: true });

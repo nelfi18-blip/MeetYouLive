@@ -34,6 +34,15 @@ async function generateReferralCode() {
 
 const router = Router();
 
+const signAuthToken = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    const error = new Error("Server configuration error");
+    error.status = 500;
+    throw error;
+  }
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "30d" });
+};
+
 // Stricter rate limiters for sensitive endpoints
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -241,7 +250,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
       console.error("[login] Failed to increment loginCount:", err)
     );
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    const token = signAuthToken(user._id);
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -269,7 +278,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
     if (user.emailVerified) {
       // Already verified — issue token so the user can proceed
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+      const token = signAuthToken(user._id);
       return res.json({ message: "Email ya verificado", token });
     }
     if (!user.emailVerificationCode || !user.emailVerificationExpires) {
@@ -287,7 +296,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     user.emailVerificationExpires = null;
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    const token = signAuthToken(user._id);
     res.json({ message: "Email verificado correctamente", token });
   } catch (err) {
     console.error("verify-email error:", err);
@@ -438,7 +447,7 @@ router.post("/setup", authLimiter, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hashedPassword, role: "admin" });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    const token = signAuthToken(user._id);
     res.status(201).json({ message: "Administrador creado correctamente", token });
   } catch (err) {
     if (err.code === 11000) {
@@ -532,7 +541,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
       );
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+    const token = signAuthToken(user._id);
     const safeUser = {
       id: user._id,
       email: user.email,

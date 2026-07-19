@@ -1,4 +1,5 @@
 const VideoCall = require("../models/VideoCall.js");
+const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
@@ -595,6 +596,7 @@ const getCandidates = async (req, res) => {
 
 // POST /api/calls/:id/tick — per-minute billing for active paid calls
 const tickCall = async (req, res) => {
+  const dbSession = await mongoose.startSession();
   try {
     const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
@@ -625,83 +627,116 @@ const tickCall = async (req, res) => {
     const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
     const agencyPercentageApplied = agencyPercentage || 0;
 
-    // Atomically deduct coins from caller
-    const updatedCaller = await User.findOneAndUpdate(
-      { _id: call.caller, coins: { $gte: pricePerMinute } },
-      { $inc: { coins: -pricePerMinute } },
-      { new: true }
-    );
+    const now = new Date();
+    const minBillingIntervalAt = new Date(now.getTime() - 55 * 1000);
+    let endedForInsufficientCoins = false;
+    let duplicateTick = false;
 
-    if (!updatedCaller) {
-      // Caller ran out of coins — end the call
-      call.status = "ended";
-      call.endedAt = new Date();
-      if (call.startedAt) {
-        call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+    await dbSession.withTransaction(async () => {
+      const claimedCall = await VideoCall.findOneAndUpdate(
+        {
+          _id: call._id,
+          status: "accepted",
+          type: CALL_TYPES.PAID_CREATOR,
+          callCoins: pricePerMinute,
+          $or: [{ lastBilledAt: null }, { lastBilledAt: { $lte: minBillingIntervalAt } }],
+        },
+        { $set: { lastBilledAt: now } },
+        { new: true, session: dbSession }
+      );
+
+      if (!claimedCall) {
+        duplicateTick = true;
+        return;
       }
-      await call.save();
+
+      const updatedCaller = await User.findOneAndUpdate(
+        { _id: call.caller, coins: { $gte: pricePerMinute } },
+        { $inc: { coins: -pricePerMinute } },
+        { new: true, session: dbSession }
+      );
+
+      if (!updatedCaller) {
+        claimedCall.status = "ended";
+        claimedCall.endedAt = now;
+        if (claimedCall.startedAt) {
+          claimedCall.totalDurationSeconds = Math.floor((claimedCall.endedAt - claimedCall.startedAt) / 1000);
+        }
+        await claimedCall.save({ session: dbSession });
+        call.status = claimedCall.status;
+        call.endedAt = claimedCall.endedAt;
+        call.totalDurationSeconds = claimedCall.totalDurationSeconds;
+        endedForInsufficientCoins = true;
+        return;
+      }
+
+      await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } }, { session: dbSession });
+
+      if (agencyShare > 0 && referrerId) {
+        await User.findByIdAndUpdate(referrerId, {
+          $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
+        }, { session: dbSession });
+      }
+
+      const tickUpdate = {
+        $inc: {
+          totalCoinsCharged: pricePerMinute,
+          creatorShare: creatorNetShare,
+          platformShare,
+          agencyShare,
+        },
+      };
+      if (referrerId && !call.referrerId) {
+        tickUpdate.$set = { referrerId, agencyPercentageApplied };
+      }
+      await VideoCall.findByIdAndUpdate(call._id, tickUpdate, { session: dbSession });
+
+      const txMeta = { callId: String(call._id), billedAt: now.toISOString() };
+      const txDocs = [
+        {
+          userId: call.caller,
+          type: "private_call",
+          amount: -pricePerMinute,
+          reason: `Minuto adicional en llamada privada con ${call.recipient}`,
+          status: "completed",
+          metadata: txMeta,
+        },
+        {
+          userId: call.recipient,
+          type: "private_call",
+          amount: creatorNetShare,
+          reason: `Minuto adicional en llamada privada de ${call.caller}`,
+          status: "completed",
+          metadata: txMeta,
+        },
+      ];
+      if (agencyShare > 0 && referrerId) {
+        txDocs.push({
+          userId: referrerId,
+          type: "agency_earned",
+          amount: agencyShare,
+          reason: `Comisión de agencia por minuto de llamada privada`,
+          status: "completed",
+          metadata: { ...txMeta, subCreatorId: String(call.recipient) },
+        });
+      }
+      await CoinTransaction.create(txDocs, { session: dbSession });
+    });
+
+    if (duplicateTick) {
+      return res.json({ ok: true, billed: false });
+    }
+
+    if (endedForInsufficientCoins) {
       emitCallEvent(call, "CALL_ENDED", { reason: "insufficient_coins" });
       return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
     }
 
-    // Credit creator (net share after agency)
-    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } });
-
-    if (agencyShare > 0 && referrerId) {
-      await User.findByIdAndUpdate(referrerId, {
-        $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
-      });
-    }
-
-    // Increment running billing totals on the call document
-    const tickUpdate = {
-      $inc: {
-        totalCoinsCharged: pricePerMinute,
-        creatorShare: creatorNetShare,
-        platformShare,
-        agencyShare,
-      },
-    };
-    if (referrerId && !call.referrerId) {
-      tickUpdate.$set = { referrerId, agencyPercentageApplied };
-    }
-    await VideoCall.findByIdAndUpdate(call._id, tickUpdate);
-
-    // Record transactions (fire-and-forget)
-    const txMeta = { callId: String(call._id) };
-    const txDocs = [
-      {
-        userId: call.caller,
-        type: "private_call",
-        amount: -pricePerMinute,
-        reason: `Minuto adicional en llamada privada con ${call.recipient}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-      {
-        userId: call.recipient,
-        type: "private_call",
-        amount: creatorNetShare,
-        reason: `Minuto adicional en llamada privada de ${call.caller}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-    ];
-    if (agencyShare > 0 && referrerId) {
-      txDocs.push({
-        userId: referrerId,
-        type: "agency_earned",
-        amount: agencyShare,
-        reason: `Comisión de agencia por minuto de llamada privada`,
-        status: "completed",
-        metadata: { ...txMeta, subCreatorId: String(call.recipient) },
-      });
-    }
-    CoinTransaction.create(txDocs).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
-
     res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorNetShare, agencyEarned: agencyShare });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  } finally {
+    await dbSession.endSession();
   }
 };
 

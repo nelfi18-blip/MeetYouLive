@@ -554,7 +554,8 @@ const respondCall = async (req, res) => {
           { new: true, session: dbSession }
         );
         if (!updatedCaller) {
-          const err = new Error(INSUFFICIENT_CALL_COINS);
+          const err = new Error(`Necesitas ${acceptedCall.callCoins} monedas para esta llamada`);
+          err.code = INSUFFICIENT_CALL_COINS;
           err.statusCode = 402;
           err.callCoins = acceptedCall.callCoins;
           throw err;
@@ -592,8 +593,8 @@ const respondCall = async (req, res) => {
     emitCallEvent(eventCall, eventName);
     res.json(populated);
   } catch (err) {
-    if (err.message === INSUFFICIENT_CALL_COINS) {
-      return res.status(err.statusCode).json({ message: `Necesitas ${err.callCoins} monedas para esta llamada` });
+    if (err.code === INSUFFICIENT_CALL_COINS) {
+      return res.status(err.statusCode).json({ message: err.message });
     }
     res.status(500).json({ message: err.message });
   } finally {

@@ -69,7 +69,7 @@ function makeSession() {
   };
 }
 
-function sessionQuery(value) {
+function mockQueryWithSession(value) {
   return { session: jest.fn().mockResolvedValue(value) };
 }
 
@@ -108,7 +108,7 @@ async function acceptCall({ claimed = paidCall({ status: "accepted" }), callerUp
   AgencyRelationship.findOne.mockReturnValue(agencyQuery(null));
   VideoCall.findById
     .mockResolvedValueOnce(paidCall())
-    .mockReturnValueOnce(sessionQuery(paidCall()))
+    .mockReturnValueOnce(mockQueryWithSession(paidCall()))
     .mockReturnValueOnce(populateQuery(claimed));
   VideoCall.findOneAndUpdate.mockResolvedValueOnce(claimed);
   User.findOneAndUpdate.mockResolvedValueOnce(callerUpdate);
@@ -140,7 +140,7 @@ describe("paid call billing atomicity", () => {
     AgencyRelationship.findOne.mockReturnValue(agencyQuery(null));
     VideoCall.findById
       .mockResolvedValueOnce(paidCall())
-      .mockReturnValueOnce(sessionQuery(paidCall()))
+      .mockReturnValueOnce(mockQueryWithSession(paidCall()))
       .mockReturnValueOnce(populateQuery(paidCall({ status: "accepted" })));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(null);
 
@@ -181,7 +181,7 @@ describe("paid call billing atomicity", () => {
       .mockResolvedValueOnce(refundable)
       .mockReturnValueOnce(populateQuery(rejected))
       .mockResolvedValueOnce(refundable)
-      .mockReturnValueOnce(sessionQuery(rejected))
+      .mockReturnValueOnce(mockQueryWithSession(rejected))
       .mockReturnValueOnce(populateQuery(rejected));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(rejected).mockResolvedValueOnce(null);
     User.findByIdAndUpdate.mockResolvedValue({});
@@ -204,7 +204,7 @@ describe("paid call billing atomicity", () => {
       save: jest.fn().mockResolvedValue(undefined),
     });
     callRules.isPendingCallExpired.mockReturnValueOnce(true);
-    VideoCall.findById.mockResolvedValueOnce(stale).mockReturnValueOnce(sessionQuery(missed));
+    VideoCall.findById.mockResolvedValueOnce(stale).mockReturnValueOnce(mockQueryWithSession(missed));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(missed).mockResolvedValueOnce(null);
     VideoCall.findOne
       .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(stale) })
@@ -231,7 +231,7 @@ describe("paid call billing atomicity", () => {
     VideoCall.findOne
       .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue(stale) })
       .mockReturnValueOnce({ sort: jest.fn().mockReturnValue(populateQuery(null)) });
-    VideoCall.findById.mockResolvedValueOnce(stale).mockReturnValueOnce(sessionQuery(missed));
+    VideoCall.findById.mockResolvedValueOnce(stale).mockReturnValueOnce(mockQueryWithSession(missed));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(missed).mockResolvedValueOnce(null);
     User.findByIdAndUpdate.mockResolvedValue({});
     CoinTransaction.create.mockResolvedValue([]);
@@ -249,8 +249,8 @@ describe("paid call billing atomicity", () => {
     AgencyRelationship.findOne.mockReturnValue(agencyQuery(null));
     const active = paidCall({ status: "accepted", lastBilledAt: new Date(), startedAt: new Date() });
     VideoCall.findById
-      .mockReturnValueOnce(sessionQuery(active))
-      .mockReturnValueOnce(sessionQuery(active));
+      .mockReturnValueOnce(mockQueryWithSession(active))
+      .mockReturnValueOnce(mockQueryWithSession(active));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(active).mockResolvedValueOnce(null);
     User.findOneAndUpdate.mockResolvedValue({ _id: callerId });
     User.findByIdAndUpdate.mockResolvedValue({});
@@ -270,7 +270,7 @@ describe("paid call billing atomicity", () => {
     AgencyRelationship.findOne.mockReturnValue(agencyQuery({ parentCreator: agencyId, percentage: 10 }));
     const active = paidCall({ status: "accepted", startedAt: new Date("2026-01-01T00:00:00Z") });
     active.save = jest.fn().mockResolvedValue(undefined);
-    VideoCall.findById.mockReturnValueOnce(sessionQuery(active));
+    VideoCall.findById.mockReturnValueOnce(mockQueryWithSession(active));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(active);
     User.findOneAndUpdate.mockResolvedValueOnce(null);
 
@@ -294,7 +294,7 @@ describe("paid call billing atomicity", () => {
     const accepted = paidCall({ status: "accepted" });
     VideoCall.findById
       .mockResolvedValueOnce(paidCall())
-      .mockReturnValueOnce(sessionQuery(paidCall()));
+      .mockReturnValueOnce(mockQueryWithSession(paidCall()));
     VideoCall.findOneAndUpdate.mockResolvedValueOnce(accepted);
     User.findOneAndUpdate.mockResolvedValueOnce({ _id: callerId });
     User.findByIdAndUpdate.mockRejectedValueOnce(new Error("credit failed"));

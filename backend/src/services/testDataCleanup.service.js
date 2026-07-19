@@ -316,13 +316,26 @@ async function cleanupTestData(rawOptions = {}) {
   );
   report.counts.prunedDocuments.userRelationshipArrays = modifiedCount(pullFromUsers);
 
-  const nullUserRefs = await updateOrCount(
+  const nullReferredBy = await updateOrCount(
     User,
-    { _id: { $nin: testUserIds }, $or: [{ referredBy: inUsers }, { invitedByCreator: inUsers }, { "agencyRelationship.parentCreatorId": inUsers }] },
-    { $set: { referredBy: null, invitedByCreator: null, "agencyRelationship.parentCreatorId": null } },
+    { _id: { $nin: testUserIds }, referredBy: inUsers },
+    { $set: { referredBy: null } },
     options.execute
   );
-  report.counts.prunedDocuments.userSingleReferences = modifiedCount(nullUserRefs);
+  const nullInvitedByCreator = await updateOrCount(
+    User,
+    { _id: { $nin: testUserIds }, invitedByCreator: inUsers },
+    { $set: { invitedByCreator: null } },
+    options.execute
+  );
+  const nullAgencyParent = await updateOrCount(
+    User,
+    { _id: { $nin: testUserIds }, "agencyRelationship.parentCreatorId": inUsers },
+    { $set: { "agencyRelationship.parentCreatorId": null } },
+    options.execute
+  );
+  report.counts.prunedDocuments.userSingleReferences =
+    modifiedCount(nullReferredBy) + modifiedCount(nullInvitedByCreator) + modifiedCount(nullAgencyParent);
 
   const liveUserArrays = await updateOrCount(
     Live,
@@ -360,13 +373,19 @@ async function cleanupTestData(rawOptions = {}) {
       (report.counts.prunedDocuments.liveUserCombos || 0) + modifiedCount(comboResult);
   }
 
-  const socialRooms = await updateOrCount(
+  const socialRoomHost = await updateOrCount(
     SocialRoom,
-    { $or: [{ host: inUsers }, { moderators: inUsers }, { highlightedUsers: inUsers }] },
-    { $set: { host: null }, $pull: { moderators: inUsers, highlightedUsers: inUsers } },
+    { host: inUsers },
+    { $set: { host: null } },
     options.execute
   );
-  report.counts.prunedDocuments.socialRooms = modifiedCount(socialRooms);
+  const socialRoomArrays = await updateOrCount(
+    SocialRoom,
+    { $or: [{ moderators: inUsers }, { highlightedUsers: inUsers }] },
+    { $pull: { moderators: inUsers, highlightedUsers: inUsers } },
+    options.execute
+  );
+  report.counts.prunedDocuments.socialRooms = modifiedCount(socialRoomHost) + modifiedCount(socialRoomArrays);
 
   const usersResult = await applyOrCount(User, { _id: inUsers, role: { $nin: STAFF_ROLES } }, options.execute);
   report.counts.deletedDocuments.users = deletedCount(usersResult);

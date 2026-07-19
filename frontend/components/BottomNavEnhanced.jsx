@@ -25,7 +25,8 @@ export default function BottomNavEnhanced() {
   const [newMatchesCount, setNewMatchesCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
   const [showNewMatchAnimation, setShowNewMatchAnimation] = useState(false);
-  const [role, setRole] = useState("");
+  const [viewerRole, setViewerRole] = useState("");
+  const [viewerCreatorStatus, setViewerCreatorStatus] = useState("");
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -36,19 +37,28 @@ export default function BottomNavEnhanced() {
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d) setRole(d.role || "");
+        if (d) {
+          setViewerRole(d.role || "");
+          setViewerCreatorStatus(d.creatorStatus || "");
+        }
       })
       .catch(() => {});
   }, [session]);
 
-  const homePath = useMemo(() => getHomePath(role), [role]);
+  const homePath = useMemo(() => getHomePath(viewerRole), [viewerRole]);
 
   const isActive = (path) => {
     if (path === homePath) return HOME_ACTIVE_PATHS.has(pathname) || pathname === homePath;
     return pathname?.startsWith(path);
   };
 
-  const canGoLive = session?.user && isApprovedCreator(session.user);
+  const canGoLive = isApprovedCreator({
+    role: viewerRole || session?.backendUser?.role || session?.user?.role,
+    creatorStatus:
+      viewerCreatorStatus ||
+      session?.backendUser?.creatorStatus ||
+      session?.user?.creatorStatus,
+  });
   const primaryLiveHref = canGoLive ? "/live/start" : "/live";
 
   useEffect(() => {

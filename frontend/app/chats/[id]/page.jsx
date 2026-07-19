@@ -40,6 +40,13 @@ const mergeMessagesById = (current, incoming) => {
   return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
+const createClientMessageId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -358,6 +365,12 @@ export default function ChatConversationPage() {
     if (!text.trim() || sending || blockedConversation) return;
 
     const token = getBackendToken();
+    if (!token) {
+      clearToken();
+      router.replace("/login");
+      return;
+    }
+    const clientMessageId = createClientMessageId();
     setSending(true);
     setError("");
     try {
@@ -367,7 +380,7 @@ export default function ChatConversationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify({ text: text.trim(), clientMessageId }),
       });
       if (res.status === 403) {
         setBlockedConversation(true);

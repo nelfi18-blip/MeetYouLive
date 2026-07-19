@@ -460,26 +460,32 @@ const handlePaymentCompleted = async (session) => {
 
   // Default: video purchase
   try {
-    const existing = await Purchase.findOne({ stripeSessionId: session.id });
-    if (existing) {
-      console.log("[video webhook] duplicate purchase event ignored", {
-        sessionId: session.id,
-        purchaseId: String(existing._id),
-      });
-      return;
+    const parsedAmount = Number.parseFloat(amount);
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(videoId)) {
+      throw new Error(`Invalid video purchase metadata for session ${session.id}`);
     }
-    
-    await Purchase.create({
-      user: userId,
-      video: videoId,
-      amount: parseFloat(amount),
-      stripeSessionId: session.id,
-    });
-    console.log("[video webhook] purchase recorded", {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      throw new Error(`Invalid video purchase amount for session ${session.id}`);
+    }
+
+    const purchase = await Purchase.findOneAndUpdate(
+      { stripeSessionId: session.id },
+      {
+        $setOnInsert: {
+          user: userId,
+          video: videoId,
+          amount: parsedAmount,
+          stripeSessionId: session.id,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    console.log("[video webhook] purchase recorded or already existed", {
       sessionId: session.id,
+      purchaseId: String(purchase._id),
       userId,
       videoId,
-      amount,
+      amount: parsedAmount,
     });
   } catch (err) {
     console.error("[video webhook] caught error while processing purchase", {

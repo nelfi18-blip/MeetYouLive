@@ -20,6 +20,23 @@ const hasParticipantBlockedUser = (currentUserId, participant) => {
 const getFirstOtherChatParticipant = (chat, currentUserId) =>
   chat?.participants?.find((participant) => String(participant?._id) !== String(currentUserId));
 
+const normalizeClientMessageId = (value) => {
+  if (typeof value !== "string") return "";
+  const clientMessageId = value.trim();
+  if (!clientMessageId) return "";
+  if (clientMessageId.length > 128 || !/^[a-zA-Z0-9._:-]+$/.test(clientMessageId)) return null;
+  return clientMessageId;
+};
+
+const sendExistingMessage = async (req, res, messageId) => {
+  const populated = await Message.findById(messageId).populate("sender", CHAT_USER_FIELDS);
+  if (!populated) return false;
+  const payload = populated.toObject();
+  payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+  res.json(payload);
+  return true;
+};
+
 const hasChatBlock = (chat, currentUserId) => {
   const currentParticipant = chat?.participants?.find((participant) => String(participant?._id) === String(currentUserId));
   const otherParticipant = getFirstOtherChatParticipant(chat, currentUserId);
@@ -175,6 +192,10 @@ const sendMessage = async (req, res) => {
   if (!text || !text.trim()) {
     return res.status(400).json({ message: "text es requerido" });
   }
+  const clientMessageId = normalizeClientMessageId(req.body.clientMessageId);
+  if (clientMessageId === null) {
+    return res.status(400).json({ message: "clientMessageId inválido" });
+  }
   try {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
@@ -185,10 +206,16 @@ const sendMessage = async (req, res) => {
       return res.status(403).json({ message: "No puedes enviar mensajes a este usuario" });
     }
 
+    if (clientMessageId) {
+      const existing = await Message.findOne({ chat: req.params.chatId, clientMessageId }).select("_id");
+      if (existing && await sendExistingMessage(req, res, existing._id)) return;
+    }
+
     const message = await Message.create({
       chat: req.params.chatId,
       sender: req.userId,
       text: text.trim(),
+      ...(clientMessageId ? { clientMessageId } : {}),
     });
 
     await Chat.findByIdAndUpdate(req.params.chatId, {
@@ -213,6 +240,10 @@ const sendMessage = async (req, res) => {
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});
   } catch (err) {
+    if (err?.code === 11000 && clientMessageId) {
+      const existing = await Message.findOne({ chat: req.params.chatId, clientMessageId }).select("_id");
+      if (existing && await sendExistingMessage(req, res, existing._id)) return;
+    }
     res.status(500).json({ message: err.message });
   }
 };

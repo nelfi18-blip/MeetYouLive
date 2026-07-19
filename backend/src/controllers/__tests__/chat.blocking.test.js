@@ -13,6 +13,8 @@ jest.mock("../../models/Chat.js", () => ({
 jest.mock("../../models/Message.js", () => ({
   create: jest.fn(),
   find: jest.fn(),
+  findOne: jest.fn(),
+  findById: jest.fn(),
 }));
 
 jest.mock("../../models/User.js", () => ({}));
@@ -39,6 +41,14 @@ const blockedChat = {
   ],
 };
 
+const openChat = {
+  _id: chatId,
+  participants: [
+    { _id: currentUserId, blockedUsers: [] },
+    { _id: otherUserId, blockedUsers: [] },
+  ],
+};
+
 const makeChatQuery = (value) => ({
   populate: jest.fn().mockResolvedValue(value),
 });
@@ -47,6 +57,7 @@ describe("chat blocking", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
+    Message.findOne.mockResolvedValue(null);
   });
 
   test("rejects messages after a unilateral block", async () => {
@@ -82,5 +93,84 @@ describe("chat blocking", () => {
     await getChats({ userId: currentUserId }, res);
 
     expect(res.json).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("chat message idempotency", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Chat.findOne.mockReturnValue(makeChatQuery(openChat));
+    Message.findOne.mockResolvedValue(null);
+    Chat.findByIdAndUpdate.mockResolvedValue({});
+  });
+
+  test("persists a valid clientMessageId with the message", async () => {
+    const createdMessage = { _id: "507f1f77bcf86cd799439099" };
+    const populatedMessage = {
+      _id: createdMessage._id,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello",
+      clientMessageId: "client-1",
+      toObject() {
+        return {
+          _id: this._id,
+          chat: this.chat,
+          sender: this.sender,
+          text: this.text,
+          clientMessageId: this.clientMessageId,
+        };
+      },
+    };
+    Message.create.mockResolvedValue(createdMessage);
+    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+
+    const res = makeRes();
+    await sendMessage(
+      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId: "client-1" } },
+      res
+    );
+
+    expect(Message.create).toHaveBeenCalledWith({
+      chat: chatId,
+      sender: currentUserId,
+      text: "hello",
+      clientMessageId: "client-1",
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId: "client-1" }));
+  });
+
+  test("returns an existing message when clientMessageId was already processed", async () => {
+    const existingMessageId = "507f1f77bcf86cd799439098";
+    const populatedMessage = {
+      _id: existingMessageId,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello",
+      clientMessageId: "client-1",
+      toObject() {
+        return {
+          _id: this._id,
+          chat: this.chat,
+          sender: this.sender,
+          text: this.text,
+          clientMessageId: this.clientMessageId,
+        };
+      },
+    };
+    Message.findOne.mockResolvedValue({ _id: existingMessageId });
+    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+
+    const res = makeRes();
+    await sendMessage(
+      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId: "client-1" } },
+      res
+    );
+
+    expect(Message.create).not.toHaveBeenCalled();
+    expect(Chat.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ _id: existingMessageId }));
   });
 });

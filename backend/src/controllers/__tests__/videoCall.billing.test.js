@@ -132,7 +132,7 @@ describe("paid call billing atomicity", () => {
     socket.getOnlineUsers.mockReturnValue([]);
   });
 
-  test("two simultaneous accept requests produce one debit, one credit, and one transition", async () => {
+  test("concurrent accept attempts produce a single paid state transition", async () => {
     await acceptCall();
 
     const session = makeSession();

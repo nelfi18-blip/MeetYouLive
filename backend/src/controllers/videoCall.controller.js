@@ -140,6 +140,9 @@ const buildInitialBillingTransactions = (call, split, now) => {
 };
 
 const shouldRefundInitialCharge = (call) =>
+  // New calls are charged only on accept, so pending calls usually have no
+  // debit to refund. This guard is for any pending call that already has a
+  // recorded first-minute debit and has not been credited or refunded yet.
   call?.type === CALL_TYPES.PAID_CREATOR &&
   call.callCoins > 0 &&
   call.initialChargeDebitedAt &&
@@ -530,6 +533,8 @@ const respondCall = async (req, res) => {
         }
       }
 
+      // status:"pending" is the authoritative concurrency claim; the billing
+      // marker is an extra idempotency guard for first-minute crediting.
       acceptedCall = await VideoCall.findOneAndUpdate(
         { _id: pendingCall._id, status: "pending", initialChargeCreditedAt: null },
         update,

@@ -1,24 +1,23 @@
+import { DEFAULT_LANG, LANGUAGE_STORAGE_KEY, detectLanguageFromNavigator, normalizeLanguage } from "./language.js";
+
 /**
  * Get the user's locale for date/time formatting
  * Supports en, es, pt based on browser or user preferences
  */
 export function getUserLocale() {
   // Try to get from localStorage (user preference)
-  const savedLocale = typeof window !== "undefined" ? localStorage.getItem("locale") : null;
-  if (savedLocale && ["en", "es", "pt"].includes(savedLocale)) {
+  const savedLocale = typeof window !== "undefined" ? normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY)) : null;
+  if (savedLocale) {
     return savedLocale;
   }
 
   // Fall back to browser language
   if (typeof navigator !== "undefined") {
-    const browserLang = navigator.language?.split("-")[0];
-    if (["en", "es", "pt"].includes(browserLang)) {
-      return browserLang;
-    }
+    return detectLanguageFromNavigator(navigator);
   }
 
-  // Default to Spanish
-  return "es";
+  // Default to English for unsupported or unknown locales.
+  return DEFAULT_LANG;
 }
 
 /**
@@ -31,7 +30,7 @@ export function getFullLocale() {
     es: "es-ES",
     pt: "pt-BR",
   };
-  return localeMap[locale] || "es-ES";
+  return localeMap[locale] || "en-US";
 }
 
 /**

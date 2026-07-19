@@ -107,9 +107,7 @@ function buildTestUserFilter(options) {
   }
 
   if (normalized.emails.length) {
-    selectors.push({
-      $or: normalized.emails.map((email) => ({ email: { $regex: `^${escapeRegex(email)}$`, $options: "i" } })),
-    });
+    selectors.push({ $expr: { $in: [{ $toLower: "$email" }, normalized.emails] } });
   }
 
   if (normalized.emailDomains.length) {
@@ -352,19 +350,31 @@ async function cleanupTestData(rawOptions = {}) {
 
   const liveUserArrays = await updateOrCount(
     Live,
-    { _id: { $nin: ids.liveIds }, $or: [{ paidViewers: inUsers }, { bannedUsers: inUsers }, { "guests.userId": inUsers }, { "guestRequests.userId": inUsers }, { "moderationActions.moderator": inUsers }, { "moderationActions.target": inUsers }] },
+    { _id: { $nin: ids.liveIds }, $or: [{ paidViewers: inUsers }, { bannedUsers: inUsers }, { "guests.userId": inUsers }, { "guestRequests.userId": inUsers }] },
     {
       $pull: {
         paidViewers: inUsers,
         bannedUsers: inUsers,
         guests: { userId: inUsers },
         guestRequests: { userId: inUsers },
-        moderationActions: { $or: [{ moderator: inUsers }, { target: inUsers }] },
       },
     },
     options.execute
   );
-  report.counts.prunedDocuments.liveUserArrays = modifiedCount(liveUserArrays);
+  const liveModeratorActions = await updateOrCount(
+    Live,
+    { _id: { $nin: ids.liveIds }, "moderationActions.moderator": inUsers },
+    { $pull: { moderationActions: { moderator: inUsers } } },
+    options.execute
+  );
+  const liveTargetActions = await updateOrCount(
+    Live,
+    { _id: { $nin: ids.liveIds }, "moderationActions.target": inUsers },
+    { $pull: { moderationActions: { target: inUsers } } },
+    options.execute
+  );
+  report.counts.prunedDocuments.liveUserArrays =
+    modifiedCount(liveUserArrays) + modifiedCount(liveModeratorActions) + modifiedCount(liveTargetActions);
 
   const unsetTopSupporter = await updateOrCount(
     Live,

@@ -90,9 +90,6 @@ async function main() {
 main()
   .catch((error) => {
     console.error("Cleanup failed. Review selectors, database connectivity, and confirmation arguments.");
-    if (process.env.NODE_ENV !== "production") {
-      console.error(error.name || "Error");
-    }
     process.exitCode = 1;
   })
   .finally(async () => {

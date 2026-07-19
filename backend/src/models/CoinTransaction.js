@@ -46,6 +46,7 @@ const coinTransactionSchema = new mongoose.Schema(
 
 // Unique index on stripeSessionId to prevent duplicate payment processing
 coinTransactionSchema.index({ "metadata.stripeSessionId": 1 }, { unique: true, sparse: true });
+coinTransactionSchema.index({ "metadata.idempotencyKey": 1 }, { unique: true, sparse: true });
 
 const CoinTransaction = mongoose.model("CoinTransaction", coinTransactionSchema);
 

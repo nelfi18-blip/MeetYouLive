@@ -1,4 +1,5 @@
 const VideoCall = require("../models/VideoCall.js");
+const mongoose = require("mongoose");
 const User = require("../models/User.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
@@ -16,6 +17,7 @@ const { getIO, getOnlineUsers } = require("../lib/socket.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const CALL_USER_FIELDS = "username name avatar profilePhotos profileImage photo role lastActiveAt";
+const BILLING_TICK_MIN_INTERVAL_MS = 55 * 1000;
 
 const MEDIA_TYPES = Object.freeze({
   AUDIO: "audio",
@@ -595,113 +597,156 @@ const getCandidates = async (req, res) => {
 
 // POST /api/calls/:id/tick — per-minute billing for active paid calls
 const tickCall = async (req, res) => {
+  let dbSession;
   try {
-    const call = await VideoCall.findById(req.params.id);
-    if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
+    dbSession = await mongoose.startSession();
+    const now = new Date();
+    // Allow a small tolerance below 60s so legitimate client ticks are not
+    // rejected due to timer drift or network latency, while duplicate retries
+    // in the same minute remain idempotent.
+    const minBillingIntervalAt = new Date(now.getTime() - BILLING_TICK_MIN_INTERVAL_MS);
+    let responseStatus = 200;
+    let responseBody = null;
+    let endedCallForEvent = null;
 
-    if (String(call.caller) !== String(req.userId)) {
-      return res.status(403).json({ message: "Solo el llamante puede activar el tick de facturación" });
-    }
-
-    if (call.status !== "accepted") {
-      return res.status(400).json({ message: "La llamada no está activa" });
-    }
-
-    if (call.type !== CALL_TYPES.PAID_CREATOR || call.callCoins <= 0) {
-      return res.status(400).json({ message: "Esta llamada no es de pago" });
-    }
-
-    const pricePerMinute = call.callCoins;
-
-    // Look up the canonical AgencyRelationship for the percentage at this moment.
-    // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
-    // matching the same safety rule enforced in gift.controller.js.
-    const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
-    const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
-    
-    // Use calculateSplit to ensure platform always gets exactly 40%
-    const split = calculateSplit(pricePerMinute, agencyPercentage);
-    const { platformShare, creatorNetShare, agencyShare } = split;
-    const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
-    const agencyPercentageApplied = agencyPercentage || 0;
-
-    // Atomically deduct coins from caller
-    const updatedCaller = await User.findOneAndUpdate(
-      { _id: call.caller, coins: { $gte: pricePerMinute } },
-      { $inc: { coins: -pricePerMinute } },
-      { new: true }
-    );
-
-    if (!updatedCaller) {
-      // Caller ran out of coins — end the call
-      call.status = "ended";
-      call.endedAt = new Date();
-      if (call.startedAt) {
-        call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+    await dbSession.withTransaction(async () => {
+      const call = await VideoCall.findById(req.params.id).session(dbSession);
+      if (!call) {
+        responseStatus = 404;
+        responseBody = { message: "Llamada no encontrada" };
+        return;
       }
-      await call.save();
-      emitCallEvent(call, "CALL_ENDED", { reason: "insufficient_coins" });
-      return res.status(402).json({ message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true });
+
+      if (String(call.caller) !== String(req.userId)) {
+        responseStatus = 403;
+        responseBody = { message: "Solo el llamante puede activar el tick de facturación" };
+        return;
+      }
+
+      if (call.status !== "accepted") {
+        responseStatus = 400;
+        responseBody = { message: "La llamada no está activa" };
+        return;
+      }
+
+      if (call.type !== CALL_TYPES.PAID_CREATOR || call.callCoins <= 0) {
+        responseStatus = 400;
+        responseBody = { message: "Esta llamada no es de pago" };
+        return;
+      }
+
+      const pricePerMinute = call.callCoins;
+      const agencyRel = await AgencyRelationship.findOne({
+        subCreator: call.recipient,
+        status: "active",
+        subCreatorAgreed: true,
+      }).session(dbSession);
+      const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
+      const { platformShare, creatorNetShare, agencyShare } = calculateSplit(pricePerMinute, agencyPercentage);
+      const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
+      const agencyPercentageApplied = agencyPercentage || 0;
+
+      const claimedCall = await VideoCall.findOneAndUpdate(
+        {
+          _id: call._id,
+          status: "accepted",
+          type: CALL_TYPES.PAID_CREATOR,
+          $or: [{ lastBilledAt: null }, { lastBilledAt: { $lte: minBillingIntervalAt } }],
+        },
+        { $set: { lastBilledAt: now } },
+        { new: true, session: dbSession }
+      );
+
+      if (!claimedCall) {
+        responseBody = { ok: true, billed: false };
+        return;
+      }
+
+      const updatedCaller = await User.findOneAndUpdate(
+        { _id: claimedCall.caller, coins: { $gte: pricePerMinute } },
+        { $inc: { coins: -pricePerMinute } },
+        { new: true, session: dbSession }
+      );
+
+      if (!updatedCaller) {
+        claimedCall.status = "ended";
+        claimedCall.endedAt = now;
+        if (claimedCall.startedAt) {
+          claimedCall.totalDurationSeconds = Math.floor((claimedCall.endedAt - claimedCall.startedAt) / 1000);
+        }
+        await claimedCall.save({ session: dbSession });
+        endedCallForEvent = claimedCall;
+        responseStatus = 402;
+        responseBody = { message: "Monedas insuficientes. La llamada ha sido finalizada.", ended: true };
+        return;
+      }
+
+      await User.findByIdAndUpdate(claimedCall.recipient, { $inc: { earningsCoins: creatorNetShare } }, { session: dbSession });
+
+      if (agencyShare > 0 && referrerId) {
+        await User.findByIdAndUpdate(referrerId, {
+          $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
+        }, { session: dbSession });
+      }
+
+      const tickUpdate = {
+        $inc: {
+          totalCoinsCharged: pricePerMinute,
+          creatorShare: creatorNetShare,
+          platformShare,
+          agencyShare,
+        },
+      };
+      if (referrerId && !claimedCall.referrerId) {
+        tickUpdate.$set = { referrerId, agencyPercentageApplied };
+      }
+      await VideoCall.findByIdAndUpdate(claimedCall._id, tickUpdate, { session: dbSession });
+
+      const txMeta = { callId: String(claimedCall._id), billedAt: now.toISOString() };
+      const txDocs = [
+        {
+          userId: claimedCall.caller,
+          type: "private_call",
+          amount: -pricePerMinute,
+          reason: `Minuto adicional en llamada privada con ${claimedCall.recipient}`,
+          status: "completed",
+          metadata: txMeta,
+        },
+        {
+          userId: claimedCall.recipient,
+          type: "private_call",
+          amount: creatorNetShare,
+          reason: `Minuto adicional en llamada privada de ${claimedCall.caller}`,
+          status: "completed",
+          metadata: txMeta,
+        },
+      ];
+      if (agencyShare > 0 && referrerId) {
+        txDocs.push({
+          userId: referrerId,
+          type: "agency_earned",
+          amount: agencyShare,
+          reason: `Comisión de agencia por minuto de llamada privada`,
+          status: "completed",
+          metadata: { ...txMeta, subCreatorId: String(claimedCall.recipient) },
+        });
+      }
+      await CoinTransaction.create(txDocs, { session: dbSession });
+      responseBody = { ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorNetShare, agencyEarned: agencyShare };
+    });
+
+    if (endedCallForEvent) {
+      emitCallEvent(endedCallForEvent, "CALL_ENDED", { reason: "insufficient_coins" });
     }
 
-    // Credit creator (net share after agency)
-    await User.findByIdAndUpdate(call.recipient, { $inc: { earningsCoins: creatorNetShare } });
-
-    if (agencyShare > 0 && referrerId) {
-      await User.findByIdAndUpdate(referrerId, {
-        $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: pricePerMinute },
-      });
-    }
-
-    // Increment running billing totals on the call document
-    const tickUpdate = {
-      $inc: {
-        totalCoinsCharged: pricePerMinute,
-        creatorShare: creatorNetShare,
-        platformShare,
-        agencyShare,
-      },
-    };
-    if (referrerId && !call.referrerId) {
-      tickUpdate.$set = { referrerId, agencyPercentageApplied };
-    }
-    await VideoCall.findByIdAndUpdate(call._id, tickUpdate);
-
-    // Record transactions (fire-and-forget)
-    const txMeta = { callId: String(call._id) };
-    const txDocs = [
-      {
-        userId: call.caller,
-        type: "private_call",
-        amount: -pricePerMinute,
-        reason: `Minuto adicional en llamada privada con ${call.recipient}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-      {
-        userId: call.recipient,
-        type: "private_call",
-        amount: creatorNetShare,
-        reason: `Minuto adicional en llamada privada de ${call.caller}`,
-        status: "completed",
-        metadata: txMeta,
-      },
-    ];
-    if (agencyShare > 0 && referrerId) {
-      txDocs.push({
-        userId: referrerId,
-        type: "agency_earned",
-        amount: agencyShare,
-        reason: `Comisión de agencia por minuto de llamada privada`,
-        status: "completed",
-        metadata: { ...txMeta, subCreatorId: String(call.recipient) },
-      });
-    }
-    CoinTransaction.create(txDocs).catch((err) => console.error("[call tick tx] Failed to record tick transactions:", err));
-
-    res.json({ ok: true, coinsDeducted: pricePerMinute, creatorEarned: creatorNetShare, agencyEarned: agencyShare });
+    if (responseStatus === 200) return res.json(responseBody);
+    return res.status(responseStatus).json(responseBody);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  } finally {
+    if (dbSession) {
+      await dbSession.endSession();
+    }
   }
 };
 

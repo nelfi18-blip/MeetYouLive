@@ -1,9 +1,16 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const REQUEST_TIMEOUT_MS = 15000;
 
+const getApiUrl = () => {
+  if (!API_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+  }
+  return API_URL;
+};
+
 export const signUp = async (userData) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/register`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(userData),
@@ -23,7 +30,7 @@ export const signUp = async (userData) => {
 
 export const login = async (credentials) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
@@ -44,7 +51,7 @@ export const login = async (credentials) => {
 
 export const verifyEmail = async ({ email, code }) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/verify-email`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/verify-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code }),
@@ -66,7 +73,7 @@ export const resendVerification = async (email) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/resend-verification`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -92,7 +99,7 @@ export const resendVerification = async (email) => {
 
 export const forgotPassword = async (email) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/forgot-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -112,7 +119,7 @@ export const forgotPassword = async (email) => {
 
 export const resetPassword = async ({ email, code, newPassword }) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+    const response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code, newPassword }),

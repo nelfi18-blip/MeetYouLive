@@ -8,7 +8,7 @@ const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.j
 let stripeClient;
 
 const getStripe = () => {
-  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     return null;
   }
@@ -150,7 +150,8 @@ const createSubscriptionSession = async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[subscriptions] Failed to create checkout session:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -213,7 +214,8 @@ const createTierSubscriptionSession = async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[subscriptions] Failed to create tier checkout session:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -242,7 +244,8 @@ const getSubscriptionStatus = async (req, res) => {
       vipExpiresAt: user?.vipExpiresAt || null,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[subscriptions] Failed to get subscription status:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -266,7 +269,8 @@ const cancelSubscription = async (req, res) => {
     trackAnalyticsEvent("vip_canceled", String(req.userId), {});
     res.json({ message: "Suscripción cancelada" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[subscriptions] Failed to cancel subscription:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

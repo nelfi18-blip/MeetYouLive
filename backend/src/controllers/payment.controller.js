@@ -12,7 +12,7 @@ const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 let stripeClient;
 
 const getStripe = () => {
-  const secretKey = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV === "test" ? "sk_test_placeholder" : null);
+  const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     return null;
   }
@@ -74,7 +74,8 @@ const createCoinCheckoutSession = async (req, res) => {
     });
     res.json({ url: session.url });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[payments] Failed to create coin checkout session:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -114,7 +115,8 @@ const createSparkCheckoutSession = async (req, res) => {
     });
     res.json({ url: session.url });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[payments] Failed to create spark checkout session:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
@@ -159,7 +161,8 @@ const createCheckoutSession = async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("[payments] Failed to create video checkout session:", err.message);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 

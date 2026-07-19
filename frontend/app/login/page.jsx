@@ -271,7 +271,7 @@ function LoginForm() {
       setChecking(false);
       setError("No se pudo conectar con el servidor. Por favor, inténtalo de nuevo.");
       clearToken();
-      signOut({ redirect: false });
+      signOut({ redirect: false }).catch((err) => console.error("[login] signOut failed:", err));
       return;
     }
 

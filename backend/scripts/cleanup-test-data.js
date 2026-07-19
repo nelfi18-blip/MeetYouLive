@@ -59,6 +59,13 @@ If a user looks like test data but is not matched by a selector, it is preserved
 Protected staff/admin roles are never selected by this script.`);
 }
 
+function safeErrorMessage(error) {
+  const message = error?.message || "Unknown cleanup error";
+  return String(message)
+    .replace(/mongodb(?:\+srv)?:\/\/[^\s]+/gi, "[redacted-mongodb-uri]")
+    .replace(/(password|secret|token|key)=([^&\s]+)/gi, "$1=[redacted]");
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
 
@@ -89,7 +96,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Cleanup failed. Review selectors, database connectivity, and confirmation arguments.");
+    console.error(`Cleanup failed: ${safeErrorMessage(error)}`);
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -209,6 +209,8 @@ async function cleanupTestData(rawOptions = {}) {
   const candidates = await getCandidateUsers(options);
   const testUserIds = candidates.map((user) => user._id);
   const testUserIdStrings = candidates.map((user) => String(user._id));
+  // Creator applications live on User, so pending/rejected creatorStatus values count
+  // as creator-related test data even before the role changes to creator/subCreator.
   const creatorCount = candidates.filter(
     (user) => user.role === "creator" || user.role === "subCreator" || user.creatorStatus !== "none"
   ).length;

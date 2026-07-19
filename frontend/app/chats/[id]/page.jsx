@@ -44,12 +44,15 @@ const createClientMessageId = (fallbackCounter) => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
+  const formatHexUuid = (hex) =>
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    const values = new Uint32Array(2);
+    const values = new Uint16Array(8);
     crypto.getRandomValues(values);
-    return `${Date.now()}-${values[0].toString(36)}${values[1].toString(36)}`;
+    return formatHexUuid(Array.from(values, (value) => value.toString(16).padStart(4, "0")).join(""));
   }
-  return `${Date.now()}-${fallbackCounter}-${Math.random().toString(36).slice(2)}`;
+  const fallbackHex = `${Date.now().toString(16)}${fallbackCounter.toString(16)}`.padEnd(32, "0").slice(0, 32);
+  return formatHexUuid(fallbackHex);
 };
 
 export default function ChatConversationPage() {

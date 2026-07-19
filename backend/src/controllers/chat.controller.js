@@ -24,7 +24,7 @@ const normalizeClientMessageId = (value) => {
   if (typeof value !== "string") return "";
   const clientMessageId = value.trim();
   if (!clientMessageId) return "";
-  if (clientMessageId.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(clientMessageId)) return null;
+  if (clientMessageId.length > 128 || !/^[a-f0-9-]+$/i.test(clientMessageId)) return null;
   return clientMessageId;
 };
 
@@ -37,7 +37,11 @@ const sendPopulatedMessage = (req, res, populated) => {
 };
 
 const sendExistingClientMessage = async (req, res, chatId, clientMessageId) => {
-  const existing = await Message.findOne({ chat: chatId, clientMessageId }).populate("sender", CHAT_USER_FIELDS);
+  const existing = await Message.findOne({
+    chat: chatId,
+    sender: req.userId,
+    clientMessageId,
+  }).populate("sender", CHAT_USER_FIELDS);
   return sendPopulatedMessage(req, res, existing);
 };
 

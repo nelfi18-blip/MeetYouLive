@@ -4,6 +4,7 @@ const Message = require("../../models/Message.js");
 const currentUserId = "507f1f77bcf86cd799439011";
 const otherUserId = "507f1f77bcf86cd799439012";
 const chatId = "507f1f77bcf86cd799439013";
+const clientMessageId = "550e8400-e29b-41d4-a716-446655440000";
 
 jest.mock("../../models/Chat.js", () => ({
   findOne: jest.fn(),
@@ -115,7 +116,7 @@ describe("chat message idempotency", () => {
       chat: chatId,
       sender: { _id: currentUserId },
       text: "hello",
-      clientMessageId: "client-1",
+      clientMessageId,
       toObject() {
         return {
           _id: this._id,
@@ -131,7 +132,7 @@ describe("chat message idempotency", () => {
 
     const res = makeRes();
     await sendMessage(
-      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId: "client-1" } },
+      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId } },
       res
     );
 
@@ -139,7 +140,7 @@ describe("chat message idempotency", () => {
       chat: chatId,
       sender: currentUserId,
       text: "hello",
-      clientMessageId: "client-1",
+      clientMessageId,
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId: "client-1" }));
@@ -152,7 +153,7 @@ describe("chat message idempotency", () => {
       chat: chatId,
       sender: { _id: currentUserId },
       text: "hello",
-      clientMessageId: "client-1",
+      clientMessageId,
       toObject() {
         return {
           _id: this._id,
@@ -166,10 +167,7 @@ describe("chat message idempotency", () => {
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(populatedMessage));
 
     const res = makeRes();
-    await sendMessage(
-      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId: "client-1" } },
-      res
-    );
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId } }, res);
 
     expect(Message.create).not.toHaveBeenCalled();
     expect(Chat.findByIdAndUpdate).not.toHaveBeenCalled();

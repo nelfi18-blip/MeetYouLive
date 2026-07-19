@@ -12,7 +12,7 @@ const messageSchema = new mongoose.Schema(
 
 messageSchema.index({ chat: 1, createdAt: 1 });
 messageSchema.index(
-  { chat: 1, clientMessageId: 1 },
+  { chat: 1, sender: 1, clientMessageId: 1 },
   { unique: true, partialFilterExpression: { clientMessageId: { $type: "string" } } }
 );
 

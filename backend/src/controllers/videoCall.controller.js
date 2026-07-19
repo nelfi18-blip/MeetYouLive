@@ -18,10 +18,17 @@ const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 
 const CALL_USER_FIELDS = "username name avatar profilePhotos profileImage photo role lastActiveAt";
 const BILLING_TICK_MIN_INTERVAL_MS = 55 * 1000;
+const INSUFFICIENT_CALL_COINS = "INSUFFICIENT_CALL_COINS";
 
 const MEDIA_TYPES = Object.freeze({
   AUDIO: "audio",
   VIDEO: "video",
+});
+
+const PENDING_FINAL_STATUSES = Object.freeze({
+  MISSED: "missed",
+  REJECTED: "rejected",
+  ENDED: "ended",
 });
 
 const normalizeMediaType = (mediaType) =>
@@ -65,11 +72,140 @@ const findBlockingCall = async (callerId, recipientId) => {
   return null;
 };
 
-// Helper: refund coins to caller for a paid call. Accepts a raw id or populated user.
-const refundPaidCall = async (callerId, coins) => {
-  if (coins > 0) {
-    await User.findByIdAndUpdate(callerId?._id || callerId, { $inc: { coins } });
+const normalizeCallId = (callOrId) => String(callOrId?._id || callOrId || "");
+
+const getPaidCallSplit = async (recipientId, coins, session) => {
+  const agencyRel = await AgencyRelationship.findOne({
+    subCreator: recipientId,
+    status: "active",
+    subCreatorAgreed: true,
+  }).session(session);
+  const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
+  const split = calculateSplit(coins, agencyPercentage);
+  return {
+    ...split,
+    referrerId: agencyPercentage ? agencyRel.parentCreator : null,
+    agencyPercentageApplied: agencyPercentage || 0,
+  };
+};
+
+const buildInitialBillingTransactions = (call, split, now) => {
+  const callId = normalizeCallId(call);
+  const txDocs = [
+    {
+      userId: call.caller,
+      type: "private_call",
+      amount: -call.callCoins,
+      reason: `Llamada privada con creador ${call.recipient} (primer minuto)`,
+      status: "completed",
+      metadata: {
+        callId,
+        recipientId: String(call.recipient),
+        billedAt: now.toISOString(),
+        idempotencyKey: `${callId}:initial:caller`,
+      },
+    },
+    {
+      userId: call.recipient,
+      type: "private_call",
+      amount: split.creatorNetShare,
+      reason: `Llamada privada aceptada de ${call.caller}`,
+      status: "completed",
+      metadata: {
+        callId,
+        callerUserId: String(call.caller),
+        billedAt: now.toISOString(),
+        idempotencyKey: `${callId}:initial:creator`,
+      },
+    },
+  ];
+
+  if (split.agencyShare > 0 && split.referrerId) {
+    txDocs.push({
+      userId: split.referrerId,
+      type: "agency_earned",
+      amount: split.agencyShare,
+      reason: `Comisión de agencia por llamada privada`,
+      status: "completed",
+      metadata: {
+        callId,
+        subCreatorId: String(call.recipient),
+        billedAt: now.toISOString(),
+        idempotencyKey: `${callId}:initial:agency`,
+      },
+    });
   }
+
+  return txDocs;
+};
+
+const shouldRefundInitialCharge = (call) =>
+  // New calls are charged only on accept, so pending calls usually have no
+  // debit to refund. This guard is for any pending call that already has a
+  // recorded first-minute debit and has not been credited or refunded yet.
+  call?.type === CALL_TYPES.PAID_CREATOR &&
+  call.callCoins > 0 &&
+  call.initialChargeDebitedAt &&
+  !call.initialChargeCreditedAt &&
+  !call.refundedAt;
+
+const createRefundTransactionRecord = (call, now, session) =>
+  CoinTransaction.create([
+    {
+      userId: call.caller,
+      type: "refund",
+      amount: call.callCoins,
+      reason: `Reembolso de llamada privada no aceptada con ${call.recipient}`,
+      status: "completed",
+      metadata: {
+        callId: normalizeCallId(call),
+        recipientId: String(call.recipient),
+        refundedAt: now.toISOString(),
+        idempotencyKey: `${normalizeCallId(call)}:pending-refund`,
+      },
+    },
+  ], { session });
+
+const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
+  const callId = normalizeCallId(callOrId);
+  if (!callId || !Object.values(PENDING_FINAL_STATUSES).includes(finalStatus)) return callOrId;
+
+  const dbSession = await mongoose.startSession();
+  let claimedCall = null;
+  let currentCall = null;
+  const now = new Date();
+
+  try {
+    await dbSession.withTransaction(async () => {
+      claimedCall = await VideoCall.findOneAndUpdate(
+        { _id: callId, status: "pending" },
+        { $set: { status: finalStatus, endedAt: now } },
+        { new: true, session: dbSession }
+      );
+
+      if (!claimedCall) {
+        currentCall = await VideoCall.findById(callId).session(dbSession);
+        return;
+      }
+
+      if (shouldRefundInitialCharge(claimedCall)) {
+        await User.findByIdAndUpdate(
+          claimedCall.caller,
+          { $inc: { coins: claimedCall.callCoins } },
+          { session: dbSession }
+        );
+        claimedCall.refundedAt = now;
+        await claimedCall.save({ session: dbSession });
+        await createRefundTransactionRecord(claimedCall, now, dbSession);
+      }
+    });
+  } finally {
+    await dbSession.endSession();
+  }
+
+  const call = claimedCall || currentCall || callOrId;
+  if (claimedCall) emitCallEvent(call, eventName);
+  return call;
 };
 
 const emitCallEvent = (call, event, payload = {}) => {
@@ -89,14 +225,7 @@ const emitCallEvent = (call, event, payload = {}) => {
 
 const markPendingCallMissed = async (call) => {
   if (!call || call.status !== "pending") return call;
-  if (call.type === CALL_TYPES.PAID_CREATOR) {
-    await refundPaidCall(call.caller, call.callCoins);
-  }
-  call.status = "missed";
-  call.endedAt = new Date();
-  await call.save();
-  emitCallEvent(call, "CALL_MISSED");
-  return call;
+  return finalizePendingCall(call, PENDING_FINAL_STATUSES.MISSED, "CALL_MISSED");
 };
 
 const getHistoryStatus = (call) => {
@@ -181,25 +310,14 @@ const inviteCall = async (req, res) => {
       const { pricePerMinute } = await assertPaidCreatorCallAllowed(recipientId);
       creatorPricePerMinute = pricePerMinute;
       coins = creatorPricePerMinute;
-      // Deduct coins atomically using a conditional update
-      const updated = await User.findOneAndUpdate(
+      // Check affordability before creating the invite; the first minute is
+      // charged atomically when the creator accepts.
+      const hasEnoughCoins = await User.exists(
         { _id: req.userId, coins: { $gte: coins } },
-        { $inc: { coins: -coins } },
-        { new: true }
       );
-      if (!updated) {
+      if (!hasEnoughCoins) {
         return res.status(402).json({ message: `Necesitas ${coins} monedas para esta llamada` });
       }
-
-      // Record the initial coin deduction transaction (fire-and-forget)
-      CoinTransaction.create({
-        userId: req.userId,
-        type: "private_call",
-        amount: -coins,
-        reason: `Llamada privada con creador ${recipientId} (primer minuto)`,
-        status: "completed",
-        metadata: { recipientId: String(recipientId) },
-      }).catch((err) => console.error("[call tx] Failed to record initial deduction:", err));
     }
 
     // Cancel any existing pending calls between these users; refund coins for paid ones
@@ -210,16 +328,11 @@ const inviteCall = async (req, res) => {
       ],
     });
 
-    for (const pending of pendingCalls) {
-      if (pending.type === CALL_TYPES.PAID_CREATOR) {
-        await refundPaidCall(pending.caller, pending.callCoins);
-      }
-    }
-
-    if (pendingCalls.length > 0) {
-      const ids = pendingCalls.map((c) => c._id);
-      await VideoCall.updateMany({ _id: { $in: ids } }, { status: "missed" });
-    }
+    await Promise.all(
+      pendingCalls.map((pending) =>
+        finalizePendingCall(pending, PENDING_FINAL_STATUSES.MISSED, "CALL_MISSED")
+      )
+    );
 
     const call = await VideoCall.create({
       caller: req.userId,
@@ -340,6 +453,10 @@ const respondCall = async (req, res) => {
     return res.status(400).json({ message: "action debe ser 'accept' o 'reject'" });
   }
 
+  let dbSession;
+  let eventName = null;
+  let eventCall = null;
+
   try {
     const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
@@ -357,89 +474,133 @@ const respondCall = async (req, res) => {
       return res.status(400).json({ message: "Esta llamada ya fue respondida" });
     }
 
-    if (action === "accept") {
-      call.status = "accepted";
-      if (!call.startedAt) {
-        call.startedAt = new Date();
-      }
-
-      // Credit creator for paid calls — platform takes 40% first, remaining 60% split
-      if (call.type === CALL_TYPES.PAID_CREATOR && call.callCoins > 0) {
-        // Look up the canonical AgencyRelationship for the percentage at this moment.
-        // Commission only applies when the sub-creator has explicitly accepted (subCreatorAgreed: true),
-        // matching the same safety rule enforced in gift.controller.js.
-        const agencyRel = await AgencyRelationship.findOne({ subCreator: call.recipient, status: "active", subCreatorAgreed: true });
-        const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
-        
-        // Use calculateSplit to ensure platform always gets exactly 40%
-        const split = calculateSplit(call.callCoins, agencyPercentage);
-        const { platformShare, creatorNetShare, agencyShare } = split;
-        const referrerId = agencyPercentage ? agencyRel.parentCreator : null;
-        const agencyPercentageApplied = agencyPercentage || 0;
-
-        await User.findByIdAndUpdate(call.recipient, {
-          $inc: { earningsCoins: creatorNetShare },
-        });
-
-        if (agencyShare > 0 && referrerId) {
-          await User.findByIdAndUpdate(referrerId, {
-            $inc: { agencyEarningsCoins: agencyShare, totalAgencyGeneratedCoins: call.callCoins },
-          });
-        }
-
-        // Track billing totals on the call document
-        call.totalCoinsCharged = (call.totalCoinsCharged || 0) + call.callCoins;
-        call.creatorShare = (call.creatorShare || 0) + creatorNetShare;
-        call.platformShare = (call.platformShare || 0) + platformShare;
-        call.agencyShare = (call.agencyShare || 0) + agencyShare;
-        if (referrerId && !call.referrerId) {
-          call.referrerId = referrerId;
-        }
-        if (agencyPercentageApplied > 0 && !call.agencyPercentageApplied) {
-          call.agencyPercentageApplied = agencyPercentageApplied;
-        }
-
-        // Record earnings transactions for creator (and agency) — fire-and-forget
-        const txDocs = [
-          {
-            userId: call.recipient,
-            type: "private_call",
-            amount: creatorNetShare,
-            reason: `Llamada privada aceptada de ${call.caller}`,
-            status: "completed",
-            metadata: { callId: String(call._id), callerUserId: String(call.caller) },
-          },
-        ];
-        if (agencyShare > 0 && referrerId) {
-          txDocs.push({
-            userId: referrerId,
-            type: "agency_earned",
-            amount: agencyShare,
-            reason: `Comisión de agencia por llamada privada`,
-            status: "completed",
-            metadata: { callId: String(call._id), subCreatorId: String(call.recipient) },
-          });
-        }
-        CoinTransaction.create(txDocs).catch((err) => console.error("[call tx] Failed to record creator earning:", err));
-      }
-    } else {
-      call.status = "rejected";
-      // Refund caller coins if paid call is rejected
-      if (call.type === CALL_TYPES.PAID_CREATOR) {
-        await refundPaidCall(call.caller, call.callCoins);
-      }
+    if (action === "reject") {
+      eventCall = await finalizePendingCall(call, PENDING_FINAL_STATUSES.REJECTED, "CALL_REJECTED");
+      const populatedRejected = await VideoCall.findById(call._id)
+        .populate("caller", "username name avatar")
+        .populate("recipient", "username name avatar");
+      return res.json(populatedRejected || eventCall);
     }
 
-    await call.save();
+    dbSession = await mongoose.startSession();
+    const now = new Date();
+    let acceptedCall = null;
+    let responseStatus = 200;
+    let responseBody = null;
 
-    const populated = await VideoCall.findById(call._id)
+    await dbSession.withTransaction(async () => {
+      const pendingCall = await VideoCall.findById(req.params.id).session(dbSession);
+      if (!pendingCall) {
+        responseStatus = 404;
+        responseBody = { message: "Llamada no encontrada" };
+        return;
+      }
+      if (String(pendingCall.recipient) !== String(req.userId)) {
+        responseStatus = 403;
+        responseBody = { message: "Solo el destinatario puede responder" };
+        return;
+      }
+      if (pendingCall.status !== "pending") {
+        responseStatus = 400;
+        responseBody = { message: "Esta llamada ya fue respondida" };
+        return;
+      }
+
+      const update = {
+        $set: {
+          status: "accepted",
+          startedAt: pendingCall.startedAt || now,
+        },
+      };
+
+      let split = null;
+      if (pendingCall.type === CALL_TYPES.PAID_CREATOR && pendingCall.callCoins > 0) {
+        split = await getPaidCallSplit(pendingCall.recipient, pendingCall.callCoins, dbSession);
+        update.$set.initialChargeDebitedAt = now;
+        update.$set.initialChargeCreditedAt = now;
+        update.$inc = {
+          totalCoinsCharged: pendingCall.callCoins,
+          creatorShare: split.creatorNetShare,
+          platformShare: split.platformShare,
+          agencyShare: split.agencyShare,
+        };
+        if (split.referrerId && !pendingCall.referrerId) {
+          update.$set.referrerId = split.referrerId;
+        }
+        if (split.agencyPercentageApplied > 0 && !pendingCall.agencyPercentageApplied) {
+          update.$set.agencyPercentageApplied = split.agencyPercentageApplied;
+        }
+      }
+
+      // status:"pending" is the required concurrency claim. The billing marker
+      // is a defensive idempotency guard so first-minute crediting cannot be
+      // repeated if status and billing fields ever diverge.
+      acceptedCall = await VideoCall.findOneAndUpdate(
+        { _id: pendingCall._id, status: "pending", initialChargeCreditedAt: null },
+        update,
+        { new: true, session: dbSession }
+      );
+
+      if (!acceptedCall) {
+        responseStatus = 400;
+        responseBody = { message: "Esta llamada ya fue respondida" };
+        return;
+      }
+
+      if (split) {
+        const updatedCaller = await User.findOneAndUpdate(
+          { _id: acceptedCall.caller, coins: { $gte: acceptedCall.callCoins } },
+          { $inc: { coins: -acceptedCall.callCoins } },
+          { new: true, session: dbSession }
+        );
+        if (!updatedCaller) {
+          const err = new Error(`Necesitas ${acceptedCall.callCoins} monedas para esta llamada`);
+          err.code = INSUFFICIENT_CALL_COINS;
+          err.statusCode = 402;
+          err.callCoins = acceptedCall.callCoins;
+          throw err;
+        }
+
+        await User.findByIdAndUpdate(
+          acceptedCall.recipient,
+          { $inc: { earningsCoins: split.creatorNetShare } },
+          { session: dbSession }
+        );
+
+        if (split.agencyShare > 0 && split.referrerId) {
+          await User.findByIdAndUpdate(split.referrerId, {
+            $inc: { agencyEarningsCoins: split.agencyShare, totalAgencyGeneratedCoins: acceptedCall.callCoins },
+          }, { session: dbSession });
+        }
+
+        await CoinTransaction.create(
+          buildInitialBillingTransactions(acceptedCall, split, now),
+          { session: dbSession }
+        );
+      }
+    });
+
+    if (responseBody) {
+      return res.status(responseStatus).json(responseBody);
+    }
+
+    const populated = await VideoCall.findById(acceptedCall._id)
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
 
-    emitCallEvent(populated, action === "accept" ? "CALL_ACCEPTED" : "CALL_REJECTED");
+    eventName = "CALL_ACCEPTED";
+    eventCall = populated;
+    emitCallEvent(eventCall, eventName);
     res.json(populated);
   } catch (err) {
+    if (err.code === INSUFFICIENT_CALL_COINS) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
+  } finally {
+    if (dbSession) {
+      await dbSession.endSession();
+    }
   }
 };
 
@@ -461,9 +622,9 @@ const endCall = async (req, res) => {
       return res.status(409).json({ message: "La llamada ya está finalizada" });
     }
 
-    // Refund coins if paid call ended before fully accepted (caller hangs up while pending)
-    if (call.status === "pending" && call.type === CALL_TYPES.PAID_CREATOR) {
-      await refundPaidCall(call.caller, call.callCoins);
+    if (call.status === "pending") {
+      const endedPending = await finalizePendingCall(call, PENDING_FINAL_STATUSES.ENDED, "CALL_ENDED");
+      return res.json(endedPending);
     }
 
     call.status = "ended";

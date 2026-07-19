@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
   }
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError("");
     setLoading(true);
 
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
       setAdminToken(data.token);
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
-      window.location.href = "/admin";
+      router.replace("/admin");
     } catch (error) {
       setError("No se pudo conectar con el servidor.");
     } finally {
@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
+    if (e.key === "Enter") handleLogin(e);
   };
 
   return (

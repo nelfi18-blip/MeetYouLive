@@ -9,6 +9,7 @@ const { emitChatMessage } = require("../lib/socket.js");
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
 // Query every legacy photo alias so serializer can promote the first real photo.
 const CHAT_USER_FIELDS = "username name avatar profilePhotos profileImage photo role blockedUsers";
+const CLIENT_MESSAGE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 const hasParticipantBlockedUser = (currentUserId, participant) => {
   if (!participant?._id) return false;
@@ -19,6 +20,37 @@ const hasParticipantBlockedUser = (currentUserId, participant) => {
 
 const getFirstOtherChatParticipant = (chat, currentUserId) =>
   chat?.participants?.find((participant) => String(participant?._id) !== String(currentUserId));
+
+const normalizeClientMessageId = (value) => {
+  const emptyResult = { value: "", invalid: false };
+  if (typeof value !== "string") return emptyResult;
+  const clientMessageId = value.trim();
+  if (!clientMessageId) return emptyResult;
+  if (!CLIENT_MESSAGE_ID_PATTERN.test(clientMessageId)) return { value: "", invalid: true };
+  return { value: clientMessageId, invalid: false };
+};
+
+const isClientMessageDuplicateError = (err, clientMessageId) =>
+  err?.code === 11000 &&
+  Boolean(clientMessageId) &&
+  (err?.keyPattern?.clientMessageId || err?.keyValue?.clientMessageId === clientMessageId);
+
+const sendPopulatedMessage = (req, res, populated) => {
+  if (!populated) return false;
+  const payload = populated.toObject();
+  payload.sender = withSerializedUserPhotoFields(req, payload.sender);
+  res.json(payload);
+  return true;
+};
+
+const sendExistingClientMessage = async (req, res, chatId, clientMessageId) => {
+  const existing = await Message.findOne({
+    chat: chatId,
+    sender: req.userId,
+    clientMessageId,
+  }).populate("sender", CHAT_USER_FIELDS);
+  return sendPopulatedMessage(req, res, existing);
+};
 
 const hasChatBlock = (chat, currentUserId) => {
   const currentParticipant = chat?.participants?.find((participant) => String(participant?._id) === String(currentUserId));
@@ -175,6 +207,11 @@ const sendMessage = async (req, res) => {
   if (!text || !text.trim()) {
     return res.status(400).json({ message: "text es requerido" });
   }
+  const normalizedClientMessageId = normalizeClientMessageId(req.body.clientMessageId);
+  if (normalizedClientMessageId.invalid) {
+    return res.status(400).json({ message: "clientMessageId inválido" });
+  }
+  const clientMessageId = normalizedClientMessageId.value;
   try {
     const chat = await Chat.findOne({
       _id: req.params.chatId,
@@ -185,10 +222,15 @@ const sendMessage = async (req, res) => {
       return res.status(403).json({ message: "No puedes enviar mensajes a este usuario" });
     }
 
+    if (clientMessageId) {
+      if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
+    }
+
     const message = await Message.create({
       chat: req.params.chatId,
       sender: req.userId,
       text: text.trim(),
+      ...(clientMessageId ? { clientMessageId } : {}),
     });
 
     await Chat.findByIdAndUpdate(req.params.chatId, {
@@ -213,6 +255,10 @@ const sendMessage = async (req, res) => {
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});
   } catch (err) {
+    if (isClientMessageDuplicateError(err, clientMessageId)) {
+      if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
+      return res.status(500).json({ message: "No se pudo confirmar el mensaje duplicado" });
+    }
     res.status(500).json({ message: err.message });
   }
 };

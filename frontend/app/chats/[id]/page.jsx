@@ -40,6 +40,21 @@ const mergeMessagesById = (current, incoming) => {
   return merged.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 };
 
+const formatHexUuid = (hex) =>
+  `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+
+const createClientMessageId = (fallbackCounter) => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const values = new Uint16Array(8);
+    crypto.getRandomValues(values);
+    return formatHexUuid(Array.from(values, (value) => value.toString(16).padStart(4, "0")).join(""));
+  }
+  return null;
+};
+
 export default function ChatConversationPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -70,6 +85,7 @@ export default function ChatConversationPage() {
   const isNearBottomRef = useRef(true);
   const lastMessageCountRef = useRef(0);
   const lastMessageIdRef = useRef(null);
+  const clientMessageCounterRef = useRef(0);
   const getBackendToken = useCallback(
     () =>
       // OAuth users receive the backend JWT from NextAuth; email/password users keep it in localStorage.
@@ -358,6 +374,17 @@ export default function ChatConversationPage() {
     if (!text.trim() || sending || blockedConversation) return;
 
     const token = getBackendToken();
+    if (!token) {
+      clearToken();
+      router.replace("/login");
+      return;
+    }
+    clientMessageCounterRef.current += 1;
+    const clientMessageId = createClientMessageId(clientMessageCounterRef.current);
+    if (!clientMessageId) {
+      setError(t("chatPremium.sendError"));
+      return;
+    }
     setSending(true);
     setError("");
     try {
@@ -367,7 +394,7 @@ export default function ChatConversationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify({ text: text.trim(), clientMessageId }),
       });
       if (res.status === 403) {
         setBlockedConversation(true);

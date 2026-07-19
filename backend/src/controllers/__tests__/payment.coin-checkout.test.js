@@ -12,7 +12,8 @@ jest.mock("stripe", () =>
   }))
 );
 
-const { createCoinCheckoutSession } = require("../payment.controller.js");
+const Purchase = require("../../models/Purchase.js");
+const { createCoinCheckoutSession, handlePaymentCompleted } = require("../payment.controller.js");
 const { validate, coinPurchaseSchema } = require("../../middlewares/validate.middleware.js");
 
 function createMockResponse() {
@@ -26,6 +27,53 @@ describe("coin checkout", () => {
   beforeEach(() => {
     mockCreateCheckoutSession.mockReset();
     process.env.FRONTEND_URL = "https://example.com";
+  });
+
+  describe("video purchase webhook safety", () => {
+    const userId = "507f1f77bcf86cd799439011";
+    const videoId = "507f1f77bcf86cd799439012";
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test("rejects invalid video purchase amounts before writing a purchase", async () => {
+      const upsertSpy = jest.spyOn(Purchase, "findOneAndUpdate").mockResolvedValue(null);
+
+      await expect(
+        handlePaymentCompleted({
+          id: "cs_test_bad_amount",
+          mode: "payment",
+          metadata: { type: "video", userId, videoId, amount: "not-a-number" },
+        })
+      ).rejects.toThrow("Invalid video purchase amount");
+
+      expect(upsertSpy).not.toHaveBeenCalled();
+    });
+
+    test("records video purchases with an idempotent upsert", async () => {
+      const purchaseId = "507f1f77bcf86cd799439099";
+      const upsertSpy = jest.spyOn(Purchase, "findOneAndUpdate").mockResolvedValue({ _id: purchaseId });
+
+      await handlePaymentCompleted({
+        id: "cs_test_video",
+        mode: "payment",
+        metadata: { type: "video", userId, videoId, amount: "4.99" },
+      });
+
+      expect(upsertSpy).toHaveBeenCalledWith(
+        { stripeSessionId: "cs_test_video" },
+        {
+          $setOnInsert: {
+            user: userId,
+            video: videoId,
+            amount: 4.99,
+            stripeSessionId: "cs_test_video",
+          },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+    });
   });
 
   test("coin purchase schema accepts packageId and rejects missing values with a clear message", () => {

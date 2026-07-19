@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
+import { isApprovedCreator as hasApprovedCreatorAccess } from "@/lib/creatorUtils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -41,7 +42,7 @@ export default function StartLivePage() {
       })
       .then((data) => {
         if (!data) return;
-        const approved = data.role === "creator" && data.creatorStatus === "approved";
+        const approved = hasApprovedCreatorAccess(data);
         setIsApprovedCreator(approved);
         if (!approved) {
           // Non-approved creators cannot start streams; redirect to feed

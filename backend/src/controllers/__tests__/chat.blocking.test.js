@@ -4,6 +4,7 @@ const Message = require("../../models/Message.js");
 const currentUserId = "507f1f77bcf86cd799439011";
 const otherUserId = "507f1f77bcf86cd799439012";
 const chatId = "507f1f77bcf86cd799439013";
+const clientMessageId = "550e8400-e29b-41d4-a716-446655440000";
 
 jest.mock("../../models/Chat.js", () => ({
   findOne: jest.fn(),
@@ -13,6 +14,8 @@ jest.mock("../../models/Chat.js", () => ({
 jest.mock("../../models/Message.js", () => ({
   create: jest.fn(),
   find: jest.fn(),
+  findOne: jest.fn(),
+  findById: jest.fn(),
 }));
 
 jest.mock("../../models/User.js", () => ({}));
@@ -20,6 +23,8 @@ jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }
 jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 
+const { trackEvent } = require("../../services/missions.service.js");
+const { emitChatMessage } = require("../../lib/socket.js");
 const { sendMessage, getMessages } = require("../chat.controller.js");
 const { getChats } = require("../chat.controller.js");
 
@@ -39,7 +44,19 @@ const blockedChat = {
   ],
 };
 
+const openChat = {
+  _id: chatId,
+  participants: [
+    { _id: currentUserId, blockedUsers: [] },
+    { _id: otherUserId, blockedUsers: [] },
+  ],
+};
+
 const makeChatQuery = (value) => ({
+  populate: jest.fn().mockResolvedValue(value),
+});
+
+const makeMessageFindOneQuery = (value) => ({
   populate: jest.fn().mockResolvedValue(value),
 });
 
@@ -47,6 +64,7 @@ describe("chat blocking", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
   });
 
   test("rejects messages after a unilateral block", async () => {
@@ -82,5 +100,82 @@ describe("chat blocking", () => {
     await getChats({ userId: currentUserId }, res);
 
     expect(res.json).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("chat message idempotency", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Chat.findOne.mockReturnValue(makeChatQuery(openChat));
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
+    Chat.findByIdAndUpdate.mockResolvedValue({});
+    emitChatMessage.mockResolvedValue();
+    trackEvent.mockResolvedValue();
+  });
+
+  test("persists a valid clientMessageId with the message", async () => {
+    const createdMessage = { _id: "507f1f77bcf86cd799439099" };
+    const populatedMessage = {
+      _id: createdMessage._id,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello",
+      clientMessageId,
+      toObject() {
+        return {
+          _id: this._id,
+          chat: this.chat,
+          sender: this.sender,
+          text: this.text,
+          clientMessageId: this.clientMessageId,
+        };
+      },
+    };
+    Message.create.mockResolvedValue(createdMessage);
+    Message.findById.mockReturnValue({ populate: jest.fn().mockResolvedValue(populatedMessage) });
+
+    const res = makeRes();
+    await sendMessage(
+      { userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId } },
+      res
+    );
+
+    expect(Message.create).toHaveBeenCalledWith({
+      chat: chatId,
+      sender: currentUserId,
+      text: "hello",
+      clientMessageId,
+    });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId }));
+  });
+
+  test("returns an existing message when clientMessageId was already processed", async () => {
+    const existingMessageId = "507f1f77bcf86cd799439098";
+    const populatedMessage = {
+      _id: existingMessageId,
+      chat: chatId,
+      sender: { _id: currentUserId },
+      text: "hello",
+      clientMessageId,
+      toObject() {
+        return {
+          _id: this._id,
+          chat: this.chat,
+          sender: this.sender,
+          text: this.text,
+          clientMessageId: this.clientMessageId,
+        };
+      },
+    };
+    Message.findOne.mockReturnValue(makeMessageFindOneQuery(populatedMessage));
+
+    const res = makeRes();
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "hello", clientMessageId } }, res);
+
+    expect(Message.create).not.toHaveBeenCalled();
+    expect(Chat.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ _id: existingMessageId }));
   });
 });

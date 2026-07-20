@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
@@ -21,6 +21,56 @@ function fmt(n) {
   return (n ?? 0).toLocaleString();
 }
 
+function fmtDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function getDisplayName(user) {
+  return user?.name || user?.username || user?.email || "—";
+}
+
+function getSecondaryUserInfo(user) {
+  const primary = getDisplayName(user);
+  const secondary = user?.email || user?.username || user?.role;
+  return secondary && secondary !== primary ? secondary : user?.role || "";
+}
+
+function getTodaySeriesValue(series, key = "total") {
+  return series?.length ? series[series.length - 1]?.[key] ?? 0 : 0;
+}
+
+function getTodayRevenueSummary(series) {
+  if (!series?.length) {
+    return { value: "—", sub: "Sin datos disponibles" };
+  }
+  return {
+    value: `${fmt(getTodaySeriesValue(series, "total"))} 🪙`,
+    sub: "Ingresos de la plataforma hoy",
+  };
+}
+
+function getRevenueChartTitle(series) {
+  return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
+}
+
+function getLimitedUniqueLives(lives = []) {
+  const seen = new Set();
+  return lives.filter((live) => {
+    const id = live?._id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).slice(0, 5);
+}
+
+function CountBadge({ value }) {
+  if (value === null || value === undefined || value <= 0) return null;
+  return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
+}
+
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 
 function StatCard({ title, value, sub, icon, href, accent, badge }) {
@@ -28,13 +78,28 @@ function StatCard({ title, value, sub, icon, href, accent, badge }) {
     <div className={["sc", accent ? `sc--${accent}` : "", href ? "sc--link" : ""].filter(Boolean).join(" ")}>
       <div className="sc-head">
         <span className="sc-icon">{icon}</span>
-        {badge != null && badge > 0 && (
-          <span className="sc-badge">{badge > 99 ? "99+" : badge}</span>
-        )}
+        <CountBadge value={badge} />
       </div>
       <div className="sc-val">{value ?? "—"}</div>
       <div className="sc-title">{title}</div>
       {sub && <div className="sc-sub">{sub}</div>}
+    </div>
+  );
+  return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
+}
+
+// ── Executive Card ────────────────────────────────────────────────────────────
+
+function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
+  const inner = (
+    <div className={["exec-card", accent ? `exec-card--${accent}` : "", href ? "exec-card--link" : ""].filter(Boolean).join(" ")}>
+      <div className="exec-top">
+        <span className="exec-icon">{icon}</span>
+        <CountBadge value={badge} />
+      </div>
+      <div className="exec-value">{value ?? "—"}</div>
+      <div className="exec-title">{title}</div>
+      {sub && <div className="exec-sub">{sub}</div>}
     </div>
   );
   return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
@@ -72,6 +137,20 @@ function SectionHeader({ icon, title, accent, link, linkLabel }) {
   );
 }
 
+// ── Collapsible Section ───────────────────────────────────────────────────────
+
+function CollapsibleSection({ icon, title, accent, link, linkLabel, children }) {
+  return (
+    <details className="collapse">
+      <summary className="collapse-summary">
+        <SectionHeader icon={icon} title={title} accent={accent} link={link} linkLabel={linkLabel} />
+        <span className="collapse-chevron">⌄</span>
+      </summary>
+      <div className="collapse-body">{children}</div>
+    </details>
+  );
+}
+
 // ── Mini Bar Chart ────────────────────────────────────────────────────────────
 
 function MiniBarChart({ data, valueKey = "total", labelKey = "label", color }) {
@@ -98,9 +177,18 @@ function MiniBarChart({ data, valueKey = "total", labelKey = "label", color }) {
   );
 }
 
+function ChartPanel({ title, data, valueKey, color }) {
+  return (
+    <div className="chart-panel">
+      <div className="chart-title">{title}</div>
+      <MiniBarChart data={data} valueKey={valueKey} labelKey="label" color={color} />
+    </div>
+  );
+}
+
 // ── Top Table ─────────────────────────────────────────────────────────────────
 
-function TopTable({ title, rows, valueLabel, linkHref }) {
+function TopTable({ title, rows, valueLabel = "coins", linkHref }) {
   return (
     <div className="top-table">
       <div className="tt-header">
@@ -125,7 +213,7 @@ function TopTable({ title, rows, valueLabel, linkHref }) {
                 <span className="tt-name">{r.user?.name || r.user?.username || "—"}</span>
               </div>
               <span className="tt-val">
-                {(r.totalGifts ?? r.totalSpent ?? 0).toLocaleString()} 🪙
+                {(r.totalGifts ?? r.totalSpent ?? 0).toLocaleString()} {valueLabel}
               </span>
             </div>
           ))}
@@ -133,6 +221,51 @@ function TopTable({ title, rows, valueLabel, linkHref }) {
       )}
     </div>
   );
+}
+
+// ── Recent Activity ───────────────────────────────────────────────────────────
+
+function ActivityList({ title, items, empty, renderItem, href }) {
+  return (
+    <div className="activity-card">
+      <div className="activity-head">
+        <span>{title}</span>
+        {href && <Link href={href} className="tt-link">Ver →</Link>}
+      </div>
+      {!items?.length ? (
+        <p className="activity-empty">{empty || "Sin actividad reciente."}</p>
+      ) : (
+        <div className="activity-list">
+          {items.map((item, i) => (
+            <div className="activity-item" key={item._id || i}>
+              {renderItem(item)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityLine({ primary, secondary, meta, accent }) {
+  return (
+    <>
+      <span className={["activity-dot", accent ? `activity-dot--${accent}` : ""].filter(Boolean).join(" ")} />
+      <div className="activity-copy">
+        <div className="activity-primary">{primary}</div>
+        {secondary && <div className="activity-secondary">{secondary}</div>}
+      </div>
+      {meta && <span className="activity-meta">{meta}</span>}
+    </>
+  );
+}
+
+async function readOptionalJson(response, fallback, label) {
+  if (!response.ok) {
+    console.error(`[admin-dashboard] ${label} request failed`, response.status, response.statusText || "");
+    return fallback;
+  }
+  return response.json();
 }
 
 // ── Retention Badge ───────────────────────────────────────────────────────────
@@ -153,15 +286,70 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [revenue, setRevenue] = useState(null);
+  const [recent, setRecent] = useState({
+    users: [],
+    creators: [],
+    purchases: [],
+    lives: [],
+    reports: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
     return { Authorization: `Bearer ${token}` };
   }, []);
 
+  const loadRecentData = useCallback(async () => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) return;
+    try {
+      const recentRequests = [
+        ["users", `${API_URL}/api/admin/users?page=1&limit=5`],
+        ["creators", `${API_URL}/api/admin/creators?page=1&limit=5`],
+        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`],
+        ["lives history", `${API_URL}/api/admin/lives/history?limit=5`],
+        ["reports", `${API_URL}/api/admin/reports?page=1&limit=5`],
+      ];
+      const responses = await Promise.allSettled(
+        recentRequests.map(([, url]) => fetch(url, { headers: authHeader(), cache: "no-store" }))
+      );
+      const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = responses.map((result, index) => {
+        if (result.status === "fulfilled") return result.value;
+        console.error(`[admin-dashboard] ${recentRequests[index][0]} request failed`, result.reason);
+        return { ok: false, status: 0 };
+      });
+      if (usersRes.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      const [usersData, creatorsData, purchasesData, historyLivesData, reportsData] = await Promise.all([
+        readOptionalJson(usersRes, { users: [] }, "users"),
+        readOptionalJson(creatorsRes, { creators: [] }, "creators"),
+        readOptionalJson(purchasesRes, { transactions: [] }, "purchases"),
+        readOptionalJson(historyLivesRes, { lives: [] }, "lives history"),
+        readOptionalJson(reportsRes, { reports: [] }, "reports"),
+      ]);
+      setRecent({
+        users: usersData.users || [],
+        creators: creatorsData.creators || [],
+        purchases: purchasesData.transactions || [],
+        lives: getLimitedUniqueLives(historyLivesData.lives),
+        reports: reportsData.reports || [],
+      });
+      recentLoadedRef.current = true;
+    } catch (err) {
+      console.error("[admin-dashboard] recent activity failed", err);
+      setRecent({ users: [], creators: [], purchases: [], lives: [], reports: [] });
+    }
+  }, [authHeader, router]);
+
   const loadData = useCallback(async () => {
+    recentLoadedRef.current = false;
     setLoading(true);
     setError("");
     const token = localStorage.getItem("admin_token");
@@ -171,9 +359,10 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      const [overviewRes, analyticsRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/overview`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader() }),
+      const [overviewRes, analyticsRes, revenueRes] = await Promise.all([
+        fetch(`${API_URL}/api/admin/overview`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader(), cache: "no-store" }),
       ]);
 
       if (overviewRes.status === 401 || analyticsRes.status === 401) {
@@ -194,6 +383,12 @@ export default function AdminDashboard() {
         const d = await analyticsRes.json();
         setAnalytics(d.analytics || null);
       }
+      if (revenueRes.ok) {
+        const d = await revenueRes.json();
+        setRevenue(d.revenue || null);
+      } else {
+        setRevenue(null);
+      }
     } catch {
       setError("Error cargando datos del dashboard.");
     } finally {
@@ -202,6 +397,9 @@ export default function AdminDashboard() {
   }, [authHeader, router]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (!loading && !error && !recentLoadedRef.current) loadRecentData();
+  }, [error, loadRecentData, loading]);
 
   if (loading) {
     return (
@@ -249,6 +447,9 @@ export default function AdminDashboard() {
     });
   }
 
+  const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
+  const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
+
   return (
     <div className="dash">
       {/* ── Page Header ── */}
@@ -265,9 +466,21 @@ export default function AdminDashboard() {
         </button>
       </div>
 
+      {/* ── Executive Summary ── */}
+      <section className="section section--tight">
+        <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
+        <div className="exec-grid">
+          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total acumulado" accent="purple" href="/admin/users" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent="gold" href="/admin/revenue" />
+          <ExecutiveCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo ahora" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
+        </div>
+      </section>
+
       {/* ── Critical Alerts ── */}
       {alerts.length > 0 && (
-        <section className="section">
+        <section className="section section--tight">
           <SectionHeader icon="🔔" title="Alertas críticas" accent="red" />
           <div className="alerts-grid">
             {alerts.map((al, i) => (
@@ -277,75 +490,56 @@ export default function AdminDashboard() {
         </section>
       )}
 
-      {/* ── Financial Summary ── */}
+      {/* ── Recent Activity ── */}
       <section className="section">
-        <SectionHeader icon="💰" title="Resumen financiero" accent="gold" link="/admin/transactions" linkLabel="Ver transacciones →" />
-        <div className="grid grid-4">
-          <StatCard icon="🪙" title="Coins comprados" value={fmt(s.totalCoinsPurchased)} sub="Acumulado total" accent="gold" href="/admin/transactions" />
-          <StatCard icon="🎁" title="Coins en regalos" value={fmt(s.totalGiftsCoins)} sub={`${fmt(s.totalGiftsSent)} regalos enviados`} accent="purple" />
-          <StatCard icon="🏦" title="Ingresos plataforma (est.)" value={fmt(s.platformEarningsEstimatedCoins)} sub="40% de coins en regalos" accent="green" href="/admin/revenue" />
-          <StatCard icon="💳" title="Suscripciones activas" value={fmt(s.subscriptions)} sub="Premium" accent="blue" />
-        </div>
-        <div className="grid grid-4" style={{ marginTop: "0.75rem" }}>
-          <StatCard icon="⏳" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent="yellow" href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
-          <StatCard icon="✅" title="Retiros aprobados" value={fmt(s.approvedPayoutsCount)} sub={`${fmt(s.approvedPayoutsCoins)} coins`} accent="blue" href="/admin/payouts?status=approved" />
-          <StatCard icon="💚" title="Pagados (completados)" value={fmt(s.paidPayoutsCount)} sub={`${fmt(s.paidPayoutsCoins)} coins retirados`} accent="green" href="/admin/payouts?status=paid" />
-          <StatCard icon="❌" title="Rechazados" value={fmt(s.rejectedPayoutsCount)} accent="red" href="/admin/payouts?status=rejected" />
-        </div>
-      </section>
-
-      {/* ── Creator Operations ── */}
-      <section className="section">
-        <SectionHeader icon="🎬" title="Operaciones de creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar creadores →" />
-        <div className="grid grid-4">
-          <StatCard icon="✅" title="Creadores aprobados" value={fmt(s.totalCreators)} accent="green" href="/admin/creators?status=approved" />
-          <StatCard icon="⏳" title="Solicitudes pendientes" value={fmt(s.pendingCreators)} sub={s.pendingCreators > 0 ? "Acción requerida" : "Al día"} accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
-          <StatCard icon="🚫" title="Creadores suspendidos" value={fmt(s.suspendedCreators)} accent={s.suspendedCreators > 0 ? "red" : undefined} href="/admin/creators?status=suspended" />
-          <StatCard icon="📊" title="Total registros (7d)" value={fmt(s.recentRegistrations)} sub="Nuevos usuarios" accent="blue" />
-        </div>
-
-        {/* Top creators table */}
-        <div className="tables-duo" style={{ marginTop: "1rem" }}>
-          <TopTable
-            title="🏆 Top creadores por regalos (24h)"
-            rows={a.topCreators}
-            linkHref="/admin/creators"
+        <SectionHeader icon="⏱" title="Actividad reciente" accent="blue" />
+        <div className="activity-grid">
+          <ActivityList
+            title="Nuevos usuarios"
+            items={recent.users}
+            href="/admin/users"
+            renderItem={(user) => (
+              <ActivityLine primary={getDisplayName(user)} secondary={getSecondaryUserInfo(user)} meta={fmtDate(user.createdAt)} accent="purple" />
+            )}
           />
-          <TopTable
-            title="💸 Top gastadores de coins (24h)"
-            rows={a.topSpenders}
-            linkHref="/admin/transactions"
+          <ActivityList
+            title="Nuevos creadores"
+            items={recent.creators}
+            href="/admin/creators"
+            renderItem={(creator) => (
+              <ActivityLine primary={getDisplayName(creator)} secondary={creator.creatorStatus || "creator"} meta={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} accent="green" />
+            )}
+          />
+          <ActivityList
+            title="Compras recientes"
+            items={recent.purchases}
+            href="/admin/transactions"
+            renderItem={(tx) => (
+              <ActivityLine primary={getDisplayName(tx.userId)} secondary={`${fmt(tx.amount)} coins`} meta={fmtDate(tx.createdAt)} accent="gold" />
+            )}
+          />
+          <ActivityList
+            title="Últimos lives"
+            items={recent.lives}
+            href="/admin/lives"
+            renderItem={(live) => (
+              <ActivityLine primary={live.title || "Live sin título"} secondary={getDisplayName(live.user)} meta={fmtDate(live.endedAt || live.createdAt)} accent="blue" />
+            )}
+          />
+          <ActivityList
+            title="Últimos reportes"
+            items={recent.reports}
+            href="/admin/reports"
+            renderItem={(report) => (
+              <ActivityLine primary={report.reason || "Reporte"} secondary={getDisplayName(report.reporter)} meta={fmtDate(report.createdAt)} accent="red" />
+            )}
           />
         </div>
       </section>
 
-      {/* ── Live Operations ── */}
-      <section className="section">
-        <SectionHeader icon="📡" title="Operaciones de lives" accent="red" link="/admin/lives" linkLabel="Ver streams →" />
-        <div className="grid grid-4">
-          <StatCard icon="🔴" title="Streams activos ahora" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" badge={s.activeLives} />
-          <StatCard icon="📼" title="Lives totales" value={fmt(s.totalLives)} href="/admin/lives" />
-          <StatCard icon="🎁" title="Regalos totales enviados" value={fmt(s.totalGiftsSent)} sub="Acumulado" accent="purple" />
-          <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : undefined} href="/admin/reports" badge={s.openReports} />
-        </div>
-      </section>
-
-      {/* ── Agency Performance ── */}
-      <section className="section">
-        <SectionHeader icon="🏢" title="Rendimiento de agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar agencias →" />
-        <div className="grid grid-4">
-          <StatCard icon="🏢" title="Agencias activas" value={fmt(s.activeAgencies)} accent="blue" href="/admin/agencies" />
-          <StatCard icon="👥" title="Sub-creadores activos" value={fmt(s.activeAgencyLinks)} sub="Relaciones aprobadas" href="/admin/agencies" />
-          <StatCard icon="💰" title="Comisiones totales" value={fmt(s.totalAgencyCommissionCoins)} sub="coins generados por agencias" accent="gold" />
-          <StatCard icon="🔗" title="Total retiros solicitados" value={fmt(s.totalPayoutRequests)} sub="Historial completo" href="/admin/payouts" />
-        </div>
-      </section>
-
-      {/* ── Growth Metrics ── */}
-      <section className="section">
-        <SectionHeader icon="📈" title="Métricas de crecimiento" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
-
-        {/* Retention */}
+      {/* ── Compact Growth Metrics ── */}
+      <section className="section section--tight">
+        <SectionHeader icon="📈" title="Métricas clave" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
         {a.retention && (
           <div className="ret-row">
             <RetentionCard label="DAU" value={a.retention.dau} sub="Activos hoy" />
@@ -354,29 +548,72 @@ export default function AdminDashboard() {
             <RetentionCard label="Usuarios totales" value={s.totalUsers} sub="Registrados" />
           </div>
         )}
-
-        {/* Charts row */}
-        <div className="charts-row">
-          <div className="chart-panel">
-            <div className="chart-title">Registros diarios (7d)</div>
-            <MiniBarChart
-              data={a.dailyRegistrations}
-              valueKey="count"
-              labelKey="label"
-              color="var(--accent-purple)"
-            />
-          </div>
-          <div className="chart-panel">
-            <div className="chart-title">Coins comprados por día (7d)</div>
-            <MiniBarChart
-              data={a.dailyPurchases}
-              valueKey="total"
-              labelKey="label"
-              color="var(--accent-gold)"
-            />
-          </div>
-        </div>
       </section>
+
+      <div className="collapse-stack">
+        <CollapsibleSection icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →">
+          <div className="grid grid-4">
+            <StatCard icon="🪙" title="Coins comprados" value={fmt(s.totalCoinsPurchased)} sub="Acumulado total" accent="gold" href="/admin/transactions" />
+            <StatCard icon="🎁" title="Coins en regalos" value={fmt(s.totalGiftsCoins)} sub={`${fmt(s.totalGiftsSent)} regalos enviados`} accent="purple" />
+            <StatCard icon="🏦" title="Ingresos plataforma (est.)" value={fmt(s.platformEarningsEstimatedCoins)} sub="40% de coins en regalos" accent="green" href="/admin/revenue" />
+            <StatCard icon="💳" title="Suscripciones activas" value={fmt(s.subscriptions)} sub="Premium" accent="blue" />
+          </div>
+          <div className="grid grid-4 grid-spaced">
+            <StatCard icon="⏳" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent="yellow" href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
+            <StatCard icon="✅" title="Retiros aprobados" value={fmt(s.approvedPayoutsCount)} sub={`${fmt(s.approvedPayoutsCoins)} coins`} accent="blue" href="/admin/payouts?status=approved" />
+            <StatCard icon="💚" title="Pagados (completados)" value={fmt(s.paidPayoutsCount)} sub={`${fmt(s.paidPayoutsCoins)} coins retirados`} accent="green" href="/admin/payouts?status=paid" />
+            <StatCard icon="❌" title="Rechazados" value={fmt(s.rejectedPayoutsCount)} accent="red" href="/admin/payouts?status=rejected" />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →">
+          <div className="grid grid-4">
+            <StatCard icon="✅" title="Creadores aprobados" value={fmt(s.totalCreators)} accent="green" href="/admin/creators?status=approved" />
+            <StatCard icon="⏳" title="Solicitudes pendientes" value={fmt(s.pendingCreators)} sub={s.pendingCreators > 0 ? "Acción requerida" : "Al día"} accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
+            <StatCard icon="🚫" title="Creadores suspendidos" value={fmt(s.suspendedCreators)} accent={s.suspendedCreators > 0 ? "red" : undefined} href="/admin/creators?status=suspended" />
+            <StatCard icon="📊" title="Total registros (7d)" value={fmt(s.recentRegistrations)} sub="Nuevos usuarios" accent="blue" />
+          </div>
+          <div className="tables-duo">
+            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} valueLabel="coins" linkHref="/admin/creators" />
+            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} valueLabel="coins" linkHref="/admin/transactions" />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →">
+          <div className="grid grid-4">
+            <StatCard icon="🔴" title="Streams activos ahora" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" badge={s.activeLives} />
+            <StatCard icon="📼" title="Lives totales" value={fmt(s.totalLives)} href="/admin/lives" />
+            <StatCard icon="🎁" title="Regalos totales enviados" value={fmt(s.totalGiftsSent)} sub="Acumulado" accent="purple" />
+            <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : undefined} href="/admin/reports" badge={s.openReports} />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →">
+          <div className="grid grid-4">
+            <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+            <StatCard icon="⏳" title="Creadores pendientes" value={fmt(s.pendingCreators)} sub="Solicitudes por revisar" accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
+            <StatCard icon="🚫" title="Creadores suspendidos" value={fmt(s.suspendedCreators)} accent={s.suspendedCreators > 0 ? "red" : undefined} href="/admin/creators?status=suspended" />
+            <StatCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub="Monitoreo en vivo" accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →">
+          <div className="grid grid-4">
+            <StatCard icon="🏢" title="Agencias activas" value={fmt(s.activeAgencies)} accent="blue" href="/admin/agencies" />
+            <StatCard icon="👥" title="Sub-creadores activos" value={fmt(s.activeAgencyLinks)} sub="Relaciones aprobadas" href="/admin/agencies" />
+            <StatCard icon="💰" title="Comisiones totales" value={fmt(s.totalAgencyCommissionCoins)} sub="coins generados por agencias" accent="gold" />
+            <StatCard icon="🔗" title="Total retiros solicitados" value={fmt(s.totalPayoutRequests)} sub="Historial completo" href="/admin/payouts" />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →">
+          <div className="charts-row">
+            <ChartPanel title="Registros diarios (7d)" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
+            <ChartPanel title="Coins comprados por día (7d)" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
+            <ChartPanel title={getRevenueChartTitle(dailyRevenueSeries)} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
+          </div>
+        </CollapsibleSection>
+      </div>
 
       {/* ── Quick Links ── */}
       <section className="section">
@@ -409,6 +646,7 @@ export default function AdminDashboard() {
           --bg-card: #161b27;
           --bg-card-hover: #1a1f2e;
           --border: #1e2535;
+          --exec-card-min-height: 142px;
         }
 
         .dash { max-width: 1280px; }
@@ -495,6 +733,79 @@ export default function AdminDashboard() {
 
         /* ── Sections ── */
         .section { margin-bottom: 2.25rem; }
+        .section--tight { margin-bottom: 1.35rem; }
+
+        /* ── Executive Summary ── */
+        .exec-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+        }
+
+        @media (min-width: 900px) {
+          .exec-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
+
+        .exec-card {
+          min-height: var(--exec-card-min-height);
+          border-radius: 18px;
+          border: 1px solid rgba(124,58,237,0.2);
+          background:
+            radial-gradient(circle at top right, rgba(124,58,237,0.22), transparent 45%),
+            linear-gradient(180deg, #171c2a, #111622);
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+          transition: transform 0.2s, border-color 0.2s, filter 0.2s;
+          animation: fade-up 0.35s ease both;
+        }
+
+        .exec-card--link:hover {
+          transform: translateY(-2px);
+          border-color: rgba(167,139,250,0.48);
+          filter: brightness(1.06);
+        }
+
+        .exec-card--gold { border-color: rgba(251,191,36,0.28); background: radial-gradient(circle at top right, rgba(251,191,36,0.2), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--green { border-color: rgba(52,211,153,0.28); background: radial-gradient(circle at top right, rgba(52,211,153,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--blue { border-color: rgba(96,165,250,0.28); background: radial-gradient(circle at top right, rgba(96,165,250,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--red { border-color: rgba(248,113,113,0.3); background: radial-gradient(circle at top right, rgba(248,113,113,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--yellow { border-color: rgba(251,191,36,0.32); background: radial-gradient(circle at top right, rgba(251,191,36,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+
+        .exec-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 0.5rem;
+        }
+
+        .exec-icon { font-size: 1.55rem; }
+
+        .exec-value {
+          color: #f8fafc;
+          font-size: clamp(1.8rem, 6vw, 2.45rem);
+          font-weight: 900;
+          letter-spacing: -0.05em;
+          line-height: 0.95;
+          margin-top: 0.7rem;
+        }
+
+        .exec-title {
+          color: #cbd5e1;
+          font-size: 0.76rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-top: 0.55rem;
+        }
+
+        .exec-sub {
+          color: #64748b;
+          font-size: 0.72rem;
+          margin-top: 0.2rem;
+        }
 
         /* ── Section Header ── */
         .sh {
@@ -543,6 +854,57 @@ export default function AdminDashboard() {
         }
 
         .sh-link:hover { color: #a78bfa; }
+
+        /* ── Collapsible Groups ── */
+        .collapse-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-bottom: 2.25rem;
+        }
+
+        .collapse {
+          background: rgba(22,27,39,0.72);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          overflow: hidden;
+        }
+
+        .collapse-summary {
+          list-style: none;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.8rem;
+          padding: 1rem 1.1rem;
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.15s;
+        }
+
+        .collapse-summary::-webkit-details-marker { display: none; }
+        .collapse-summary:hover { background: rgba(124,58,237,0.06); }
+        .collapse-summary:focus-visible {
+          outline: 2px solid rgba(167,139,250,0.75);
+          outline-offset: -4px;
+        }
+        .collapse-summary .sh { flex: 1; margin-bottom: 0; min-width: 0; }
+
+        .collapse-chevron {
+          color: #64748b;
+          font-weight: 800;
+          transition: transform 0.2s, color 0.2s;
+        }
+
+        .collapse[open] .collapse-chevron {
+          transform: rotate(180deg);
+          color: #a78bfa;
+        }
+
+        .collapse-body {
+          border-top: 1px solid #131825;
+          padding: 1rem;
+        }
 
         /* ── Alert Banners ── */
         .alerts-grid {
@@ -650,6 +1012,8 @@ export default function AdminDashboard() {
         .sc--red   { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.03); }
         .sc--yellow{ border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.04); }
 
+        .grid-spaced { margin-top: 0.75rem; }
+
         .sc-head {
           display: flex;
           align-items: center;
@@ -708,6 +1072,8 @@ export default function AdminDashboard() {
           padding: 1rem 1.1rem;
           animation: fade-up 0.4s ease both;
         }
+
+        .collapse-body .tables-duo { margin-top: 0.85rem; }
 
         .tt-header {
           display: flex;
@@ -801,6 +1167,104 @@ export default function AdminDashboard() {
           flex-shrink: 0;
         }
 
+        /* ── Activity ── */
+        .activity-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+        }
+
+        @media (min-width: 760px) {
+          .activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (min-width: 1180px) {
+          .activity-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
+
+        .activity-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 0.9rem;
+          min-width: 0;
+        }
+
+        .activity-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.6rem;
+          color: #e2e8f0;
+          font-size: 0.78rem;
+          font-weight: 800;
+          margin-bottom: 0.65rem;
+        }
+
+        .activity-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+
+        .activity-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-width: 0;
+        }
+
+        .activity-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #a78bfa;
+          box-shadow: 0 0 0 4px rgba(167,139,250,0.08);
+          flex-shrink: 0;
+        }
+
+        .activity-dot--gold { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,0.08); }
+        .activity-dot--green { background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,0.08); }
+        .activity-dot--blue { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96,165,250,0.08); }
+        .activity-dot--red { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,0.08); }
+
+        .activity-copy {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .activity-primary {
+          color: #cbd5e1;
+          font-size: 0.78rem;
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .activity-secondary {
+          color: #64748b;
+          font-size: 0.68rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-top: 0.05rem;
+        }
+
+        .activity-meta {
+          color: #475569;
+          font-size: 0.66rem;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .activity-empty {
+          color: #475569;
+          font-size: 0.76rem;
+          margin: 0;
+          padding: 0.35rem 0 0.15rem;
+        }
+
         /* ── Retention ── */
         .ret-row {
           display: grid;
@@ -844,11 +1308,11 @@ export default function AdminDashboard() {
         /* ── Charts ── */
         .charts-row {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 0.85rem;
         }
 
-        @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) { .charts-row { grid-template-columns: 1fr; } }
 
         .chart-panel {
           background: var(--bg-card);

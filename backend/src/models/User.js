@@ -151,12 +151,22 @@ const locationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+/**
+ * Trim location text fields and cap their length so legacy free-form values
+ * cannot be persisted as excessively long strings.
+ */
 const normalizeLocationText = (value, maxLength = 160) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
+/** Latitude must be a finite number in the GeoJSON-valid -90..90 range. */
 const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
+/** Longitude must be a finite number in the GeoJSON-valid -180..180 range. */
 const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
 
+/**
+ * Accept coordinates as GeoJSON [lng, lat], { lat, lng }, { latitude, longitude },
+ * or nested location.coordinates objects, and return GeoJSON [lng, lat].
+ */
 const normalizeLocationCoordinates = (location = {}) => {
   const coordinates = location.coordinates;
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
@@ -166,6 +176,11 @@ const normalizeLocationCoordinates = (location = {}) => {
   return [lng, lat];
 };
 
+/**
+ * Convert old free-form location strings into object fields.
+ * Examples: "usa" => country only; "Santiago, Chile" => city + country;
+ * "Santiago, RM, Chile" => city + region + country.
+ */
 const parseLegacyLocationString = (value = "") => {
   const label = normalizeLocationText(value);
   const parts = label
@@ -182,6 +197,10 @@ const parseLegacyLocationString = (value = "") => {
   };
 };
 
+/**
+ * Mongoose location setter used for both legacy strings and modern object input.
+ * fallbackLabel preserves an existing locationLabel while hydrating old users.
+ */
 const normalizeUserLocationValue = (value, fallbackLabel = "") => {
   if (typeof value === "string") {
     const parsed = parseLegacyLocationString(value);
@@ -393,6 +412,9 @@ userSchema.virtual("age").get(function getAge() {
 });
 
 userSchema.pre("init", function normalizeLegacyLocationOnInit(data) {
+  // `init` runs while Mongoose hydrates find/findOne results, before validation.
+  // Mutating raw data here prevents legacy primitive locations from becoming
+  // cast errors when old users are saved by flows like email verification.
   if (!data || typeof data.location !== "string") return;
   const location = normalizeUserLocationValue(data.location, data.locationLabel);
   data.location = location;

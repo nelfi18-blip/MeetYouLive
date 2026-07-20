@@ -41,7 +41,8 @@ function printHelp() {
   console.log(`MeetYouLive production non-admin user cleanup
 
 Dry-run only (default, no deletion):
-  DRY_RUN=true npm run cleanup:production-users -- --dry-run --json
+  DRY_RUN=true npm run cleanup:production-users -- --json
+  npm run cleanup:production-users -- --dry-run --json
   npm run cleanup:production-users -- --json
 
 Execute only after human approval of the dry-run counts:

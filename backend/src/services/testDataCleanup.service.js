@@ -71,6 +71,11 @@ function normalizeDomain(value) {
   return String(value).trim().toLowerCase().replace(/^@+/, "");
 }
 
+function inferDryRunMode(rawOptions) {
+  if (rawOptions.dryRun !== undefined) return Boolean(rawOptions.dryRun);
+  return !Boolean(rawOptions.execute);
+}
+
 function normalizeCleanupOptions(rawOptions = {}) {
   const userIds = splitCsv(rawOptions.userIds || rawOptions.userIdsCsv).filter((id) =>
     mongoose.Types.ObjectId.isValid(id)
@@ -81,7 +86,7 @@ function normalizeCleanupOptions(rawOptions = {}) {
 
   return {
     execute: Boolean(rawOptions.execute),
-    dryRun: rawOptions.dryRun === undefined ? !Boolean(rawOptions.execute) : Boolean(rawOptions.dryRun),
+    dryRun: inferDryRunMode(rawOptions),
     confirm: rawOptions.confirm || "",
     userIds,
     invalidUserIds,
@@ -221,6 +226,12 @@ async function applyOrCount(Model, query, execute) {
 async function updateOrCount(Model, query, update, execute, options) {
   if (execute) return Model.updateMany(query, update, options);
   return { modifiedCount: await Model.countDocuments(query) };
+}
+
+async function countPlannedOrphanReference({ collection, field, Model, query, reason }) {
+  const documents = await Model.countDocuments(query);
+  if (!documents) return null;
+  return { collection, field, documents, reason };
 }
 
 async function cleanupTestData(rawOptions = {}) {
@@ -469,16 +480,17 @@ async function cleanupTestData(rawOptions = {}) {
   report.counts.chats = report.counts.deletedDocuments.chats;
   report.counts.messages = report.counts.deletedDocuments.messages;
 
-  const plannedOrphanReferences = [];
-  const staffAuditStaffRefs = await StaffAuditLog.countDocuments({ staffId: inUsers });
-  if (staffAuditStaffRefs) {
-    plannedOrphanReferences.push({
-      collection: "staffAuditLogs",
-      field: "staffId",
-      documents: staffAuditStaffRefs,
-      reason: "staffId is a required staff reference and is not pruned by the cleanup plan.",
-    });
-  }
+  const plannedOrphanReferences = (
+    await Promise.all([
+      countPlannedOrphanReference({
+        collection: "staffAuditLogs",
+        field: "staffId",
+        Model: StaffAuditLog,
+        query: { staffId: inUsers },
+        reason: "staffId is a required staff reference and is not pruned by the cleanup plan.",
+      }),
+    ])
+  ).filter(Boolean);
   report.safety.plannedOrphanReferences = plannedOrphanReferences;
   report.safety.noOrphanReferencesPlanned = plannedOrphanReferences.length === 0;
 

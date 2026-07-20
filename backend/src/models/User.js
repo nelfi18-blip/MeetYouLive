@@ -402,7 +402,10 @@ userSchema.pre("init", function normalizeLegacyLocationOnInit(data) {
 userSchema.pre("validate", function normalizeLegacyLocationBeforeValidate(next) {
   if (this.$__.validationError?.errors?.location) {
     this.location = normalizeUserLocationValue(this.locationLabel);
-    this.$__.validationError = undefined;
+    delete this.$__.validationError.errors.location;
+    if (Object.keys(this.$__.validationError.errors).length === 0) {
+      this.$__.validationError = undefined;
+    }
   }
   next();
 });

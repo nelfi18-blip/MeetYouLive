@@ -294,7 +294,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     user.emailVerified = true;
     user.emailVerificationCode = null;
     user.emailVerificationExpires = null;
-    if (typeof user.location === "string" && typeof User.normalizeLocation === "function") {
+    if (typeof user.location === "string") {
       user.location = User.normalizeLocation(user.location, user.locationLabel);
       if (!user.locationLabel && user.location?.label) user.locationLabel = user.location.label;
     }

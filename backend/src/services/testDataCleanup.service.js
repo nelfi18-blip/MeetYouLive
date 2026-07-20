@@ -29,6 +29,7 @@ const SimulationUnlock = require("../models/SimulationUnlock");
 const SocialRoom = require("../models/SocialRoom");
 const SocialRoomMessage = require("../models/SocialRoomMessage");
 const SparkTransaction = require("../models/SparkTransaction");
+const StaffAuditLog = require("../models/StaffAuditLog");
 const Subscription = require("../models/Subscription");
 const User = require("../models/User");
 const UserMissions = require("../models/UserMissions");
@@ -70,6 +71,11 @@ function normalizeDomain(value) {
   return String(value).trim().toLowerCase().replace(/^@+/, "");
 }
 
+function isDryRunEnabled(rawOptions) {
+  if (rawOptions.dryRun !== undefined) return Boolean(rawOptions.dryRun);
+  return !Boolean(rawOptions.execute);
+}
+
 function normalizeCleanupOptions(rawOptions = {}) {
   const userIds = splitCsv(rawOptions.userIds || rawOptions.userIdsCsv).filter((id) =>
     mongoose.Types.ObjectId.isValid(id)
@@ -80,6 +86,7 @@ function normalizeCleanupOptions(rawOptions = {}) {
 
   return {
     execute: Boolean(rawOptions.execute),
+    dryRun: isDryRunEnabled(rawOptions),
     confirm: rawOptions.confirm || "",
     userIds,
     invalidUserIds,
@@ -150,6 +157,10 @@ function assertCanExecuteCleanup(options) {
     throw new Error("No cleanup was run: provide explicit test-user selectors first.");
   }
 
+  if (normalized.execute && normalized.dryRun) {
+    throw new Error("Refusing destructive cleanup while DRY_RUN is enabled.");
+  }
+
   const expectedConfirmation = normalized.allNonAdministrative
     ? PRODUCTION_EXECUTE_CONFIRMATION
     : EXECUTE_CONFIRMATION;
@@ -217,6 +228,12 @@ async function updateOrCount(Model, query, update, execute, options) {
   return { modifiedCount: await Model.countDocuments(query) };
 }
 
+async function countPlannedOrphanReferences({ collection, field, Model, query, reason }) {
+  const documentCount = await Model.countDocuments(query);
+  if (!documentCount) return null;
+  return { collection, field, documentCount, reason };
+}
+
 async function cleanupTestData(rawOptions = {}) {
   const options = assertCanExecuteCleanup(rawOptions);
   const candidates = await getCandidateUsers(options);
@@ -258,6 +275,16 @@ async function cleanupTestData(rawOptions = {}) {
       messages: 0,
       deletedDocuments: {},
       prunedDocuments: {},
+    },
+    safety: {
+      administratorsWouldBeDeleted: 0,
+      noAdministratorsWouldBeDeleted: true,
+      plannedOrphanReferences: [],
+      noOrphanReferencesPlanned: true,
+      haltAfterDryRun: !options.execute,
+      nextStep: options.execute
+        ? "Cleanup execution was explicitly confirmed."
+        : "Dry run complete. Stop here and wait for human authorization before any real cleanup.",
     },
     protected: {
       staffRoles: STAFF_ROLES,
@@ -437,6 +464,14 @@ async function cleanupTestData(rawOptions = {}) {
   );
   report.counts.prunedDocuments.socialRooms = modifiedCount(socialRoomHost) + modifiedCount(socialRoomArrays);
 
+  const staffAuditTargets = await updateOrCount(
+    StaffAuditLog,
+    { targetType: { $in: ["User", "Creator"] }, targetId: inUsers },
+    { $set: { targetId: null } },
+    options.execute
+  );
+  report.counts.prunedDocuments.staffAuditLogTargets = modifiedCount(staffAuditTargets);
+
   const usersResult = await applyOrCount(User, { _id: inUsers, role: { $nin: STAFF_ROLES } }, options.execute);
   report.counts.deletedDocuments.users = deletedCount(usersResult);
 
@@ -444,6 +479,21 @@ async function cleanupTestData(rawOptions = {}) {
   report.counts.lives = report.counts.deletedDocuments.lives;
   report.counts.chats = report.counts.deletedDocuments.chats;
   report.counts.messages = report.counts.deletedDocuments.messages;
+
+  const plannedOrphanReferences = (
+    await Promise.all([
+      countPlannedOrphanReferences({
+        collection: "staffAuditLogs",
+        field: "staffId",
+        Model: StaffAuditLog,
+        query: { staffId: inUsers },
+        reason:
+          "staffId should point only to preserved staff users; a match means inconsistent audit data would point at a deleted non-admin user.",
+      }),
+    ])
+  ).filter(Boolean);
+  report.safety.plannedOrphanReferences = plannedOrphanReferences;
+  report.safety.noOrphanReferencesPlanned = plannedOrphanReferences.length === 0;
 
   return report;
 }
@@ -457,6 +507,24 @@ function formatCleanupReport(report) {
   lines.push(`Chats selected/deleted: ${report.counts.chats}`);
   lines.push(`Messages selected/deleted: ${report.counts.messages}`);
   lines.push("Administrative/system configuration collections: none touched.");
+  if (report.counts.administratorsPreserved !== undefined) {
+    lines.push(`Administrators preserved: ${report.counts.administratorsPreserved}`);
+  }
+  if (report.safety) {
+    lines.push(
+      report.safety.noAdministratorsWouldBeDeleted
+        ? "Safety check: no administrator would be deleted."
+        : `Safety check FAILED: ${report.safety.administratorsWouldBeDeleted} administrator(s) would be deleted.`
+    );
+    lines.push(
+      report.safety.noOrphanReferencesPlanned
+        ? "Safety check: no orphan references are planned."
+        : `Safety check FAILED: ${report.safety.plannedOrphanReferences.length} orphan reference type(s) are planned.`
+    );
+    if (report.safety.haltAfterDryRun) {
+      lines.push("Stop after this DRY RUN and wait for authorization before executing real cleanup.");
+    }
+  }
   if (report.preservedAmbiguousUsers.length) {
     lines.push(`Preserved ambiguous test-like users: ${report.preservedAmbiguousUsers.length}`);
   }

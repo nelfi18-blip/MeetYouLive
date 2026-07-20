@@ -14,12 +14,14 @@ const {
 function parseArgs(argv) {
   const options = {
     execute: false,
+    dryRun: false,
     confirm: "",
     json: false,
   };
 
   for (const arg of argv) {
     if (arg === "--execute") options.execute = true;
+    else if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--json") options.json = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg.startsWith("--confirm=")) options.confirm = arg.slice("--confirm=".length);
@@ -28,6 +30,10 @@ function parseArgs(argv) {
 
   options.confirm = options.confirm || process.env.PRODUCTION_USER_CLEANUP_CONFIRM || "";
   options.execute = options.execute || process.env.PRODUCTION_USER_CLEANUP_EXECUTE === "true";
+  options.dryRun = options.dryRun || process.env.DRY_RUN === "true";
+  if (options.dryRun && options.execute) {
+    throw new Error("Refusing to execute cleanup because DRY_RUN is enabled.");
+  }
   return options;
 }
 
@@ -35,6 +41,7 @@ function printHelp() {
   console.log(`MeetYouLive production non-admin user cleanup
 
 Dry-run only (default, no deletion):
+  DRY_RUN=true npm run cleanup:production-users -- --dry-run --json
   npm run cleanup:production-users -- --json
 
 Execute only after human approval of the dry-run counts:
@@ -72,6 +79,7 @@ async function main() {
   const report = await cleanupTestData({
     allNonAdministrative: true,
     execute: options.execute,
+    dryRun: options.dryRun || !options.execute,
     confirm: options.confirm,
     includeAmbiguousReport: false,
     includeSelectedUsers: false,
@@ -86,6 +94,16 @@ async function main() {
   console.log("\nProtected administrative users preserved:", report.counts.administratorsPreserved);
   console.log("Non-administrative users selected:", report.counts.users);
   console.log("Legacy creators selected:", report.counts.creators);
+  console.log("No administrator would be deleted:", report.safety.noAdministratorsWouldBeDeleted);
+  console.log("No orphan references are planned:", report.safety.noOrphanReferencesPlanned);
+  console.log("\nDocuments that would be deleted by collection:");
+  console.table(report.counts.deletedDocuments);
+  console.log("\nDocuments that would be pruned/updated by collection:");
+  console.table(report.counts.prunedDocuments);
+  if (report.safety.plannedOrphanReferences.length) {
+    console.log("\nPlanned orphan references:");
+    console.table(report.safety.plannedOrphanReferences);
+  }
   console.log("\nDetailed counts:");
   console.log(JSON.stringify(report.counts, null, 2));
   console.log("\nSensitive user identifiers were intentionally omitted from this report.");

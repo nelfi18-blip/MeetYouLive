@@ -29,6 +29,7 @@ const SimulationUnlock = require("../models/SimulationUnlock");
 const SocialRoom = require("../models/SocialRoom");
 const SocialRoomMessage = require("../models/SocialRoomMessage");
 const SparkTransaction = require("../models/SparkTransaction");
+const StaffAuditLog = require("../models/StaffAuditLog");
 const Subscription = require("../models/Subscription");
 const User = require("../models/User");
 const UserMissions = require("../models/UserMissions");
@@ -80,6 +81,7 @@ function normalizeCleanupOptions(rawOptions = {}) {
 
   return {
     execute: Boolean(rawOptions.execute),
+    dryRun: rawOptions.dryRun === undefined ? !Boolean(rawOptions.execute) : Boolean(rawOptions.dryRun),
     confirm: rawOptions.confirm || "",
     userIds,
     invalidUserIds,
@@ -148,6 +150,10 @@ function assertCanExecuteCleanup(options) {
 
   if (!normalized.allNonAdministrative && !hasExplicitSelector(normalized)) {
     throw new Error("No cleanup was run: provide explicit test-user selectors first.");
+  }
+
+  if (normalized.execute && normalized.dryRun) {
+    throw new Error("Refusing destructive cleanup while DRY_RUN is enabled.");
   }
 
   const expectedConfirmation = normalized.allNonAdministrative
@@ -258,6 +264,16 @@ async function cleanupTestData(rawOptions = {}) {
       messages: 0,
       deletedDocuments: {},
       prunedDocuments: {},
+    },
+    safety: {
+      administratorsWouldBeDeleted: 0,
+      noAdministratorsWouldBeDeleted: true,
+      plannedOrphanReferences: [],
+      noOrphanReferencesPlanned: true,
+      haltAfterDryRun: !options.execute,
+      nextStep: options.execute
+        ? "Cleanup execution was explicitly confirmed."
+        : "Dry run complete. Stop here and wait for human authorization before any real cleanup.",
     },
     protected: {
       staffRoles: STAFF_ROLES,
@@ -437,6 +453,14 @@ async function cleanupTestData(rawOptions = {}) {
   );
   report.counts.prunedDocuments.socialRooms = modifiedCount(socialRoomHost) + modifiedCount(socialRoomArrays);
 
+  const staffAuditTargets = await updateOrCount(
+    StaffAuditLog,
+    { targetType: { $in: ["User", "Creator"] }, targetId: inUsers },
+    { $set: { targetId: null } },
+    options.execute
+  );
+  report.counts.prunedDocuments.staffAuditLogTargets = modifiedCount(staffAuditTargets);
+
   const usersResult = await applyOrCount(User, { _id: inUsers, role: { $nin: STAFF_ROLES } }, options.execute);
   report.counts.deletedDocuments.users = deletedCount(usersResult);
 
@@ -444,6 +468,19 @@ async function cleanupTestData(rawOptions = {}) {
   report.counts.lives = report.counts.deletedDocuments.lives;
   report.counts.chats = report.counts.deletedDocuments.chats;
   report.counts.messages = report.counts.deletedDocuments.messages;
+
+  const plannedOrphanReferences = [];
+  const staffAuditStaffRefs = await StaffAuditLog.countDocuments({ staffId: inUsers });
+  if (staffAuditStaffRefs) {
+    plannedOrphanReferences.push({
+      collection: "staffAuditLogs",
+      field: "staffId",
+      documents: staffAuditStaffRefs,
+      reason: "staffId is a required staff reference and is not pruned by the cleanup plan.",
+    });
+  }
+  report.safety.plannedOrphanReferences = plannedOrphanReferences;
+  report.safety.noOrphanReferencesPlanned = plannedOrphanReferences.length === 0;
 
   return report;
 }
@@ -457,6 +494,24 @@ function formatCleanupReport(report) {
   lines.push(`Chats selected/deleted: ${report.counts.chats}`);
   lines.push(`Messages selected/deleted: ${report.counts.messages}`);
   lines.push("Administrative/system configuration collections: none touched.");
+  if (report.counts.administratorsPreserved !== undefined) {
+    lines.push(`Administrators preserved: ${report.counts.administratorsPreserved}`);
+  }
+  if (report.safety) {
+    lines.push(
+      report.safety.noAdministratorsWouldBeDeleted
+        ? "Safety check: no administrator would be deleted."
+        : `Safety check FAILED: ${report.safety.administratorsWouldBeDeleted} administrator(s) would be deleted.`
+    );
+    lines.push(
+      report.safety.noOrphanReferencesPlanned
+        ? "Safety check: no orphan references are planned."
+        : `Safety check FAILED: ${report.safety.plannedOrphanReferences.length} orphan reference type(s) are planned.`
+    );
+    if (report.safety.haltAfterDryRun) {
+      lines.push("Stop after this DRY RUN and wait for authorization before executing real cleanup.");
+    }
+  }
   if (report.preservedAmbiguousUsers.length) {
     lines.push(`Preserved ambiguous test-like users: ${report.preservedAmbiguousUsers.length}`);
   }

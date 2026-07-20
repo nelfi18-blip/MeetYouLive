@@ -41,6 +41,7 @@ const relatedModels = [
   require("../src/models/SimulationUnlock"),
   require("../src/models/SocialRoom"),
   require("../src/models/SparkTransaction"),
+  require("../src/models/StaffAuditLog"),
   require("../src/models/Subscription"),
   require("../src/models/UserMissions"),
   require("../src/models/UserVisit"),
@@ -127,6 +128,17 @@ describe("test data cleanup safety", () => {
     }).execute).toBe(true);
   });
 
+  test("refuses execution when dry run is explicitly enabled", () => {
+    expect(() =>
+      assertCanExecuteCleanup({
+        allNonAdministrative: true,
+        execute: true,
+        dryRun: true,
+        confirm: PRODUCTION_EXECUTE_CONFIRMATION,
+      })
+    ).toThrow(/DRY_RUN/i);
+  });
+
   test("production dry run reports admin preservation and does not delete documents", async () => {
     jest.spyOn(User, "find").mockReturnValue(makeFindChain([]));
     jest.spyOn(User, "countDocuments").mockResolvedValue(3);
@@ -142,6 +154,9 @@ describe("test data cleanup safety", () => {
     expect(report.mode).toBe("production-non-admin-cleanup");
     expect(report.counts.administratorsPreserved).toBe(3);
     expect(report.counts.users).toBe(0);
+    expect(report.safety.noAdministratorsWouldBeDeleted).toBe(true);
+    expect(report.safety.noOrphanReferencesPlanned).toBe(true);
+    expect(report.safety.haltAfterDryRun).toBe(true);
     expect(report.selectedUsers).toEqual([]);
     expect(deleteSpy).not.toHaveBeenCalled();
   });
@@ -191,6 +206,8 @@ describe("test data cleanup safety", () => {
 
     expect(first.dryRun).toBe(false);
     expect(first.counts.deletedDocuments.users).toBe(1);
+    expect(first.safety.noAdministratorsWouldBeDeleted).toBe(true);
+    expect(first.safety.noOrphanReferencesPlanned).toBe(true);
     expect(Chat.deleteMany).toHaveBeenCalled();
     expect(Video.deleteMany).toHaveBeenCalled();
     expect(ExclusiveContent.deleteMany).toHaveBeenCalled();
@@ -213,10 +230,17 @@ describe("test data cleanup safety", () => {
       dryRun: true,
       counts: { users: 2, creators: 1, lives: 3, chats: 4, messages: 5 },
       preservedAmbiguousUsers: [{}],
+      safety: {
+        noAdministratorsWouldBeDeleted: true,
+        noOrphanReferencesPlanned: true,
+        haltAfterDryRun: true,
+      },
     };
 
     expect(formatCleanupReport(report)).toContain("Users selected/deleted: 2");
     expect(formatCleanupReport(report)).toContain("Administrative/system configuration collections: none touched");
+    expect(formatCleanupReport(report)).toContain("no administrator would be deleted");
+    expect(formatCleanupReport(report)).toContain("no orphan references are planned");
     expect(formatCleanupReport(report)).toContain("Preserved ambiguous test-like users: 1");
   });
 });

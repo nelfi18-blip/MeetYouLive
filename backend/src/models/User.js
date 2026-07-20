@@ -151,6 +151,85 @@ const locationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+/**
+ * Trim location text fields and cap their length so legacy free-form values
+ * cannot be persisted as excessively long strings.
+ */
+const normalizeLocationText = (value, maxLength = 160) =>
+  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+/** Latitude must be a finite number in the GeoJSON-valid -90..90 range. */
+const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
+/** Longitude must be a finite number in the GeoJSON-valid -180..180 range. */
+const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
+
+/**
+ * Accept coordinates as GeoJSON [lng, lat], { lat, lng }, { latitude, longitude },
+ * or nested location.coordinates objects, and return GeoJSON [lng, lat].
+ */
+const normalizeLocationCoordinates = (location = {}) => {
+  const coordinates = location.coordinates;
+  const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
+  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
+  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
+  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
+  return [lng, lat];
+};
+
+/**
+ * Convert old free-form location strings into object fields.
+ * Examples: "usa" => country only; "Santiago, Chile" => city + country;
+ * "Santiago, RM, Chile" => city + region + country.
+ */
+const parseLegacyLocationString = (value = "") => {
+  const label = normalizeLocationText(value);
+  const parts = label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return { city: "", region: "", country: "", label: "" };
+  if (parts.length === 1) return { city: "", region: "", country: parts[0], label };
+  return {
+    city: parts[0],
+    region: parts.length > 2 ? parts.slice(1, -1).join(", ") : "",
+    country: parts[parts.length - 1],
+    label,
+  };
+};
+
+/**
+ * Mongoose location setter used for both legacy strings and modern object input.
+ * fallbackLabel preserves an existing locationLabel while hydrating old users.
+ */
+const normalizeUserLocationValue = (value, fallbackLabel = "") => {
+  if (typeof value === "string") {
+    const parsed = parseLegacyLocationString(value);
+    return {
+      type: "Point",
+      country: parsed.country,
+      city: parsed.city,
+      region: parsed.region,
+      label: parsed.label,
+    };
+  }
+
+  const location = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const country = normalizeLocationText(location.country, 80);
+  const city = normalizeLocationText(location.city, 80);
+  const region = normalizeLocationText(location.region, 80);
+  const label =
+    normalizeLocationText(location.label || fallbackLabel) || [city, region, country].filter(Boolean).join(", ");
+  const coordinates = normalizeLocationCoordinates(location);
+  return {
+    type: "Point",
+    ...(coordinates ? { coordinates } : {}),
+    country,
+    city,
+    region,
+    label,
+  };
+};
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -172,7 +251,7 @@ const userSchema = new mongoose.Schema(
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
     interestedIn: { type: String, enum: ["male", "female", "men", "women", "both", ""], default: "both" },
     discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
-    location: { type: locationSchema, default: () => ({}) },
+    location: { type: locationSchema, default: () => ({}), set: normalizeUserLocationValue },
     locationPoint: { type: locationPointSchema, default: null },
     locationLabel: { type: String, default: "" },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
@@ -332,6 +411,16 @@ userSchema.virtual("age").get(function getAge() {
   return calculateAge(this.birthdate, new Date());
 });
 
+userSchema.pre("init", function normalizeLegacyLocationOnInit(data) {
+  // `init` runs while Mongoose hydrates find/findOne results, before validation.
+  // Mutating raw data here prevents legacy primitive locations from becoming
+  // cast errors when old users are saved by flows like email verification.
+  if (!data || typeof data.location !== "string") return;
+  const location = normalizeUserLocationValue(data.location, data.locationLabel);
+  data.location = location;
+  if (!data.locationLabel && location.label) data.locationLabel = location.label;
+});
+
 userSchema
   .virtual("displayName")
   .get(function getDisplayName() {
@@ -375,5 +464,7 @@ userSchema.index(
 userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);
+
+User.normalizeLocation = normalizeUserLocationValue;
 
 module.exports = User;

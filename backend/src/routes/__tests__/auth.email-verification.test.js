@@ -3,6 +3,8 @@ const request = require("supertest");
 const User = require("../../models/User.js");
 const { sendVerificationEmail } = require("../../services/email.service.js");
 
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
+
 jest.mock("../../models/User.js", () => ({
   create: jest.fn(),
   deleteOne: jest.fn(),
@@ -79,6 +81,7 @@ describe("auth email verification delivery", () => {
       { userId: "user-1", email: "normaluser@example.com" }
     );
     expect(User.deleteOne).not.toHaveBeenCalled();
+    expect(User.create).toHaveBeenCalledWith(expect.not.objectContaining({ location: "usa" }));
   });
 
   test("creator invite registration requires email delivery before returning success", async () => {
@@ -149,5 +152,30 @@ describe("auth email verification delivery", () => {
       code: "EMAIL_DELIVERY_FAILED",
       message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
     });
+  });
+
+  test("verify email marks the user verified and returns a token", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      _id: "user-legacy-location",
+      email: "verify@example.com",
+      emailVerified: false,
+      emailVerificationCode: "123456",
+      emailVerificationExpires: new Date(Date.now() + 60_000),
+      save,
+    };
+    User.findOne.mockResolvedValue(user);
+
+    const res = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ email: "verify@example.com", code: "123456" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Email verificado correctamente");
+    expect(res.body.token).toBeTruthy();
+    expect(user.emailVerified).toBe(true);
+    expect(user.emailVerificationCode).toBeNull();
+    expect(user.emailVerificationExpires).toBeNull();
+    expect(save).toHaveBeenCalledTimes(1);
   });
 });

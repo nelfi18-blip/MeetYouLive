@@ -56,9 +56,9 @@ function getRevenueChartTitle(series) {
   return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
 }
 
-function getUniqueLives(primaryLives = [], secondaryLives = []) {
+function getLimitedUniqueLives(lives = []) {
   const seen = new Set();
-  return [...primaryLives, ...secondaryLives].filter((live) => {
+  return lives.filter((live) => {
     const id = live?._id;
     if (!id || seen.has(id)) return false;
     seen.add(id);
@@ -188,7 +188,7 @@ function ChartPanel({ title, data, valueKey, color }) {
 
 // ── Top Table ─────────────────────────────────────────────────────────────────
 
-function TopTable({ title, rows, valueLabel = "🪙", linkHref }) {
+function TopTable({ title, rows, valueLabel = "coins", linkHref }) {
   return (
     <div className="top-table">
       <div className="tt-header">
@@ -262,7 +262,7 @@ function ActivityLine({ primary, secondary, meta, accent }) {
 
 async function readOptionalJson(response, fallback, label) {
   if (!response.ok) {
-    console.error(`[admin-dashboard] ${label} request failed`, response.status);
+    console.error(`[admin-dashboard] ${label} request failed`, response.status, response.statusText || "");
     return fallback;
   }
   return response.json();
@@ -307,16 +307,19 @@ export default function AdminDashboard() {
     const token = localStorage.getItem("admin_token");
     if (!token) return;
     try {
-      const responses = await Promise.allSettled([
-        fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-      ]);
+      const recentRequests = [
+        ["users", `${API_URL}/api/admin/users?page=1&limit=5`],
+        ["creators", `${API_URL}/api/admin/creators?page=1&limit=5`],
+        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`],
+        ["lives history", `${API_URL}/api/admin/lives/history?limit=5`],
+        ["reports", `${API_URL}/api/admin/reports?page=1&limit=5`],
+      ];
+      const responses = await Promise.allSettled(
+        recentRequests.map(([, url]) => fetch(url, { headers: authHeader(), cache: "no-store" }))
+      );
       const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = responses.map((result, index) => {
         if (result.status === "fulfilled") return result.value;
-        console.error(`[admin-dashboard] recent request ${index} failed`, result.reason);
+        console.error(`[admin-dashboard] ${recentRequests[index][0]} request failed`, result.reason);
         return { ok: false, status: 0 };
       });
       if (usersRes.status === 401) {
@@ -335,7 +338,7 @@ export default function AdminDashboard() {
         users: usersData.users || [],
         creators: creatorsData.creators || [],
         purchases: purchasesData.transactions || [],
-        lives: getUniqueLives([], historyLivesData.lives),
+        lives: getLimitedUniqueLives(historyLivesData.lives),
         reports: reportsData.reports || [],
       });
       recentLoadedRef.current = true;
@@ -571,8 +574,8 @@ export default function AdminDashboard() {
             <StatCard icon="📊" title="Total registros (7d)" value={fmt(s.recentRegistrations)} sub="Nuevos usuarios" accent="blue" />
           </div>
           <div className="tables-duo">
-            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} valueLabel="🪙" linkHref="/admin/creators" />
-            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} valueLabel="🪙" linkHref="/admin/transactions" />
+            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} valueLabel="coins" linkHref="/admin/creators" />
+            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} valueLabel="coins" linkHref="/admin/transactions" />
           </div>
         </CollapsibleSection>
 
@@ -643,6 +646,7 @@ export default function AdminDashboard() {
           --bg-card: #161b27;
           --bg-card-hover: #1a1f2e;
           --border: #1e2535;
+          --exec-card-min-height: 142px;
         }
 
         .dash { max-width: 1280px; }
@@ -743,7 +747,7 @@ export default function AdminDashboard() {
         }
 
         .exec-card {
-          min-height: 142px;
+          min-height: var(--exec-card-min-height);
           border-radius: 18px;
           border: 1px solid rgba(124,58,237,0.2);
           background:

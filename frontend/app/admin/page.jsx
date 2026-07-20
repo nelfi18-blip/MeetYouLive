@@ -67,7 +67,7 @@ function getUniqueLives(primaryLives = [], secondaryLives = []) {
 }
 
 function CountBadge({ value }) {
-  if (value == null || value <= 0) return null;
+  if (value === null || value === undefined || value <= 0) return null;
   return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
 }
 
@@ -307,13 +307,18 @@ export default function AdminDashboard() {
     const token = localStorage.getItem("admin_token");
     if (!token) return;
     try {
-      const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = await Promise.all([
+      const responses = await Promise.allSettled([
         fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
       ]);
+      const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = responses.map((result, index) => {
+        if (result.status === "fulfilled") return result.value;
+        console.error(`[admin-dashboard] recent request ${index} failed`, result.reason);
+        return { ok: false, status: 0 };
+      });
       if (usersRes.status === 401) {
         clearAdminToken();
         router.replace("/admin/login");

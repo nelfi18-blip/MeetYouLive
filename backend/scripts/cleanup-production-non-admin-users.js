@@ -31,6 +31,7 @@ function parseArgs(argv) {
   options.confirm = options.confirm || process.env.PRODUCTION_USER_CLEANUP_CONFIRM || "";
   options.execute = options.execute || process.env.PRODUCTION_USER_CLEANUP_EXECUTE === "true";
   options.dryRun = options.dryRun || process.env.DRY_RUN === "true";
+  // Fail before opening a database connection if both safety modes were requested.
   if (options.dryRun && options.execute) {
     throw new Error("Refusing to execute cleanup because DRY_RUN is enabled.");
   }

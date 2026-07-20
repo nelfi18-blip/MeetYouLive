@@ -71,7 +71,7 @@ function normalizeDomain(value) {
   return String(value).trim().toLowerCase().replace(/^@+/, "");
 }
 
-function inferDryRunMode(rawOptions) {
+function isDryRunEnabled(rawOptions) {
   if (rawOptions.dryRun !== undefined) return Boolean(rawOptions.dryRun);
   return !Boolean(rawOptions.execute);
 }
@@ -86,7 +86,7 @@ function normalizeCleanupOptions(rawOptions = {}) {
 
   return {
     execute: Boolean(rawOptions.execute),
-    dryRun: inferDryRunMode(rawOptions),
+    dryRun: isDryRunEnabled(rawOptions),
     confirm: rawOptions.confirm || "",
     userIds,
     invalidUserIds,
@@ -228,7 +228,7 @@ async function updateOrCount(Model, query, update, execute, options) {
   return { modifiedCount: await Model.countDocuments(query) };
 }
 
-async function countPlannedOrphanReference({ collection, field, Model, query, reason }) {
+async function countPlannedOrphanReferences({ collection, field, Model, query, reason }) {
   const documents = await Model.countDocuments(query);
   if (!documents) return null;
   return { collection, field, documents, reason };
@@ -482,7 +482,7 @@ async function cleanupTestData(rawOptions = {}) {
 
   const plannedOrphanReferences = (
     await Promise.all([
-      countPlannedOrphanReference({
+      countPlannedOrphanReferences({
         collection: "staffAuditLogs",
         field: "staffId",
         Model: StaffAuditLog,

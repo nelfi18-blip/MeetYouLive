@@ -23,7 +23,7 @@ function fmt(n) {
 
 function fmtDate(value) {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("es", { month: "short", day: "numeric" });
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function getDisplayName(user) {
@@ -32,6 +32,16 @@ function getDisplayName(user) {
 
 function getTodaySeriesValue(series, key = "total") {
   return series?.length ? series[series.length - 1]?.[key] ?? 0 : 0;
+}
+
+function getUniqueLives(activeLives = [], historyLives = []) {
+  const seen = new Set();
+  return [...activeLives, ...historyLives].filter((live) => {
+    const id = live?._id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).slice(0, 5);
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -282,15 +292,15 @@ export default function AdminDashboard() {
         historyLivesRes,
         reportsRes,
       ] = await Promise.all([
-        fetch(`${API_URL}/api/admin/overview`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader() }),
+        fetch(`${API_URL}/api/admin/overview`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/lives`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader() }),
-        fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader() }),
+        fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/lives`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
       ]);
 
       if (overviewRes.status === 401 || analyticsRes.status === 401) {
@@ -330,7 +340,7 @@ export default function AdminDashboard() {
         users: usersData.users || [],
         creators: creatorsData.creators || [],
         purchases: purchasesData.transactions || [],
-        lives: [...(activeLivesData.lives || []), ...(historyLivesData.lives || [])].slice(0, 5),
+        lives: getUniqueLives(activeLivesData.lives, historyLivesData.lives),
         reports: reportsData.reports || [],
       });
     } catch {
@@ -388,10 +398,8 @@ export default function AdminDashboard() {
     });
   }
 
-  const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue?.length
-    ? revenue.coins.dailyCoinRevenue
-    : a.dailyPurchases;
-  const todayRevenueCoins = getTodaySeriesValue(a.dailyPurchases, "total");
+  const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
+  const todayRevenueCoins = getTodaySeriesValue(dailyRevenueSeries, "total");
 
   return (
     <div className="dash">
@@ -414,7 +422,7 @@ export default function AdminDashboard() {
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
           <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total acumulado" accent="purple" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={`${fmt(todayRevenueCoins)} 🪙`} sub="Compras completadas hoy" accent="gold" href="/admin/revenue" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={dailyRevenueSeries.length ? `${fmt(todayRevenueCoins)} 🪙` : "—"} sub={dailyRevenueSeries.length ? "Compras completadas hoy" : "Sin datos disponibles"} accent="gold" href="/admin/revenue" />
           <ExecutiveCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo ahora" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
           <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
           <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
@@ -553,7 +561,7 @@ export default function AdminDashboard() {
           <div className="charts-row">
             <ChartPanel title="Registros diarios (7d)" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
             <ChartPanel title="Coins comprados por día (7d)" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
-            <ChartPanel title={revenue?.coins?.dailyCoinRevenue?.length ? "Ingresos (30d)" : "Ingresos (7d)"} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
+            <ChartPanel title="Ingresos (30d)" data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
           </div>
         </CollapsibleSection>
       </div>

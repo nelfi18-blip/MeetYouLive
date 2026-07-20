@@ -174,9 +174,6 @@ const ALLOWED_DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 // when many profiles fall outside the selected radius.
 const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
 
-const normalizeLocationString = (value, maxLength = 80) =>
-  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-
 const parseMaxDistanceInput = (value) => {
   if (value === null || value === "" || value === "global") return null;
   const parsed = Number(value);

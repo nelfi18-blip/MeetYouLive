@@ -40,6 +40,10 @@ Dry-run only (default, no deletion):
 Execute only after human approval of the dry-run counts:
   npm run cleanup:production-users -- --execute --confirm=${PRODUCTION_EXECUTE_CONFIRMATION} --json
 
+Optional automation environment variables:
+  PRODUCTION_USER_CLEANUP_EXECUTE=true
+  PRODUCTION_USER_CLEANUP_CONFIRM=${PRODUCTION_EXECUTE_CONFIRMATION}
+
 This script selects every User whose role is not one of the configured administrative/staff roles.
 It does not print emails, names, tokens, connection strings, or secrets.`);
 }

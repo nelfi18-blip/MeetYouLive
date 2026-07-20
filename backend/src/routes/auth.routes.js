@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
+const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
@@ -163,6 +164,10 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = await generateReferralCode();
+    const normalizedLocation =
+      req.body.location !== undefined || req.body.locationLabel !== undefined
+        ? normalizeLocationForUserUpdate(req.body.location, req.body.locationLabel)
+        : null;
     const user = await User.create({
       username,
       email,
@@ -174,6 +179,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       referredBy,
       role: userRole,
       creatorStatus,
+      ...(normalizedLocation || {}),
       ...(pendingAgencyCode ? { pendingAgencyCode } : {}),
       ...(invitedByCreator ? { invitedByCreator } : {}),
     });
@@ -502,6 +508,10 @@ router.post("/google-session", authLimiter, async (req, res) => {
       console.log(`[google-session] Creating new user for email: ${email}`);
       const username = await generateUniqueUsername(email);
       const referralCode = await generateReferralCode();
+      const normalizedLocation =
+        req.body.location !== undefined || req.body.locationLabel !== undefined
+          ? normalizeLocationForUserUpdate(req.body.location, req.body.locationLabel)
+          : null;
 
       let referredBy = null;
       if (ref) {
@@ -516,6 +526,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
         password: crypto.randomBytes(32).toString("hex"),
         referralCode,
         referredBy,
+        ...(normalizedLocation || {}),
         ...makePrimaryUserPhotoFields(googlePhotoUrl, "google"),
       });
     } else {

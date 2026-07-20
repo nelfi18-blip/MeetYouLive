@@ -35,6 +35,7 @@ const {
   serializeUserPhotoFields: serializeCanonicalUserPhotoFields,
   syncCanonicalPhotoFields,
 } = require("../lib/photoFields.js");
+const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 
 const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
@@ -175,62 +176,6 @@ const LOCATION_FILTER_FETCH_MULTIPLIER = 5;
 
 const normalizeLocationString = (value, maxLength = 80) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-
-const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
-const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
-
-const parseCoordinatesInput = (input) => {
-  if (Array.isArray(input)) {
-    const lng = Number(input[0]);
-    const lat = Number(input[1]);
-    if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };
-    return { lat, lng };
-  }
-  if (!input || typeof input !== "object") return { lat: null, lng: null };
-  const lat = Number(input.lat ?? input.latitude);
-  const lng = Number(input.lng ?? input.longitude);
-  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return { lat: null, lng: null };
-  return { lat, lng };
-};
-
-const parseLocationString = (value = "") => {
-  // Legacy manual input is interpreted as "city, region, country"; any middle
-  // comma-separated parts are preserved together as the optional region.
-  const parts = normalizeLocationString(value, 160)
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return {
-    city: parts[0] || "",
-    country: parts.length > 1 ? parts[parts.length - 1] : "",
-    region: parts.length > 2 ? parts.slice(1, -1).join(", ") : "",
-  };
-};
-
-const parseLocationInput = (locationInput, locationLabelInput) => {
-  const base =
-    locationInput && typeof locationInput === "object" && !Array.isArray(locationInput)
-      ? locationInput
-      : parseLocationString(typeof locationInput === "string" ? locationInput : locationLabelInput);
-  const country = normalizeLocationString(base.country);
-  const city = normalizeLocationString(base.city);
-  const region = normalizeLocationString(base.region);
-  const coordinates = parseCoordinatesInput(base.coordinates || base);
-  const explicitLabel = normalizeLocationString(locationLabelInput, 160);
-  const locationLabel = explicitLabel || [city, region, country].filter(Boolean).join(", ");
-  const location = {
-    type: "Point",
-    coordinates:
-      isValidLatitude(coordinates.lat) && isValidLongitude(coordinates.lng)
-        ? [coordinates.lng, coordinates.lat]
-        : undefined,
-    country,
-    city,
-    region,
-    label: locationLabel,
-  };
-  return { location, locationLabel };
-};
 
 const parseMaxDistanceInput = (value) => {
   if (value === null || value === "" || value === "global") return null;
@@ -733,9 +678,10 @@ router.patch("/me", userLimiter, verifyToken, async (req, res) => {
       else if (ALLOWED_INTERESTED_IN.includes(interestedIn)) updates.interestedIn = interestedIn;
     }
     if (location !== undefined || locationLabel !== undefined) {
-      const parsedLocation = parseLocationInput(location, locationLabel);
+      const parsedLocation = normalizeLocationForUserUpdate(location, locationLabel);
       updates.location = parsedLocation.location;
       updates.locationLabel = parsedLocation.locationLabel;
+      updates.locationPoint = parsedLocation.locationPoint;
     }
     if (maxDistanceKm !== undefined) {
       const parsedDistance = parseMaxDistanceInput(maxDistanceKm);
@@ -861,9 +807,10 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
     if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
     if (location !== undefined || locationLabel !== undefined) {
-      const parsedLocation = parseLocationInput(location, locationLabel);
+      const parsedLocation = normalizeLocationForUserUpdate(location, locationLabel);
       updates.location = parsedLocation.location;
       updates.locationLabel = parsedLocation.locationLabel;
+      updates.locationPoint = parsedLocation.locationPoint;
     }
     if (name !== undefined) {
       const trimmed = name.trim();

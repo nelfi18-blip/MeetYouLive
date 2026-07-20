@@ -495,6 +495,33 @@ describe("getFeed", () => {
     expect(fallbackMatch.isSuspended).toEqual({ $ne: true });
   });
 
+  test("returns an empty feed without errors when only administrators remain", async () => {
+    const { getFeed, User, Live, Like, Dislike } = setupController();
+
+    User.findById.mockReturnValue(makeQueryChain(currentUser));
+    User.aggregate.mockResolvedValue([]);
+    User.countDocuments.mockResolvedValue(0);
+    User.find
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]))
+      .mockReturnValueOnce(makeQueryChain([]));
+    Live.find.mockReturnValue(makeQueryChain([]));
+    Like.distinct.mockResolvedValue([]);
+    Dislike.distinct.mockResolvedValue([]);
+
+    const res = makeRes();
+    await getFeed(makeReq(), res);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        profiles: [],
+        recommendedProfiles: [],
+      })
+    );
+  });
+
   test("strict feed excludes users blocked by either side", async () => {
     const { getFeed, User, Live, Like } = setupController();
     const blockedUserId = "507f1f77bcf86cd799439099";

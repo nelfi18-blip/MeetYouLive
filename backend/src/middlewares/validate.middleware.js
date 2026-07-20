@@ -81,6 +81,8 @@ const registerSchema = z.object({
   ref: z.string().optional(),
   agencyCode: z.string().optional(),
   creatorInvite: z.string().optional(),
+  location: z.any().optional(),
+  locationLabel: z.string().optional(),
 });
 
 const loginSchema = z.object({

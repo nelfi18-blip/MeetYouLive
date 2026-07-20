@@ -284,7 +284,7 @@ function AdminUsersInner() {
                             disabled={!!actionLoading}
                             title="Eliminar usuario permanentemente (no se puede deshacer)"
                           >
-                            {actionLoading === u._id + "hard-delete" ? "…" : "🗑️ Eliminar prueba"}
+                            {actionLoading === u._id + "hard-delete" ? "…" : "🗑️ Eliminar usuario"}
                           </button>
                         </div>
                       </td>

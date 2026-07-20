@@ -58,7 +58,7 @@ This implementation adds admin hard delete functionality for test user cleanup a
 **Location**: `frontend/app/admin/users/page.jsx`
 
 **Features**:
-- New button: "🗑️ Eliminar prueba" with danger styling
+- New button: "🗑️ Eliminar usuario" with danger styling
 - Strong confirmation dialog: "Esto eliminará completamente el usuario y sus datos relacionados. No se puede deshacer."
 - Success/error messages displayed in alert banner
 - Auto-refreshes user list after successful deletion

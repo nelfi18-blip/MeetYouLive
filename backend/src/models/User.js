@@ -151,6 +151,66 @@ const locationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const normalizeLocationText = (value, maxLength = 160) =>
+  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
+const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
+
+const normalizeLocationCoordinates = (location = {}) => {
+  const coordinates = location.coordinates;
+  const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
+  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
+  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
+  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
+  return [lng, lat];
+};
+
+const parseLegacyLocationString = (value = "") => {
+  const label = normalizeLocationText(value);
+  const parts = label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return { city: "", region: "", country: "", label: "" };
+  if (parts.length === 1) return { city: "", region: "", country: parts[0], label };
+  return {
+    city: parts[0],
+    region: parts.length > 2 ? parts.slice(1, -1).join(", ") : "",
+    country: parts[parts.length - 1],
+    label,
+  };
+};
+
+function normalizeUserLocationValue(value, fallbackLabel = "") {
+  if (typeof value === "string") {
+    const parsed = parseLegacyLocationString(value);
+    return {
+      type: "Point",
+      country: parsed.country,
+      city: parsed.city,
+      region: parsed.region,
+      label: parsed.label,
+    };
+  }
+
+  const location = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const country = normalizeLocationText(location.country, 80);
+  const city = normalizeLocationText(location.city, 80);
+  const region = normalizeLocationText(location.region, 80);
+  const label =
+    normalizeLocationText(location.label || fallbackLabel) || [city, region, country].filter(Boolean).join(", ");
+  const coordinates = normalizeLocationCoordinates(location);
+  return {
+    type: "Point",
+    ...(coordinates ? { coordinates } : {}),
+    country,
+    city,
+    region,
+    label,
+  };
+}
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, unique: true, sparse: true },
@@ -172,7 +232,7 @@ const userSchema = new mongoose.Schema(
     intent: { type: String, enum: ["dating", "casual", "live", "creator", ""], default: "" },
     interestedIn: { type: String, enum: ["male", "female", "men", "women", "both", ""], default: "both" },
     discoveryPreferences: { type: discoveryPreferencesSchema, default: () => ({}) },
-    location: { type: locationSchema, default: () => ({}) },
+    location: { type: locationSchema, default: () => ({}), set: normalizeUserLocationValue },
     locationPoint: { type: locationPointSchema, default: null },
     locationLabel: { type: String, default: "" },
     maxDistanceKm: { type: Number, default: null, min: 1, max: 10000 },
@@ -332,6 +392,21 @@ userSchema.virtual("age").get(function getAge() {
   return calculateAge(this.birthdate, new Date());
 });
 
+userSchema.pre("init", function normalizeLegacyLocationOnInit(data) {
+  if (!data || typeof data.location !== "string") return;
+  const location = normalizeUserLocationValue(data.location, data.locationLabel);
+  data.location = location;
+  if (!data.locationLabel && location.label) data.locationLabel = location.label;
+});
+
+userSchema.pre("validate", function normalizeLegacyLocationBeforeValidate(next) {
+  if (this.$__.validationError?.errors?.location) {
+    this.location = normalizeUserLocationValue(this.locationLabel);
+    this.$__.validationError = undefined;
+  }
+  next();
+});
+
 userSchema
   .virtual("displayName")
   .get(function getDisplayName() {
@@ -375,5 +450,7 @@ userSchema.index(
 userSchema.index({ locationPoint: "2dsphere" });
 
 const User = mongoose.model("User", userSchema);
+
+User.normalizeLocation = normalizeUserLocationValue;
 
 module.exports = User;

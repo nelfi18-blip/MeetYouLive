@@ -3,12 +3,15 @@ const request = require("supertest");
 const User = require("../../models/User.js");
 const { sendVerificationEmail } = require("../../services/email.service.js");
 
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
+
 jest.mock("../../models/User.js", () => ({
   create: jest.fn(),
   deleteOne: jest.fn(),
   exists: jest.fn(),
   findOne: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  normalizeLocation: jest.fn((value) => ({ type: "Point", country: value, city: "", region: "", label: value })),
 }));
 
 jest.mock("../../services/email.service.js", () => ({
@@ -79,6 +82,7 @@ describe("auth email verification delivery", () => {
       { userId: "user-1", email: "normaluser@example.com" }
     );
     expect(User.deleteOne).not.toHaveBeenCalled();
+    expect(User.create).toHaveBeenCalledWith(expect.not.objectContaining({ location: "usa" }));
   });
 
   test("creator invite registration requires email delivery before returning success", async () => {
@@ -149,5 +153,33 @@ describe("auth email verification delivery", () => {
       code: "EMAIL_DELIVERY_FAILED",
       message: "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
     });
+  });
+
+  test("verify email normalizes a legacy string location before saving", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    User.findOne.mockResolvedValue({
+      _id: "user-legacy-location",
+      email: "legacy@example.com",
+      emailVerified: false,
+      emailVerificationCode: "123456",
+      emailVerificationExpires: new Date(Date.now() + 60_000),
+      location: "usa",
+      locationLabel: "",
+      save,
+    });
+
+    const res = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ email: "legacy@example.com", code: "123456" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    const user = User.findOne.mock.results[0].value instanceof Promise
+      ? await User.findOne.mock.results[0].value
+      : User.findOne.mock.results[0].value;
+    expect(User.normalizeLocation).toHaveBeenCalledWith("usa", "");
+    expect(user.location).toEqual({ type: "Point", country: "usa", city: "", region: "", label: "usa" });
+    expect(user.locationLabel).toBe("usa");
+    expect(save).toHaveBeenCalledTimes(1);
   });
 });

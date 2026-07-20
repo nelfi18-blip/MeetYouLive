@@ -109,4 +109,61 @@ describe("User model profile fields", () => {
     expect(user.images[0].url).toBe("https://example.com/photo.jpg");
     expect(user.location.coordinates).toEqual([-70.66, -33.45]);
   });
+
+  test("converts legacy string location values to the embedded location object", () => {
+    const user = new User({
+      email: "legacy-location@example.com",
+      password: "secret",
+      location: "usa",
+    });
+
+    expect(user.validateSync()).toBeUndefined();
+    expect(user.location.toObject()).toMatchObject({
+      type: "Point",
+      country: "usa",
+      city: "",
+      region: "",
+      label: "usa",
+    });
+  });
+
+  test("hydrates old users with string location without validation errors", () => {
+    const user = User.hydrate({
+      email: "old-location@example.com",
+      password: "secret",
+      location: "Santiago, Chile",
+    });
+
+    expect(user.validateSync()).toBeUndefined();
+    expect(user.location.toObject()).toMatchObject({
+      type: "Point",
+      country: "Chile",
+      city: "Santiago",
+      label: "Santiago, Chile",
+    });
+    expect(user.locationLabel).toBe("Santiago, Chile");
+  });
+
+  test("keeps new object location values in the expected format", () => {
+    const user = new User({
+      email: "object-location@example.com",
+      password: "secret",
+      location: {
+        country: "Chile",
+        city: "Santiago",
+        region: "RM",
+        coordinates: { lat: -33.45, lng: -70.66 },
+      },
+    });
+
+    expect(user.validateSync()).toBeUndefined();
+    expect(user.location.toObject()).toMatchObject({
+      type: "Point",
+      country: "Chile",
+      city: "Santiago",
+      region: "RM",
+      label: "Santiago, RM, Chile",
+      coordinates: [-70.66, -33.45],
+    });
+  });
 });

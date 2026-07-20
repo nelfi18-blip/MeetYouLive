@@ -8,6 +8,31 @@ const { generateUniqueUsername } = require("../services/username.service.js");
 const getGoogleUserPhotoFields = (profile = {}) =>
   makePrimaryUserPhotoFields(profile.photos?.[0]?.value, "google");
 
+async function findOrCreateGoogleUser(profile = {}) {
+  if (!profile.emails || profile.emails.length === 0) {
+    throw new Error("No email found in Google profile");
+  }
+  const email = profile.emails[0].value;
+
+  let user = await User.findOne({ email });
+
+  if (!user) {
+    const username = await generateUniqueUsername(email);
+    user = await User.create({
+      name: profile.displayName,
+      username,
+      email,
+      password: crypto.randomBytes(32).toString("hex"),
+      ...getGoogleUserPhotoFields(profile),
+    });
+  } else if (!user.username) {
+    user.username = await generateUniqueUsername(email, user._id);
+    await user.save();
+  }
+
+  return user;
+}
+
 passport.use(
   new GoogleStrategy(
     {
@@ -17,27 +42,7 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        if (!profile.emails || profile.emails.length === 0) {
-          return done(new Error("No email found in Google profile"), null);
-        }
-        const email = profile.emails[0].value;
-
-        let user = await User.findOne({ email });
-
-        if (!user) {
-          const username = await generateUniqueUsername(email);
-          user = await User.create({
-            name: profile.displayName,
-            username,
-            email,
-            password: crypto.randomBytes(32).toString("hex"),
-            ...getGoogleUserPhotoFields(profile),
-          });
-        } else if (!user.username) {
-          user.username = await generateUniqueUsername(email, user._id);
-          await user.save();
-        }
-
+        const user = await findOrCreateGoogleUser(profile);
         done(null, user);
       } catch (err) {
         done(err, null);
@@ -48,3 +53,4 @@ passport.use(
 
 module.exports = passport;
 module.exports.getGoogleUserPhotoFields = getGoogleUserPhotoFields;
+module.exports.findOrCreateGoogleUser = findOrCreateGoogleUser;

@@ -56,14 +56,19 @@ function getRevenueChartTitle(series) {
   return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
 }
 
-function getUniqueLives(activeLives = [], historyLives = []) {
+function getUniqueLives(primaryLives = [], secondaryLives = []) {
   const seen = new Set();
-  return [...activeLives, ...historyLives].filter((live) => {
+  return [...primaryLives, ...secondaryLives].filter((live) => {
     const id = live?._id;
     if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
   }).slice(0, 5);
+}
+
+function CountBadge({ value }) {
+  if (value == null || value <= 0) return null;
+  return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
@@ -73,9 +78,7 @@ function StatCard({ title, value, sub, icon, href, accent, badge }) {
     <div className={["sc", accent ? `sc--${accent}` : "", href ? "sc--link" : ""].filter(Boolean).join(" ")}>
       <div className="sc-head">
         <span className="sc-icon">{icon}</span>
-        {badge != null && badge > 0 && (
-          <span className="sc-badge">{badge > 99 ? "99+" : badge}</span>
-        )}
+        <CountBadge value={badge} />
       </div>
       <div className="sc-val">{value ?? "—"}</div>
       <div className="sc-title">{title}</div>
@@ -92,9 +95,7 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
     <div className={["exec-card", accent ? `exec-card--${accent}` : "", href ? "exec-card--link" : ""].filter(Boolean).join(" ")}>
       <div className="exec-top">
         <span className="exec-icon">{icon}</span>
-        {badge != null && badge > 0 && (
-          <span className="sc-badge">{badge > 99 ? "99+" : badge}</span>
-        )}
+        <CountBadge value={badge} />
       </div>
       <div className="exec-value">{value ?? "—"}</div>
       <div className="exec-title">{title}</div>
@@ -259,6 +260,14 @@ function ActivityLine({ primary, secondary, meta, accent }) {
   );
 }
 
+async function readOptionalJson(response, fallback, label) {
+  if (!response.ok) {
+    console.error(`[admin-dashboard] ${label} request failed`, response.status);
+    return fallback;
+  }
+  return response.json();
+}
+
 // ── Retention Badge ───────────────────────────────────────────────────────────
 
 function RetentionCard({ label, value, sub }) {
@@ -311,11 +320,11 @@ export default function AdminDashboard() {
         return;
       }
       const [usersData, creatorsData, purchasesData, historyLivesData, reportsData] = await Promise.all([
-        usersRes.ok ? usersRes.json() : Promise.resolve({ users: [] }),
-        creatorsRes.ok ? creatorsRes.json() : Promise.resolve({ creators: [] }),
-        purchasesRes.ok ? purchasesRes.json() : Promise.resolve({ transactions: [] }),
-        historyLivesRes.ok ? historyLivesRes.json() : Promise.resolve({ lives: [] }),
-        reportsRes.ok ? reportsRes.json() : Promise.resolve({ reports: [] }),
+        readOptionalJson(usersRes, { users: [] }, "users"),
+        readOptionalJson(creatorsRes, { creators: [] }, "creators"),
+        readOptionalJson(purchasesRes, { transactions: [] }, "purchases"),
+        readOptionalJson(historyLivesRes, { lives: [] }, "lives history"),
+        readOptionalJson(reportsRes, { reports: [] }, "reports"),
       ]);
       setRecent({
         users: usersData.users || [],
@@ -325,7 +334,8 @@ export default function AdminDashboard() {
         reports: reportsData.reports || [],
       });
       recentLoadedRef.current = true;
-    } catch {
+    } catch (err) {
+      console.error("[admin-dashboard] recent activity failed", err);
       setRecent({ users: [], creators: [], purchases: [], lives: [], reports: [] });
     }
   }, [authHeader, router]);
@@ -1293,7 +1303,7 @@ export default function AdminDashboard() {
           gap: 0.85rem;
         }
 
-        @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) { .charts-row { grid-template-columns: 1fr; } }
 
         .chart-panel {
           background: var(--bg-card);

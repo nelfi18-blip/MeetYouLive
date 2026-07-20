@@ -182,7 +182,7 @@ const parseLegacyLocationString = (value = "") => {
   };
 };
 
-function normalizeUserLocationValue(value, fallbackLabel = "") {
+const normalizeUserLocationValue = (value, fallbackLabel = "") => {
   if (typeof value === "string") {
     const parsed = parseLegacyLocationString(value);
     return {
@@ -209,7 +209,7 @@ function normalizeUserLocationValue(value, fallbackLabel = "") {
     region,
     label,
   };
-}
+};
 
 const userSchema = new mongoose.Schema(
   {
@@ -397,17 +397,6 @@ userSchema.pre("init", function normalizeLegacyLocationOnInit(data) {
   const location = normalizeUserLocationValue(data.location, data.locationLabel);
   data.location = location;
   if (!data.locationLabel && location.label) data.locationLabel = location.label;
-});
-
-userSchema.pre("validate", function normalizeLegacyLocationBeforeValidate(next) {
-  if (this.$__.validationError?.errors?.location) {
-    this.location = normalizeUserLocationValue(this.locationLabel);
-    delete this.$__.validationError.errors.location;
-    if (Object.keys(this.$__.validationError.errors).length === 0) {
-      this.$__.validationError = undefined;
-    }
-  }
-  next();
 });
 
 userSchema

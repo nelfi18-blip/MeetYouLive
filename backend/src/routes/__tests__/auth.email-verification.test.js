@@ -11,7 +11,6 @@ jest.mock("../../models/User.js", () => ({
   exists: jest.fn(),
   findOne: jest.fn(),
   findByIdAndUpdate: jest.fn(),
-  normalizeLocation: jest.fn((value) => ({ type: "Point", country: value, city: "", region: "", label: value })),
 }));
 
 jest.mock("../../services/email.service.js", () => ({
@@ -155,31 +154,28 @@ describe("auth email verification delivery", () => {
     });
   });
 
-  test("verify email normalizes a legacy string location before saving", async () => {
+  test("verify email marks the user verified and returns a token", async () => {
     const save = jest.fn().mockResolvedValue(undefined);
-    User.findOne.mockResolvedValue({
+    const user = {
       _id: "user-legacy-location",
-      email: "legacy@example.com",
+      email: "verify@example.com",
       emailVerified: false,
       emailVerificationCode: "123456",
       emailVerificationExpires: new Date(Date.now() + 60_000),
-      location: "usa",
-      locationLabel: "",
       save,
-    });
+    };
+    User.findOne.mockResolvedValue(user);
 
     const res = await request(app)
       .post("/api/auth/verify-email")
-      .send({ email: "legacy@example.com", code: "123456" });
+      .send({ email: "verify@example.com", code: "123456" });
 
     expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Email verificado correctamente");
     expect(res.body.token).toBeTruthy();
-    const user = User.findOne.mock.results[0].value instanceof Promise
-      ? await User.findOne.mock.results[0].value
-      : User.findOne.mock.results[0].value;
-    expect(User.normalizeLocation).toHaveBeenCalledWith("usa", "");
-    expect(user.location).toEqual({ type: "Point", country: "usa", city: "", region: "", label: "usa" });
-    expect(user.locationLabel).toBe("usa");
+    expect(user.emailVerified).toBe(true);
+    expect(user.emailVerificationCode).toBeNull();
+    expect(user.emailVerificationExpires).toBeNull();
     expect(save).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,11 @@ const normalizeLocationText = (value, maxLength = 160) =>
 const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
 const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
 
+/**
+ * Accept coordinates as GeoJSON [lng, lat], { lat, lng }, { latitude, longitude },
+ * or nested location.coordinates objects, and return GeoJSON [lng, lat].
+ * Returns undefined when either coordinate is missing or outside the valid range.
+ */
 const normalizeLocationCoordinates = (location = {}) => {
   const coordinates = location.coordinates;
   const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
@@ -15,6 +20,11 @@ const normalizeLocationCoordinates = (location = {}) => {
   return [lng, lat];
 };
 
+/**
+ * Convert old free-form location strings into object fields.
+ * Examples: "usa" => country only; "Santiago, Chile" => city + country;
+ * "Santiago, RM, Chile" => city + region + country.
+ */
 const parseLegacyLocationString = (value = "") => {
   const label = normalizeLocationText(value);
   const parts = label
@@ -31,6 +41,10 @@ const parseLegacyLocationString = (value = "") => {
   };
 };
 
+/**
+ * Mongoose location setter used for both legacy strings and modern object input.
+ * fallbackLabel preserves an existing locationLabel while hydrating old users.
+ */
 const normalizeUserLocationValue = (value, fallbackLabel = "") => {
   if (typeof value === "string") {
     const parsed = parseLegacyLocationString(value);
@@ -62,6 +76,11 @@ const normalizeUserLocationValue = (value, fallbackLabel = "") => {
   };
 };
 
+/**
+ * Unified entry point for registration, onboarding, and profile updates.
+ * Returns the embedded location object, its display label, and the indexed
+ * locationPoint value derived from valid coordinates.
+ */
 const normalizeLocationForUserUpdate = (locationInput, locationLabelInput = "") => {
   const location = normalizeUserLocationValue(locationInput, locationLabelInput);
   return {

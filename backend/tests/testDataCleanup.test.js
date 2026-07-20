@@ -191,6 +191,10 @@ describe("test data cleanup safety", () => {
 
     expect(first.dryRun).toBe(false);
     expect(first.counts.deletedDocuments.users).toBe(1);
+    expect(Chat.deleteMany).toHaveBeenCalled();
+    expect(Video.deleteMany).toHaveBeenCalled();
+    expect(ExclusiveContent.deleteMany).toHaveBeenCalled();
+    expect(SocialRoomMessage.deleteMany).toHaveBeenCalled();
     expect(User.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ _id: { $nin: [expect.anything()] } }),
       expect.objectContaining({ $pull: expect.objectContaining({ followers: expect.any(Object) }) }),

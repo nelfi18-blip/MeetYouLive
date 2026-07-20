@@ -48,6 +48,11 @@ This script selects every User whose role is not one of the configured administr
 It does not print emails, names, tokens, connection strings, or secrets.`);
 }
 
+/**
+ * Redact sensitive values before logging cleanup failures.
+ * Scrubs MongoDB connection strings and password/secret/token/key query-style
+ * parameters so operational errors do not expose credentials.
+ */
 function safeErrorMessage(error) {
   const message = error?.message || "Unknown cleanup error";
   return String(message)

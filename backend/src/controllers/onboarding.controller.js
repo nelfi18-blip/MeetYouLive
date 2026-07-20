@@ -10,6 +10,7 @@ const {
   getMissingProfileFields,
   getProfileCompletionStatus,
 } = require("../lib/profileCompletion.js");
+const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 
 const MAX_IMAGES = 6;
 const MAX_INTERESTS = 10;
@@ -20,9 +21,6 @@ const ALLOWED_INTENTS = new Set(["dating", "casual", "live", "creator"]);
 
 const normalizeText = (value, maxLength = 160) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-
-const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
-const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
 
 const normalizeGender = (value) => {
   const normalized = normalizeText(value, 40);
@@ -45,33 +43,6 @@ const parseBirthdate = (value) => {
 const parseDateOrNow = (value) => {
   const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? new Date() : date;
-};
-
-const normalizeCoordinates = (location = {}) => {
-  const coordinates = location.coordinates;
-  const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
-  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
-  return [lng, lat];
-};
-
-const normalizeLocation = (input = {}, locationLabelInput = "") => {
-  const location = input && typeof input === "object" && !Array.isArray(input) ? input : {};
-  const country = normalizeText(location.country, 80);
-  const city = normalizeText(location.city, 80);
-  const region = normalizeText(location.region, 80);
-  const label =
-    normalizeText(location.label || locationLabelInput, 160) || [city, region, country].filter(Boolean).join(", ");
-  const coordinates = normalizeCoordinates(location);
-  return {
-    type: "Point",
-    coordinates,
-    country,
-    city,
-    region,
-    label,
-  };
 };
 
 const getPhotoInputUrl = (value) => {
@@ -163,7 +134,11 @@ const updateOnboarding = async (req, res) => {
     const gender = normalizeGender(req.body.gender ?? currentUser.gender);
     const interestedIn = normalizeInterestedIn(req.body.interestedIn ?? req.body.genderPreference ?? currentUser.interestedIn);
     const birthdate = parseBirthdate(req.body.birthdate ?? currentUser.birthdate);
-    const location = normalizeLocation(req.body.location ?? currentUser.location, req.body.locationLabel ?? currentUser.locationLabel);
+    const parsedLocation = normalizeLocationForUserUpdate(
+      req.body.location ?? currentUser.location,
+      req.body.locationLabel ?? currentUser.locationLabel
+    );
+    const location = parsedLocation.location;
     const interests = Array.isArray(req.body.interests)
       ? req.body.interests.map((interest) => normalizeText(interest, 40)).filter(Boolean).slice(0, MAX_INTERESTS)
       : currentUser.interests || [];
@@ -199,8 +174,8 @@ const updateOnboarding = async (req, res) => {
       gender: ALLOWED_GENDERS.has(gender) ? gender : currentUser.gender,
       interestedIn: ALLOWED_INTERESTED_IN.has(interestedIn) ? interestedIn : currentUser.interestedIn || "both",
       location,
-      locationPoint: location.coordinates ? { type: "Point", coordinates: location.coordinates } : null,
-      locationLabel: location.label,
+      locationPoint: parsedLocation.locationPoint,
+      locationLabel: parsedLocation.locationLabel,
       interests,
       intent: ALLOWED_INTENTS.has(intent) ? intent : currentUser.intent || "",
       onboardingComplete,

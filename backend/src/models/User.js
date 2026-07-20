@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
 const { calculateAge } = require("../lib/age.js");
+const {
+  isValidLatitude,
+  isValidLongitude,
+  normalizeUserLocationValue,
+} = require("../lib/location.js");
 
 const agencyProfileSchema = new mongoose.Schema(
   {
@@ -150,85 +155,6 @@ const locationSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
-/**
- * Trim location text fields and cap their length so legacy free-form values
- * cannot be persisted as excessively long strings.
- */
-const normalizeLocationText = (value, maxLength = 160) =>
-  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
-
-/** Latitude must be a finite number in the GeoJSON-valid -90..90 range. */
-const isValidLatitude = (value) => Number.isFinite(value) && value >= -90 && value <= 90;
-/** Longitude must be a finite number in the GeoJSON-valid -180..180 range. */
-const isValidLongitude = (value) => Number.isFinite(value) && value >= -180 && value <= 180;
-
-/**
- * Accept coordinates as GeoJSON [lng, lat], { lat, lng }, { latitude, longitude },
- * or nested location.coordinates objects, and return GeoJSON [lng, lat].
- */
-const normalizeLocationCoordinates = (location = {}) => {
-  const coordinates = location.coordinates;
-  const [arrayLng, arrayLat] = Array.isArray(coordinates) ? coordinates : [];
-  const lat = Number(arrayLat ?? coordinates?.lat ?? coordinates?.latitude ?? location.lat ?? location.latitude);
-  const lng = Number(arrayLng ?? coordinates?.lng ?? coordinates?.longitude ?? location.lng ?? location.longitude);
-  if (!isValidLatitude(lat) || !isValidLongitude(lng)) return undefined;
-  return [lng, lat];
-};
-
-/**
- * Convert old free-form location strings into object fields.
- * Examples: "usa" => country only; "Santiago, Chile" => city + country;
- * "Santiago, RM, Chile" => city + region + country.
- */
-const parseLegacyLocationString = (value = "") => {
-  const label = normalizeLocationText(value);
-  const parts = label
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return { city: "", region: "", country: "", label: "" };
-  if (parts.length === 1) return { city: "", region: "", country: parts[0], label };
-  return {
-    city: parts[0],
-    region: parts.length > 2 ? parts.slice(1, -1).join(", ") : "",
-    country: parts[parts.length - 1],
-    label,
-  };
-};
-
-/**
- * Mongoose location setter used for both legacy strings and modern object input.
- * fallbackLabel preserves an existing locationLabel while hydrating old users.
- */
-const normalizeUserLocationValue = (value, fallbackLabel = "") => {
-  if (typeof value === "string") {
-    const parsed = parseLegacyLocationString(value);
-    return {
-      type: "Point",
-      country: parsed.country,
-      city: parsed.city,
-      region: parsed.region,
-      label: parsed.label,
-    };
-  }
-
-  const location = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const country = normalizeLocationText(location.country, 80);
-  const city = normalizeLocationText(location.city, 80);
-  const region = normalizeLocationText(location.region, 80);
-  const label =
-    normalizeLocationText(location.label || fallbackLabel) || [city, region, country].filter(Boolean).join(", ");
-  const coordinates = normalizeLocationCoordinates(location);
-  return {
-    type: "Point",
-    ...(coordinates ? { coordinates } : {}),
-    country,
-    city,
-    region,
-    label,
-  };
-};
 
 const userSchema = new mongoose.Schema(
   {

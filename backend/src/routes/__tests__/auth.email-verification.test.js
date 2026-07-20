@@ -84,6 +84,58 @@ describe("auth email verification delivery", () => {
     expect(User.create).toHaveBeenCalledWith(expect.not.objectContaining({ location: "usa" }));
   });
 
+  test("new registration stores structured location objects safely", async () => {
+    User.create.mockResolvedValue({ _id: "user-location-object" });
+
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({
+        username: "locationobject",
+        email: "location-object@example.com",
+        password: "password123",
+        location: { country: "USA", city: "", region: "" },
+      });
+
+    expect(res.status).toBe(201);
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
+      location: expect.objectContaining({
+        type: "Point",
+        country: "USA",
+        city: "",
+        region: "",
+        label: "USA",
+      }),
+      locationLabel: "USA",
+      locationPoint: null,
+    }));
+  });
+
+  test("new registration normalizes legacy string location before saving", async () => {
+    User.create.mockResolvedValue({ _id: "user-location-string" });
+
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({
+        username: "locationstring",
+        email: "location-string@example.com",
+        password: "password123",
+        location: "usa",
+      });
+
+    expect(res.status).toBe(201);
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
+      location: expect.objectContaining({
+        type: "Point",
+        country: "usa",
+        city: "",
+        region: "",
+        label: "usa",
+      }),
+      locationLabel: "usa",
+      locationPoint: null,
+    }));
+  });
+
   test("creator invite registration requires email delivery before returning success", async () => {
     User.findOne.mockReturnValueOnce(makeInviteQuery({ _id: "creator-1" }));
     User.create.mockResolvedValue({ _id: "subcreator-1" });

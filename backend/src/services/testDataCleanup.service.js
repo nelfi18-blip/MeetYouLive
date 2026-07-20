@@ -47,6 +47,7 @@ const STAFF_ROLES = [
 ];
 
 const EXECUTE_CONFIRMATION = "DELETE_TEST_DATA";
+const PRODUCTION_EXECUTE_CONFIRMATION = "DELETE_NON_ADMIN_USERS";
 const TEST_LIKE_REGEX = /(\btest\b|\btesting\b|\bdemo\b|\bfake\b|\bsample\b|\bprueba\b|\bficticio\b)/i;
 
 function splitCsv(value) {
@@ -85,7 +86,9 @@ function normalizeCleanupOptions(rawOptions = {}) {
     emails: splitCsv(rawOptions.emails || rawOptions.emailsCsv).map(normalizeEmail),
     emailDomains: splitCsv(rawOptions.emailDomains || rawOptions.emailDomainsCsv).map(normalizeDomain),
     emailRegex: rawOptions.emailRegex ? String(rawOptions.emailRegex) : "",
+    allNonAdministrative: Boolean(rawOptions.allNonAdministrative),
     includeAmbiguousReport: rawOptions.includeAmbiguousReport !== false,
+    includeSelectedUsers: rawOptions.includeSelectedUsers !== false,
   };
 }
 
@@ -100,6 +103,12 @@ function hasExplicitSelector(options) {
 
 function buildTestUserFilter(options) {
   const normalized = normalizeCleanupOptions(options);
+  if (normalized.allNonAdministrative) {
+    return {
+      role: { $nin: STAFF_ROLES },
+    };
+  }
+
   const selectors = [];
 
   if (normalized.userIds.length) {
@@ -137,12 +146,16 @@ function assertCanExecuteCleanup(options) {
     throw new Error(`Invalid user id selector(s): ${normalized.invalidUserIds.join(", ")}`);
   }
 
-  if (!hasExplicitSelector(normalized)) {
+  if (!normalized.allNonAdministrative && !hasExplicitSelector(normalized)) {
     throw new Error("No cleanup was run: provide explicit test-user selectors first.");
   }
 
-  if (normalized.execute && normalized.confirm !== EXECUTE_CONFIRMATION) {
-    throw new Error(`Refusing destructive cleanup without --confirm=${EXECUTE_CONFIRMATION}`);
+  const expectedConfirmation = normalized.allNonAdministrative
+    ? PRODUCTION_EXECUTE_CONFIRMATION
+    : EXECUTE_CONFIRMATION;
+
+  if (normalized.execute && normalized.confirm !== expectedConfirmation) {
+    throw new Error(`Refusing destructive cleanup without --confirm=${expectedConfirmation}`);
   }
 
   return normalized;
@@ -207,6 +220,12 @@ async function updateOrCount(Model, query, update, execute, options) {
 async function cleanupTestData(rawOptions = {}) {
   const options = assertCanExecuteCleanup(rawOptions);
   const candidates = await getCandidateUsers(options);
+  // Defense in depth: abort even if a future query change accidentally returns
+  // an administrative role that the filter is supposed to exclude.
+  const protectedCandidate = candidates.find((user) => STAFF_ROLES.includes(user.role));
+  if (protectedCandidate) {
+    throw new Error(`Safety abort: administrative role candidate detected (${protectedCandidate.role}).`);
+  }
   const testUserIds = candidates.map((user) => user._id);
   const testUserIdStrings = candidates.map((user) => String(user._id));
   // Creator applications live on User, so pending/rejected creatorStatus values count
@@ -217,17 +236,21 @@ async function cleanupTestData(rawOptions = {}) {
 
   const report = {
     dryRun: !options.execute,
-    selectedUsers: candidates.map((user) => ({
-      id: String(user._id),
-      username: user.username || "",
-      name: user.name || "",
-      email: user.email,
-      role: user.role,
-      creatorStatus: user.creatorStatus,
-      createdAt: user.createdAt,
-    })),
+    mode: options.allNonAdministrative ? "production-non-admin-cleanup" : "test-data-cleanup",
+    selectedUsers: options.includeSelectedUsers
+      ? candidates.map((user) => ({
+          id: String(user._id),
+          username: user.username || "",
+          name: user.name || "",
+          email: user.email,
+          role: user.role,
+          creatorStatus: user.creatorStatus,
+          createdAt: user.createdAt,
+        }))
+      : [],
     preservedAmbiguousUsers: [],
     counts: {
+      administratorsPreserved: await User.countDocuments({ role: { $in: STAFF_ROLES } }),
       users: candidates.length,
       creators: creatorCount,
       lives: 0,
@@ -238,7 +261,9 @@ async function cleanupTestData(rawOptions = {}) {
     },
     protected: {
       staffRoles: STAFF_ROLES,
+      deleteFilter: { role: { $nin: STAFF_ROLES } },
       configurationCollectionsTouched: [],
+      financialCollectionsDeletedWithUserData: ["payouts", "purchases", "subscriptions", "withdrawalRequests"],
     },
   };
 
@@ -440,6 +465,7 @@ function formatCleanupReport(report) {
 
 module.exports = {
   EXECUTE_CONFIRMATION,
+  PRODUCTION_EXECUTE_CONFIRMATION,
   STAFF_ROLES,
   assertCanExecuteCleanup,
   buildTestUserFilter,

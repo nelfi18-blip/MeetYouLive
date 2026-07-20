@@ -166,4 +166,38 @@ describe("User model profile fields", () => {
       coordinates: [-70.66, -33.45],
     });
   });
+
+  test("accepts null or missing location without validation errors", () => {
+    const nullLocationUser = new User({
+      email: "null-location@example.com",
+      password: "secret",
+      location: null,
+    });
+    const missingLocationUser = new User({
+      email: "missing-location@example.com",
+      password: "secret",
+    });
+
+    expect(nullLocationUser.validateSync()).toBeUndefined();
+    expect(missingLocationUser.validateSync()).toBeUndefined();
+    expect(nullLocationUser.location.toObject()).toMatchObject({
+      type: "Point",
+      country: "",
+      city: "",
+      region: "",
+      label: "",
+    });
+  });
+
+  test("normalizing an already normalized location is idempotent", () => {
+    const first = User.normalizeLocation({
+      country: "USA",
+      city: "",
+      region: "",
+      label: "USA",
+    });
+    const second = User.normalizeLocation(first);
+
+    expect(second).toEqual(first);
+  });
 });

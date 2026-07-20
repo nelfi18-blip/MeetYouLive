@@ -45,4 +45,28 @@ describe("Google Passport photo persistence", () => {
     }));
     expect(user.location).toBeUndefined();
   });
+
+  test("Google login can save an old user that had primitive location data", async () => {
+    const legacyUser = User.hydrate({
+      _id: "507f1f77bcf86cd799439011",
+      email: "legacy-google@example.com",
+      password: "secret",
+      location: "usa",
+    });
+    legacyUser.save = jest.fn().mockResolvedValue(legacyUser);
+    jest.spyOn(User, "findOne").mockResolvedValue(legacyUser);
+    jest.spyOn(User, "exists").mockResolvedValue(false);
+
+    const user = await findOrCreateGoogleUser({
+      displayName: "Legacy Google User",
+      emails: [{ value: "legacy-google@example.com" }],
+    });
+
+    expect(user.location.toObject()).toMatchObject({
+      type: "Point",
+      country: "usa",
+      label: "usa",
+    });
+    expect(legacyUser.save).toHaveBeenCalledTimes(1);
+  });
 });

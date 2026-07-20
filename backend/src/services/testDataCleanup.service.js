@@ -229,9 +229,9 @@ async function updateOrCount(Model, query, update, execute, options) {
 }
 
 async function countPlannedOrphanReferences({ collection, field, Model, query, reason }) {
-  const documents = await Model.countDocuments(query);
-  if (!documents) return null;
-  return { collection, field, documents, reason };
+  const documentCount = await Model.countDocuments(query);
+  if (!documentCount) return null;
+  return { collection, field, documentCount, reason };
 }
 
 async function cleanupTestData(rawOptions = {}) {
@@ -487,7 +487,8 @@ async function cleanupTestData(rawOptions = {}) {
         field: "staffId",
         Model: StaffAuditLog,
         query: { staffId: inUsers },
-        reason: "staffId is a required staff reference and is not pruned by the cleanup plan.",
+        reason:
+          "staffId should point only to preserved staff users; a match means inconsistent audit data would point at a deleted non-admin user.",
       }),
     ])
   ).filter(Boolean);

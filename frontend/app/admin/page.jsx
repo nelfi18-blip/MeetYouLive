@@ -23,11 +23,19 @@ function fmt(n) {
 
 function fmtDate(value) {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function getDisplayName(user) {
   return user?.name || user?.username || user?.email || "—";
+}
+
+function getSecondaryUserInfo(user) {
+  const primary = getDisplayName(user);
+  const secondary = user?.email || user?.username || user?.role;
+  return secondary && secondary !== primary ? secondary : user?.role || "";
 }
 
 function getTodaySeriesValue(series, key = "total") {
@@ -165,7 +173,7 @@ function ChartPanel({ title, data, valueKey, color }) {
 
 // ── Top Table ─────────────────────────────────────────────────────────────────
 
-function TopTable({ title, rows, linkHref }) {
+function TopTable({ title, rows, valueLabel = "🪙", linkHref }) {
   return (
     <div className="top-table">
       <div className="tt-header">
@@ -190,7 +198,7 @@ function TopTable({ title, rows, linkHref }) {
                 <span className="tt-name">{r.user?.name || r.user?.username || "—"}</span>
               </div>
               <span className="tt-val">
-                {(r.totalGifts ?? r.totalSpent ?? 0).toLocaleString()} 🪙
+                {(r.totalGifts ?? r.totalSpent ?? 0).toLocaleString()} {valueLabel}
               </span>
             </div>
           ))}
@@ -271,6 +279,43 @@ export default function AdminDashboard() {
     return { Authorization: `Bearer ${token}` };
   }, []);
 
+  const loadRecentData = useCallback(async () => {
+    const token = localStorage.getItem("admin_token");
+    if (!token) return;
+    try {
+      const [usersRes, creatorsRes, purchasesRes, activeLivesRes, historyLivesRes, reportsRes] = await Promise.all([
+        fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/lives`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
+      ]);
+      if (usersRes.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      const [usersData, creatorsData, purchasesData, activeLivesData, historyLivesData, reportsData] = await Promise.all([
+        usersRes.ok ? usersRes.json() : Promise.resolve({ users: [] }),
+        creatorsRes.ok ? creatorsRes.json() : Promise.resolve({ creators: [] }),
+        purchasesRes.ok ? purchasesRes.json() : Promise.resolve({ transactions: [] }),
+        activeLivesRes.ok ? activeLivesRes.json() : Promise.resolve({ lives: [] }),
+        historyLivesRes.ok ? historyLivesRes.json() : Promise.resolve({ lives: [] }),
+        reportsRes.ok ? reportsRes.json() : Promise.resolve({ reports: [] }),
+      ]);
+      setRecent({
+        users: usersData.users || [],
+        creators: creatorsData.creators || [],
+        purchases: purchasesData.transactions || [],
+        lives: getUniqueLives(activeLivesData.lives, historyLivesData.lives),
+        reports: reportsData.reports || [],
+      });
+    } catch {
+      setRecent({ users: [], creators: [], purchases: [], lives: [], reports: [] });
+    }
+  }, [authHeader, router]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -281,26 +326,10 @@ export default function AdminDashboard() {
       return;
     }
     try {
-      const [
-        overviewRes,
-        analyticsRes,
-        revenueRes,
-        usersRes,
-        creatorsRes,
-        purchasesRes,
-        activeLivesRes,
-        historyLivesRes,
-        reportsRes,
-      ] = await Promise.all([
+      const [overviewRes, analyticsRes, revenueRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/overview`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/lives`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
       ]);
 
       if (overviewRes.status === 401 || analyticsRes.status === 401) {
@@ -327,22 +356,6 @@ export default function AdminDashboard() {
       } else {
         setRevenue(null);
       }
-
-      const [usersData, creatorsData, purchasesData, activeLivesData, historyLivesData, reportsData] = await Promise.all([
-        usersRes.ok ? usersRes.json() : Promise.resolve({ users: [] }),
-        creatorsRes.ok ? creatorsRes.json() : Promise.resolve({ creators: [] }),
-        purchasesRes.ok ? purchasesRes.json() : Promise.resolve({ transactions: [] }),
-        activeLivesRes.ok ? activeLivesRes.json() : Promise.resolve({ lives: [] }),
-        historyLivesRes.ok ? historyLivesRes.json() : Promise.resolve({ lives: [] }),
-        reportsRes.ok ? reportsRes.json() : Promise.resolve({ reports: [] }),
-      ]);
-      setRecent({
-        users: usersData.users || [],
-        creators: creatorsData.creators || [],
-        purchases: purchasesData.transactions || [],
-        lives: getUniqueLives(activeLivesData.lives, historyLivesData.lives),
-        reports: reportsData.reports || [],
-      });
     } catch {
       setError("Error cargando datos del dashboard.");
     } finally {
@@ -351,6 +364,9 @@ export default function AdminDashboard() {
   }, [authHeader, router]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (!loading && !error) loadRecentData();
+  }, [error, loadRecentData, loading]);
 
   if (loading) {
     return (
@@ -422,7 +438,7 @@ export default function AdminDashboard() {
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
           <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total acumulado" accent="purple" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={dailyRevenueSeries.length ? `${fmt(todayRevenueCoins)} 🪙` : "—"} sub={dailyRevenueSeries.length ? "Compras completadas hoy" : "Sin datos disponibles"} accent="gold" href="/admin/revenue" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={dailyRevenueSeries.length ? `${fmt(todayRevenueCoins)} 🪙` : "—"} sub={dailyRevenueSeries.length ? "Ingresos de la plataforma hoy" : "Sin datos disponibles"} accent="gold" href="/admin/revenue" />
           <ExecutiveCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo ahora" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
           <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
           <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
@@ -450,7 +466,7 @@ export default function AdminDashboard() {
             items={recent.users}
             href="/admin/users"
             renderItem={(user) => (
-              <ActivityLine primary={getDisplayName(user)} secondary={user.email || user.username} meta={fmtDate(user.createdAt)} accent="purple" />
+              <ActivityLine primary={getDisplayName(user)} secondary={getSecondaryUserInfo(user)} meta={fmtDate(user.createdAt)} accent="purple" />
             )}
           />
           <ActivityList
@@ -525,8 +541,8 @@ export default function AdminDashboard() {
             <StatCard icon="📊" title="Total registros (7d)" value={fmt(s.recentRegistrations)} sub="Nuevos usuarios" accent="blue" />
           </div>
           <div className="tables-duo">
-            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} linkHref="/admin/creators" />
-            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} linkHref="/admin/transactions" />
+            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} valueLabel="🪙" linkHref="/admin/creators" />
+            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} valueLabel="🪙" linkHref="/admin/transactions" />
           </div>
         </CollapsibleSection>
 
@@ -561,7 +577,7 @@ export default function AdminDashboard() {
           <div className="charts-row">
             <ChartPanel title="Registros diarios (7d)" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
             <ChartPanel title="Coins comprados por día (7d)" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
-            <ChartPanel title="Ingresos (30d)" data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
+            <ChartPanel title={`Ingresos (${dailyRevenueSeries.length || 30}d)`} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
           </div>
         </CollapsibleSection>
       </div>
@@ -834,6 +850,10 @@ export default function AdminDashboard() {
 
         .collapse-summary::-webkit-details-marker { display: none; }
         .collapse-summary:hover { background: rgba(124,58,237,0.06); }
+        .collapse-summary:focus-visible {
+          outline: 2px solid rgba(167,139,250,0.75);
+          outline-offset: -4px;
+        }
         .collapse-summary .sh { flex: 1; margin-bottom: 0; min-width: 0; }
 
         .collapse-chevron {

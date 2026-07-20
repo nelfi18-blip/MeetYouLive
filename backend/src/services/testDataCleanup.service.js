@@ -220,6 +220,8 @@ async function updateOrCount(Model, query, update, execute, options) {
 async function cleanupTestData(rawOptions = {}) {
   const options = assertCanExecuteCleanup(rawOptions);
   const candidates = await getCandidateUsers(options);
+  // Defense in depth: abort even if a future query change accidentally returns
+  // an administrative role that the filter is supposed to exclude.
   const protectedCandidate = candidates.find((user) => STAFF_ROLES.includes(user.role));
   if (protectedCandidate) {
     throw new Error(`Safety abort: administrative role candidate detected (${protectedCandidate.role}).`);

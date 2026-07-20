@@ -47,7 +47,7 @@ It does not print emails, names, tokens, connection strings, or secrets.`);
 function safeErrorMessage(error) {
   const message = error?.message || "Unknown cleanup error";
   return String(message)
-    .replace(/mongodb(?:\+srv)?:\/\/[^\s]+/gi, "[redacted-mongodb-uri]")
+    .replace(/mongodb(?:\+srv)?:\/\/(?:[^\s/@]+:[^\s/@]*@)?[^\s]+/gi, "[redacted-mongodb-uri]")
     .replace(/(password|secret|token|key)=([^&\s]+)/gi, "$1=[redacted]");
 }
 

@@ -165,9 +165,9 @@ describe("test data cleanup safety", () => {
     jest.spyOn(SocialRoomMessage, "find").mockReturnValue(makeFindChain([{ room: "507f1f77bcf86cd799439025" }]));
 
     for (const Model of relatedModels) {
-      if (!Model.countDocuments._isMockFunction) jest.spyOn(Model, "countDocuments").mockResolvedValue(0);
-      if (!Model.deleteMany._isMockFunction) jest.spyOn(Model, "deleteMany").mockResolvedValue({ deletedCount: 0 });
-      if (!Model.updateMany._isMockFunction) jest.spyOn(Model, "updateMany").mockResolvedValue({ modifiedCount: 0 });
+      jest.spyOn(Model, "countDocuments").mockResolvedValue(0);
+      jest.spyOn(Model, "deleteMany").mockResolvedValue({ deletedCount: 0 });
+      jest.spyOn(Model, "updateMany").mockResolvedValue({ modifiedCount: 0 });
     }
     User.countDocuments
       .mockResolvedValueOnce(1)

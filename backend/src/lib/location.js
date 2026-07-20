@@ -46,6 +46,7 @@ const normalizeUserLocationValue = (value, fallbackLabel = "") => {
   const location = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const country = normalizeLocationText(location.country, 80);
   const city = normalizeLocationText(location.city, 80);
+  // Older clients used `state`; the persisted schema field remains `region`.
   const region = normalizeLocationText(location.region ?? location.state, 80);
   const label =
     normalizeLocationText(location.label || fallbackLabel) || [city, region, country].filter(Boolean).join(", ");

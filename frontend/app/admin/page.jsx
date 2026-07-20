@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
@@ -40,6 +40,20 @@ function getSecondaryUserInfo(user) {
 
 function getTodaySeriesValue(series, key = "total") {
   return series?.length ? series[series.length - 1]?.[key] ?? 0 : 0;
+}
+
+function getTodayRevenueSummary(series) {
+  if (!series?.length) {
+    return { value: "—", sub: "Sin datos disponibles" };
+  }
+  return {
+    value: `${fmt(getTodaySeriesValue(series, "total"))} 🪙`,
+    sub: "Ingresos de la plataforma hoy",
+  };
+}
+
+function getRevenueChartTitle(series) {
+  return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
 }
 
 function getUniqueLives(activeLives = [], historyLives = []) {
@@ -273,6 +287,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -283,11 +298,10 @@ export default function AdminDashboard() {
     const token = localStorage.getItem("admin_token");
     if (!token) return;
     try {
-      const [usersRes, creatorsRes, purchasesRes, activeLivesRes, historyLivesRes, reportsRes] = await Promise.all([
+      const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/users?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/creators?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/lives`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/lives/history?limit=5`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/reports?page=1&limit=5`, { headers: authHeader(), cache: "no-store" }),
       ]);
@@ -296,11 +310,10 @@ export default function AdminDashboard() {
         router.replace("/admin/login");
         return;
       }
-      const [usersData, creatorsData, purchasesData, activeLivesData, historyLivesData, reportsData] = await Promise.all([
+      const [usersData, creatorsData, purchasesData, historyLivesData, reportsData] = await Promise.all([
         usersRes.ok ? usersRes.json() : Promise.resolve({ users: [] }),
         creatorsRes.ok ? creatorsRes.json() : Promise.resolve({ creators: [] }),
         purchasesRes.ok ? purchasesRes.json() : Promise.resolve({ transactions: [] }),
-        activeLivesRes.ok ? activeLivesRes.json() : Promise.resolve({ lives: [] }),
         historyLivesRes.ok ? historyLivesRes.json() : Promise.resolve({ lives: [] }),
         reportsRes.ok ? reportsRes.json() : Promise.resolve({ reports: [] }),
       ]);
@@ -308,15 +321,17 @@ export default function AdminDashboard() {
         users: usersData.users || [],
         creators: creatorsData.creators || [],
         purchases: purchasesData.transactions || [],
-        lives: getUniqueLives(activeLivesData.lives, historyLivesData.lives),
+        lives: getUniqueLives([], historyLivesData.lives),
         reports: reportsData.reports || [],
       });
+      recentLoadedRef.current = true;
     } catch {
       setRecent({ users: [], creators: [], purchases: [], lives: [], reports: [] });
     }
   }, [authHeader, router]);
 
   const loadData = useCallback(async () => {
+    recentLoadedRef.current = false;
     setLoading(true);
     setError("");
     const token = localStorage.getItem("admin_token");
@@ -365,7 +380,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
-    if (!loading && !error) loadRecentData();
+    if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
 
   if (loading) {
@@ -415,7 +430,7 @@ export default function AdminDashboard() {
   }
 
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
-  const todayRevenueCoins = getTodaySeriesValue(dailyRevenueSeries, "total");
+  const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
 
   return (
     <div className="dash">
@@ -438,7 +453,7 @@ export default function AdminDashboard() {
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
           <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total acumulado" accent="purple" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={dailyRevenueSeries.length ? `${fmt(todayRevenueCoins)} 🪙` : "—"} sub={dailyRevenueSeries.length ? "Ingresos de la plataforma hoy" : "Sin datos disponibles"} accent="gold" href="/admin/revenue" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent="gold" href="/admin/revenue" />
           <ExecutiveCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo ahora" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
           <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
           <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
@@ -490,7 +505,7 @@ export default function AdminDashboard() {
             items={recent.lives}
             href="/admin/lives"
             renderItem={(live) => (
-              <ActivityLine primary={live.title || "Live sin título"} secondary={getDisplayName(live.user)} meta={live.isLive ? "En vivo" : fmtDate(live.endedAt || live.createdAt)} accent={live.isLive ? "red" : "blue"} />
+              <ActivityLine primary={live.title || "Live sin título"} secondary={getDisplayName(live.user)} meta={fmtDate(live.endedAt || live.createdAt)} accent="blue" />
             )}
           />
           <ActivityList
@@ -577,7 +592,7 @@ export default function AdminDashboard() {
           <div className="charts-row">
             <ChartPanel title="Registros diarios (7d)" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
             <ChartPanel title="Coins comprados por día (7d)" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
-            <ChartPanel title={`Ingresos (${dailyRevenueSeries.length || 30}d)`} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
+            <ChartPanel title={getRevenueChartTitle(dailyRevenueSeries)} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
           </div>
         </CollapsibleSection>
       </div>

@@ -35,7 +35,7 @@ function formatCoins(value) {
 }
 
 function formatCount(value) {
-  return Number(value || 0).toLocaleString("es-ES");
+  return new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
 function getStatusConfig(isCreator, status) {
@@ -163,6 +163,7 @@ export default function CreatorPage() {
   const profileHref = user?._id ? `/creator/${user._id}` : "/profile";
   const hasPendingPayout = Boolean(dashboard?.pendingPayout);
   const isPayoutDisabled = payoutLoading || availableForPayout < minPayoutCoins || hasPendingPayout;
+  const importantNotificationsCount = Number(hasPendingPayout) + Number(isApproved && availableForPayout < minPayoutCoins);
 
   const statsCards = useMemo(() => {
     if (!isApproved) return [];
@@ -213,13 +214,13 @@ export default function CreatorPage() {
       {
         key: "notifications",
         label: "Notificaciones importantes",
-        value: formatCount(dashboard?.importantNotifications ?? dashboard?.pendingAlerts ?? 0),
+        value: formatCount(importantNotificationsCount),
         icon: <AlertIcon size={14} />,
         accent: "pink",
         helper: "Alertas relevantes para revisar.",
       },
     ];
-  }, [dashboard, earnings, isApproved, availableForPayout, activeLive]);
+  }, [dashboard, earnings, isApproved, availableForPayout, activeLive, importantNotificationsCount]);
 
   const handleRequestPayout = async () => {
     const token = localStorage.getItem("token");

@@ -160,7 +160,7 @@ export default function Navbar() {
   const NAV_LINK_DEFS = useMemo(() => {
     const userLinks = [
       { href: "/dashboard", label: "Inicio", icon: HomeIcon },
-      { href: "/feed", label: "Feed / Descubrir", icon: FeedIcon },
+      { href: "/feed", label: "Feed / Descubrir", icon: ExploreIcon },
       { href: "/matches", label: "Matches", icon: MatchIcon },
       { href: "/chats", label: "Chats", icon: ChatIcon },
       { href: "/live", label: "Lives", icon: LiveIcon },
@@ -176,7 +176,7 @@ export default function Navbar() {
         { href: "/chats", label: "Comunidad", icon: ChatIcon },
         { href: "/creator#earnings", label: "Ganancias", icon: CoinIcon },
         { href: "/creator#wallet", label: "Retiros", icon: DashboardIcon },
-        { href: "/creator#analytics", label: "Analíticas", icon: FeedIcon },
+        { href: "/creator#analytics", label: "Analíticas", icon: ExploreIcon },
         { href: "/settings", label: "Configuración", icon: SettingsIcon },
       ];
     }

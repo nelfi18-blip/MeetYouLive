@@ -147,7 +147,7 @@ function CollapsibleSection({ id, icon, title, accent, link, linkLabel, isOpen, 
   return (
     <section className={["collapse", isOpen ? "collapse--open" : ""].filter(Boolean).join(" ")}>
       <div className="collapse-summary">
-        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen} aria-label={`${isOpen ? "Cerrar" : "Abrir"} sección ${title}`}>
+        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen} aria-label={isOpen ? "Cerrar sección" : "Abrir sección"}>
           <span className={`sh-dot sh-dot--${accent || "purple"}`} />
           <span className="sh-icon">{icon}</span>
           <span className="sh-title">{title}</span>
@@ -263,7 +263,7 @@ function ActivityLine({ name, date, status, avatar, icon, accent }) {
   return (
     <>
       {avatar ? (
-        <img src={avatar} alt={`Foto de perfil de ${name}`} className="activity-avatar" />
+        <img src={avatar} alt="Foto de perfil" className="activity-avatar" />
       ) : (
         <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
           {icon || (name || "?")[0].toUpperCase()}
@@ -631,6 +631,7 @@ export default function AdminDashboard() {
       <style jsx>{`
         :root {
           --accent-purple: #a78bfa;
+          --accent-purple-rgb: 124,58,237;
           --accent-gold: #fbbf24;
           --accent-green: #34d399;
           --accent-blue: #60a5fa;
@@ -738,7 +739,7 @@ export default function AdminDashboard() {
           border-radius: 18px;
           border: 1px solid rgba(124,58,237,0.2);
           background:
-            radial-gradient(circle at top right, rgba(124,58,237,0.22), transparent 45%),
+            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.22), transparent 45%),
             linear-gradient(180deg, #171c2a, #111622);
           padding: 1rem;
           display: flex;
@@ -1450,7 +1451,7 @@ export default function AdminDashboard() {
 
         .qbtn {
           background:
-            radial-gradient(circle at top right, rgba(124,58,237,0.14), transparent 46%),
+            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.14), transparent 46%),
             #1e2535;
           border: 1px solid var(--border);
           color: #cbd5e1;
@@ -1540,7 +1541,7 @@ export default function AdminDashboard() {
           }
 
           .exec-icon { font-size: 1.3rem; }
-          .exec-value { font-size: clamp(1.55rem, 8vw, 2rem); margin-top: 0.45rem; }
+          .exec-value { font-size: clamp(1.55rem, 1.1rem + 2vw, 2rem); margin-top: 0.45rem; }
           .exec-title { font-size: 0.68rem; margin-top: 0.42rem; }
           .exec-sub { font-size: 0.66rem; }
 

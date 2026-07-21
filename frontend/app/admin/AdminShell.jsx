@@ -9,25 +9,14 @@ import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl, getToken } from "
 
 const NAV_SECTIONS = [
   {
-    title: "Inicio",
+    title: "Plataforma",
     items: [
-      { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
-    ],
-  },
-  {
-    title: "Usuarios y comunidad",
-    items: [
+      { href: "/admin", label: "Dashboard", icon: "🏠", exact: true, roles: ["admin"] },
       { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator", "support"] },
-      { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin", "creator_manager"] },
+      { href: "/admin/creators", label: "Creadores", icon: "⭐", roles: ["admin", "creator_manager"] },
       { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
+      { href: "/admin/lives", label: "Lives", icon: "📺", roles: ["admin", "moderator"] },
       { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
-    ],
-  },
-  {
-    title: "Contenido y actividad",
-    items: [
-      { href: "/admin/lives", label: "Lives", icon: "📡", roles: ["admin", "moderator"] },
-      { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
     ],
   },
   {
@@ -35,13 +24,14 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
       { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
-      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", exact: true, roles: ["admin", "finance"] },
+      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "🏦", exact: true, roles: ["admin", "finance"] },
       { href: "/admin/withdrawals/history", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
     ],
   },
   {
     title: "Sistema",
     items: [
+      { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
       { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
     ],
   },

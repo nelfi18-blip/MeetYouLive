@@ -36,8 +36,7 @@ const NAV_SECTIONS = [
       { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
       { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
       { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", roles: ["admin", "finance"] },
-      // Keep the existing visual route to avoid changing route/API behavior in this UI-only task.
-      { href: "/admin/payouts", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
+      { href: "/admin/withdrawals/history", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
     ],
   },
   {
@@ -236,6 +235,7 @@ export default function AdminShell({ children }) {
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
+          overflow-y: auto;
           overflow-x: hidden;
           position: relative;
         }
@@ -331,7 +331,7 @@ export default function AdminShell({ children }) {
           flex: 1;
           min-height: 0;
           padding: 0.85rem 0.75rem;
-          overflow-y: auto;
+          overflow-y: visible;
           overflow-x: hidden;
           display: flex;
           flex-direction: column;
@@ -424,6 +424,8 @@ export default function AdminShell({ children }) {
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
+          position: sticky;
+          bottom: 0;
           flex-shrink: 0;
         }
 

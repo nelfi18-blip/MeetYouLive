@@ -94,11 +94,6 @@ function AdminPayoutsContent() {
         setActionError(data.message || "Error al actualizar el retiro.");
         return;
       }
-      const data = await res.json();
-      setPayouts((prev) =>
-        prev.map((p) => (p._id === id ? { ...p, ...data.payout } : p))
-      );
-      // Refresh list after update
       await loadPayouts();
     } catch {
       setActionError("Error de red al actualizar el retiro.");
@@ -758,4 +753,3 @@ export default function AdminPayoutsPage() {
     </Suspense>
   );
 }
-

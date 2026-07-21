@@ -117,22 +117,6 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
   return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
 }
 
-function QuickAction({ href, icon, label, description, tone }) {
-  const idBase = `quick-action-${href.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`;
-  const labelId = `${idBase}-label`;
-  const descriptionId = description ? `${idBase}-description` : undefined;
-  return (
-    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)} aria-labelledby={labelId} aria-describedby={descriptionId}>
-      <span className="qbtn-icon">{icon}</span>
-      <span className="qbtn-copy">
-        <span id={labelId} className="qbtn-label">{label}</span>
-        {description && <span id={descriptionId} className="qbtn-description">{description}</span>}
-      </span>
-      <span className="qbtn-arrow">→</span>
-    </Link>
-  );
-}
-
 function OperationalMetric({ href, icon, label, value, description, tone }) {
   return (
     <Link href={href} className={cn("op-card", tone && `op-card--${tone}`)}>
@@ -450,19 +434,6 @@ export default function AdminDashboard() {
       </section>
 
       <section className="section section--tight">
-        <SectionHeader icon="⚡" title="Acciones rápidas" accent="purple" />
-        <div className="quick-grid">
-          <QuickAction href="/admin/users" icon="👥" label="Usuarios" description="Gestionar cuentas" />
-          <QuickAction href="/admin/creators" icon="⭐" label="Creadores" description="Aprobar perfiles" />
-          <QuickAction href="/admin/lives" icon="🔴" label="Lives" description="Ver streams" tone={s.activeLives > 0 ? "red" : undefined} />
-          <QuickAction href="/admin/reports" icon="🚨" label="Reportes" description="Moderar contenido" tone={s.openReports > 0 ? "red" : undefined} />
-          <QuickAction href="/admin/transactions" icon="💰" label="Transacciones" description="Auditar ingresos" />
-          <QuickAction href="/admin/payouts?status=pending" icon="💸" label="Retiros" description="Revisar pagos" tone={s.pendingPayoutsCount > 0 ? "yellow" : undefined} />
-          <QuickAction href="/admin/settings" icon="⚙️" label="Configuración" description="Ajustes internos" />
-        </div>
-      </section>
-
-      <section className="section section--tight">
         <SectionHeader icon="⏱" title="Actividad reciente" accent="blue" />
         <Timeline items={timelineItems} />
       </section>
@@ -767,79 +738,6 @@ export default function AdminDashboard() {
           letter-spacing: -0.05em;
         }
 
-        .quick-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.85rem;
-        }
-
-        @media (min-width: 820px) {
-          .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        }
-
-        @media (min-width: 1180px) {
-          .quick-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-        }
-
-        .qbtn {
-          background: linear-gradient(180deg, #171d2b, #131824);
-          border: 1px solid rgba(148,163,184,0.14);
-          color: #cbd5e1;
-          border-radius: 20px;
-          padding: 0.95rem;
-          font-size: 0.86rem;
-          font-weight: 900;
-          text-decoration: none;
-          display: flex;
-          align-items: center;
-          gap: 0.72rem;
-          min-height: 82px;
-          transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
-        }
-
-        .qbtn:hover {
-          background: var(--bg-card-hover);
-          border-color: rgba(167,139,250,0.32);
-          color: #f8fafc;
-          transform: translateY(-1px);
-        }
-        .qbtn-icon {
-          width: 38px;
-          height: 38px;
-          border-radius: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(148,163,184,0.1);
-          flex-shrink: 0;
-          line-height: 1;
-          font-size: 1.05rem;
-        }
-        .qbtn-copy {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-        .qbtn-label {
-          color: #e2e8f0;
-          line-height: 1.1;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .qbtn-description {
-          color: #64748b;
-          font-size: 0.68rem;
-          font-weight: 700;
-          line-height: 1.25;
-        }
-        .qbtn-arrow { margin-left: auto; color: #64748b; }
-        .qbtn--yellow { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.24); color: #fbbf24; }
-        .qbtn--yellow:hover { background: rgba(251,191,36,0.14); }
-        .qbtn--red { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.24); color: #f87171; }
-        .qbtn--red:hover { background: rgba(239,68,68,0.14); }
-
         .timeline {
           position: relative;
           display: flex;
@@ -1004,21 +902,6 @@ export default function AdminDashboard() {
           .op-card { grid-column: auto; min-height: 68px; padding: 0.72rem; border-radius: 18px; }
           .op-icon { width: 34px; height: 34px; border-radius: 13px; }
           .op-value { font-size: 1.32rem; }
-          .quick-grid { gap: 0.65rem; }
-          .qbtn { min-height: 76px; padding: 0.78rem; border-radius: 18px; gap: 0.6rem; }
-          .qbtn-icon { width: 34px; height: 34px; border-radius: 13px; }
-          .qbtn-description {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            clip-path: inset(50%);
-            white-space: nowrap;
-            border: 0;
-          }
           .timeline { gap: 0.62rem; }
           .timeline-item { grid-template-columns: 36px 8px minmax(0, 1fr); gap: 0.58rem; padding: 0.72rem; min-height: 72px; }
           .timeline-avatar { width: 36px; height: 36px; border-radius: 14px; }
@@ -1031,9 +914,6 @@ export default function AdminDashboard() {
         }
 
         @media (max-width: 400px) {
-          .quick-grid { gap: 0.55rem; }
-          .qbtn { padding: 0.68rem; min-height: 66px; font-size: 0.78rem; }
-          .qbtn-icon { width: 30px; height: 30px; border-radius: 12px; }
           .timeline-actor { font-size: 0.8rem; }
           .timeline-action { font-size: 0.72rem; }
         }

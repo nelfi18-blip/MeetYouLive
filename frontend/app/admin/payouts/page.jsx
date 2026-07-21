@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "./PayoutsPage";
+export { default } from "@/components/admin/PayoutsPage";

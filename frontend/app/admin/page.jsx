@@ -224,7 +224,7 @@ function Timeline({ items }) {
   return (
     <div className="timeline">
       {items.map((item) => {
-        const timelineLabel = `${item.actor}. ${item.action} ${formatTimelineMeta(item)}`;
+        const timelineLabel = `${item.actor}, ${item.action}, ${formatTimelineMeta(item)}`;
         const content = (
           <>
             {item.avatar ? (
@@ -701,7 +701,7 @@ export default function AdminDashboard() {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 0.85rem;
-          margin-top: 0.9rem;
+          margin-top: 0.85rem;
         }
 
         .op-card {
@@ -1014,6 +1014,7 @@ export default function AdminDashboard() {
             padding: 0;
             margin: -1px;
             overflow: hidden;
+            clip: rect(0, 0, 0, 0);
             clip-path: inset(50%);
             white-space: nowrap;
             border: 0;

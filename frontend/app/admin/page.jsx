@@ -70,7 +70,7 @@ function getRevenueChartTitle(series) {
   return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
 }
 
-function getActivityItems(items = []) {
+function getRecentActivityItems(items = []) {
   return items.slice(0, 3);
 }
 
@@ -226,7 +226,7 @@ function TopTable({ title, rows, valueLabel = "coins", linkHref }) {
 // ── Recent Activity ───────────────────────────────────────────────────────────
 
 function ActivityList({ title, items, empty, renderItem, href, icon }) {
-  const visibleItems = getActivityItems(items);
+  const visibleItems = getRecentActivityItems(items);
   return (
     <div className="activity-card">
       <div className="activity-head">
@@ -323,6 +323,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState([]);
+  const [isMobileAccordion, setIsMobileAccordion] = useState(false);
   const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
@@ -424,6 +425,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
+  useEffect(() => {
+    const updateViewport = () => setIsMobileAccordion(window.innerWidth < 768);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -440,8 +447,7 @@ export default function AdminDashboard() {
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
   const toggleSection = (id) => {
     setOpenSections((current) => {
-      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-      if (isMobile) return current.includes(id) ? [] : [id];
+      if (isMobileAccordion) return current.includes(id) ? [] : [id];
       return current.includes(id) ? current.filter((sectionId) => sectionId !== id) : [...current, id];
     });
   };
@@ -872,6 +878,10 @@ export default function AdminDashboard() {
         }
 
         .collapse-trigger:hover { background: rgba(124,58,237,0.06); }
+        .collapse-trigger:focus {
+          outline: 2px solid rgba(167,139,250,0.45);
+          outline-offset: 2px;
+        }
         .collapse-trigger:focus-visible {
           outline: 2px solid rgba(167,139,250,0.75);
           outline-offset: 2px;

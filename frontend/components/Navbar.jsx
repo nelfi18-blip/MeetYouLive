@@ -156,18 +156,31 @@ export default function Navbar() {
   const homePath = useMemo(() => getHomePath(effectiveRole), [effectiveRole]);
   
   // Nav link definitions with dynamic home path
-  const NAV_LINK_DEFS = useMemo(() => [
-    { href: homePath,     key: "nav.home",    icon: HomeIcon    },
-    { href: "/dashboard", key: "nav.dashboard", icon: DashboardIcon },
-    { href: "/explore",   key: "nav.explore", icon: ExploreIcon },
-    { href: "/crush",     key: "nav.crush",   icon: CrushIcon   },
-    { href: "/live",      key: "nav.live",    icon: LiveIcon    },
-    { href: "/rooms",     key: "nav.rooms",   icon: RoomsIcon   },
-    { href: "/videos",    key: "nav.videos",  icon: VideoNavIcon},
-    { href: "/chats",     key: "nav.chats",   icon: ChatIcon    },
-    { href: "/matches",   key: "nav.matches", icon: MatchIcon   },
-    { href: "/profile",   key: "nav.profile", icon: ProfileIcon },
-  ], [homePath]);
+  const NAV_LINK_DEFS = useMemo(() => {
+    const userLinks = [
+      { href: "/dashboard", label: "Inicio", icon: HomeIcon },
+      { href: "/feed", label: "Feed / Descubrir", icon: FeedIcon },
+      { href: "/matches", label: "Matches", icon: MatchIcon },
+      { href: "/chats", label: "Chats", icon: ChatIcon },
+      { href: "/live", label: "Lives", icon: LiveIcon },
+      { href: "/calls", label: "Videollamadas", icon: VideoNavIcon },
+      { href: "/coins", label: "Coins", icon: CoinIcon },
+      { href: "/profile", label: "Mi Perfil", icon: ProfileIcon },
+    ];
+    if (isApprovedCreator({ role: effectiveRole, creatorStatus: effectiveCreatorStatus })) {
+      return [
+        { href: "/creator", label: "Dashboard", icon: DashboardIcon },
+        { href: "/live", label: "Mis Lives", icon: LiveIcon },
+        { href: "/live/start", label: "Programar Live", icon: VideoNavIcon },
+        { href: "/chats", label: "Comunidad", icon: ChatIcon },
+        { href: "/creator#earnings", label: "Ganancias", icon: CoinIcon },
+        { href: "/creator#wallet", label: "Retiros", icon: DashboardIcon },
+        { href: "/creator#analytics", label: "Analíticas", icon: FeedIcon },
+        { href: "/settings", label: "Configuración", icon: ProfileIcon },
+      ];
+    }
+    return userLinks;
+  }, [effectiveCreatorStatus, effectiveRole]);
   
   // Display appropriate role label - hide admin/moderator from public display
   const displayRole =
@@ -214,7 +227,7 @@ export default function Navbar() {
                 className={`navbar-link${active ? " active" : ""}`}
               >
                 <Icon />
-                <span>{t(link.key)}</span>
+                <span>{link.label || t(link.key)}</span>
               </Link>
             );
           })}

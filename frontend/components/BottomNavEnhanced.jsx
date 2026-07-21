@@ -45,14 +45,17 @@ export default function BottomNavEnhanced() {
       .catch(() => {});
   }, [session]);
 
-  const homePath = useMemo(() => getHomePath(viewerRole), [viewerRole]);
+  const canGoLive = Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus });
+  const homePath = useMemo(
+    () => (canGoLive ? "/creator" : getHomePath(viewerRole) || "/dashboard"),
+    [canGoLive, viewerRole]
+  );
 
   const isActive = (path) => {
     if (path === homePath) return HOME_ACTIVE_PATHS.has(pathname) || pathname === homePath;
     return pathname?.startsWith(path);
   };
 
-  const canGoLive = Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus });
   const primaryLiveHref = canGoLive ? "/live/start" : "/live";
 
   useEffect(() => {
@@ -111,8 +114,8 @@ export default function BottomNavEnhanced() {
     },
     {
       icon: "👑",
-      label: t("nav.creatorCenter"),
-      href: "/creator",
+      label: canGoLive ? "Ganancias" : "Matches",
+      href: canGoLive ? "/creator#earnings" : "/matches",
       color: "#8b5cf6",
       show: true,
     },
@@ -185,7 +188,7 @@ export default function BottomNavEnhanced() {
             <path d="M5 10.5V20h14v-9.5" />
             <path d="M9.5 20v-5h5v5" />
           </svg>
-          <span className="nav-label">{t("nav.hub")}</span>
+          <span className="nav-label">{canGoLive ? "Dashboard" : "Inicio"}</span>
           {newMatchesCount > 0 && (
             <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
               {formatBadgeCount(newMatchesCount)}
@@ -193,13 +196,13 @@ export default function BottomNavEnhanced() {
           )}
         </Link>
 
-        <Link href="/explore" className={`nav-item ${isActive("/explore") ? "active" : ""}`}>
+        <Link href="/feed" className={`nav-item ${isActive("/feed") || isActive("/explore") ? "active" : ""}`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 3 4 7l8 4 8-4-8-4Z" />
             <path d="m4 12 8 4 8-4" />
             <path d="m4 17 8 4 8-4" />
           </svg>
-          <span className="nav-label">{t("nav.discover")}</span>
+          <span className="nav-label">{canGoLive ? "Comunidad" : "Descubrir"}</span>
         </Link>
 
         <button
@@ -235,7 +238,7 @@ export default function BottomNavEnhanced() {
             <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />
             <path d="M8 9h8M8 13h5" />
           </svg>
-          <span className="nav-label">{t("nav.meetHub")}</span>
+          <span className="nav-label">Chats</span>
           {unreadCount > 0 && (
             <span className="nav-badge nav-badge-pulse" aria-label={`${unreadCount} unread messages`}>
               {formatBadgeCount(unreadCount)}
@@ -243,12 +246,15 @@ export default function BottomNavEnhanced() {
           )}
         </Link>
 
-        <Link href="/profile" className={`nav-item ${isActive("/profile") ? "active" : ""}`}>
+        <Link
+          href={canGoLive ? "/settings" : "/profile"}
+          className={`nav-item ${(canGoLive ? isActive("/settings") : isActive("/profile")) ? "active" : ""}`}
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="8" r="4" />
             <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
           </svg>
-          <span className="nav-label">{t("nav.you")}</span>
+          <span className="nav-label">{canGoLive ? "Ajustes" : "Perfil"}</span>
         </Link>
       </nav>
     </>

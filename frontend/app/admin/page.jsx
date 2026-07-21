@@ -130,6 +130,19 @@ function QuickAction({ href, icon, label, description, tone }) {
   );
 }
 
+function OperationalMetric({ href, icon, label, value, description, tone }) {
+  return (
+    <Link href={href} className={cn("op-card", tone && `op-card--${tone}`)}>
+      <span className="op-icon">{icon}</span>
+      <span className="op-copy">
+        <span className="op-label">{label}</span>
+        <span className="op-description">{description}</span>
+      </span>
+      <span className="op-value">{value}</span>
+    </Link>
+  );
+}
+
 function buildTimelineItems(recent) {
   const creatorIds = new Set((recent.creators || []).map((creator) => String(creator._id)).filter(Boolean));
   const items = [];
@@ -426,6 +439,10 @@ export default function AdminDashboard() {
           <ExecutiveCard icon="🔴" title="Lives" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "Streams activos ahora" : "Sin streams activos"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
           <ExecutiveCard icon="🚨" title="Reportes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Moderación al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
         </div>
+        <div className="op-grid">
+          <OperationalMetric icon="💸" label="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} description={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins por revisar` : "Sin retiros pendientes"} tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" />
+          <OperationalMetric icon="⭐" label="Creadores activos" value={fmt(s.totalCreators)} description="Creadores aprobados" href="/admin/creators?status=approved" />
+        </div>
       </section>
 
       <section className="section section--tight">
@@ -676,6 +693,75 @@ export default function AdminDashboard() {
           line-height: 1.6;
         }
 
+        .op-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.85rem;
+          margin-top: 0.9rem;
+        }
+
+        .op-card {
+          min-height: 76px;
+          border-radius: 20px;
+          border: 1px solid rgba(148,163,184,0.13);
+          background: rgba(22,27,39,0.58);
+          color: inherit;
+          text-decoration: none;
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 0.8rem;
+          padding: 0.9rem;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .op-card:hover {
+          background: rgba(26,32,48,0.9);
+          border-color: rgba(167,139,250,0.28);
+          transform: translateY(-1px);
+        }
+        .op-card--green { border-color: rgba(52,211,153,0.18); }
+        .op-card--yellow { border-color: rgba(251,191,36,0.24); }
+        .op-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(248,250,252,0.08);
+          line-height: 1;
+        }
+        .op-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+        .op-label {
+          color: #cbd5e1;
+          font-size: 0.74rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .op-description {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .op-value {
+          color: #f8fafc;
+          font-size: 1.5rem;
+          font-weight: 950;
+          letter-spacing: -0.05em;
+        }
+
         .quick-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -909,6 +995,10 @@ export default function AdminDashboard() {
           .exec-value { font-size: clamp(1.8rem, 8vw, 2.35rem); margin-top: 0.72rem; }
           .exec-title { font-size: 0.66rem; margin-top: 0.5rem; }
           .exec-sub { font-size: 0.64rem; line-height: 1.35; }
+          .op-grid { grid-template-columns: 1fr; gap: 0.62rem; margin-top: 0.72rem; }
+          .op-card { min-height: 68px; padding: 0.72rem; border-radius: 18px; }
+          .op-icon { width: 34px; height: 34px; border-radius: 13px; }
+          .op-value { font-size: 1.32rem; }
           .quick-grid { gap: 0.65rem; }
           .qbtn { min-height: 76px; padding: 0.78rem; border-radius: 18px; gap: 0.6rem; }
           .qbtn-icon { width: 34px; height: 34px; border-radius: 13px; }
@@ -919,7 +1009,7 @@ export default function AdminDashboard() {
             padding: 0;
             margin: -1px;
             overflow: hidden;
-            clip: rect(0,0,0,0);
+            clip-path: inset(50%);
             white-space: nowrap;
             border: 0;
           }

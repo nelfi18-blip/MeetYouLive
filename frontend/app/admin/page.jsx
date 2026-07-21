@@ -12,6 +12,10 @@ const RECENT_ITEMS_LIMIT = 5;
 const TIMELINE_ITEMS_LIMIT = 8;
 const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts", "creators"];
 
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
 function getSafeNonAdminRedirect() {
   try {
     return getToken() ? "/feed" : "/login";
@@ -100,7 +104,7 @@ function SectionHeader({ icon, title, accent, link, linkLabel }) {
 
 function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
   const inner = (
-    <div className={["exec-card", accent ? `exec-card--${accent}` : "", href ? "exec-card--link" : ""].filter(Boolean).join(" ")}>
+    <div className={cn("exec-card", accent && `exec-card--${accent}`, href && "exec-card--link")}>
       <div className="exec-top">
         <span className="exec-icon">{icon}</span>
         <CountBadge value={badge} />
@@ -115,7 +119,7 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 
 function QuickAction({ href, icon, label, tone }) {
   return (
-    <Link href={href} className={["qbtn", tone ? `qbtn--${tone}` : ""].filter(Boolean).join(" ")}>
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
       <span className="qbtn-icon">{icon}</span>
       <span>{label}</span>
       <span className="qbtn-arrow">→</span>
@@ -128,6 +132,7 @@ function buildTimelineItems(recent) {
   const items = [];
 
   for (const user of recent.users || []) {
+    // Creators already appear as creator events, so skip matching user rows in the unified timeline.
     if (creatorIds.has(String(user._id))) continue;
     items.push({
       id: `user-${user._id}`,
@@ -185,6 +190,10 @@ function buildTimelineItems(recent) {
     .slice(0, TIMELINE_ITEMS_LIMIT);
 }
 
+function formatTimelineMeta(item) {
+  return [fmtDate(item.date), fmtTime(item.date), item.meta].filter(Boolean).join(" · ");
+}
+
 function Timeline({ items }) {
   if (!items.length) {
     return <div className="timeline-empty">No hay actividad reciente.</div>;
@@ -198,12 +207,12 @@ function Timeline({ items }) {
             {item.avatar ? (
               <img src={item.avatar} alt="" className="timeline-avatar" />
             ) : (
-              <span className={["timeline-avatar", "timeline-avatar--ph", `timeline-avatar--${item.accent}`].join(" ")}>{item.icon}</span>
+              <span className={cn("timeline-avatar", "timeline-avatar--ph", `timeline-avatar--${item.accent}`)}>{item.icon}</span>
             )}
             <span className="timeline-dot" />
             <span className="timeline-copy">
               <span className="timeline-text">{item.text}</span>
-              <span className="timeline-date">{fmtDate(item.date)} {fmtTime(item.date)}{item.meta ? ` · ${item.meta}` : ""}</span>
+              <span className="timeline-date">{formatTimelineMeta(item)}</span>
             </span>
           </>
         );
@@ -271,7 +280,7 @@ export default function AdminDashboard() {
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
-    return { Authorization: ["Bearer", token].join(" ") };
+    return { Authorization: "Bearer " + token };
   }, []);
 
   const loadRecentData = useCallback(async () => {
@@ -435,7 +444,7 @@ export default function AdminDashboard() {
         <SectionHeader icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
         <div className="analytics-grid">
           <AnalyticsCard icon="👥" label="Usuarios últimos 7 días" value={fmt(registrations7d)} sub="Nuevos registros" />
-          <AnalyticsCard icon="💰" label="Ingresos últimos 7 días" value={`${fmt(revenue7d)} 🪙`} sub="Compras de coins" />
+          <AnalyticsCard icon="💰" label="Ingresos últimos 7 días" value={fmt(revenue7d)} sub="Coins últimos 7 días" />
           <AnalyticsCard icon="🪙" label="Coins vendidos" value={fmt(s.totalCoinsPurchased)} sub="Acumulado" />
           <AnalyticsCard icon="📡" label="Lives realizados" value={fmt(s.totalLives)} sub="Histórico" />
         </div>

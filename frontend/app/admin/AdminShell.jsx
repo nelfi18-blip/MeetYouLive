@@ -7,19 +7,44 @@ import Link from "next/link";
 import Image from "next/image";
 import { clearAdminToken, clearAllAuth, buildSwitchAccountUrl, getToken } from "@/lib/token";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
-  { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator", "support"] },
-  { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin", "creator_manager"] },
-  { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
-  { href: "/admin/lives", label: "Streams", icon: "📡", roles: ["admin", "moderator"] },
-  { href: "/admin/withdrawals", label: "Solicitudes Retiro", icon: "💵", roles: ["admin", "finance"] },
-  { href: "/admin/payouts", label: "Retiros (Legacy)", icon: "💸", roles: ["admin", "finance"] },
-  { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
-  { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
-  { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
-  { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
-  { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
+const NAV_SECTIONS = [
+  {
+    title: "Inicio",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: "⊞", exact: true, roles: ["admin"] },
+    ],
+  },
+  {
+    title: "Usuarios y comunidad",
+    items: [
+      { href: "/admin/users", label: "Usuarios", icon: "👥", roles: ["admin", "moderator", "support"] },
+      { href: "/admin/creators", label: "Creadores", icon: "🎬", roles: ["admin", "creator_manager"] },
+      { href: "/admin/agencies", label: "Agencias", icon: "🏢", roles: ["admin"] },
+      { href: "/admin/reports", label: "Reportes", icon: "🚨", roles: ["admin", "moderator", "content_reviewer"] },
+    ],
+  },
+  {
+    title: "Contenido y actividad",
+    items: [
+      { href: "/admin/lives", label: "Lives", icon: "📡", roles: ["admin", "moderator"] },
+      { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
+    ],
+  },
+  {
+    title: "Finanzas",
+    items: [
+      { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
+      { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
+      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", roles: ["admin", "finance"] },
+      { href: "/admin/payouts", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
+    ],
+  },
 ];
 
 function getSafeNonAdminRedirect() {
@@ -103,6 +128,11 @@ export default function AdminShell({ children }) {
     return pathname.startsWith(item.href);
   };
 
+  const navSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(item => !item.roles || item.roles.includes(userRole)),
+  })).filter((section) => section.items.length > 0);
+
   // /admin/login doesn't use this layout
   if (pathname === "/admin/login") return <>{children}</>;
 
@@ -122,16 +152,24 @@ export default function AdminShell({ children }) {
           </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.filter(item => !item.roles || item.roles.includes(userRole)).map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item${isActive(item) ? " nav-item--active" : ""}`}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </Link>
+          {navSections.map((section) => (
+            <div className="nav-section" key={section.title}>
+              <div className="nav-section-title">{section.title}</div>
+              <div className="nav-section-items">
+                {section.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`nav-item${isActive(item) ? " nav-item--active" : ""}`}
+                    onClick={() => setSidebarOpen(false)}
+                    aria-current={isActive(item) ? "page" : undefined}
+                  >
+                    <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -235,7 +273,7 @@ export default function AdminShell({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.28s ease;
-          overflow-y: auto;
+          overflow: hidden;
           overflow-x: hidden;
         }
 
@@ -270,7 +308,7 @@ export default function AdminShell({ children }) {
           display: flex;
           align-items: center;
           gap: 0.6rem;
-          padding: 1.25rem 1.25rem 1rem;
+          padding: 1.2rem 1rem 0.95rem;
           border-bottom: 1px solid #1e2535;
           flex-shrink: 0;
         }
@@ -291,27 +329,49 @@ export default function AdminShell({ children }) {
         /* ── Nav ── */
         .sidebar-nav {
           flex: 1;
-          padding: 0.75rem 0;
+          padding: 0.85rem 0.75rem;
           overflow-y: auto;
           overflow-x: hidden;
-          /* Force vertical stacking */
           display: flex;
           flex-direction: column;
+          gap: 1rem;
+        }
+
+        .nav-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .nav-section-title {
+          padding: 0 0.6rem;
+          color: #64748b;
+          font-size: 0.67rem;
+          font-weight: 800;
+          letter-spacing: 0.11em;
+          line-height: 1.2;
+          text-transform: uppercase;
+        }
+
+        .nav-section-items {
+          display: flex;
+          flex-direction: column;
+          gap: 0.18rem;
         }
 
         .nav-item {
           display: flex;
           align-items: center;
-          gap: 0.65rem;
-          padding: 0.6rem 1.25rem;
-          font-size: 0.9rem;
-          font-weight: 500;
-          color: #94a3b8;
+          gap: 0.7rem;
+          min-height: 44px;
+          padding: 0.7rem 0.65rem;
+          font-size: 0.88rem;
+          font-weight: 650;
+          color: #aab5c4;
           text-decoration: none;
-          border-radius: 0;
-          transition: background 0.15s, color 0.15s;
+          border-radius: 14px;
+          transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
           border-left: 3px solid transparent;
-          /* Prevent inline stacking */
           width: 100%;
           box-sizing: border-box;
           flex-shrink: 0;
@@ -326,16 +386,27 @@ export default function AdminShell({ children }) {
         }
 
         .nav-item--active {
-          background: rgba(167, 139, 250, 0.12);
-          color: #a78bfa;
+          background: linear-gradient(90deg, rgba(167, 139, 250, 0.22), rgba(167, 139, 250, 0.08));
+          color: #f8fafc;
           border-left-color: #a78bfa;
+          box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.22), 0 12px 28px rgba(0, 0, 0, 0.18);
         }
 
         .nav-icon {
-          font-size: 1rem;
-          width: 1.4rem;
-          text-align: center;
+          width: 1.55rem;
+          height: 1.55rem;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(248, 250, 252, 0.06);
+          font-size: 0.98rem;
+          line-height: 1;
           flex-shrink: 0;
+        }
+
+        .nav-item--active .nav-icon {
+          background: rgba(167, 139, 250, 0.18);
         }
 
         .nav-label {
@@ -348,6 +419,7 @@ export default function AdminShell({ children }) {
         .sidebar-footer {
           padding: 1rem 1.25rem;
           border-top: 1px solid #1e2535;
+          background: linear-gradient(180deg, rgba(22, 27, 39, 0.92), #161b27);
           display: flex;
           flex-direction: column;
           gap: 0.75rem;

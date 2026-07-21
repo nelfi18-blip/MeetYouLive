@@ -27,7 +27,7 @@ const CARDS = [
   { href: "/calls", title: "Videollamadas", sub: "Llamadas y encuentros en video", icon: PrivateCallIcon, color: "green", size: "normal" },
   { href: "/coins", title: "Coins", sub: "Compra y administra monedas", icon: CoinIcon, color: "orange", size: "normal" },
   { href: "/profile", title: "Mi Perfil", sub: "Fotos, bio e intereses", icon: ProfileIcon, color: "purple", size: "normal" },
-  { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: ModeIcon, color: "indigo", size: "normal" },
+  { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
 ];
 
 function ExploreIcon() {
@@ -148,6 +148,15 @@ function ModeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.65 1.65 0 0015 19.4a1.65 1.65 0 00-1 .6 1.65 1.65 0 00-.33 1.82V22a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-.6-1 1.65 1.65 0 00-1.82-.33H2a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-.6 1.65 1.65 0 00.33-1.82V2a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.36.18.67.43.9.75.23.32.34.72.34 1.12s-.11.8-.34 1.12c-.23.32-.54.57-.9.75z"/>
     </svg>
   );
 }

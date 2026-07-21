@@ -45,7 +45,10 @@ export default function BottomNavEnhanced() {
       .catch(() => {});
   }, [session]);
 
-  const canGoLive = Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus });
+  const canGoLive = useMemo(
+    () => Boolean(session?.user) && isApprovedCreator({ role: viewerRole, creatorStatus: viewerCreatorStatus }),
+    [session?.user, viewerCreatorStatus, viewerRole]
+  );
   const homePath = useMemo(
     () => (canGoLive ? "/creator" : getHomePath(viewerRole) || "/dashboard"),
     [canGoLive, viewerRole]

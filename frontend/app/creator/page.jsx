@@ -34,6 +34,10 @@ function formatCoins(value) {
   return Number(value || 0).toLocaleString("es-ES");
 }
 
+function formatCount(value) {
+  return Number(value || 0).toLocaleString("es-ES");
+}
+
 function getStatusConfig(isCreator, status) {
   if (!isCreator) {
     return {
@@ -185,7 +189,7 @@ export default function CreatorPage() {
       {
         key: "followers",
         label: "Nuevos seguidores",
-        value: formatCoins(dashboard?.newFollowersToday ?? dashboard?.followersToday ?? 0),
+        value: formatCount(dashboard?.newFollowersToday ?? dashboard?.followersToday ?? 0),
         icon: <ActivityIcon size={14} />,
         accent: "cyan",
         helper: "Crecimiento nuevo de audiencia.",
@@ -193,7 +197,7 @@ export default function CreatorPage() {
       {
         key: "gifts",
         label: "Regalos recibidos",
-        value: formatCoins(dashboard?.totalGiftsReceived ?? dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
+        value: formatCount(dashboard?.totalGiftsReceived ?? dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
         icon: <GiftIcon size={14} />,
         accent: "orange",
         helper: "Regalos acumulados de fans.",
@@ -209,7 +213,7 @@ export default function CreatorPage() {
       {
         key: "notifications",
         label: "Notificaciones importantes",
-        value: formatCoins(dashboard?.importantNotifications ?? dashboard?.pendingAlerts ?? 0),
+        value: formatCount(dashboard?.importantNotifications ?? dashboard?.pendingAlerts ?? 0),
         icon: <AlertIcon size={14} />,
         accent: "pink",
         helper: "Alertas relevantes para revisar.",

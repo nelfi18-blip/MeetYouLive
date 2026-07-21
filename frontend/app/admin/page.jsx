@@ -159,7 +159,7 @@ function buildTimelineItems(recent) {
       accent: status === "approved" ? "green" : "yellow",
       avatar: getSafeActivityAvatar(creator),
       actor: getShortUserName(creator, "Creador"),
-      action: status === "approved" ? "Creadora aprobada." : "Solicitó revisión.",
+      action: status === "approved" ? "Creador aprobado." : "Solicitó revisión.",
       href: "/admin/creators",
     });
   }
@@ -184,8 +184,8 @@ function buildTimelineItems(recent) {
       date: report.createdAt,
       icon: "🚨",
       accent: "red",
-      actor: "Reporte recibido",
-      action: report.reason ? `${report.reason}.` : "Requiere revisión.",
+      actor: "Moderación",
+      action: report.reason ? `Reporte recibido: ${report.reason}.` : "Reporte recibido. Requiere revisión.",
       href: "/admin/reports",
     });
   }

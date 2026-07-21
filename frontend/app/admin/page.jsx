@@ -252,7 +252,7 @@ function ActivityLine({ name, date, status, avatar, icon, accent }) {
   return (
     <>
       {avatar ? (
-        <img src={avatar} alt="" className="activity-avatar" />
+        <img src={avatar} alt={`Avatar de ${name}`} className="activity-avatar" />
       ) : (
         <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
           {icon || (name || "?")[0].toUpperCase()}
@@ -278,10 +278,10 @@ function DashboardSkeleton() {
         <div className="sk sk-button" />
       </div>
       <div className="exec-grid">
-        {Array.from({ length: 5 }).map((_, index) => <div className="sk sk-card" key={index} />)}
+        {Array.from({ length: 5 }).map((_, index) => <div className="sk sk-card" key={`card-${index}`} />)}
       </div>
       <div className="activity-grid sk-gap">
-        {Array.from({ length: 4 }).map((_, index) => <div className="sk sk-activity" key={index} />)}
+        {Array.from({ length: 4 }).map((_, index) => <div className="sk sk-activity" key={`activity-${index}`} />)}
       </div>
     </div>
   );
@@ -322,7 +322,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [openSection, setOpenSection] = useState(null);
+  const [openSections, setOpenSections] = useState([]);
   const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
@@ -438,7 +438,13 @@ export default function AdminDashboard() {
 
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
-  const toggleSection = (id) => setOpenSection((current) => (current === id ? null : id));
+  const toggleSection = (id) => {
+    setOpenSections((current) => {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      if (isMobile) return current.includes(id) ? [] : [id];
+      return current.includes(id) ? current.filter((sectionId) => sectionId !== id) : [...current, id];
+    });
+  };
 
   return (
     <div className="dash">
@@ -533,7 +539,7 @@ export default function AdminDashboard() {
       </section>
 
       <div className="collapse-stack">
-        <CollapsibleSection id="finance" icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →" isOpen={openSection === "finance"} onToggle={toggleSection}>
+        <CollapsibleSection id="finance" icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →" isOpen={openSections.includes("finance")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🪙" title="Coins comprados" value={fmt(s.totalCoinsPurchased)} sub="Acumulado total" accent="gold" href="/admin/transactions" />
             <StatCard icon="🎁" title="Coins en regalos" value={fmt(s.totalGiftsCoins)} sub={`${fmt(s.totalGiftsSent)} regalos enviados`} accent="purple" />
@@ -548,7 +554,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="creators" icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →" isOpen={openSection === "creators"} onToggle={toggleSection}>
+        <CollapsibleSection id="creators" icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →" isOpen={openSections.includes("creators")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="✅" title="Creadores aprobados" value={fmt(s.totalCreators)} accent="green" href="/admin/creators?status=approved" />
             <StatCard icon="⏳" title="Solicitudes pendientes" value={fmt(s.pendingCreators)} sub={s.pendingCreators > 0 ? "Acción requerida" : "Al día"} accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
@@ -561,7 +567,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="lives" icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →" isOpen={openSection === "lives"} onToggle={toggleSection}>
+        <CollapsibleSection id="lives" icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →" isOpen={openSections.includes("lives")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🔴" title="Streams activos ahora" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" badge={s.activeLives} />
             <StatCard icon="📼" title="Lives totales" value={fmt(s.totalLives)} href="/admin/lives" />
@@ -570,7 +576,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="moderation" icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →" isOpen={openSection === "moderation"} onToggle={toggleSection}>
+        <CollapsibleSection id="moderation" icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →" isOpen={openSections.includes("moderation")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
             <StatCard icon="⏳" title="Creadores pendientes" value={fmt(s.pendingCreators)} sub="Solicitudes por revisar" accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
@@ -579,7 +585,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="agencies" icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →" isOpen={openSection === "agencies"} onToggle={toggleSection}>
+        <CollapsibleSection id="agencies" icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →" isOpen={openSections.includes("agencies")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🏢" title="Agencias activas" value={fmt(s.activeAgencies)} accent="blue" href="/admin/agencies" />
             <StatCard icon="👥" title="Sub-creadores activos" value={fmt(s.activeAgencyLinks)} sub="Relaciones aprobadas" href="/admin/agencies" />
@@ -588,7 +594,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection id="analytics" icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" isOpen={openSection === "analytics"} onToggle={toggleSection}>
+        <CollapsibleSection id="analytics" icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" isOpen={openSections.includes("analytics")} onToggle={toggleSection}>
           {a.retention && (
             <div className="ret-row">
               <RetentionCard label="DAU" value={a.retention.dau} sub="Hoy" />

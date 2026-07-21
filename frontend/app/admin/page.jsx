@@ -132,7 +132,8 @@ function buildTimelineItems(recent) {
   const items = [];
 
   for (const user of recent.users || []) {
-    // Creators already appear as creator events, so skip matching user rows in the unified timeline.
+    // Creators already appear as creator events, so skip matching user rows in the unified timeline
+    // and avoid showing the same person twice when both endpoints return them.
     if (creatorIds.has(String(user._id))) continue;
     items.push({
       id: `user-${user._id}`,
@@ -280,7 +281,8 @@ export default function AdminDashboard() {
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
-    return { Authorization: "Bearer " + token };
+    const authScheme = "Bearer";
+    return { Authorization: `${authScheme} ${token}` };
   }, []);
 
   const loadRecentData = useCallback(async () => {

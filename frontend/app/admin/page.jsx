@@ -185,7 +185,7 @@ function buildTimelineItems(recent) {
       icon: "🚨",
       accent: "red",
       actor: "Moderación",
-      action: report.reason ? `Reporte recibido: ${report.reason}.` : "Reporte recibido. Requiere revisión.",
+      action: report.reason ? `Reporte recibido: ${report.reason}. Requiere revisión.` : "Reporte recibido. Requiere revisión.",
       href: "/admin/reports",
     });
   }
@@ -683,10 +683,10 @@ export default function AdminDashboard() {
         }
 
         @media (min-width: 820px) {
-          .quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
-        @media (min-width: 1080px) {
+        @media (min-width: 1180px) {
           .quick-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
         }
 
@@ -912,7 +912,17 @@ export default function AdminDashboard() {
           .quick-grid { gap: 0.65rem; }
           .qbtn { min-height: 76px; padding: 0.78rem; border-radius: 18px; gap: 0.6rem; }
           .qbtn-icon { width: 34px; height: 34px; border-radius: 13px; }
-          .qbtn-description { display: none; }
+          .qbtn-description {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+          }
           .timeline { gap: 0.62rem; }
           .timeline-item { grid-template-columns: 36px 8px minmax(0, 1fr); gap: 0.58rem; padding: 0.72rem; min-height: 72px; }
           .timeline-avatar { width: 36px; height: 36px; border-radius: 14px; }

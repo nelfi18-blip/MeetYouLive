@@ -274,7 +274,7 @@ export default function AdminShell({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.28s ease;
-          overflow: hidden;
+          overflow-x: hidden;
         }
 
         /* On very small screens cap sidebar at 85vw */
@@ -329,6 +329,7 @@ export default function AdminShell({ children }) {
         /* ── Nav ── */
         .sidebar-nav {
           flex: 1;
+          min-height: 0;
           padding: 0.85rem 0.75rem;
           overflow-y: auto;
           overflow-x: hidden;

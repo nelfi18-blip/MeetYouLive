@@ -117,12 +117,31 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
   return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
 }
 
-function QuickAction({ href, icon, label, tone }) {
+function QuickAction({ href, icon, label, description, tone }) {
+  const idBase = `quick-action-${href.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`;
+  const labelId = `${idBase}-label`;
+  const descriptionId = description ? `${idBase}-description` : undefined;
   return (
-    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)} aria-labelledby={labelId} aria-describedby={descriptionId}>
       <span className="qbtn-icon">{icon}</span>
-      <span>{label}</span>
+      <span className="qbtn-copy">
+        <span id={labelId} className="qbtn-label">{label}</span>
+        {description && <span id={descriptionId} className="qbtn-description">{description}</span>}
+      </span>
       <span className="qbtn-arrow">→</span>
+    </Link>
+  );
+}
+
+function OperationalMetric({ href, icon, label, value, description, tone }) {
+  return (
+    <Link href={href} className={cn("op-card", tone && `op-card--${tone}`)}>
+      <span className="op-icon">{icon}</span>
+      <span className="op-copy">
+        <span className="op-label">{label}</span>
+        <span className="op-description">{description}</span>
+      </span>
+      <span className="op-value">{value}</span>
     </Link>
   );
 }
@@ -138,10 +157,11 @@ function buildTimelineItems(recent) {
     items.push({
       id: `user-${user._id}`,
       date: user.createdAt,
-      icon: "👥",
+      icon: "👤",
       accent: "neutral",
       avatar: getSafeActivityAvatar(user),
-      text: `${getShortUserName(user)} creó una cuenta.`,
+      actor: getShortUserName(user),
+      action: "Creó una cuenta.",
       href: "/admin/users",
     });
   }
@@ -154,9 +174,8 @@ function buildTimelineItems(recent) {
       icon: status === "approved" ? "⭐" : "🎬",
       accent: status === "approved" ? "green" : "yellow",
       avatar: getSafeActivityAvatar(creator),
-      text: status === "approved"
-        ? `${getShortUserName(creator, "Creador")} fue aprobado.`
-        : `${getShortUserName(creator, "Creador")} solicitó revisión.`,
+      actor: getShortUserName(creator, "Creador"),
+      action: status === "approved" ? "Creador aprobado." : "Solicitó revisión.",
       href: "/admin/creators",
     });
   }
@@ -168,7 +187,8 @@ function buildTimelineItems(recent) {
       icon: "🪙",
       accent: "green",
       avatar: getSafeActivityAvatar(tx.userId),
-      text: `${getShortUserName(tx.userId)} compró Coins.`,
+      actor: getShortUserName(tx.userId),
+      action: "Compró Coins.",
       meta: `${fmt(tx.amount)} coins`,
       href: "/admin/transactions",
     });
@@ -180,7 +200,8 @@ function buildTimelineItems(recent) {
       date: report.createdAt,
       icon: "🚨",
       accent: "red",
-      text: report.reason ? `Reporte recibido: ${report.reason}.` : "Reporte recibido.",
+      actor: "Moderación",
+      action: `Reporte recibido${report.reason ? `: ${report.reason}` : ""}. Requiere revisión.`,
       href: "/admin/reports",
     });
   }
@@ -192,7 +213,7 @@ function buildTimelineItems(recent) {
 }
 
 function formatTimelineMeta(item) {
-  return [fmtDate(item.date), fmtTime(item.date), item.meta].filter(Boolean).join(" · ");
+  return [fmtDate(item.date), fmtTime(item.date), item.meta].filter(Boolean).join(" • ");
 }
 
 function Timeline({ items }) {
@@ -203,6 +224,7 @@ function Timeline({ items }) {
   return (
     <div className="timeline">
       {items.map((item) => {
+        const timelineLabel = `${item.actor} ${item.action} ${formatTimelineMeta(item)}`;
         const content = (
           <>
             {item.avatar ? (
@@ -212,15 +234,16 @@ function Timeline({ items }) {
             )}
             <span className="timeline-dot" />
             <span className="timeline-copy">
-              <span className="timeline-text">{item.text}</span>
+              <span className="timeline-actor">{item.actor}</span>
+              <span className="timeline-action">{item.action}</span>
               <span className="timeline-date">{formatTimelineMeta(item)}</span>
             </span>
           </>
         );
         return item.href ? (
-          <Link href={item.href} className="timeline-item" key={item.id}>{content}</Link>
+          <Link href={item.href} className="timeline-item" key={item.id} aria-label={timelineLabel}>{content}</Link>
         ) : (
-          <div className="timeline-item" key={item.id}>{content}</div>
+          <div className="timeline-item" key={item.id} role="group" aria-label={timelineLabel}>{content}</div>
         );
       })}
     </div>
@@ -415,25 +438,27 @@ export default function AdminDashboard() {
       <section className="section section--hero">
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
-          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total" accent="neutral" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
-          <ExecutiveCard icon="🔴" title="Lives activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
-          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Acción inmediata" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
-          <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins` : "Sin retiros"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
-          <ExecutiveCard icon="⭐" title="Creadores activos" value={fmt(s.totalCreators)} sub="Aprobados" accent="neutral" href="/admin/creators?status=approved" />
+          <ExecutiveCard icon="👥" title="Usuarios" value={fmt(s.totalUsers)} sub="Usuarios registrados en la plataforma" accent="neutral" href="/admin/users" />
+          <ExecutiveCard icon="💰" title="Ingresos" value={todayRevenue.value} sub={`Ingresos ${todayRevenue.sub.toLowerCase()}`} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
+          <ExecutiveCard icon="🔴" title="Lives" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "Streams activos ahora" : "Sin streams activos"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title="Reportes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Moderación al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+        </div>
+        <div className="op-grid">
+          <OperationalMetric icon="💸" label="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} description={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins por revisar` : "Sin retiros pendientes"} tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" />
+          <OperationalMetric icon="⭐" label="Creadores activos" value={fmt(s.totalCreators)} description="Creadores aprobados" href="/admin/creators?status=approved" />
         </div>
       </section>
 
       <section className="section section--tight">
         <SectionHeader icon="⚡" title="Acciones rápidas" accent="purple" />
         <div className="quick-grid">
-          <QuickAction href="/admin/users" icon="👥" label="Usuarios" />
-          <QuickAction href="/admin/creators" icon="⭐" label="Creadores" />
-          <QuickAction href="/admin/lives" icon="🔴" label="Lives" tone={s.activeLives > 0 ? "red" : undefined} />
-          <QuickAction href="/admin/reports" icon="🚨" label="Reportes" tone={s.openReports > 0 ? "red" : undefined} />
-          <QuickAction href="/admin/transactions" icon="💰" label="Transacciones" />
-          <QuickAction href="/admin/payouts?status=pending" icon="💸" label="Retiros" tone={s.pendingPayoutsCount > 0 ? "yellow" : undefined} />
-          <QuickAction href="/admin/settings" icon="⚙️" label="Configuración" />
+          <QuickAction href="/admin/users" icon="👥" label="Usuarios" description="Gestionar cuentas" />
+          <QuickAction href="/admin/creators" icon="⭐" label="Creadores" description="Aprobar perfiles" />
+          <QuickAction href="/admin/lives" icon="🔴" label="Lives" description="Ver streams" tone={s.activeLives > 0 ? "red" : undefined} />
+          <QuickAction href="/admin/reports" icon="🚨" label="Reportes" description="Moderar contenido" tone={s.openReports > 0 ? "red" : undefined} />
+          <QuickAction href="/admin/transactions" icon="💰" label="Transacciones" description="Auditar ingresos" />
+          <QuickAction href="/admin/payouts?status=pending" icon="💸" label="Retiros" description="Revisar pagos" tone={s.pendingPayoutsCount > 0 ? "yellow" : undefined} />
+          <QuickAction href="/admin/settings" icon="⚙️" label="Configuración" description="Ajustes internos" />
         </div>
       </section>
 
@@ -464,28 +489,32 @@ export default function AdminDashboard() {
           --bg-card: #161b27;
           --bg-card-hover: #1a2030;
           --border: #1e2535;
-          --exec-card-min-height: 142px;
-          --exec-card-min-height-mobile: 126px;
+          --exec-card-min-height: 172px;
+          --exec-card-min-height-mobile: 148px;
         }
 
-        .dash { max-width: 1180px; }
+        .dash {
+          max-width: 1180px;
+          margin: 0 auto;
+          padding-bottom: 1.5rem;
+        }
 
         .dash-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           gap: 1rem;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.7rem;
         }
 
         .dash-title {
-          font-size: clamp(1.35rem, 3vw, 1.8rem);
+          font-size: clamp(1.55rem, 3vw, 2.15rem);
           font-weight: 900;
           color: #f8fafc;
           margin: 0 0 0.3rem;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.65rem;
           letter-spacing: -0.04em;
         }
 
@@ -543,27 +572,37 @@ export default function AdminDashboard() {
           font-size: 0.9rem;
         }
 
-        .section { margin-bottom: 2.2rem; }
-        .section--hero { margin-bottom: 1.45rem; }
-        .section--tight { margin-bottom: 1.45rem; }
-        .section--analytics { margin: 2.4rem 0 1rem; }
+        .section { margin-bottom: 1.75rem; }
+        .section--hero { margin-bottom: 1.55rem; }
+        .section--tight { margin-bottom: 1.55rem; }
+        .section--analytics { margin: 1.9rem 0 1rem; }
 
         .sh {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 0.9rem;
-          gap: 0.5rem;
+          margin-bottom: 1rem;
+          gap: 0.75rem;
         }
 
-        .sh-left { display: flex; align-items: center; gap: 0.5rem; }
+        .sh-left { display: flex; align-items: center; gap: 0.62rem; min-width: 0; }
         .sh-dot { width: 4px; height: 18px; border-radius: 2px; flex-shrink: 0; }
         .sh-dot--purple { background: #7c3aed; }
         .sh-dot--gold { background: #f59e0b; }
         .sh-dot--green { background: #10b981; }
         .sh-dot--blue { background: #3b82f6; }
         .sh-dot--red { background: #ef4444; }
-        .sh-icon { font-size: 1rem; }
+        .sh-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(148,163,184,0.1);
+          font-size: 0.95rem;
+          flex-shrink: 0;
+        }
         .sh-title {
           font-size: 0.78rem;
           font-weight: 800;
@@ -583,27 +622,23 @@ export default function AdminDashboard() {
         .exec-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.8rem;
+          gap: 1rem;
         }
 
         @media (min-width: 900px) {
-          .exec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-
-        @media (min-width: 1180px) {
-          .exec-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+          .exec-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
         .exec-card {
           min-height: var(--exec-card-min-height);
-          border-radius: 20px;
+          border-radius: 24px;
           border: 1px solid rgba(148,163,184,0.16);
           background: linear-gradient(180deg, #171c2a, #111622);
-          padding: 1rem;
+          padding: 1.18rem;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+          box-shadow: 0 20px 55px rgba(0,0,0,0.2);
           transition: transform 0.2s, border-color 0.2s, filter 0.2s;
           animation: fade-up 0.35s ease both;
         }
@@ -614,25 +649,42 @@ export default function AdminDashboard() {
         .exec-card--red { border-color: rgba(248,113,113,0.34); background: radial-gradient(circle at top right, rgba(248,113,113,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
         .exec-card--yellow { border-color: rgba(251,191,36,0.34); background: radial-gradient(circle at top right, rgba(251,191,36,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
 
-        .exec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
-        .exec-icon { font-size: 1.55rem; }
+        .exec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+        .exec-icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(248,250,252,0.08);
+          font-size: 1.35rem;
+          line-height: 1;
+          flex-shrink: 0;
+        }
         .exec-value {
           color: #f8fafc;
-          font-size: clamp(1.85rem, 6vw, 2.5rem);
+          font-size: clamp(2.2rem, 6vw, 3.25rem);
           font-weight: 950;
           letter-spacing: -0.06em;
           line-height: 0.95;
-          margin-top: 0.7rem;
+          margin-top: 1.05rem;
+          word-break: break-word;
         }
         .exec-title {
           color: #cbd5e1;
-          font-size: 0.72rem;
+          font-size: 0.78rem;
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          margin-top: 0.58rem;
+          margin-top: 0.72rem;
         }
-        .exec-sub { color: #64748b; font-size: 0.7rem; margin-top: 0.2rem; }
+        .exec-sub {
+          color: #64748b;
+          font-size: 0.72rem;
+          line-height: 1.45;
+          margin-top: 0.32rem;
+        }
         .sc-badge {
           background: #ef4444;
           color: #fff;
@@ -645,42 +697,142 @@ export default function AdminDashboard() {
           line-height: 1.6;
         }
 
+        .op-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 0.85rem;
+          margin-top: 0.85rem;
+        }
+
+        .op-card {
+          grid-column: span 2;
+          min-height: 76px;
+          border-radius: 20px;
+          border: 1px solid rgba(148,163,184,0.13);
+          background: rgba(22,27,39,0.58);
+          color: inherit;
+          text-decoration: none;
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 0.8rem;
+          padding: 0.9rem;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .op-card:hover {
+          background: rgba(26,32,48,0.9);
+          border-color: rgba(167,139,250,0.28);
+          transform: translateY(-1px);
+        }
+        .op-card--green { border-color: rgba(52,211,153,0.18); }
+        .op-card--yellow { border-color: rgba(251,191,36,0.24); }
+        .op-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(248,250,252,0.08);
+          line-height: 1;
+        }
+        .op-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+        .op-label {
+          color: #cbd5e1;
+          font-size: 0.74rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .op-description {
+          color: #64748b;
+          font-size: 0.7rem;
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .op-value {
+          color: #f8fafc;
+          font-size: 1.5rem;
+          font-weight: 950;
+          letter-spacing: -0.05em;
+        }
+
         .quick-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.7rem;
+          gap: 0.85rem;
         }
 
         @media (min-width: 820px) {
           .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
+        @media (min-width: 1180px) {
+          .quick-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        }
+
         .qbtn {
-          background: #171d2b;
-          border: 1px solid var(--border);
+          background: linear-gradient(180deg, #171d2b, #131824);
+          border: 1px solid rgba(148,163,184,0.14);
           color: #cbd5e1;
-          border-radius: 18px;
-          padding: 0.9rem;
-          font-size: 0.84rem;
+          border-radius: 20px;
+          padding: 0.95rem;
+          font-size: 0.86rem;
           font-weight: 900;
           text-decoration: none;
           display: flex;
           align-items: center;
-          gap: 0.55rem;
-          min-height: 64px;
+          gap: 0.72rem;
+          min-height: 82px;
           transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
         }
 
-        .qbtn:hover { background: var(--bg-card-hover); color: #f8fafc; transform: translateY(-1px); }
+        .qbtn:hover {
+          background: var(--bg-card-hover);
+          border-color: rgba(167,139,250,0.32);
+          color: #f8fafc;
+          transform: translateY(-1px);
+        }
         .qbtn-icon {
-          width: 34px;
-          height: 34px;
+          width: 38px;
+          height: 38px;
           border-radius: 14px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           background: rgba(148,163,184,0.1);
           flex-shrink: 0;
+          line-height: 1;
+          font-size: 1.05rem;
+        }
+        .qbtn-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+        .qbtn-label {
+          color: #e2e8f0;
+          line-height: 1.1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .qbtn-description {
+          color: #64748b;
+          font-size: 0.68rem;
+          font-weight: 700;
+          line-height: 1.25;
         }
         .qbtn-arrow { margin-left: auto; color: #64748b; }
         .qbtn--yellow { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.24); color: #fbbf24; }
@@ -692,30 +844,32 @@ export default function AdminDashboard() {
           position: relative;
           display: flex;
           flex-direction: column;
-          gap: 0.55rem;
-          background: rgba(22,27,39,0.72);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          padding: 0.8rem;
+          gap: 0.7rem;
         }
 
         .timeline-item {
           display: grid;
-          grid-template-columns: 34px 10px minmax(0, 1fr);
+          grid-template-columns: 42px 10px minmax(0, 1fr);
           align-items: center;
-          gap: 0.6rem;
-          border-radius: 14px;
-          padding: 0.62rem;
-          min-height: 56px;
+          gap: 0.78rem;
+          border: 1px solid rgba(148,163,184,0.12);
+          border-radius: 18px;
+          padding: 0.85rem;
+          min-height: 78px;
+          background: rgba(22,27,39,0.72);
           text-decoration: none;
           color: inherit;
-          transition: background 0.15s;
+          transition: background 0.15s, border-color 0.15s, transform 0.15s;
         }
-        .timeline-item:hover { background: rgba(148,163,184,0.06); }
+        .timeline-item:hover {
+          background: rgba(26,32,48,0.96);
+          border-color: rgba(167,139,250,0.26);
+          transform: translateY(-1px);
+        }
         .timeline-avatar {
-          width: 34px;
-          height: 34px;
-          border-radius: 14px;
+          width: 42px;
+          height: 42px;
+          border-radius: 16px;
           object-fit: cover;
           flex-shrink: 0;
         }
@@ -725,7 +879,7 @@ export default function AdminDashboard() {
           justify-content: center;
           background: rgba(148,163,184,0.12);
           color: #cbd5e1;
-          font-size: 0.86rem;
+          font-size: 1rem;
           font-weight: 900;
         }
         .timeline-avatar--green { background: rgba(52,211,153,0.15); color: #a7f3d0; }
@@ -738,11 +892,20 @@ export default function AdminDashboard() {
           background: #475569;
           box-shadow: 0 0 0 4px rgba(71,85,105,0.12);
         }
-        .timeline-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
-        .timeline-text {
+        .timeline-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.22rem; }
+        .timeline-actor {
           color: #e2e8f0;
-          font-size: 0.84rem;
-          font-weight: 750;
+          font-size: 0.9rem;
+          font-weight: 900;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .timeline-action {
+          color: #94a3b8;
+          font-size: 0.78rem;
+          font-weight: 700;
+          line-height: 1.25;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -767,29 +930,39 @@ export default function AdminDashboard() {
         .analytics-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
         @media (min-width: 900px) {
           .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
         .analytics-card {
-          background: #151a27;
-          border: 1px solid var(--border);
-          border-radius: 18px;
-          padding: 1rem;
-          min-height: 128px;
+          background: linear-gradient(180deg, #151a27, #111622);
+          border: 1px solid rgba(148,163,184,0.14);
+          border-radius: 20px;
+          padding: 1.08rem;
+          min-height: 142px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
         }
-        .analytics-icon { font-size: 1.35rem; }
+        .analytics-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(52,211,153,0.1);
+          font-size: 1.1rem;
+          line-height: 1;
+        }
         .analytics-value {
           color: #f8fafc;
-          font-size: clamp(1.55rem, 4vw, 2rem);
-          font-weight: 900;
-          letter-spacing: -0.04em;
+          font-size: clamp(1.9rem, 4vw, 2.45rem);
+          font-weight: 950;
+          letter-spacing: -0.05em;
           line-height: 1;
-          margin-top: 0.5rem;
+          margin-top: 0.75rem;
         }
         .analytics-label {
           color: #94a3b8;
@@ -797,9 +970,14 @@ export default function AdminDashboard() {
           font-weight: 850;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          margin-top: 0.45rem;
+          margin-top: 0.55rem;
         }
-        .analytics-sub { color: #475569; font-size: 0.68rem; margin-top: 0.14rem; }
+        .analytics-sub {
+          color: #475569;
+          font-size: 0.68rem;
+          line-height: 1.35;
+          margin-top: 0.2rem;
+        }
 
         @keyframes fade-up {
           from { opacity: 0; transform: translateY(6px); }
@@ -808,32 +986,56 @@ export default function AdminDashboard() {
 
         @media (max-width: 767px) {
           .dash { max-width: 100%; }
-          .dash-header { align-items: center; margin-bottom: 1rem; }
-          .dash-title { font-size: 1.25rem; }
+          .dash-header { align-items: center; margin-bottom: 1.15rem; gap: 0.75rem; }
+          .dash-title { font-size: 1.35rem; }
           .dash-sub { font-size: 0.72rem; }
           .btn-refresh { min-height: 42px; padding: 0.45rem 0.72rem; }
-          .section { margin-bottom: 1.25rem; }
+          .section { margin-bottom: 1.35rem; }
           .section--analytics { margin-top: 1.6rem; }
-          .exec-grid { gap: 0.65rem; }
-          .exec-card { min-height: var(--exec-card-min-height-mobile); padding: 0.82rem; border-radius: 18px; }
-          .exec-icon { font-size: 1.3rem; }
-          .exec-value { font-size: clamp(1.5rem, 1rem + 3vw, 2rem); margin-top: 0.45rem; }
-          .exec-title { font-size: 0.66rem; margin-top: 0.42rem; }
-          .exec-sub { font-size: 0.65rem; }
-          .quick-grid { gap: 0.6rem; }
-          .qbtn { min-height: 62px; padding: 0.78rem; }
-          .timeline { padding: 0.55rem; }
-          .timeline-item { grid-template-columns: 32px 8px minmax(0, 1fr); gap: 0.52rem; padding: 0.55rem; }
-          .timeline-avatar { width: 32px; height: 32px; border-radius: 13px; }
-          .analytics-grid { gap: 0.65rem; }
-          .analytics-card { min-height: 118px; padding: 0.85rem; }
+          .sh { margin-bottom: 0.78rem; }
+          .sh-icon { width: 26px; height: 26px; border-radius: 9px; }
+          .exec-grid { gap: 0.72rem; }
+          .exec-card { min-height: var(--exec-card-min-height-mobile); padding: 0.88rem; border-radius: 20px; }
+          .exec-icon { width: 36px; height: 36px; border-radius: 14px; font-size: 1.15rem; }
+          .exec-value { font-size: clamp(1.8rem, 8vw, 2.35rem); margin-top: 0.72rem; }
+          .exec-title { font-size: 0.66rem; margin-top: 0.5rem; }
+          .exec-sub { font-size: 0.64rem; line-height: 1.35; }
+          .op-grid { grid-template-columns: 1fr; gap: 0.62rem; margin-top: 0.72rem; }
+          .op-card { grid-column: auto; min-height: 68px; padding: 0.72rem; border-radius: 18px; }
+          .op-icon { width: 34px; height: 34px; border-radius: 13px; }
+          .op-value { font-size: 1.32rem; }
+          .quick-grid { gap: 0.65rem; }
+          .qbtn { min-height: 76px; padding: 0.78rem; border-radius: 18px; gap: 0.6rem; }
+          .qbtn-icon { width: 34px; height: 34px; border-radius: 13px; }
+          .qbtn-description {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
+            border: 0;
+          }
+          .timeline { gap: 0.62rem; }
+          .timeline-item { grid-template-columns: 36px 8px minmax(0, 1fr); gap: 0.58rem; padding: 0.72rem; min-height: 72px; }
+          .timeline-avatar { width: 36px; height: 36px; border-radius: 14px; }
+          .timeline-actor { font-size: 0.84rem; }
+          .timeline-action { font-size: 0.74rem; }
+          .analytics-grid { gap: 0.7rem; }
+          .analytics-card { min-height: 126px; padding: 0.88rem; border-radius: 18px; }
+          .analytics-icon { width: 34px; height: 34px; border-radius: 13px; }
+          .analytics-value { font-size: clamp(1.65rem, 7vw, 2.1rem); margin-top: 0.55rem; }
         }
 
         @media (max-width: 400px) {
           .quick-grid { gap: 0.55rem; }
-          .qbtn { padding: 0.7rem; min-height: 58px; font-size: 0.78rem; }
+          .qbtn { padding: 0.68rem; min-height: 66px; font-size: 0.78rem; }
           .qbtn-icon { width: 30px; height: 30px; border-radius: 12px; }
-          .timeline-text { font-size: 0.8rem; }
+          .timeline-actor { font-size: 0.8rem; }
+          .timeline-action { font-size: 0.72rem; }
         }
       `}</style>
     </div>

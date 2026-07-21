@@ -119,7 +119,7 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 
 function QuickAction({ href, icon, label, description, tone }) {
   return (
-    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)} aria-label={description ? `${label}: ${description}` : label}>
       <span className="qbtn-icon">{icon}</span>
       <span className="qbtn-copy">
         <span className="qbtn-label">{label}</span>
@@ -198,7 +198,7 @@ function buildTimelineItems(recent) {
       icon: "🚨",
       accent: "red",
       actor: "Moderación",
-      action: report.reason ? `Reporte recibido: ${report.reason}. Requiere revisión.` : "Reporte recibido. Requiere revisión.",
+      action: `Reporte recibido${report.reason ? `: ${report.reason}` : ""}. Requiere revisión.`,
       href: "/admin/reports",
     });
   }
@@ -695,12 +695,13 @@ export default function AdminDashboard() {
 
         .op-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 0.85rem;
           margin-top: 0.9rem;
         }
 
         .op-card {
+          grid-column: span 2;
           min-height: 76px;
           border-radius: 20px;
           border: 1px solid rgba(148,163,184,0.13);
@@ -996,7 +997,7 @@ export default function AdminDashboard() {
           .exec-title { font-size: 0.66rem; margin-top: 0.5rem; }
           .exec-sub { font-size: 0.64rem; line-height: 1.35; }
           .op-grid { grid-template-columns: 1fr; gap: 0.62rem; margin-top: 0.72rem; }
-          .op-card { min-height: 68px; padding: 0.72rem; border-radius: 18px; }
+          .op-card { grid-column: auto; min-height: 68px; padding: 0.72rem; border-radius: 18px; }
           .op-icon { width: 34px; height: 34px; border-radius: 13px; }
           .op-value { font-size: 1.32rem; }
           .quick-grid { gap: 0.65rem; }

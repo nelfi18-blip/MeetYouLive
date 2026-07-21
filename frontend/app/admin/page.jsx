@@ -33,11 +33,18 @@ function getDisplayName(user) {
   return user?.name || user?.username || user?.email || "—";
 }
 
-function getCompactName(user, fallback = "Usuario") {
+function getShortUserName(user, fallback = "Usuario") {
   const name = user?.name || user?.username;
   if (name) return name;
   if (user?.email) return user.email.split("@")[0] || fallback;
   return fallback;
+}
+
+function getSafeActivityAvatar(user) {
+  const avatar = getPrimaryProfileImage(user);
+  if (!avatar) return null;
+  if (/^https?:\/\//i.test(avatar) || avatar.startsWith("/")) return avatar;
+  return null;
 }
 
 function getStatusLabel(value, fallback = "Nuevo") {
@@ -323,7 +330,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState([]);
-  const [isMobileAccordion, setIsMobileAccordion] = useState(false);
+  const [isSingleAccordionMode, setIsSingleAccordionMode] = useState(false);
   const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
@@ -426,7 +433,7 @@ export default function AdminDashboard() {
     if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
   useEffect(() => {
-    const updateViewport = () => setIsMobileAccordion(window.innerWidth < 768);
+    const updateViewport = () => setIsSingleAccordionMode(window.innerWidth < 768);
     updateViewport();
     window.addEventListener("resize", updateViewport);
     return () => window.removeEventListener("resize", updateViewport);
@@ -447,7 +454,7 @@ export default function AdminDashboard() {
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
   const toggleSection = (id) => {
     setOpenSections((current) => {
-      if (isMobileAccordion) return current.includes(id) ? [] : [id];
+      if (isSingleAccordionMode) return current.includes(id) ? [] : [id];
       return current.includes(id) ? current.filter((sectionId) => sectionId !== id) : [...current, id];
     });
   };
@@ -461,7 +468,7 @@ export default function AdminDashboard() {
             <span className="dash-title-icon">⊞</span>
             Command Center
           </h1>
-          <p className="dash-sub">Vista móvil premium · MeetYouLive</p>
+          <p className="dash-sub">Dashboard administrativo · MeetYouLive</p>
         </div>
         <button className="btn-refresh" onClick={loadData} disabled={loading}>
           ↺ Actualizar
@@ -511,7 +518,7 @@ export default function AdminDashboard() {
             items={recent.users}
             href="/admin/users"
             renderItem={(user) => (
-              <ActivityLine name={getCompactName(user)} date={fmtDate(user.createdAt)} status={getStatusLabel(user.role, "Usuario")} avatar={getPrimaryProfileImage(user)} accent="purple" />
+              <ActivityLine name={getShortUserName(user)} date={fmtDate(user.createdAt)} status={getStatusLabel(user.role, "Usuario")} avatar={getSafeActivityAvatar(user)} accent="purple" />
             )}
           />
           <ActivityList
@@ -520,7 +527,7 @@ export default function AdminDashboard() {
             items={recent.creators}
             href="/admin/creators"
             renderItem={(creator) => (
-              <ActivityLine name={getCompactName(creator, "Creador")} date={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} status={getStatusLabel(creator.creatorStatus, "Creador")} avatar={getPrimaryProfileImage(creator)} accent="green" />
+              <ActivityLine name={getShortUserName(creator, "Creador")} date={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} status={getStatusLabel(creator.creatorStatus, "Creador")} avatar={getSafeActivityAvatar(creator)} accent="green" />
             )}
           />
           <ActivityList
@@ -529,7 +536,7 @@ export default function AdminDashboard() {
             items={recent.purchases}
             href="/admin/transactions"
             renderItem={(tx) => (
-              <ActivityLine name={getCompactName(tx.userId)} date={fmtDate(tx.createdAt)} status={`${fmt(tx.amount)} coins`} avatar={getPrimaryProfileImage(tx.userId)} accent="gold" />
+              <ActivityLine name={getShortUserName(tx.userId)} date={fmtDate(tx.createdAt)} status={`${fmt(tx.amount)} coins`} avatar={getSafeActivityAvatar(tx.userId)} accent="gold" />
             )}
           />
           <ActivityList

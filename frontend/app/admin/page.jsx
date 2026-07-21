@@ -7,6 +7,9 @@ import { clearAdminToken, getToken } from "@/lib/token";
 import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const RECENT_ITEMS_LIMIT = 3;
+const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts"];
+const SKELETON_ACTIVITY_CARDS = ["users", "creators", "purchases", "reports"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,15 +39,16 @@ function getDisplayName(user) {
 function getShortUserName(user, fallback = "Usuario") {
   const name = user?.name || user?.username;
   if (name) return name;
-  if (user?.email) return user.email.split("@")[0] || fallback;
+  if (user?.email) {
+    const emailName = user.email.split("@")[0];
+    return emailName || fallback;
+  }
   return fallback;
 }
 
 function getSafeActivityAvatar(user) {
   const avatar = getPrimaryProfileImage(user);
-  if (!avatar) return null;
-  if (/^https?:\/\//i.test(avatar) || avatar.startsWith("/")) return avatar;
-  return null;
+  return avatar && (/^https?:\/\//i.test(avatar) || avatar.startsWith("/")) ? avatar : null;
 }
 
 function getStatusLabel(value, fallback = "Nuevo") {
@@ -78,7 +82,7 @@ function getRevenueChartTitle(series) {
 }
 
 function getRecentActivityItems(items = []) {
-  return items.slice(0, 3);
+  return items.slice(0, RECENT_ITEMS_LIMIT);
 }
 
 function CountBadge({ value }) {
@@ -143,7 +147,7 @@ function CollapsibleSection({ id, icon, title, accent, link, linkLabel, isOpen, 
   return (
     <section className={["collapse", isOpen ? "collapse--open" : ""].filter(Boolean).join(" ")}>
       <div className="collapse-summary">
-        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen}>
+        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen} aria-label={`${isOpen ? "Cerrar" : "Abrir"} sección ${title}`}>
           <span className={`sh-dot sh-dot--${accent || "purple"}`} />
           <span className="sh-icon">{icon}</span>
           <span className="sh-title">{title}</span>
@@ -259,7 +263,7 @@ function ActivityLine({ name, date, status, avatar, icon, accent }) {
   return (
     <>
       {avatar ? (
-        <img src={avatar} alt={`Avatar de ${name}`} className="activity-avatar" />
+        <img src={avatar} alt={`Foto de perfil de ${name}`} className="activity-avatar" />
       ) : (
         <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
           {icon || (name || "?")[0].toUpperCase()}
@@ -285,10 +289,10 @@ function DashboardSkeleton() {
         <div className="sk sk-button" />
       </div>
       <div className="exec-grid">
-        {Array.from({ length: 5 }).map((_, index) => <div className="sk sk-card" key={`card-${index}`} />)}
+        {SKELETON_EXEC_CARDS.map((key) => <div className="sk sk-card" key={key} />)}
       </div>
       <div className="activity-grid sk-gap">
-        {Array.from({ length: 4 }).map((_, index) => <div className="sk sk-activity" key={`activity-${index}`} />)}
+        {SKELETON_ACTIVITY_CARDS.map((key) => <div className="sk sk-activity" key={key} />)}
       </div>
     </div>
   );
@@ -343,10 +347,10 @@ export default function AdminDashboard() {
     if (!token) return;
     try {
       const recentRequests = [
-        ["users", `${API_URL}/api/admin/users?page=1&limit=3`],
-        ["creators", `${API_URL}/api/admin/creators?page=1&limit=3`],
-        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=3&type=purchase`],
-        ["reports", `${API_URL}/api/admin/reports?page=1&limit=3`],
+        ["users", `${API_URL}/api/admin/users?page=1&limit=${RECENT_ITEMS_LIMIT}`],
+        ["creators", `${API_URL}/api/admin/creators?page=1&limit=${RECENT_ITEMS_LIMIT}`],
+        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=${RECENT_ITEMS_LIMIT}&type=purchase`],
+        ["reports", `${API_URL}/api/admin/reports?page=1&limit=${RECENT_ITEMS_LIMIT}`],
       ];
       const responses = await Promise.allSettled(
         recentRequests.map(([, url]) => fetch(url, { headers: authHeader(), cache: "no-store" }))
@@ -635,6 +639,7 @@ export default function AdminDashboard() {
           --bg-card-hover: #1a1f2e;
           --border: #1e2535;
           --exec-card-min-height: 132px;
+          --exec-card-min-height-mobile: 118px;
         }
 
         .dash { max-width: 1280px; }
@@ -1529,7 +1534,7 @@ export default function AdminDashboard() {
           .exec-grid { gap: 0.6rem; }
 
           .exec-card {
-            min-height: 118px;
+            min-height: var(--exec-card-min-height-mobile);
             padding: 0.8rem;
             border-radius: 16px;
           }

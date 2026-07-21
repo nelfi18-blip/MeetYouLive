@@ -119,7 +119,7 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 
 function QuickAction({ href, icon, label, description, tone }) {
   return (
-    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)} aria-label={description ? `${label}: ${description}` : label}>
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
       <span className="qbtn-icon">{icon}</span>
       <span className="qbtn-copy">
         <span className="qbtn-label">{label}</span>

@@ -5,15 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const CREATOR_CENTER_LINKS = [
-  { href: "/creator", label: "Dashboard" },
-  { href: "/creator#earnings", label: "Earnings" },
-  { href: "/creator#wallet", label: "Wallet" },
-  { href: "/creator#gifts", label: "Gifts" },
-  { href: "/creator#followers", label: "Followers" },
-  { href: "/creator#live-stats", label: "Live Stats" },
-  { href: "/creator#withdrawals", label: "Withdrawals" },
-  { href: "/creator/content", label: "Content" },
-  { href: "/creator#creator-settings", label: "Creator Settings" },
+  { href: "/creator", label: "🏠 Dashboard" },
+  { href: "/live", label: "📺 Mis Lives" },
+  { href: "/live/start", label: "📅 Programar Live" },
+  { href: "/creator#followers", label: "👥 Comunidad" },
+  { href: "/creator#earnings", label: "💰 Ganancias" },
+  { href: "/creator#wallet", label: "🏦 Retiros" },
+  { href: "/creator#analytics", label: "📈 Analíticas" },
+  { href: "/settings", label: "⚙️ Configuración" },
 ];
 
 export default function CreatorCenterNav() {
@@ -28,7 +27,7 @@ export default function CreatorCenterNav() {
   }, []);
 
   return (
-    <nav className="creator-center-nav" aria-label="Creator Center">
+    <nav className="creator-center-nav" aria-label="Panel creador">
       {CREATOR_CENTER_LINKS.map((item) => {
         const [itemPath, itemHash] = item.href.split("#");
         const isActive = itemHash ? pathname === itemPath && hash === `#${itemHash}` : pathname === itemPath && !hash;

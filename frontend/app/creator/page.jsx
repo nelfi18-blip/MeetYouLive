@@ -163,70 +163,59 @@ export default function CreatorPage() {
   const statsCards = useMemo(() => {
     if (!isApproved) return [];
 
-    const cards = [
+    return [
       {
         key: "available",
-        label: "Disponible para retiro",
+        label: "Balance disponible",
         value: formatCoins(availableForPayout),
         unit: "monedas",
         icon: <WalletIcon size={14} />,
         accent: "green",
-        helper: "Balance listo para solicitar retiro.",
+        helper: "Listo para solicitar retiro.",
       },
       {
-        key: "total",
-        label: "Total generado",
-        value: formatCoins(dashboard?.totalEarnedLifetime ?? earnings?.totalEarnedLifetime ?? 0),
+        key: "today",
+        label: "Ganancias hoy",
+        value: formatCoins(dashboard?.todayEarnings ?? dashboard?.todayCoins ?? 0),
         unit: "monedas",
         icon: <CoinIcon size={14} />,
         accent: "purple",
-        helper: "Ingresos acumulados de tu actividad monetizada.",
+        helper: "Ingresos generados durante el día.",
       },
       {
-        key: "pending",
-        label: "Pendiente de retiro",
-        value: formatCoins(dashboard?.pendingPayoutCoins ?? earnings?.pendingPayoutCoins ?? 0),
-        unit: "monedas",
-        icon: <WalletIcon size={14} />,
+        key: "followers",
+        label: "Nuevos seguidores",
+        value: formatCoins(dashboard?.newFollowersToday ?? dashboard?.followersToday ?? 0),
+        icon: <ActivityIcon size={14} />,
         accent: "cyan",
-        helper: "Fondos en proceso de pago.",
-      },
-      {
-        key: "withdrawn",
-        label: "Retirado",
-        value: formatCoins(dashboard?.withdrawnCoins ?? earnings?.withdrawnCoins ?? 0),
-        unit: "monedas",
-        icon: <CardIcon size={14} />,
-        accent: "pink",
+        helper: "Crecimiento nuevo de audiencia.",
       },
       {
         key: "gifts",
         label: "Regalos recibidos",
-        value: formatCoins(dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
+        value: formatCoins(dashboard?.totalGiftsReceived ?? dashboard?.totalGifts ?? earnings?.totalGiftCount ?? 0),
         icon: <GiftIcon size={14} />,
         accent: "orange",
+        helper: "Regalos acumulados de fans.",
       },
       {
-        key: "calls",
-        label: "Ganancias por llamadas",
-        value: formatCoins(dashboard?.totalCallEarnings ?? 0),
-        unit: "monedas",
-        icon: <ActivityIcon size={14} />,
-        accent: "cyan",
-        helper: "Ganancias por llamadas privadas.",
-      },
-      {
-        key: "lives",
-        label: "Directos realizados",
-        value: formatCoins(dashboard?.totalLives ?? 0),
+        key: "live",
+        label: "Live activo",
+        value: activeLive ? "Activo" : "Inactivo",
         icon: <VideoIcon size={14} />,
-        accent: "purple",
-        helper: "Directos publicados como creador.",
+        accent: activeLive ? "pink" : "purple",
+        helper: activeLive?.title || "Sin transmisión activa.",
+      },
+      {
+        key: "notifications",
+        label: "Notificaciones importantes",
+        value: formatCoins(dashboard?.importantNotifications ?? dashboard?.pendingAlerts ?? 0),
+        icon: <AlertIcon size={14} />,
+        accent: "pink",
+        helper: "Alertas relevantes para revisar.",
       },
     ];
-
-    return cards;
-  }, [dashboard, earnings, isApproved, availableForPayout]);
+  }, [dashboard, earnings, isApproved, availableForPayout, activeLive]);
 
   const handleRequestPayout = async () => {
     const token = localStorage.getItem("token");
@@ -361,8 +350,8 @@ export default function CreatorPage() {
         <>
           <section id="earnings">
             <PremiumSectionHeader
-              title="Resumen de ganancias"
-              subtitle="Visualiza tu dinero y actividad de monetización en segundos."
+              title="Dashboard de creador"
+              subtitle="Balance, ingresos y señales importantes sin información duplicada."
             />
             <div className="stats-grid">
               {statsCards.map((item) => (
@@ -383,7 +372,7 @@ export default function CreatorPage() {
             <MonetizationHistoryCard items={earnings?.recentMonetizationActivity || []} />
           </section>
 
-          <section id="live-stats">
+          <section id="analytics">
             <CreatorProgressCard
               creatorLevel={creatorLevel}
               consistencyDays={dashboard?.consistencyDays || 0}
@@ -414,21 +403,21 @@ export default function CreatorPage() {
 
           <FuturisticCard className="structure-card" accent="cyan" hover={false}>
             <PremiumSectionHeader
-              title="Arquitectura del Creator Center"
-              subtitle="Secciones preparadas para operar el centro de creador sin añadir funciones experimentales."
+              title="Secciones del panel creador"
+              subtitle="Accesos organizados por comunidad, ganancias, retiros, analíticas y configuración."
             />
             <div className="structure-grid">
               <div id="followers" className="structure-item">
-                <strong>Followers</strong>
-                <span>Preparado para métricas y gestión de seguidores.</span>
+                <strong>Comunidad</strong>
+                <span>Seguidores, suscriptores y chats en un bloque operativo.</span>
               </div>
               <div id="withdrawals" className="structure-item">
-                <strong>Withdrawals</strong>
+                <strong>Retiros</strong>
                 <span>Conectado al flujo actual de solicitudes de retiro.</span>
               </div>
               <div id="creator-settings" className="structure-item">
-                <strong>Creator Settings</strong>
-                <span>Listo para preferencias del creador y monetización.</span>
+                <strong>Configuración</strong>
+                <span>Preferencias del creador, perfil y monetización.</span>
               </div>
             </div>
           </FuturisticCard>

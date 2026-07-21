@@ -20,62 +20,14 @@ import SectionHeader from "@/components/ui/SectionHeader";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const CARDS = [
-  {
-    href: "/explore",
-    title: "Explorar",
-    sub: "Descubre streamers y personas",
-    icon: ExploreIcon,
-    color: "indigo",
-    size: "normal",
-  },
-  {
-    href: "/matches",
-    title: "Matches",
-    sub: "Tus conexiones mutuas",
-    icon: MatchIcon,
-    color: "pink",
-    size: "normal",
-  },
-  {
-    href: "/live",
-    title: "Directos",
-    sub: "Ve transmisiones en tiempo real",
-    icon: LiveIcon,
-    color: "red",
-    size: "normal",
-  },
-  {
-    href: "/chats",
-    title: "Chats",
-    sub: "Tus conversaciones privadas",
-    icon: ChatIcon,
-    color: "cyan",
-    size: "normal",
-  },
-  {
-    href: "/coins",
-    title: "Comprar monedas",
-    sub: "Apoya a tus streamers favoritos",
-    icon: CoinIcon,
-    color: "orange",
-    size: "normal",
-  },
-  {
-    href: "/ranking",
-    title: "Ranking",
-    sub: "Top creadores de la plataforma",
-    icon: RankingIcon,
-    color: "green",
-    size: "normal",
-  },
-  {
-    href: "/profile",
-    title: "Mi perfil",
-    sub: "Gestiona tu cuenta",
-    icon: ProfileIcon,
-    color: "purple",
-    size: "normal",
-  },
+  { href: "/feed", title: "Feed / Descubrir", sub: "Personas y contenido recomendado", icon: ExploreIcon, color: "indigo", size: "normal" },
+  { href: "/matches", title: "Matches", sub: "Tus conexiones mutuas", icon: MatchIcon, color: "pink", size: "normal" },
+  { href: "/chats", title: "Chats", sub: "Conversaciones privadas", icon: ChatIcon, color: "cyan", size: "normal" },
+  { href: "/live", title: "Lives", sub: "Transmisiones en tiempo real", icon: LiveIcon, color: "red", size: "normal" },
+  { href: "/calls", title: "Videollamadas", sub: "Llamadas y encuentros en video", icon: PrivateCallIcon, color: "green", size: "normal" },
+  { href: "/coins", title: "Coins", sub: "Compra y administra monedas", icon: CoinIcon, color: "orange", size: "normal" },
+  { href: "/profile", title: "Mi Perfil", sub: "Fotos, bio e intereses", icon: ProfileIcon, color: "purple", size: "normal" },
+  { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
 ];
 
 function ExploreIcon() {
@@ -196,6 +148,15 @@ function ModeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M1 12h6m6 0h6M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24"/>
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06A1.65 1.65 0 0015 19.4a1.65 1.65 0 00-1 .6 1.65 1.65 0 00-.33 1.82V22a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-.6-1 1.65 1.65 0 00-1.82-.33H2a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-.6 1.65 1.65 0 00.33-1.82V2a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.36.18.67.43.9.75.23.32.34.72.34 1.12s-.11.8-.34 1.12c-.23.32-.54.57-.9.75z"/>
     </svg>
   );
 }
@@ -661,10 +622,12 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* ── 📊 ACTIVITY SIGNALS — social proof bar ── */}
-      <ActivityBar variant="strip" />
+      {isCreatorApproved && (
+        <>
+          {/* ── 📊 ACTIVITY SIGNALS — creator social proof bar ── */}
+          <ActivityBar variant="strip" />
 
-      <FuturisticCard className="home-stats-shell" accent="cyan">
+          <FuturisticCard className="home-stats-shell" accent="cyan">
         <SectionHeader
           title="Actividad y estado"
           subtitle="Resumen rápido de tu cuenta"
@@ -697,18 +660,28 @@ export default function DashboardPage() {
             href="/live"
           />
         </div>
-      </FuturisticCard>
+          </FuturisticCard>
 
-      {/* ── 🎯 DAILY MISSIONS ── */}
-      {user && <DailyMissions />}
+          {/* ── 🎯 DAILY MISSIONS ── */}
+          {user && <DailyMissions />}
 
-      {/* ── 🔥 DAILY STREAK CARD ── */}
-      {user && <DailyStreakCard onClaimed={handleRewardClaimed} />}
+          {/* ── 🔥 DAILY STREAK CARD ── */}
+          {user && <DailyStreakCard onClaimed={handleRewardClaimed} />}
 
-      {/* ── 🧠 PROGRESSION & ACHIEVEMENTS ── */}
-      {user && <UserProgressCard />}
+          {/* ── 🧠 PROGRESSION & ACHIEVEMENTS ── */}
+          {user && <UserProgressCard />}
+        </>
+      )}
 
-      {/* ── 🎯 MODE SELECTOR ENTRY CARD ── */}
+      {!isCreatorApproved && (
+        <div className="user-dashboard-intro">
+          <span className="user-dashboard-kicker">Panel usuario</span>
+          <h2>Descubre, conecta y disfruta contenido en vivo</h2>
+          <p>Acceso rápido a la experiencia social principal, sin métricas duplicadas ni herramientas de creador.</p>
+        </div>
+      )}
+
+      {isCreatorApproved && (
       <Link href="/mode" className="confidence-entry-card">
         <div className="confidence-entry-glow" />
         <div className="confidence-entry-left">
@@ -720,8 +693,9 @@ export default function DashboardPage() {
         </div>
         <span className="confidence-entry-cta">Elegir ahora</span>
       </Link>
+      )}
 
-      {/* ── 💖 CONFIDENCE ROOM ENTRY CARD ── */}
+      {isCreatorApproved && (
       <Link href="/rooms" className="confidence-entry-card">
         <div className="confidence-entry-glow" />
         <div className="confidence-entry-left">
@@ -733,12 +707,17 @@ export default function DashboardPage() {
         </div>
         <span className="confidence-entry-cta">Entrar ahora</span>
       </Link>
+      )}
 
-      {/* ── 🟢 ONLINE USERS SECTION ── */}
-      <OnlineUsers />
+      {isCreatorApproved && (
+        <>
+          {/* ── 🟢 ONLINE USERS SECTION ── */}
+          <OnlineUsers />
 
-      {/* ── 🎁 REFERRAL CARD ── */}
-      <ReferralCard />
+          {/* ── 🎁 REFERRAL CARD ── */}
+          <ReferralCard />
+        </>
+      )}
 
       {/* ── 🤝 CREATOR INVITE CARD (full creators only, not subCreators) ── */}
       {user?.role === "creator" && isCreatorApproved && user?.creatorInviteCode && (

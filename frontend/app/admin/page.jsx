@@ -409,10 +409,10 @@ export default function AdminDashboard() {
       <div className="dash-header">
         <div>
           <h1 className="dash-title">
-            <span className="dash-title-icon">⊞</span>
-            Command Center
+            <span className="dash-title-icon">🛡️</span>
+            Panel administrador
           </h1>
-          <p className="dash-sub">Dashboard administrativo · MeetYouLive</p>
+          <p className="dash-sub">Administración integral de la plataforma</p>
         </div>
         <button className="btn-refresh" onClick={loadData} disabled={loading}>
           ↺ Actualizar
@@ -420,16 +420,24 @@ export default function AdminDashboard() {
       </div>
 
       <section className="section section--hero">
-        <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
+        <SectionHeader icon="✦" title="Dashboard" accent="purple" />
         <div className="exec-grid">
-          <ExecutiveCard icon="👥" title="Usuarios" value={fmt(s.totalUsers)} sub="Usuarios registrados en la plataforma" accent="neutral" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos" value={todayRevenue.value} sub={`Ingresos ${todayRevenue.sub.toLowerCase()}`} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
-          <ExecutiveCard icon="🔴" title="Lives" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "Streams activos ahora" : "Sin streams activos"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
-          <ExecutiveCard icon="🚨" title="Reportes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Moderación al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Cuentas totales" accent="neutral" href="/admin/users" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
+          <ExecutiveCard icon="📺" title="Lives activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo ahora" : "Sin lives activos"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Moderación al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="🏦" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins por revisar` : "Sin retiros pendientes"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" badge={s.pendingPayoutsCount} />
+          <ExecutiveCard icon="⭐" title="Creadores activos" value={fmt(s.totalCreators)} sub="Creadores aprobados" accent="neutral" href="/admin/creators?status=approved" />
         </div>
+      </section>
+
+      <section className="section section--quick">
+        <SectionHeader icon="⚡" title="Acciones rápidas" accent="gold" />
         <div className="op-grid">
-          <OperationalMetric icon="💸" label="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} description={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins por revisar` : "Sin retiros pendientes"} tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" />
-          <OperationalMetric icon="⭐" label="Creadores activos" value={fmt(s.totalCreators)} description="Creadores aprobados" href="/admin/creators?status=approved" />
+          <OperationalMetric icon="👥" label="Revisar usuarios" value="→" description="Gestionar cuentas y estados" href="/admin/users" />
+          <OperationalMetric icon="🚨" label="Moderar reportes" value={fmt(s.openReports)} description="Atender reportes pendientes" tone={s.openReports > 0 ? "yellow" : "green"} href="/admin/reports" />
+          <OperationalMetric icon="🏦" label="Procesar retiros" value={fmt(s.pendingPayoutsCount)} description="Solicitudes de retiro" tone={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/withdrawals?status=pending" />
+          <OperationalMetric icon="📺" label="Monitorear lives" value={fmt(s.activeLives)} description="Actividad en vivo" href="/admin/lives" />
         </div>
       </section>
 
@@ -596,8 +604,11 @@ export default function AdminDashboard() {
           gap: 1rem;
         }
 
-        @media (min-width: 900px) {
-          .exec-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        @media (min-width: 760px) {
+          .exec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1180px) {
+          .exec-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         }
 
         .exec-card {

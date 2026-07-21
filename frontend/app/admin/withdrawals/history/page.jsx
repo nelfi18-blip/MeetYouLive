@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "../../payouts/page";
+export { default } from "../../payouts/PayoutsPage";

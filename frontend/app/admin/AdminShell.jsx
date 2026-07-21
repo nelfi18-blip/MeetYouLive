@@ -35,7 +35,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
       { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
-      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", roles: ["admin", "finance"] },
+      { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", exact: true, roles: ["admin", "finance"] },
       { href: "/admin/withdrawals/history", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
     ],
   },
@@ -235,7 +235,7 @@ export default function AdminShell({ children }) {
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
-          overflow-y: auto;
+          overflow-y: hidden;
           overflow-x: hidden;
           position: relative;
         }
@@ -274,6 +274,7 @@ export default function AdminShell({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.28s ease;
+          overflow-y: auto;
           overflow-x: hidden;
         }
 
@@ -331,7 +332,7 @@ export default function AdminShell({ children }) {
           flex: 1;
           min-height: 0;
           padding: 0.85rem 0.75rem;
-          overflow-y: visible;
+          overflow-y: auto;
           overflow-x: hidden;
           display: flex;
           flex-direction: column;

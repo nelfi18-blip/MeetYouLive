@@ -118,12 +118,15 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 }
 
 function QuickAction({ href, icon, label, description, tone }) {
+  const idBase = `quick-action-${href.replace(/[^a-zA-Z0-9]+/g, "-")}`;
+  const labelId = `${idBase}-label`;
+  const descriptionId = description ? `${idBase}-description` : undefined;
   return (
-    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)} aria-labelledby={labelId} aria-describedby={descriptionId}>
       <span className="qbtn-icon">{icon}</span>
       <span className="qbtn-copy">
-        <span className="qbtn-label">{label}</span>
-        {description && <span className="qbtn-description">{description}</span>}
+        <span id={labelId} className="qbtn-label">{label}</span>
+        {description && <span id={descriptionId} className="qbtn-description">{description}</span>}
       </span>
       <span className="qbtn-arrow">→</span>
     </Link>
@@ -221,6 +224,7 @@ function Timeline({ items }) {
   return (
     <div className="timeline">
       {items.map((item) => {
+        const timelineLabel = `${item.actor}. ${item.action} ${formatTimelineMeta(item)}`;
         const content = (
           <>
             {item.avatar ? (
@@ -237,9 +241,9 @@ function Timeline({ items }) {
           </>
         );
         return item.href ? (
-          <Link href={item.href} className="timeline-item" key={item.id}>{content}</Link>
+          <Link href={item.href} className="timeline-item" key={item.id} aria-label={timelineLabel}>{content}</Link>
         ) : (
-          <div className="timeline-item" key={item.id}>{content}</div>
+          <div className="timeline-item" key={item.id} role="group" aria-label={timelineLabel}>{content}</div>
         );
       })}
     </div>

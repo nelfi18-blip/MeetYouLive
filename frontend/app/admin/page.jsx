@@ -4,8 +4,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
+import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
+const RECENT_ITEMS_LIMIT = 3;
+const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts"];
+const SKELETON_ACTIVITY_CARDS = ["users", "creators", "purchases", "reports"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,10 +37,38 @@ function getDisplayName(user) {
   return user?.name || user?.username || user?.email || "—";
 }
 
-function getSecondaryUserInfo(user) {
-  const primary = getDisplayName(user);
-  const secondary = user?.email || user?.username || user?.role;
-  return secondary && secondary !== primary ? secondary : user?.role || "";
+function getShortUserName(user, fallback = "Usuario") {
+  const name = user?.name || user?.username;
+  if (name) return name;
+  if (user?.email) {
+    const emailName = user.email.split("@")[0];
+    return emailName || fallback;
+  }
+  return fallback;
+}
+
+function getSafeActivityAvatar(user) {
+  const avatar = getPrimaryProfileImage(user);
+  if (!avatar) return null;
+  if (avatar.startsWith("/")) return avatar;
+  try {
+    const url = new URL(avatar);
+    return API_ORIGIN && url.origin === API_ORIGIN ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStatusLabel(value, fallback = "Nuevo") {
+  if (!value) return fallback;
+  const normalized = String(value).toLowerCase();
+  if (normalized === "approved") return "Aprobado";
+  if (normalized === "pending") return "Pendiente";
+  if (normalized === "open") return "Abierto";
+  if (normalized === "closed") return "Cerrado";
+  if (normalized === "purchase") return "Compra";
+  if (normalized === "active") return "Activo";
+  return value;
 }
 
 function getTodaySeriesValue(series, key = "total") {
@@ -44,11 +77,11 @@ function getTodaySeriesValue(series, key = "total") {
 
 function getTodayRevenueSummary(series) {
   if (!series?.length) {
-    return { value: "—", sub: "Sin datos disponibles" };
+    return { value: "—", sub: "Sin compras" };
   }
   return {
     value: `${fmt(getTodaySeriesValue(series, "total"))} 🪙`,
-    sub: "Ingresos de la plataforma hoy",
+    sub: "Hoy",
   };
 }
 
@@ -56,14 +89,8 @@ function getRevenueChartTitle(series) {
   return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
 }
 
-function getLimitedUniqueLives(lives = []) {
-  const seen = new Set();
-  return lives.filter((live) => {
-    const id = live?._id;
-    if (!id || seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  }).slice(0, 5);
+function getRecentActivityItems(items = []) {
+  return items.slice(0, RECENT_ITEMS_LIMIT);
 }
 
 function CountBadge({ value }) {
@@ -105,21 +132,6 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
   return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
 }
 
-// ── Alert Banner ──────────────────────────────────────────────────────────────
-
-function AlertBanner({ icon, title, sub, href, color }) {
-  return (
-    <Link href={href} className={`alert-banner alert-banner--${color}`}>
-      <span className="alert-icon">{icon}</span>
-      <div className="alert-body">
-        <div className="alert-title">{title}</div>
-        {sub && <div className="alert-sub">{sub}</div>}
-      </div>
-      <span className="alert-arrow">→</span>
-    </Link>
-  );
-}
-
 // ── Section Header ────────────────────────────────────────────────────────────
 
 function SectionHeader({ icon, title, accent, link, linkLabel }) {
@@ -139,36 +151,43 @@ function SectionHeader({ icon, title, accent, link, linkLabel }) {
 
 // ── Collapsible Section ───────────────────────────────────────────────────────
 
-function CollapsibleSection({ icon, title, accent, link, linkLabel, children }) {
+function CollapsibleSection({ id, icon, title, accent, link, linkLabel, isOpen, onToggle, children }) {
   return (
-    <details className="collapse">
-      <summary className="collapse-summary">
-        <SectionHeader icon={icon} title={title} accent={accent} link={link} linkLabel={linkLabel} />
-        <span className="collapse-chevron">⌄</span>
-      </summary>
-      <div className="collapse-body">{children}</div>
-    </details>
+    <section className={["collapse", isOpen ? "collapse--open" : ""].filter(Boolean).join(" ")}>
+      <div className="collapse-summary">
+        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen} aria-label={isOpen ? "Cerrar sección" : "Abrir sección"}>
+          <span className={`sh-dot sh-dot--${accent || "purple"}`} />
+          <span className="sh-icon">{icon}</span>
+          <span className="sh-title">{title}</span>
+          <span className="collapse-chevron">⌄</span>
+        </button>
+        {link && <Link href={link} className="collapse-link">{linkLabel || "Ver todos →"}</Link>}
+      </div>
+      {isOpen && <div className="collapse-body">{children}</div>}
+    </section>
   );
 }
 
 // ── Mini Bar Chart ────────────────────────────────────────────────────────────
 
 function MiniBarChart({ data, valueKey = "total", labelKey = "label", color }) {
-  if (!data?.length) return <p className="chart-empty">Sin datos recientes.</p>;
+  if (!data?.length) return <p className="chart-empty">Sin datos recientes</p>;
   const max = Math.max(...data.map((d) => d[valueKey] || 0), 1);
   return (
     <div className="mbchart">
       {data.map((item, i) => {
-        const pct = ((item[valueKey] || 0) / max) * 100;
+        const value = item[valueKey] || 0;
+        const pct = (value / max) * 100;
         return (
           <div key={i} className="mbc-item">
             <div className="mbc-bar-wrap">
               <div
                 className="mbc-bar"
                 style={{ height: `${Math.max(pct, 2)}%`, background: color || "var(--accent-purple)" }}
-                title={`${item[labelKey]}: ${(item[valueKey] || 0).toLocaleString()}`}
+                title={`${item[labelKey]}: ${value.toLocaleString()}`}
               />
             </div>
+            <div className="mbc-value">{value.toLocaleString()}</div>
             <div className="mbc-label">{item[labelKey]}</div>
           </div>
         );
@@ -225,18 +244,19 @@ function TopTable({ title, rows, valueLabel = "coins", linkHref }) {
 
 // ── Recent Activity ───────────────────────────────────────────────────────────
 
-function ActivityList({ title, items, empty, renderItem, href }) {
+function ActivityList({ title, items, empty, renderItem, href, icon }) {
+  const visibleItems = getRecentActivityItems(items);
   return (
     <div className="activity-card">
       <div className="activity-head">
-        <span>{title}</span>
-        {href && <Link href={href} className="tt-link">Ver →</Link>}
+        <span><span className="activity-head-icon">{icon}</span>{title}</span>
+        {href && <Link href={href} className="tt-link">Ver todos →</Link>}
       </div>
-      {!items?.length ? (
-        <p className="activity-empty">{empty || "Sin actividad reciente."}</p>
+      {!visibleItems.length ? (
+        <div className="activity-empty">{empty || "Sin actividad reciente"}</div>
       ) : (
         <div className="activity-list">
-          {items.map((item, i) => (
+          {visibleItems.map((item, i) => (
             <div className="activity-item" key={item._id || i}>
               {renderItem(item)}
             </div>
@@ -247,16 +267,42 @@ function ActivityList({ title, items, empty, renderItem, href }) {
   );
 }
 
-function ActivityLine({ primary, secondary, meta, accent }) {
+function ActivityLine({ name, date, status, avatar, icon, accent }) {
   return (
     <>
-      <span className={["activity-dot", accent ? `activity-dot--${accent}` : ""].filter(Boolean).join(" ")} />
+      {avatar ? (
+        <img src={avatar} alt={`Foto de perfil de ${name}`} className="activity-avatar" />
+      ) : (
+        <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
+          {icon || (name || "?")[0].toUpperCase()}
+        </span>
+      )}
       <div className="activity-copy">
-        <div className="activity-primary">{primary}</div>
-        {secondary && <div className="activity-secondary">{secondary}</div>}
+        <div className="activity-primary">{name}</div>
+        <div className="activity-secondary">{date}</div>
       </div>
-      {meta && <span className="activity-meta">{meta}</span>}
+      <span className={["activity-status", accent ? `activity-status--${accent}` : ""].filter(Boolean).join(" ")}>{status}</span>
     </>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="dash">
+      <div className="dash-header">
+        <div>
+          <div className="sk sk-title" />
+          <div className="sk sk-line" />
+        </div>
+        <div className="sk sk-button" />
+      </div>
+      <div className="exec-grid">
+        {SKELETON_EXEC_CARDS.map((key) => <div className="sk sk-card" key={key} />)}
+      </div>
+      <div className="activity-grid sk-gap">
+        {SKELETON_ACTIVITY_CARDS.map((key) => <div className="sk sk-activity" key={key} />)}
+      </div>
+    </div>
   );
 }
 
@@ -291,11 +337,12 @@ export default function AdminDashboard() {
     users: [],
     creators: [],
     purchases: [],
-    lives: [],
     reports: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [openSections, setOpenSections] = useState([]);
+  const [isSingleAccordionMode, setIsSingleAccordionMode] = useState(false);
   const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
@@ -308,18 +355,17 @@ export default function AdminDashboard() {
     if (!token) return;
     try {
       const recentRequests = [
-        ["users", `${API_URL}/api/admin/users?page=1&limit=5`],
-        ["creators", `${API_URL}/api/admin/creators?page=1&limit=5`],
-        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=5&type=purchase`],
-        ["lives history", `${API_URL}/api/admin/lives/history?limit=5`],
-        ["reports", `${API_URL}/api/admin/reports?page=1&limit=5`],
+        { label: "users", url: `${API_URL}/api/admin/users?page=1&limit=${RECENT_ITEMS_LIMIT}` },
+        { label: "creators", url: `${API_URL}/api/admin/creators?page=1&limit=${RECENT_ITEMS_LIMIT}` },
+        { label: "purchases", url: `${API_URL}/api/admin/transactions?page=1&limit=${RECENT_ITEMS_LIMIT}&type=purchase` },
+        { label: "reports", url: `${API_URL}/api/admin/reports?page=1&limit=${RECENT_ITEMS_LIMIT}` },
       ];
       const responses = await Promise.allSettled(
-        recentRequests.map(([, url]) => fetch(url, { headers: authHeader(), cache: "no-store" }))
+        recentRequests.map(({ url }) => fetch(url, { headers: authHeader(), cache: "no-store" }))
       );
-      const [usersRes, creatorsRes, purchasesRes, historyLivesRes, reportsRes] = responses.map((result, index) => {
+      const [usersRes, creatorsRes, purchasesRes, reportsRes] = responses.map((result, index) => {
         if (result.status === "fulfilled") return result.value;
-        console.error(`[admin-dashboard] ${recentRequests[index][0]} request failed`, result.reason);
+        console.error(`[admin-dashboard] ${recentRequests[index].label} request failed`, result.reason);
         return { ok: false, status: 0 };
       });
       if (usersRes.status === 401) {
@@ -331,20 +377,18 @@ export default function AdminDashboard() {
         readOptionalJson(usersRes, { users: [] }, "users"),
         readOptionalJson(creatorsRes, { creators: [] }, "creators"),
         readOptionalJson(purchasesRes, { transactions: [] }, "purchases"),
-        readOptionalJson(historyLivesRes, { lives: [] }, "lives history"),
         readOptionalJson(reportsRes, { reports: [] }, "reports"),
       ]);
       setRecent({
         users: usersData.users || [],
         creators: creatorsData.creators || [],
         purchases: purchasesData.transactions || [],
-        lives: getLimitedUniqueLives(historyLivesData.lives),
         reports: reportsData.reports || [],
       });
       recentLoadedRef.current = true;
     } catch (err) {
       console.error("[admin-dashboard] recent activity failed", err);
-      setRecent({ users: [], creators: [], purchases: [], lives: [], reports: [] });
+      setRecent({ users: [], creators: [], purchases: [], reports: [] });
     }
   }, [authHeader, router]);
 
@@ -400,14 +444,23 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
+  useEffect(() => {
+    let resizeTimer;
+    const updateViewport = () => setIsSingleAccordionMode(window.innerWidth < 768);
+    updateViewport();
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(updateViewport, 120);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   if (loading) {
-    return (
-      <div className="dash-loading">
-        <div className="dash-spinner" />
-        <p>Cargando comando central…</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
@@ -417,38 +470,14 @@ export default function AdminDashboard() {
   const s = stats || {};
   const a = analytics || {};
 
-  // Build critical alerts
-  const alerts = [];
-  if (s.pendingPayoutsCount > 0) {
-    alerts.push({
-      icon: "💸",
-      color: "yellow",
-      title: `${s.pendingPayoutsCount} retiro${s.pendingPayoutsCount > 1 ? "s" : ""} pendiente${s.pendingPayoutsCount > 1 ? "s" : ""}`,
-      sub: `${fmt(s.pendingPayoutsCoins)} coins en espera`,
-      href: "/admin/payouts?status=pending",
-    });
-  }
-  if (s.pendingCreators > 0) {
-    alerts.push({
-      icon: "🎬",
-      color: "blue",
-      title: `${s.pendingCreators} solicitud${s.pendingCreators > 1 ? "es" : ""} de creador pendiente${s.pendingCreators > 1 ? "s" : ""}`,
-      sub: "Revisar y aprobar o rechazar",
-      href: "/admin/creators?status=pending",
-    });
-  }
-  if (s.openReports > 0) {
-    alerts.push({
-      icon: "🚨",
-      color: "red",
-      title: `${s.openReports} reporte${s.openReports > 1 ? "s" : ""} abierto${s.openReports > 1 ? "s" : ""}`,
-      sub: "Revisar denuncias de la plataforma",
-      href: "/admin/reports",
-    });
-  }
-
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
+  const toggleSection = (id) => {
+    setOpenSections((current) => {
+      if (isSingleAccordionMode) return current.includes(id) ? [] : [id];
+      return current.includes(id) ? current.filter((sectionId) => sectionId !== id) : [...current, id];
+    });
+  };
 
   return (
     <div className="dash">
@@ -459,7 +488,7 @@ export default function AdminDashboard() {
             <span className="dash-title-icon">⊞</span>
             Command Center
           </h1>
-          <p className="dash-sub">Panel de control de negocio · MeetYouLive</p>
+          <p className="dash-sub">Dashboard administrativo · MeetYouLive</p>
         </div>
         <button className="btn-refresh" onClick={loadData} disabled={loading}>
           ↺ Actualizar
@@ -470,25 +499,34 @@ export default function AdminDashboard() {
       <section className="section section--tight">
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
-          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total acumulado" accent="purple" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent="gold" href="/admin/revenue" />
-          <ExecutiveCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo ahora" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
-          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Requieren revisión" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
-          <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
+          <ExecutiveCard icon="👥" title="Usuarios" value={fmt(s.totalUsers)} sub="Total" accent="purple" href="/admin/users" />
+          <ExecutiveCard icon="💰" title="Ingresos" value={todayRevenue.value} sub={todayRevenue.sub} accent="gold" href="/admin/revenue" />
+          <ExecutiveCard icon="🔴" title="Lives" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title="Reportes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendiente" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="💸" title="Retiros" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins` : "Sin retiros"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
         </div>
       </section>
 
-      {/* ── Critical Alerts ── */}
-      {alerts.length > 0 && (
-        <section className="section section--tight">
-          <SectionHeader icon="🔔" title="Alertas críticas" accent="red" />
-          <div className="alerts-grid">
-            {alerts.map((al, i) => (
-              <AlertBanner key={i} {...al} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* ── Quick Links ── */}
+      <section className="section section--tight">
+        <SectionHeader icon="⚡" title="Acciones rápidas" accent="purple" />
+        <div className="quick-grid">
+          <Link href="/admin/reports" className={["qbtn", s.openReports > 0 ? "qbtn--red" : ""].filter(Boolean).join(" ")}>
+            <span className="qbtn-icon">🚨</span><span>Reportes</span><CountBadge value={s.openReports} />
+          </Link>
+          <Link href="/admin/payouts?status=pending" className={["qbtn", s.pendingPayoutsCount > 0 ? "qbtn--yellow" : ""].filter(Boolean).join(" ")}>
+            <span className="qbtn-icon">💸</span><span>Retiros</span><CountBadge value={s.pendingPayoutsCount} />
+          </Link>
+          <Link href="/admin/creators?status=pending" className={["qbtn", s.pendingCreators > 0 ? "qbtn--yellow" : ""].filter(Boolean).join(" ")}>
+            <span className="qbtn-icon">🎬</span><span>Creadores</span><CountBadge value={s.pendingCreators} />
+          </Link>
+          <Link href="/admin/users" className="qbtn"><span className="qbtn-icon">👥</span><span>Usuarios</span></Link>
+          <Link href="/admin/lives" className={["qbtn", s.activeLives > 0 ? "qbtn--red" : ""].filter(Boolean).join(" ")}>
+            <span className="qbtn-icon">📡</span><span>Lives</span><CountBadge value={s.activeLives} />
+          </Link>
+          <Link href="/admin/transactions" className="qbtn"><span className="qbtn-icon">💰</span><span>Transacciones</span></Link>
+        </div>
+      </section>
 
       {/* ── Recent Activity ── */}
       <section className="section">
@@ -496,62 +534,45 @@ export default function AdminDashboard() {
         <div className="activity-grid">
           <ActivityList
             title="Nuevos usuarios"
+            icon="👥"
             items={recent.users}
             href="/admin/users"
             renderItem={(user) => (
-              <ActivityLine primary={getDisplayName(user)} secondary={getSecondaryUserInfo(user)} meta={fmtDate(user.createdAt)} accent="purple" />
+              <ActivityLine name={getShortUserName(user)} date={fmtDate(user.createdAt)} status={getStatusLabel(user.role, "Usuario")} avatar={getSafeActivityAvatar(user)} accent="purple" />
             )}
           />
           <ActivityList
             title="Nuevos creadores"
+            icon="🎬"
             items={recent.creators}
             href="/admin/creators"
             renderItem={(creator) => (
-              <ActivityLine primary={getDisplayName(creator)} secondary={creator.creatorStatus || "creator"} meta={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} accent="green" />
+              <ActivityLine name={getShortUserName(creator, "Creador")} date={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} status={getStatusLabel(creator.creatorStatus, "Creador")} avatar={getSafeActivityAvatar(creator)} accent="green" />
             )}
           />
           <ActivityList
             title="Compras recientes"
+            icon="🪙"
             items={recent.purchases}
             href="/admin/transactions"
             renderItem={(tx) => (
-              <ActivityLine primary={getDisplayName(tx.userId)} secondary={`${fmt(tx.amount)} coins`} meta={fmtDate(tx.createdAt)} accent="gold" />
+              <ActivityLine name={getShortUserName(tx.userId)} date={fmtDate(tx.createdAt)} status={`${fmt(tx.amount)} coins`} avatar={getSafeActivityAvatar(tx.userId)} accent="gold" />
             )}
           />
           <ActivityList
-            title="Últimos lives"
-            items={recent.lives}
-            href="/admin/lives"
-            renderItem={(live) => (
-              <ActivityLine primary={live.title || "Live sin título"} secondary={getDisplayName(live.user)} meta={fmtDate(live.endedAt || live.createdAt)} accent="blue" />
-            )}
-          />
-          <ActivityList
-            title="Últimos reportes"
+            title="Reportes recientes"
+            icon="🚨"
             items={recent.reports}
             href="/admin/reports"
             renderItem={(report) => (
-              <ActivityLine primary={report.reason || "Reporte"} secondary={getDisplayName(report.reporter)} meta={fmtDate(report.createdAt)} accent="red" />
+              <ActivityLine name={report.reason || "Reporte"} date={fmtDate(report.createdAt)} status={getStatusLabel(report.status, "Abierto")} icon="!" accent="red" />
             )}
           />
         </div>
       </section>
 
-      {/* ── Compact Growth Metrics ── */}
-      <section className="section section--tight">
-        <SectionHeader icon="📈" title="Métricas clave" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
-        {a.retention && (
-          <div className="ret-row">
-            <RetentionCard label="DAU" value={a.retention.dau} sub="Activos hoy" />
-            <RetentionCard label="WAU" value={a.retention.wau} sub="Activos 7d" />
-            <RetentionCard label="MAU" value={a.retention.mau} sub="Activos 30d" />
-            <RetentionCard label="Usuarios totales" value={s.totalUsers} sub="Registrados" />
-          </div>
-        )}
-      </section>
-
       <div className="collapse-stack">
-        <CollapsibleSection icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →">
+        <CollapsibleSection id="finance" icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →" isOpen={openSections.includes("finance")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🪙" title="Coins comprados" value={fmt(s.totalCoinsPurchased)} sub="Acumulado total" accent="gold" href="/admin/transactions" />
             <StatCard icon="🎁" title="Coins en regalos" value={fmt(s.totalGiftsCoins)} sub={`${fmt(s.totalGiftsSent)} regalos enviados`} accent="purple" />
@@ -566,7 +587,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →">
+        <CollapsibleSection id="creators" icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →" isOpen={openSections.includes("creators")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="✅" title="Creadores aprobados" value={fmt(s.totalCreators)} accent="green" href="/admin/creators?status=approved" />
             <StatCard icon="⏳" title="Solicitudes pendientes" value={fmt(s.pendingCreators)} sub={s.pendingCreators > 0 ? "Acción requerida" : "Al día"} accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
@@ -579,7 +600,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →">
+        <CollapsibleSection id="lives" icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →" isOpen={openSections.includes("lives")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🔴" title="Streams activos ahora" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" badge={s.activeLives} />
             <StatCard icon="📼" title="Lives totales" value={fmt(s.totalLives)} href="/admin/lives" />
@@ -588,7 +609,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →">
+        <CollapsibleSection id="moderation" icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →" isOpen={openSections.includes("moderation")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
             <StatCard icon="⏳" title="Creadores pendientes" value={fmt(s.pendingCreators)} sub="Solicitudes por revisar" accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
@@ -597,7 +618,7 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →">
+        <CollapsibleSection id="agencies" icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →" isOpen={openSections.includes("agencies")} onToggle={toggleSection}>
           <div className="grid grid-4">
             <StatCard icon="🏢" title="Agencias activas" value={fmt(s.activeAgencies)} accent="blue" href="/admin/agencies" />
             <StatCard icon="👥" title="Sub-creadores activos" value={fmt(s.activeAgencyLinks)} sub="Relaciones aprobadas" href="/admin/agencies" />
@@ -606,39 +627,27 @@ export default function AdminDashboard() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →">
+        <CollapsibleSection id="analytics" icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" isOpen={openSections.includes("analytics")} onToggle={toggleSection}>
+          {a.retention && (
+            <div className="ret-row">
+              <RetentionCard label="DAU" value={a.retention.dau} sub="Hoy" />
+              <RetentionCard label="WAU" value={a.retention.wau} sub="7d" />
+              <RetentionCard label="MAU" value={a.retention.mau} sub="30d" />
+              <RetentionCard label="Total" value={s.totalUsers} sub="Usuarios" />
+            </div>
+          )}
           <div className="charts-row">
-            <ChartPanel title="Registros diarios (7d)" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
-            <ChartPanel title="Coins comprados por día (7d)" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
+            <ChartPanel title="Registros 7d" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
+            <ChartPanel title="Coins 7d" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
             <ChartPanel title={getRevenueChartTitle(dailyRevenueSeries)} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
           </div>
         </CollapsibleSection>
       </div>
 
-      {/* ── Quick Links ── */}
-      <section className="section">
-        <SectionHeader icon="⚡" title="Accesos rápidos" accent="purple" />
-        <div className="quick-grid">
-          <Link href="/admin/users" className="qbtn">👥 Usuarios</Link>
-          <Link href="/admin/creators?status=pending" className="qbtn qbtn--yellow">
-            ⏳ Creadores pendientes{s.pendingCreators > 0 ? ` (${s.pendingCreators})` : ""}
-          </Link>
-          <Link href="/admin/payouts?status=pending" className="qbtn qbtn--yellow">
-            💸 Retiros pendientes{s.pendingPayoutsCount > 0 ? ` (${s.pendingPayoutsCount})` : ""}
-          </Link>
-          <Link href="/admin/lives" className="qbtn qbtn--red">📡 Streams en vivo{s.activeLives > 0 ? ` (${s.activeLives})` : ""}</Link>
-          <Link href="/admin/reports" className="qbtn qbtn--red">🚨 Reportes{s.openReports > 0 ? ` (${s.openReports})` : ""}</Link>
-          <Link href="/admin/transactions" className="qbtn">💰 Transacciones</Link>
-          <Link href="/admin/agencies" className="qbtn">🏢 Agencias</Link>
-          <Link href="/admin/revenue" className="qbtn">📈 Ingresos</Link>
-          <Link href="/admin/analytics" className="qbtn">📊 Analíticas</Link>
-          <Link href="/admin/settings" className="qbtn">⚙️ Configuración</Link>
-        </div>
-      </section>
-
       <style jsx>{`
         :root {
           --accent-purple: #a78bfa;
+          --accent-purple-rgb: 167,139,250;
           --accent-gold: #fbbf24;
           --accent-green: #34d399;
           --accent-blue: #60a5fa;
@@ -646,7 +655,8 @@ export default function AdminDashboard() {
           --bg-card: #161b27;
           --bg-card-hover: #1a1f2e;
           --border: #1e2535;
-          --exec-card-min-height: 142px;
+          --exec-card-min-height: 132px;
+          --exec-card-min-height-mobile: 118px;
         }
 
         .dash { max-width: 1280px; }
@@ -703,26 +713,20 @@ export default function AdminDashboard() {
         .btn-refresh:disabled { opacity: 0.5; }
 
         /* ── Loading / Error ── */
-        .dash-loading {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 5rem 2rem;
-          gap: 1rem;
-          color: #475569;
+        .sk {
+          border-radius: 14px;
+          background: linear-gradient(90deg, rgba(30,37,53,0.72), rgba(51,65,85,0.72), rgba(30,37,53,0.72));
+          background-size: 220% 100%;
+          animation: shimmer 1.25s ease-in-out infinite;
         }
 
-        .dash-spinner {
-          width: 44px;
-          height: 44px;
-          border: 3px solid rgba(167,139,250,0.15);
-          border-top-color: #a78bfa;
-          border-radius: 50%;
-          animation: spin 0.9s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .sk-title { width: 220px; height: 32px; margin-bottom: 0.55rem; }
+        .sk-line { width: 170px; height: 12px; }
+        .sk-button { width: 118px; height: 40px; }
+        .sk-card { min-height: var(--exec-card-min-height); }
+        .sk-gap { margin-top: 1.2rem; }
+        .sk-activity { height: 136px; }
+        @keyframes shimmer { to { background-position: -220% 0; } }
 
         .dash-error {
           padding: 2rem;
@@ -751,7 +755,7 @@ export default function AdminDashboard() {
           border-radius: 18px;
           border: 1px solid rgba(124,58,237,0.2);
           background:
-            radial-gradient(circle at top right, rgba(124,58,237,0.22), transparent 45%),
+            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.22), transparent 45%),
             linear-gradient(180deg, #171c2a, #111622);
           padding: 1rem;
           display: flex;
@@ -868,38 +872,72 @@ export default function AdminDashboard() {
           border: 1px solid var(--border);
           border-radius: 16px;
           overflow: hidden;
+          transition: border-color 0.2s, background 0.2s;
         }
 
         .collapse-summary {
-          list-style: none;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 0.8rem;
-          padding: 1rem 1.1rem;
+          padding: 0.4rem;
+        }
+
+        .collapse--open {
+          border-color: rgba(167,139,250,0.32);
+          background: rgba(22,27,39,0.9);
+        }
+
+        .collapse-trigger {
+          flex: 1;
+          min-width: 0;
+          min-height: 48px;
+          border: 0;
+          background: transparent;
+          color: inherit;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.55rem 0.7rem;
           cursor: pointer;
-          user-select: none;
+          font: inherit;
+          text-align: left;
+          border-radius: 12px;
           transition: background 0.15s;
         }
 
-        .collapse-summary::-webkit-details-marker { display: none; }
-        .collapse-summary:hover { background: rgba(124,58,237,0.06); }
-        .collapse-summary:focus-visible {
-          outline: 2px solid rgba(167,139,250,0.75);
-          outline-offset: -4px;
+        .collapse-trigger:hover { background: rgba(124,58,237,0.06); }
+        .collapse-trigger:focus {
+          outline: 2px solid rgba(167,139,250,0.45);
+          outline-offset: 2px;
         }
-        .collapse-summary .sh { flex: 1; margin-bottom: 0; min-width: 0; }
+        .collapse-trigger:focus-visible {
+          outline: 2px solid rgba(167,139,250,0.75);
+          outline-offset: 2px;
+        }
 
         .collapse-chevron {
+          margin-left: auto;
           color: #64748b;
           font-weight: 800;
           transition: transform 0.2s, color 0.2s;
         }
 
-        .collapse[open] .collapse-chevron {
+        .collapse--open .collapse-chevron {
           transform: rotate(180deg);
           color: #a78bfa;
         }
+
+        .collapse-link {
+          color: #7c3aed;
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-decoration: none;
+          padding: 0.7rem;
+          white-space: nowrap;
+        }
+
+        .collapse-link:hover { color: #a78bfa; }
 
         .collapse-body {
           border-top: 1px solid #131825;
@@ -1171,7 +1209,7 @@ export default function AdminDashboard() {
         .activity-grid {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 0.75rem;
+          gap: 0.65rem;
         }
 
         @media (min-width: 760px) {
@@ -1179,7 +1217,7 @@ export default function AdminDashboard() {
         }
 
         @media (min-width: 1180px) {
-          .activity-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+          .activity-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
         .activity-card {
@@ -1201,6 +1239,10 @@ export default function AdminDashboard() {
           margin-bottom: 0.65rem;
         }
 
+        .activity-head-icon {
+          margin-right: 0.35rem;
+        }
+
         .activity-list {
           display: flex;
           flex-direction: column;
@@ -1214,19 +1256,29 @@ export default function AdminDashboard() {
           min-width: 0;
         }
 
-        .activity-dot {
-          width: 8px;
-          height: 8px;
+        .activity-avatar {
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
-          background: #a78bfa;
-          box-shadow: 0 0 0 4px rgba(167,139,250,0.08);
+          object-fit: cover;
           flex-shrink: 0;
         }
 
-        .activity-dot--gold { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251,191,36,0.08); }
-        .activity-dot--green { background: #34d399; box-shadow: 0 0 0 4px rgba(52,211,153,0.08); }
-        .activity-dot--blue { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96,165,250,0.08); }
-        .activity-dot--red { background: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,0.08); }
+        .activity-avatar--ph {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(167,139,250,0.18);
+          color: #ddd6fe;
+          font-size: 0.72rem;
+          font-weight: 900;
+          box-shadow: 0 0 0 4px rgba(167,139,250,0.06);
+        }
+
+        .activity-avatar--gold { background: rgba(251,191,36,0.18); color: #fde68a; box-shadow: 0 0 0 4px rgba(251,191,36,0.06); }
+        .activity-avatar--green { background: rgba(52,211,153,0.18); color: #a7f3d0; box-shadow: 0 0 0 4px rgba(52,211,153,0.06); }
+        .activity-avatar--blue { background: rgba(96,165,250,0.18); color: #bfdbfe; box-shadow: 0 0 0 4px rgba(96,165,250,0.06); }
+        .activity-avatar--red { background: rgba(248,113,113,0.18); color: #fecaca; box-shadow: 0 0 0 4px rgba(248,113,113,0.06); }
 
         .activity-copy {
           flex: 1;
@@ -1251,18 +1303,30 @@ export default function AdminDashboard() {
           margin-top: 0.05rem;
         }
 
-        .activity-meta {
-          color: #475569;
-          font-size: 0.66rem;
+        .activity-status {
+          color: #a78bfa;
+          background: rgba(167,139,250,0.08);
+          border: 1px solid rgba(167,139,250,0.16);
+          border-radius: 999px;
+          padding: 0.18rem 0.42rem;
+          font-size: 0.64rem;
+          font-weight: 800;
           white-space: nowrap;
           flex-shrink: 0;
         }
 
+        .activity-status--gold { color: #fbbf24; background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.18); }
+        .activity-status--green { color: #34d399; background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.18); }
+        .activity-status--blue { color: #60a5fa; background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.18); }
+        .activity-status--red { color: #f87171; background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.18); }
+
         .activity-empty {
           color: #475569;
           font-size: 0.76rem;
-          margin: 0;
-          padding: 0.35rem 0 0.15rem;
+          border: 1px dashed rgba(100,116,139,0.28);
+          border-radius: 12px;
+          padding: 0.8rem;
+          text-align: center;
         }
 
         /* ── Retention ── */
@@ -1343,7 +1407,7 @@ export default function AdminDashboard() {
           display: flex;
           align-items: flex-end;
           gap: 0.3rem;
-          height: 80px;
+          height: 96px;
         }
 
         .mbc-item {
@@ -1373,6 +1437,13 @@ export default function AdminDashboard() {
 
         .mbc-bar:hover { opacity: 1; }
 
+        .mbc-value {
+          font-size: 0.58rem;
+          font-weight: 800;
+          color: #94a3b8;
+          line-height: 1;
+        }
+
         .mbc-label {
           font-size: 0.55rem;
           color: #475569;
@@ -1386,25 +1457,31 @@ export default function AdminDashboard() {
         /* ── Quick Links ── */
         .quick-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 0.5rem;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.65rem;
+        }
+
+        @media (min-width: 760px) {
+          .quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
         .qbtn {
-          background: #1e2535;
+          background:
+            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.14), transparent 46%),
+            #1e2535;
           border: 1px solid var(--border);
-          color: #94a3b8;
-          border-radius: 10px;
-          padding: 0.65rem 0.85rem;
+          color: #cbd5e1;
+          border-radius: 16px;
+          padding: 0.8rem 0.85rem;
           font-size: 0.82rem;
-          font-weight: 600;
+          font-weight: 800;
           text-decoration: none;
           display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 0.35rem;
-          text-align: center;
-          min-height: 42px;
+          justify-content: flex-start;
+          gap: 0.45rem;
+          text-align: left;
+          min-height: 58px;
           transition: background 0.15s, color 0.15s, border-color 0.15s;
           white-space: nowrap;
           overflow: hidden;
@@ -1412,6 +1489,22 @@ export default function AdminDashboard() {
         }
 
         .qbtn:hover { background: #2d3748; color: #e2e8f0; }
+
+        .qbtn-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(167,139,250,0.12);
+          flex-shrink: 0;
+        }
+
+        .qbtn .sc-badge {
+          margin-left: auto;
+          flex-shrink: 0;
+        }
 
         .qbtn--yellow {
           background: rgba(251,191,36,0.07);
@@ -1437,19 +1530,49 @@ export default function AdminDashboard() {
 
         /* ── Mobile tweaks ── */
         @media (max-width: 767px) {
+          .dash { max-width: 100%; }
+
           .dash-header {
-            flex-direction: column;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
+            align-items: center;
+            margin-bottom: 1rem;
           }
 
-          .btn-refresh { width: 100%; text-align: center; }
+          .dash-title { font-size: 1.25rem; }
+          .dash-sub { font-size: 0.72rem; }
 
-          .quick-grid { grid-template-columns: 1fr 1fr; }
+          .btn-refresh {
+            min-height: 42px;
+            padding: 0.45rem 0.75rem;
+          }
+
+          .section { margin-bottom: 1.25rem; }
+          .section--tight { margin-bottom: 1rem; }
+
+          .exec-grid { gap: 0.6rem; }
+
+          .exec-card {
+            min-height: var(--exec-card-min-height-mobile);
+            padding: 0.8rem;
+            border-radius: 16px;
+          }
+
+          .exec-icon { font-size: 1.3rem; }
+          .exec-value { font-size: clamp(1.55rem, 1.1rem + 2vw, 2rem); margin-top: 0.45rem; }
+          .exec-title { font-size: 0.68rem; margin-top: 0.42rem; }
+          .exec-sub { font-size: 0.66rem; }
+
+          .activity-card { padding: 0.8rem; }
+          .collapse-stack { gap: 0.6rem; margin-bottom: 1rem; }
+          .collapse-body { padding: 0.75rem; }
+          .grid { gap: 0.65rem; }
+          .charts-row { gap: 0.65rem; }
+          .ret-row { gap: 0.6rem; margin-bottom: 0.75rem; }
         }
 
         @media (max-width: 400px) {
-          .quick-grid { grid-template-columns: 1fr; }
+          .quick-grid { gap: 0.55rem; }
+          .qbtn { padding: 0.7rem; min-height: 54px; font-size: 0.78rem; }
+          .qbtn-icon { width: 28px; height: 28px; }
         }
       `}</style>
     </div>

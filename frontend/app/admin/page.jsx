@@ -118,7 +118,7 @@ function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
 }
 
 function QuickAction({ href, icon, label, description, tone }) {
-  const idBase = `quick-action-${href.replace(/[^a-zA-Z0-9]+/g, "-")}`;
+  const idBase = `quick-action-${href.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "")}`;
   const labelId = `${idBase}-label`;
   const descriptionId = description ? `${idBase}-description` : undefined;
   return (
@@ -224,7 +224,7 @@ function Timeline({ items }) {
   return (
     <div className="timeline">
       {items.map((item) => {
-        const timelineLabel = `${item.actor}, ${item.action}, ${formatTimelineMeta(item)}`;
+        const timelineLabel = `${item.actor} ${item.action} ${formatTimelineMeta(item)}`;
         const content = (
           <>
             {item.avatar ? (

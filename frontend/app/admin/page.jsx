@@ -7,6 +7,7 @@ import { clearAdminToken, getToken } from "@/lib/token";
 import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
 const RECENT_ITEMS_LIMIT = 3;
 const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts"];
 const SKELETON_ACTIVITY_CARDS = ["users", "creators", "purchases", "reports"];
@@ -48,7 +49,14 @@ function getShortUserName(user, fallback = "Usuario") {
 
 function getSafeActivityAvatar(user) {
   const avatar = getPrimaryProfileImage(user);
-  return avatar && (/^https?:\/\//i.test(avatar) || avatar.startsWith("/")) ? avatar : null;
+  if (!avatar) return null;
+  if (avatar.startsWith("/")) return avatar;
+  try {
+    const url = new URL(avatar);
+    return API_ORIGIN && url.origin === API_ORIGIN ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function getStatusLabel(value, fallback = "Nuevo") {
@@ -263,7 +271,7 @@ function ActivityLine({ name, date, status, avatar, icon, accent }) {
   return (
     <>
       {avatar ? (
-        <img src={avatar} alt="Foto de perfil" className="activity-avatar" />
+        <img src={avatar} alt={`Foto de perfil de ${name}`} className="activity-avatar" />
       ) : (
         <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
           {icon || (name || "?")[0].toUpperCase()}
@@ -347,17 +355,17 @@ export default function AdminDashboard() {
     if (!token) return;
     try {
       const recentRequests = [
-        ["users", `${API_URL}/api/admin/users?page=1&limit=${RECENT_ITEMS_LIMIT}`],
-        ["creators", `${API_URL}/api/admin/creators?page=1&limit=${RECENT_ITEMS_LIMIT}`],
-        ["purchases", `${API_URL}/api/admin/transactions?page=1&limit=${RECENT_ITEMS_LIMIT}&type=purchase`],
-        ["reports", `${API_URL}/api/admin/reports?page=1&limit=${RECENT_ITEMS_LIMIT}`],
+        { label: "users", url: `${API_URL}/api/admin/users?page=1&limit=${RECENT_ITEMS_LIMIT}` },
+        { label: "creators", url: `${API_URL}/api/admin/creators?page=1&limit=${RECENT_ITEMS_LIMIT}` },
+        { label: "purchases", url: `${API_URL}/api/admin/transactions?page=1&limit=${RECENT_ITEMS_LIMIT}&type=purchase` },
+        { label: "reports", url: `${API_URL}/api/admin/reports?page=1&limit=${RECENT_ITEMS_LIMIT}` },
       ];
       const responses = await Promise.allSettled(
-        recentRequests.map(([, url]) => fetch(url, { headers: authHeader(), cache: "no-store" }))
+        recentRequests.map(({ url }) => fetch(url, { headers: authHeader(), cache: "no-store" }))
       );
       const [usersRes, creatorsRes, purchasesRes, reportsRes] = responses.map((result, index) => {
         if (result.status === "fulfilled") return result.value;
-        console.error(`[admin-dashboard] ${recentRequests[index][0]} request failed`, result.reason);
+        console.error(`[admin-dashboard] ${recentRequests[index].label} request failed`, result.reason);
         return { ok: false, status: 0 };
       });
       if (usersRes.status === 401) {
@@ -437,10 +445,18 @@ export default function AdminDashboard() {
     if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
   useEffect(() => {
+    let resizeTimer;
     const updateViewport = () => setIsSingleAccordionMode(window.innerWidth < 768);
     updateViewport();
-    window.addEventListener("resize", updateViewport);
-    return () => window.removeEventListener("resize", updateViewport);
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(updateViewport, 120);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   if (loading) {
@@ -631,7 +647,7 @@ export default function AdminDashboard() {
       <style jsx>{`
         :root {
           --accent-purple: #a78bfa;
-          --accent-purple-rgb: 124,58,237;
+          --accent-purple-rgb: 167,139,250;
           --accent-gold: #fbbf24;
           --accent-green: #34d399;
           --accent-blue: #60a5fa;

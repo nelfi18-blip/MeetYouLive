@@ -36,6 +36,7 @@ const NAV_SECTIONS = [
       { href: "/admin/transactions", label: "Transacciones", icon: "💰", roles: ["admin"] },
       { href: "/admin/revenue", label: "Ingresos", icon: "📈", roles: ["admin", "finance"] },
       { href: "/admin/withdrawals", label: "Solicitudes de retiro", icon: "💵", roles: ["admin", "finance"] },
+      // Keep the existing visual route to avoid changing route/API behavior in this UI-only task.
       { href: "/admin/payouts", label: "Historial de retiros", icon: "💸", roles: ["admin", "finance"] },
     ],
   },
@@ -274,7 +275,6 @@ export default function AdminShell({ children }) {
           transform: translateX(-100%);
           transition: transform 0.28s ease;
           overflow: hidden;
-          overflow-x: hidden;
         }
 
         /* On very small screens cap sidebar at 85vw */

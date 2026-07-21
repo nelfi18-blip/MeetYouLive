@@ -8,11 +8,13 @@ import { getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
-const RECENT_ITEMS_LIMIT = 3;
-const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts"];
-const SKELETON_ACTIVITY_CARDS = ["users", "creators", "purchases", "reports"];
+const RECENT_ITEMS_LIMIT = 5;
+const TIMELINE_ITEMS_LIMIT = 8;
+const SKELETON_EXEC_CARDS = ["users", "revenue", "lives", "reports", "payouts", "creators"];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function getSafeNonAdminRedirect() {
   try {
@@ -33,8 +35,11 @@ function fmtDate(value) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function getDisplayName(user) {
-  return user?.name || user?.username || user?.email || "—";
+function fmtTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function getShortUserName(user, fallback = "Usuario") {
@@ -59,18 +64,6 @@ function getSafeActivityAvatar(user) {
   }
 }
 
-function getStatusLabel(value, fallback = "Nuevo") {
-  if (!value) return fallback;
-  const normalized = String(value).toLowerCase();
-  if (normalized === "approved") return "Aprobado";
-  if (normalized === "pending") return "Pendiente";
-  if (normalized === "open") return "Abierto";
-  if (normalized === "closed") return "Cerrado";
-  if (normalized === "purchase") return "Compra";
-  if (normalized === "active") return "Activo";
-  return value;
-}
-
 function getTodaySeriesValue(series, key = "total") {
   return series?.length ? series[series.length - 1]?.[key] ?? 0 : 0;
 }
@@ -85,54 +78,14 @@ function getTodayRevenueSummary(series) {
   };
 }
 
-function getRevenueChartTitle(series) {
-  return series?.length ? `Ingresos (${series.length}d)` : "Ingresos";
-}
-
-function getRecentActivityItems(items = []) {
-  return items.slice(0, RECENT_ITEMS_LIMIT);
+function sumSeries(series, key = "total") {
+  return (series || []).reduce((sum, item) => sum + (item?.[key] || 0), 0);
 }
 
 function CountBadge({ value }) {
   if (value === null || value === undefined || value <= 0) return null;
   return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
 }
-
-// ── Stat Card ─────────────────────────────────────────────────────────────────
-
-function StatCard({ title, value, sub, icon, href, accent, badge }) {
-  const inner = (
-    <div className={["sc", accent ? `sc--${accent}` : "", href ? "sc--link" : ""].filter(Boolean).join(" ")}>
-      <div className="sc-head">
-        <span className="sc-icon">{icon}</span>
-        <CountBadge value={badge} />
-      </div>
-      <div className="sc-val">{value ?? "—"}</div>
-      <div className="sc-title">{title}</div>
-      {sub && <div className="sc-sub">{sub}</div>}
-    </div>
-  );
-  return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
-}
-
-// ── Executive Card ────────────────────────────────────────────────────────────
-
-function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
-  const inner = (
-    <div className={["exec-card", accent ? `exec-card--${accent}` : "", href ? "exec-card--link" : ""].filter(Boolean).join(" ")}>
-      <div className="exec-top">
-        <span className="exec-icon">{icon}</span>
-        <CountBadge value={badge} />
-      </div>
-      <div className="exec-value">{value ?? "—"}</div>
-      <div className="exec-title">{title}</div>
-      {sub && <div className="exec-sub">{sub}</div>}
-    </div>
-  );
-  return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
-}
-
-// ── Section Header ────────────────────────────────────────────────────────────
 
 function SectionHeader({ icon, title, accent, link, linkLabel }) {
   return (
@@ -149,140 +102,139 @@ function SectionHeader({ icon, title, accent, link, linkLabel }) {
   );
 }
 
-// ── Collapsible Section ───────────────────────────────────────────────────────
-
-function CollapsibleSection({ id, icon, title, accent, link, linkLabel, isOpen, onToggle, children }) {
-  return (
-    <section className={["collapse", isOpen ? "collapse--open" : ""].filter(Boolean).join(" ")}>
-      <div className="collapse-summary">
-        <button type="button" className="collapse-trigger" onClick={() => onToggle(id)} aria-expanded={isOpen} aria-label={isOpen ? "Cerrar sección" : "Abrir sección"}>
-          <span className={`sh-dot sh-dot--${accent || "purple"}`} />
-          <span className="sh-icon">{icon}</span>
-          <span className="sh-title">{title}</span>
-          <span className="collapse-chevron">⌄</span>
-        </button>
-        {link && <Link href={link} className="collapse-link">{linkLabel || "Ver todos →"}</Link>}
+function ExecutiveCard({ title, value, sub, icon, href, accent, badge }) {
+  const inner = (
+    <div className={cn("exec-card", accent && `exec-card--${accent}`, href && "exec-card--link")}>
+      <div className="exec-top">
+        <span className="exec-icon">{icon}</span>
+        <CountBadge value={badge} />
       </div>
-      {isOpen && <div className="collapse-body">{children}</div>}
-    </section>
+      <div className="exec-value">{value ?? "—"}</div>
+      <div className="exec-title">{title}</div>
+      {sub && <div className="exec-sub">{sub}</div>}
+    </div>
+  );
+  return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner;
+}
+
+function QuickAction({ href, icon, label, tone }) {
+  return (
+    <Link href={href} className={cn("qbtn", tone && `qbtn--${tone}`)}>
+      <span className="qbtn-icon">{icon}</span>
+      <span>{label}</span>
+      <span className="qbtn-arrow">→</span>
+    </Link>
   );
 }
 
-// ── Mini Bar Chart ────────────────────────────────────────────────────────────
+function buildTimelineItems(recent) {
+  const creatorIds = new Set((recent.creators || []).map((creator) => String(creator._id)).filter(Boolean));
+  const items = [];
 
-function MiniBarChart({ data, valueKey = "total", labelKey = "label", color }) {
-  if (!data?.length) return <p className="chart-empty">Sin datos recientes</p>;
-  const max = Math.max(...data.map((d) => d[valueKey] || 0), 1);
+  for (const user of recent.users || []) {
+    // Creators already appear as creator events, so skip matching user rows in the unified timeline
+    // and avoid showing the same person twice when both endpoints return them.
+    if (creatorIds.has(String(user._id))) continue;
+    items.push({
+      id: `user-${user._id}`,
+      date: user.createdAt,
+      icon: "👥",
+      accent: "neutral",
+      avatar: getSafeActivityAvatar(user),
+      text: `${getShortUserName(user)} creó una cuenta.`,
+      href: "/admin/users",
+    });
+  }
+
+  for (const creator of recent.creators || []) {
+    const status = String(creator.creatorStatus || "").toLowerCase();
+    items.push({
+      id: `creator-${creator._id}`,
+      date: creator.creatorApplication?.submittedAt || creator.createdAt,
+      icon: status === "approved" ? "⭐" : "🎬",
+      accent: status === "approved" ? "green" : "yellow",
+      avatar: getSafeActivityAvatar(creator),
+      text: status === "approved"
+        ? `${getShortUserName(creator, "Creador")} fue aprobado.`
+        : `${getShortUserName(creator, "Creador")} solicitó revisión.`,
+      href: "/admin/creators",
+    });
+  }
+
+  for (const tx of recent.purchases || []) {
+    items.push({
+      id: `purchase-${tx._id}`,
+      date: tx.createdAt,
+      icon: "🪙",
+      accent: "green",
+      avatar: getSafeActivityAvatar(tx.userId),
+      text: `${getShortUserName(tx.userId)} compró Coins.`,
+      meta: `${fmt(tx.amount)} coins`,
+      href: "/admin/transactions",
+    });
+  }
+
+  for (const report of recent.reports || []) {
+    items.push({
+      id: `report-${report._id}`,
+      date: report.createdAt,
+      icon: "🚨",
+      accent: "red",
+      text: report.reason ? `Reporte recibido: ${report.reason}.` : "Reporte recibido.",
+      href: "/admin/reports",
+    });
+  }
+
+  return items
+    .filter((item) => item.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, TIMELINE_ITEMS_LIMIT);
+}
+
+function formatTimelineMeta(item) {
+  return [fmtDate(item.date), fmtTime(item.date), item.meta].filter(Boolean).join(" · ");
+}
+
+function Timeline({ items }) {
+  if (!items.length) {
+    return <div className="timeline-empty">No hay actividad reciente.</div>;
+  }
+
   return (
-    <div className="mbchart">
-      {data.map((item, i) => {
-        const value = item[valueKey] || 0;
-        const pct = (value / max) * 100;
-        return (
-          <div key={i} className="mbc-item">
-            <div className="mbc-bar-wrap">
-              <div
-                className="mbc-bar"
-                style={{ height: `${Math.max(pct, 2)}%`, background: color || "var(--accent-purple)" }}
-                title={`${item[labelKey]}: ${value.toLocaleString()}`}
-              />
-            </div>
-            <div className="mbc-value">{value.toLocaleString()}</div>
-            <div className="mbc-label">{item[labelKey]}</div>
-          </div>
+    <div className="timeline">
+      {items.map((item) => {
+        const content = (
+          <>
+            {item.avatar ? (
+              <img src={item.avatar} alt="" className="timeline-avatar" />
+            ) : (
+              <span className={cn("timeline-avatar", "timeline-avatar--ph", `timeline-avatar--${item.accent}`)}>{item.icon}</span>
+            )}
+            <span className="timeline-dot" />
+            <span className="timeline-copy">
+              <span className="timeline-text">{item.text}</span>
+              <span className="timeline-date">{formatTimelineMeta(item)}</span>
+            </span>
+          </>
+        );
+        return item.href ? (
+          <Link href={item.href} className="timeline-item" key={item.id}>{content}</Link>
+        ) : (
+          <div className="timeline-item" key={item.id}>{content}</div>
         );
       })}
     </div>
   );
 }
 
-function ChartPanel({ title, data, valueKey, color }) {
+function AnalyticsCard({ icon, label, value, sub }) {
   return (
-    <div className="chart-panel">
-      <div className="chart-title">{title}</div>
-      <MiniBarChart data={data} valueKey={valueKey} labelKey="label" color={color} />
+    <div className="analytics-card">
+      <span className="analytics-icon">{icon}</span>
+      <span className="analytics-value">{value}</span>
+      <span className="analytics-label">{label}</span>
+      {sub && <span className="analytics-sub">{sub}</span>}
     </div>
-  );
-}
-
-// ── Top Table ─────────────────────────────────────────────────────────────────
-
-function TopTable({ title, rows, valueLabel = "coins", linkHref }) {
-  return (
-    <div className="top-table">
-      <div className="tt-header">
-        <span className="tt-title">{title}</span>
-        {linkHref && <Link href={linkHref} className="tt-link">Ver todo →</Link>}
-      </div>
-      {!rows?.length ? (
-        <p className="tt-empty">Sin datos de hoy.</p>
-      ) : (
-        <div className="tt-rows">
-          {rows.map((r, i) => (
-            <div key={r._id || i} className="tt-row">
-              <span className="tt-rank">#{i + 1}</span>
-              <div className="tt-user">
-                {r.user?.avatar ? (
-                  <img src={r.user.avatar} alt="" className="tt-avatar" />
-                ) : (
-                  <div className="tt-avatar tt-avatar--ph">
-                    {(r.user?.name || r.user?.username || "?")[0].toUpperCase()}
-                  </div>
-                )}
-                <span className="tt-name">{r.user?.name || r.user?.username || "—"}</span>
-              </div>
-              <span className="tt-val">
-                {(r.totalGifts ?? r.totalSpent ?? 0).toLocaleString()} {valueLabel}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Recent Activity ───────────────────────────────────────────────────────────
-
-function ActivityList({ title, items, empty, renderItem, href, icon }) {
-  const visibleItems = getRecentActivityItems(items);
-  return (
-    <div className="activity-card">
-      <div className="activity-head">
-        <span><span className="activity-head-icon">{icon}</span>{title}</span>
-        {href && <Link href={href} className="tt-link">Ver todos →</Link>}
-      </div>
-      {!visibleItems.length ? (
-        <div className="activity-empty">{empty || "Sin actividad reciente"}</div>
-      ) : (
-        <div className="activity-list">
-          {visibleItems.map((item, i) => (
-            <div className="activity-item" key={item._id || i}>
-              {renderItem(item)}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ActivityLine({ name, date, status, avatar, icon, accent }) {
-  return (
-    <>
-      {avatar ? (
-        <img src={avatar} alt={`Foto de perfil de ${name}`} className="activity-avatar" />
-      ) : (
-        <span className={["activity-avatar", "activity-avatar--ph", accent ? `activity-avatar--${accent}` : ""].filter(Boolean).join(" ")}>
-          {icon || (name || "?")[0].toUpperCase()}
-        </span>
-      )}
-      <div className="activity-copy">
-        <div className="activity-primary">{name}</div>
-        <div className="activity-secondary">{date}</div>
-      </div>
-      <span className={["activity-status", accent ? `activity-status--${accent}` : ""].filter(Boolean).join(" ")}>{status}</span>
-    </>
   );
 }
 
@@ -299,9 +251,7 @@ function DashboardSkeleton() {
       <div className="exec-grid">
         {SKELETON_EXEC_CARDS.map((key) => <div className="sk sk-card" key={key} />)}
       </div>
-      <div className="activity-grid sk-gap">
-        {SKELETON_ACTIVITY_CARDS.map((key) => <div className="sk sk-activity" key={key} />)}
-      </div>
+      <div className="sk sk-panel" />
     </div>
   );
 }
@@ -313,20 +263,6 @@ async function readOptionalJson(response, fallback, label) {
   }
   return response.json();
 }
-
-// ── Retention Badge ───────────────────────────────────────────────────────────
-
-function RetentionCard({ label, value, sub }) {
-  return (
-    <div className="ret-card">
-      <div className="ret-val">{fmt(value)}</div>
-      <div className="ret-label">{label}</div>
-      {sub && <div className="ret-sub">{sub}</div>}
-    </div>
-  );
-}
-
-// ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -341,13 +277,12 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [openSections, setOpenSections] = useState([]);
-  const [isSingleAccordionMode, setIsSingleAccordionMode] = useState(false);
   const recentLoadedRef = useRef(false);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
-    return { Authorization: `Bearer ${token}` };
+    const authScheme = "Bearer";
+    return { Authorization: `${authScheme} ${token}` };
   }, []);
 
   const loadRecentData = useCallback(async () => {
@@ -373,7 +308,7 @@ export default function AdminDashboard() {
         router.replace("/admin/login");
         return;
       }
-      const [usersData, creatorsData, purchasesData, historyLivesData, reportsData] = await Promise.all([
+      const [usersData, creatorsData, purchasesData, reportsData] = await Promise.all([
         readOptionalJson(usersRes, { users: [] }, "users"),
         readOptionalJson(creatorsRes, { creators: [] }, "creators"),
         readOptionalJson(purchasesRes, { transactions: [] }, "purchases"),
@@ -444,20 +379,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!loading && !error && !recentLoadedRef.current) loadRecentData();
   }, [error, loadRecentData, loading]);
-  useEffect(() => {
-    let resizeTimer;
-    const updateViewport = () => setIsSingleAccordionMode(window.innerWidth < 768);
-    updateViewport();
-    const handleResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(updateViewport, 120);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => {
-      clearTimeout(resizeTimer);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -469,19 +390,15 @@ export default function AdminDashboard() {
 
   const s = stats || {};
   const a = analytics || {};
-
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
+  const last7RevenueSeries = dailyRevenueSeries.slice(-7);
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
-  const toggleSection = (id) => {
-    setOpenSections((current) => {
-      if (isSingleAccordionMode) return current.includes(id) ? [] : [id];
-      return current.includes(id) ? current.filter((sectionId) => sectionId !== id) : [...current, id];
-    });
-  };
+  const timelineItems = buildTimelineItems(recent);
+  const registrations7d = sumSeries(a.dailyRegistrations, "count");
+  const revenue7d = sumSeries(last7RevenueSeries, "total");
 
   return (
     <div className="dash">
-      {/* ── Page Header ── */}
       <div className="dash-header">
         <div>
           <h1 className="dash-title">
@@ -495,154 +412,45 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* ── Executive Summary ── */}
-      <section className="section section--tight">
+      <section className="section section--hero">
         <SectionHeader icon="✦" title="Resumen Ejecutivo" accent="purple" />
         <div className="exec-grid">
-          <ExecutiveCard icon="👥" title="Usuarios" value={fmt(s.totalUsers)} sub="Total" accent="purple" href="/admin/users" />
-          <ExecutiveCard icon="💰" title="Ingresos" value={todayRevenue.value} sub={todayRevenue.sub} accent="gold" href="/admin/revenue" />
-          <ExecutiveCard icon="🔴" title="Lives" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "blue"} href="/admin/lives" badge={s.activeLives} />
-          <ExecutiveCard icon="🚨" title="Reportes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendiente" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
-          <ExecutiveCard icon="💸" title="Retiros" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins` : "Sin retiros"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
+          <ExecutiveCard icon="👥" title="Usuarios registrados" value={fmt(s.totalUsers)} sub="Total" accent="neutral" href="/admin/users" />
+          <ExecutiveCard icon="💰" title="Ingresos de hoy" value={todayRevenue.value} sub={todayRevenue.sub} accent={getTodaySeriesValue(dailyRevenueSeries, "total") > 0 ? "green" : "neutral"} href="/admin/revenue" />
+          <ExecutiveCard icon="🔴" title="Lives activos" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En vivo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : "neutral"} href="/admin/lives" badge={s.activeLives} />
+          <ExecutiveCard icon="🚨" title="Reportes pendientes" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Acción inmediata" : "Al día"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
+          <ExecutiveCard icon="💸" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={s.pendingPayoutsCount > 0 ? `${fmt(s.pendingPayoutsCoins)} coins` : "Sin retiros"} accent={s.pendingPayoutsCount > 0 ? "yellow" : "green"} href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
+          <ExecutiveCard icon="⭐" title="Creadores activos" value={fmt(s.totalCreators)} sub="Aprobados" accent="neutral" href="/admin/creators?status=approved" />
         </div>
       </section>
 
-      {/* ── Quick Links ── */}
       <section className="section section--tight">
         <SectionHeader icon="⚡" title="Acciones rápidas" accent="purple" />
         <div className="quick-grid">
-          <Link href="/admin/reports" className={["qbtn", s.openReports > 0 ? "qbtn--red" : ""].filter(Boolean).join(" ")}>
-            <span className="qbtn-icon">🚨</span><span>Reportes</span><CountBadge value={s.openReports} />
-          </Link>
-          <Link href="/admin/payouts?status=pending" className={["qbtn", s.pendingPayoutsCount > 0 ? "qbtn--yellow" : ""].filter(Boolean).join(" ")}>
-            <span className="qbtn-icon">💸</span><span>Retiros</span><CountBadge value={s.pendingPayoutsCount} />
-          </Link>
-          <Link href="/admin/creators?status=pending" className={["qbtn", s.pendingCreators > 0 ? "qbtn--yellow" : ""].filter(Boolean).join(" ")}>
-            <span className="qbtn-icon">🎬</span><span>Creadores</span><CountBadge value={s.pendingCreators} />
-          </Link>
-          <Link href="/admin/users" className="qbtn"><span className="qbtn-icon">👥</span><span>Usuarios</span></Link>
-          <Link href="/admin/lives" className={["qbtn", s.activeLives > 0 ? "qbtn--red" : ""].filter(Boolean).join(" ")}>
-            <span className="qbtn-icon">📡</span><span>Lives</span><CountBadge value={s.activeLives} />
-          </Link>
-          <Link href="/admin/transactions" className="qbtn"><span className="qbtn-icon">💰</span><span>Transacciones</span></Link>
+          <QuickAction href="/admin/users" icon="👥" label="Usuarios" />
+          <QuickAction href="/admin/creators" icon="⭐" label="Creadores" />
+          <QuickAction href="/admin/lives" icon="🔴" label="Lives" tone={s.activeLives > 0 ? "red" : undefined} />
+          <QuickAction href="/admin/reports" icon="🚨" label="Reportes" tone={s.openReports > 0 ? "red" : undefined} />
+          <QuickAction href="/admin/transactions" icon="💰" label="Transacciones" />
+          <QuickAction href="/admin/payouts?status=pending" icon="💸" label="Retiros" tone={s.pendingPayoutsCount > 0 ? "yellow" : undefined} />
+          <QuickAction href="/admin/settings" icon="⚙️" label="Configuración" />
         </div>
       </section>
 
-      {/* ── Recent Activity ── */}
-      <section className="section">
+      <section className="section section--tight">
         <SectionHeader icon="⏱" title="Actividad reciente" accent="blue" />
-        <div className="activity-grid">
-          <ActivityList
-            title="Nuevos usuarios"
-            icon="👥"
-            items={recent.users}
-            href="/admin/users"
-            renderItem={(user) => (
-              <ActivityLine name={getShortUserName(user)} date={fmtDate(user.createdAt)} status={getStatusLabel(user.role, "Usuario")} avatar={getSafeActivityAvatar(user)} accent="purple" />
-            )}
-          />
-          <ActivityList
-            title="Nuevos creadores"
-            icon="🎬"
-            items={recent.creators}
-            href="/admin/creators"
-            renderItem={(creator) => (
-              <ActivityLine name={getShortUserName(creator, "Creador")} date={fmtDate(creator.creatorApplication?.submittedAt || creator.createdAt)} status={getStatusLabel(creator.creatorStatus, "Creador")} avatar={getSafeActivityAvatar(creator)} accent="green" />
-            )}
-          />
-          <ActivityList
-            title="Compras recientes"
-            icon="🪙"
-            items={recent.purchases}
-            href="/admin/transactions"
-            renderItem={(tx) => (
-              <ActivityLine name={getShortUserName(tx.userId)} date={fmtDate(tx.createdAt)} status={`${fmt(tx.amount)} coins`} avatar={getSafeActivityAvatar(tx.userId)} accent="gold" />
-            )}
-          />
-          <ActivityList
-            title="Reportes recientes"
-            icon="🚨"
-            items={recent.reports}
-            href="/admin/reports"
-            renderItem={(report) => (
-              <ActivityLine name={report.reason || "Reporte"} date={fmtDate(report.createdAt)} status={getStatusLabel(report.status, "Abierto")} icon="!" accent="red" />
-            )}
-          />
-        </div>
+        <Timeline items={timelineItems} />
       </section>
 
-      <div className="collapse-stack">
-        <CollapsibleSection id="finance" icon="💰" title="Finanzas" accent="gold" link="/admin/transactions" linkLabel="Transacciones →" isOpen={openSections.includes("finance")} onToggle={toggleSection}>
-          <div className="grid grid-4">
-            <StatCard icon="🪙" title="Coins comprados" value={fmt(s.totalCoinsPurchased)} sub="Acumulado total" accent="gold" href="/admin/transactions" />
-            <StatCard icon="🎁" title="Coins en regalos" value={fmt(s.totalGiftsCoins)} sub={`${fmt(s.totalGiftsSent)} regalos enviados`} accent="purple" />
-            <StatCard icon="🏦" title="Ingresos plataforma (est.)" value={fmt(s.platformEarningsEstimatedCoins)} sub="40% de coins en regalos" accent="green" href="/admin/revenue" />
-            <StatCard icon="💳" title="Suscripciones activas" value={fmt(s.subscriptions)} sub="Premium" accent="blue" />
-          </div>
-          <div className="grid grid-4 grid-spaced">
-            <StatCard icon="⏳" title="Retiros pendientes" value={fmt(s.pendingPayoutsCount)} sub={`${fmt(s.pendingPayoutsCoins)} coins`} accent="yellow" href="/admin/payouts?status=pending" badge={s.pendingPayoutsCount} />
-            <StatCard icon="✅" title="Retiros aprobados" value={fmt(s.approvedPayoutsCount)} sub={`${fmt(s.approvedPayoutsCoins)} coins`} accent="blue" href="/admin/payouts?status=approved" />
-            <StatCard icon="💚" title="Pagados (completados)" value={fmt(s.paidPayoutsCount)} sub={`${fmt(s.paidPayoutsCoins)} coins retirados`} accent="green" href="/admin/payouts?status=paid" />
-            <StatCard icon="❌" title="Rechazados" value={fmt(s.rejectedPayoutsCount)} accent="red" href="/admin/payouts?status=rejected" />
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection id="creators" icon="🎬" title="Creadores" accent="purple" link="/admin/creators" linkLabel="Gestionar →" isOpen={openSections.includes("creators")} onToggle={toggleSection}>
-          <div className="grid grid-4">
-            <StatCard icon="✅" title="Creadores aprobados" value={fmt(s.totalCreators)} accent="green" href="/admin/creators?status=approved" />
-            <StatCard icon="⏳" title="Solicitudes pendientes" value={fmt(s.pendingCreators)} sub={s.pendingCreators > 0 ? "Acción requerida" : "Al día"} accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
-            <StatCard icon="🚫" title="Creadores suspendidos" value={fmt(s.suspendedCreators)} accent={s.suspendedCreators > 0 ? "red" : undefined} href="/admin/creators?status=suspended" />
-            <StatCard icon="📊" title="Total registros (7d)" value={fmt(s.recentRegistrations)} sub="Nuevos usuarios" accent="blue" />
-          </div>
-          <div className="tables-duo">
-            <TopTable title="🏆 Top creadores por regalos (24h)" rows={a.topCreators} valueLabel="coins" linkHref="/admin/creators" />
-            <TopTable title="💸 Top gastadores de coins (24h)" rows={a.topSpenders} valueLabel="coins" linkHref="/admin/transactions" />
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection id="lives" icon="📡" title="Lives" accent="red" link="/admin/lives" linkLabel="Ver streams →" isOpen={openSections.includes("lives")} onToggle={toggleSection}>
-          <div className="grid grid-4">
-            <StatCard icon="🔴" title="Streams activos ahora" value={fmt(s.activeLives)} sub={s.activeLives > 0 ? "En directo" : "Sin streams"} accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" badge={s.activeLives} />
-            <StatCard icon="📼" title="Lives totales" value={fmt(s.totalLives)} href="/admin/lives" />
-            <StatCard icon="🎁" title="Regalos totales enviados" value={fmt(s.totalGiftsSent)} sub="Acumulado" accent="purple" />
-            <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : undefined} href="/admin/reports" badge={s.openReports} />
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection id="moderation" icon="🛡️" title="Moderación" accent="red" link="/admin/reports" linkLabel="Reportes →" isOpen={openSections.includes("moderation")} onToggle={toggleSection}>
-          <div className="grid grid-4">
-            <StatCard icon="🚨" title="Reportes abiertos" value={fmt(s.openReports)} sub={s.openReports > 0 ? "Pendientes de revisión" : "Sin reportes"} accent={s.openReports > 0 ? "red" : "green"} href="/admin/reports" badge={s.openReports} />
-            <StatCard icon="⏳" title="Creadores pendientes" value={fmt(s.pendingCreators)} sub="Solicitudes por revisar" accent={s.pendingCreators > 0 ? "yellow" : undefined} href="/admin/creators?status=pending" badge={s.pendingCreators} />
-            <StatCard icon="🚫" title="Creadores suspendidos" value={fmt(s.suspendedCreators)} accent={s.suspendedCreators > 0 ? "red" : undefined} href="/admin/creators?status=suspended" />
-            <StatCard icon="🔴" title="Streams activos" value={fmt(s.activeLives)} sub="Monitoreo en vivo" accent={s.activeLives > 0 ? "red" : undefined} href="/admin/lives" />
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection id="agencies" icon="🏢" title="Agencias" accent="blue" link="/admin/agencies" linkLabel="Gestionar →" isOpen={openSections.includes("agencies")} onToggle={toggleSection}>
-          <div className="grid grid-4">
-            <StatCard icon="🏢" title="Agencias activas" value={fmt(s.activeAgencies)} accent="blue" href="/admin/agencies" />
-            <StatCard icon="👥" title="Sub-creadores activos" value={fmt(s.activeAgencyLinks)} sub="Relaciones aprobadas" href="/admin/agencies" />
-            <StatCard icon="💰" title="Comisiones totales" value={fmt(s.totalAgencyCommissionCoins)} sub="coins generados por agencias" accent="gold" />
-            <StatCard icon="🔗" title="Total retiros solicitados" value={fmt(s.totalPayoutRequests)} sub="Historial completo" href="/admin/payouts" />
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection id="analytics" icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" isOpen={openSections.includes("analytics")} onToggle={toggleSection}>
-          {a.retention && (
-            <div className="ret-row">
-              <RetentionCard label="DAU" value={a.retention.dau} sub="Hoy" />
-              <RetentionCard label="WAU" value={a.retention.wau} sub="7d" />
-              <RetentionCard label="MAU" value={a.retention.mau} sub="30d" />
-              <RetentionCard label="Total" value={s.totalUsers} sub="Usuarios" />
-            </div>
-          )}
-          <div className="charts-row">
-            <ChartPanel title="Registros 7d" data={a.dailyRegistrations} valueKey="count" color="var(--accent-purple)" />
-            <ChartPanel title="Coins 7d" data={a.dailyPurchases} valueKey="total" color="var(--accent-gold)" />
-            <ChartPanel title={getRevenueChartTitle(dailyRevenueSeries)} data={dailyRevenueSeries} valueKey="total" color="var(--accent-green)" />
-          </div>
-        </CollapsibleSection>
-      </div>
+      <section className="section section--analytics">
+        <SectionHeader icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
+        <div className="analytics-grid">
+          <AnalyticsCard icon="👥" label="Usuarios últimos 7 días" value={fmt(registrations7d)} sub="Nuevos registros" />
+          <AnalyticsCard icon="💰" label="Ingresos últimos 7 días" value={fmt(revenue7d)} sub="Coins últimos 7 días" />
+          <AnalyticsCard icon="🪙" label="Coins vendidos" value={fmt(s.totalCoinsPurchased)} sub="Acumulado" />
+          <AnalyticsCard icon="📡" label="Lives realizados" value={fmt(s.totalLives)} sub="Histórico" />
+        </div>
+      </section>
 
       <style jsx>{`
         :root {
@@ -652,32 +460,33 @@ export default function AdminDashboard() {
           --accent-green: #34d399;
           --accent-blue: #60a5fa;
           --accent-red: #f87171;
+          --accent-yellow: #fbbf24;
           --bg-card: #161b27;
-          --bg-card-hover: #1a1f2e;
+          --bg-card-hover: #1a2030;
           --border: #1e2535;
-          --exec-card-min-height: 132px;
-          --exec-card-min-height-mobile: 118px;
+          --exec-card-min-height: 142px;
+          --exec-card-min-height-mobile: 126px;
         }
 
-        .dash { max-width: 1280px; }
+        .dash { max-width: 1180px; }
 
-        /* ── Header ── */
         .dash-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           gap: 1rem;
-          margin-bottom: 2rem;
+          margin-bottom: 1.5rem;
         }
 
         .dash-title {
-          font-size: clamp(1.35rem, 3vw, 1.7rem);
-          font-weight: 800;
-          color: #e2e8f0;
+          font-size: clamp(1.35rem, 3vw, 1.8rem);
+          font-weight: 900;
+          color: #f8fafc;
           margin: 0 0 0.3rem;
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          letter-spacing: -0.04em;
         }
 
         .dash-title-icon {
@@ -689,7 +498,7 @@ export default function AdminDashboard() {
 
         .dash-sub {
           font-size: 0.8rem;
-          color: #475569;
+          color: #64748b;
           margin: 0;
           letter-spacing: 0.03em;
         }
@@ -697,24 +506,24 @@ export default function AdminDashboard() {
         .btn-refresh {
           background: rgba(124,58,237,0.1);
           border: 1px solid rgba(124,58,237,0.3);
-          color: #a78bfa;
-          border-radius: 8px;
+          color: #c4b5fd;
+          border-radius: 999px;
+          min-height: 42px;
           padding: 0.55rem 1.1rem;
           font-size: 0.82rem;
-          font-weight: 600;
+          font-weight: 800;
           cursor: pointer;
           font-family: inherit;
-          transition: background 0.15s;
+          transition: background 0.15s, transform 0.15s;
           white-space: nowrap;
           flex-shrink: 0;
         }
 
-        .btn-refresh:hover:not(:disabled) { background: rgba(124,58,237,0.18); }
+        .btn-refresh:hover:not(:disabled) { background: rgba(124,58,237,0.18); transform: translateY(-1px); }
         .btn-refresh:disabled { opacity: 0.5; }
 
-        /* ── Loading / Error ── */
         .sk {
-          border-radius: 14px;
+          border-radius: 18px;
           background: linear-gradient(90deg, rgba(30,37,53,0.72), rgba(51,65,85,0.72), rgba(30,37,53,0.72));
           background-size: 220% 100%;
           animation: shimmer 1.25s ease-in-out infinite;
@@ -724,8 +533,7 @@ export default function AdminDashboard() {
         .sk-line { width: 170px; height: 12px; }
         .sk-button { width: 118px; height: 40px; }
         .sk-card { min-height: var(--exec-card-min-height); }
-        .sk-gap { margin-top: 1.2rem; }
-        .sk-activity { height: 136px; }
+        .sk-panel { height: 190px; margin-top: 1rem; }
         @keyframes shimmer { to { background-position: -220% 0; } }
 
         .dash-error {
@@ -735,28 +543,62 @@ export default function AdminDashboard() {
           font-size: 0.9rem;
         }
 
-        /* ── Sections ── */
-        .section { margin-bottom: 2.25rem; }
-        .section--tight { margin-bottom: 1.35rem; }
+        .section { margin-bottom: 2.2rem; }
+        .section--hero { margin-bottom: 1.45rem; }
+        .section--tight { margin-bottom: 1.45rem; }
+        .section--analytics { margin: 2.4rem 0 1rem; }
 
-        /* ── Executive Summary ── */
+        .sh {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.9rem;
+          gap: 0.5rem;
+        }
+
+        .sh-left { display: flex; align-items: center; gap: 0.5rem; }
+        .sh-dot { width: 4px; height: 18px; border-radius: 2px; flex-shrink: 0; }
+        .sh-dot--purple { background: #7c3aed; }
+        .sh-dot--gold { background: #f59e0b; }
+        .sh-dot--green { background: #10b981; }
+        .sh-dot--blue { background: #3b82f6; }
+        .sh-dot--red { background: #ef4444; }
+        .sh-icon { font-size: 1rem; }
+        .sh-title {
+          font-size: 0.78rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #94a3b8;
+        }
+        .sh-link {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: #8b5cf6;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .sh-link:hover { color: #c4b5fd; }
+
         .exec-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.75rem;
+          gap: 0.8rem;
         }
 
         @media (min-width: 900px) {
-          .exec-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+          .exec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (min-width: 1180px) {
+          .exec-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         }
 
         .exec-card {
           min-height: var(--exec-card-min-height);
-          border-radius: 18px;
-          border: 1px solid rgba(124,58,237,0.2);
-          background:
-            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.22), transparent 45%),
-            linear-gradient(180deg, #171c2a, #111622);
+          border-radius: 20px;
+          border: 1px solid rgba(148,163,184,0.16);
+          background: linear-gradient(180deg, #171c2a, #111622);
           padding: 1rem;
           display: flex;
           flex-direction: column;
@@ -766,306 +608,36 @@ export default function AdminDashboard() {
           animation: fade-up 0.35s ease both;
         }
 
-        .exec-card--link:hover {
-          transform: translateY(-2px);
-          border-color: rgba(167,139,250,0.48);
-          filter: brightness(1.06);
-        }
+        .exec-card--link:hover { transform: translateY(-2px); border-color: rgba(167,139,250,0.46); filter: brightness(1.06); }
+        .exec-card--neutral { background: radial-gradient(circle at top right, rgba(148,163,184,0.12), transparent 42%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--green { border-color: rgba(52,211,153,0.32); background: radial-gradient(circle at top right, rgba(52,211,153,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--red { border-color: rgba(248,113,113,0.34); background: radial-gradient(circle at top right, rgba(248,113,113,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
+        .exec-card--yellow { border-color: rgba(251,191,36,0.34); background: radial-gradient(circle at top right, rgba(251,191,36,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
 
-        .exec-card--gold { border-color: rgba(251,191,36,0.28); background: radial-gradient(circle at top right, rgba(251,191,36,0.2), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--green { border-color: rgba(52,211,153,0.28); background: radial-gradient(circle at top right, rgba(52,211,153,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--blue { border-color: rgba(96,165,250,0.28); background: radial-gradient(circle at top right, rgba(96,165,250,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--red { border-color: rgba(248,113,113,0.3); background: radial-gradient(circle at top right, rgba(248,113,113,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-        .exec-card--yellow { border-color: rgba(251,191,36,0.32); background: radial-gradient(circle at top right, rgba(251,191,36,0.18), transparent 44%), linear-gradient(180deg, #171c2a, #111622); }
-
-        .exec-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 0.5rem;
-        }
-
+        .exec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
         .exec-icon { font-size: 1.55rem; }
-
         .exec-value {
           color: #f8fafc;
-          font-size: clamp(1.8rem, 6vw, 2.45rem);
-          font-weight: 900;
-          letter-spacing: -0.05em;
+          font-size: clamp(1.85rem, 6vw, 2.5rem);
+          font-weight: 950;
+          letter-spacing: -0.06em;
           line-height: 0.95;
           margin-top: 0.7rem;
         }
-
         .exec-title {
           color: #cbd5e1;
-          font-size: 0.76rem;
-          font-weight: 800;
+          font-size: 0.72rem;
+          font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          margin-top: 0.55rem;
+          margin-top: 0.58rem;
         }
-
-        .exec-sub {
-          color: #64748b;
-          font-size: 0.72rem;
-          margin-top: 0.2rem;
-        }
-
-        /* ── Section Header ── */
-        .sh {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.9rem;
-          gap: 0.5rem;
-        }
-
-        .sh-left {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .sh-dot {
-          width: 4px;
-          height: 18px;
-          border-radius: 2px;
-          flex-shrink: 0;
-        }
-
-        .sh-dot--purple { background: #7c3aed; }
-        .sh-dot--gold { background: #f59e0b; }
-        .sh-dot--green { background: #10b981; }
-        .sh-dot--blue { background: #3b82f6; }
-        .sh-dot--red { background: #ef4444; }
-
-        .sh-icon { font-size: 1rem; }
-
-        .sh-title {
-          font-size: 0.78rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: #94a3b8;
-        }
-
-        .sh-link {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #7c3aed;
-          text-decoration: none;
-          transition: color 0.15s;
-        }
-
-        .sh-link:hover { color: #a78bfa; }
-
-        /* ── Collapsible Groups ── */
-        .collapse-stack {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          margin-bottom: 2.25rem;
-        }
-
-        .collapse {
-          background: rgba(22,27,39,0.72);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          overflow: hidden;
-          transition: border-color 0.2s, background 0.2s;
-        }
-
-        .collapse-summary {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.8rem;
-          padding: 0.4rem;
-        }
-
-        .collapse--open {
-          border-color: rgba(167,139,250,0.32);
-          background: rgba(22,27,39,0.9);
-        }
-
-        .collapse-trigger {
-          flex: 1;
-          min-width: 0;
-          min-height: 48px;
-          border: 0;
-          background: transparent;
-          color: inherit;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.55rem 0.7rem;
-          cursor: pointer;
-          font: inherit;
-          text-align: left;
-          border-radius: 12px;
-          transition: background 0.15s;
-        }
-
-        .collapse-trigger:hover { background: rgba(124,58,237,0.06); }
-        .collapse-trigger:focus {
-          outline: 2px solid rgba(167,139,250,0.45);
-          outline-offset: 2px;
-        }
-        .collapse-trigger:focus-visible {
-          outline: 2px solid rgba(167,139,250,0.75);
-          outline-offset: 2px;
-        }
-
-        .collapse-chevron {
-          margin-left: auto;
-          color: #64748b;
-          font-weight: 800;
-          transition: transform 0.2s, color 0.2s;
-        }
-
-        .collapse--open .collapse-chevron {
-          transform: rotate(180deg);
-          color: #a78bfa;
-        }
-
-        .collapse-link {
-          color: #7c3aed;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-decoration: none;
-          padding: 0.7rem;
-          white-space: nowrap;
-        }
-
-        .collapse-link:hover { color: #a78bfa; }
-
-        .collapse-body {
-          border-top: 1px solid #131825;
-          padding: 1rem;
-        }
-
-        /* ── Alert Banners ── */
-        .alerts-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.6rem;
-        }
-
-        @media (min-width: 640px) {
-          .alerts-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-        }
-
-        .alert-banner {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          padding: 0.85rem 1.1rem;
-          border-radius: 12px;
-          border: 1px solid transparent;
-          text-decoration: none;
-          transition: filter 0.2s, transform 0.2s;
-          animation: fade-up 0.3s ease both;
-        }
-
-        .alert-banner:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-        .alert-banner--yellow {
-          background: rgba(251,191,36,0.08);
-          border-color: rgba(251,191,36,0.3);
-        }
-
-        .alert-banner--blue {
-          background: rgba(96,165,250,0.08);
-          border-color: rgba(96,165,250,0.3);
-        }
-
-        .alert-banner--red {
-          background: rgba(248,113,113,0.08);
-          border-color: rgba(248,113,113,0.3);
-        }
-
-        .alert-icon { font-size: 1.6rem; flex-shrink: 0; }
-
-        .alert-body { flex: 1; min-width: 0; }
-
-        .alert-title {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: #e2e8f0;
-        }
-
-        .alert-sub {
-          font-size: 0.75rem;
-          color: #64748b;
-          margin-top: 0.1rem;
-        }
-
-        .alert-banner--yellow .alert-title { color: #fbbf24; }
-        .alert-banner--blue .alert-title { color: #60a5fa; }
-        .alert-banner--red .alert-title { color: #f87171; }
-
-        .alert-arrow {
-          font-size: 1.1rem;
-          color: #475569;
-          flex-shrink: 0;
-          transition: transform 0.2s;
-        }
-
-        .alert-banner:hover .alert-arrow { transform: translateX(3px); }
-
-        /* ── Stat Cards ── */
-        .grid {
-          display: grid;
-          gap: 0.85rem;
-          grid-template-columns: 1fr;
-        }
-
-        @media (min-width: 480px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1024px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
-        @media (min-width: 768px) and (max-width: 1023px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
-
-        .sc {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 1.1rem 1.15rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-          transition: border-color 0.2s, transform 0.2s, background 0.2s;
-          animation: fade-up 0.35s ease both;
-          position: relative;
-        }
-
-        .sc--link:hover {
-          border-color: rgba(124,58,237,0.45);
-          background: var(--bg-card-hover);
-          transform: translateY(-2px);
-        }
-
-        .sc--gold  { border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.03); }
-        .sc--purple{ border-color: rgba(167,139,250,0.25); background: rgba(167,139,250,0.03); }
-        .sc--green { border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.03); }
-        .sc--blue  { border-color: rgba(96,165,250,0.25); background: rgba(96,165,250,0.03); }
-        .sc--red   { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.03); }
-        .sc--yellow{ border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.04); }
-
-        .grid-spaced { margin-top: 0.75rem; }
-
-        .sc-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.4rem;
-        }
-
-        .sc-icon { font-size: 1.35rem; }
-
+        .exec-sub { color: #64748b; font-size: 0.7rem; margin-top: 0.2rem; }
         .sc-badge {
           background: #ef4444;
           color: #fff;
           font-size: 0.65rem;
-          font-weight: 700;
+          font-weight: 800;
           border-radius: 999px;
           padding: 0.1rem 0.45rem;
           min-width: 20px;
@@ -1073,506 +645,195 @@ export default function AdminDashboard() {
           line-height: 1.6;
         }
 
-        .sc-val {
-          font-size: clamp(1.6rem, 3.5vw, 2rem);
-          font-weight: 800;
-          color: #e2e8f0;
-          line-height: 1;
-        }
-
-        .sc-title {
-          font-size: 0.75rem;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-top: 0.15rem;
-        }
-
-        .sc-sub {
-          font-size: 0.7rem;
-          color: #475569;
-          margin-top: 0.1rem;
-        }
-
-        /* ── Tables duo ── */
-        .tables-duo {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.85rem;
-        }
-
-        @media (max-width: 700px) { .tables-duo { grid-template-columns: 1fr; } }
-
-        .top-table {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 1rem 1.1rem;
-          animation: fade-up 0.4s ease both;
-        }
-
-        .collapse-body .tables-duo { margin-top: 0.85rem; }
-
-        .tt-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.75rem;
-        }
-
-        .tt-title {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: #e2e8f0;
-        }
-
-        .tt-link {
-          font-size: 0.72rem;
-          color: #7c3aed;
-          text-decoration: none;
-          font-weight: 600;
-        }
-
-        .tt-link:hover { color: #a78bfa; }
-
-        .tt-empty {
-          font-size: 0.8rem;
-          color: #475569;
-          text-align: center;
-          padding: 1rem 0;
-          margin: 0;
-        }
-
-        .tt-rows { display: flex; flex-direction: column; gap: 0.4rem; }
-
-        .tt-row {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          padding: 0.35rem 0;
-          border-bottom: 1px solid #131825;
-        }
-
-        .tt-row:last-child { border-bottom: none; }
-
-        .tt-rank {
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: #475569;
-          width: 22px;
-          flex-shrink: 0;
-        }
-
-        .tt-user {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .tt-avatar {
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          object-fit: cover;
-          flex-shrink: 0;
-        }
-
-        .tt-avatar--ph {
-          background: linear-gradient(135deg, #7c3aed, #a855f7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.65rem;
-          font-weight: 700;
-          color: #fff;
-        }
-
-        .tt-name {
-          font-size: 0.8rem;
-          color: #cbd5e1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .tt-val {
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: #fbbf24;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        /* ── Activity ── */
-        .activity-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0.65rem;
-        }
-
-        @media (min-width: 760px) {
-          .activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-
-        @media (min-width: 1180px) {
-          .activity-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        }
-
-        .activity-card {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 14px;
-          padding: 0.9rem;
-          min-width: 0;
-        }
-
-        .activity-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.6rem;
-          color: #e2e8f0;
-          font-size: 0.78rem;
-          font-weight: 800;
-          margin-bottom: 0.65rem;
-        }
-
-        .activity-head-icon {
-          margin-right: 0.35rem;
-        }
-
-        .activity-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0.55rem;
-        }
-
-        .activity-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          min-width: 0;
-        }
-
-        .activity-avatar {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          object-fit: cover;
-          flex-shrink: 0;
-        }
-
-        .activity-avatar--ph {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(167,139,250,0.18);
-          color: #ddd6fe;
-          font-size: 0.72rem;
-          font-weight: 900;
-          box-shadow: 0 0 0 4px rgba(167,139,250,0.06);
-        }
-
-        .activity-avatar--gold { background: rgba(251,191,36,0.18); color: #fde68a; box-shadow: 0 0 0 4px rgba(251,191,36,0.06); }
-        .activity-avatar--green { background: rgba(52,211,153,0.18); color: #a7f3d0; box-shadow: 0 0 0 4px rgba(52,211,153,0.06); }
-        .activity-avatar--blue { background: rgba(96,165,250,0.18); color: #bfdbfe; box-shadow: 0 0 0 4px rgba(96,165,250,0.06); }
-        .activity-avatar--red { background: rgba(248,113,113,0.18); color: #fecaca; box-shadow: 0 0 0 4px rgba(248,113,113,0.06); }
-
-        .activity-copy {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .activity-primary {
-          color: #cbd5e1;
-          font-size: 0.78rem;
-          font-weight: 700;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .activity-secondary {
-          color: #64748b;
-          font-size: 0.68rem;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          margin-top: 0.05rem;
-        }
-
-        .activity-status {
-          color: #a78bfa;
-          background: rgba(167,139,250,0.08);
-          border: 1px solid rgba(167,139,250,0.16);
-          border-radius: 999px;
-          padding: 0.18rem 0.42rem;
-          font-size: 0.64rem;
-          font-weight: 800;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        .activity-status--gold { color: #fbbf24; background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.18); }
-        .activity-status--green { color: #34d399; background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.18); }
-        .activity-status--blue { color: #60a5fa; background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.18); }
-        .activity-status--red { color: #f87171; background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.18); }
-
-        .activity-empty {
-          color: #475569;
-          font-size: 0.76rem;
-          border: 1px dashed rgba(100,116,139,0.28);
-          border-radius: 12px;
-          padding: 0.8rem;
-          text-align: center;
-        }
-
-        /* ── Retention ── */
-        .ret-row {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 0.75rem;
-          margin-bottom: 1rem;
-        }
-
-        @media (max-width: 640px) { .ret-row { grid-template-columns: repeat(2, 1fr); } }
-
-        .ret-card {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 0.85rem 0.9rem;
-          text-align: center;
-          animation: fade-up 0.35s ease both;
-        }
-
-        .ret-val {
-          font-size: 1.5rem;
-          font-weight: 800;
-          color: #a78bfa;
-        }
-
-        .ret-label {
-          font-size: 0.7rem;
-          font-weight: 700;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          margin-top: 0.2rem;
-        }
-
-        .ret-sub {
-          font-size: 0.65rem;
-          color: #475569;
-          margin-top: 0.1rem;
-        }
-
-        /* ── Charts ── */
-        .charts-row {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.85rem;
-        }
-
-        @media (max-width: 760px) { .charts-row { grid-template-columns: 1fr; } }
-
-        .chart-panel {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 1rem 1.1rem;
-          animation: fade-up 0.4s ease both;
-        }
-
-        .chart-title {
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          margin-bottom: 0.85rem;
-        }
-
-        .chart-empty {
-          font-size: 0.8rem;
-          color: #475569;
-          text-align: center;
-          padding: 1.5rem 0;
-          margin: 0;
-        }
-
-        .mbchart {
-          display: flex;
-          align-items: flex-end;
-          gap: 0.3rem;
-          height: 96px;
-        }
-
-        .mbc-item {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          height: 100%;
-          gap: 0.25rem;
-        }
-
-        .mbc-bar-wrap {
-          flex: 1;
-          width: 100%;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-        }
-
-        .mbc-bar {
-          width: 100%;
-          min-height: 2px;
-          border-radius: 3px 3px 0 0;
-          opacity: 0.85;
-          transition: opacity 0.15s;
-        }
-
-        .mbc-bar:hover { opacity: 1; }
-
-        .mbc-value {
-          font-size: 0.58rem;
-          font-weight: 800;
-          color: #94a3b8;
-          line-height: 1;
-        }
-
-        .mbc-label {
-          font-size: 0.55rem;
-          color: #475569;
-          text-align: center;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 100%;
-        }
-
-        /* ── Quick Links ── */
         .quick-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.65rem;
+          gap: 0.7rem;
         }
 
-        @media (min-width: 760px) {
-          .quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        @media (min-width: 820px) {
+          .quick-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
         .qbtn {
-          background:
-            radial-gradient(circle at top right, rgba(var(--accent-purple-rgb),0.14), transparent 46%),
-            #1e2535;
+          background: #171d2b;
           border: 1px solid var(--border);
           color: #cbd5e1;
-          border-radius: 16px;
-          padding: 0.8rem 0.85rem;
-          font-size: 0.82rem;
-          font-weight: 800;
+          border-radius: 18px;
+          padding: 0.9rem;
+          font-size: 0.84rem;
+          font-weight: 900;
           text-decoration: none;
           display: flex;
           align-items: center;
-          justify-content: flex-start;
-          gap: 0.45rem;
-          text-align: left;
-          min-height: 58px;
-          transition: background 0.15s, color 0.15s, border-color 0.15s;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          gap: 0.55rem;
+          min-height: 64px;
+          transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
         }
 
-        .qbtn:hover { background: #2d3748; color: #e2e8f0; }
-
+        .qbtn:hover { background: var(--bg-card-hover); color: #f8fafc; transform: translateY(-1px); }
         .qbtn-icon {
-          width: 30px;
-          height: 30px;
-          border-radius: 12px;
+          width: 34px;
+          height: 34px;
+          border-radius: 14px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: rgba(167,139,250,0.12);
+          background: rgba(148,163,184,0.1);
           flex-shrink: 0;
         }
-
-        .qbtn .sc-badge {
-          margin-left: auto;
-          flex-shrink: 0;
-        }
-
-        .qbtn--yellow {
-          background: rgba(251,191,36,0.07);
-          border-color: rgba(251,191,36,0.22);
-          color: #fbbf24;
-        }
-
+        .qbtn-arrow { margin-left: auto; color: #64748b; }
+        .qbtn--yellow { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.24); color: #fbbf24; }
         .qbtn--yellow:hover { background: rgba(251,191,36,0.14); }
-
-        .qbtn--red {
-          background: rgba(239,68,68,0.07);
-          border-color: rgba(239,68,68,0.22);
-          color: #f87171;
-        }
-
+        .qbtn--red { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.24); color: #f87171; }
         .qbtn--red:hover { background: rgba(239,68,68,0.14); }
 
-        /* ── Animation ── */
+        .timeline {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+          background: rgba(22,27,39,0.72);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 0.8rem;
+        }
+
+        .timeline-item {
+          display: grid;
+          grid-template-columns: 34px 10px minmax(0, 1fr);
+          align-items: center;
+          gap: 0.6rem;
+          border-radius: 14px;
+          padding: 0.62rem;
+          min-height: 56px;
+          text-decoration: none;
+          color: inherit;
+          transition: background 0.15s;
+        }
+        .timeline-item:hover { background: rgba(148,163,184,0.06); }
+        .timeline-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 14px;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+        .timeline-avatar--ph {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(148,163,184,0.12);
+          color: #cbd5e1;
+          font-size: 0.86rem;
+          font-weight: 900;
+        }
+        .timeline-avatar--green { background: rgba(52,211,153,0.15); color: #a7f3d0; }
+        .timeline-avatar--yellow { background: rgba(251,191,36,0.15); color: #fde68a; }
+        .timeline-avatar--red { background: rgba(248,113,113,0.16); color: #fecaca; }
+        .timeline-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #475569;
+          box-shadow: 0 0 0 4px rgba(71,85,105,0.12);
+        }
+        .timeline-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
+        .timeline-text {
+          color: #e2e8f0;
+          font-size: 0.84rem;
+          font-weight: 750;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .timeline-date {
+          color: #64748b;
+          font-size: 0.7rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .timeline-empty {
+          color: #64748b;
+          font-size: 0.84rem;
+          border: 1px dashed rgba(100,116,139,0.32);
+          border-radius: 18px;
+          padding: 1.2rem;
+          text-align: center;
+          background: rgba(22,27,39,0.52);
+        }
+
+        .analytics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+        }
+        @media (min-width: 900px) {
+          .analytics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .analytics-card {
+          background: #151a27;
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          padding: 1rem;
+          min-height: 128px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+        .analytics-icon { font-size: 1.35rem; }
+        .analytics-value {
+          color: #f8fafc;
+          font-size: clamp(1.55rem, 4vw, 2rem);
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          line-height: 1;
+          margin-top: 0.5rem;
+        }
+        .analytics-label {
+          color: #94a3b8;
+          font-size: 0.72rem;
+          font-weight: 850;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-top: 0.45rem;
+        }
+        .analytics-sub { color: #475569; font-size: 0.68rem; margin-top: 0.14rem; }
+
         @keyframes fade-up {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Mobile tweaks ── */
         @media (max-width: 767px) {
           .dash { max-width: 100%; }
-
-          .dash-header {
-            align-items: center;
-            margin-bottom: 1rem;
-          }
-
+          .dash-header { align-items: center; margin-bottom: 1rem; }
           .dash-title { font-size: 1.25rem; }
           .dash-sub { font-size: 0.72rem; }
-
-          .btn-refresh {
-            min-height: 42px;
-            padding: 0.45rem 0.75rem;
-          }
-
+          .btn-refresh { min-height: 42px; padding: 0.45rem 0.72rem; }
           .section { margin-bottom: 1.25rem; }
-          .section--tight { margin-bottom: 1rem; }
-
-          .exec-grid { gap: 0.6rem; }
-
-          .exec-card {
-            min-height: var(--exec-card-min-height-mobile);
-            padding: 0.8rem;
-            border-radius: 16px;
-          }
-
+          .section--analytics { margin-top: 1.6rem; }
+          .exec-grid { gap: 0.65rem; }
+          .exec-card { min-height: var(--exec-card-min-height-mobile); padding: 0.82rem; border-radius: 18px; }
           .exec-icon { font-size: 1.3rem; }
-          .exec-value { font-size: clamp(1.55rem, 1.1rem + 2vw, 2rem); margin-top: 0.45rem; }
-          .exec-title { font-size: 0.68rem; margin-top: 0.42rem; }
-          .exec-sub { font-size: 0.66rem; }
-
-          .activity-card { padding: 0.8rem; }
-          .collapse-stack { gap: 0.6rem; margin-bottom: 1rem; }
-          .collapse-body { padding: 0.75rem; }
-          .grid { gap: 0.65rem; }
-          .charts-row { gap: 0.65rem; }
-          .ret-row { gap: 0.6rem; margin-bottom: 0.75rem; }
+          .exec-value { font-size: clamp(1.5rem, 1rem + 3vw, 2rem); margin-top: 0.45rem; }
+          .exec-title { font-size: 0.66rem; margin-top: 0.42rem; }
+          .exec-sub { font-size: 0.65rem; }
+          .quick-grid { gap: 0.6rem; }
+          .qbtn { min-height: 62px; padding: 0.78rem; }
+          .timeline { padding: 0.55rem; }
+          .timeline-item { grid-template-columns: 32px 8px minmax(0, 1fr); gap: 0.52rem; padding: 0.55rem; }
+          .timeline-avatar { width: 32px; height: 32px; border-radius: 13px; }
+          .analytics-grid { gap: 0.65rem; }
+          .analytics-card { min-height: 118px; padding: 0.85rem; }
         }
 
         @media (max-width: 400px) {
           .quick-grid { gap: 0.55rem; }
-          .qbtn { padding: 0.7rem; min-height: 54px; font-size: 0.78rem; }
-          .qbtn-icon { width: 28px; height: 28px; }
+          .qbtn { padding: 0.7rem; min-height: 58px; font-size: 0.78rem; }
+          .qbtn-icon { width: 30px; height: 30px; border-radius: 12px; }
+          .timeline-text { font-size: 0.8rem; }
         }
       `}</style>
     </div>

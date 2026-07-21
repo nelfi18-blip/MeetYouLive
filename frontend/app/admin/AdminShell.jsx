@@ -235,7 +235,7 @@ export default function AdminShell({ children }) {
           background: #0f1117;
           color: #e2e8f0;
           font-family: inherit;
-          overflow-y: visible;
+          overflow-y: auto;
           overflow-x: hidden;
           position: relative;
         }
@@ -274,7 +274,7 @@ export default function AdminShell({ children }) {
           z-index: 50;
           transform: translateX(-100%);
           transition: transform 0.28s ease;
-          overflow-y: auto;
+          overflow-y: visible;
           overflow-x: hidden;
         }
 

@@ -346,6 +346,12 @@ export default function ProfilePage() {
   const [requestingCreator, setRequestingCreator] = useState(false);
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
+  const [creatorReqForm, setCreatorReqForm] = useState({
+    displayName: "",
+    category: "",
+    country: "",
+    bio: "",
+  });
 
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
@@ -433,6 +439,12 @@ export default function ProfilePage() {
       profilePhotos: normalizedUser.profilePhotos || [],
       images: normalizedImages,
       ...discoveryDefaults,
+    });
+    setCreatorReqForm({
+      displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.username || normalizedUser.name || "",
+      category: normalizedUser.creatorApplication?.category || "",
+      country: normalizedUser.creatorApplication?.country || normalizedUser.location?.country || normalizedUser.country || "",
+      bio: normalizedUser.creatorApplication?.bio || "",
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
     return normalizedUser;
@@ -718,20 +730,68 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
-  const handleCreatorRequest = async () => {
-    setCreatorReqError(""); setCreatorReqSuccess(""); setRequestingCreator(true);
+  const handleCreatorRequest = async (event) => {
+    event.preventDefault();
+    if (requestingCreator) return;
+
+    setCreatorReqError("");
+    setCreatorReqSuccess("");
+
+    const displayName = creatorReqForm.displayName.trim();
+    const category = creatorReqForm.category.trim();
+    const country = creatorReqForm.country.trim();
+    const bio = creatorReqForm.bio.trim();
+    const fallbackBio = `Creador de ${category} desde ${country}.`;
+    const languages = getCreatorRequestLanguages(user);
+
+    if (!displayName) {
+      setCreatorReqError("El nombre de creador es requerido");
+      return;
+    }
+    if (!category) {
+      setCreatorReqError("La categoría es requerida");
+      return;
+    }
+    if (!country) {
+      setCreatorReqError("El país es requerido");
+      return;
+    }
+
+    setRequestingCreator(true);
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName,
+          category,
+          country,
+          bio: bio || fallbackBio,
+          languages,
+          socialLinks: {},
+        }),
         cache: "no-store",
       });
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
-      setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      updateAndPublishUser({ creatorStatus: "pending" });
-      await refreshProfileSession();
+      const nextUser = updateAndPublishUser({
+        creatorStatus: "pending",
+        creatorApplication: {
+          ...(user?.creatorApplication || {}),
+          displayName,
+          category,
+          country,
+          bio: bio || fallbackBio,
+          languages,
+          submittedAt: new Date().toISOString(),
+        },
+      });
+      setCreatorReqSuccess("Tu solicitud fue enviada y está pendiente de revisión.");
+      await refreshProfileSession(nextUser);
     } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
     finally { setRequestingCreator(false); }
   };
@@ -747,6 +807,10 @@ export default function ProfilePage() {
   const primaryImageUrl = primaryImage?.url || "";
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
+  const updateCreatorReqField = (field, value) => {
+    setCreatorReqForm((prev) => ({ ...prev, [field]: value }));
+    if (creatorReqError) setCreatorReqError("");
+  };
   const intentLabelByValue = {
     dating: t("profile.intentDating"),
     casual: t("profile.intentCasual"),
@@ -1236,13 +1300,73 @@ export default function ProfilePage() {
                 <div className="creator-cta-title">¿Quieres ser Creador?</div>
                 <div className="creator-cta-sub">Solicita acceso para transmitir en vivo y ganar monedas con tu comunidad.</div>
               </div>
-              {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
-              {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
-              {!creatorReqSuccess && (
-                <button className="btn btn-primary creator-cta-btn" onClick={handleCreatorRequest} disabled={requestingCreator}>
+              {user.creatorStatus === "rejected" && (
+                <div className="creator-request-status creator-request-status-rejected">
+                  Solicitud rechazada. Puedes corregir los datos y volver a solicitar.
+                </div>
+              )}
+              <form className="creator-request-form" onSubmit={handleCreatorRequest}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="creator-display-name">Nombre de creador <span className="req">*</span></label>
+                  <input
+                    id="creator-display-name"
+                    className="input"
+                    type="text"
+                    value={creatorReqForm.displayName}
+                    onChange={(e) => updateCreatorReqField("displayName", e.target.value)}
+                    placeholder="Tu nombre público como creador"
+                    maxLength={60}
+                    disabled={requestingCreator}
+                  />
+                </div>
+                <div className="profile-inline-grid creator-request-grid">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="creator-category">Categoría <span className="req">*</span></label>
+                    <select
+                      id="creator-category"
+                      className="input"
+                      value={creatorReqForm.category}
+                      onChange={(e) => updateCreatorReqField("category", e.target.value)}
+                      disabled={requestingCreator}
+                    >
+                      <option value="">Selecciona una categoría…</option>
+                      {CREATOR_REQUEST_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="creator-country">País <span className="req">*</span></label>
+                    <input
+                      id="creator-country"
+                      className="input"
+                      type="text"
+                      value={creatorReqForm.country}
+                      onChange={(e) => updateCreatorReqField("country", e.target.value)}
+                      placeholder="País"
+                      maxLength={80}
+                      disabled={requestingCreator}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="creator-bio">Biografía breve <span className="req">(opcional)</span></label>
+                  <textarea
+                    id="creator-bio"
+                    className="input bio-textarea"
+                    value={creatorReqForm.bio}
+                    onChange={(e) => updateCreatorReqField("bio", e.target.value)}
+                    placeholder="Cuéntanos brevemente qué contenido quieres crear"
+                    maxLength={240}
+                    disabled={requestingCreator}
+                  />
+                </div>
+                {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
+                {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
+                <button className="btn btn-primary creator-cta-btn" type="submit" disabled={requestingCreator}>
                   {requestingCreator ? "Enviando…" : "Solicitar ser Creador"}
                 </button>
-              )}
+              </form>
             </div>
           )}
 
@@ -1250,8 +1374,8 @@ export default function ProfilePage() {
             <div className="creator-pending-card">
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">Solicitud en revisión</div>
-                <div className="creator-cta-sub">Tu solicitud para ser creador está siendo revisada por un administrador. Te notificaremos pronto.</div>
+                <div className="creator-cta-title">Solicitud pendiente de revisión.</div>
+                <div className="creator-cta-sub">{creatorReqSuccess || "Solicitud pendiente de revisión."}</div>
               </div>
             </div>
           )}
@@ -2178,6 +2302,42 @@ export default function ProfilePage() {
 
         .creator-cta-body { flex: 1; min-width: 180px; }
 
+        .creator-request-form {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+        }
+
+        .creator-request-grid {
+          width: 100%;
+        }
+
+        .creator-request-form .banner-error,
+        .creator-request-form .banner-success {
+          margin: 0;
+        }
+
+        .creator-request-status {
+          width: 100%;
+          padding: 0.78rem;
+          border-radius: 16px;
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .creator-request-status-rejected {
+          color: #fecaca;
+          border: 1px solid rgba(248,113,113,0.32);
+          background: rgba(248,113,113,0.08);
+        }
+
+        .req {
+          color: var(--accent-2);
+          text-transform: none;
+          letter-spacing: normal;
+        }
+
         .creator-cta-title {
           font-size: 0.95rem;
           font-weight: 800;
@@ -2193,6 +2353,7 @@ export default function ProfilePage() {
         }
 
         .creator-cta-btn { white-space: nowrap; flex-shrink: 0; }
+        .creator-request-form .creator-cta-btn { align-self: flex-start; }
 
         .role-badge.pending {
           background: rgba(251,191,36,0.1);
@@ -2415,6 +2576,10 @@ export default function ProfilePage() {
           .profile-language-actions .btn,
           .profile-choice-row .btn {
             flex: 1 1 auto;
+          }
+          .creator-request-form .creator-cta-btn {
+            width: 100%;
+            white-space: normal;
           }
           .profile-summary-grid {
             grid-template-columns: 1fr;

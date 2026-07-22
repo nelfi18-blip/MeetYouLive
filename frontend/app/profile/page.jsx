@@ -18,16 +18,16 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
 const CREATOR_REQUEST_CATEGORIES = [
-  "Entretenimiento",
-  "Música",
-  "Lifestyle",
-  "Fitness",
-  "Gaming",
-  "Arte",
-  "Educación",
-  "Belleza",
-  "Cocina",
-  "Otros",
+  { value: "Entretenimiento", labelKey: "profile.creatorCategoryEntertainment" },
+  { value: "Música", labelKey: "profile.creatorCategoryMusic" },
+  { value: "Lifestyle", labelKey: "profile.creatorCategoryLifestyle" },
+  { value: "Fitness", labelKey: "profile.creatorCategoryFitness" },
+  { value: "Gaming", labelKey: "profile.creatorCategoryGaming" },
+  { value: "Arte", labelKey: "profile.creatorCategoryArt" },
+  { value: "Educación", labelKey: "profile.creatorCategoryEducation" },
+  { value: "Belleza", labelKey: "profile.creatorCategoryBeauty" },
+  { value: "Cocina", labelKey: "profile.creatorCategoryCooking" },
+  { value: "Otros", labelKey: "profile.creatorCategoryOther" },
 ];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
@@ -61,13 +61,17 @@ const formatProfileStatusValue = (value) => {
  * Builds the language list required by the creator-request endpoint from the
  * most specific profile source available, falling back to Spanish.
  */
+const normalizeCreatorRequestLanguages = (languages) =>
+  Array.isArray(languages)
+    ? languages.map((lang) => String(lang || "").trim()).filter(Boolean)
+    : [];
+
 const getCreatorRequestLanguages = (user = {}) => {
-  const languages = user.creatorApplication?.languages?.length
-    ? user.creatorApplication.languages
-    : user.discoveryPreferences?.languages;
-  if (Array.isArray(languages) && languages.some((lang) => String(lang || "").trim())) {
-    return languages.map((lang) => String(lang || "").trim()).filter(Boolean);
-  }
+  const applicationLanguages = normalizeCreatorRequestLanguages(user.creatorApplication?.languages);
+  if (applicationLanguages.length > 0) return applicationLanguages;
+
+  const discoveryLanguages = normalizeCreatorRequestLanguages(user.discoveryPreferences?.languages);
+  if (discoveryLanguages.length > 0) return discoveryLanguages;
 
   const preferredLanguage = String(user.preferredLanguage || "").slice(0, 2).toLowerCase();
   if (preferredLanguage) return [preferredLanguage];
@@ -1341,7 +1345,7 @@ export default function ProfilePage() {
                     >
                       <option value="">{t("profile.creatorCategoryPlaceholder")}</option>
                       {CREATOR_REQUEST_CATEGORIES.map((category) => (
-                        <option key={category} value={category}>{category}</option>
+                        <option key={category.value} value={category.value}>{t(category.labelKey)}</option>
                       ))}
                     </select>
                   </div>
@@ -1385,7 +1389,7 @@ export default function ProfilePage() {
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">
                 <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
-                <div className="creator-cta-sub">{creatorReqSuccess || t("profile.creatorPendingTitle")}</div>
+                <div className="creator-cta-sub">{creatorReqSuccess || t("creatorRequest.pendingReviewNotice")}</div>
               </div>
             </div>
           )}

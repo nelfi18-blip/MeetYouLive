@@ -500,7 +500,7 @@ const joinLive = async (req, res) => {
     trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
     res.json(liveObj);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 

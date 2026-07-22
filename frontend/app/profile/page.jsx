@@ -17,6 +17,18 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
+const CREATOR_REQUEST_CATEGORIES = [
+  "Entretenimiento",
+  "Música",
+  "Lifestyle",
+  "Fitness",
+  "Gaming",
+  "Arte",
+  "Educación",
+  "Belleza",
+  "Cocina",
+  "Otros",
+];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const INTERESTED_IN_LABEL_KEYS = {
@@ -43,6 +55,25 @@ const shouldShowProfileDiagnostics = () => process.env.NODE_ENV !== "production"
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
   return String(value);
+};
+
+const getCreatorRequestLanguages = (user = {}) => {
+  const languages = user.creatorApplication?.languages?.length
+    ? user.creatorApplication.languages
+    : user.discoveryPreferences?.languages;
+  if (Array.isArray(languages) && languages.some((lang) => String(lang || "").trim())) {
+    return languages.map((lang) => String(lang || "").trim()).filter(Boolean);
+  }
+
+  const preferredLanguage = String(user.preferredLanguage || "").slice(0, 2).toLowerCase();
+  if (preferredLanguage) return [preferredLanguage];
+
+  if (typeof navigator !== "undefined") {
+    const browserLanguage = String(navigator.language || "").slice(0, 2).toLowerCase();
+    if (browserLanguage) return [browserLanguage];
+  }
+
+  return ["es"];
 };
 
 const normalizeImages = (userOrImages = {}) => {

@@ -18,16 +18,16 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
 const CREATOR_REQUEST_CATEGORIES = [
-  { value: "Entretenimiento", labelKey: "profile.creatorCategoryEntertainment" },
-  { value: "Música", labelKey: "profile.creatorCategoryMusic" },
-  { value: "Lifestyle", labelKey: "profile.creatorCategoryLifestyle" },
-  { value: "Fitness", labelKey: "profile.creatorCategoryFitness" },
-  { value: "Gaming", labelKey: "profile.creatorCategoryGaming" },
-  { value: "Arte", labelKey: "profile.creatorCategoryArt" },
-  { value: "Educación", labelKey: "profile.creatorCategoryEducation" },
-  { value: "Belleza", labelKey: "profile.creatorCategoryBeauty" },
-  { value: "Cocina", labelKey: "profile.creatorCategoryCooking" },
-  { value: "Otros", labelKey: "profile.creatorCategoryOther" },
+  { id: "entertainment", value: "Entretenimiento", labelKey: "profile.creatorCategoryEntertainment" },
+  { id: "music", value: "Música", labelKey: "profile.creatorCategoryMusic" },
+  { id: "lifestyle", value: "Lifestyle", labelKey: "profile.creatorCategoryLifestyle" },
+  { id: "fitness", value: "Fitness", labelKey: "profile.creatorCategoryFitness" },
+  { id: "gaming", value: "Gaming", labelKey: "profile.creatorCategoryGaming" },
+  { id: "art", value: "Arte", labelKey: "profile.creatorCategoryArt" },
+  { id: "education", value: "Educación", labelKey: "profile.creatorCategoryEducation" },
+  { id: "beauty", value: "Belleza", labelKey: "profile.creatorCategoryBeauty" },
+  { id: "cooking", value: "Cocina", labelKey: "profile.creatorCategoryCooking" },
+  { id: "other", value: "Otros", labelKey: "profile.creatorCategoryOther" },
 ];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
@@ -89,6 +89,16 @@ const formatCreatorRequestText = (template, values) =>
     (text, [key, value]) => text.replace(`{${key}}`, value),
     template
   );
+
+const getCreatorRequestCategoryById = (id) =>
+  CREATOR_REQUEST_CATEGORIES.find((category) => category.id === id);
+
+const getCreatorRequestCategoryId = (value) => {
+  const normalized = String(value || "").trim();
+  return CREATOR_REQUEST_CATEGORIES.find(
+    (category) => category.id === normalized || category.value === normalized
+  )?.id || "";
+};
 
 const normalizeImages = (userOrImages = {}) => {
   return normalizeUserImages(userOrImages).map((image) => image.url);
@@ -456,7 +466,7 @@ export default function ProfilePage() {
     });
     setCreatorReqForm({
       displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.username || normalizedUser.name || "",
-      category: normalizedUser.creatorApplication?.category || "",
+      category: getCreatorRequestCategoryId(normalizedUser.creatorApplication?.category),
       country: normalizedUser.creatorApplication?.country || normalizedUser.location?.country || normalizedUser.country || "",
       bio: normalizedUser.creatorApplication?.bio || "",
     });
@@ -752,10 +762,12 @@ export default function ProfilePage() {
     setCreatorReqSuccess("");
 
     const displayName = creatorReqForm.displayName.trim();
-    const category = creatorReqForm.category.trim();
+    const selectedCategory = getCreatorRequestCategoryById(creatorReqForm.category);
+    const category = selectedCategory?.value || "";
+    const categoryLabel = selectedCategory ? t(selectedCategory.labelKey) : "";
     const country = creatorReqForm.country.trim();
     const bio = creatorReqForm.bio.trim();
-    const fallbackBio = formatCreatorRequestText(t("creatorRequest.fallbackBio"), { category, country });
+    const fallbackBio = formatCreatorRequestText(t("creatorRequest.fallbackBio"), { category: categoryLabel, country });
     const languages = getCreatorRequestLanguages(user);
 
     if (!displayName) {
@@ -792,7 +804,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { setCreatorReqError(data.message || t("creatorRequest.submitError")); return; }
-      const nextUser = updateAndPublishUser({
+      updateAndPublishUser({
         creatorStatus: "pending",
         creatorApplication: {
           ...(user?.creatorApplication || {}),
@@ -805,7 +817,7 @@ export default function ProfilePage() {
         },
       });
       setCreatorReqSuccess(t("creatorRequest.submittedPending"));
-      await refreshProfileSession(nextUser);
+      await refreshProfileSession();
     } catch { setCreatorReqError(t("creatorRequest.connectionError")); }
     finally { setRequestingCreator(false); }
   };
@@ -1345,7 +1357,7 @@ export default function ProfilePage() {
                     >
                       <option value="">{t("profile.creatorCategoryPlaceholder")}</option>
                       {CREATOR_REQUEST_CATEGORIES.map((category) => (
-                        <option key={category.value} value={category.value}>{t(category.labelKey)}</option>
+                        <option key={category.id} value={category.id}>{t(category.labelKey)}</option>
                       ))}
                     </select>
                   </div>

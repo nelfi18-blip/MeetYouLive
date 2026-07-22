@@ -52,7 +52,7 @@ const getLiveEntrySplit = async (creatorId, amount, session) => {
   return {
     ...split,
     referrerId: agencyPercentage ? agencyRel.parentCreator : null,
-    agencyPercentageApplied: agencyPercentage || 0,
+    agencyPercentageApplied: agencyPercentage ?? 0,
   };
 };
 
@@ -64,7 +64,7 @@ const buildLiveEntryTransactions = (live, viewerId, split) => {
       userId: viewerId,
       type: "room_entry",
       amount: -live.entryCost,
-      reason: `Entrada a directo privado ${liveId}`,
+      reason: `Entrada al directo privado ${liveId}`,
       status: "completed",
       metadata: {
         liveId,
@@ -82,7 +82,7 @@ const buildLiveEntryTransactions = (live, viewerId, split) => {
       userId: creatorId,
       type: "room_entry",
       amount: split.creatorNetShare,
-      reason: `Entrada a directo privado de ${viewerId}`,
+      reason: `Entrada al directo privado del usuario ${viewerId}`,
       status: "completed",
       metadata: {
         liveId,
@@ -100,7 +100,7 @@ const buildLiveEntryTransactions = (live, viewerId, split) => {
       userId: split.referrerId,
       type: "agency_earned",
       amount: split.agencyShare,
-      reason: "Comisión de agencia por entrada a directo privado",
+      reason: "Comisión de agencia por entrada al directo privado del usuario",
       status: "completed",
       metadata: {
         liveId,

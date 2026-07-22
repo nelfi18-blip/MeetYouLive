@@ -57,6 +57,10 @@ const formatProfileStatusValue = (value) => {
   return String(value);
 };
 
+/**
+ * Builds the language list required by the creator-request endpoint from the
+ * most specific profile source available, falling back to Spanish.
+ */
 const getCreatorRequestLanguages = (user = {}) => {
   const languages = user.creatorApplication?.languages?.length
     ? user.creatorApplication.languages
@@ -75,6 +79,12 @@ const getCreatorRequestLanguages = (user = {}) => {
 
   return ["es"];
 };
+
+const formatCreatorRequestText = (template, values) =>
+  Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(`{${key}}`, value),
+    template
+  );
 
 const normalizeImages = (userOrImages = {}) => {
   return normalizeUserImages(userOrImages).map((image) => image.url);
@@ -741,19 +751,19 @@ export default function ProfilePage() {
     const category = creatorReqForm.category.trim();
     const country = creatorReqForm.country.trim();
     const bio = creatorReqForm.bio.trim();
-    const fallbackBio = `Creador de ${category} desde ${country}.`;
+    const fallbackBio = formatCreatorRequestText(t("creatorRequest.fallbackBio"), { category, country });
     const languages = getCreatorRequestLanguages(user);
 
     if (!displayName) {
-      setCreatorReqError("El nombre de creador es requerido");
+      setCreatorReqError(t("creatorRequest.displayNameRequired"));
       return;
     }
     if (!category) {
-      setCreatorReqError("La categoría es requerida");
+      setCreatorReqError(t("creatorRequest.categoryRequired"));
       return;
     }
     if (!country) {
-      setCreatorReqError("El país es requerido");
+      setCreatorReqError(t("creatorRequest.countryRequired"));
       return;
     }
 
@@ -777,7 +787,7 @@ export default function ProfilePage() {
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
+      if (!res.ok) { setCreatorReqError(data.message || t("creatorRequest.submitError")); return; }
       const nextUser = updateAndPublishUser({
         creatorStatus: "pending",
         creatorApplication: {
@@ -790,9 +800,9 @@ export default function ProfilePage() {
           submittedAt: new Date().toISOString(),
         },
       });
-      setCreatorReqSuccess("Tu solicitud fue enviada y está pendiente de revisión.");
+      setCreatorReqSuccess(t("creatorRequest.submittedPending"));
       await refreshProfileSession(nextUser);
-    } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
+    } catch { setCreatorReqError(t("creatorRequest.connectionError")); }
     finally { setRequestingCreator(false); }
   };
 
@@ -1297,31 +1307,31 @@ export default function ProfilePage() {
             <div className="creator-cta-card">
               <div className="creator-cta-icon"><StarIcon /></div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">¿Quieres ser Creador?</div>
-                <div className="creator-cta-sub">Solicita acceso para transmitir en vivo y ganar monedas con tu comunidad.</div>
+                <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
+                <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
               </div>
               {user.creatorStatus === "rejected" && (
                 <div className="creator-request-status creator-request-status-rejected">
-                  Solicitud rechazada. Puedes corregir los datos y volver a solicitar.
+                  {t("profile.creatorRejectedStatus")}
                 </div>
               )}
               <form className="creator-request-form" onSubmit={handleCreatorRequest}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="creator-display-name">Nombre de creador <span className="req">*</span></label>
+                  <label className="form-label" htmlFor="creator-display-name">{t("profile.creatorDisplayNameLabel")} <span className="req">*</span></label>
                   <input
                     id="creator-display-name"
                     className="input"
                     type="text"
                     value={creatorReqForm.displayName}
                     onChange={(e) => updateCreatorReqField("displayName", e.target.value)}
-                    placeholder="Tu nombre público como creador"
+                    placeholder={t("profile.creatorDisplayNamePlaceholder")}
                     maxLength={60}
                     disabled={requestingCreator}
                   />
                 </div>
                 <div className="profile-inline-grid creator-request-grid">
                   <div className="form-group">
-                    <label className="form-label" htmlFor="creator-category">Categoría <span className="req">*</span></label>
+                    <label className="form-label" htmlFor="creator-category">{t("profile.creatorCategoryLabel")} <span className="req">*</span></label>
                     <select
                       id="creator-category"
                       className="input"
@@ -1329,34 +1339,34 @@ export default function ProfilePage() {
                       onChange={(e) => updateCreatorReqField("category", e.target.value)}
                       disabled={requestingCreator}
                     >
-                      <option value="">Selecciona una categoría…</option>
+                      <option value="">{t("profile.creatorCategoryPlaceholder")}</option>
                       {CREATOR_REQUEST_CATEGORIES.map((category) => (
                         <option key={category} value={category}>{category}</option>
                       ))}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="creator-country">País <span className="req">*</span></label>
+                    <label className="form-label" htmlFor="creator-country">{t("profile.creatorCountryLabel")} <span className="req">*</span></label>
                     <input
                       id="creator-country"
                       className="input"
                       type="text"
                       value={creatorReqForm.country}
                       onChange={(e) => updateCreatorReqField("country", e.target.value)}
-                      placeholder="País"
+                      placeholder={t("profile.creatorCountryPlaceholder")}
                       maxLength={80}
                       disabled={requestingCreator}
                     />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="creator-bio">Biografía breve <span className="req">(opcional)</span></label>
+                  <label className="form-label" htmlFor="creator-bio">{t("profile.creatorBioLabel")} <span className="req">({t("creatorRequest.optional")})</span></label>
                   <textarea
                     id="creator-bio"
                     className="input bio-textarea"
                     value={creatorReqForm.bio}
                     onChange={(e) => updateCreatorReqField("bio", e.target.value)}
-                    placeholder="Cuéntanos brevemente qué contenido quieres crear"
+                    placeholder={t("profile.creatorBioPlaceholder")}
                     maxLength={240}
                     disabled={requestingCreator}
                   />
@@ -1364,7 +1374,7 @@ export default function ProfilePage() {
                 {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
                 {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
                 <button className="btn btn-primary creator-cta-btn" type="submit" disabled={requestingCreator}>
-                  {requestingCreator ? "Enviando…" : "Solicitar ser Creador"}
+                  {requestingCreator ? t("creatorRequest.submitting") : t("profile.creatorBtn")}
                 </button>
               </form>
             </div>
@@ -1374,8 +1384,8 @@ export default function ProfilePage() {
             <div className="creator-pending-card">
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">Solicitud pendiente de revisión.</div>
-                <div className="creator-cta-sub">{creatorReqSuccess || "Solicitud pendiente de revisión."}</div>
+                <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
+                <div className="creator-cta-sub">{creatorReqSuccess || t("profile.creatorPendingTitle")}</div>
               </div>
             </div>
           )}
@@ -1384,10 +1394,10 @@ export default function ProfilePage() {
             <div className="creator-active-card">
               <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">Eres Creador</div>
-                <div className="creator-cta-sub">Accede a tu estudio, gestiona tus directos y consulta tus ganancias.</div>
+                <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
+                <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
               </div>
-              <Link href="/creator" className="btn btn-primary creator-cta-btn">Ir al Estudio</Link>
+              <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
             </div>
           )}
 

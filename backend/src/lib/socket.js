@@ -253,8 +253,13 @@ const hasLiveHost = (liveId) => {
 
 const canJoinLiveRoom = async (liveId, userId) => {
   if (!isObjectId(liveId) || !isObjectId(userId)) return false;
-  const live = await Live.findOne({ _id: liveId, isLive: true }).select("bannedUsers").lean();
-  return !!live && !(live.bannedUsers || []).some((bannedUserId) => String(bannedUserId) === String(userId));
+  const live = await Live.findOne({ _id: liveId, isLive: true }).select("user isPrivate paidViewers bannedUsers").lean();
+  if (!live || (live.bannedUsers || []).some((bannedUserId) => String(bannedUserId) === String(userId))) {
+    return false;
+  }
+  if (!live.isPrivate) return true;
+  if (String(live.user) === String(userId)) return true;
+  return (live.paidViewers || []).some((viewerId) => String(viewerId) === String(userId));
 };
 
 const removeHostFromLive = (socketId, liveId) => {

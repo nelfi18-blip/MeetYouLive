@@ -3,7 +3,10 @@ const mongoose = require("mongoose");
 const Live = require("../models/Live.js");
 const User = require("../models/User.js");
 const Gift = require("../models/Gift.js");
+const CoinTransaction = require("../models/CoinTransaction.js");
+const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
+const { calculateSplit } = require("../services/agency.service.js");
 const {
   getIO,
   hasLiveHost,
@@ -37,6 +40,83 @@ function sanitizeLiveModerationReason(reason) {
 function isValidObjectId(value) {
   return mongoose.Types.ObjectId.isValid(String(value || ""));
 }
+
+const getLiveEntrySplit = async (creatorId, amount, session) => {
+  const agencyRel = await AgencyRelationship.findOne({
+    subCreator: creatorId,
+    status: "active",
+    subCreatorAgreed: true,
+  }).session(session);
+  const agencyPercentage = (agencyRel && agencyRel.percentage > 0) ? agencyRel.percentage : null;
+  const split = calculateSplit(amount, agencyPercentage);
+  return {
+    ...split,
+    referrerId: agencyPercentage ? agencyRel.parentCreator : null,
+    agencyPercentageApplied: agencyPercentage ?? 0,
+  };
+};
+
+const buildLiveEntryTransactions = (live, viewerId, split) => {
+  const liveId = String(live._id);
+  const creatorId = String(live.user);
+  const txDocs = [
+    {
+      userId: viewerId,
+      type: "room_entry",
+      amount: -live.entryCost,
+      reason: `Entrada al directo privado ${liveId}`,
+      status: "completed",
+      metadata: {
+        liveId,
+        creatorId,
+        platformShare: split.platformShare,
+        creatorNetShare: split.creatorNetShare,
+        agencyShare: split.agencyShare,
+        idempotencyKey: `${liveId}:room-entry:${viewerId}:viewer`,
+      },
+    },
+  ];
+
+  if (split.creatorNetShare > 0) {
+    txDocs.push({
+      userId: creatorId,
+      type: "room_entry",
+      amount: split.creatorNetShare,
+      reason: `Entrada al directo privado del usuario ${viewerId}`,
+      status: "completed",
+      metadata: {
+        liveId,
+        viewerId: String(viewerId),
+        platformShare: split.platformShare,
+        creatorNetShare: split.creatorNetShare,
+        agencyShare: split.agencyShare,
+        idempotencyKey: `${liveId}:room-entry:${viewerId}:creator`,
+      },
+    });
+  }
+
+  if (split.agencyShare > 0 && split.referrerId) {
+    txDocs.push({
+      userId: split.referrerId,
+      type: "agency_earned",
+      amount: split.agencyShare,
+      reason: "Comisión de agencia por entrada al directo privado del usuario",
+      status: "completed",
+      metadata: {
+        liveId,
+        subCreatorId: creatorId,
+        viewerId: String(viewerId),
+        platformShare: split.platformShare,
+        creatorNetShare: split.creatorNetShare,
+        agencyShare: split.agencyShare,
+        agencyPercentageApplied: split.agencyPercentageApplied,
+        idempotencyKey: `${liveId}:room-entry:${viewerId}:agency`,
+      },
+    });
+  }
+
+  return txDocs;
+};
 
 const startLive = async (req, res) => {
   const { title, description, category, language, isPrivate, entryCost, isVipOnly } = req.body;
@@ -115,7 +195,7 @@ const startLive = async (req, res) => {
 
     res.status(201).json(live);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 
@@ -148,7 +228,7 @@ const endLive = async (req, res) => {
 
     res.json(live);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 
@@ -295,7 +375,7 @@ const getLiveById = async (req, res) => {
 
     res.json(liveObj);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 
@@ -339,38 +419,88 @@ const joinLive = async (req, res) => {
       return res.json(liveObj);
     }
 
-    // Deduct coins
-    const user = await User.findById(req.userId);
-    if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
-    if (user.coins < live.entryCost) {
-      return res.status(402).json({ message: `Monedas insuficientes. Necesitas ${live.entryCost} monedas.` });
+    let joinedLive = live;
+    if (live.entryCost <= 0) {
+      joinedLive = await Live.findOneAndUpdate(
+        { _id: req.params.id, isLive: true, bannedUsers: { $ne: req.userId } },
+        { $addToSet: { paidViewers: req.userId } },
+        { new: true }
+      );
+      if (!joinedLive) return res.status(403).json({ message: "No puedes entrar a este directo" });
+    } else {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const billableLive = await Live.findOneAndUpdate(
+            {
+              _id: req.params.id,
+              isLive: true,
+              bannedUsers: { $ne: req.userId },
+              paidViewers: { $ne: req.userId },
+            },
+            { $addToSet: { paidViewers: req.userId } },
+            { new: true, session }
+          );
+
+          if (!billableLive) {
+            const currentLive = await Live.findOne({ _id: req.params.id, isLive: true }).session(session);
+            if (!currentLive) throw Object.assign(new Error("Directo no encontrado o ya finalizado"), { status: 404 });
+            if (currentLive.bannedUsers.some((userId) => String(userId) === String(req.userId))) {
+              throw Object.assign(new Error("No puedes entrar a este directo"), { status: 403 });
+            }
+            if (currentLive.paidViewers.some((pv) => String(pv) === String(req.userId))) {
+              joinedLive = currentLive;
+              return;
+            }
+            throw Object.assign(new Error("Error al registrar el acceso"), { status: 500 });
+          }
+
+          const amount = billableLive.entryCost;
+          const payer = await User.findOneAndUpdate(
+            { _id: req.userId, coins: { $gte: amount } },
+            { $inc: { coins: -amount } },
+            { new: true, session, select: "_id coins" }
+          );
+          if (!payer) {
+            const exists = await User.exists({ _id: req.userId }).session(session);
+            throw Object.assign(
+              new Error(exists ? `Monedas insuficientes. Necesitas ${amount} monedas.` : "Usuario no encontrado"),
+              { status: exists ? 402 : 401 }
+            );
+          }
+
+          const split = await getLiveEntrySplit(creatorId, amount, session);
+          if (split.creatorNetShare > 0) {
+            await User.findByIdAndUpdate(creatorId, { $inc: { earningsCoins: split.creatorNetShare } }, { session });
+          }
+          if (split.agencyShare > 0 && split.referrerId) {
+            await User.findByIdAndUpdate(
+              split.referrerId,
+              {
+                $inc: {
+                  agencyEarningsCoins: split.agencyShare,
+                  totalAgencyGeneratedCoins: amount,
+                },
+              },
+              { session }
+            );
+          }
+
+          await CoinTransaction.create(buildLiveEntryTransactions(billableLive, req.userId, split), { session });
+          joinedLive = billableLive;
+        });
+      } finally {
+        await session.endSession();
+      }
     }
 
-    user.coins -= live.entryCost;
-    await user.save();
-
-    // Grant access — if this save fails, rollback the coin deduction
-    live.paidViewers.push(req.userId);
-    try {
-      await live.save();
-    } catch (saveErr) {
-      user.coins += live.entryCost;
-      await user.save().catch(() => {});
-      return res.status(500).json({ message: "Error al registrar el acceso" });
-    }
-
-    // Also credit the creator
-    if (live.entryCost > 0) {
-      await User.findByIdAndUpdate(creatorId, { $inc: { earningsCoins: live.entryCost } });
-    }
-
-    const liveObj = removePrivateLiveFields(live.toObject());
+    const liveObj = removePrivateLiveFields(joinedLive.toObject());
     liveObj.hasAccess = true;
     trackEvent(req.userId, "live_join").catch(() => {});
     trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
     res.json(liveObj);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 

@@ -17,6 +17,18 @@ import { publishProfileUpdated } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_PROFILE_PHOTOS = 6;
+const CREATOR_REQUEST_CATEGORIES = [
+  { id: "entertainment", value: "Entretenimiento", labelKey: "profile.creatorCategoryEntertainment" },
+  { id: "music", value: "Música", labelKey: "profile.creatorCategoryMusic" },
+  { id: "lifestyle", value: "Lifestyle", labelKey: "profile.creatorCategoryLifestyle" },
+  { id: "fitness", value: "Fitness", labelKey: "profile.creatorCategoryFitness" },
+  { id: "gaming", value: "Gaming", labelKey: "profile.creatorCategoryGaming" },
+  { id: "art", value: "Arte", labelKey: "profile.creatorCategoryArt" },
+  { id: "education", value: "Educación", labelKey: "profile.creatorCategoryEducation" },
+  { id: "beauty", value: "Belleza", labelKey: "profile.creatorCategoryBeauty" },
+  { id: "cooking", value: "Cocina", labelKey: "profile.creatorCategoryCooking" },
+  { id: "other", value: "Otros", labelKey: "profile.creatorCategoryOther" },
+];
 const DISCOVERY_GOAL_OPTIONS = ["serious_relationship", "friendship", "dating", "networking"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
 const INTERESTED_IN_LABEL_KEYS = {
@@ -43,6 +55,49 @@ const shouldShowProfileDiagnostics = () => process.env.NODE_ENV !== "production"
 const formatProfileStatusValue = (value) => {
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
   return String(value);
+};
+
+/**
+ * Builds the language list required by the creator-request endpoint from the
+ * most specific profile source available, falling back to Spanish.
+ */
+const normalizeCreatorRequestLanguages = (languages) =>
+  Array.isArray(languages)
+    ? languages.map((lang) => String(lang || "").trim()).filter(Boolean)
+    : [];
+
+const getCreatorRequestLanguages = (user = {}) => {
+  const applicationLanguages = normalizeCreatorRequestLanguages(user.creatorApplication?.languages);
+  if (applicationLanguages.length > 0) return applicationLanguages;
+
+  const discoveryLanguages = normalizeCreatorRequestLanguages(user.discoveryPreferences?.languages);
+  if (discoveryLanguages.length > 0) return discoveryLanguages;
+
+  const preferredLanguage = String(user.preferredLanguage || "").slice(0, 2).toLowerCase();
+  if (preferredLanguage) return [preferredLanguage];
+
+  if (typeof navigator !== "undefined") {
+    const browserLanguage = String(navigator.language || "").slice(0, 2).toLowerCase();
+    if (browserLanguage) return [browserLanguage];
+  }
+
+  return ["es"];
+};
+
+const formatCreatorRequestText = (template, values) =>
+  Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(`{${key}}`, value),
+    template
+  );
+
+const getCreatorRequestCategoryById = (id) =>
+  CREATOR_REQUEST_CATEGORIES.find((category) => category.id === id);
+
+const getCreatorRequestCategoryId = (value) => {
+  const normalized = String(value || "").trim();
+  return CREATOR_REQUEST_CATEGORIES.find(
+    (category) => category.id === normalized || category.value === normalized
+  )?.id || "";
 };
 
 const normalizeImages = (userOrImages = {}) => {
@@ -315,6 +370,12 @@ export default function ProfilePage() {
   const [requestingCreator, setRequestingCreator] = useState(false);
   const [creatorReqError, setCreatorReqError] = useState("");
   const [creatorReqSuccess, setCreatorReqSuccess] = useState("");
+  const [creatorReqForm, setCreatorReqForm] = useState({
+    displayName: "",
+    category: "",
+    country: "",
+    bio: "",
+  });
 
   const [isBoosted, setIsBoosted] = useState(false);
   const [boostUntil, setBoostUntil] = useState(null);
@@ -402,6 +463,12 @@ export default function ProfilePage() {
       profilePhotos: normalizedUser.profilePhotos || [],
       images: normalizedImages,
       ...discoveryDefaults,
+    });
+    setCreatorReqForm({
+      displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.username || normalizedUser.name || "",
+      category: getCreatorRequestCategoryId(normalizedUser.creatorApplication?.category),
+      country: normalizedUser.creatorApplication?.country || normalizedUser.location?.country || normalizedUser.country || "",
+      bio: normalizedUser.creatorApplication?.bio || "",
     });
     if (profile.preferredLanguage) syncFromUser(profile.preferredLanguage);
     return normalizedUser;
@@ -687,21 +754,71 @@ export default function ProfilePage() {
     finally { setPwdSaving(false); }
   };
 
-  const handleCreatorRequest = async () => {
-    setCreatorReqError(""); setCreatorReqSuccess(""); setRequestingCreator(true);
+  const handleCreatorRequest = async (event) => {
+    event.preventDefault();
+    if (requestingCreator) return;
+
+    setCreatorReqError("");
+    setCreatorReqSuccess("");
+
+    const displayName = creatorReqForm.displayName.trim();
+    const selectedCategory = getCreatorRequestCategoryById(creatorReqForm.category);
+    const category = selectedCategory?.value || "";
+    const categoryLabel = selectedCategory ? t(selectedCategory.labelKey) : "";
+    const country = creatorReqForm.country.trim();
+    const bio = creatorReqForm.bio.trim();
+    const fallbackBio = formatCreatorRequestText(t("creatorRequest.fallbackBio"), { category: categoryLabel, country });
+    const languages = getCreatorRequestLanguages(user);
+
+    if (!displayName) {
+      setCreatorReqError(t("creatorRequest.displayNameRequired"));
+      return;
+    }
+    if (!category) {
+      setCreatorReqError(t("creatorRequest.categoryRequired"));
+      return;
+    }
+    if (!country) {
+      setCreatorReqError(t("creatorRequest.countryRequired"));
+      return;
+    }
+
+    setRequestingCreator(true);
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/user/me/creator-request`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName,
+          category,
+          country,
+          bio: bio || fallbackBio,
+          languages,
+          socialLinks: {},
+        }),
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok) { setCreatorReqError(data.message || "Error al enviar la solicitud"); return; }
-      setCreatorReqSuccess(data.message || "Solicitud enviada correctamente");
-      updateAndPublishUser({ creatorStatus: "pending" });
+      if (!res.ok) { setCreatorReqError(data.message || t("creatorRequest.submitError")); return; }
+      updateAndPublishUser({
+        creatorStatus: "pending",
+        creatorApplication: {
+          ...(user?.creatorApplication || {}),
+          displayName,
+          category,
+          country,
+          bio: bio || fallbackBio,
+          languages,
+          submittedAt: new Date().toISOString(),
+        },
+      });
+      setCreatorReqSuccess(t("creatorRequest.submittedPending"));
       await refreshProfileSession();
-    } catch { setCreatorReqError("No se pudo conectar con el servidor"); }
+    } catch { setCreatorReqError(t("creatorRequest.connectionError")); }
     finally { setRequestingCreator(false); }
   };
 
@@ -716,6 +833,10 @@ export default function ProfilePage() {
   const primaryImageUrl = primaryImage?.url || "";
   const showPrimaryImage = primaryImageUrl && hiddenPrimaryImageUrl !== primaryImageUrl;
   const secondaryImages = normalizedImages.slice(1, MAX_PROFILE_PHOTOS);
+  const updateCreatorReqField = (field, value) => {
+    setCreatorReqForm((prev) => ({ ...prev, [field]: value }));
+    if (creatorReqError) setCreatorReqError("");
+  };
   const intentLabelByValue = {
     dating: t("profile.intentDating"),
     casual: t("profile.intentCasual"),
@@ -1202,16 +1323,76 @@ export default function ProfilePage() {
             <div className="creator-cta-card">
               <div className="creator-cta-icon"><StarIcon /></div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">¿Quieres ser Creador?</div>
-                <div className="creator-cta-sub">Solicita acceso para transmitir en vivo y ganar monedas con tu comunidad.</div>
+                <div className="creator-cta-title">{t("profile.creatorCtaTitle")}</div>
+                <div className="creator-cta-sub">{t("profile.creatorCtaSub")}</div>
               </div>
-              {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
-              {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
-              {!creatorReqSuccess && (
-                <button className="btn btn-primary creator-cta-btn" onClick={handleCreatorRequest} disabled={requestingCreator}>
-                  {requestingCreator ? "Enviando…" : "Solicitar ser Creador"}
-                </button>
+              {user.creatorStatus === "rejected" && (
+                <div className="creator-request-status creator-request-status-rejected">
+                  {t("profile.creatorRejectedStatus")}
+                </div>
               )}
+              <form className="creator-request-form" onSubmit={handleCreatorRequest}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="creator-display-name">{t("profile.creatorDisplayNameLabel")} <span className="req">*</span></label>
+                  <input
+                    id="creator-display-name"
+                    className="input"
+                    type="text"
+                    value={creatorReqForm.displayName}
+                    onChange={(e) => updateCreatorReqField("displayName", e.target.value)}
+                    placeholder={t("profile.creatorDisplayNamePlaceholder")}
+                    maxLength={60}
+                    disabled={requestingCreator}
+                  />
+                </div>
+                <div className="profile-inline-grid creator-request-grid">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="creator-category">{t("profile.creatorCategoryLabel")} <span className="req">*</span></label>
+                    <select
+                      id="creator-category"
+                      className="input"
+                      value={creatorReqForm.category}
+                      onChange={(e) => updateCreatorReqField("category", e.target.value)}
+                      disabled={requestingCreator}
+                    >
+                      <option value="">{t("profile.creatorCategoryPlaceholder")}</option>
+                      {CREATOR_REQUEST_CATEGORIES.map((category) => (
+                        <option key={category.id} value={category.id}>{t(category.labelKey)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="creator-country">{t("profile.creatorCountryLabel")} <span className="req">*</span></label>
+                    <input
+                      id="creator-country"
+                      className="input"
+                      type="text"
+                      value={creatorReqForm.country}
+                      onChange={(e) => updateCreatorReqField("country", e.target.value)}
+                      placeholder={t("profile.creatorCountryPlaceholder")}
+                      maxLength={80}
+                      disabled={requestingCreator}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="creator-bio">{t("profile.creatorBioLabel")} <span className="req">({t("creatorRequest.optional")})</span></label>
+                  <textarea
+                    id="creator-bio"
+                    className="input bio-textarea"
+                    value={creatorReqForm.bio}
+                    onChange={(e) => updateCreatorReqField("bio", e.target.value)}
+                    placeholder={t("profile.creatorBioPlaceholder")}
+                    maxLength={240}
+                    disabled={requestingCreator}
+                  />
+                </div>
+                {creatorReqError && <div className="banner-error">{creatorReqError}</div>}
+                {creatorReqSuccess && <div className="banner-success">{creatorReqSuccess}</div>}
+                <button className="btn btn-primary creator-cta-btn" type="submit" disabled={requestingCreator}>
+                  {requestingCreator ? t("creatorRequest.submitting") : t("profile.creatorBtn")}
+                </button>
+              </form>
             </div>
           )}
 
@@ -1219,8 +1400,8 @@ export default function ProfilePage() {
             <div className="creator-pending-card">
               <div className="creator-cta-icon" style={{ color: "#fbbf24" }}>⏳</div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">Solicitud en revisión</div>
-                <div className="creator-cta-sub">Tu solicitud para ser creador está siendo revisada por un administrador. Te notificaremos pronto.</div>
+                <div className="creator-cta-title">{t("profile.creatorPendingTitle")}</div>
+                <div className="creator-cta-sub">{creatorReqSuccess || t("creatorRequest.pendingReviewNotice")}</div>
               </div>
             </div>
           )}
@@ -1229,10 +1410,10 @@ export default function ProfilePage() {
             <div className="creator-active-card">
               <div className="creator-cta-icon" style={{ color: "var(--accent)" }}>🎙</div>
               <div className="creator-cta-body">
-                <div className="creator-cta-title">Eres Creador</div>
-                <div className="creator-cta-sub">Accede a tu estudio, gestiona tus directos y consulta tus ganancias.</div>
+                <div className="creator-cta-title">{t("profile.creatorApprovedTitle")}</div>
+                <div className="creator-cta-sub">{t("profile.creatorApprovedSub")}</div>
               </div>
-              <Link href="/creator" className="btn btn-primary creator-cta-btn">Ir al Estudio</Link>
+              <Link href="/creator" className="btn btn-primary creator-cta-btn">{t("profile.creatorCenterLink")}</Link>
             </div>
           )}
 
@@ -2147,6 +2328,42 @@ export default function ProfilePage() {
 
         .creator-cta-body { flex: 1; min-width: 180px; }
 
+        .creator-request-form {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+        }
+
+        .creator-request-grid {
+          width: 100%;
+        }
+
+        .creator-request-form .banner-error,
+        .creator-request-form .banner-success {
+          margin: 0;
+        }
+
+        .creator-request-status {
+          width: 100%;
+          padding: 0.78rem;
+          border-radius: 16px;
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .creator-request-status-rejected {
+          color: #fecaca;
+          border: 1px solid rgba(248,113,113,0.32);
+          background: rgba(248,113,113,0.08);
+        }
+
+        .req {
+          color: var(--accent-2);
+          text-transform: none;
+          letter-spacing: normal;
+        }
+
         .creator-cta-title {
           font-size: 0.95rem;
           font-weight: 800;
@@ -2162,6 +2379,7 @@ export default function ProfilePage() {
         }
 
         .creator-cta-btn { white-space: nowrap; flex-shrink: 0; }
+        .creator-request-form .creator-cta-btn { align-self: flex-start; }
 
         .role-badge.pending {
           background: rgba(251,191,36,0.1);
@@ -2384,6 +2602,10 @@ export default function ProfilePage() {
           .profile-language-actions .btn,
           .profile-choice-row .btn {
             flex: 1 1 auto;
+          }
+          .creator-request-form .creator-cta-btn {
+            width: 100%;
+            white-space: normal;
           }
           .profile-summary-grid {
             grid-template-columns: 1fr;

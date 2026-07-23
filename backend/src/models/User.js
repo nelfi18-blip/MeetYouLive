@@ -250,8 +250,8 @@ const userSchema = new mongoose.Schema(
           enabled: { type: Boolean, default: true },
           categories: {
             type: [String],
-            enum: ["match", "like", "live", "reward"],
-            default: ["match", "like", "live", "reward"],
+            enum: ["match", "like", "live", "reward", "message", "call", "creator", "withdrawal"],
+            default: ["match", "like", "live", "reward", "message", "call", "creator", "withdrawal"],
           },
         },
         { _id: false }

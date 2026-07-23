@@ -3,6 +3,7 @@ const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
 const mongoose = require("mongoose");
 const { logStaffAction } = require("../services/audit.service");
+const { notifyWithdrawal } = require("../services/essentialNotification.service");
 
 // Minimum withdrawal amount in coins
 const MIN_WITHDRAWAL_COINS = 1000;
@@ -96,6 +97,14 @@ exports.requestWithdrawal = async (req, res) => {
       );
     });
 
+    await notifyWithdrawal({
+      userId,
+      withdrawalId: withdrawalRequest._id,
+      status: "requested",
+      amountCoins: withdrawalRequest.amountCoins,
+      date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
+    });
+
     return res.status(201).json({
       ok: true,
       message: "Solicitud de retiro creada exitosamente",
@@ -144,6 +153,20 @@ exports.listWithdrawals = async (req, res) => {
       ok: true,
       requests,
       total: requests.length,
+    });
+
+    await notifyWithdrawal({
+      userId,
+      withdrawalId: withdrawalRequest._id,
+      status: "requested",
+      amountCoins: withdrawalRequest.amountCoins,
+      date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
+    });
+
+    return res.status(201).json({
+      ok: true,
+      message: "Solicitud de retiro creada exitosamente",
+      request: withdrawalRequest,
     });
   } catch (error) {
     console.error("Error listing withdrawals:", error);
@@ -211,6 +234,14 @@ exports.approveWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountUSD: request.amountUSD,
+    });
+
+    await notifyWithdrawal({
+      userId: request.userId._id || request.userId,
+      withdrawalId: request._id,
+      status: "approved",
+      amountCoins: request.amountCoins,
+      date: request.updatedAt.toISOString().slice(0, 10),
     });
 
     return res.json({
@@ -319,7 +350,14 @@ exports.rejectWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountCoins: request.amountCoins,
-      reason: trimmedReason,
+    });
+
+    await notifyWithdrawal({
+      userId: request.userId._id || request.userId,
+      withdrawalId: request._id,
+      status: "rejected",
+      amountCoins: request.amountCoins,
+      date: request.updatedAt.toISOString().slice(0, 10),
     });
 
     return res.json({

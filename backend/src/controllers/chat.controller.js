@@ -2,6 +2,7 @@ const Chat = require("../models/Chat.js");
 const Message = require("../models/Message.js");
 const User = require("../models/User.js");
 const { trackEvent } = require("../services/missions.service.js");
+const { notifyNewMessage } = require("../services/essentialNotification.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { emitChatMessage } = require("../lib/socket.js");
 
@@ -251,6 +252,17 @@ const sendMessage = async (req, res) => {
     }).catch((err) => {
       console.error("[emitChatMessage]", err);
     });
+
+    chat.participants
+      .filter((participant) => String(participant?._id || participant) !== String(req.userId))
+      .forEach((participant) => {
+        notifyNewMessage({
+          chatId: req.params.chatId,
+          messageId: message._id,
+          senderId: req.userId,
+          recipientId: participant._id || participant,
+        }).catch((err) => console.error("[notifyNewMessage]", err.message));
+      });
 
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});

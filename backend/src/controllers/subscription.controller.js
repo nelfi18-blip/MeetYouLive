@@ -285,7 +285,7 @@ const handleSubscriptionWebhook = async (event) => {
 
   const session = event.data.object;
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
-    if (session.payment_status && session.payment_status !== "paid") {
+    if (session.payment_status !== "paid") {
       console.warn("[subscriptions webhook] unpaid subscription checkout ignored", {
         eventId: event.id,
         sessionId: session.id,

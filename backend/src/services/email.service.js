@@ -320,7 +320,7 @@ async function sendTransactionalNotificationEmail(to, { subject, text, ctaUrl, c
   if (!to || !subject || !text) return null;
   const transport = getTransporter();
   const safeCtaUrl = typeof ctaUrl === "string" ? ctaUrl : "";
-  const safeCtaLabel = typeof ctaLabel === "string" ? ctaLabel : "Open MeetYouLive";
+  const safeCtaLabel = typeof ctaLabel === "string" ? ctaLabel : "MeetYouLive";
   const htmlCta = safeCtaUrl
     ? `<a href="${escapeHtml(safeCtaUrl)}" style="display:inline-block;background:linear-gradient(135deg,#c040ff,#ff4fa3);color:#fff;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:1rem;margin:16px 0">${escapeHtml(safeCtaLabel)}</a>`
     : "";

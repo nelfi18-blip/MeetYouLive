@@ -617,7 +617,7 @@ exports.rejectCreator = async (req, res) => {
     console.log("[admin] Creator rejection logged", {
       adminId: req.userId,
       targetUserId: String(user._id),
-      reviewNoteStoredInAuditLog: Boolean(reason),
+      reasonProvided: Boolean(reason),
     });
 
     await notifyCreatorDecision({ userId: user._id, approved: false });

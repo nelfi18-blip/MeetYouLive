@@ -107,7 +107,9 @@ const translate = (type, lang, vars = {}) => {
   return typeof value === "function" ? value(vars) : value;
 };
 
-const appUrl = (path) => `${process.env.FRONTEND_URL || "https://meetyoulive.net"}${path}`;
+const appUrl = (path) => `${process.env.FRONTEND_URL || "http://localhost:3000"}${path}`;
+
+const isSelfAction = (actorId, targetId) => String(actorId) === String(targetId);
 
 const hasBlockBetween = (recipient, actorId) => {
   if (!recipient || !actorId) return false;
@@ -199,7 +201,7 @@ const notifyNewMessage = async ({ chatId, messageId, senderId, recipientId }) =>
   const safeRecipientId = normalizeObjectId(recipientId);
   const safeMessageId = normalizeObjectId(messageId);
   const safeChatId = normalizeObjectId(chatId);
-  if (!safeChatId || !safeMessageId || !safeSenderId || !safeRecipientId || safeSenderId === safeRecipientId) return null;
+  if (!safeChatId || !safeMessageId || !safeSenderId || !safeRecipientId || isSelfAction(safeSenderId, safeRecipientId)) return null;
   const [sender, recipient] = await Promise.all([
     User.findById(safeSenderId).select("_id blockedUsers").lean(),
     User.findById(safeRecipientId).select("_id email preferredLanguage pushToken pushSettings blockedUsers").lean(),
@@ -222,7 +224,7 @@ const notifyIncomingCall = async ({ callId, callerId, recipientId }) => {
   const safeCallId = normalizeObjectId(callId);
   const safeCallerId = normalizeObjectId(callerId);
   const safeRecipientId = normalizeObjectId(recipientId);
-  if (!safeCallId || !safeCallerId || !safeRecipientId || safeCallerId === safeRecipientId) return null;
+  if (!safeCallId || !safeCallerId || !safeRecipientId || isSelfAction(safeCallerId, safeRecipientId)) return null;
   const [caller, recipient] = await Promise.all([
     User.findById(safeCallerId).select("_id blockedUsers").lean(),
     User.findById(safeRecipientId).select("_id preferredLanguage pushToken pushSettings blockedUsers").lean(),
@@ -244,7 +246,7 @@ const notifyMissedCall = async ({ callId, callerId, recipientId }) => {
   const safeCallId = normalizeObjectId(callId);
   const safeCallerId = normalizeObjectId(callerId);
   const safeRecipientId = normalizeObjectId(recipientId);
-  if (!safeCallId || !safeCallerId || !safeRecipientId || safeCallerId === safeRecipientId) return null;
+  if (!safeCallId || !safeCallerId || !safeRecipientId || isSelfAction(safeCallerId, safeRecipientId)) return null;
   const recipient = await User.findById(safeRecipientId)
     .select("_id preferredLanguage pushToken pushSettings blockedUsers")
     .lean();

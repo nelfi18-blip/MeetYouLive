@@ -97,13 +97,13 @@ exports.requestWithdrawal = async (req, res) => {
       );
     });
 
-    await notifyWithdrawal({
+    notifyWithdrawal({
       userId,
       withdrawalId: withdrawalRequest._id,
       status: "requested",
       amountCoins: withdrawalRequest.amountCoins,
       date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
-    });
+    }).catch(() => {});
 
     return res.status(201).json({
       ok: true,
@@ -336,7 +336,7 @@ exports.rejectWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountCoins: request.amountCoins,
-      rejectionReasonStoredInAuditLog: true,
+      reasonProvided: Boolean(trimmedReason),
     });
 
     await notifyWithdrawal({

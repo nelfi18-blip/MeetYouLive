@@ -36,6 +36,8 @@ const {
   syncCanonicalPhotoFields,
 } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { deleteUserAccount } = require("../services/accountDeletion.service.js");
+const { calculateAge } = require("../lib/age.js");
 
 const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
@@ -164,6 +166,7 @@ const MAX_PROFILE_PHOTOS = 6;
 const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const MAX_INTERESTS = 10;
 const MIN_ONBOARDING_INTERESTS = 3;
+const MIN_USER_AGE = 18;
 const ALLOWED_INTERESTED_IN = Object.keys(DISCOVERY_GENDER_MATCH);
 const ALLOWED_GENDERS = ["male", "female", "other", "prefer_not_to_say", "man", "woman", "nonbinary", "", null];
 const ALLOWED_DISCOVERY_GOALS = Object.keys(DISCOVERY_GOAL_INTENT_MAP);
@@ -211,7 +214,7 @@ const hasNonEmptyProfileString = (value) => typeof value === "string" && value.t
 const hasValidBirthdate = (value) => {
   if (!value) return false;
   const date = new Date(value);
-  return !Number.isNaN(date.getTime());
+  return !Number.isNaN(date.getTime()) && calculateAge(date, new Date()) >= MIN_USER_AGE;
 };
 
 const buildProfileStatusPayload = (req, user) => {
@@ -760,6 +763,22 @@ router.patch("/me/password", userLimiter, verifyToken, async (req, res) => {
   }
 });
 
+router.delete("/me", userLimiter, verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("role");
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (STAFF_ROLES.includes(user.role)) {
+      return res.status(403).json({ message: "Las cuentas de staff deben eliminarse desde administración." });
+    }
+
+    await deleteUserAccount(req.userId);
+    return res.json({ ok: true, message: "Cuenta eliminada correctamente" });
+  } catch (err) {
+    console.error("delete account error:", err);
+    return res.status(500).json({ message: "Error al eliminar la cuenta" });
+  }
+});
+
 
 router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
   try {
@@ -801,7 +820,13 @@ router.patch("/me/onboarding", userLimiter, verifyToken, async (req, res) => {
       updates.images = normalizedPhotoState.images;
     }
     if (gender !== undefined && ALLOWED_GENDERS.includes(gender)) updates.gender = gender === "" ? null : gender;
-    if (birthdate !== undefined) updates.birthdate = birthdate ? new Date(birthdate) : null;
+    if (birthdate !== undefined) {
+      const parsedBirthdate = birthdate ? new Date(birthdate) : null;
+      if (!parsedBirthdate || Number.isNaN(parsedBirthdate.getTime()) || calculateAge(parsedBirthdate, new Date()) < MIN_USER_AGE) {
+        return res.status(400).json({ message: "Debes tener al menos 18 años para usar MeetYouLive" });
+      }
+      updates.birthdate = parsedBirthdate;
+    }
     if (Array.isArray(interests)) updates.interests = interests.slice(0, MAX_INTERESTS);
     if (location !== undefined || locationLabel !== undefined) {
       const parsedLocation = normalizeLocationForUserUpdate(location, locationLabel);

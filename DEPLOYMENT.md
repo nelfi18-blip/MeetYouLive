@@ -97,7 +97,10 @@ Redeploy the frontend after changing this value.
 | `AGORA_APP_CERTIFICATE`        | **Yes**  | Agora App Certificate for token generation                          |
 | `STRIPE_SECRET_KEY`            | **Yes**  | Stripe secret key (`sk_live_...` in production)                     |
 | `STRIPE_WEBHOOK_SECRET`        | **Yes**  | Stripe webhook signing secret (`whsec_...`)                         |
-| `STRIPE_SUBSCRIPTION_PRICE_ID` | **Yes**  | Stripe Price ID for VIP subscription                                |
+| `STRIPE_SUBSCRIPTION_PRICE_ID` | **Yes**  | Stripe Price ID for the legacy subscription checkout                 |
+| `STRIPE_VIP_SILVER_PRICE_ID`   | **Yes**  | Stripe recurring Price ID for the VIP Silver tier                   |
+| `STRIPE_VIP_GOLD_PRICE_ID`     | **Yes**  | Stripe recurring Price ID for the VIP Gold tier                     |
+| `STRIPE_VIP_PLATINUM_PRICE_ID` | **Yes**  | Stripe recurring Price ID for the VIP Platinum tier                 |
 | `INTERNAL_API_SECRET`          | **Yes**  | Shared secret for server-to-server calls (same value in Vercel)     |
 | `NEXTAUTH_SECRET`              | No       | Do not set on Render; only the frontend/NextAuth uses this secret    |
 | `ADMIN_NAME`                   | No       | Seed admin display name                                             |

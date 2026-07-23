@@ -7,7 +7,7 @@ Use this checklist before deploying the payout feature to production.
 - [ ] `MONGO_URI` is set and MongoDB Atlas cluster is reachable
 - [ ] `JWT_SECRET` is set to a strong random value
 - [ ] `NEXTAUTH_SECRET` is set (shared with frontend)
-- [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUBSCRIPTION_PRICE_ID` are set
+- [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUBSCRIPTION_PRICE_ID`, `STRIPE_VIP_SILVER_PRICE_ID`, `STRIPE_VIP_GOLD_PRICE_ID`, and `STRIPE_VIP_PLATINUM_PRICE_ID` are set
 - [ ] `FRONTEND_URL` is set to the production frontend URL (for CORS)
 - [ ] Backend deployed and `/api/admin/payouts` returns 200 for an authenticated admin
 - [ ] Backend deployed and `POST /api/creator/payout` is accessible for approved creators

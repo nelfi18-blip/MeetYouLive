@@ -30,6 +30,12 @@ services:
         sync: false
       - key: STRIPE_SUBSCRIPTION_PRICE_ID
         sync: false
+      - key: STRIPE_VIP_SILVER_PRICE_ID
+        sync: false
+      - key: STRIPE_VIP_GOLD_PRICE_ID
+        sync: false
+      - key: STRIPE_VIP_PLATINUM_PRICE_ID
+        sync: false
       - key: INTERNAL_API_SECRET
         sync: false
       - key: AGORA_APP_ID

@@ -26,11 +26,25 @@ const MAX_EXTRA_PROFILE_PHOTOS = 5;
 const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const DISTANCE_OPTIONS = [5, 10, 25, 50, 100];
-const MIN_AGE_YEARS = 13;
+const MIN_AGE_YEARS = 18;
 const INTERNAL_ERROR_PATTERN = /failed\s+to\s+fetch|network|cors|stack|error:|net::err|typeerror/i;
-const MIN_AGE_DATE = new Date(Date.now() - MIN_AGE_YEARS * 365.25 * 24 * 60 * 60 * 1000)
-  .toISOString()
-  .split("T")[0];
+const getMinimumAgeDate = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - MIN_AGE_YEARS);
+  return date.toISOString().split("T")[0];
+};
+const MIN_AGE_DATE = getMinimumAgeDate();
+
+const calculateAge = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - date.getFullYear();
+  const monthDelta = now.getMonth() - date.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+};
 
 const parseUploadResponseBody = async (res) => {
   try {
@@ -415,6 +429,10 @@ export default function OnboardingPage() {
         setError(t("onboarding.birthdateRequired"));
         return;
       }
+      if (calculateAge(birthdate) < MIN_AGE_YEARS) {
+        setError(t("onboarding.minimumAgeRequired"));
+        return;
+      }
       if (
         !hasValidLocation(locationCity, locationCountry, locationCoordinates)
       ) {
@@ -709,7 +727,7 @@ export default function OnboardingPage() {
               );
             })}
             <div className="ob-progress-bar">
-              <div className="ob-progress-fill" style={{ width: `${((step - 1) / (STEPS.length - 2)) * 100}%` }} />
+              <div className="ob-progress-fill" style={{ width: `${((step - 1) / (steps.length - 2)) * 100}%` }} />
             </div>
             <div className="ob-completion-percent">
               <span className="ob-completion-label">Perfil completado: </span>

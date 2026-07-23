@@ -4,6 +4,7 @@ const { calculateAge } = require("./age.js");
 
 const HTTPS_REQUEST_STUB = { protocol: "https", get: () => "" };
 const MIN_PROFILE_INTERESTS = 3;
+const MIN_PROFILE_AGE = 18;
 const PROFILE_REQUIRED_FIELDS = [
   "name",
   "photo",
@@ -36,7 +37,7 @@ const getProfileCompletionChecks = (user = {}, req = HTTPS_REQUEST_STUB, now = n
   const checks = {
     name: isNonEmptyString(user.name),
     photo: Boolean(getPrimaryPhotoUrl(user, req)),
-    birthdate: calculateAge(user.birthdate, now) !== null,
+    birthdate: calculateAge(user.birthdate, now) >= MIN_PROFILE_AGE,
     location: hasProfileLocation(user),
     gender: isNonEmptyString(user.gender),
     interestedIn: Boolean(normalizedInterestedIn),
@@ -96,6 +97,7 @@ const getProfileCompletionStatus = (user = {}, options = {}) => {
 
 module.exports = {
   MIN_PROFILE_INTERESTS,
+  MIN_PROFILE_AGE,
   PROFILE_REQUIRED_FIELDS,
   canAppearInFeed,
   getMissingProfileFields,

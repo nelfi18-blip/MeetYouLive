@@ -97,7 +97,7 @@ function getLatestResetRequestedAtMs(user) {
 
 const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
 
-function getEmailSendFailurePayload(err) {
+function getEmailSendFailurePayload(err, emailType = "verification") {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
   const isConfigError = EMAIL_CONFIG_ERROR_CODES.has(code);
   return {
@@ -106,7 +106,9 @@ function getEmailSendFailurePayload(err) {
       code,
       message: isConfigError
         ? "El servicio de email no está configurado correctamente. Contacta a soporte."
-        : "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+        : emailType === "password-reset"
+          ? "No se pudo enviar el correo de recuperación. Inténtalo de nuevo en unos minutos."
+          : "No se pudo enviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
     },
   };
 }
@@ -364,14 +366,30 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     }
 
     const resetCode = generateSixDigitCode();
+    const previousResetState = {
+      code: user.passwordResetCode,
+      expiresAt: user.passwordResetExpiresAt,
+      requestedAt: user.passwordResetRequestedAt,
+    };
+
     user.passwordResetCode = hashResetCode(resetCode);
     user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
     user.passwordResetRequestedAt = new Date(now);
     await user.save();
 
-    sendPasswordResetEmail(email, resetCode).catch((err) =>
-      console.error("[forgot-password] Failed to send reset email:", err.message)
-    );
+    try {
+      await sendPasswordResetEmail(email, resetCode);
+    } catch (err) {
+      console.error("[forgot-password] Failed to send reset email:", err.message);
+      user.passwordResetCode = previousResetState.code !== undefined ? previousResetState.code : null;
+      user.passwordResetExpiresAt = previousResetState.expiresAt !== undefined ? previousResetState.expiresAt : null;
+      user.passwordResetRequestedAt = previousResetState.requestedAt !== undefined ? previousResetState.requestedAt : null;
+      await user.save().catch((rollbackErr) => {
+        console.error("[forgot-password] Failed to roll back reset code:", rollbackErr.message);
+      });
+      const { status, body } = getEmailSendFailurePayload(err, "password-reset");
+      return res.status(status).json(body);
+    }
 
     return res.json({ message: genericMessage });
   } catch (err) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
@@ -64,6 +64,17 @@ export default function CreatorContentPage() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
+  const loadItems = useCallback((token) => {
+    setListLoading(true);
+    fetch(`${API_URL}/api/exclusive/mine`, {
+      headers: { Authorization: `Bearer ${token || localStorage.getItem("token")}` },
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setItems(data))
+      .catch(() => {})
+      .finally(() => setListLoading(false));
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { clearToken(); router.replace("/login"); return; }
@@ -83,18 +94,7 @@ export default function CreatorContentPage() {
         loadItems(token);
       })
       .catch(() => { setAuthLoading(false); });
-  }, [router]);
-
-  const loadItems = (token) => {
-    setListLoading(true);
-    fetch(`${API_URL}/api/exclusive/mine`, {
-      headers: { Authorization: `Bearer ${token || localStorage.getItem("token")}` },
-    })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setItems(data))
-      .catch(() => {})
-      .finally(() => setListLoading(false));
-  };
+  }, [loadItems, router]);
 
   const resetForm = () => {
     setTitle(""); setDescription(""); setType("video");
@@ -759,4 +759,3 @@ function ContentItemCard({ item }) {
     </Link>
   );
 }
-

@@ -85,6 +85,11 @@ export default function CallPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [callGiftNotif, setCallGiftNotif] = useState(null);
   const [giftQueue, setGiftQueue] = useState([]);
+  const [hasLocalAudioTrack, setHasLocalAudioTrack] = useState(false);
+  const [hasLocalVideoTrack, setHasLocalVideoTrack] = useState(false);
+  const [authToken, setAuthToken] = useState(
+    typeof window !== "undefined" ? localStorage.getItem("token") || "" : ""
+  );
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -126,10 +131,12 @@ export default function CallPage() {
       localAudioTrackRef.current.close();
       localAudioTrackRef.current = null;
     }
+    setHasLocalAudioTrack(false);
     if (localVideoTrackRef.current) {
       localVideoTrackRef.current.close();
       localVideoTrackRef.current = null;
     }
+    setHasLocalVideoTrack(false);
     if (agoraClientRef.current) {
       try { await agoraClientRef.current.leave(); } catch { /* ignore */ }
       agoraClientRef.current = null;
@@ -151,93 +158,6 @@ export default function CallPage() {
       if (agoraClientRef.current) agoraClientRef.current.leave().catch(() => {});
     };
   }, []);
-
-  // ── Initial load ────────────────────────────────────────────────────────
-  useEffect(() => {
-    setReturnTo(getSafeChatReturnTo());
-    const storedToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (sessionStatus === "loading" && !session?.backendToken && !storedToken) return;
-
-    token.current = session?.backendToken || storedToken;
-
-    if (!token.current) {
-      clearToken();
-      router.replace("/login");
-      return;
-    }
-    configureSocketAuth(token.current);
-    if (!socket.connected) socket.connect();
-    let cancelled = false;
-    let loadController = null;
-    let loadTimeoutId = null;
-
-    const load = async () => {
-      loadController = new AbortController();
-      loadTimeoutId = setTimeout(() => loadController.abort(), CALL_CONNECT_TIMEOUT_MS);
-      try {
-        const res = await fetch(`${API_URL}/api/calls/${id}`, {
-          headers: { Authorization: `Bearer ${token.current}` },
-          signal: loadController.signal,
-        });
-        if (cancelled) return;
-        if (res.status === 401) {
-          clearToken();
-          router.replace("/login");
-          return;
-        }
-        if (!res.ok) {
-          setError("No se pudo cargar la llamada");
-          setStatus("ended");
-          return;
-        }
-        const data = await res.json();
-        setCall(data);
-        callRef.current = data;
-
-        const me = getCurrentUserId();
-        const callerIsMe = String(data.caller._id) === me;
-        setIsCaller(callerIsMe);
-
-        // Seed totalCharged from already-recorded billing totals on the call
-        if (callerIsMe && data.type === "paid_creator") {
-          setTotalCharged(data.totalCoinsCharged || 0);
-        }
-
-        const remote = callerIsMe ? data.recipient : data.caller;
-        setRemoteName(remote?.username || remote?.name || "Usuario");
-        setRemoteAvatar(remote?.avatar || "");
-        setRemoteUserId(String(remote?._id || ""));
-        const mediaType = normalizeMediaType(data.mediaType);
-        setCallMediaType(mediaType);
-
-        if (data.status === "rejected") { setStatus("rejected"); return; }
-        if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
-        if (data.status === "accepted") {
-          startAgora(data._id, mediaType);
-        } else {
-          // status is pending
-          setStatus(callerIsMe ? "calling" : "ringing");
-          if (callerIsMe) {
-            pollForAcceptance(data);
-          }
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
-        setStatus("ended");
-      } finally {
-        if (loadTimeoutId) clearTimeout(loadTimeoutId);
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-      if (loadTimeoutId) clearTimeout(loadTimeoutId);
-      loadController?.abort();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 
   // ── Auto-return to chat after terminal call states ───────────────────────
   useEffect(() => {
@@ -294,36 +214,6 @@ export default function CallPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCurrentUserId, status]);
 
-  // ── Poll until recipient accepts, then start Agora ─────────────────────
-  const pollForAcceptance = useCallback(
-    (callData) => {
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/calls/${callData._id}`, {
-            headers: { Authorization: `Bearer ${token.current}` },
-          });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data.status === "accepted") {
-            clearInterval(pollRef.current);
-            setCall(data);
-            callRef.current = data;
-            const mediaType = normalizeMediaType(data.mediaType);
-            setCallMediaType(mediaType);
-            startAgora(callData._id, mediaType);
-          } else if (["rejected", "ended", "missed"].includes(data.status)) {
-            clearInterval(pollRef.current);
-            setStatus(data.status === "rejected" ? "rejected" : "ended");
-          }
-        } catch {
-          // ignore
-        }
-      }, POLL_MS);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
   const endCallOnServer = useCallback(async (reason = "hangup") => {
     try {
       await fetch(`${API_URL}/api/calls/${id}/end`, {
@@ -352,36 +242,6 @@ export default function CallPage() {
       clearTimeout(timer);
     };
   }, [cleanupAgora, endCallOnServer, status]);
-
-  const respondFromCall = useCallback(async (action) => {
-    if (!callRef.current || status !== "ringing") return;
-    try {
-      const res = await fetch(`${API_URL}/api/calls/${id}/respond`, {
-        method: "PATCH",
-        headers: apiHeaders(),
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.message || t("chatPremium.callRespondError"));
-        setStatus("ended");
-        return;
-      }
-      if (action === "reject") {
-        setStatus("rejected");
-        return;
-      }
-      setCall(data);
-      callRef.current = data;
-      const mediaType = normalizeMediaType(data.mediaType);
-      setCallMediaType(mediaType);
-      startAgora(data._id, mediaType);
-    } catch {
-      setError(t("chatPremium.callRespondError"));
-      setStatus("ended");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiHeaders, id, status, t]);
 
   useEffect(() => {
     const finish = (nextStatus, nextMessage = "") => {
@@ -539,6 +399,8 @@ export default function CallPage() {
 
         localAudioTrackRef.current = audioTrack;
         localVideoTrackRef.current = videoTrack || null;
+        setHasLocalAudioTrack(true);
+        setHasLocalVideoTrack(!!videoTrack);
 
         await client.join(appId, String(callId), agoraToken, uid);
         await client.publish(videoTrack ? [audioTrack, videoTrack] : [audioTrack]);
@@ -568,6 +430,154 @@ export default function CallPage() {
     },
     [cleanupAgora, endCallOnServer, t]
   );
+
+  // ── Poll until recipient accepts, then start Agora ─────────────────────
+  const pollForAcceptance = useCallback(
+    (callData) => {
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/calls/${callData._id}`, {
+            headers: { Authorization: `Bearer ${token.current}` },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.status === "accepted") {
+            clearInterval(pollRef.current);
+            setCall(data);
+            callRef.current = data;
+            const mediaType = normalizeMediaType(data.mediaType);
+            setCallMediaType(mediaType);
+            startAgora(callData._id, mediaType);
+          } else if (["rejected", "ended", "missed"].includes(data.status)) {
+            clearInterval(pollRef.current);
+            setStatus(data.status === "rejected" ? "rejected" : "ended");
+          }
+        } catch {
+          // ignore
+        }
+      }, POLL_MS);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const respondFromCall = useCallback(async (action) => {
+    if (!callRef.current || status !== "ringing") return;
+    try {
+      const res = await fetch(`${API_URL}/api/calls/${id}/respond`, {
+        method: "PATCH",
+        headers: apiHeaders(),
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.message || t("chatPremium.callRespondError"));
+        setStatus("ended");
+        return;
+      }
+      if (action === "reject") {
+        setStatus("rejected");
+        return;
+      }
+      setCall(data);
+      callRef.current = data;
+      const mediaType = normalizeMediaType(data.mediaType);
+      setCallMediaType(mediaType);
+      startAgora(data._id, mediaType);
+    } catch {
+      setError(t("chatPremium.callRespondError"));
+      setStatus("ended");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiHeaders, id, status, t]);
+
+  // ── Initial load ────────────────────────────────────────────────────────
+  useEffect(() => {
+    setReturnTo(getSafeChatReturnTo());
+    const storedToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (sessionStatus === "loading" && !session?.backendToken && !storedToken) return;
+
+    token.current = session?.backendToken || storedToken;
+    setAuthToken(token.current || "");
+
+    if (!token.current) {
+      clearToken();
+      router.replace("/login");
+      return;
+    }
+    configureSocketAuth(token.current);
+    if (!socket.connected) socket.connect();
+    let cancelled = false;
+    let loadController = null;
+    let loadTimeoutId = null;
+
+    const load = async () => {
+      loadController = new AbortController();
+      loadTimeoutId = setTimeout(() => loadController.abort(), CALL_CONNECT_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${API_URL}/api/calls/${id}`, {
+          headers: { Authorization: `Bearer ${token.current}` },
+          signal: loadController.signal,
+        });
+        if (cancelled) return;
+        if (res.status === 401) {
+          clearToken();
+          router.replace("/login");
+          return;
+        }
+        if (!res.ok) {
+          setError("No se pudo cargar la llamada");
+          setStatus("ended");
+          return;
+        }
+        const data = await res.json();
+        setCall(data);
+        callRef.current = data;
+
+        const me = getCurrentUserId();
+        const callerIsMe = String(data.caller._id) === me;
+        setIsCaller(callerIsMe);
+
+        // Seed totalCharged from already-recorded billing totals on the call
+        if (callerIsMe && data.type === "paid_creator") {
+          setTotalCharged(data.totalCoinsCharged || 0);
+        }
+
+        const remote = callerIsMe ? data.recipient : data.caller;
+        setRemoteName(remote?.username || remote?.name || "Usuario");
+        setRemoteAvatar(remote?.avatar || "");
+        setRemoteUserId(String(remote?._id || ""));
+        const mediaType = normalizeMediaType(data.mediaType);
+        setCallMediaType(mediaType);
+
+        if (data.status === "rejected") { setStatus("rejected"); return; }
+        if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
+        if (data.status === "accepted") {
+          startAgora(data._id, mediaType);
+        } else {
+          // status is pending
+          setStatus(callerIsMe ? "calling" : "ringing");
+          if (callerIsMe) {
+            pollForAcceptance(data);
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.name === "AbortError" ? "La llamada está tardando demasiado en cargar." : "Error de conexión");
+        setStatus("ended");
+      } finally {
+        if (loadTimeoutId) clearTimeout(loadTimeoutId);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+      if (loadTimeoutId) clearTimeout(loadTimeoutId);
+      loadController?.abort();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getCurrentUserId, id, session?.backendToken, sessionStatus]);
 
   const leaveCallAndReturn = async (reason = "hangup") => {
     clearInterval(pollRef.current);
@@ -885,7 +895,7 @@ export default function CallPage() {
           <button
             className={`call-control-btn${muted ? " active-mute" : ""}`}
             onClick={toggleMute}
-            disabled={!localAudioTrackRef.current}
+            disabled={!hasLocalAudioTrack}
             aria-label={muted ? "Activar micrófono" : "Silenciar"}
             title={muted ? "Activar micrófono" : "Silenciar"}
           >
@@ -902,7 +912,7 @@ export default function CallPage() {
           <button
             className={`call-control-btn${cameraOff ? " active-mute" : ""}`}
             onClick={toggleCamera}
-            disabled={!localVideoTrackRef.current}
+            disabled={!hasLocalVideoTrack}
             aria-label={cameraOff ? "Activar cámara" : "Apagar cámara"}
             title={cameraOff ? "Activar cámara" : "Apagar cámara"}
           >
@@ -919,7 +929,7 @@ export default function CallPage() {
           <button
             className="call-control-btn"
             onClick={switchCamera}
-            disabled={!localVideoTrackRef.current || switchingCamera || cameraCount < 2}
+            disabled={!hasLocalVideoTrack || switchingCamera || cameraCount < 2}
             aria-label={t("chatPremium.switchCamera")}
             title={t("chatPremium.switchCamera")}
           >
@@ -959,7 +969,7 @@ export default function CallPage() {
             <ModerationActions
               targetUserId={remoteUserId}
               targetName={remoteName}
-              authToken={token.current}
+              authToken={authToken}
               onBlocked={handleBlockedRemote}
               compact
             />

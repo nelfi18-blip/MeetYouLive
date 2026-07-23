@@ -131,6 +131,9 @@ A `render.yaml` is included so Render can auto-configure the service.
     STRIPE_SECRET_KEY=your_stripe_secret_key
     STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
     STRIPE_SUBSCRIPTION_PRICE_ID=your_stripe_price_id
+    STRIPE_VIP_SILVER_PRICE_ID=your_stripe_vip_silver_price_id
+    STRIPE_VIP_GOLD_PRICE_ID=your_stripe_vip_gold_price_id
+    STRIPE_VIP_PLATINUM_PRICE_ID=your_stripe_vip_platinum_price_id
     SMTP_HOST=your_smtp_host
     SMTP_PORT=587
     SMTP_USER=your_smtp_username

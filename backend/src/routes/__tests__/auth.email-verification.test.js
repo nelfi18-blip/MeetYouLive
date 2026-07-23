@@ -1,7 +1,7 @@
 const express = require("express");
 const request = require("supertest");
 const User = require("../../models/User.js");
-const { sendVerificationEmail } = require("../../services/email.service.js");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../../services/email.service.js");
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 
@@ -51,6 +51,7 @@ describe("auth email verification delivery", () => {
     User.exists.mockResolvedValue(false);
     User.deleteOne.mockResolvedValue({ deletedCount: 1 });
     sendVerificationEmail.mockResolvedValue({ messageId: "test-message-id" });
+    sendPasswordResetEmail.mockResolvedValue({ messageId: "reset-message-id" });
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
@@ -229,5 +230,39 @@ describe("auth email verification delivery", () => {
     expect(user.emailVerificationCode).toBeNull();
     expect(user.emailVerificationExpires).toBeNull();
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  test("forgot password returns delivery error and restores reset state when SMTP fails", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      _id: "user-reset",
+      passwordResetCode: null,
+      passwordResetExpiresAt: null,
+      passwordResetRequestedAt: null,
+      save,
+    };
+    User.findOne.mockResolvedValue(user);
+    sendPasswordResetEmail.mockRejectedValueOnce(Object.assign(new Error("SMTP configuration missing"), {
+      code: "EMAIL_NOT_CONFIGURED",
+      status: 500,
+    }));
+
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: "reset@example.com" });
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
+      code: "EMAIL_NOT_CONFIGURED",
+      message: "El servicio de email no está configurado correctamente. Contacta a soporte.",
+    });
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(
+      "reset@example.com",
+      expect.stringMatching(/^\d{6}$/)
+    );
+    expect(user.passwordResetCode).toBeNull();
+    expect(user.passwordResetExpiresAt).toBeNull();
+    expect(user.passwordResetRequestedAt).toBeNull();
+    expect(save).toHaveBeenCalledTimes(2);
   });
 });

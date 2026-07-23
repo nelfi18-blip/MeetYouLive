@@ -141,8 +141,16 @@ export default function LiveRoomPage() {
   const topFanMapRef = useRef({});
   // Top fan name lookup: userId → username
   const topFanNamesRef = useRef({});
+  const [topFanNames, setTopFanNames] = useState({});
   // Top 3 fan user IDs sorted by spend (index 0 = #1 fan)
   const [topFanIds, setTopFanIds] = useState([]);
+
+  const rememberTopFanName = useCallback((fanId, username) => {
+    if (!fanId || !username) return;
+    const key = String(fanId);
+    topFanNamesRef.current[key] = username;
+    setTopFanNames((prev) => (prev[key] === username ? prev : { ...prev, [key]: username }));
+  }, []);
 
   const [currentUserIsVIP, setCurrentUserIsVIP] = useState(false);
   const currentUserIsVIPRef = useRef(false);
@@ -497,7 +505,7 @@ export default function LiveRoomPage() {
       // Update top fan map
       if (senderId && gift.coinCost > 0) {
         topFanMapRef.current[senderId] = (topFanMapRef.current[senderId] || 0) + gift.coinCost;
-        if (senderName) topFanNamesRef.current[senderId] = senderName;
+        rememberTopFanName(senderId, senderName);
         setTopFanIds(computeTopFans(topFanMapRef.current));
       }
 
@@ -692,7 +700,7 @@ export default function LiveRoomPage() {
       for (const fan of topFans) {
         if (fan.userId) {
           newMap[String(fan.userId)] = fan.totalCoins || 0;
-          if (fan.username) topFanNamesRef.current[String(fan.userId)] = fan.username;
+          rememberTopFanName(fan.userId, fan.username);
         }
       }
       topFanMapRef.current = { ...topFanMapRef.current, ...newMap };
@@ -1084,7 +1092,7 @@ export default function LiveRoomPage() {
       // Update local top fan map for the sender
       if (currentUserId && gift.coinCost > 0) {
         topFanMapRef.current[currentUserId] = (topFanMapRef.current[currentUserId] || 0) + gift.coinCost;
-        if (currentUsernameRef.current) topFanNamesRef.current[currentUserId] = currentUsernameRef.current;
+        rememberTopFanName(currentUserId, currentUsernameRef.current);
         setTopFanIds(computeTopFans(topFanMapRef.current));
         // Deduct total cost from local coin balance to reflect spend immediately
         setCoinBalance((prev) => (prev !== null ? Math.max(0, prev - gift.coinCost) : null));
@@ -1961,7 +1969,7 @@ export default function LiveRoomPage() {
                 {creatorAvatar ? <img src={creatorAvatar} alt={creatorName} /> : creatorInitial}
               </span>
               {topFanIds.slice(0, 3).map((fanId, index) => (
-                <span className="viewer-avatar fan" key={fanId} title={topFanNamesRef.current[fanId] || "Top Fan"}>
+                <span className="viewer-avatar fan" key={fanId} title={topFanNames[fanId] || "Top Fan"}>
                   {FAN_MEDALS[index]}
                 </span>
               ))}
@@ -1983,12 +1991,12 @@ export default function LiveRoomPage() {
           <TopSupporterBadge topSupporter={topSupporter} />
 
           {/* ── Fan del live VIP card ── */}
-          {topFanIds.length > 0 && topFanNamesRef.current[topFanIds[0]] && (
+          {topFanIds.length > 0 && topFanNames[topFanIds[0]] && (
             <div className="fan-del-live">
               <span className="fdl-crown">👑</span>
               <div className="fdl-info">
                 <span className="fdl-label">Fan del live</span>
-                <span className="fdl-name">@{topFanNamesRef.current[topFanIds[0]]}</span>
+                <span className="fdl-name">@{topFanNames[topFanIds[0]]}</span>
               </div>
               <span className="fdl-badge">💎 VIP</span>
             </div>

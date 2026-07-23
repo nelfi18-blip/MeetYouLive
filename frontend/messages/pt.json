@@ -72,6 +72,7 @@
     "nameRequired": "O nome é obrigatório",
     "genderRequired": "Selecione seu gênero para continuar",
     "birthdateRequired": "A data de nascimento é obrigatória",
+    "minimumAgeRequired": "Você deve ter pelo menos 18 anos para usar o MeetYouLive",
     "locationRequired": "A localização é obrigatória",
     "interestsRequired": "Selecione pelo menos {count} interesses para continuar",
     "countryLabel": "País *",

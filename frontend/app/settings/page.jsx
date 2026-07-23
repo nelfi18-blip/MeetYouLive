@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { clearAllAuth } from "@/lib/token";
 import socket from "@/lib/socket";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const SETTINGS_SECTIONS = [
   {
@@ -34,19 +37,45 @@ const SETTINGS_SECTIONS = [
       { label: "Refund", description: "Política de reembolsos y pagos.", href: "/refund", icon: "↩️" },
     ],
   },
-  {
-    title: "Acciones de cuenta",
-    items: [
-      { label: "Eliminar cuenta", description: "Solicita eliminación de cuenta desde soporte.", href: "/contact?subject=delete-account", icon: "🗑️", danger: true },
-    ],
-  },
 ];
 
 export default function SettingsPage() {
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   const handleLogout = async () => {
     socket.disconnect();
     clearAllAuth();
     await signOut({ callbackUrl: "/login" });
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError("");
+    if (!window.confirm("Esta acción eliminará tu cuenta permanentemente. ¿Deseas continuar?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setDeleteError("Sesión expirada. Inicia sesión nuevamente.");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/user/me`, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteError(data.message || "No se pudo eliminar la cuenta.");
+        return;
+      }
+      socket.disconnect();
+      clearAllAuth();
+      await signOut({ callbackUrl: "/login?accountDeleted=1" });
+    } catch {
+      setDeleteError("No se pudo conectar con el servidor.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -83,6 +112,18 @@ export default function SettingsPage() {
             <span>
               <strong>Cerrar sesión</strong>
               <small>Cierra sesión y desconecta servicios en tiempo real.</small>
+            </span>
+          </button>
+        </section>
+
+        <section className="settings-card danger-card" aria-labelledby="settings-danger">
+          <h2 id="settings-danger">Acciones de cuenta</h2>
+          {deleteError && <p className="delete-error">{deleteError}</p>}
+          <button type="button" className="delete-button" onClick={handleDeleteAccount} disabled={deleting}>
+            <span aria-hidden="true">🗑️</span>
+            <span>
+              <strong>{deleting ? "Eliminando cuenta…" : "Eliminar cuenta"}</strong>
+              <small>Elimina permanentemente tu cuenta y cierra la sesión.</small>
             </span>
           </button>
         </section>
@@ -147,7 +188,8 @@ export default function SettingsPage() {
           gap: 0.55rem;
         }
         .settings-item,
-        .logout-button {
+        .logout-button,
+        .delete-button {
           width: 100%;
           border: 1px solid rgba(148, 163, 184, 0.18);
           border-radius: 14px;
@@ -161,7 +203,8 @@ export default function SettingsPage() {
           text-align: left;
         }
         .settings-item:hover,
-        .logout-button:hover {
+        .logout-button:hover,
+        .delete-button:hover {
           border-color: rgba(224, 64, 251, 0.42);
           background: rgba(224, 64, 251, 0.1);
         }
@@ -183,11 +226,13 @@ export default function SettingsPage() {
           gap: 0.18rem;
         }
         .settings-copy strong,
-        .logout-button strong {
+        .logout-button strong,
+        .delete-button strong {
           font-size: 0.9rem;
         }
         .settings-copy small,
-        .logout-button small {
+        .logout-button small,
+        .delete-button small {
           color: #94a3b8;
           line-height: 1.45;
         }
@@ -202,9 +247,27 @@ export default function SettingsPage() {
         .danger:hover {
           background: rgba(248, 113, 113, 0.1);
         }
-        .logout-button {
+        .logout-button,
+        .delete-button {
           cursor: pointer;
           font: inherit;
+        }
+        .delete-button {
+          border-color: rgba(248, 113, 113, 0.35);
+          background: rgba(127, 29, 29, 0.24);
+        }
+        .delete-button:hover {
+          border-color: rgba(248, 113, 113, 0.65);
+          background: rgba(248, 113, 113, 0.14);
+        }
+        .delete-button:disabled {
+          cursor: wait;
+          opacity: 0.7;
+        }
+        .delete-error {
+          margin: 0 0 0.75rem;
+          color: #fecaca;
+          font-size: 0.85rem;
         }
         @media (max-width: 800px) {
           .settings-grid {

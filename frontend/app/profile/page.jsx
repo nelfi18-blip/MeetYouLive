@@ -425,7 +425,7 @@ export default function ProfilePage() {
     } catch (err) {
       console.error("[profile] failed to refresh session:", err);
     }
-  }, [router, session?.user?.image, session?.user?.name, updateSession]);
+  }, [router, session, updateSession]);
 
   const updateAndPublishUser = useCallback((updates) => {
     if (!user) return null;
@@ -499,7 +499,7 @@ export default function ProfilePage() {
     }
 
     return null;
-  }, [session?.backendToken, session?.googleEmail, status]);
+  }, [session, status]);
 
   const loadProfile = useCallback(async ({ signal, silent = false } = {}) => {
     if (status === "loading") return;

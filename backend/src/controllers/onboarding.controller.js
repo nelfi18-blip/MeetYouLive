@@ -11,10 +11,12 @@ const {
   getProfileCompletionStatus,
 } = require("../lib/profileCompletion.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
+const { calculateAge } = require("../lib/age.js");
 
 const MAX_IMAGES = 6;
 const MAX_INTERESTS = 10;
 const MIN_INTERESTS = 3;
+const MIN_AGE_YEARS = 18;
 const ALLOWED_GENDERS = new Set(["male", "female", "other", "prefer_not_to_say"]);
 const ALLOWED_INTERESTED_IN = new Set(["male", "female", "both"]);
 const ALLOWED_INTENTS = new Set(["dating", "casual", "live", "creator"]);
@@ -134,6 +136,9 @@ const updateOnboarding = async (req, res) => {
     const gender = normalizeGender(req.body.gender ?? currentUser.gender);
     const interestedIn = normalizeInterestedIn(req.body.interestedIn ?? req.body.genderPreference ?? currentUser.interestedIn);
     const birthdate = parseBirthdate(req.body.birthdate ?? currentUser.birthdate);
+    if (!birthdate || calculateAge(birthdate, new Date()) < MIN_AGE_YEARS) {
+      return res.status(400).json({ message: "Debes tener al menos 18 años para usar MeetYouLive" });
+    }
     const parsedLocation = normalizeLocationForUserUpdate(
       req.body.location ?? currentUser.location,
       req.body.locationLabel ?? currentUser.locationLabel

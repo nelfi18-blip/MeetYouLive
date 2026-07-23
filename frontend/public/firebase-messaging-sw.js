@@ -26,14 +26,24 @@ function getConfigFromUrl() {
       storageBucket: params.get("storageBucket"),
       messagingSenderId: params.get("messagingSenderId"),
       appId: params.get("appId"),
-      apiUrl: params.get("apiUrl"),
     };
   } catch {
     return {};
   }
 }
 
+function getAppConfigFromUrl() {
+  try {
+    const params = new URL(self.location.href).searchParams;
+    return { apiUrl: params.get("apiUrl") };
+  } catch {
+    return { apiUrl: null };
+  }
+}
+
 const config = getConfigFromUrl();
+// App-specific runtime config is kept separate from Firebase web config.
+const appConfig = getAppConfigFromUrl();
 
 // Only initialise if we have at minimum a projectId (avoids SW crash when
 // config is not yet passed).
@@ -59,7 +69,7 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
   const pushEventId = event.notification.data && event.notification.data.pushEventId;
-  const apiUrl = config.apiUrl;
+  const apiUrl = appConfig.apiUrl;
 
   // Track the open (fire-and-forget, no auth required)
   if (pushEventId && apiUrl) {

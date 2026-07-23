@@ -23,6 +23,8 @@ import firebaseApp from "./firebase";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 function getFirebaseMessagingServiceWorkerUrl() {
+  // These NEXT_PUBLIC_* values are intentionally public Firebase web config
+  // needed by the root-scoped static service worker before it can initialize.
   const params = new URLSearchParams({
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",

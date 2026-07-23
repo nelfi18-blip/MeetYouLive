@@ -42,13 +42,14 @@ describe("FCM token handling", () => {
     }));
     const { sendPush } = require("../fcm.js");
 
-    await sendPush("507f1f77bcf86cd799439012", "secret-fcm-token", "Title", "Body", { link: "/x" });
+    const invalidRegistrationValue = "invalid-registration-value";
+    await sendPush("507f1f77bcf86cd799439012", invalidRegistrationValue, "Title", "Body", { link: "/x" });
 
     expect(mockUpdateOne).toHaveBeenCalledWith(
       { _id: "507f1f77bcf86cd799439012" },
       { $set: { pushToken: null } }
     );
-    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain("secret-fcm-token");
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain(invalidRegistrationValue);
     consoleSpy.mockRestore();
   });
 });

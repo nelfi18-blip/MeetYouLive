@@ -215,7 +215,7 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
         callId: claimedCall._id,
         callerId: claimedCall.caller,
         recipientId: claimedCall.recipient,
-      }).catch((err) => console.error("[notifyMissedCall]", err.message));
+      }).catch(() => {});
     }
   }
   return call;
@@ -378,7 +378,7 @@ const inviteCall = async (req, res) => {
       callId: call._id,
       callerId: req.userId,
       recipientId,
-    }).catch((err) => console.error("[notifyIncomingCall]", err.message));
+    }).catch(() => {});
 
     res.status(201).json(populated);
   } catch (err) {

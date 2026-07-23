@@ -1,4 +1,5 @@
 const User = require("../models/User.js");
+const mongoose = require("mongoose");
 const { createNotification } = require("./notification.service.js");
 const { sendTransactionalNotificationEmail } = require("./email.service.js");
 const { sendPush } = require("../lib/fcm.js");
@@ -95,6 +96,10 @@ const MESSAGES = {
 
 const normalizeLang = (lang) => (SUPPORTED_LANGS.has(lang) ? lang : "en");
 const openLabel = (lang) => ({ es: "Abrir MeetYouLive", en: "Open MeetYouLive", pt: "Abrir MeetYouLive" }[normalizeLang(lang)]);
+const normalizeObjectId = (value) => {
+  const id = String(value || "");
+  return mongoose.Types.ObjectId.isValid(id) ? id : null;
+};
 
 const translate = (type, lang, vars = {}) => {
   const entry = MESSAGES[type];
@@ -173,38 +178,45 @@ const deliver = async ({
 };
 
 const notifyNewMessage = async ({ chatId, messageId, senderId, recipientId }) => {
-  if (!chatId || !messageId || !senderId || !recipientId || String(senderId) === String(recipientId)) return null;
+  const safeSenderId = normalizeObjectId(senderId);
+  const safeRecipientId = normalizeObjectId(recipientId);
+  const safeMessageId = normalizeObjectId(messageId);
+  const safeChatId = normalizeObjectId(chatId);
+  if (!safeChatId || !safeMessageId || !safeSenderId || !safeRecipientId || safeSenderId === safeRecipientId) return null;
   const [sender, recipient] = await Promise.all([
-    User.findById(senderId).select("_id blockedUsers").lean(),
-    User.findById(recipientId).select("_id email preferredLanguage pushToken pushSettings blockedUsers").lean(),
+    User.findById(safeSenderId).select("_id blockedUsers").lean(),
+    User.findById(safeRecipientId).select("_id email preferredLanguage pushToken pushSettings blockedUsers").lean(),
   ]);
   if (!sender || !recipient) return null;
-  if (hasBlockBetween(recipient, senderId) || hasBlockBetween(sender, recipientId)) return null;
-  const link = `/chats/${chatId}`;
+  if (hasBlockBetween(recipient, safeSenderId) || hasBlockBetween(sender, safeRecipientId)) return null;
+  const link = `/chats/${safeChatId}`;
   return deliver({
     user: recipient,
     type: "new_message",
-    data: { chatId: String(chatId), messageId: String(messageId), senderId: String(senderId), link },
-    dedupeKey: `message:${messageId}`,
+    data: { chatId: safeChatId, messageId: safeMessageId, senderId: safeSenderId, link },
+    dedupeKey: `message:${safeMessageId}`,
     inApp: true,
-    push: !isUserInChatRoom(recipientId, chatId),
+    push: !isUserInChatRoom(safeRecipientId, safeChatId),
     pushCategory: "message",
   });
 };
 
 const notifyIncomingCall = async ({ callId, callerId, recipientId }) => {
-  if (!callId || !callerId || !recipientId || String(callerId) === String(recipientId)) return null;
+  const safeCallId = normalizeObjectId(callId);
+  const safeCallerId = normalizeObjectId(callerId);
+  const safeRecipientId = normalizeObjectId(recipientId);
+  if (!safeCallId || !safeCallerId || !safeRecipientId || safeCallerId === safeRecipientId) return null;
   const [caller, recipient] = await Promise.all([
-    User.findById(callerId).select("_id blockedUsers").lean(),
-    User.findById(recipientId).select("_id preferredLanguage pushToken pushSettings blockedUsers").lean(),
+    User.findById(safeCallerId).select("_id blockedUsers").lean(),
+    User.findById(safeRecipientId).select("_id preferredLanguage pushToken pushSettings blockedUsers").lean(),
   ]);
   if (!caller || !recipient) return null;
-  if (hasBlockBetween(recipient, callerId) || hasBlockBetween(caller, recipientId)) return null;
+  if (hasBlockBetween(recipient, safeCallerId) || hasBlockBetween(caller, safeRecipientId)) return null;
   return deliver({
     user: recipient,
     type: "call_incoming",
-    data: { callId: String(callId), callerId: String(callerId), link: `/call/${callId}` },
-    dedupeKey: `call:${callId}:incoming`,
+    data: { callId: safeCallId, callerId: safeCallerId, link: `/call/${safeCallId}` },
+    dedupeKey: `call:${safeCallId}:incoming`,
     inApp: true,
     push: true,
     pushCategory: "call",
@@ -212,16 +224,19 @@ const notifyIncomingCall = async ({ callId, callerId, recipientId }) => {
 };
 
 const notifyMissedCall = async ({ callId, callerId, recipientId }) => {
-  if (!callId || !callerId || !recipientId || String(callerId) === String(recipientId)) return null;
-  const recipient = await User.findById(recipientId)
+  const safeCallId = normalizeObjectId(callId);
+  const safeCallerId = normalizeObjectId(callerId);
+  const safeRecipientId = normalizeObjectId(recipientId);
+  if (!safeCallId || !safeCallerId || !safeRecipientId || safeCallerId === safeRecipientId) return null;
+  const recipient = await User.findById(safeRecipientId)
     .select("_id preferredLanguage pushToken pushSettings blockedUsers")
     .lean();
-  if (!recipient || hasBlockBetween(recipient, callerId)) return null;
+  if (!recipient || hasBlockBetween(recipient, safeCallerId)) return null;
   return deliver({
     user: recipient,
     type: "call_missed",
-    data: { callId: String(callId), callerId: String(callerId), link: "/calls" },
-    dedupeKey: `call:${callId}:missed`,
+    data: { callId: safeCallId, callerId: safeCallerId, link: "/calls" },
+    dedupeKey: `call:${safeCallId}:missed`,
     inApp: true,
     push: true,
     pushCategory: "call",
@@ -229,7 +244,9 @@ const notifyMissedCall = async ({ callId, callerId, recipientId }) => {
 };
 
 const notifyCoinsPurchaseConfirmed = async ({ userId, coins, balance, reference }) => {
-  const user = await User.findById(userId).select("_id email preferredLanguage").lean();
+  const safeUserId = normalizeObjectId(userId);
+  if (!safeUserId) return null;
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage").lean();
   return deliver({
     user,
     type: "coins_purchase_confirmed",
@@ -243,7 +260,9 @@ const notifyCoinsPurchaseConfirmed = async ({ userId, coins, balance, reference 
 };
 
 const notifySubscription = async ({ userId, action, plan, eventId, subscriptionId }) => {
-  const user = await User.findById(userId).select("_id email preferredLanguage").lean();
+  const safeUserId = normalizeObjectId(userId);
+  if (!safeUserId) return null;
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage").lean();
   return deliver({
     user,
     type: `subscription_${action}`,
@@ -257,12 +276,14 @@ const notifySubscription = async ({ userId, action, plan, eventId, subscriptionI
 };
 
 const notifyCreatorDecision = async ({ userId, approved }) => {
-  const user = await User.findById(userId).select("_id email preferredLanguage pushToken pushSettings").lean();
+  const safeUserId = normalizeObjectId(userId);
+  if (!safeUserId) return null;
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushSettings").lean();
   return deliver({
     user,
     type: approved ? "creator_approved" : "creator_rejected",
     data: { link: approved ? "/dashboard/creator" : "/creator-request" },
-    dedupeKey: `creator:${userId}:${approved ? "approved" : "rejected"}`,
+    dedupeKey: `creator:${safeUserId}:${approved ? "approved" : "rejected"}`,
     inApp: true,
     push: true,
     email: true,
@@ -271,7 +292,9 @@ const notifyCreatorDecision = async ({ userId, approved }) => {
 };
 
 const notifyWithdrawal = async ({ userId, withdrawalId, status, amountCoins, date }) => {
-  const user = await User.findById(userId).select("_id email preferredLanguage pushToken pushSettings").lean();
+  const safeUserId = normalizeObjectId(userId);
+  if (!safeUserId) return null;
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushSettings").lean();
   return deliver({
     user,
     type: `withdrawal_${status}`,

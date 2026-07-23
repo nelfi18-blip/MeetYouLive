@@ -261,7 +261,7 @@ const sendMessage = async (req, res) => {
           messageId: message._id,
           senderId: req.userId,
           recipientId: participant._id || participant,
-        }).catch((err) => console.error("[notifyNewMessage]", err.message));
+        }).catch(() => {});
       });
 
     // Track chat mission progress (fire-and-forget)

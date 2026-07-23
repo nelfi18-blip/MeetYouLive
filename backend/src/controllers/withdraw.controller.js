@@ -154,20 +154,6 @@ exports.listWithdrawals = async (req, res) => {
       requests,
       total: requests.length,
     });
-
-    await notifyWithdrawal({
-      userId,
-      withdrawalId: withdrawalRequest._id,
-      status: "requested",
-      amountCoins: withdrawalRequest.amountCoins,
-      date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
-    });
-
-    return res.status(201).json({
-      ok: true,
-      message: "Solicitud de retiro creada exitosamente",
-      request: withdrawalRequest,
-    });
   } catch (error) {
     console.error("Error listing withdrawals:", error);
     return res.status(500).json({ message: "Error al listar solicitudes de retiro" });
@@ -350,6 +336,7 @@ exports.rejectWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountCoins: request.amountCoins,
+      rejectionReasonStoredInAuditLog: true,
     });
 
     await notifyWithdrawal({

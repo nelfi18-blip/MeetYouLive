@@ -381,9 +381,9 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       await sendPasswordResetEmail(email, resetCode);
     } catch (err) {
       console.error("[forgot-password] Failed to send reset email:", err.message);
-      user.passwordResetCode = previousResetState.code || null;
-      user.passwordResetExpiresAt = previousResetState.expiresAt || null;
-      user.passwordResetRequestedAt = previousResetState.requestedAt || null;
+      user.passwordResetCode = previousResetState.code !== undefined ? previousResetState.code : null;
+      user.passwordResetExpiresAt = previousResetState.expiresAt !== undefined ? previousResetState.expiresAt : null;
+      user.passwordResetRequestedAt = previousResetState.requestedAt !== undefined ? previousResetState.requestedAt : null;
       await user.save().catch((rollbackErr) => {
         console.error("[forgot-password] Failed to roll back reset code:", rollbackErr.message);
       });

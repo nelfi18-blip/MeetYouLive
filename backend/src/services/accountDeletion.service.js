@@ -35,9 +35,10 @@ async function deleteUserAccount(userId) {
     Payout.deleteMany({ creator: userId }),
   ]);
 
-  await User.updateMany({ followers: userId }, { $pull: { followers: userId } });
-  await User.updateMany({ following: userId }, { $pull: { following: userId } });
-  await User.updateMany({ blockedUsers: userId }, { $pull: { blockedUsers: userId } });
+  await User.updateMany(
+    { $or: [{ followers: userId }, { following: userId }, { blockedUsers: userId }] },
+    { $pull: { followers: userId, following: userId, blockedUsers: userId } }
+  );
   await User.updateMany(
     { followersCount: { $exists: true } },
     [{ $set: { followersCount: { $size: { $ifNull: ["$followers", []] } } } }]

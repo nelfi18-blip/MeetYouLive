@@ -59,10 +59,10 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
   const pushEventId = event.notification.data && event.notification.data.pushEventId;
-  const apiUrl = config.apiUrl || self.location.origin;
+  const apiUrl = config.apiUrl;
 
   // Track the open (fire-and-forget, no auth required)
-  if (pushEventId) {
+  if (pushEventId && apiUrl) {
     event.waitUntil(
       fetch(apiUrl + "/api/push/opened/" + pushEventId, { method: "POST" }).catch(() => {})
     );

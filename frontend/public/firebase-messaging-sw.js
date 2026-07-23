@@ -41,14 +41,14 @@ function getAppConfigFromUrl() {
   }
 }
 
-const config = getConfigFromUrl();
+const firebaseConfig = getConfigFromUrl();
 // App-specific runtime config is kept separate from Firebase web config.
-const appConfig = getAppConfigFromUrl();
+const runtimeConfig = getAppConfigFromUrl();
 
 // Only initialise if we have at minimum a projectId (avoids SW crash when
 // config is not yet passed).
-if (config.projectId) {
-  firebase.initializeApp(config);
+if (firebaseConfig.projectId) {
+  firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
@@ -69,7 +69,7 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
   const pushEventId = event.notification.data && event.notification.data.pushEventId;
-  const apiUrl = appConfig.apiUrl;
+  const apiUrl = runtimeConfig.apiUrl;
 
   // Track the open (fire-and-forget, no auth required)
   if (pushEventId && apiUrl) {

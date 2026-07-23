@@ -77,7 +77,10 @@ export async function initPushNotifications(backendToken) {
     // Register the FCM service worker
     if (!("serviceWorker" in navigator)) return;
 
-    const registration = await navigator.serviceWorker.register(getFirebaseMessagingServiceWorkerUrl(), { scope: "/" });
+    const registration = await navigator.serviceWorker.register(
+      getFirebaseMessagingServiceWorkerUrl(),
+      { scope: "/" }
+    );
 
     const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
     const messaging = getMessaging(firebaseApp);

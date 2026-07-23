@@ -19,6 +19,8 @@ export default function useAgoraMultiGuest(liveId, token, isPublisher, enabled =
   const [agoraJoined, setAgoraJoined] = useState(false);
   const [agoraError, setAgoraError] = useState("");
   const [remoteUsers, setRemoteUsers] = useState(new Map()); // uid → {user, videoTrack, audioTrack}
+  const [localAudioTrack, setLocalAudioTrack] = useState(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState(null);
 
   const clientRef = useRef(null);
   const localAudioTrackRef = useRef(null);
@@ -32,10 +34,12 @@ export default function useAgoraMultiGuest(liveId, token, isPublisher, enabled =
       localAudioTrackRef.current.close();
       localAudioTrackRef.current = null;
     }
+    setLocalAudioTrack(null);
     if (localVideoTrackRef.current) {
       localVideoTrackRef.current.close();
       localVideoTrackRef.current = null;
     }
+    setLocalVideoTrack(null);
     if (clientRef.current) {
       clientRef.current.leave().catch(() => {});
       clientRef.current = null;
@@ -87,6 +91,8 @@ export default function useAgoraMultiGuest(liveId, token, isPublisher, enabled =
           try {
             [localAudioTrackRef.current, localVideoTrackRef.current] =
               await AgoraRTC.createMicrophoneAndCameraTracks();
+            setLocalAudioTrack(localAudioTrackRef.current);
+            setLocalVideoTrack(localVideoTrackRef.current);
           } catch (trackErr) {
             if (cancelledRef.current) return;
             throw new Error(
@@ -99,6 +105,10 @@ export default function useAgoraMultiGuest(liveId, token, isPublisher, enabled =
           if (cancelledRef.current) {
             localAudioTrackRef.current?.close();
             localVideoTrackRef.current?.close();
+            localAudioTrackRef.current = null;
+            localVideoTrackRef.current = null;
+            setLocalAudioTrack(null);
+            setLocalVideoTrack(null);
             return;
           }
 
@@ -241,8 +251,8 @@ export default function useAgoraMultiGuest(liveId, token, isPublisher, enabled =
     agoraError,
     remoteUsers,
     localVideoContainerRef,
-    localAudioTrack: localAudioTrackRef.current,
-    localVideoTrack: localVideoTrackRef.current,
+    localAudioTrack,
+    localVideoTrack,
     cleanup,
   };
 }

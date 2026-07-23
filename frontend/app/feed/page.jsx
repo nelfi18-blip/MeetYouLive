@@ -1002,7 +1002,7 @@ export default function FeedPage() {
       signal?.removeEventListener("abort", abortFromParent);
       if (!signal?.aborted) setLoading(false);
     }
-  }, [authToken, session?.googleEmail, status, t]);
+  }, [authToken, session, status, t]);
 
   const handleProfileUpdated = useCallback(() => {
     resetFeedAfterProfileUpdate();

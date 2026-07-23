@@ -159,19 +159,36 @@ const deliver = async ({
 
   let pushSent = false;
   if (push && shouldSendPush(user, pushCategory || type, critical)) {
-    await sendPush(user._id, user.pushToken, text.title, text.body, data);
-    pushSent = true;
+    try {
+      await sendPush(user._id, user.pushToken, text.title, text.body, data);
+      pushSent = true;
+    } catch (err) {
+      console.error("[essential-notifications] Push delivery failed", {
+        userId: String(user._id),
+        type,
+        message: err?.message || "Unknown push error",
+      });
+    }
   }
 
   let emailSent = false;
   if (email && user.email) {
-    await sendTransactionalNotificationEmail(user.email, {
-      subject: `${text.title} — MeetYouLive`,
-      text: text.body,
-      ctaUrl: data?.link ? appUrl(data.link) : null,
-      ctaLabel: data?.ctaLabel || openLabel(lang),
-    });
-    emailSent = true;
+    try {
+      await sendTransactionalNotificationEmail(user.email, {
+        subject: `${text.title} — MeetYouLive`,
+        text: text.body,
+        ctaUrl: data?.link ? appUrl(data.link) : null,
+        ctaLabel: data?.ctaLabel || openLabel(lang),
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error("[essential-notifications] Email delivery failed", {
+        userId: String(user._id),
+        type,
+        code: err?.code || "EMAIL_DELIVERY_FAILED",
+        message: err?.message || "Unknown email error",
+      });
+    }
   }
 
   return { notification, emailSent, pushSent };

@@ -285,9 +285,24 @@ const handleSubscriptionWebhook = async (event) => {
 
   const session = event.data.object;
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
-    if (session.payment_status && session.payment_status !== "paid") return;
+    if (session.payment_status && session.payment_status !== "paid") {
+      console.warn("[subscriptions webhook] unpaid subscription checkout ignored", {
+        eventId: event.id,
+        sessionId: session.id,
+        paymentStatus: session.payment_status,
+      });
+      return;
+    }
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
-    if (stripeSubscription.status && stripeSubscription.status !== "active") return;
+    if (stripeSubscription.status && stripeSubscription.status !== "active") {
+      console.warn("[subscriptions webhook] inactive subscription checkout ignored", {
+        eventId: event.id,
+        sessionId: session.id,
+        subscriptionId: getStripeId(session.subscription),
+        subscriptionStatus: stripeSubscription.status,
+      });
+      return;
+    }
     const periodEnd = getCurrentPeriodEnd(stripeSubscription);
     // vipTier is set in metadata when using createTierSubscriptionSession; falls back to null for legacy checkout
     const vipTier = resolveVipTier(session.metadata, stripeSubscription.metadata) ||

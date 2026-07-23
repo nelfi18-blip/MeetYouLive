@@ -22,6 +22,20 @@ import firebaseApp from "./firebase";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
+function getFirebaseMessagingServiceWorkerUrl() {
+  const params = new URLSearchParams({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
+    apiUrl: API_URL,
+  });
+
+  return `/firebase-messaging-sw.js?${params.toString()}`;
+}
+
 /** Send the FCM token to our backend so targeted pushes can be delivered. */
 async function registerTokenWithBackend(token, backendToken) {
   try {
@@ -61,10 +75,7 @@ export async function initPushNotifications(backendToken) {
     // Register the FCM service worker
     if (!("serviceWorker" in navigator)) return;
 
-    const registration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js",
-      { scope: "/" }
-    );
+    const registration = await navigator.serviceWorker.register(getFirebaseMessagingServiceWorkerUrl(), { scope: "/" });
 
     const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
     const messaging = getMessaging(firebaseApp);

@@ -26,6 +26,7 @@ function getConfigFromUrl() {
       storageBucket: params.get("storageBucket"),
       messagingSenderId: params.get("messagingSenderId"),
       appId: params.get("appId"),
+      apiUrl: params.get("apiUrl"),
     };
   } catch {
     return {};
@@ -58,12 +59,12 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
   const pushEventId = event.notification.data && event.notification.data.pushEventId;
+  const apiUrl = config.apiUrl || self.location.origin;
 
   // Track the open (fire-and-forget, no auth required)
   if (pushEventId) {
-    const apiUrl = self.location.origin + "/api/push/opened/" + pushEventId;
     event.waitUntil(
-      fetch(apiUrl, { method: "POST" }).catch(() => {})
+      fetch(apiUrl + "/api/push/opened/" + pushEventId, { method: "POST" }).catch(() => {})
     );
   }
 

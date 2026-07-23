@@ -32,12 +32,23 @@ function getConfigFromUrl() {
   }
 }
 
-const config = getConfigFromUrl();
+function getAppConfigFromUrl() {
+  try {
+    const params = new URL(self.location.href).searchParams;
+    return { apiUrl: params.get("apiUrl") };
+  } catch {
+    return { apiUrl: null };
+  }
+}
+
+const firebaseConfig = getConfigFromUrl();
+// App-specific runtime config is kept separate from Firebase web config.
+const runtimeConfig = getAppConfigFromUrl();
 
 // Only initialise if we have at minimum a projectId (avoids SW crash when
 // config is not yet passed).
-if (config.projectId) {
-  firebase.initializeApp(config);
+if (firebaseConfig.projectId) {
+  firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
@@ -58,12 +69,12 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const link = (event.notification.data && event.notification.data.link) || "/";
   const pushEventId = event.notification.data && event.notification.data.pushEventId;
+  const apiUrl = runtimeConfig.apiUrl;
 
   // Track the open (fire-and-forget, no auth required)
-  if (pushEventId) {
-    const apiUrl = self.location.origin + "/api/push/opened/" + pushEventId;
+  if (pushEventId && apiUrl) {
     event.waitUntil(
-      fetch(apiUrl, { method: "POST" }).catch(() => {})
+      fetch(apiUrl + "/api/push/opened/" + pushEventId, { method: "POST" }).catch(() => {})
     );
   }
 

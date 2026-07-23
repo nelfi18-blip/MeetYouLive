@@ -92,6 +92,15 @@ function logDeliverySuccess(context, to, info) {
   });
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Send an email verification code to a user.
  * @param {string} to  - recipient email
@@ -307,4 +316,40 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
   return info;
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendReactivationEmail, MailServiceError };
+async function sendTransactionalNotificationEmail(to, { subject, text, ctaUrl, ctaLabel }) {
+  if (!to || !subject || !text) return null;
+  const transport = getTransporter();
+  const safeCtaUrl = typeof ctaUrl === "string" ? ctaUrl : "";
+  const safeCtaLabel = typeof ctaLabel === "string" ? ctaLabel : "MeetYouLive";
+  const htmlCta = safeCtaUrl
+    ? `<a href="${escapeHtml(safeCtaUrl)}" style="display:inline-block;background:linear-gradient(135deg,#c040ff,#ff4fa3);color:#fff;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:1rem;margin:16px 0">${escapeHtml(safeCtaLabel)}</a>`
+    : "";
+  const safeHtmlText = escapeHtml(text).replace(/\n/g, "<br>");
+
+  const info = await transport.sendMail({
+    from: FROM,
+    to,
+    subject,
+    text: safeCtaUrl ? `${text}\n\n${safeCtaLabel}: ${safeCtaUrl}` : text,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#0f0821;color:#e2e8f0;border-radius:12px">
+        <h1 style="font-size:1.35rem;margin:0 0 12px;color:#fff">MeetYouLive</h1>
+        <p style="color:#c8a2f8;font-size:0.98rem;line-height:1.55;margin:0 0 12px">${safeHtmlText}</p>
+        ${htmlCta}
+        <p style="color:#64748b;font-size:0.8rem;margin:16px 0 0">This email contains account information only. It does not include payment credentials, internal tokens, or administrative notes.</p>
+      </div>
+    `,
+  });
+
+  throwIfDeliveryRejected(info, to, "transactional-notification");
+  logDeliverySuccess("transactional-notification", to, info);
+  return info;
+}
+
+module.exports = {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendReactivationEmail,
+  sendTransactionalNotificationEmail,
+  MailServiceError,
+};

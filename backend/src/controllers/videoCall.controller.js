@@ -5,6 +5,10 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const { calculateSplit } = require("../services/agency.service.js");
 const {
+  notifyIncomingCall,
+  notifyMissedCall,
+} = require("../services/essentialNotification.service.js");
+const {
   CALL_TYPES,
   normalizeCallType,
   assertSocialCallAllowed,
@@ -204,7 +208,16 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
   }
 
   const call = claimedCall || currentCall || callOrId;
-  if (claimedCall) emitCallEvent(call, eventName);
+  if (claimedCall) {
+    emitCallEvent(call, eventName);
+    if (finalStatus === PENDING_FINAL_STATUSES.MISSED) {
+      notifyMissedCall({
+        callId: claimedCall._id,
+        callerId: claimedCall.caller,
+        recipientId: claimedCall.recipient,
+      }).catch(() => {});
+    }
+  }
   return call;
 };
 
@@ -360,6 +373,12 @@ const inviteCall = async (req, res) => {
         callCoins: call.callCoins,
       });
     }
+
+    notifyIncomingCall({
+      callId: call._id,
+      callerId: req.userId,
+      recipientId,
+    }).catch(() => {});
 
     res.status(201).json(populated);
   } catch (err) {

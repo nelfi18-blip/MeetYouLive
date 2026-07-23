@@ -16,6 +16,7 @@ const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
+const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
 const mongoose = require("mongoose");
 
 const normalizeHttpProtocol = (value) => {
@@ -567,6 +568,8 @@ exports.approveCreator = async (req, res) => {
       targetUserId: String(user._id),
       isSubCreator: isSubCreatorApproval,
     });
+
+    await notifyCreatorDecision({ userId: user._id, approved: true });
     
     return res.json({ ok: true, user });
   } catch (error) {
@@ -614,8 +617,10 @@ exports.rejectCreator = async (req, res) => {
     console.log("[admin] Creator rejection logged", {
       adminId: req.userId,
       targetUserId: String(user._id),
-      reason,
+      reasonProvided: Boolean(reason),
     });
+
+    await notifyCreatorDecision({ userId: user._id, approved: false });
     
     return res.json({ ok: true, user });
   } catch (error) {

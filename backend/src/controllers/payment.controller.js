@@ -8,6 +8,7 @@ const SparkTransaction = require("../models/SparkTransaction.js");
 const { SPARK_PACKAGES } = require("./sparks.controller.js");
 const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { notifyCoinsPurchaseConfirmed } = require("../services/essentialNotification.service.js");
 
 let stripeClient;
 
@@ -341,6 +342,12 @@ const handlePaymentCompleted = async (session) => {
       trackAnalyticsEvent("coins_purchased", String(user._id), {
         amount_usd: resolvedPackage.priceUsd,
         coins: resolvedPackage.coins,
+      });
+      await notifyCoinsPurchaseConfirmed({
+        userId: user._id,
+        coins: resolvedPackage.coins,
+        balance: updatedCoins,
+        reference: session.id,
       });
       return;
     } catch (err) {

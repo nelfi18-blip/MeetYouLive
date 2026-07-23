@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Subscription = require("../models/Subscription.js");
 const User = require("../models/User.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { notifySubscription } = require("../services/essentialNotification.service.js");
 const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.js");
 
 let stripeClient;
@@ -58,6 +59,8 @@ const getCurrentPeriodEnd = (stripeSubscription, fallbackUnix) => {
   const periodEnd = stripeSubscription?.current_period_end || fallbackUnix;
   return periodEnd ? new Date(periodEnd * 1000) : null;
 };
+
+const getPlanName = (vipTier) => (vipTier ? "VIP" : "Premium");
 
 const findSubscriptionRecord = async ({ userId, customerId, subscriptionId }) => {
   if (subscriptionId) {
@@ -282,7 +285,24 @@ const handleSubscriptionWebhook = async (event) => {
 
   const session = event.data.object;
   if (event.type === "checkout.session.completed" && session.mode === "subscription") {
+    if (session.payment_status !== "paid") {
+      console.warn("[subscriptions webhook] unpaid subscription checkout ignored", {
+        eventId: event.id,
+        sessionId: session.id,
+        paymentStatus: session.payment_status,
+      });
+      return;
+    }
     const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription);
+    if (stripeSubscription.status && stripeSubscription.status !== "active") {
+      console.warn("[subscriptions webhook] inactive subscription checkout ignored", {
+        eventId: event.id,
+        sessionId: session.id,
+        subscriptionId: getStripeId(session.subscription),
+        subscriptionStatus: stripeSubscription.status,
+      });
+      return;
+    }
     const periodEnd = getCurrentPeriodEnd(stripeSubscription);
     // vipTier is set in metadata when using createTierSubscriptionSession; falls back to null for legacy checkout
     const vipTier = resolveVipTier(session.metadata, stripeSubscription.metadata) ||
@@ -311,6 +331,13 @@ const handleSubscriptionWebhook = async (event) => {
     trackAnalyticsEvent("vip_subscribed", userId, {
       amount_usd: session.amount_total != null ? session.amount_total / 100 : null,
       vipTier,
+    });
+    await notifySubscription({
+      userId,
+      action: "activated",
+      plan: getPlanName(vipTier),
+      eventId: event.id,
+      subscriptionId: getStripeId(session.subscription),
     });
   }
 
@@ -355,6 +382,13 @@ const handleSubscriptionWebhook = async (event) => {
         ...(vipTier ? { vipTier } : {}),
         ...(periodEnd ? { vipExpiresAt: periodEnd } : {}),
       });
+      await notifySubscription({
+        userId: sub.user,
+        action: "renewed",
+        plan: getPlanName(vipTier),
+        eventId: event.id,
+        subscriptionId,
+      });
     }
   }
 
@@ -384,6 +418,13 @@ const handleSubscriptionWebhook = async (event) => {
       await User.findByIdAndUpdate(sub.user, { isPremium: false, isVIP: false, vipTier: null, vipExpiresAt: null });
       // Analytics: vip_canceled (fire-and-forget)
       trackAnalyticsEvent("vip_canceled", String(sub.user), {});
+      await notifySubscription({
+        userId: sub.user,
+        action: "canceled",
+        plan: getPlanName(resolveVipTier(stripeSubscription.metadata) || resolveVipTierFromStripeSubscription(stripeSubscription)),
+        eventId: event.id,
+        subscriptionId,
+      });
     }
   }
 
@@ -409,6 +450,13 @@ const handleSubscriptionWebhook = async (event) => {
       },
       { upsert: true, new: true }
     );
+    await notifySubscription({
+      userId,
+      action: "payment_failed",
+      plan: getPlanName(resolveVipTier(invoiceObj.metadata, stripeSubscription?.metadata) || resolveVipTierFromStripeSubscription(stripeSubscription)),
+      eventId: event.id,
+      subscriptionId,
+    });
     // Keep access during Stripe's retry window; subscription.deleted is the
     // authoritative event that revokes Premium/VIP access.
   }

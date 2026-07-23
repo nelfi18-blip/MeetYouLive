@@ -362,6 +362,17 @@ const getOnlineUsers = () => {
   return result;
 };
 
+const isUserInChatRoom = (userId, chatId) => {
+  if (!io || !userId || !chatId) return false;
+  const roomName = `chat:${chatId}`;
+  for (const socket of io.sockets.sockets.values()) {
+    if (String(socket._userId || "") === String(userId) && socket.rooms.has(roomName)) {
+      return true;
+    }
+  }
+  return false;
+};
+
 /**
  * Attach Socket.io to the given HTTP server and store the instance.
  * Call once during server bootstrap.
@@ -781,4 +792,5 @@ module.exports = {
   clearLiveEvent,
   clearAllEventsForLive,
   emitChatMessage,
+  isUserInChatRoom,
 };

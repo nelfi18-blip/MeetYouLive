@@ -1,13 +1,18 @@
 const Notification = require("../models/Notification.js");
 const { getIO } = require("../lib/socket.js");
 
+const withCreatedFlag = (doc, wasNewNotification) => {
+  const payload = typeof doc?.toObject === "function" ? doc.toObject() : doc;
+  return payload ? { ...payload, wasNewNotification } : payload;
+};
+
 /**
  * Create a single persisted notification and push it in real-time via Socket.io.
  * Fire-and-forget safe: never throws.
  */
-const createNotification = async (userId, { type, title, message, data = {} }) => {
+const createNotification = async (userId, { type, title, message, data = {}, dedupeKey = null }) => {
   try {
-    const notif = await Notification.create({ userId, type, title, message, data });
+    const notif = await Notification.create({ userId, type, title, message, data, dedupeKey });
     const io = getIO();
     if (io) {
       io.to(String(userId)).emit("NEW_NOTIFICATION", {
@@ -20,8 +25,14 @@ const createNotification = async (userId, { type, title, message, data = {} }) =
         createdAt: notif.createdAt,
       });
     }
-    return notif;
+    return withCreatedFlag(notif, true);
   } catch (err) {
+    if (err?.code === 11000 && dedupeKey) {
+      const existing = await Notification.findOne({ userId, dedupeKey }).catch(() => null);
+      if (existing) {
+        return withCreatedFlag(existing, false);
+      }
+    }
     console.error("[notifications] Failed to create notification:", err.message);
     return null;
   }

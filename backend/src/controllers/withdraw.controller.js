@@ -3,6 +3,7 @@ const User = require("../models/User");
 const CoinTransaction = require("../models/CoinTransaction");
 const mongoose = require("mongoose");
 const { logStaffAction } = require("../services/audit.service");
+const { notifyWithdrawal } = require("../services/essentialNotification.service");
 
 // Minimum withdrawal amount in coins
 const MIN_WITHDRAWAL_COINS = 1000;
@@ -95,6 +96,14 @@ exports.requestWithdrawal = async (req, res) => {
         { session }
       );
     });
+
+    notifyWithdrawal({
+      userId,
+      withdrawalId: withdrawalRequest._id,
+      status: "requested",
+      amountCoins: withdrawalRequest.amountCoins,
+      date: withdrawalRequest.createdAt.toISOString().slice(0, 10),
+    }).catch(() => {});
 
     return res.status(201).json({
       ok: true,
@@ -213,6 +222,14 @@ exports.approveWithdrawal = async (req, res) => {
       amountUSD: request.amountUSD,
     });
 
+    await notifyWithdrawal({
+      userId: request.userId._id || request.userId,
+      withdrawalId: request._id,
+      status: "approved",
+      amountCoins: request.amountCoins,
+      date: request.updatedAt.toISOString().slice(0, 10),
+    });
+
     return res.json({
       ok: true,
       message: "Solicitud aprobada exitosamente. Procesa el pago manualmente.",
@@ -319,7 +336,15 @@ exports.rejectWithdrawal = async (req, res) => {
       withdrawalId: String(request._id),
       userId: String(request.userId),
       amountCoins: request.amountCoins,
-      reason: trimmedReason,
+      reasonProvided: Boolean(trimmedReason),
+    });
+
+    await notifyWithdrawal({
+      userId: request.userId._id || request.userId,
+      withdrawalId: request._id,
+      status: "rejected",
+      amountCoins: request.amountCoins,
+      date: request.updatedAt.toISOString().slice(0, 10),
     });
 
     return res.json({

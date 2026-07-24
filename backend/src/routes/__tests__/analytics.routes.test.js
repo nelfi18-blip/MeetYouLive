@@ -171,6 +171,40 @@ describe("analytics routes", () => {
     expect(safePercent(0, 0)).toBe(0);
   });
 
+  test("admin growth analytics includes acquisition visitor and source totals", async () => {
+    const token = require("jsonwebtoken").sign({ id: "admin-1" }, process.env.JWT_SECRET);
+    User.findById.mockReturnValue({ select: jest.fn().mockResolvedValue({ _id: "admin-1", role: "admin" }) });
+    AnalyticsEvent.countDocuments.mockImplementation((query) => Promise.resolve(query.event === "landing_view" ? 12 : 0));
+    AnalyticsEvent.distinct.mockImplementation((field, query) => {
+      if (field === "anonymousVisitorId" && query.event === "landing_view") return Promise.resolve(["visitor-a", "visitor-b", "visitor-c"]);
+      if (field === "sessionId" && query.event === "landing_view") return Promise.resolve(["session-a", "session-b"]);
+      return Promise.resolve([]);
+    });
+    AnalyticsEvent.aggregate.mockImplementation((pipeline) => {
+      const groupId = pipeline.find((stage) => stage.$group)?.$group?._id;
+      if (groupId === "$source") {
+        return Promise.resolve([
+          { _id: "instagram", visitors: ["visitor-a", "visitor-b"] },
+          { _id: "google", visitors: ["visitor-c"] },
+          { _id: "unknown", visitors: ["visitor-d"] },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const res = await request(app).get("/api/admin/analytics/growth").set("Authorization", ["Bearer", token].join(" "));
+
+    expect(res.status).toBe(200);
+    expect(res.body.analytics.acquisitionSummary).toMatchObject({
+      totalVisitors: 12,
+      uniqueVisitors: 3,
+      sessions: 2,
+      visitorsFromInstagram: 2,
+      visitorsFromGoogle: 1,
+      otherSources: 1,
+    });
+  });
+
   test("bots, health checks, previews, admin paths and API paths are excluded", async () => {
     const cases = [
       { headers: { "User-Agent": "Googlebot" }, path: "/" },

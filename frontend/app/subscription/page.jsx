@@ -73,7 +73,7 @@ export default function SubscriptionPage() {
   }, [router]);
 
   const handleCancel = async () => {
-    if (!confirm("¿Seguro que quieres cancelar tu suscripción?")) return;
+    if (!confirm(t("subscriptionSoftLaunch.cancelConfirm"))) return;
     const token = localStorage.getItem("token");
     if (!token) { router.replace("/login"); return; }
     setActionLoading(true);

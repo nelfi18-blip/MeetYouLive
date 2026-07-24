@@ -59,7 +59,7 @@ export default function VIPPage() {
   }, []);
 
   const handleCancel = async () => {
-    if (!confirm("¿Estás seguro de que deseas cancelar tu suscripción VIP?")) return;
+    if (!confirm(t("subscriptionSoftLaunch.cancelConfirm"))) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
 
@@ -99,7 +99,7 @@ export default function VIPPage() {
             </span>
           )}
           <button className="vip-cancel-btn" onClick={handleCancel}>
-            Cancelar suscripción
+            {t("subscriptionSoftLaunch.cancelSubscription")}
           </button>
         </div>
       )}
@@ -118,7 +118,7 @@ export default function VIPPage() {
                 key={tier.id}
                 className={`vip-card${isCurrent ? " vip-card--current" : ""}`}
               >
-                {isCurrent && <div className="vip-card-current-label">Tu plan actual</div>}
+                {isCurrent && <div className="vip-card-current-label">{t("subscriptionSoftLaunch.currentPlanLabel")}</div>}
                 <div
                   className="vip-card-icon"
                   style={{ background: display.gradient, boxShadow: `0 0 20px ${display.glow}` }}
@@ -152,7 +152,7 @@ export default function VIPPage() {
       )}
 
       {tiers.length === 0 && !loading && (
-        <p className="vip-empty">Los planes VIP estarán disponibles próximamente.</p>
+        <p className="vip-empty">{t("subscriptionSoftLaunch.vipEmpty")}</p>
       )}
 
       <div className="coins-cta">

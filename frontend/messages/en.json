@@ -46,6 +46,10 @@
       "💵 Support your favorite creators"
     ],
     "comingSoon": "Coming soon",
+    "cancelConfirm": "Are you sure you want to cancel your subscription?",
+    "cancelSubscription": "Cancel subscription",
+    "currentPlanLabel": "Your current plan",
+    "vipEmpty": "VIP plans will be available soon.",
     "futureDescription": "Silver, Gold, and Platinum remain ready for a future update, but cannot be purchased until all their benefits are complete.",
     "vipPageTitle": "VIP MeetYouLive — Coming Soon",
     "vipPageSubtitle": "Silver, Gold, and Platinum are preserved for a future update. During soft launch, official monetization is with Coins.",

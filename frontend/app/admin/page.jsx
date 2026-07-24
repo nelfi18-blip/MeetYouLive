@@ -78,10 +78,6 @@ function getTodayRevenueSummary(series) {
   };
 }
 
-function sumSeries(series, key = "total") {
-  return (series || []).reduce((sum, item) => sum + (item?.[key] || 0), 0);
-}
-
 function CountBadge({ value }) {
   if (value === null || value === undefined || value <= 0) return null;
   return <span className="sc-badge">{value > 99 ? "99+" : value}</span>;
@@ -347,7 +343,7 @@ export default function AdminDashboard() {
     try {
       const [overviewRes, analyticsRes, revenueRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/overview`, { headers: authHeader(), cache: "no-store" }),
-        fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader(), cache: "no-store" }),
+        fetch(`${API_URL}/api/admin/analytics/growth?period=7d`, { headers: authHeader(), cache: "no-store" }),
         fetch(`${API_URL}/api/admin/revenue`, { headers: authHeader(), cache: "no-store" }),
       ]);
 
@@ -398,11 +394,8 @@ export default function AdminDashboard() {
   const s = stats || {};
   const a = analytics || {};
   const dailyRevenueSeries = revenue?.coins?.dailyCoinRevenue || [];
-  const last7RevenueSeries = dailyRevenueSeries.slice(-7);
   const todayRevenue = getTodayRevenueSummary(dailyRevenueSeries);
   const timelineItems = buildTimelineItems(recent);
-  const registrations7d = sumSeries(a.dailyRegistrations, "count");
-  const revenue7d = sumSeries(last7RevenueSeries, "total");
 
   return (
     <div className="dash">
@@ -449,10 +442,10 @@ export default function AdminDashboard() {
       <section className="section section--analytics">
         <SectionHeader icon="📊" title="Analíticas" accent="green" link="/admin/analytics" linkLabel="Ver analíticas →" />
         <div className="analytics-grid">
-          <AnalyticsCard icon="👥" label="Usuarios últimos 7 días" value={fmt(registrations7d)} sub="Nuevos registros" />
-          <AnalyticsCard icon="💰" label="Ingresos últimos 7 días" value={fmt(revenue7d)} sub="Coins últimos 7 días" />
-          <AnalyticsCard icon="🪙" label="Coins vendidos" value={fmt(s.totalCoinsPurchased)} sub="Acumulado" />
-          <AnalyticsCard icon="📡" label="Lives realizados" value={fmt(s.totalLives)} sub="Histórico" />
+          <AnalyticsCard icon="👥" label="Visitantes hoy" value={fmt(a.summary?.uniqueVisitorsToday)} sub="Únicos" />
+          <AnalyticsCard icon="📝" label="Registros hoy" value={fmt(a.summary?.registrationsToday)} sub="Cuentas creadas" />
+          <AnalyticsCard icon="📈" label="Conversión" value={`${(a.summary?.conversion ?? 0).toFixed(1)}%`} sub="Visitante a registro" />
+          <AnalyticsCard icon="➡️" label="Embudo" value="Ver" sub="Analíticas completas" />
         </div>
       </section>
 

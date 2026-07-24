@@ -12,6 +12,7 @@ import FuturisticCard from "@/components/ui/FuturisticCard";
 import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -446,6 +447,7 @@ function LoginForm() {
     setError("");
     setInfo("");
     setLoading(true);
+    trackAnalyticsEvent("login_cta_click", { reason: "email_login" });
 
     try {
       const data = await authLogin({ email, password });
@@ -468,6 +470,7 @@ function LoginForm() {
 
       if (data.token) {
         setToken(data.token);
+        trackAnalyticsEvent("login_completed", { reason: "email_login" });
         const userRedirectPath = getSafeCallbackPath(searchParams);
         
         // Check if user is admin and redirect accordingly
@@ -524,6 +527,7 @@ function LoginForm() {
           className="btn-google"
           onClick={() => {
             const userRedirectPath = getSafeCallbackPath(searchParams);
+            trackAnalyticsEvent("google_login_click", { reason: "login" });
             // Return to /login after Google OAuth so this page can finish the
             // backend-token handshake before sending the user to callbackUrl.
             signIn("google", {

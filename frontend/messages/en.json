@@ -1675,5 +1675,37 @@
     "audience": "👥 Audience",
     "activityDescription": "Entries, gifts, and chat appear in real time with subtle animations.",
     "moreViewers": "{count} more viewers"
+  },
+  "adminAnalytics": {
+    "title": "Growth funnel",
+    "subtitle": "MeetYouLive first-party visits, registrations, and acquisition sources.",
+    "refresh": "Refresh",
+    "loading": "Loading analytics…",
+    "empty": "Not enough data yet.",
+    "periods": {
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "metrics": {
+      "visitorsToday": "Visitors today",
+      "uniqueToday": "Unique visitors today",
+      "visitors7d": "Visitors last 7 days",
+      "registerClicks": "Register clicks",
+      "registrationStarted": "Registrations started",
+      "registrationCompleted": "Registrations completed",
+      "emailVerified": "Emails verified",
+      "onboardingCompleted": "Onboarding completed",
+      "feedReached": "Reached Feed",
+      "conversion": "Conversion"
+    },
+    "funnel": "Visual funnel",
+    "sources": "Where they come from",
+    "trends": "Daily trend",
+    "devices": "Devices",
+    "locales": "Languages",
+    "visitors": "Visitors",
+    "registrations": "Registrations",
+    "retention": "Privacy and retention"
   }
 }

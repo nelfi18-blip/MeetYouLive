@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { useEffect } from "react";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -50,7 +52,12 @@ const TRUST_ITEMS = [
 export default function LandingPage() {
   const { t } = useLanguage();
 
+  useEffect(() => {
+    trackAnalyticsEvent("landing_view", {}, { dedupeKey: `landing_view:${window.location.pathname}` });
+  }, []);
+
   const handleGoogleSignIn = () => {
+    trackAnalyticsEvent("google_login_click", { reason: "landing" });
     signIn("google", {
       callbackUrl: "/dashboard",
     });
@@ -62,10 +69,10 @@ export default function LandingPage() {
         <nav className="hero-nav" aria-label="Navegación principal">
           <Logo size="lg" />
           <div className="nav-actions">
-            <Link href="/login" className="ghost-button">
+            <Link href="/login" className="ghost-button" onClick={() => trackAnalyticsEvent("login_cta_click", { reason: "landing_nav" })}>
               {t("landing.nav.login")}
             </Link>
-            <Link href="/register" className="primary-button">
+            <Link href="/register" className="primary-button" onClick={() => trackAnalyticsEvent("register_cta_click", { reason: "landing_nav" })}>
               {t("landing.nav.register")}
             </Link>
           </div>
@@ -82,12 +89,12 @@ export default function LandingPage() {
               <button type="button" className="primary-button large main-cta" onClick={handleGoogleSignIn}>
                 {t("landing.cta.google")}
               </button>
-              <Link href="/register" className="email-link">
+              <Link href="/register" className="email-link" onClick={() => trackAnalyticsEvent("register_cta_click", { reason: "landing_email" })}>
                 {t("landing.cta.email")}
               </Link>
               <div className="login-prompt">
                 <span>{t("landing.cta.existingAccount")}</span>
-                <Link href="/login" className="login-link">
+                <Link href="/login" className="login-link" onClick={() => trackAnalyticsEvent("login_cta_click", { reason: "landing_existing_account" })}>
                   {t("landing.cta.login")}
                 </Link>
               </div>

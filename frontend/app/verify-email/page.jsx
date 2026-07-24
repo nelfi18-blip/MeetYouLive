@@ -6,6 +6,7 @@ import Link from "next/link";
 import { verifyEmail, resendVerification } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -22,6 +23,7 @@ function VerifyEmailForm() {
   const cooldownRef = useRef(null);
 
   useEffect(() => {
+    trackAnalyticsEvent("email_verification_view");
     const emailParam = searchParams.get("email");
     if (emailParam) setEmail(decodeURIComponent(emailParam));
   }, [searchParams]);
@@ -89,6 +91,7 @@ function VerifyEmailForm() {
       }
       if (data.token) {
         setToken(data.token);
+        trackAnalyticsEvent("email_verified");
         setSuccess("¡Email verificado! Configurando tu perfil…");
         setTimeout(() => router.replace("/onboarding"), 1500);
       }

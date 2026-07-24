@@ -1675,5 +1675,37 @@
     "audience": "👥 Audiencia",
     "activityDescription": "Entradas, regalos y chat aparecen en tiempo real con animaciones discretas.",
     "moreViewers": "{count} más espectadores"
+  },
+  "adminAnalytics": {
+    "title": "Embudo de crecimiento",
+    "subtitle": "Visitas, registros y fuentes de adquisición propias de MeetYouLive.",
+    "refresh": "Actualizar",
+    "loading": "Cargando analíticas…",
+    "empty": "Aún no hay suficientes datos.",
+    "periods": {
+      "today": "Hoy",
+      "7d": "Últimos 7 días",
+      "30d": "Últimos 30 días"
+    },
+    "metrics": {
+      "visitorsToday": "Visitantes hoy",
+      "uniqueToday": "Visitantes únicos hoy",
+      "visitors7d": "Visitantes últimos 7 días",
+      "registerClicks": "Clics en Registrarse",
+      "registrationStarted": "Registros iniciados",
+      "registrationCompleted": "Registros completados",
+      "emailVerified": "Correos verificados",
+      "onboardingCompleted": "Onboarding completado",
+      "feedReached": "Llegaron al Feed",
+      "conversion": "Conversión"
+    },
+    "funnel": "Embudo visual",
+    "sources": "De dónde llegan",
+    "trends": "Tendencia diaria",
+    "devices": "Dispositivos",
+    "locales": "Idiomas",
+    "visitors": "Visitantes",
+    "registrations": "Registros",
+    "retention": "Privacidad y retención"
   }
 }

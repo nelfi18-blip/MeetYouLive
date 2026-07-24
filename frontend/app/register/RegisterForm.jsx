@@ -8,6 +8,7 @@ import { signUp } from "@/lib/auth.service";
 import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
 
 function getPostRegisterRedirectPath(user) {
   if (user?.role === "admin") return "/admin";
@@ -35,6 +36,7 @@ export default function RegisterForm() {
   const inviteCode = searchParams.get("creatorInvite") || null;
 
   useEffect(() => {
+    ensureAnalyticsVisitor();
     if (!inviteCode) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     fetch(`${apiUrl}/api/agency/invite-info?code=${encodeURIComponent(inviteCode)}`)
@@ -75,6 +77,7 @@ export default function RegisterForm() {
   const register = async () => {
     setError("");
     setSuccess("");
+    trackAnalyticsEvent("registration_started");
 
     if (!username.trim() || !email.trim() || !password) {
       setError("Todos los campos son obligatorios");
@@ -102,10 +105,12 @@ export default function RegisterForm() {
           router.push(`/login?email=${encodeURIComponent(email.trim())}`);
           return;
         }
+        trackAnalyticsEvent("registration_failed", { reason: "server_validation" });
         setError(data.error);
         return;
       }
 
+      trackAnalyticsEvent("registration_submitted");
       if (data.requiresVerification) {
         setSuccess("¡Cuenta creada! Revisa tu email y la carpeta de spam para obtener el código de verificación.");
         setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`); }, 1500);
@@ -118,6 +123,7 @@ export default function RegisterForm() {
         setTimeout(() => { router.push("/login"); }, 1500);
       }
     } catch {
+      trackAnalyticsEvent("registration_failed", { reason: "network" });
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
@@ -236,7 +242,10 @@ export default function RegisterForm() {
 
         <button
           className="btn-google"
-          onClick={() => signIn("google", { callbackUrl: "/login?callbackUrl=/feed" })}
+          onClick={() => {
+            trackAnalyticsEvent("google_login_click", { reason: "register" });
+            signIn("google", { callbackUrl: "/login?callbackUrl=/feed" });
+          }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

@@ -1,69 +1,112 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const PERIODS = ["today", "7d", "30d"];
+const SOURCE_LABELS = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  whatsapp: "WhatsApp",
+  google: "Google",
+  direct: "Directo",
+  other: "Otros",
+};
 
-function MetricCard({ title, value, sub, icon }) {
+function fmt(value) {
+  return (value ?? 0).toLocaleString();
+}
+
+function pct(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function MetricCard({ title, value, sub }) {
   return (
     <div className="metric-card">
-      <div className="metric-icon">{icon}</div>
-      <div className="metric-body">
-        <div className="metric-value">{value ?? "—"}</div>
-        <div className="metric-title">{title}</div>
-        {sub && <div className="metric-sub">{sub}</div>}
-      </div>
+      <strong>{value ?? "—"}</strong>
+      <span>{title}</span>
+      {sub && <small>{sub}</small>}
     </div>
   );
 }
 
-function BarChart({ data, valueKey, labelKey, colorFn }) {
-  if (!data?.length) return <div className="chart-empty">Sin datos disponibles.</div>;
-  const max = Math.max(...data.map((d) => d[valueKey] || 0), 1);
+function TinyBars({ data, valueKey, labelKey, empty }) {
+  if (!data?.length) return <div className="empty">{empty}</div>;
+  const max = Math.max(...data.map((item) => item[valueKey] || 0), 1);
   return (
-    <div className="bar-chart">
-      {data.map((item, i) => {
-        const pct = ((item[valueKey] || 0) / max) * 100;
-        return (
-          <div key={i} className="bar-item">
-            <div className="bar-label">{item[labelKey]}</div>
-            <div className="bar-track">
-              <div
-                className="bar-fill"
-                style={{
-                  width: `${pct}%`,
-                  background: colorFn ? colorFn(i) : "#7c3aed",
-                }}
-              />
-            </div>
-            <div className="bar-value">{(item[valueKey] || 0).toLocaleString()}</div>
-          </div>
-        );
-      })}
+    <div className="tiny-bars">
+      {data.map((item) => (
+        <div className="tiny-row" key={item[labelKey]}>
+          <span>{item[labelKey]}</span>
+          <div className="tiny-track"><i style={{ width: `${((item[valueKey] || 0) / max) * 100}%` }} /></div>
+          <b>{fmt(item[valueKey])}</b>
+        </div>
+      ))}
     </div>
   );
 }
 
-export default function AdminAnalyticsPage() {
+export default function AdminGrowthAnalyticsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const [period, setPeriod] = useState("7d");
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const labels = useMemo(() => ({
+    title: t("adminAnalytics.title"),
+    subtitle: t("adminAnalytics.subtitle"),
+    refresh: t("adminAnalytics.refresh"),
+    loading: t("adminAnalytics.loading"),
+    empty: t("adminAnalytics.empty"),
+    visitorsToday: t("adminAnalytics.metrics.visitorsToday"),
+    uniqueToday: t("adminAnalytics.metrics.uniqueToday"),
+    visitors7d: t("adminAnalytics.metrics.visitors7d"),
+    registerClicks: t("adminAnalytics.metrics.registerClicks"),
+    registrationStarted: t("adminAnalytics.metrics.registrationStarted"),
+    registrationCompleted: t("adminAnalytics.metrics.registrationCompleted"),
+    emailVerified: t("adminAnalytics.metrics.emailVerified"),
+    onboardingCompleted: t("adminAnalytics.metrics.onboardingCompleted"),
+    feedReached: t("adminAnalytics.metrics.feedReached"),
+    conversion: t("adminAnalytics.metrics.conversion"),
+    funnel: t("adminAnalytics.funnel"),
+    sources: t("adminAnalytics.sources"),
+    trends: t("adminAnalytics.trends"),
+    devices: t("adminAnalytics.devices"),
+    locales: t("adminAnalytics.locales"),
+    visitors: t("adminAnalytics.visitors"),
+    registrations: t("adminAnalytics.registrations"),
+    retention: t("adminAnalytics.retention"),
+  }), [t]);
+
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
-    return { Authorization: `Bearer ${token}` };
+    return { Authorization: ["Bearer", token].join(" ") };
   }, []);
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_URL}/api/admin/analytics`, { headers: authHeader() });
-      if (res.status === 401) { clearAdminToken(); router.replace("/admin/login"); return; }
-      if (res.status === 403) { setError("Sin permisos."); return; }
+      const res = await fetch(`${API_URL}/api/admin/analytics/growth?period=${period}`, {
+        headers: authHeader(),
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      if (res.status === 403) {
+        setError("Sin permisos.");
+        return;
+      }
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setAnalytics(data.analytics || null);
@@ -72,197 +115,150 @@ export default function AdminAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [authHeader, router]);
+  }, [authHeader, period, router]);
 
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+
+  const summary = analytics?.summary || {};
+  const funnel = analytics?.funnel || [];
+  const trend = analytics?.trend || [];
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Analíticas</h1>
-          <p className="page-sub">Datos de plataforma de los últimos 7 días</p>
+          <p className="eyebrow">Admin → Analíticas</p>
+          <h1>{labels.title}</h1>
+          <p>{labels.subtitle}</p>
         </div>
         <button className="btn-refresh" onClick={loadAnalytics} disabled={loading}>
-          {loading ? "…" : "↺ Actualizar"}
+          {loading ? "…" : labels.refresh}
         </button>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      <div className="periods">
+        {PERIODS.map((item) => (
+          <button key={item} className={period === item ? "active" : ""} onClick={() => setPeriod(item)}>
+            {t(`adminAnalytics.periods.${item}`)}
+          </button>
+        ))}
+      </div>
 
+      {error && <div className="alert">{error}</div>}
       {loading ? (
-        <div className="loading-state">Cargando analíticas…</div>
+        <div className="empty">{labels.loading}</div>
       ) : !analytics ? (
-        <div className="loading-state">Sin datos disponibles.</div>
+        <div className="empty">{labels.empty}</div>
       ) : (
         <>
-          {/* Retention metrics */}
-          <section className="section">
-            <h2 className="section-title">Retención de usuarios</h2>
-            <div className="metrics-grid">
-              <MetricCard icon="🟢" title="Activos hoy (DAU)" value={analytics.retention?.dau?.toLocaleString()} />
-              <MetricCard icon="📅" title="Activos esta semana (WAU)" value={analytics.retention?.wau?.toLocaleString()} />
-              <MetricCard icon="📆" title="Activos este mes (MAU)" value={analytics.retention?.mau?.toLocaleString()} />
-              {analytics.retention?.dau > 0 && analytics.retention?.mau > 0 && (
-                <MetricCard
-                  icon="📈"
-                  title="Ratio DAU/MAU"
-                  value={`${((analytics.retention.dau / analytics.retention.mau) * 100).toFixed(1)}%`}
-                  sub="Proxy de engagement"
-                />
-              )}
+          <section className="metrics-grid">
+            <MetricCard title={labels.visitorsToday} value={fmt(summary.visitorsToday)} />
+            <MetricCard title={labels.uniqueToday} value={fmt(summary.uniqueVisitorsToday)} />
+            <MetricCard title={labels.visitors7d} value={fmt(summary.visitors7d)} />
+            <MetricCard title={labels.registerClicks} value={fmt(summary.registerClicks)} />
+            <MetricCard title={labels.registrationStarted} value={fmt(summary.registrationStarted)} />
+            <MetricCard title={labels.registrationCompleted} value={fmt(summary.registrationCompleted)} />
+            <MetricCard title={labels.emailVerified} value={fmt(summary.emailVerified)} />
+            <MetricCard title={labels.onboardingCompleted} value={fmt(summary.onboardingCompleted)} />
+            <MetricCard title={labels.feedReached} value={fmt(summary.feedReached)} />
+          </section>
+
+          <section className="panel">
+            <h2>{labels.funnel}</h2>
+            <div className="funnel">
+              {funnel.map((step, index) => (
+                <div className="funnel-step" key={step.event}>
+                  <div className="funnel-copy">
+                    <strong>{step.label}</strong>
+                    <span>{fmt(step.count)} · {index === 0 ? "100%" : pct(step.conversionFromPrevious)}</span>
+                  </div>
+                  {index > 0 && <small>-{fmt(step.dropoffFromPrevious)} · {pct(step.dropoffPercent)}</small>}
+                </div>
+              ))}
             </div>
           </section>
 
-          {/* Daily registrations */}
-          <section className="section">
-            <h2 className="section-title">Registros diarios (últimos 7 días)</h2>
-            <div className="chart-panel">
-              <BarChart
-                data={analytics.dailyRegistrations}
-                valueKey="count"
-                labelKey="label"
-                colorFn={() => "#7c3aed"}
-              />
+          <section className="panel">
+            <h2>{labels.sources}</h2>
+            <div className="sources">
+              {(analytics.sources || []).map((source) => (
+                <div className="source-card" key={source.source}>
+                  <strong>{SOURCE_LABELS[source.source] || source.source}</strong>
+                  <span>{labels.visitors}: {fmt(source.visitors)}</span>
+                  <span>{labels.registrations}: {fmt(source.registrations)}</span>
+                  <b>{pct(source.conversion)}</b>
+                </div>
+              ))}
             </div>
           </section>
 
-          {/* Daily coin purchases */}
-          <section className="section">
-            <h2 className="section-title">Compra de coins diaria (últimos 7 días)</h2>
-            <div className="chart-panel">
-              <BarChart
-                data={analytics.dailyPurchases}
-                valueKey="total"
-                labelKey="label"
-                colorFn={() => "#fbbf24"}
-              />
+          <section className="panel">
+            <h2>{labels.trends}</h2>
+            <TinyBars data={trend} valueKey="visits" labelKey="label" empty={labels.empty} />
+            <div className="trend-grid">
+              <TinyBars data={trend} valueKey="uniqueVisitors" labelKey="label" empty={labels.empty} />
+              <TinyBars data={trend} valueKey="registrations" labelKey="label" empty={labels.empty} />
+              <TinyBars data={trend} valueKey="conversion" labelKey="label" empty={labels.empty} />
             </div>
           </section>
 
-          {/* Top tables */}
-          <div className="tables-row">
-            {/* Top creators */}
-            <div className="table-panel">
-              <h3 className="table-panel-title">🏆 Top creadores por regalos (24h)</h3>
-              {!analytics.topCreators?.length ? (
-                <p className="empty-text">Sin datos de hoy.</p>
-              ) : (
-                <table className="mini-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Creador</th>
-                      <th>Regalos recibidos</th>
-                      <th>Cantidad (coins)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.topCreators.map((c, i) => (
-                      <tr key={c._id}>
-                        <td className="rank">{i + 1}</td>
-                        <td>
-                          <div className="mini-user">
-                            {c.user?.avatar ? (
-                              <img src={c.user.avatar} alt="" className="mini-avatar" />
-                            ) : (
-                              <div className="mini-avatar mini-avatar--ph">
-                                {(c.user?.name || c.user?.username || "?")[0].toUpperCase()}
-                              </div>
-                            )}
-                            <span>{c.user?.name || c.user?.username || "—"}</span>
-                          </div>
-                        </td>
-                        <td className="text-center">{c.count}</td>
-                        <td className="coins">{(c.totalGifts ?? 0).toLocaleString()} 🪙</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Top spenders */}
-            <div className="table-panel">
-              <h3 className="table-panel-title">💸 Top compradores (24h)</h3>
-              {!analytics.topSpenders?.length ? (
-                <p className="empty-text">Sin datos de hoy.</p>
-              ) : (
-                <table className="mini-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Usuario</th>
-                      <th>Coins comprados</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analytics.topSpenders.map((s, i) => (
-                      <tr key={s._id}>
-                        <td className="rank">{i + 1}</td>
-                        <td>
-                          <div className="mini-user">
-                            {s.user?.avatar ? (
-                              <img src={s.user.avatar} alt="" className="mini-avatar" />
-                            ) : (
-                              <div className="mini-avatar mini-avatar--ph">
-                                {(s.user?.name || s.user?.username || "?")[0].toUpperCase()}
-                              </div>
-                            )}
-                            <span>{s.user?.name || s.user?.username || "—"}</span>
-                          </div>
-                        </td>
-                        <td className="coins">{(s.totalSpent ?? 0).toLocaleString()} 🪙</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          <div className="split">
+            <section className="panel">
+              <h2>{labels.devices}</h2>
+              <TinyBars data={analytics.devices || []} valueKey="visitors" labelKey="deviceCategory" empty={labels.empty} />
+            </section>
+            <section className="panel">
+              <h2>{labels.locales}</h2>
+              <TinyBars data={analytics.locales || []} valueKey="visitors" labelKey="locale" empty={labels.empty} />
+            </section>
           </div>
+
+          <p className="retention">{labels.retention}: {analytics.retention?.note}</p>
         </>
       )}
 
       <style jsx>{`
-        .page { max-width: 1200px; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.75rem; gap: 1rem; }
-        .page-title { font-size: 1.4rem; font-weight: 700; color: #e2e8f0; margin: 0 0 0.2rem; }
-        .page-sub { font-size: 0.85rem; color: #64748b; margin: 0; }
-        .btn-refresh { background: #1e2535; border: 1px solid #2d3748; color: #94a3b8; border-radius: 8px; padding: 0.55rem 1rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
-        .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; }
-        .alert-error { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
-        .loading-state { text-align: center; padding: 3rem; color: #64748b; }
-        .section { margin-bottom: 2rem; }
-        .section-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin: 0 0 0.85rem; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
-        .metric-card { background: #161b27; border: 1px solid #1e2535; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.85rem; }
-        .metric-icon { font-size: 1.5rem; flex-shrink: 0; }
-        .metric-value { font-size: 1.4rem; font-weight: 800; color: #e2e8f0; line-height: 1; }
-        .metric-title { font-size: 0.78rem; color: #64748b; margin-top: 0.2rem; }
-        .metric-sub { font-size: 0.7rem; color: #475569; margin-top: 0.1rem; }
-        .chart-panel { background: #161b27; border: 1px solid #1e2535; border-radius: 12px; padding: 1.25rem; }
-        .chart-empty { text-align: center; color: #64748b; font-size: 0.875rem; padding: 1.5rem; }
-        .bar-chart { display: flex; flex-direction: column; gap: 0.55rem; }
-        .bar-item { display: grid; grid-template-columns: 80px 1fr 60px; align-items: center; gap: 0.75rem; }
-        .bar-label { font-size: 0.78rem; color: #94a3b8; text-align: right; white-space: nowrap; }
-        .bar-track { background: #1e2535; border-radius: 4px; height: 8px; overflow: hidden; }
-        .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; min-width: 2px; }
-        .bar-value { font-size: 0.78rem; color: #e2e8f0; font-weight: 600; text-align: right; }
-        .tables-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
-        @media (max-width: 700px) { .tables-row { grid-template-columns: 1fr; } }
-        .table-panel { background: #161b27; border: 1px solid #1e2535; border-radius: 12px; padding: 1.1rem 1.25rem; }
-        .table-panel-title { font-size: 0.875rem; font-weight: 700; color: #e2e8f0; margin: 0 0 0.85rem; }
-        .empty-text { font-size: 0.85rem; color: #64748b; text-align: center; padding: 1rem; margin: 0; }
-        .mini-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-        .mini-table th { text-align: left; color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.35rem 0.5rem; border-bottom: 1px solid #1e2535; }
-        .mini-table td { padding: 0.45rem 0.5rem; color: #cbd5e1; border-bottom: 1px solid #131825; vertical-align: middle; }
-        .mini-table tbody tr:last-child td { border-bottom: none; }
-        .rank { color: #64748b; font-weight: 700; width: 24px; }
-        .coins { color: #fbbf24; font-weight: 600; text-align: right; white-space: nowrap; }
-        .text-center { text-align: center; }
-        .mini-user { display: flex; align-items: center; gap: 0.4rem; }
-        .mini-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .mini-avatar--ph { background: linear-gradient(135deg, #7c3aed, #a855f7); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.65rem; color: #fff; }
+        .page { max-width: 1180px; margin: 0 auto; padding-bottom: 2rem; }
+        .page-header { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+        .eyebrow { color: #22d3ee; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 0.35rem; }
+        h1 { margin: 0; color: #f8fafc; font-size: clamp(1.7rem, 5vw, 2.4rem); }
+        .page-header p:not(.eyebrow) { color: #94a3b8; margin: 0.35rem 0 0; }
+        .btn-refresh, .periods button { border: 1px solid rgba(124,58,237,0.38); color: #c4b5fd; background: rgba(124,58,237,0.12); border-radius: 999px; padding: 0.65rem 1rem; font-weight: 800; cursor: pointer; }
+        .periods { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .periods button.active { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: #fff; }
+        .alert { padding: 0.8rem 1rem; border-radius: 14px; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+        .empty { color: #94a3b8; text-align: center; padding: 2rem; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+        .metric-card, .panel, .source-card { border: 1px solid rgba(148,163,184,0.14); background: linear-gradient(180deg, #171c2a, #101522); border-radius: 22px; }
+        .metric-card { padding: 1rem; display: grid; gap: 0.35rem; }
+        .metric-card strong { color: #fff; font-size: 1.65rem; line-height: 1; }
+        .metric-card span, .metric-card small { color: #94a3b8; font-size: 0.78rem; }
+        .panel { padding: 1rem; margin-bottom: 1rem; }
+        .panel h2 { margin: 0 0 0.9rem; font-size: 0.82rem; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.09em; }
+        .funnel { display: grid; gap: 0.7rem; }
+        .funnel-step { display: flex; justify-content: space-between; gap: 0.8rem; align-items: center; padding: 0.85rem; border-radius: 16px; background: rgba(255,255,255,0.04); position: relative; }
+        .funnel-step + .funnel-step::before { content: "↓"; position: absolute; top: -0.85rem; left: 1rem; color: #22d3ee; font-weight: 900; }
+        .funnel-copy { display: grid; gap: 0.25rem; }
+        .funnel-copy strong { color: #f8fafc; }
+        .funnel-copy span, .funnel-step small { color: #94a3b8; }
+        .sources, .split, .trend-grid { display: grid; gap: 0.75rem; }
+        .sources { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+        .source-card { padding: 0.9rem; display: grid; gap: 0.3rem; }
+        .source-card strong { color: #f8fafc; }
+        .source-card span { color: #94a3b8; font-size: 0.78rem; }
+        .source-card b { color: #22d3ee; }
+        .tiny-bars { display: grid; gap: 0.55rem; }
+        .tiny-row { display: grid; grid-template-columns: 62px 1fr 48px; gap: 0.6rem; align-items: center; color: #94a3b8; font-size: 0.78rem; }
+        .tiny-track { height: 8px; border-radius: 999px; background: #1e2535; overflow: hidden; }
+        .tiny-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); min-width: 2px; }
+        .tiny-row b { color: #f8fafc; text-align: right; }
+        .trend-grid, .split { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 1rem; }
+        .retention { color: #64748b; font-size: 0.8rem; line-height: 1.5; }
+        @media (max-width: 640px) {
+          .page-header { display: grid; }
+          .btn-refresh { width: 100%; }
+          .tiny-row { grid-template-columns: 54px 1fr 42px; }
+        }
       `}</style>
     </div>
   );

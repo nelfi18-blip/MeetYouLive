@@ -14,6 +14,7 @@ import NeonBadge from "@/components/ui/NeonBadge";
 import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
 import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import {
   ArrowRightIcon,
   CardIcon,
@@ -192,6 +193,7 @@ export default function BuyCoinsPage() {
 
   const buy = async (pkg) => {
     setError("");
+    trackAnalyticsEvent("coins_checkout_started", { packageId: String(pkg) });
     if (shouldUseNativeStorePayments()) {
       setError(t("common.mobileStorePaymentRequired"));
       return;

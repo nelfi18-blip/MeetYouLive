@@ -1414,11 +1414,11 @@ export default function LiveRoomPage() {
           <h2 className="paywall-title">{live.title}</h2>
           <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
           <p className="paywall-desc" style={{ color: "#fbbf24" }}>
-            Este contenido es solo para usuarios VIP 💎
+            {t("subscriptionSoftLaunch.liveVipUnavailable")}
           </p>
-          <p className="paywall-desc">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
-          <Link href="/subscription" className="btn btn-vip-cta btn-lg">
-            💎 Hazte VIP
+          <p className="paywall-desc">{t("subscriptionSoftLaunch.liveVipSupport")}</p>
+          <Link href="/coins" className="btn btn-vip-cta btn-lg">
+            {t("subscriptionSoftLaunch.buyCoins")}
           </Link>
           <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
         </div>
@@ -2012,10 +2012,10 @@ export default function LiveRoomPage() {
             </Link>
           )}
 
-          {/* ── VIP CTA (viewer only, non-VIP) ── */}
+          {/* ── Coins CTA (viewer only, non-VIP) ── */}
           {!isCreator && !currentUserIsVIP && (
-            <Link href="/subscription" className="vip-live-cta">
-              💎 <strong>Hazte VIP</strong> · Destaca en el live · Acceso exclusivo
+            <Link href="/coins" className="vip-live-cta">
+              🪙 <strong>{t("subscriptionSoftLaunch.buyCoinsShort")}</strong> · {t("subscriptionSoftLaunch.liveCoinsCta")}
             </Link>
           )}
 
@@ -2023,7 +2023,7 @@ export default function LiveRoomPage() {
           {!isCreator && currentUserIsVIP && (
             <div className="vip-active-badge">
               <span>💎</span>
-              <span>VIP activo · Disfruta de tus ventajas exclusivas</span>
+              <span>{t("subscriptionSoftLaunch.liveVipActivePaused")}</span>
             </div>
           )}
 

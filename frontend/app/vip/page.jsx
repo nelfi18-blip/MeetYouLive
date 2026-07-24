@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
+import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -30,12 +29,10 @@ const TIER_DISPLAY = {
 };
 
 export default function VIPPage() {
-  const router = useRouter();
   const { t } = useLanguage();
   const [tiers, setTiers] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [subscribing, setSubscribing] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -61,33 +58,8 @@ export default function VIPPage() {
     }
   }, []);
 
-  const handleSubscribe = async (tierId) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) { router.push("/login"); return; }
-
-    setSubscribing(tierId);
-    setError("");
-    try {
-      const res = await fetch(`${API_URL}/api/subscriptions/subscribe-tier`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ tier: tierId }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.message || "Error al procesar la suscripción."); return; }
-      if (!redirectToTrustedCheckout(data.url)) setError(t("common.invalidPaymentUrl"));
-    } catch {
-      setError("Error de conexión. Inténtalo de nuevo.");
-    } finally {
-      setSubscribing(null);
-    }
-  };
-
   const handleCancel = async () => {
-    if (!confirm("¿Estás seguro de que deseas cancelar tu suscripción VIP?")) return;
+    if (!confirm(t("subscriptionSoftLaunch.cancelConfirm"))) return;
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) return;
 
@@ -111,8 +83,8 @@ export default function VIPPage() {
     <div className="vip-page">
       <div className="vip-hero">
         <div className="vip-hero-icon"><StarIcon /></div>
-        <h1 className="vip-title">VIP MeetYouLive</h1>
-        <p className="vip-subtitle">Mejora tu experiencia con beneficios exclusivos</p>
+        <h1 className="vip-title">{t("subscriptionSoftLaunch.vipPageTitle")}</h1>
+        <p className="vip-subtitle">{t("subscriptionSoftLaunch.vipPageSubtitle")}</p>
       </div>
 
       {currentStatus?.isVIP && currentStatus.vipTier && (
@@ -127,7 +99,7 @@ export default function VIPPage() {
             </span>
           )}
           <button className="vip-cancel-btn" onClick={handleCancel}>
-            Cancelar suscripción
+            {t("subscriptionSoftLaunch.cancelSubscription")}
           </button>
         </div>
       )}
@@ -141,14 +113,12 @@ export default function VIPPage() {
           {tiers.map((tier) => {
             const display = TIER_DISPLAY[tier.id] || {};
             const isCurrent = currentStatus?.vipTier === tier.id && currentStatus?.isVIP;
-            const isGold = tier.id === "gold";
             return (
               <div
                 key={tier.id}
-                className={`vip-card${isGold ? " vip-card--featured" : ""}${isCurrent ? " vip-card--current" : ""}`}
+                className={`vip-card${isCurrent ? " vip-card--current" : ""}`}
               >
-                {isGold && <div className="vip-card-badge">Popular</div>}
-                {isCurrent && <div className="vip-card-current-label">Tu plan actual</div>}
+                {isCurrent && <div className="vip-card-current-label">{t("subscriptionSoftLaunch.currentPlanLabel")}</div>}
                 <div
                   className="vip-card-icon"
                   style={{ background: display.gradient, boxShadow: `0 0 20px ${display.glow}` }}
@@ -157,29 +127,23 @@ export default function VIPPage() {
                 </div>
                 <h2 className="vip-card-name">{tier.name}</h2>
                 <div className="vip-card-price">
-                  <span className="vip-price-value">${tier.priceUsd.toFixed(2)}</span>
-                  <span className="vip-price-period">/mes</span>
+                  <span className="vip-price-value">{t("subscriptionSoftLaunch.comingSoon")}</span>
                 </div>
                 <ul className="vip-perks">
-                  {(tier.perks || []).map((perk, i) => (
-                    <li key={i} className="vip-perk">
-                      <span className="vip-perk-icon"><CheckIcon /></span>
-                      {perk}
-                    </li>
-                  ))}
+                  <li className="vip-perk">
+                    <span className="vip-perk-icon"><CheckIcon /></span>
+                    {t("subscriptionSoftLaunch.tierBenefitsPreparing")}
+                  </li>
+                  <li className="vip-perk">
+                    <span className="vip-perk-icon"><CheckIcon /></span>
+                    {t("subscriptionSoftLaunch.purchaseDisabled")}
+                  </li>
                 </ul>
                 <button
                   className={`vip-subscribe-btn${isCurrent ? " vip-subscribe-btn--current" : ""}`}
-                  onClick={() => !isCurrent && handleSubscribe(tier.id)}
-                  disabled={subscribing === tier.id || isCurrent || !tier.available}
+                  disabled
                 >
-                  {isCurrent
-                    ? "Plan activo"
-                    : !tier.available
-                    ? "Próximamente"
-                    : subscribing === tier.id
-                    ? "Procesando…"
-                    : "Suscribirme"}
+                  {isCurrent ? t("subscriptionSoftLaunch.activePlan") : t("subscriptionSoftLaunch.comingSoon")}
                 </button>
               </div>
             );
@@ -188,8 +152,13 @@ export default function VIPPage() {
       )}
 
       {tiers.length === 0 && !loading && (
-        <p className="vip-empty">Los planes VIP estarán disponibles próximamente.</p>
+        <p className="vip-empty">{t("subscriptionSoftLaunch.vipEmpty")}</p>
       )}
+
+      <div className="coins-cta">
+        <p>{t("subscriptionSoftLaunch.coinsCtaDescription")}</p>
+        <Link href="/coins" className="vip-subscribe-btn coins-cta-btn">{t("subscriptionSoftLaunch.buyCoins")}</Link>
+      </div>
 
       <style jsx>{`
         .vip-page {
@@ -353,7 +322,7 @@ export default function VIPPage() {
         }
 
         .vip-price-value {
-          font-size: 2rem;
+          font-size: clamp(1.25rem, 5vw, 2rem);
           font-weight: 900;
         }
 
@@ -404,6 +373,26 @@ export default function VIPPage() {
 
         .vip-subscribe-btn:hover:not(:disabled) { opacity: 0.85; transform: scale(1.02); }
         .vip-subscribe-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+        .coins-cta {
+          margin: 1rem auto 0;
+          max-width: 620px;
+          text-align: center;
+          color: var(--text-muted, #aaa);
+          background: rgba(20,12,46,0.6);
+          border: 1px solid rgba(251,191,36,0.25);
+          border-radius: 16px;
+          padding: 1.25rem;
+        }
+
+        .coins-cta-btn {
+          display: inline-flex;
+          justify-content: center;
+          text-decoration: none;
+          max-width: 220px;
+          margin-top: 0.75rem;
+          background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        }
 
         .vip-subscribe-btn--current {
           background: rgba(99,255,130,0.15);

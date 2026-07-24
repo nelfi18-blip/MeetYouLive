@@ -14,7 +14,7 @@
     "profile": "Profile",
     "myProfile": "My profile",
     "buyCoins": "Buy coins",
-    "premiumSubscription": "Premium Subscription",
+    "premiumSubscription": "VIP coming soon",
     "creatorDashboard": "Creator Dashboard",
     "goLive": "Go Live",
     "logout": "Log out",
@@ -32,6 +32,48 @@
     "liveCtaInactive": "GO",
     "openLiveCreatorActions": "Open live and creator actions",
     "openLiveRoomActions": "Open live rooms and creator actions"
+  },
+  "subscriptionSoftLaunch": {
+    "badge": "💎 VIP Coming Soon",
+    "title": "VIP is paused for soft launch",
+    "description": "For now, MeetYouLive focuses on Coins, gifts, exclusive content, private video calls, and creators.",
+    "featuresTitle": "Official monetization available",
+    "features": [
+      "🪙 Buy Coins and check your balance",
+      "🎁 Send gifts in Lives",
+      "🔓 Unlock exclusive content with Coins",
+      "🎥 Make paid private video calls",
+      "💵 Support your favorite creators"
+    ],
+    "comingSoon": "Coming soon",
+    "cancelConfirm": "Are you sure you want to cancel your subscription?",
+    "cancelSubscription": "Cancel subscription",
+    "currentPlanLabel": "Your current plan",
+    "vipEmpty": "VIP plans will be available soon.",
+    "futureDescription": "Silver, Gold, and Platinum remain ready for a future update, but cannot be purchased until all their benefits are complete.",
+    "vipPageTitle": "VIP MeetYouLive — Coming Soon",
+    "vipPageSubtitle": "Silver, Gold, and Platinum are preserved for a future update. During soft launch, official monetization is with Coins.",
+    "tierBenefitsPreparing": "Tier benefits in preparation",
+    "purchaseDisabled": "Purchases disabled until all announced advantages are complete",
+    "activePlan": "Active plan",
+    "coinsCtaDescription": "Use Coins to send gifts, unlock exclusive content, make private video calls, and support your favorite creators.",
+    "profileActiveTitle": "VIP active 💎",
+    "profileActiveDescription": "VIP is preserved, but new purchases are paused during soft launch.",
+    "profileCoinsTitle": "Support with Coins",
+    "profileCoinsDescription": "Buy Coins to send gifts, unlock exclusive content, and make private video calls.",
+    "liveVipUnavailable": "This VIP room does not accept new purchases during soft launch.",
+    "liveVipSupport": "Meanwhile, support your favorite creators with Coins, gifts, and private video calls.",
+    "buyCoinsShort": "Buy Coins",
+    "liveCoinsCta": "Send gifts · Support the creator",
+    "liveVipActivePaused": "VIP active · New purchases paused during soft launch",
+    "roadmap": [
+      "Automatic Coins crediting",
+      "Complete benefits by tier",
+      "Priority matching",
+      "Stickers and VIP advantages"
+    ],
+    "buyCoins": "🪙 Buy Coins",
+    "pastDuePaused": "There is a problem with your payment. New VIP purchases are paused during soft launch."
   },
   "adminBlocked": {
     "title": "Access Restricted",
@@ -125,7 +167,7 @@
       "live": {
         "title": "Watch live streams",
         "desc": "Join live streams, send gifts, and connect in real time.",
-        "hook": "🎁 With coins you can send gifts and enter VIP rooms"
+        "hook": "🎁 With coins you can send gifts and support your favorite creators"
       },
       "creator": {
         "title": "Earn as a creator",
@@ -727,9 +769,9 @@
       "register": "Sign up"
     },
     "hero": {
-      "eyebrow": "Premium social platform",
+      "eyebrow": "Creator social platform",
       "title": "Connect, go live and support your favorite creators.",
-      "description": "Start free in less than a minute. Meet people, go live, make video calls and support your favorite creators."
+      "description": "Start free in less than a minute. Buy Coins, send gifts, unlock exclusive content, make private video calls and support your favorite creators."
     },
     "cta": {
       "google": "Continue with Google",
@@ -751,8 +793,8 @@
     },
     "heroCard": {
       "livePill": "Live",
-      "title": "Everything you can do",
-      "description": "Match, chat, live streams, video calls, coins and virtual gifts in a moderated community."
+      "title": "Monetization with Coins",
+      "description": "Buy Coins, send gifts, unlock exclusive content and make private video calls in a moderated community."
     },
     "features": {
       "match": "Match",
@@ -760,7 +802,8 @@
       "live": "Live",
       "videoCalls": "Video Calls",
       "coins": "Coins",
-      "gifts": "Gifts"
+      "gifts": "Gifts",
+      "exclusive": "Exclusive"
     },
     "howItWorks": {
       "eyebrow": "How does it work?",
@@ -777,7 +820,7 @@
       },
       "step3": {
         "title": "Step 3",
-        "description": "Match, chat, go live and enjoy every feature."
+        "description": "Buy Coins, send gifts, unlock exclusive content and support your favorite creators."
       }
     },
     "trust": {
@@ -789,7 +832,7 @@
     },
     "operator": {
       "eyebrow": "Operator",
-      "description": "Official operator of MeetYouLive. Premium social platform to meet people, go live and support content creators through secure payments.",
+      "description": "Official operator of MeetYouLive. Social platform to meet people, go live and support content creators with Coins, gifts and secure payments.",
       "websiteLabel": "Website:",
       "supportEmailLabel": "Support email:",
       "contact": "Contact and support"

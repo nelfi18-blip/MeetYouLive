@@ -14,7 +14,7 @@
     "profile": "Perfil",
     "myProfile": "Mi perfil",
     "buyCoins": "Comprar monedas",
-    "premiumSubscription": "Suscripción Premium",
+    "premiumSubscription": "VIP próximamente",
     "creatorDashboard": "Panel de Creador",
     "goLive": "Ir en vivo",
     "logout": "Cerrar sesión",
@@ -32,6 +32,48 @@
     "liveCtaInactive": "IR",
     "openLiveCreatorActions": "Abrir acciones de live y creator",
     "openLiveRoomActions": "Abrir live rooms y acciones de creator"
+  },
+  "subscriptionSoftLaunch": {
+    "badge": "💎 VIP Próximamente",
+    "title": "VIP está pausado para el soft launch",
+    "description": "Por ahora, MeetYouLive se centra en Coins, regalos, contenido exclusivo, videollamadas privadas y creadores.",
+    "featuresTitle": "Monetización oficial disponible",
+    "features": [
+      "🪙 Compra Coins y revisa tu balance",
+      "🎁 Envía regalos en Lives",
+      "🔓 Desbloquea contenido exclusivo con Coins",
+      "🎥 Realiza videollamadas privadas pagadas",
+      "💵 Apoya a tus creadores favoritos"
+    ],
+    "comingSoon": "Próximamente",
+    "cancelConfirm": "¿Seguro que quieres cancelar tu suscripción?",
+    "cancelSubscription": "Cancelar suscripción",
+    "currentPlanLabel": "Tu plan actual",
+    "vipEmpty": "Los planes VIP estarán disponibles próximamente.",
+    "futureDescription": "Silver, Gold y Platinum siguen preparados para una futura actualización, pero no se pueden comprar hasta que todos sus beneficios estén completos.",
+    "vipPageTitle": "VIP MeetYouLive — Próximamente",
+    "vipPageSubtitle": "Silver, Gold y Platinum se conservan para una futura actualización. Durante el soft launch, la monetización oficial es con Coins.",
+    "tierBenefitsPreparing": "Beneficios por tier en preparación",
+    "purchaseDisabled": "Compra desactivada hasta completar todas las ventajas anunciadas",
+    "activePlan": "Plan activo",
+    "coinsCtaDescription": "Usa Coins para enviar regalos, desbloquear contenido exclusivo, hacer videollamadas privadas y apoyar a tus creadores favoritos.",
+    "profileActiveTitle": "VIP activo 💎",
+    "profileActiveDescription": "VIP queda conservado, pero las nuevas compras están pausadas durante el soft launch.",
+    "profileCoinsTitle": "Apoya con Coins",
+    "profileCoinsDescription": "Compra Coins para enviar regalos, desbloquear contenido exclusivo y realizar videollamadas privadas.",
+    "liveVipUnavailable": "Esta sala VIP no acepta nuevas compras durante el soft launch.",
+    "liveVipSupport": "Mientras tanto, apoya a tus creadores favoritos con Coins, regalos y videollamadas privadas.",
+    "buyCoinsShort": "Compra Coins",
+    "liveCoinsCta": "Envía regalos · Apoya al creador",
+    "liveVipActivePaused": "VIP activo · Nuevas compras pausadas durante el soft launch",
+    "roadmap": [
+      "Acreditación automática de Coins",
+      "Beneficios completos por tier",
+      "Matching prioritario",
+      "Stickers y ventajas VIP"
+    ],
+    "buyCoins": "🪙 Comprar Coins",
+    "pastDuePaused": "Hay un problema con tu pago. Las nuevas compras VIP están pausadas durante el soft launch."
   },
   "adminBlocked": {
     "title": "Acceso Restringido",
@@ -125,7 +167,7 @@
       "live": {
         "title": "Ver directos",
         "desc": "Únete a streams en vivo, envía regalos y conéctate en tiempo real.",
-        "hook": "🎁 Con coins puedes enviar regalos y entrar a salas VIP"
+        "hook": "🎁 Con coins puedes enviar regalos y apoyar a tus creadores favoritos"
       },
       "creator": {
         "title": "Ganar como creador",
@@ -727,9 +769,9 @@
       "register": "Registrarse"
     },
     "hero": {
-      "eyebrow": "Plataforma social premium",
+      "eyebrow": "Plataforma social de creadores",
       "title": "Conecta, transmite en vivo y apoya a tus creadores favoritos.",
-      "description": "Empieza gratis en menos de un minuto. Conoce personas, transmite en vivo, realiza videollamadas y apoya a tus creadores favoritos."
+      "description": "Empieza gratis en menos de un minuto. Compra Coins, envía regalos, desbloquea contenido exclusivo, realiza videollamadas privadas y apoya a tus creadores favoritos."
     },
     "cta": {
       "google": "Continuar con Google",
@@ -751,8 +793,8 @@
     },
     "heroCard": {
       "livePill": "En vivo",
-      "title": "Todo lo que puedes hacer",
-      "description": "Match, chat, directos, videollamadas, coins y regalos virtuales en una comunidad moderada."
+      "title": "Monetización con Coins",
+      "description": "Compra Coins, envía regalos, desbloquea contenido exclusivo y realiza videollamadas privadas en una comunidad moderada."
     },
     "features": {
       "match": "Match",
@@ -760,7 +802,8 @@
       "live": "Live",
       "videoCalls": "Video Calls",
       "coins": "Coins",
-      "gifts": "Regalos"
+      "gifts": "Regalos",
+      "exclusive": "Exclusivo"
     },
     "howItWorks": {
       "eyebrow": "¿Cómo funciona?",
@@ -777,7 +820,7 @@
       },
       "step3": {
         "title": "Paso 3",
-        "description": "Haz Match, conversa, transmite en vivo y disfruta de todas las funciones."
+        "description": "Compra Coins, envía regalos, desbloquea contenido exclusivo y apoya a tus creadores favoritos."
       }
     },
     "trust": {
@@ -789,7 +832,7 @@
     },
     "operator": {
       "eyebrow": "Operador",
-      "description": "Operador oficial de MeetYouLive. Plataforma social premium para conocer personas, transmitir en vivo y apoyar a creadores de contenido mediante pagos seguros.",
+      "description": "Operador oficial de MeetYouLive. Plataforma social para conocer personas, transmitir en vivo y apoyar a creadores de contenido mediante Coins, regalos y pagos seguros.",
       "websiteLabel": "Sitio web:",
       "supportEmailLabel": "Correo de soporte:",
       "contact": "Contacto y soporte"

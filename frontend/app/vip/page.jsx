@@ -127,7 +127,7 @@ export default function VIPPage() {
                 </div>
                 <h2 className="vip-card-name">{tier.name}</h2>
                 <div className="vip-card-price">
-                  <span className="vip-price-value">Próximamente</span>
+                  <span className="vip-price-value">{t("subscriptionSoftLaunch.comingSoon")}</span>
                 </div>
                 <ul className="vip-perks">
                   <li className="vip-perk">

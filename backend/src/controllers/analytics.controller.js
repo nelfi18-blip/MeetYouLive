@@ -10,13 +10,13 @@ const MAX_ANALYTICS_PAYLOAD_BYTES = 4096;
 const MAX_RANGE_DAYS = 90;
 const SOURCE_ORDER = ["instagram", "facebook", "tiktok", "whatsapp", "google", "direct", "other"];
 const FUNNEL_EVENTS = [
-  { key: "visitors", event: "landing_view", label: "Visitantes" },
-  { key: "registerClicks", event: "register_cta_click", label: "Clic en Registrarse" },
-  { key: "registrationStarted", event: "registration_started", label: "Registro iniciado" },
-  { key: "registrationCompleted", event: "registration_submitted", label: "Registro completado" },
-  { key: "emailVerified", event: "email_verified", label: "Correo verificado" },
-  { key: "onboardingCompleted", event: "onboarding_completed", label: "Onboarding completado" },
-  { key: "feedReached", event: "feed_reached", label: "Feed alcanzado" },
+  { key: "visitors", event: "landing_view" },
+  { key: "registerClicks", event: "register_cta_click" },
+  { key: "registrationStarted", event: "registration_started" },
+  { key: "registrationCompleted", event: "registration_submitted" },
+  { key: "emailVerified", event: "email_verified" },
+  { key: "onboardingCompleted", event: "onboarding_completed" },
+  { key: "feedReached", event: "feed_reached" },
 ];
 
 const getStartOfDay = (date = new Date()) => {

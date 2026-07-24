@@ -1707,6 +1707,15 @@
     "locales": "Idiomas",
     "visitors": "Visitantes",
     "registrations": "Cadastros",
-    "retention": "Privacidade e retenção"
+    "retention": "Privacidade e retenção",
+    "funnelSteps": {
+      "visitors": "Visitantes",
+      "registerClicks": "Clique em Registrar",
+      "registrationStarted": "Cadastro iniciado",
+      "registrationCompleted": "Cadastro concluído",
+      "emailVerified": "Email verificado",
+      "onboardingCompleted": "Onboarding concluído",
+      "feedReached": "Feed alcançado"
+    }
   }
 }

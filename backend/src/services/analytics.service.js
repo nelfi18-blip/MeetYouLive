@@ -62,6 +62,7 @@ const DEDUPE_KEY_PATTERN = /^[a-zA-Z0-9:_-]{8,180}$/;
 const DEVICE_CATEGORIES = new Set(["mobile", "tablet", "desktop", "unknown"]);
 const SOURCES = new Set(["instagram", "facebook", "tiktok", "whatsapp", "google", "direct", "other"]);
 const DETAIL_RETENTION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_PATH_LENGTH = 240;
 const SAFE_UTM_KEYS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_content"]);
 const SPOOFING_UNICODE_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g;
@@ -87,7 +88,6 @@ const ONCE_PER_USER_EVENTS = new Set([
   "first_message",
   "first_live_join",
   "first_live_started",
-  "coins_purchase_completed",
 ]);
 
 const cleanString = (value, maxLength = 120) => {
@@ -165,6 +165,12 @@ const getDeviceCategory = (ua = "") => {
 
 const isKnownBot = (ua = "") => KNOWN_BOT_REGEX.test(String(ua || ""));
 
+const addDaysUtc = (date, days) => new Date(date.getTime() + days * DAY_MS);
+
+const ignoreAnalyticsWriteError = () => {
+  // Analytics is best-effort and must never break or delay user-facing flows.
+};
+
 const getExcludeReason = (req, path = "") => {
   const ua = req.get?.("user-agent") || "";
   const host = String(req.get?.("host") || req.get?.("x-forwarded-host") || "").toLowerCase();
@@ -233,7 +239,7 @@ const buildAnalyticsEventInput = (payload = {}, req = {}) => {
     : getDeviceCategory(req.get?.("user-agent"));
   const excludeReason = getExcludeReason(req, path);
   const createdAt = new Date();
-  const expiresAt = new Date(createdAt.getTime() + DETAIL_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = addDaysUtc(createdAt, DETAIL_RETENTION_DAYS);
 
   return {
     event: eventName,
@@ -288,10 +294,10 @@ const trackSafeAnalyticsEvent = (eventName, userId, metadata = {}) => {
       { dedupeKey },
       { $setOnInsert: { ...doc, dedupeKey } },
       { upsert: true }
-    ).catch(() => {});
+    ).catch(ignoreAnalyticsWriteError);
     return;
   }
-  AnalyticsEvent.create(doc).catch(() => {});
+  AnalyticsEvent.create(doc).catch(ignoreAnalyticsWriteError);
 };
 
 const recordPublicAnalyticsEvent = async (payload, req) => {

@@ -449,7 +449,7 @@ export default function OnboardingPage() {
       }
     }
     if (step > 0) {
-      trackAnalyticsEvent("onboarding_step_completed", { step: steps[step] || String(step) });
+      trackAnalyticsEvent("onboarding_step_completed", { step: steps[step - 1] || String(step) });
     }
     goToStep(step + 1);
   };

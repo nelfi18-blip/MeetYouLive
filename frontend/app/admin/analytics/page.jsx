@@ -83,11 +83,21 @@ export default function AdminGrowthAnalyticsPage() {
     visitors: t("adminAnalytics.visitors"),
     registrations: t("adminAnalytics.registrations"),
     retention: t("adminAnalytics.retention"),
+    funnelSteps: {
+      visitors: t("adminAnalytics.funnelSteps.visitors"),
+      registerClicks: t("adminAnalytics.funnelSteps.registerClicks"),
+      registrationStarted: t("adminAnalytics.funnelSteps.registrationStarted"),
+      registrationCompleted: t("adminAnalytics.funnelSteps.registrationCompleted"),
+      emailVerified: t("adminAnalytics.funnelSteps.emailVerified"),
+      onboardingCompleted: t("adminAnalytics.funnelSteps.onboardingCompleted"),
+      feedReached: t("adminAnalytics.funnelSteps.feedReached"),
+    },
   }), [t]);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
-    return { Authorization: ["Bearer", token].join(" ") };
+    const scheme = "Bearer";
+    return { Authorization: `${scheme} ${token || ""}` };
   }, []);
 
   const loadAnalytics = useCallback(async () => {
@@ -169,7 +179,7 @@ export default function AdminGrowthAnalyticsPage() {
               {funnel.map((step, index) => (
                 <div className="funnel-step" key={step.event}>
                   <div className="funnel-copy">
-                    <strong>{step.label}</strong>
+                    <strong>{labels.funnelSteps[step.key] || step.key}</strong>
                     <span>{fmt(step.count)} · {index === 0 ? "100%" : pct(step.conversionFromPrevious)}</span>
                   </div>
                   {index > 0 && <small>-{fmt(step.dropoffFromPrevious)} · {pct(step.dropoffPercent)}</small>}

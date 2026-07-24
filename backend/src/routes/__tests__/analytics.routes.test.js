@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const request = require("supertest");
 const AnalyticsEvent = require("../../models/AnalyticsEvent.js");
 const User = require("../../models/User.js");
@@ -28,9 +29,10 @@ const { requireAdmin } = require("../../middlewares/admin.middleware.js");
 function makeApp() {
   const app = express();
   app.set("trust proxy", 1);
+  const testAdminLimiter = rateLimit({ windowMs: 60 * 1000, max: 1000 });
   app.use(express.json());
   app.use("/api/analytics", analyticsRoutes);
-  app.get("/api/admin/analytics/growth", verifyToken, requireAdmin, getGrowthAnalytics);
+  app.get("/api/admin/analytics/growth", testAdminLimiter, verifyToken, requireAdmin, getGrowthAnalytics);
   return app;
 }
 
@@ -77,6 +79,7 @@ describe("analytics routes", () => {
       deviceCategory: "mobile",
     });
     expect(update.$setOnInsert.path).toBe("/?utm_source=instagram&utm_medium=social&utm_campaign=soft_launch");
+    expect(update.$setOnInsert.path).not.toContain("token");
   });
 
   test("refresh with same dedupe key does not create a duplicate session event", async () => {

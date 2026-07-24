@@ -63,6 +63,16 @@ const DEVICE_CATEGORIES = new Set(["mobile", "tablet", "desktop", "unknown"]);
 const SOURCES = new Set(["instagram", "facebook", "tiktok", "whatsapp", "google", "direct", "other"]);
 const DETAIL_RETENTION_DAYS = 90;
 const MAX_PATH_LENGTH = 240;
+const SAFE_UTM_KEYS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_content"]);
+const ONCE_PER_USER_EVENTS = new Set([
+  "profile_completed",
+  "first_like",
+  "first_match",
+  "first_message",
+  "first_live_join",
+  "first_live_started",
+  "coins_purchase_completed",
+]);
 
 const cleanString = (value, maxLength = 120) => {
   if (typeof value !== "string") return "";
@@ -79,8 +89,7 @@ const sanitizePath = (value) => {
   for (const part of query.split("&")) {
     const [key, rawValue = ""] = part.split("=");
     const safeKey = cleanString(decodeURIComponent(key || ""), 40);
-    if (!safeKey || SENSITIVE_PARAM_PATTERN.test(safeKey)) continue;
-    if (!safeKey.startsWith("utm_")) continue;
+    if (!safeKey || !SAFE_UTM_KEYS.has(safeKey) || SENSITIVE_PARAM_PATTERN.test(safeKey)) continue;
     safeParams.push(`${encodeURIComponent(safeKey)}=${encodeURIComponent(cleanString(decodeURIComponent(rawValue), 80))}`);
   }
   const suffix = safeParams.length ? `?${safeParams.join("&")}` : "";
@@ -243,13 +252,25 @@ const trackAnalyticsEvent = (event, userId, data = {}) => {
 
 const trackSafeAnalyticsEvent = (eventName, userId, metadata = {}) => {
   if (!ALLOWED_ANALYTICS_EVENTS.has(eventName)) return;
-  AnalyticsEvent.create({
+  const sanitizedMetadata = sanitizeMetadata(metadata);
+  const doc = {
     event: eventName,
     eventName,
     ...(userId ? { userId } : {}),
-    metadata: sanitizeMetadata(metadata),
-    data: sanitizeMetadata(metadata),
-  }).catch(() => {});
+    metadata: sanitizedMetadata,
+    // Keep legacy `data` populated for existing admin metrics that still read it.
+    data: sanitizedMetadata,
+  };
+  if (userId && ONCE_PER_USER_EVENTS.has(eventName)) {
+    const dedupeKey = `${eventName}:user:${userId}`;
+    AnalyticsEvent.findOneAndUpdate(
+      { dedupeKey },
+      { $setOnInsert: { ...doc, dedupeKey } },
+      { upsert: true }
+    ).catch(() => {});
+    return;
+  }
+  AnalyticsEvent.create(doc).catch(() => {});
 };
 
 const recordPublicAnalyticsEvent = async (payload, req) => {

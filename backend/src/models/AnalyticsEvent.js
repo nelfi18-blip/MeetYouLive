@@ -81,8 +81,11 @@ analyticsEventSchema.index({ event: 1, createdAt: -1 });
 analyticsEventSchema.index({ userId: 1, createdAt: -1 });
 analyticsEventSchema.index({ event: 1, anonymousVisitorId: 1, createdAt: -1 });
 analyticsEventSchema.index({ event: 1, sessionId: 1, createdAt: -1 });
+analyticsEventSchema.index({ event: 1, createdAt: -1, excluded: 1 });
 analyticsEventSchema.index({ source: 1, createdAt: -1 });
 analyticsEventSchema.index({ createdAt: -1, excluded: 1 });
+// The unique dedupe key prevents retries from double-counting while the TTL on
+// expiresAt eventually removes old detailed events so old dedupe keys can be reused.
 analyticsEventSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 analyticsEventSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

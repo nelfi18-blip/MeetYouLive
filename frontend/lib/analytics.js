@@ -5,6 +5,8 @@ const ACQUISITION_KEY = "analyticsAcquisition";
 const DEDUPE_PREFIX = "analyticsDedupe:";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const ATTRIBUTION_DAYS = 30;
+const VISITOR_COOKIE_DAYS = 90;
+const SAFE_UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content"];
 
 const PUBLIC_EVENTS = new Set([
   "landing_view",
@@ -33,6 +35,7 @@ const PUBLIC_EVENTS = new Set([
 
 function canTrack() {
   if (typeof window === "undefined") return false;
+  if (navigator.globalPrivacyControl === true) return false;
   const dnt = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
   return dnt !== "1" && dnt !== "yes";
 }
@@ -46,7 +49,7 @@ function randomId(prefix) {
 function setVisitorCookie(value) {
   try {
     const secure = window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `${VISITOR_KEY}=${encodeURIComponent(value)}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`;
+    document.cookie = `${VISITOR_KEY}=${encodeURIComponent(value)}; Path=/; Max-Age=${60 * 60 * 24 * VISITOR_COOKIE_DAYS}; SameSite=Lax${secure}`;
   } catch {}
 }
 
@@ -75,7 +78,7 @@ function getOrCreateSessionId() {
 function getSafePath() {
   const safeParams = new URLSearchParams();
   const currentParams = new URLSearchParams(window.location.search);
-  ["utm_source", "utm_medium", "utm_campaign", "utm_content"].forEach((key) => {
+  SAFE_UTM_KEYS.forEach((key) => {
     const value = currentParams.get(key);
     if (value) safeParams.set(key, value.slice(0, 120));
   });

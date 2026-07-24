@@ -33,6 +33,29 @@
     "openLiveCreatorActions": "Abrir ações de live e creator",
     "openLiveRoomActions": "Abrir live rooms e ações de creator"
   },
+  "subscriptionSoftLaunch": {
+    "badge": "💎 VIP em breve",
+    "title": "VIP está pausado para o soft launch",
+    "description": "Por enquanto, o MeetYouLive se concentra em Coins, presentes, conteúdo exclusivo, videochamadas privadas e criadores.",
+    "featuresTitle": "Monetização oficial disponível",
+    "features": [
+      "🪙 Compre Coins e confira seu saldo",
+      "🎁 Envie presentes em Lives",
+      "🔓 Desbloqueie conteúdo exclusivo com Coins",
+      "🎥 Faça videochamadas privadas pagas",
+      "💵 Apoie seus criadores favoritos"
+    ],
+    "comingSoon": "Em breve",
+    "futureDescription": "Silver, Gold e Platinum continuam preparados para uma atualização futura, mas não podem ser comprados até que todos os benefícios estejam completos.",
+    "roadmap": [
+      "Crédito automático de Coins",
+      "Benefícios completos por tier",
+      "Matching prioritário",
+      "Stickers e vantagens VIP"
+    ],
+    "buyCoins": "🪙 Comprar Coins",
+    "pastDuePaused": "Há um problema com seu pagamento. Novas compras VIP estão pausadas durante o soft launch."
+  },
   "adminBlocked": {
     "title": "Acesso Restrito",
     "loggedInAs": "Você está conectado como",

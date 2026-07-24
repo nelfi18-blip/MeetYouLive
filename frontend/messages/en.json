@@ -33,6 +33,29 @@
     "openLiveCreatorActions": "Open live and creator actions",
     "openLiveRoomActions": "Open live rooms and creator actions"
   },
+  "subscriptionSoftLaunch": {
+    "badge": "💎 VIP Coming Soon",
+    "title": "VIP is paused for soft launch",
+    "description": "For now, MeetYouLive focuses on Coins, gifts, exclusive content, private video calls, and creators.",
+    "featuresTitle": "Official monetization available",
+    "features": [
+      "🪙 Buy Coins and check your balance",
+      "🎁 Send gifts in Lives",
+      "🔓 Unlock exclusive content with Coins",
+      "🎥 Make paid private video calls",
+      "💵 Support your favorite creators"
+    ],
+    "comingSoon": "Coming soon",
+    "futureDescription": "Silver, Gold, and Platinum remain ready for a future update, but cannot be purchased until all their benefits are complete.",
+    "roadmap": [
+      "Automatic Coins crediting",
+      "Complete benefits by tier",
+      "Priority matching",
+      "Stickers and VIP advantages"
+    ],
+    "buyCoins": "🪙 Buy Coins",
+    "pastDuePaused": "There is a problem with your payment. New VIP purchases are paused during soft launch."
+  },
   "adminBlocked": {
     "title": "Access Restricted",
     "loggedInAs": "You are logged in as",

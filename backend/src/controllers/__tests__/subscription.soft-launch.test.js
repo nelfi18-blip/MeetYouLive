@@ -31,7 +31,7 @@ describe("subscription soft launch guard", () => {
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining("VIP estará disponible próximamente"),
+      message: expect.stringContaining("VIP is coming soon"),
     }));
   });
 

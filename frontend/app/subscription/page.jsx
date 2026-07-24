@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -30,23 +31,9 @@ function CrownIcon() {
   );
 }
 
-const SOFT_LAUNCH_FEATURES = [
-  "🪙 Compra Coins y revisa tu balance",
-  "🎁 Envía regalos en Lives",
-  "🔓 Desbloquea contenido exclusivo con Coins",
-  "🎥 Realiza videollamadas privadas pagadas",
-  "💵 Apoya a tus creadores favoritos",
-];
-
-const VIP_ROADMAP = [
-  "Acreditación automática de Coins",
-  "Beneficios completos por tier",
-  "Matching prioritario",
-  "Stickers y ventajas VIP",
-];
-
 export default function SubscriptionPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [status, setStatus] = useState(null);
   const [periodEnd, setPeriodEnd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +105,8 @@ export default function SubscriptionPage() {
 
   const isActive = status === "active";
   const isPastDue = status === "past_due";
+  const softLaunchFeatures = t("subscriptionSoftLaunch.features");
+  const vipRoadmap = t("subscriptionSoftLaunch.roadmap");
 
   if (loading) {
     return (
@@ -137,9 +126,9 @@ export default function SubscriptionPage() {
         <div className="sub-hero-content">
           <div className="sub-crown"><CrownIcon /></div>
           <div>
-            <div className="sub-badge">💎 VIP Próximamente</div>
-            <h1 className="sub-title">VIP está pausado para el soft launch</h1>
-            <p className="sub-desc">Por ahora, MeetYouLive se centra en Coins, regalos, contenido exclusivo, videollamadas privadas y creadores.</p>
+            <div className="sub-badge">{t("subscriptionSoftLaunch.badge")}</div>
+            <h1 className="sub-title">{t("subscriptionSoftLaunch.title")}</h1>
+            <p className="sub-desc">{t("subscriptionSoftLaunch.description")}</p>
           </div>
         </div>
 
@@ -169,10 +158,10 @@ export default function SubscriptionPage() {
       <div className="benefits-card card">
         <div className="benefits-header">
           <div className="benefits-icon"><StarIcon /></div>
-          <h2 className="benefits-title">Monetización oficial disponible</h2>
+          <h2 className="benefits-title">{t("subscriptionSoftLaunch.featuresTitle")}</h2>
         </div>
         <ul className="benefits-list">
-          {SOFT_LAUNCH_FEATURES.map((benefit) => (
+          {(Array.isArray(softLaunchFeatures) ? softLaunchFeatures : []).map((benefit) => (
             <li key={benefit} className="benefit-item">
               <span className="benefit-check"><CheckIcon /></span>
               <span>{benefit}</span>
@@ -186,22 +175,22 @@ export default function SubscriptionPage() {
         {!isActive && !isPastDue ? (
           <>
             <div className="price-display">
-              <span className="price-amount">Próximamente</span>
+              <span className="price-amount">{t("subscriptionSoftLaunch.comingSoon")}</span>
             </div>
-            <p className="action-desc">Silver, Gold y Platinum siguen preparados para una futura actualización, pero no se pueden comprar hasta que todos sus beneficios estén completos.</p>
+            <p className="action-desc">{t("subscriptionSoftLaunch.futureDescription")}</p>
             <ul className="roadmap-list">
-              {VIP_ROADMAP.map((item) => <li key={item}>{item}</li>)}
+              {(Array.isArray(vipRoadmap) ? vipRoadmap : []).map((item) => <li key={item}>{item}</li>)}
             </ul>
             <Link href="/coins" className="btn btn-primary btn-lg sub-btn">
-              🪙 Comprar Coins
+              {t("subscriptionSoftLaunch.buyCoins")}
             </Link>
           </>
         ) : isPastDue ? (
           <>
             <p className="action-desc" style={{ color: "var(--error)" }}>
-              Hay un problema con tu pago. Las nuevas compras VIP están pausadas durante el soft launch.
+              {t("subscriptionSoftLaunch.pastDuePaused")}
             </p>
-            <Link href="/coins" className="btn btn-primary btn-lg sub-btn">🪙 Comprar Coins</Link>
+            <Link href="/coins" className="btn btn-primary btn-lg sub-btn">{t("subscriptionSoftLaunch.buyCoins")}</Link>
           </>
         ) : (
           <>

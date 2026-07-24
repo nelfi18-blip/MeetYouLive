@@ -11,6 +11,7 @@ import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profil
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const SwipeCard = dynamic(() => import("@/components/SwipeCard"), { ssr: false });
@@ -467,6 +468,7 @@ export default function FeedPage() {
   const activeActionRef = useRef(false);
   const pendingActionProfileIdRef = useRef(null);
   const lastTouchActionAtRef = useRef(0);
+  const feedReachedTrackedRef = useRef(false);
   const swipeLockedRef = useRef(false);
   const feedMutationVersionRef = useRef(0);
   const pageRef = useRef(null);
@@ -979,6 +981,10 @@ export default function FeedPage() {
       profilesRef.current = visibleProfiles;
       setCurrentIndex(nextIndex);
       setProfiles(visibleProfiles);
+      if (!feedReachedTrackedRef.current) {
+        feedReachedTrackedRef.current = true;
+        trackAnalyticsEvent("feed_reached");
+      }
       // Refresh can remove the profile that was available to undo, so clear it
       // instead of restoring an action for a profile no longer in this deck.
       setLastAction((action) => {

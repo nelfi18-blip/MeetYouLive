@@ -17,6 +17,7 @@ import { normalizeImageUrl, normalizeUserImages as normalizeSharedUserImages } f
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
 import { publishProfileUpdated } from "@/lib/profileSync";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const MAX_INTERESTS = 10;
@@ -270,6 +271,7 @@ export default function OnboardingPage() {
   const displayedCompletionPercent = saveFailed ? Math.min(completionPercent, 99) : completionPercent;
 
   useEffect(() => {
+    trackAnalyticsEvent("onboarding_started", {}, { dedupeKey: "onboarding_started" });
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
       router.replace("/login");
@@ -445,6 +447,9 @@ export default function OnboardingPage() {
         setError(t("onboarding.interestsRequired").replace("{count}", String(MIN_INTERESTS)));
         return;
       }
+    }
+    if (step > 0) {
+      trackAnalyticsEvent("onboarding_step_completed", { step: steps[step - 1] || String(step) });
     }
     goToStep(step + 1);
   };
@@ -684,6 +689,7 @@ export default function OnboardingPage() {
         profileStatus: sessionProfile?.profileStatus || data.profileStatus || null,
       });
       publishProfileUpdated(sessionProfile);
+      trackAnalyticsEvent("onboarding_completed");
       try {
         sessionStorage.setItem(WELCOME_FEED_NOTICE_KEY, t("feed.welcomeNotice"));
       } catch {

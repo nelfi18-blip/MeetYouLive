@@ -1069,7 +1069,8 @@
           {
             "heading": "7. Retenção, direitos e exclusão",
             "body": [
-              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição pelos fluxos de contato ou suporte dentro da plataforma."
+              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição pelos fluxos de contato ou suporte dentro da plataforma.",
+              "A analítica própria antes do cadastro usa identificadores anônimos first-party, respeita Do Not Track quando aplicável, não usa fingerprinting e não armazena conteúdo de formulários, mensagens, senhas, cartões, IP completo ou URLs com tokens. Eventos detalhados são mantidos por 90 dias; dados agregados podem ser mantidos por mais tempo para métricas internas."
             ]
           },
           {
@@ -1718,5 +1719,46 @@
     "audience": "👥 Audiência",
     "activityDescription": "Entradas, presentes e chat aparecem em tempo real com animações discretas.",
     "moreViewers": "{count} espectadores a mais"
+  },
+  "adminAnalytics": {
+    "title": "Funil de crescimento",
+    "subtitle": "Visitas, cadastros e fontes de aquisição próprias do MeetYouLive.",
+    "refresh": "Atualizar",
+    "loading": "Carregando analíticas…",
+    "empty": "Ainda não há dados suficientes.",
+    "periods": {
+      "today": "Hoje",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias"
+    },
+    "metrics": {
+      "visitorsToday": "Visitantes hoje",
+      "uniqueToday": "Visitantes únicos hoje",
+      "visitors7d": "Visitantes últimos 7 dias",
+      "registerClicks": "Cliques em Registrar",
+      "registrationStarted": "Cadastros iniciados",
+      "registrationCompleted": "Cadastros concluídos",
+      "emailVerified": "Emails verificados",
+      "onboardingCompleted": "Onboarding concluído",
+      "feedReached": "Chegaram ao Feed",
+      "conversion": "Conversão"
+    },
+    "funnel": "Funil visual",
+    "sources": "De onde chegam",
+    "trends": "Tendência diária",
+    "devices": "Dispositivos",
+    "locales": "Idiomas",
+    "visitors": "Visitantes",
+    "registrations": "Cadastros",
+    "retention": "Privacidade e retenção",
+    "funnelSteps": {
+      "visitors": "Visitantes",
+      "registerClicks": "Clique em Registrar",
+      "registrationStarted": "Cadastro iniciado",
+      "registrationCompleted": "Cadastro concluído",
+      "emailVerified": "Email verificado",
+      "onboardingCompleted": "Onboarding concluído",
+      "feedReached": "Feed alcançado"
+    }
   }
 }

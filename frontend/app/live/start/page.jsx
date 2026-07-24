@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearToken } from "@/lib/token";
 import { isApprovedCreator as hasApprovedCreatorAccess } from "@/lib/creatorUtils";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -88,6 +89,7 @@ export default function StartLivePage() {
         setError(data.message || "Error al iniciar el directo");
         return;
       }
+      trackAnalyticsEvent("first_live_started");
       router.push(`/live/${data._id}`);
     } catch {
       setError("No se pudo conectar con el servidor");

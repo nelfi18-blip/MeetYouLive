@@ -12,6 +12,8 @@ const {
 } = require("../lib/profileCompletion.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { calculateAge } = require("../lib/age.js");
+const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
+const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 
 const MAX_IMAGES = 6;
 const MAX_INTERESTS = 10;
@@ -223,6 +225,10 @@ const updateOnboarding = async (req, res) => {
     payload.profileCompletion = { ...profileCompletion, onboardingComplete: finalOnboardingComplete };
     payload.profileCompletionStatus = payload.profileCompletion;
     payload.profileStatus = buildProfileStatusPayload(req, payload, payload.profileCompletion);
+    if (finalOnboardingComplete) {
+      trackMilestoneEvent("onboarding_completed", String(req.userId));
+      trackMilestoneEvent("profile_completed", String(req.userId));
+    }
 
     return res.json({
       ok: true,

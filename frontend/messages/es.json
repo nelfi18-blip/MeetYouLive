@@ -1069,7 +1069,8 @@
           {
             "heading": "7. Retención, derechos y eliminación",
             "body": [
-              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma."
+              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma.",
+              "La analítica propia previa al registro usa identificadores anónimos first-party, respeta Do Not Track cuando corresponde, no usa fingerprinting ni guarda contenido de formularios, mensajes, contraseñas, tarjetas, IP completa o URLs con tokens. Los eventos detallados se conservan por 90 días; los datos agregados pueden conservarse por más tiempo para métricas internas."
             ]
           },
           {
@@ -1718,5 +1719,46 @@
     "audience": "👥 Audiencia",
     "activityDescription": "Entradas, regalos y chat aparecen en tiempo real con animaciones discretas.",
     "moreViewers": "{count} más espectadores"
+  },
+  "adminAnalytics": {
+    "title": "Embudo de crecimiento",
+    "subtitle": "Visitas, registros y fuentes de adquisición propias de MeetYouLive.",
+    "refresh": "Actualizar",
+    "loading": "Cargando analíticas…",
+    "empty": "Aún no hay suficientes datos.",
+    "periods": {
+      "today": "Hoy",
+      "7d": "Últimos 7 días",
+      "30d": "Últimos 30 días"
+    },
+    "metrics": {
+      "visitorsToday": "Visitantes hoy",
+      "uniqueToday": "Visitantes únicos hoy",
+      "visitors7d": "Visitantes últimos 7 días",
+      "registerClicks": "Clics en Registrarse",
+      "registrationStarted": "Registros iniciados",
+      "registrationCompleted": "Registros completados",
+      "emailVerified": "Correos verificados",
+      "onboardingCompleted": "Onboarding completado",
+      "feedReached": "Llegaron al Feed",
+      "conversion": "Conversión"
+    },
+    "funnel": "Embudo visual",
+    "sources": "De dónde llegan",
+    "trends": "Tendencia diaria",
+    "devices": "Dispositivos",
+    "locales": "Idiomas",
+    "visitors": "Visitantes",
+    "registrations": "Registros",
+    "retention": "Privacidad y retención",
+    "funnelSteps": {
+      "visitors": "Visitantes",
+      "registerClicks": "Clic en Registrarse",
+      "registrationStarted": "Registro iniciado",
+      "registrationCompleted": "Registro completado",
+      "emailVerified": "Correo verificado",
+      "onboardingCompleted": "Onboarding completado",
+      "feedReached": "Feed alcanzado"
+    }
   }
 }

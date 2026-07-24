@@ -29,9 +29,14 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: "Analíticas",
+    items: [
+      { href: "/admin/analytics", label: "Embudo de crecimiento", icon: "📊", roles: ["admin"] },
+    ],
+  },
+  {
     title: "Sistema",
     items: [
-      { href: "/admin/analytics", label: "Analíticas", icon: "📊", roles: ["admin"] },
       { href: "/admin/settings", label: "Configuración", icon: "⚙️", roles: ["admin"] },
     ],
   },

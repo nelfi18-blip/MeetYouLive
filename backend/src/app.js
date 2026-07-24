@@ -41,6 +41,7 @@ const creatorDiscoveryRoutes = require("./routes/creatorDiscovery.routes.js");
 const withdrawRoutes = require("./routes/withdraw.routes.js");
 const feedRoutes = require("./routes/feed.routes.js");
 const onboardingRoutes = require("./routes/onboarding.routes.js");
+const analyticsRoutes = require("./routes/analytics.routes.js");
 
 const INTERNAL_SERVER_ERROR_MESSAGE = "Error interno del servidor";
 
@@ -106,6 +107,7 @@ app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use(express.json());
 app.use(passport.initialize());
 

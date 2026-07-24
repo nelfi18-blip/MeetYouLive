@@ -1069,7 +1069,8 @@
           {
             "heading": "7. Retention, rights and deletion",
             "body": [
-              "We retain data as long as needed to provide the service, comply with legal obligations, manage disputes, prevent abuse and protect safety. You may request access, correction, deletion, portability or objection through the in-platform contact or support flows."
+              "We retain data as long as needed to provide the service, comply with legal obligations, manage disputes, prevent abuse and protect safety. You may request access, correction, deletion, portability or objection through the in-platform contact or support flows.",
+              "First-party analytics before registration uses anonymous first-party identifiers, respects Do Not Track when applicable, does not use fingerprinting, and does not store form content, messages, passwords, card data, full IP addresses, or URLs with tokens. Detailed events are retained for 90 days; aggregated data may be kept longer for internal metrics."
             ]
           },
           {
@@ -1718,5 +1719,46 @@
     "audience": "👥 Audience",
     "activityDescription": "Entries, gifts, and chat appear in real time with subtle animations.",
     "moreViewers": "{count} more viewers"
+  },
+  "adminAnalytics": {
+    "title": "Growth funnel",
+    "subtitle": "MeetYouLive first-party visits, registrations, and acquisition sources.",
+    "refresh": "Refresh",
+    "loading": "Loading analytics…",
+    "empty": "Not enough data yet.",
+    "periods": {
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "metrics": {
+      "visitorsToday": "Visitors today",
+      "uniqueToday": "Unique visitors today",
+      "visitors7d": "Visitors last 7 days",
+      "registerClicks": "Register clicks",
+      "registrationStarted": "Registrations started",
+      "registrationCompleted": "Registrations completed",
+      "emailVerified": "Emails verified",
+      "onboardingCompleted": "Onboarding completed",
+      "feedReached": "Reached Feed",
+      "conversion": "Conversion"
+    },
+    "funnel": "Visual funnel",
+    "sources": "Where they come from",
+    "trends": "Daily trend",
+    "devices": "Devices",
+    "locales": "Languages",
+    "visitors": "Visitors",
+    "registrations": "Registrations",
+    "retention": "Privacy and retention",
+    "funnelSteps": {
+      "visitors": "Visitors",
+      "registerClicks": "Register click",
+      "registrationStarted": "Registration started",
+      "registrationCompleted": "Registration completed",
+      "emailVerified": "Email verified",
+      "onboardingCompleted": "Onboarding completed",
+      "feedReached": "Feed reached"
+    }
   }
 }

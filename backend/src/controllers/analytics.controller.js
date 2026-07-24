@@ -241,7 +241,7 @@ exports.getGrowthAnalytics = async (req, res) => {
           emailVerified,
           onboardingCompleted,
           feedReached,
-          conversion: safePercent(registrationCompleted, Math.max(uniqueVisitorsToday, visitors7d)),
+          conversion: safePercent(registrationCompleted, funnel[0]?.count || 0),
         },
         funnel,
         sources,

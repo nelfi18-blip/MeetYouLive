@@ -5,6 +5,7 @@ const ACQUISITION_KEY = "analyticsAcquisition";
 const DEDUPE_PREFIX = "analyticsDedupe:";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const ATTRIBUTION_DAYS = 30;
+const ATTRIBUTION_WINDOW_MS = ATTRIBUTION_DAYS * 24 * 60 * 60 * 1000;
 const VISITOR_COOKIE_DAYS = 90;
 const SAFE_UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content"];
 
@@ -41,9 +42,13 @@ function canTrack() {
 }
 
 function randomId(prefix) {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return `${prefix}_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  try {
+    const bytes = new Uint8Array(16);
+    window.crypto?.getRandomValues(bytes);
+    return `${prefix}_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  } catch {
+    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+  }
 }
 
 function setVisitorCookie(value) {
@@ -91,7 +96,7 @@ function getAcquisition() {
   if (existingRaw) {
     try {
       const existing = JSON.parse(existingRaw);
-      if (Date.now() - Number(existing.createdAt || 0) < ATTRIBUTION_DAYS * 24 * 60 * 60 * 1000) {
+      if (Date.now() - Number(existing.createdAt || 0) < ATTRIBUTION_WINDOW_MS) {
         return existing;
       }
     } catch {}

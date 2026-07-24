@@ -64,6 +64,22 @@ const SOURCES = new Set(["instagram", "facebook", "tiktok", "whatsapp", "google"
 const DETAIL_RETENTION_DAYS = 90;
 const MAX_PATH_LENGTH = 240;
 const SAFE_UTM_KEYS = new Set(["utm_source", "utm_medium", "utm_campaign", "utm_content"]);
+const SPOOFING_UNICODE_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g;
+const KNOWN_BOT_PATTERNS = [
+  "bot",
+  "crawler",
+  "spider",
+  "slurp",
+  "facebookexternalhit",
+  "preview",
+  "headless",
+  "uptime",
+  "pingdom",
+  "render",
+  "vercel",
+  "healthcheck",
+];
+const KNOWN_BOT_REGEX = new RegExp(KNOWN_BOT_PATTERNS.join("|"), "i");
 const ONCE_PER_USER_EVENTS = new Set([
   "profile_completed",
   "first_like",
@@ -76,7 +92,12 @@ const ONCE_PER_USER_EVENTS = new Set([
 
 const cleanString = (value, maxLength = 120) => {
   if (typeof value !== "string") return "";
-  return value.trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, maxLength);
+  return value
+    .normalize("NFKC")
+    .trim()
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(SPOOFING_UNICODE_PATTERN, "")
+    .slice(0, maxLength);
 };
 
 const sanitizePath = (value) => {
@@ -142,7 +163,7 @@ const getDeviceCategory = (ua = "") => {
   return "unknown";
 };
 
-const isKnownBot = (ua = "") => /bot|crawler|spider|slurp|facebookexternalhit|preview|headless|uptime|pingdom|render|vercel|healthcheck/i.test(String(ua || ""));
+const isKnownBot = (ua = "") => KNOWN_BOT_REGEX.test(String(ua || ""));
 
 const getExcludeReason = (req, path = "") => {
   const ua = req.get?.("user-agent") || "";

@@ -121,6 +121,17 @@ describe("analytics routes", () => {
     expect(classifySource({})).toBe("direct");
   });
 
+  test("referrer URLs only store host and never sensitive query params", () => {
+    const doc = buildAnalyticsEventInput({
+      ...basePayload,
+      referrer: "https://facebook.com/path?token=secret&email=test@example.com",
+      dedupeKey: "referrer:safe:123",
+    }, { get: () => "" });
+    expect(doc.referrerHost).toBe("facebook.com");
+    expect(doc.referrerHost).not.toContain("token");
+    expect(doc.referrerHost).not.toContain("email");
+  });
+
   test("unknown event is rejected", async () => {
     const res = await request(app).post("/api/analytics/events").send({ ...basePayload, eventName: "unknown_event" });
     expect(res.status).toBe(400);

@@ -1,9 +1,9 @@
-const { Router } = require("express");
+const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { optionalVerifyToken } = require("../middlewares/auth.middleware.js");
 const { createAnalyticsEvent } = require("../controllers/analytics.controller.js");
 
-const router = Router();
+const router = express.Router();
 
 const analyticsLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -13,6 +13,7 @@ const analyticsLimiter = rateLimit({
   message: { ok: false, message: "Demasiadas solicitudes de analítica" },
 });
 
+router.use(express.json({ limit: "4kb" }));
 router.post("/events", analyticsLimiter, optionalVerifyToken, createAnalyticsEvent);
 
 module.exports = router;

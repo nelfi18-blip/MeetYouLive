@@ -107,6 +107,7 @@ app.use(cors(corsOptions));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use(express.json());
 app.use(passport.initialize());
 
@@ -123,7 +124,6 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/analytics", analyticsRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/auth", googleRoutes);
 app.use("/api/payments", paymentRoutes);

@@ -5,6 +5,7 @@ const { trackEvent } = require("../services/missions.service.js");
 const { notifyNewMessage } = require("../services/essentialNotification.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { emitChatMessage } = require("../lib/socket.js");
+const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 
 // Define staff roles that should be excluded from regular user chats
 const STAFF_ROLES = ["admin", "moderator", "support", "creator_manager", "finance", "content_reviewer"];
@@ -266,6 +267,7 @@ const sendMessage = async (req, res) => {
 
     // Track chat mission progress (fire-and-forget)
     trackEvent(req.userId, "message").catch(() => {});
+    trackSafeAnalyticsEvent("first_message", String(req.userId));
   } catch (err) {
     if (isClientMessageDuplicateError(err, clientMessageId)) {
       if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;

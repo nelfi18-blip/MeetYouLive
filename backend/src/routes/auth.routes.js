@@ -8,7 +8,7 @@ const { generateUniqueUsername } = require("../services/username.service.js");
 const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
-const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
 
 /**
@@ -259,6 +259,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
     );
 
     const token = signAuthToken(user._id);
+    trackSafeAnalyticsEvent("login_completed", String(user._id));
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -305,6 +306,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     await user.save();
 
     const token = signAuthToken(user._id);
+    trackSafeAnalyticsEvent("email_verified", String(user._id));
     res.json({ message: "Email verificado correctamente", token });
   } catch (err) {
     console.error("verify-email error:", err);

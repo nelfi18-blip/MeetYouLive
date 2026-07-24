@@ -7,7 +7,7 @@ const CoinTransaction = require("../models/CoinTransaction.js");
 const SparkTransaction = require("../models/SparkTransaction.js");
 const { SPARK_PACKAGES } = require("./sparks.controller.js");
 const { COIN_PACKAGES: COIN_PACKAGES_LIST } = require("./coins.controller.js");
-const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { notifyCoinsPurchaseConfirmed } = require("../services/essentialNotification.service.js");
 
 let stripeClient;
@@ -72,6 +72,11 @@ const createCoinCheckoutSession = async (req, res) => {
       },
       success_url: `${frontendUrl}/payment/success?token={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/payment/cancel`,
+    });
+    trackSafeAnalyticsEvent("coins_checkout_started", String(req.userId), {
+      packageId: String(packageId),
+      coins: coinPackage.coins,
+      amountUsd: coinPackage.priceUsd,
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -342,6 +347,12 @@ const handlePaymentCompleted = async (session) => {
       trackAnalyticsEvent("coins_purchased", String(user._id), {
         amount_usd: resolvedPackage.priceUsd,
         coins: resolvedPackage.coins,
+      });
+      trackSafeAnalyticsEvent("coins_purchase_completed", String(user._id), {
+        packageId: String(resolvedPackage.id),
+        coins: resolvedPackage.coins,
+        amountUsd: resolvedPackage.priceUsd,
+        internalReference: processedTxId,
       });
       await notifyCoinsPurchaseConfirmed({
         userId: user._id,

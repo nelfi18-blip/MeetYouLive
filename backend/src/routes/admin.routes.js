@@ -51,6 +51,7 @@ const {
   rejectWithdrawal,
 } = require("../controllers/withdraw.controller.js");
 const { getFeedDiagnostics } = require("../controllers/feed.controller.js");
+const { getGrowthAnalytics } = require("../controllers/analytics.controller.js");
 
 const router = Router();
 
@@ -259,6 +260,7 @@ router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);
 router.get("/transactions", getTransactions);
 router.get("/analytics", getAnalytics);
+router.get("/analytics/growth", getGrowthAnalytics);
 router.get("/metrics/overview", getMetricsOverview);
 router.get("/settings", getSettings);
 router.patch("/settings", updateSettings);

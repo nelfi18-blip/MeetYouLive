@@ -19,7 +19,7 @@ const {
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
 const { createBulkNotifications } = require("../services/notification.service.js");
-const { trackAnalyticsEvent } = require("../services/analytics.service.js");
+const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
 const { isLiveActuallyActive, cleanupStaleLives, markLiveAsEnded, filterActiveLives } = require("../services/live.service.js");
 
 // Max followers to push on live start (to avoid very large batches)
@@ -172,6 +172,7 @@ const startLive = async (req, res) => {
         title: live.title,
       });
     }
+    trackSafeAnalyticsEvent("first_live_started", String(req.userId));
 
     // FCM push to followers (fire-and-forget, non-blocking)
     // Only followers who have "live" push notifications enabled receive this.
@@ -400,6 +401,7 @@ const joinLive = async (req, res) => {
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
+      trackSafeAnalyticsEvent("first_live_join", String(req.userId));
       return res.json(liveObj);
     }
 
@@ -416,6 +418,7 @@ const joinLive = async (req, res) => {
       liveObj.hasAccess = true;
       trackEvent(req.userId, "live_join").catch(() => {});
       trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
+      trackSafeAnalyticsEvent("first_live_join", String(req.userId));
       return res.json(liveObj);
     }
 
@@ -498,6 +501,7 @@ const joinLive = async (req, res) => {
     liveObj.hasAccess = true;
     trackEvent(req.userId, "live_join").catch(() => {});
     trackAnalyticsEvent("live_joined", String(req.userId), { liveId: req.params.id });
+    trackSafeAnalyticsEvent("first_live_join", String(req.userId));
     res.json(liveObj);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

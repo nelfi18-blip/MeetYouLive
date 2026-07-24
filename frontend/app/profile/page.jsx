@@ -1427,8 +1427,8 @@ export default function ProfilePage() {
                 <div className="premium-upsell-header">
                   <span className="premium-upsell-gem">💎</span>
                   <div>
-                    <h2 className="premium-upsell-title">VIP activo 💎</h2>
-                    <p className="premium-upsell-sub">VIP queda conservado, pero las nuevas compras están pausadas durante el soft launch.</p>
+                    <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileActiveTitle")}</h2>
+                    <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileActiveDescription")}</p>
                   </div>
                 </div>
                 <div className="premium-upsell-actions">
@@ -1442,13 +1442,13 @@ export default function ProfilePage() {
                 <div className="premium-upsell-header">
                   <span className="premium-upsell-gem">💎</span>
                   <div>
-                    <h2 className="premium-upsell-title">Apoya con Coins</h2>
-                    <p className="premium-upsell-sub">Compra Coins para enviar regalos, desbloquear contenido exclusivo y realizar videollamadas privadas.</p>
+                    <h2 className="premium-upsell-title">{t("subscriptionSoftLaunch.profileCoinsTitle")}</h2>
+                    <p className="premium-upsell-sub">{t("subscriptionSoftLaunch.profileCoinsDescription")}</p>
                   </div>
                 </div>
                 <div className="premium-upsell-actions">
                   <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
-                    🪙 Comprar monedas
+                    {t("subscriptionSoftLaunch.buyCoins")}
                   </Link>
                 </div>
               </div>

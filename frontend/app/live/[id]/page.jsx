@@ -1414,11 +1414,11 @@ export default function LiveRoomPage() {
           <h2 className="paywall-title">{live.title}</h2>
           <p className="paywall-streamer">por @{live.user?.username || "anónimo"}</p>
           <p className="paywall-desc" style={{ color: "#fbbf24" }}>
-            Esta sala VIP no acepta nuevas compras durante el soft launch.
+            {t("subscriptionSoftLaunch.liveVipUnavailable")}
           </p>
-          <p className="paywall-desc">Mientras tanto, apoya a tus creadores favoritos con Coins, regalos y videollamadas privadas.</p>
+          <p className="paywall-desc">{t("subscriptionSoftLaunch.liveVipSupport")}</p>
           <Link href="/coins" className="btn btn-vip-cta btn-lg">
-            🪙 Comprar Coins
+            {t("subscriptionSoftLaunch.buyCoins")}
           </Link>
           <Link href="/live" className="btn btn-secondary">← Volver a directos</Link>
         </div>
@@ -2015,7 +2015,7 @@ export default function LiveRoomPage() {
           {/* ── Coins CTA (viewer only, non-VIP) ── */}
           {!isCreator && !currentUserIsVIP && (
             <Link href="/coins" className="vip-live-cta">
-              🪙 <strong>Compra Coins</strong> · Envía regalos · Apoya al creador
+              🪙 <strong>{t("subscriptionSoftLaunch.buyCoinsShort")}</strong> · {t("subscriptionSoftLaunch.liveCoinsCta")}
             </Link>
           )}
 
@@ -2023,7 +2023,7 @@ export default function LiveRoomPage() {
           {!isCreator && currentUserIsVIP && (
             <div className="vip-active-badge">
               <span>💎</span>
-              <span>VIP activo · Nuevas compras pausadas durante el soft launch</span>
+              <span>{t("subscriptionSoftLaunch.liveVipActivePaused")}</span>
             </div>
           )}
 

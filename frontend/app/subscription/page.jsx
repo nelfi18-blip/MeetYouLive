@@ -91,7 +91,7 @@ export default function SubscriptionPage() {
       try {
         data = await res.json();
       } catch {
-        throw new Error("Respuesta inválida del servidor");
+        throw new Error(t("common.invalidServerResponse"));
       }
       if (!res.ok) throw new Error(data?.message || "Error al cancelar");
       setStatus("canceled");

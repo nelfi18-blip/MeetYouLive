@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -28,6 +29,7 @@ const TIER_DISPLAY = {
 };
 
 export default function VIPPage() {
+  const { t } = useLanguage();
   const [tiers, setTiers] = useState([]);
   const [currentStatus, setCurrentStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -81,8 +83,8 @@ export default function VIPPage() {
     <div className="vip-page">
       <div className="vip-hero">
         <div className="vip-hero-icon"><StarIcon /></div>
-        <h1 className="vip-title">VIP MeetYouLive — Próximamente</h1>
-        <p className="vip-subtitle">Silver, Gold y Platinum se conservan para una futura actualización. Durante el soft launch, la monetización oficial es con Coins.</p>
+        <h1 className="vip-title">{t("subscriptionSoftLaunch.vipPageTitle")}</h1>
+        <p className="vip-subtitle">{t("subscriptionSoftLaunch.vipPageSubtitle")}</p>
       </div>
 
       {currentStatus?.isVIP && currentStatus.vipTier && (
@@ -130,18 +132,18 @@ export default function VIPPage() {
                 <ul className="vip-perks">
                   <li className="vip-perk">
                     <span className="vip-perk-icon"><CheckIcon /></span>
-                    Beneficios por tier en preparación
+                    {t("subscriptionSoftLaunch.tierBenefitsPreparing")}
                   </li>
                   <li className="vip-perk">
                     <span className="vip-perk-icon"><CheckIcon /></span>
-                    Compra desactivada hasta completar todas las ventajas anunciadas
+                    {t("subscriptionSoftLaunch.purchaseDisabled")}
                   </li>
                 </ul>
                 <button
                   className={`vip-subscribe-btn${isCurrent ? " vip-subscribe-btn--current" : ""}`}
                   disabled
                 >
-                  {isCurrent ? "Plan activo" : "Próximamente"}
+                  {isCurrent ? t("subscriptionSoftLaunch.activePlan") : t("subscriptionSoftLaunch.comingSoon")}
                 </button>
               </div>
             );
@@ -154,8 +156,8 @@ export default function VIPPage() {
       )}
 
       <div className="coins-cta">
-        <p>Usa Coins para enviar regalos, desbloquear contenido exclusivo, hacer videollamadas privadas y apoyar a tus creadores favoritos.</p>
-        <Link href="/coins" className="vip-subscribe-btn coins-cta-btn">🪙 Comprar Coins</Link>
+        <p>{t("subscriptionSoftLaunch.coinsCtaDescription")}</p>
+        <Link href="/coins" className="vip-subscribe-btn coins-cta-btn">{t("subscriptionSoftLaunch.buyCoins")}</Link>
       </div>
 
       <style jsx>{`

@@ -1026,7 +1026,8 @@
           {
             "heading": "7. Retención, derechos y eliminación",
             "body": [
-              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma."
+              "Conservamos datos mientras sea necesario para prestar el servicio, cumplir obligaciones legales, gestionar disputas, prevenir abuso y proteger seguridad. Puedes solicitar acceso, rectificación, eliminación, portabilidad u oposición mediante los flujos de contacto o soporte dentro de la plataforma.",
+              "La analítica propia previa al registro usa identificadores anónimos first-party, respeta Do Not Track cuando corresponde, no usa fingerprinting ni guarda contenido de formularios, mensajes, contraseñas, tarjetas, IP completa o URLs con tokens. Los eventos detallados se conservan por 90 días; los datos agregados pueden conservarse por más tiempo para métricas internas."
             ]
           },
           {

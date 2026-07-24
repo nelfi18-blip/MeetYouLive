@@ -62,7 +62,7 @@ const analyticsEventSchema = new mongoose.Schema(
       index: true,
     },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
-    dedupeKey: { type: String, trim: true, maxlength: 180, index: true },
+    dedupeKey: { type: String, trim: true, maxlength: 180 },
     excluded: { type: Boolean, default: false, index: true },
     excludeReason: { type: String, trim: true, maxlength: 80 },
     expiresAt: { type: Date },

@@ -34,6 +34,7 @@ async function generateReferralCode() {
 }
 
 const router = Router();
+const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 
 const signAuthToken = (userId) => {
   if (!process.env.JWT_SECRET) {
@@ -259,7 +260,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
     );
 
     const token = signAuthToken(user._id);
-    trackSafeAnalyticsEvent("login_completed", String(user._id));
+    trackMilestoneEvent("login_completed", String(user._id));
     res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -306,7 +307,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     await user.save();
 
     const token = signAuthToken(user._id);
-    trackSafeAnalyticsEvent("email_verified", String(user._id));
+    trackMilestoneEvent("email_verified", String(user._id));
     res.json({ message: "Email verificado correctamente", token });
   } catch (err) {
     console.error("verify-email error:", err);

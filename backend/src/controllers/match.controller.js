@@ -14,6 +14,7 @@ const { trackEvent } = require("../services/missions.service.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { hasUserBlockBetween } = require("../services/callRules.service.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
+const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 
 const SUPER_CRUSH_PRICE = 50; // coins
 const DAILY_FREE_SWIPES = 20; // free swipes per day
@@ -161,8 +162,8 @@ exports.likeUser = async (req, res) => {
 
     // Track swipe mission progress (fire-and-forget)
     trackEvent(req.userId, "swipe").catch(() => {});
-    trackSafeAnalyticsEvent("first_like", String(req.userId));
-    if (mutual) trackSafeAnalyticsEvent("first_match", String(req.userId));
+    trackMilestoneEvent("first_like", String(req.userId));
+    if (mutual) trackMilestoneEvent("first_match", String(req.userId));
   } catch (err) {
     if (err.code === 11000) {
       let mutual;

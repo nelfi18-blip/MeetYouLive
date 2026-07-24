@@ -131,7 +131,10 @@ describe("analytics routes", () => {
   test("rate limiting eventually rejects excessive analytics requests", async () => {
     let status = 202;
     for (let i = 0; i < 65; i += 1) {
-      const res = await request(app).post("/api/analytics/events").send({ ...basePayload, dedupeKey: `landing:test:${i}` });
+      const res = await request(app)
+        .post("/api/analytics/events")
+        .set("X-Forwarded-For", "203.0.113.10")
+        .send({ ...basePayload, dedupeKey: `landing:test:${i}` });
       status = res.status;
       if (status === 429) break;
     }
@@ -162,15 +165,21 @@ describe("analytics routes", () => {
       { headers: {}, path: "/api/health" },
       { headers: {}, path: "/_next/static/app.js" },
     ];
-    for (const item of cases) {
-      const res = await request(app).post("/api/analytics/events").set(item.headers).send({ ...basePayload, path: item.path, dedupeKey: `case:${item.path}:${Math.random()}` });
+    for (const [index, item] of cases.entries()) {
+      const res = await request(app)
+        .post("/api/analytics/events")
+        .set({ ...item.headers, "X-Forwarded-For": "203.0.113.20" })
+        .send({ ...basePayload, path: item.path, dedupeKey: `case:excluded:${index}` });
       expect(res.status).toBe(202);
     }
     expect(AnalyticsEvent.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   test("deep navigation does not become landing_view unless client sends landing_view", async () => {
-    const res = await request(app).post("/api/analytics/events").send({ ...basePayload, eventName: "feed_reached", path: "/feed", dedupeKey: "feed:abc12345" });
+    const res = await request(app)
+      .post("/api/analytics/events")
+      .set("X-Forwarded-For", "203.0.113.30")
+      .send({ ...basePayload, eventName: "feed_reached", path: "/feed", dedupeKey: "feed:abc12345" });
     expect(res.status).toBe(202);
     const [, update] = AnalyticsEvent.findOneAndUpdate.mock.calls[0];
     expect(update.$setOnInsert.event).toBe("feed_reached");

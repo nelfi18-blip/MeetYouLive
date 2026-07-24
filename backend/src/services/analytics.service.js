@@ -98,6 +98,18 @@ const getReferrerHost = (value) => {
   }
 };
 
+const getUtmFromPath = (path = "") => {
+  const result = {};
+  const query = String(path).split("?")[1] || "";
+  if (!query) return result;
+  const params = new URLSearchParams(query);
+  result.utmSource = cleanString(params.get("utm_source") || "", 80);
+  result.utmMedium = cleanString(params.get("utm_medium") || "", 80);
+  result.utmCampaign = cleanString(params.get("utm_campaign") || "", 120);
+  result.utmContent = cleanString(params.get("utm_content") || "", 120);
+  return result;
+};
+
 const classifySource = ({ source, utmSource, referrerHost }) => {
   const raw = cleanString(source || utmSource, 80).toLowerCase();
   const host = cleanString(referrerHost, 160).toLowerCase();
@@ -183,8 +195,9 @@ const buildAnalyticsEventInput = (payload = {}, req = {}) => {
   }
 
   const path = sanitizePath(payload.path);
+  const pathUtm = getUtmFromPath(path);
   const referrerHost = getReferrerHost(payload.referrer);
-  const source = classifySource({ source: payload.source, utmSource: payload.utmSource, referrerHost });
+  const source = classifySource({ source: payload.source, utmSource: payload.utmSource || pathUtm.utmSource, referrerHost });
   const deviceCategory = DEVICE_CATEGORIES.has(payload.deviceCategory)
     ? payload.deviceCategory
     : getDeviceCategory(req.get?.("user-agent"));
@@ -198,9 +211,9 @@ const buildAnalyticsEventInput = (payload = {}, req = {}) => {
     anonymousVisitorId,
     sessionId,
     source,
-    medium: cleanString(payload.medium || payload.utmMedium, 80),
-    campaign: cleanString(payload.campaign || payload.utmCampaign, 120),
-    content: cleanString(payload.content || payload.utmContent, 120),
+    medium: cleanString(payload.medium || payload.utmMedium || pathUtm.utmMedium, 80),
+    campaign: cleanString(payload.campaign || payload.utmCampaign || pathUtm.utmCampaign, 120),
+    content: cleanString(payload.content || payload.utmContent || pathUtm.utmContent, 120),
     referrerHost,
     path,
     locale: cleanString(payload.locale, 12).toLowerCase(),

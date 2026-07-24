@@ -1026,7 +1026,8 @@
           {
             "heading": "7. Retention, rights and deletion",
             "body": [
-              "We retain data as long as needed to provide the service, comply with legal obligations, manage disputes, prevent abuse and protect safety. You may request access, correction, deletion, portability or objection through the in-platform contact or support flows."
+              "We retain data as long as needed to provide the service, comply with legal obligations, manage disputes, prevent abuse and protect safety. You may request access, correction, deletion, portability or objection through the in-platform contact or support flows.",
+              "First-party analytics before registration uses anonymous first-party identifiers, respects Do Not Track when applicable, does not use fingerprinting, and does not store form content, messages, passwords, card data, full IP addresses, or URLs with tokens. Detailed events are retained for 90 days; aggregated data may be kept longer for internal metrics."
             ]
           },
           {

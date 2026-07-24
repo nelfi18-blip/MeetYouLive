@@ -1026,7 +1026,8 @@
           {
             "heading": "7. Retenção, direitos e exclusão",
             "body": [
-              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição pelos fluxos de contato ou suporte dentro da plataforma."
+              "Mantemos dados enquanto necessário para prestar o serviço, cumprir obrigações legais, gerir disputas, prevenir abuso e proteger a segurança. Você pode solicitar acesso, correção, exclusão, portabilidade ou oposição pelos fluxos de contato ou suporte dentro da plataforma.",
+              "A analítica própria antes do cadastro usa identificadores anônimos first-party, respeita Do Not Track quando aplicável, não usa fingerprinting e não armazena conteúdo de formulários, mensagens, senhas, cartões, IP completo ou URLs com tokens. Eventos detalhados são mantidos por 90 dias; dados agregados podem ser mantidos por mais tempo para métricas internas."
             ]
           },
           {

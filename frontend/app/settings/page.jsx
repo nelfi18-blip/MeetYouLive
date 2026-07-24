@@ -23,7 +23,7 @@ const SETTINGS_SECTIONS = [
     items: [
       { label: "Notificaciones", description: "Push, matches, likes, lives y recompensas.", href: "/settings/notifications", icon: "🔔" },
       { label: "Coins", description: "Comprar monedas y revisar tu balance.", href: "/coins", icon: "🪙" },
-      { label: "Premium", description: "Gestiona suscripción y beneficios premium.", href: "/subscription", icon: "⭐" },
+      { label: "Contenido exclusivo", description: "Desbloquea contenido usando Coins.", href: "/exclusive", icon: "🔓" },
       { label: "Creator Center", description: "Dashboard, earnings, wallet, gifts y retiros.", href: "/creator", icon: "🎥" },
     ],
   },

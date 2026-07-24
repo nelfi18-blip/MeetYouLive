@@ -20,6 +20,7 @@ const FEATURES = [
   { id: "video-calls", icon: "🎥", labelKey: "landing.features.videoCalls" },
   { id: "coins", icon: "🪙", labelKey: "landing.features.coins" },
   { id: "gifts", icon: "🎁", labelKey: "landing.features.gifts" },
+  { id: "exclusive", icon: "🔓", labelKey: "landing.features.exclusive" },
 ];
 
 const STEPS = [

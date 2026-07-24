@@ -14,7 +14,7 @@
     "profile": "Profile",
     "myProfile": "My profile",
     "buyCoins": "Buy coins",
-    "premiumSubscription": "Premium Subscription",
+    "premiumSubscription": "VIP coming soon",
     "creatorDashboard": "Creator Dashboard",
     "goLive": "Go Live",
     "logout": "Log out",
@@ -125,7 +125,7 @@
       "live": {
         "title": "Watch live streams",
         "desc": "Join live streams, send gifts, and connect in real time.",
-        "hook": "🎁 With coins you can send gifts and enter VIP rooms"
+        "hook": "🎁 With coins you can send gifts and support your favorite creators"
       },
       "creator": {
         "title": "Earn as a creator",
@@ -727,9 +727,9 @@
       "register": "Sign up"
     },
     "hero": {
-      "eyebrow": "Premium social platform",
+      "eyebrow": "Creator social platform",
       "title": "Connect, go live and support your favorite creators.",
-      "description": "Start free in less than a minute. Meet people, go live, make video calls and support your favorite creators."
+      "description": "Start free in less than a minute. Buy Coins, send gifts, unlock exclusive content, make private video calls and support your favorite creators."
     },
     "cta": {
       "google": "Continue with Google",
@@ -751,8 +751,8 @@
     },
     "heroCard": {
       "livePill": "Live",
-      "title": "Everything you can do",
-      "description": "Match, chat, live streams, video calls, coins and virtual gifts in a moderated community."
+      "title": "Monetization with Coins",
+      "description": "Buy Coins, send gifts, unlock exclusive content and make private video calls in a moderated community."
     },
     "features": {
       "match": "Match",
@@ -760,7 +760,8 @@
       "live": "Live",
       "videoCalls": "Video Calls",
       "coins": "Coins",
-      "gifts": "Gifts"
+      "gifts": "Gifts",
+      "exclusive": "Exclusive"
     },
     "howItWorks": {
       "eyebrow": "How does it work?",
@@ -777,7 +778,7 @@
       },
       "step3": {
         "title": "Step 3",
-        "description": "Match, chat, go live and enjoy every feature."
+        "description": "Buy Coins, send gifts, unlock exclusive content and support your favorite creators."
       }
     },
     "trust": {
@@ -789,7 +790,7 @@
     },
     "operator": {
       "eyebrow": "Operator",
-      "description": "Official operator of MeetYouLive. Premium social platform to meet people, go live and support content creators through secure payments.",
+      "description": "Official operator of MeetYouLive. Social platform to meet people, go live and support content creators with Coins, gifts and secure payments.",
       "websiteLabel": "Website:",
       "supportEmailLabel": "Support email:",
       "contact": "Contact and support"

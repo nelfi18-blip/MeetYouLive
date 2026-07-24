@@ -16,7 +16,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function RoomsIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 function VideoNavIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>; }
-function StarNavIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
 function FeedIcon()   { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>; }
 
 /* ── SVG icon components ─────────────────────────── */
@@ -289,9 +288,6 @@ export default function Navbar() {
                 )}
                 <Link href="/coins" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                   <CoinIcon /> {t("nav.buyCoins")}
-                </Link>
-                <Link href="/subscription" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <StarNavIcon /> {t("nav.premiumSubscription")}
                 </Link>
                 <div className="dropdown-divider" />
                 <button className="dropdown-item" onClick={handleSwitchAccount}>

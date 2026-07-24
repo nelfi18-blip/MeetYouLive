@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/token";
-import { shouldUseNativeStorePayments } from "@/lib/mobilePayments";
-import { redirectToTrustedCheckout } from "@/lib/checkoutRedirect";
-import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -33,19 +30,23 @@ function CrownIcon() {
   );
 }
 
-const BENEFITS = [
-  "💎 Badge VIP en chat, directos y perfil",
-  "🚀 Mensajes destacados en el chat (color especial)",
-  "🎬 Acceso a directos exclusivos VIP",
-  "🪙 +10% de monedas bonus en cada compra",
-  "🎁 Regalos especiales y descuentos exclusivos",
-  "⚡ Prioridad en el soporte",
-  "🔓 Acceso anticipado a nuevas funciones",
+const SOFT_LAUNCH_FEATURES = [
+  "🪙 Compra Coins y revisa tu balance",
+  "🎁 Envía regalos en Lives",
+  "🔓 Desbloquea contenido exclusivo con Coins",
+  "🎥 Realiza videollamadas privadas pagadas",
+  "💵 Apoya a tus creadores favoritos",
+];
+
+const VIP_ROADMAP = [
+  "Acreditación automática de Coins",
+  "Beneficios completos por tier",
+  "Matching prioritario",
+  "Stickers y ventajas VIP",
 ];
 
 export default function SubscriptionPage() {
   const router = useRouter();
-  const { t } = useLanguage();
   const [status, setStatus] = useState(null);
   const [periodEnd, setPeriodEnd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -84,38 +85,6 @@ export default function SubscriptionPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const handleSubscribe = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) { router.replace("/login"); return; }
-    if (shouldUseNativeStorePayments()) {
-      setError(t("common.mobileStorePaymentRequired"));
-      return;
-    }
-    setActionLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_URL}/api/subscriptions/checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error(t("common.invalidServerResponse"));
-      }
-      if (!res.ok) throw new Error(data?.message || "Error al crear la sesión de pago");
-      if (!redirectToTrustedCheckout(data?.url)) throw new Error(t("common.invalidPaymentUrl"));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleCancel = async () => {
     if (!confirm("¿Seguro que quieres cancelar tu suscripción?")) return;
     const token = localStorage.getItem("token");
@@ -135,7 +104,7 @@ export default function SubscriptionPage() {
       try {
         data = await res.json();
       } catch {
-        throw new Error(t("common.invalidServerResponse"));
+        throw new Error("Respuesta inválida del servidor");
       }
       if (!res.ok) throw new Error(data?.message || "Error al cancelar");
       setStatus("canceled");
@@ -168,9 +137,9 @@ export default function SubscriptionPage() {
         <div className="sub-hero-content">
           <div className="sub-crown"><CrownIcon /></div>
           <div>
-            <div className="sub-badge">💎 VIP</div>
-            <h1 className="sub-title">Hazte VIP y destaca en MeetYou</h1>
-            <p className="sub-desc">Badge 💎 VIP, mensajes destacados en chat y acceso a directos exclusivos</p>
+            <div className="sub-badge">💎 VIP Próximamente</div>
+            <h1 className="sub-title">VIP está pausado para el soft launch</h1>
+            <p className="sub-desc">Por ahora, MeetYouLive se centra en Coins, regalos, contenido exclusivo, videollamadas privadas y creadores.</p>
           </div>
         </div>
 
@@ -200,10 +169,10 @@ export default function SubscriptionPage() {
       <div className="benefits-card card">
         <div className="benefits-header">
           <div className="benefits-icon"><StarIcon /></div>
-          <h2 className="benefits-title">Beneficios VIP 💎</h2>
+          <h2 className="benefits-title">Monetización oficial disponible</h2>
         </div>
         <ul className="benefits-list">
-          {BENEFITS.map((benefit) => (
+          {SOFT_LAUNCH_FEATURES.map((benefit) => (
             <li key={benefit} className="benefit-item">
               <span className="benefit-check"><CheckIcon /></span>
               <span>{benefit}</span>
@@ -217,30 +186,22 @@ export default function SubscriptionPage() {
         {!isActive && !isPastDue ? (
           <>
             <div className="price-display">
-              <span className="price-amount">9,99 €</span>
-              <span className="price-period">/ mes</span>
+              <span className="price-amount">Próximamente</span>
             </div>
-            <p className="action-desc">Usuarios VIP ganan más atención. Destaca en el live. Acceso exclusivo.</p>
-            <button
-              className="btn btn-primary btn-lg sub-btn"
-              onClick={handleSubscribe}
-              disabled={actionLoading}
-            >
-              {actionLoading ? "Redirigiendo…" : "💎 Hazte VIP"}
-            </button>
+            <p className="action-desc">Silver, Gold y Platinum siguen preparados para una futura actualización, pero no se pueden comprar hasta que todos sus beneficios estén completos.</p>
+            <ul className="roadmap-list">
+              {VIP_ROADMAP.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <Link href="/coins" className="btn btn-primary btn-lg sub-btn">
+              🪙 Comprar Coins
+            </Link>
           </>
         ) : isPastDue ? (
           <>
             <p className="action-desc" style={{ color: "var(--error)" }}>
-              Hay un problema con tu pago. Actualiza tu método de pago para continuar disfrutando de los beneficios.
+              Hay un problema con tu pago. Las nuevas compras VIP están pausadas durante el soft launch.
             </p>
-            <button
-              className="btn btn-primary btn-lg sub-btn"
-              onClick={handleSubscribe}
-              disabled={actionLoading}
-            >
-              {actionLoading ? "Redirigiendo…" : "💳 Actualizar método de pago"}
-            </button>
+            <Link href="/coins" className="btn btn-primary btn-lg sub-btn">🪙 Comprar Coins</Link>
           </>
         ) : (
           <>
@@ -489,7 +450,7 @@ export default function SubscriptionPage() {
         }
 
         .price-amount {
-          font-size: 2.5rem;
+          font-size: clamp(1.75rem, 8vw, 2.5rem);
           font-weight: 900;
           background: linear-gradient(135deg, #fbbf24, #f59e0b);
           -webkit-background-clip: text;
@@ -510,6 +471,15 @@ export default function SubscriptionPage() {
         }
 
         .sub-btn { min-width: 220px; }
+
+        .roadmap-list {
+          margin: 0;
+          padding-left: 1.2rem;
+          color: var(--text-muted);
+          font-size: 0.875rem;
+          text-align: left;
+          max-width: 380px;
+        }
 
         .back-link {
           font-size: 0.875rem;

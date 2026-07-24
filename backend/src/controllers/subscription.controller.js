@@ -20,6 +20,8 @@ const getStripe = () => {
 };
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || null;
+const VIP_SOFT_LAUNCH_MESSAGE = "VIP estará disponible próximamente. Durante el soft launch la monetización principal son Coins, regalos, contenido exclusivo, videollamadas privadas y retiros de creadores.";
+const isVipCheckoutEnabled = () => process.env.ENABLE_VIP_CHECKOUT === "true";
 
 const normalizeObjectId = (value) => {
   if (!value || !mongoose.Types.ObjectId.isValid(String(value))) return null;
@@ -107,6 +109,10 @@ const resolveSubscriptionUserId = async ({ stripe, metadata = {}, customerId, su
 
 const createSubscriptionSession = async (req, res) => {
   try {
+    if (!isVipCheckoutEnabled()) {
+      return res.status(403).json({ message: VIP_SOFT_LAUNCH_MESSAGE });
+    }
+
     const stripe = getStripe();
     const frontendUrl = getFrontendUrl();
     const priceId = process.env.STRIPE_SUBSCRIPTION_PRICE_ID;
@@ -165,6 +171,10 @@ const createSubscriptionSession = async (req, res) => {
  */
 const createTierSubscriptionSession = async (req, res) => {
   try {
+    if (!isVipCheckoutEnabled()) {
+      return res.status(403).json({ message: VIP_SOFT_LAUNCH_MESSAGE });
+    }
+
     const stripe = getStripe();
     const frontendUrl = getFrontendUrl();
     if (!stripe || !frontendUrl) {
@@ -230,7 +240,7 @@ const getVipTiers = (_req, res) => {
   const tiers = TIER_IDS.map((id) => {
     // eslint-disable-next-line no-unused-vars
     const { stripePriceIdEnvKey, ...safe } = VIP_TIERS[id];
-    return { ...safe, available: Boolean(getStripePriceId(id)) };
+    return { ...safe, available: isVipCheckoutEnabled() && Boolean(getStripePriceId(id)) };
   });
   res.json({ tiers });
 };

@@ -14,7 +14,7 @@
     "profile": "Perfil",
     "myProfile": "Meu perfil",
     "buyCoins": "Comprar moedas",
-    "premiumSubscription": "Assinatura Premium",
+    "premiumSubscription": "VIP em breve",
     "creatorDashboard": "Painel do Criador",
     "goLive": "Ir ao Vivo",
     "logout": "Sair",
@@ -125,7 +125,7 @@
       "live": {
         "title": "Ver lives",
         "desc": "Entre em transmissões ao vivo, envie presentes e conecte-se em tempo real.",
-        "hook": "🎁 Com coins você pode enviar presentes e entrar em salas VIP"
+        "hook": "🎁 Com coins você pode enviar presentes e apoiar seus criadores favoritos"
       },
       "creator": {
         "title": "Ganhar como criador",
@@ -727,9 +727,9 @@
       "register": "Registrar-se"
     },
     "hero": {
-      "eyebrow": "Plataforma social premium",
+      "eyebrow": "Plataforma social de criadores",
       "title": "Conecte-se, faça lives e apoie seus criadores favoritos.",
-      "description": "Comece grátis em menos de um minuto. Conheça pessoas, faça lives, realize videochamadas e apoie seus criadores favoritos."
+      "description": "Comece grátis em menos de um minuto. Compre Coins, envie presentes, desbloqueie conteúdo exclusivo, faça videochamadas privadas e apoie seus criadores favoritos."
     },
     "cta": {
       "google": "Continuar com Google",
@@ -751,8 +751,8 @@
     },
     "heroCard": {
       "livePill": "Ao vivo",
-      "title": "Tudo o que você pode fazer",
-      "description": "Match, chat, lives, videochamadas, coins e presentes virtuais em uma comunidade moderada."
+      "title": "Monetização com Coins",
+      "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e faça videochamadas privadas em uma comunidade moderada."
     },
     "features": {
       "match": "Match",
@@ -760,7 +760,8 @@
       "live": "Live",
       "videoCalls": "Video Calls",
       "coins": "Coins",
-      "gifts": "Presentes"
+      "gifts": "Presentes",
+      "exclusive": "Exclusivo"
     },
     "howItWorks": {
       "eyebrow": "Como funciona?",
@@ -777,7 +778,7 @@
       },
       "step3": {
         "title": "Passo 3",
-        "description": "Dê match, converse, faça lives e aproveite todos os recursos."
+        "description": "Compre Coins, envie presentes, desbloqueie conteúdo exclusivo e apoie seus criadores favoritos."
       }
     },
     "trust": {
@@ -789,7 +790,7 @@
     },
     "operator": {
       "eyebrow": "Operador",
-      "description": "Operador oficial do MeetYouLive. Plataforma social premium para conhecer pessoas, fazer lives e apoiar criadores de conteúdo por meio de pagamentos seguros.",
+      "description": "Operador oficial do MeetYouLive. Plataforma social para conhecer pessoas, fazer lives e apoiar criadores de conteúdo com Coins, presentes e pagamentos seguros.",
       "websiteLabel": "Site:",
       "supportEmailLabel": "E-mail de suporte:",
       "contact": "Contato e suporte"

@@ -1420,15 +1420,15 @@ export default function ProfilePage() {
           {/* Referral promo */}
           {isNotAdmin && <ReferralCard />}
 
-          {/* VIP upsell / status card */}
+          {/* Soft launch monetization card */}
           {isNotAdmin && (
             user.isVIP ? (
               <div className="premium-upsell-card premium-upsell-card-vip">
                 <div className="premium-upsell-header">
                   <span className="premium-upsell-gem">💎</span>
                   <div>
-                    <h2 className="premium-upsell-title">Eres VIP 💎</h2>
-                    <p className="premium-upsell-sub">Disfrutas de badge exclusivo, mensajes destacados y acceso a directos VIP</p>
+                    <h2 className="premium-upsell-title">VIP activo 💎</h2>
+                    <p className="premium-upsell-sub">VIP queda conservado, pero las nuevas compras están pausadas durante el soft launch.</p>
                   </div>
                 </div>
                 <div className="premium-upsell-actions">
@@ -1442,15 +1442,12 @@ export default function ProfilePage() {
                 <div className="premium-upsell-header">
                   <span className="premium-upsell-gem">💎</span>
                   <div>
-                    <h2 className="premium-upsell-title">Hazte VIP y destaca</h2>
-                    <p className="premium-upsell-sub">Usuarios VIP ganan más atención · Destaca en el live · Acceso exclusivo</p>
+                    <h2 className="premium-upsell-title">Apoya con Coins</h2>
+                    <p className="premium-upsell-sub">Compra Coins para enviar regalos, desbloquear contenido exclusivo y realizar videollamadas privadas.</p>
                   </div>
                 </div>
                 <div className="premium-upsell-actions">
-                  <Link href="/subscription" className="premium-upsell-btn premium-upsell-btn-primary">
-                    💎 Hazte VIP
-                  </Link>
-                  <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-ghost">
+                  <Link href="/coins" className="premium-upsell-btn premium-upsell-btn-primary">
                     🪙 Comprar monedas
                   </Link>
                 </div>

@@ -5,6 +5,7 @@ const User = require("../models/User.js");
 const { trackAnalyticsEvent } = require("../services/analytics.service.js");
 const { notifySubscription } = require("../services/essentialNotification.service.js");
 const { VIP_TIERS, TIER_IDS, getStripePriceId } = require("../config/vip-tiers.js");
+const { VIP_SOFT_LAUNCH_MESSAGE, isVipCheckoutEnabled } = require("../config/soft-launch.js");
 
 let stripeClient;
 
@@ -20,9 +21,6 @@ const getStripe = () => {
 };
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || null;
-const VIP_SOFT_LAUNCH_MESSAGE = "VIP is coming soon. During soft launch, the primary monetization is Coins, gifts, exclusive content, private video calls, and creator withdrawals.";
-const isVipCheckoutEnabled = () => process.env.ENABLE_VIP_CHECKOUT === "true";
-
 const normalizeObjectId = (value) => {
   if (!value || !mongoose.Types.ObjectId.isValid(String(value))) return null;
   return String(value);

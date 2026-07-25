@@ -4,6 +4,8 @@
 
 Esta auditoría evalúa la estrategia para convertir MeetYouLive en aplicación móvil para Google Play Store y Apple App Store sin reescribir el producto actual ni modificar la lógica de negocio existente.
 
+Este trabajo queda limitado al **Sprint 0 — Bloqueantes y decisión**. No debe abrirse un PR diferente para este sprint; cualquier bloqueante importante identificado para Android o iOS debe documentarse en el reporte final del mismo trabajo. Después de validar Sprint 0, el siguiente paso será Sprint 1 para preparar la base móvil y generar el primer APK interno de Android.
+
 La evaluación se basa en la estructura actual del repositorio:
 
 - Frontend Next.js App Router en `frontend/app`.
@@ -339,6 +341,8 @@ Antes de publicar:
 - Decidir IAP/Play Billing vs limitar compras en app.
 - Definir si Capacitor usará web remota o bundle estático.
 - Revisar legal, privacidad, UGC y eliminación de cuenta.
+- Documentar bloqueantes Android/iOS en este mismo reporte antes de avanzar.
+- Validar Sprint 0 antes de iniciar Sprint 1 y generar el primer APK de Android.
 
 ### Sprint 1 — Base móvil Capacitor
 
@@ -429,3 +433,7 @@ Antes de publicar:
 **NOT READY TO START MOBILE APP**
 
 El camino recomendado es iniciar con una fase de preparación móvil sobre Capacitor, resolver los bloqueantes de store compliance y monetización, y solo después pasar a implementación de app móvil publicable.
+
+### Cierre de Sprint 0
+
+Sprint 0 debe cerrarse con este reporte validado y con los bloqueantes Android/iOS explícitamente documentados. No corresponde abrir un PR separado para este sprint. Una vez validado Sprint 0, el trabajo puede continuar en Sprint 1 con la preparación de la base Capacitor y el primer APK interno de Android.

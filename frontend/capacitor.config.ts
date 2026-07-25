@@ -1,5 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://meetyoulive.net';
+
 const config: CapacitorConfig = {
   appId: 'com.meetyoulive.app',
   appName: 'MeetYouLive',
@@ -10,12 +12,12 @@ const config: CapacitorConfig = {
     // Load the live production web app instead of a local static bundle.
     // Remove this block (or set to undefined) if you want to ship a fully
     // self-contained static build instead.
-    url: 'https://meetyoulive.net',
+    url: appUrl,
     cleartext: false,
   },
   plugins: {
     App: {
-      launchUrl: 'https://meetyoulive.net',
+      launchUrl: appUrl,
     },
     SplashScreen: {
       launchShowDuration: 2000,

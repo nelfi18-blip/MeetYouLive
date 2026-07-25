@@ -7,7 +7,8 @@ MeetYouLive queda preparado como shell nativo Capacitor para Android e iOS, reut
 - Estrategia móvil: Capacitor.
 - App ID / Package ID / Bundle ID: `com.meetyoulive.app`.
 - Nombre oficial: `MeetYouLive`.
-- Web cargada por Capacitor: `https://meetyoulive.net`.
+- Web cargada por Capacitor: `NEXT_PUBLIC_APP_URL` o, si no existe durante `npx cap sync`, `https://meetyoulive.net`.
+- El fallback a producción es intencional en Sprint 0 para que los shells nativos locales sean determinísticos.
 - La build web de producción sigue usando Next.js normal; no se fuerza export estático.
 
 ## Arquitectura creada

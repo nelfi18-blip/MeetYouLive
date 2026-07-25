@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network security policy for MeetYouLive Android.
+    All traffic to production domains must use HTTPS (cleartext disabled).
+    This mirrors the `cleartext: false` setting in capacitor.config.ts.
+-->
+<network-security-config>
+    <!-- Production frontend + backend: HTTPS only -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">meetyoulive.net</domain>
+        <domain includeSubdomains="true">meetyoulive.onrender.com</domain>
+    </domain-config>
+    <!-- Block cleartext everywhere else by default -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

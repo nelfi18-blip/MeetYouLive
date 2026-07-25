@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "O MeetYouLive precisa de acesso à câmera para lives, videochamadas e fotos de perfil.";
+"NSMicrophoneUsageDescription" = "O MeetYouLive precisa de acesso ao microfone para transmitir áudio em lives e videochamadas.";
+"NSPhotoLibraryUsageDescription" = "O MeetYouLive precisa acessar sua galeria para selecionar imagens de perfil e conteúdo.";
+"NSPhotoLibraryAddUsageDescription" = "O MeetYouLive pode salvar imagens geradas pelo app quando você solicitar.";

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Splash screen layout used by @capacitor/splash-screen (layoutName: 'launch_screen').
+    Shows the splash drawable centred on the brand background colour.
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorPrimaryDark">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/splash"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/app_name" />
+
+</RelativeLayout>

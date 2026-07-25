@@ -33,24 +33,39 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- Deep links: custom URL scheme is ready for native routing in Sprint 1 -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.meetyoulive.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.meetyoulive.app</string>
+				<string>meetyoulive</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Camera and microphone access for live streaming and video calls -->
 	<key>NSCameraUsageDescription</key>
-	<string>MeetYouLive needs camera access to start and view live streams and video calls.</string>
+	<string>MeetYouLive necesita acceso a la cámara para directos, videollamadas y fotos de perfil.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MeetYouLive needs microphone access to broadcast audio during live streams and video calls.</string>
-	<!-- Push notifications background mode -->
+	<string>MeetYouLive necesita acceso al micrófono para transmitir audio en directos y videollamadas.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MeetYouLive necesita acceso a tu galería para seleccionar imágenes de perfil y contenido.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MeetYouLive puede guardar imágenes generadas por la app cuando tú lo solicites.</string>
+	<!-- Push notifications/background capability prepared for native setup -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

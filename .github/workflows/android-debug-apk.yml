@@ -9,6 +9,10 @@ on:
         description: 'Branch or SHA to build from (default: current branch)'
         required: false
         default: ''
+      app_url:
+        description: 'App URL loaded by Capacitor WebView'
+        required: false
+        default: 'https://meetyoulive.net'
 
 permissions:
   contents: read
@@ -51,7 +55,7 @@ jobs:
       - name: Capacitor sync (Android)
         working-directory: frontend
         env:
-          NEXT_PUBLIC_APP_URL: https://meetyoulive.net
+          NEXT_PUBLIC_APP_URL: ${{ github.event.inputs.app_url || 'https://meetyoulive.net' }}
         run: npx cap sync android
 
       # Cache Gradle home to speed up subsequent runs

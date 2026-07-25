@@ -1721,7 +1721,7 @@
     "moreViewers": "{count} more viewers"
   },
   "adminAnalytics": {
-    "title": "Growth funnel",
+    "title": "Analytics",
     "subtitle": "MeetYouLive first-party visits, registrations, and acquisition sources.",
     "refresh": "Refresh",
     "loading": "Loading analytics…",
@@ -1743,14 +1743,40 @@
       "feedReached": "Reached Feed",
       "conversion": "Conversion"
     },
-    "funnel": "Visual funnel",
+    "funnel": "Acquisition funnel",
     "sources": "Where they come from",
+    "trafficSources": "Traffic sources",
     "trends": "Daily trend",
     "devices": "Devices",
     "locales": "Languages",
     "visitors": "Visitors",
     "registrations": "Registrations",
     "retention": "Privacy and retention",
+    "currentMetrics": "Current metrics",
+    "registrationsTotal": "Registrations",
+    "coinPurchases": "Coin purchases",
+    "last7Days": "Last 7 days",
+    "dropoff": "drop-off",
+    "dailyRegistrations": "Daily registrations",
+    "dailyPurchases": "Daily coin purchases",
+    "topCreators": "Top gifted creators",
+    "topSpenders": "Top coin buyers",
+    "sourceStats": {
+      "visitors": "Visitors",
+      "registrations": "Registrations",
+      "conversion": "Conversion"
+    },
+    "acquisition": {
+      "totalVisitors": "🌐 Total visitors",
+      "uniqueVisitors": "👤 Unique visitors",
+      "sessions": "📱 Sessions",
+      "instagram": "📲 Visitors from Instagram",
+      "facebook": "📘 Visitors from Facebook",
+      "tiktok": "🎵 Visitors from TikTok",
+      "google": "🔍 Visitors from Google",
+      "direct": "🔗 Direct traffic",
+      "other": "📧 Other sources"
+    },
     "funnelSteps": {
       "visitors": "Visitors",
       "registerClicks": "Register click",

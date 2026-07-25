@@ -63,7 +63,43 @@ const uniqueVisitorCountForEvent = (event, start, end) =>
     anonymousVisitorId: { $nin: [null, ""] },
   }).then((ids) => ids.length);
 
+const sessionCountForEvent = (event, start, end) =>
+  AnalyticsEvent.distinct("sessionId", {
+    ...baseMatch(start, end),
+    event,
+    sessionId: { $nin: [null, ""] },
+  }).then((ids) => ids.length);
+
 const countEvent = (event, start, end) => AnalyticsEvent.countDocuments({ ...baseMatch(start, end), event });
+
+const getAcquisitionSummary = async (start, end) => {
+  const [totalVisitors, uniqueVisitors, sessions, sourceRows] = await Promise.all([
+    countEvent("landing_view", start, end),
+    uniqueVisitorCountForEvent("landing_view", start, end),
+    sessionCountForEvent("landing_view", start, end),
+    AnalyticsEvent.aggregate([
+      { $match: { ...baseMatch(start, end), event: "landing_view" } },
+      { $group: { _id: "$source", visitors: { $addToSet: "$anonymousVisitorId" } } },
+    ]),
+  ]);
+  const bySource = Object.fromEntries(SOURCE_ORDER.map((source) => [source, 0]));
+  for (const row of sourceRows) {
+    const source = SOURCE_ORDER.includes(row._id) ? row._id : "other";
+    bySource[source] += (row.visitors || []).filter(Boolean).length;
+  }
+  return {
+    totalVisitors,
+    uniqueVisitors,
+    sessions,
+    visitorsFromInstagram: bySource.instagram,
+    visitorsFromFacebook: bySource.facebook,
+    visitorsFromTikTok: bySource.tiktok,
+    visitorsFromGoogle: bySource.google,
+    directTraffic: bySource.direct,
+    otherSources: bySource.other + bySource.whatsapp,
+    bySource,
+  };
+};
 
 const buildFunnel = async (start, end) => {
   const counts = {};
@@ -198,6 +234,7 @@ exports.getGrowthAnalytics = async (req, res) => {
       emailVerified,
       onboardingCompleted,
       feedReached,
+      acquisitionSummary,
       funnel,
       sources,
       trend,
@@ -214,6 +251,7 @@ exports.getGrowthAnalytics = async (req, res) => {
       countEvent("email_verified", start, end),
       countEvent("onboarding_completed", start, end),
       countEvent("feed_reached", start, end),
+      getAcquisitionSummary(start, end),
       buildFunnel(start, end),
       getSources(start, end),
       getDailyTrend(start, end),
@@ -243,6 +281,7 @@ exports.getGrowthAnalytics = async (req, res) => {
           feedReached,
           conversion: safePercent(registrationCompleted, funnel[0]?.count || 0),
         },
+        acquisitionSummary,
         funnel,
         sources,
         trend,

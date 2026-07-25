@@ -1721,7 +1721,7 @@
     "moreViewers": "{count} espectadores a mais"
   },
   "adminAnalytics": {
-    "title": "Funil de crescimento",
+    "title": "Analíticas",
     "subtitle": "Visitas, cadastros e fontes de aquisição próprias do MeetYouLive.",
     "refresh": "Atualizar",
     "loading": "Carregando analíticas…",
@@ -1743,14 +1743,40 @@
       "feedReached": "Chegaram ao Feed",
       "conversion": "Conversão"
     },
-    "funnel": "Funil visual",
+    "funnel": "Funil de aquisição",
     "sources": "De onde chegam",
+    "trafficSources": "Fontes de tráfego",
     "trends": "Tendência diária",
     "devices": "Dispositivos",
     "locales": "Idiomas",
     "visitors": "Visitantes",
     "registrations": "Cadastros",
     "retention": "Privacidade e retenção",
+    "currentMetrics": "Métricas atuais",
+    "registrationsTotal": "Cadastros",
+    "coinPurchases": "Compras de Coins",
+    "last7Days": "Últimos 7 dias",
+    "dropoff": "abandono",
+    "dailyRegistrations": "Cadastros diários",
+    "dailyPurchases": "Compras diárias de Coins",
+    "topCreators": "Criadores com mais presentes",
+    "topSpenders": "Usuários que mais compram",
+    "sourceStats": {
+      "visitors": "Visitantes",
+      "registrations": "Cadastros",
+      "conversion": "Conversão"
+    },
+    "acquisition": {
+      "totalVisitors": "🌐 Visitantes totais",
+      "uniqueVisitors": "👤 Visitantes únicos",
+      "sessions": "📱 Sessões",
+      "instagram": "📲 Visitantes do Instagram",
+      "facebook": "📘 Visitantes do Facebook",
+      "tiktok": "🎵 Visitantes do TikTok",
+      "google": "🔍 Visitantes do Google",
+      "direct": "🔗 Tráfego direto",
+      "other": "📧 Outras origens"
+    },
     "funnelSteps": {
       "visitors": "Visitantes",
       "registerClicks": "Clique em Registrar",

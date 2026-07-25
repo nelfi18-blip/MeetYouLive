@@ -25,6 +25,10 @@ function pct(value) {
   return `${Number(value || 0).toFixed(1)}%`;
 }
 
+function sumBy(items = [], key) {
+  return items.reduce((total, item) => total + Number(item?.[key] || 0), 0);
+}
+
 function MetricCard({ title, value, sub }) {
   return (
     <div className="metric-card">
@@ -51,10 +55,28 @@ function TinyBars({ data, valueKey, labelKey, empty }) {
   );
 }
 
+function RankingList({ items, valueKey, empty }) {
+  if (!items?.length) return <div className="empty compact">{empty}</div>;
+  return (
+    <div className="ranking-list">
+      {items.map((item) => {
+        const name = item.user?.username || item.user?.name || "—";
+        return (
+          <div className="ranking-row" key={item._id || name}>
+            <span>{name}</span>
+            <b>{fmt(item[valueKey])}</b>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AdminGrowthAnalyticsPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const [period, setPeriod] = useState("7d");
+  const [currentAnalytics, setCurrentAnalytics] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,7 +104,33 @@ export default function AdminGrowthAnalyticsPage() {
     locales: t("adminAnalytics.locales"),
     visitors: t("adminAnalytics.visitors"),
     registrations: t("adminAnalytics.registrations"),
+    trafficSources: t("adminAnalytics.trafficSources"),
     retention: t("adminAnalytics.retention"),
+    currentMetrics: t("adminAnalytics.currentMetrics"),
+    registrationsTotal: t("adminAnalytics.registrationsTotal"),
+    coinPurchases: t("adminAnalytics.coinPurchases"),
+    last7Days: t("adminAnalytics.last7Days"),
+    dropoff: t("adminAnalytics.dropoff"),
+    dailyRegistrations: t("adminAnalytics.dailyRegistrations"),
+    dailyPurchases: t("adminAnalytics.dailyPurchases"),
+    topCreators: t("adminAnalytics.topCreators"),
+    topSpenders: t("adminAnalytics.topSpenders"),
+    sourceStats: {
+      visitors: t("adminAnalytics.sourceStats.visitors"),
+      registrations: t("adminAnalytics.sourceStats.registrations"),
+      conversion: t("adminAnalytics.sourceStats.conversion"),
+    },
+    acquisition: {
+      totalVisitors: t("adminAnalytics.acquisition.totalVisitors"),
+      uniqueVisitors: t("adminAnalytics.acquisition.uniqueVisitors"),
+      sessions: t("adminAnalytics.acquisition.sessions"),
+      instagram: t("adminAnalytics.acquisition.instagram"),
+      facebook: t("adminAnalytics.acquisition.facebook"),
+      tiktok: t("adminAnalytics.acquisition.tiktok"),
+      google: t("adminAnalytics.acquisition.google"),
+      direct: t("adminAnalytics.acquisition.direct"),
+      other: t("adminAnalytics.acquisition.other"),
+    },
     funnelSteps: {
       visitors: t("adminAnalytics.funnelSteps.visitors"),
       registerClicks: t("adminAnalytics.funnelSteps.registerClicks"),
@@ -104,22 +152,29 @@ export default function AdminGrowthAnalyticsPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_URL}/api/admin/analytics/growth?period=${period}`, {
-        headers: authHeader(),
-        cache: "no-store",
-      });
-      if (res.status === 401) {
+      const [currentRes, growthRes] = await Promise.all([
+        fetch(`${API_URL}/api/admin/analytics`, {
+          headers: authHeader(),
+          cache: "no-store",
+        }),
+        fetch(`${API_URL}/api/admin/analytics/growth?period=${period}`, {
+          headers: authHeader(),
+          cache: "no-store",
+        }),
+      ]);
+      if (currentRes.status === 401 || growthRes.status === 401) {
         clearAdminToken();
         router.replace("/admin/login");
         return;
       }
-      if (res.status === 403) {
+      if (currentRes.status === 403 || growthRes.status === 403) {
         setError("Sin permisos.");
         return;
       }
-      if (!res.ok) throw new Error("server");
-      const data = await res.json();
-      setAnalytics(data.analytics || null);
+      if (!currentRes.ok || !growthRes.ok) throw new Error("server");
+      const [currentData, growthData] = await Promise.all([currentRes.json(), growthRes.json()]);
+      setCurrentAnalytics(currentData.analytics || null);
+      setAnalytics(growthData.analytics || null);
     } catch {
       setError("Error cargando analíticas.");
     } finally {
@@ -130,8 +185,12 @@ export default function AdminGrowthAnalyticsPage() {
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
 
   const summary = analytics?.summary || {};
+  const acquisition = analytics?.acquisitionSummary || {};
   const funnel = analytics?.funnel || [];
   const trend = analytics?.trend || [];
+  const retention = currentAnalytics?.retention || {};
+  const dailyRegistrations = currentAnalytics?.dailyRegistrations || [];
+  const dailyPurchases = currentAnalytics?.dailyPurchases || [];
 
   return (
     <div className="page">
@@ -161,42 +220,84 @@ export default function AdminGrowthAnalyticsPage() {
         <div className="empty">{labels.empty}</div>
       ) : (
         <>
-          <section className="metrics-grid">
-            <MetricCard title={labels.visitorsToday} value={fmt(summary.visitorsToday)} />
-            <MetricCard title={labels.uniqueToday} value={fmt(summary.uniqueVisitorsToday)} />
-            <MetricCard title={labels.visitors7d} value={fmt(summary.visitors7d)} />
-            <MetricCard title={labels.registerClicks} value={fmt(summary.registerClicks)} />
-            <MetricCard title={labels.registrationStarted} value={fmt(summary.registrationStarted)} />
-            <MetricCard title={labels.registrationCompleted} value={fmt(summary.registrationCompleted)} />
-            <MetricCard title={labels.emailVerified} value={fmt(summary.emailVerified)} />
-            <MetricCard title={labels.onboardingCompleted} value={fmt(summary.onboardingCompleted)} />
-            <MetricCard title={labels.feedReached} value={fmt(summary.feedReached)} />
+          <section className="panel">
+            <h2>{labels.currentMetrics}</h2>
+            <div className="metrics-grid">
+              <MetricCard title="DAU" value={fmt(retention.dau)} />
+              <MetricCard title="WAU" value={fmt(retention.wau)} />
+              <MetricCard title="MAU" value={fmt(retention.mau)} />
+              <MetricCard title={labels.registrationsTotal} value={fmt(sumBy(dailyRegistrations, "count"))} sub={labels.last7Days} />
+              <MetricCard title={labels.coinPurchases} value={fmt(sumBy(dailyPurchases, "total"))} sub={labels.last7Days} />
+              <MetricCard title={labels.visitorsToday} value={fmt(summary.visitorsToday)} />
+              <MetricCard title={labels.uniqueToday} value={fmt(summary.uniqueVisitorsToday)} />
+              <MetricCard title={labels.visitors7d} value={fmt(summary.visitors7d)} />
+            </div>
           </section>
+
+          <div className="split">
+            <section className="panel">
+              <h2>{labels.dailyRegistrations}</h2>
+              <TinyBars data={dailyRegistrations} valueKey="count" labelKey="label" empty={labels.empty} />
+            </section>
+            <section className="panel">
+              <h2>{labels.dailyPurchases}</h2>
+              <TinyBars data={dailyPurchases} valueKey="total" labelKey="label" empty={labels.empty} />
+            </section>
+          </div>
+
+          <div className="split">
+            <section className="panel">
+              <h2>{labels.topCreators}</h2>
+              <RankingList items={currentAnalytics?.topCreators || []} valueKey="totalGifts" empty={labels.empty} />
+            </section>
+            <section className="panel">
+              <h2>{labels.topSpenders}</h2>
+              <RankingList items={currentAnalytics?.topSpenders || []} valueKey="totalSpent" empty={labels.empty} />
+            </section>
+          </div>
 
           <section className="panel">
             <h2>{labels.funnel}</h2>
+            <div className="metrics-grid">
+              <MetricCard title={labels.acquisition.totalVisitors} value={fmt(acquisition.totalVisitors)} />
+              <MetricCard title={labels.acquisition.uniqueVisitors} value={fmt(acquisition.uniqueVisitors)} />
+              <MetricCard title={labels.acquisition.sessions} value={fmt(acquisition.sessions)} />
+              <MetricCard title={labels.acquisition.instagram} value={fmt(acquisition.visitorsFromInstagram)} />
+              <MetricCard title={labels.acquisition.facebook} value={fmt(acquisition.visitorsFromFacebook)} />
+              <MetricCard title={labels.acquisition.tiktok} value={fmt(acquisition.visitorsFromTikTok)} />
+              <MetricCard title={labels.acquisition.google} value={fmt(acquisition.visitorsFromGoogle)} />
+              <MetricCard title={labels.acquisition.direct} value={fmt(acquisition.directTraffic)} />
+              <MetricCard title={labels.acquisition.other} value={fmt(acquisition.otherSources)} />
+              <MetricCard title={labels.registerClicks} value={fmt(summary.registerClicks)} />
+              <MetricCard title={labels.registrationStarted} value={fmt(summary.registrationStarted)} />
+              <MetricCard title={labels.registrationCompleted} value={fmt(summary.registrationCompleted)} />
+              <MetricCard title={labels.emailVerified} value={fmt(summary.emailVerified)} />
+              <MetricCard title={labels.onboardingCompleted} value={fmt(summary.onboardingCompleted)} />
+              <MetricCard title={labels.feedReached} value={fmt(summary.feedReached)} />
+            </div>
+
             <div className="funnel">
               {funnel.map((step, index) => (
                 <div className="funnel-step" key={step.event}>
                   <div className="funnel-copy">
                     <strong>{labels.funnelSteps[step.key] || step.key}</strong>
-                    <span>{fmt(step.count)} · {index === 0 ? "100%" : pct(step.conversionFromPrevious)}</span>
+                    <span>{fmt(step.count)} · {labels.sourceStats.conversion}: {index === 0 ? "100%" : pct(step.conversionFromPrevious)}</span>
                   </div>
-                  {index > 0 && <small>-{fmt(step.dropoffFromPrevious)} · {pct(step.dropoffPercent)}</small>}
+                  {index > 0 && <small>{fmt(step.dropoffFromPrevious)} · {pct(step.dropoffPercent)} {labels.dropoff}</small>}
                 </div>
               ))}
             </div>
           </section>
 
           <section className="panel">
-            <h2>{labels.sources}</h2>
+            <h2>{labels.trafficSources}</h2>
             <div className="sources">
               {(analytics.sources || []).map((source) => (
                 <div className="source-card" key={source.source}>
                   <strong>{SOURCE_LABELS[source.source] || source.source}</strong>
-                  <span>{labels.visitors}: {fmt(source.visitors)}</span>
-                  <span>{labels.registrations}: {fmt(source.registrations)}</span>
-                  <b>{pct(source.conversion)}</b>
+                  <span>{labels.sourceStats.visitors}: {fmt(source.visitors)}</span>
+                  <span>{labels.sourceStats.registrations}: {fmt(source.registrations)}</span>
+                  <b>{labels.sourceStats.conversion}: {pct(source.conversion)}</b>
                 </div>
               ))}
             </div>
@@ -238,6 +339,7 @@ export default function AdminGrowthAnalyticsPage() {
         .periods button.active { background: linear-gradient(135deg, #7c3aed, #06b6d4); color: #fff; }
         .alert { padding: 0.8rem 1rem; border-radius: 14px; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
         .empty { color: #94a3b8; text-align: center; padding: 2rem; }
+        .empty.compact { padding: 0.75rem; }
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
         .metric-card, .panel, .source-card { border: 1px solid rgba(148,163,184,0.14); background: linear-gradient(180deg, #171c2a, #101522); border-radius: 22px; }
         .metric-card { padding: 1rem; display: grid; gap: 0.35rem; }
@@ -262,6 +364,10 @@ export default function AdminGrowthAnalyticsPage() {
         .tiny-track { height: 8px; border-radius: 999px; background: #1e2535; overflow: hidden; }
         .tiny-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #22d3ee); min-width: 2px; }
         .tiny-row b { color: #f8fafc; text-align: right; }
+        .ranking-list { display: grid; gap: 0.55rem; }
+        .ranking-row { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(148,163,184,0.1); color: #94a3b8; }
+        .ranking-row:last-child { border-bottom: 0; }
+        .ranking-row b { color: #f8fafc; }
         .trend-grid, .split { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 1rem; }
         .retention { color: #64748b; font-size: 0.8rem; line-height: 1.5; }
         @media (max-width: 640px) {

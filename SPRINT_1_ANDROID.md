@@ -114,8 +114,12 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 ### Opción A — GitHub Actions (recomendado)
 
 1. Ir a **Actions → Android Debug APK** en GitHub.
-2. Clic en **Run workflow**.
-3. Seleccionar rama (`main` o esta PR).
+2. Para esta PR, el workflow también corre en `pull_request` porque GitHub no
+   expone workflows `workflow_dispatch` nuevos hasta que existan en la rama por
+   defecto. Si el run queda en `action_required`, aprobar la ejecución desde la
+   UI de GitHub Actions.
+3. Alternativamente, cuando el workflow ya exista en la rama por defecto, usar
+   **Run workflow** y seleccionar rama (`main` o esta PR).
 4. Esperar ~8-12 min.
 5. Descargar el artifact `MeetYouLive-debug-<run_number>` → `app-debug.apk`.
 6. Instalar en el dispositivo habilitando "Fuentes desconocidas".
@@ -157,14 +161,30 @@ chmod +x gradlew
 
 ---
 
-## 11. Recomendación final
+## 11. Validación PR #814
 
-> **NOT READY TO INSTALL APK** *(desde CI — el workflow aún no ha corrido)*
+Intentos realizados en esta PR:
+
+- GitHub Actions: el workflow `Android Debug APK` se disparó en la PR, pero
+  GitHub lo dejó en estado `action_required` sin crear jobs ni artifact. Debe
+  aprobarse desde la UI de Actions.
+- Validación local: `npm ci`, `npm run lint`, `npm run build`,
+  `npm run test:language`, `npm run test:public-access` y `npx cap sync android`
+  se ejecutaron antes del build Android. El build Gradle no pudo descargar
+  `com.android.tools.build:gradle:8.7.2` ni `com.google.gms:google-services:4.4.2`
+  porque el sandbox no pudo resolver `dl.google.com`. Es un bloqueo de red del
+  entorno, no un error del proyecto.
+
+---
+
+## 12. Recomendación final
+
+> **NOT READY TO INSTALL APK** *(pendiente de artifact y prueba real de instalación)*
 >
 > Los archivos necesarios para compilar el APK están completos en este PR.
-> El workflow `android-debug-apk.yml` debe ejecutarse manualmente en Actions
-> para generar el artifact. Una vez generado y verificado en un dispositivo real,
-> el estado cambia a **READY TO INSTALL APK**.
+> El workflow `android-debug-apk.yml` debe aprobarse/ejecutarse en Actions para
+> generar el artifact. Una vez generado, instalado y abierto en un dispositivo
+> real, el estado cambia a **READY TO INSTALL APK**.
 >
 > Login por correo funcional. Google Login requiere configuración adicional antes
 > de funcionar en Android. No hacer Merge hasta verificar el APK instalado.

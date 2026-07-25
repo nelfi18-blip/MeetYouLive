@@ -43,6 +43,7 @@ const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 const PUSH_TOKEN_PLATFORMS = new Set(["web", "ios", "android", "unknown"]);
 const PUSH_TOKEN_PERMISSION_STATUSES = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
+const MAX_PUSH_DEVICES = 25;
 const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
@@ -1390,7 +1391,7 @@ router.get("/:id/follow", userLimiter, verifyToken, async (req, res) => {
 
 // Register / update FCM push notification token
 router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
-  const { pushToken, platform, deviceId, permissionStatus } = req.body;
+  const { pushToken, platform, deviceId, permissionStatus, appVersion, locale } = req.body;
   if (pushToken != null && typeof pushToken !== "string") {
     return res.status(400).json({ message: "pushToken must be a string or null" });
   }
@@ -1411,9 +1412,15 @@ router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
   if (deviceId !== undefined && deviceId !== null && typeof deviceId !== "string") {
     return res.status(400).json({ message: "deviceId must be a string or null" });
   }
+  if (appVersion !== undefined && appVersion !== null && typeof appVersion !== "string") {
+    return res.status(400).json({ message: "appVersion must be a string or null" });
+  }
+  if (locale !== undefined && locale !== null && typeof locale !== "string") {
+    return res.status(400).json({ message: "locale must be a string or null" });
+  }
   try {
     const user = await User.findById(req.userId).select(
-      "pushToken pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt"
+      "pushToken pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt pushDevices"
     );
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -1422,7 +1429,40 @@ router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
     user.pushTokenDeviceId = nextDeviceId;
     user.pushTokenPermissionStatus = normalizedPermissionStatus;
     user.pushTokenUpdatedAt = new Date();
+    const deviceKey = nextDeviceId || nextPushToken;
+    if (deviceKey || permissionStatus !== undefined) {
+      const now = new Date();
+      const nextDevice = {
+        token: nextPushToken,
+        platform: nextPlatform,
+        deviceId: nextDeviceId,
+        appVersion: typeof appVersion === "string" ? appVersion.slice(0, 80) : "",
+        locale: typeof locale === "string" ? locale.slice(0, 16) : "",
+        permissionStatus: normalizedPermissionStatus,
+        updatedAt: now,
+      };
+      const devices = Array.isArray(user.pushDevices) ? user.pushDevices : [];
+      user.pushDevices = devices
+        .filter((device) => {
+          if (nextDeviceId && device.deviceId === nextDeviceId) return false;
+          if (nextPushToken && device.token === nextPushToken) return false;
+          return true;
+        })
+        .concat(nextDevice)
+        .filter((device) => device.deviceId || device.token || device.permissionStatus)
+        .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+        .slice(0, MAX_PUSH_DEVICES);
+    }
     await user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/me/activity", userLimiter, verifyToken, async (req, res) => {
+  try {
+    await User.updateOne({ _id: req.userId }, { lastActiveAt: new Date() });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });

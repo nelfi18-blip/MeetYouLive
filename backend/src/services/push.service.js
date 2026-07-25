@@ -140,10 +140,10 @@ async function sendReminderPushes() {
   for (const ev of events) {
     try {
       const user = await User.findById(ev.userId)
-        .select("pushToken pushSettings")
+        .select("pushToken pushDevices pushSettings")
         .lean();
 
-      if (!user?.pushToken) continue;
+      if (!_hasPushTarget(user)) continue;
       if (!_isAllowed(user, ev.type)) continue;
 
       // Atomically claim the reminder slot (guards against concurrent job runs
@@ -181,10 +181,10 @@ async function sendReminderPushes() {
 async function _processUserEvents(uid, userEvents, now) {
   try {
     const user = await User.findById(uid)
-      .select("pushToken pushSettings lastActiveAt")
+      .select("pushToken pushDevices pushSettings lastActiveAt")
       .lean();
 
-    if (!user?.pushToken) {
+    if (!_hasPushTarget(user)) {
       await _cancelEvents(userEvents.map((e) => e._id));
       return;
     }
@@ -277,6 +277,13 @@ function _isAllowed(user, type) {
     return settings.categories.includes(type);
   }
   return true;
+}
+
+function _hasPushTarget(user) {
+  if (user?.pushToken) return true;
+  return (user?.pushDevices || []).some(
+    (device) => device?.token && (!device.permissionStatus || device.permissionStatus === "granted")
+  );
 }
 
 /** Build the title/body for a (potentially aggregated) group of events. */

@@ -75,6 +75,29 @@ async function checkAndIncrementRateLimit(userId) {
   return true;
 }
 
+const getPushTokens = async (userId, token = null) => {
+  const tokens = new Set();
+  if (typeof token === "string" && token) tokens.add(token);
+
+  const user = await User.findById(userId).select("pushToken pushDevices").lean();
+  if (typeof user?.pushToken === "string" && user.pushToken) tokens.add(user.pushToken);
+  for (const device of user?.pushDevices || []) {
+    if (device?.permissionStatus && device.permissionStatus !== "granted") continue;
+    if (typeof device?.token === "string" && device.token) tokens.add(device.token);
+  }
+
+  return [...tokens];
+};
+
+const pruneInvalidPushToken = async (userId, token) => {
+  if (!token) return;
+  await User.updateOne({ _id: userId, pushToken: token }, { $set: { pushToken: null } }).catch(() => {});
+  await User.updateOne(
+    { _id: userId },
+    { $pull: { pushDevices: { token } } }
+  ).catch(() => {});
+};
+
 /**
  * Send a push notification to a single user.
  *
@@ -86,8 +109,6 @@ async function checkAndIncrementRateLimit(userId) {
  * @returns {Promise<void>}
  */
 async function sendPush(userId, token, title, body, data = {}) {
-  if (!token) return;
-
   const app = getAdmin();
   if (!app) return; // FCM not configured — skip silently
 
@@ -95,29 +116,46 @@ async function sendPush(userId, token, title, body, data = {}) {
   if (!allowed) return;
 
   const admin = require("firebase-admin");
-  const message = {
-    token,
-    notification: { title, body },
-    data: Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, String(v)])
-    ),
-    webpush: {
-      fcmOptions: { link: data.link || "/" },
-    },
-  };
+  const tokens = await getPushTokens(userId, token);
+  if (tokens.length === 0) return;
 
-  try {
-    await admin.messaging(app).send(message);
-  } catch (err) {
-    // Token may have been revoked or is invalid — clear it so we stop trying
-    if (
-      err.code === "messaging/registration-token-not-registered" ||
-      err.code === "messaging/invalid-registration-token"
-    ) {
-      await User.updateOne({ _id: userId }, { $set: { pushToken: null } }).catch(() => {});
-    }
-    console.error("[fcm] send error:", err.message);
-  }
+  await Promise.allSettled(
+    tokens.map(async (targetToken) => {
+      const message = {
+        token: targetToken,
+        notification: { title, body },
+        data: Object.fromEntries(
+          Object.entries(data).map(([k, v]) => [k, String(v)])
+        ),
+        android: {
+          priority: data.type === "call" ? "high" : "normal",
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              ...(data.type === "call" ? { "content-available": 1 } : {}),
+            },
+          },
+        },
+        webpush: {
+          fcmOptions: { link: data.link || "/" },
+        },
+      };
+
+      try {
+        await admin.messaging(app).send(message);
+      } catch (err) {
+        if (
+          err.code === "messaging/registration-token-not-registered" ||
+          err.code === "messaging/invalid-registration-token"
+        ) {
+          await pruneInvalidPushToken(userId, targetToken);
+        }
+        console.error("[fcm] send error:", err.message);
+      }
+    })
+  );
 }
 
 /**
@@ -140,7 +178,13 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
   const app = getAdmin();
   if (!app) return;
 
-  const query = { _id: { $in: userIds }, pushToken: { $ne: null } };
+  const query = {
+    _id: { $in: userIds },
+    $or: [
+      { pushToken: { $ne: null } },
+      { pushDevices: { $elemMatch: { token: { $type: "string", $ne: "" }, permissionStatus: { $in: ["granted", null] } } } },
+    ],
+  };
   // When a category type is provided, skip users who have disabled it
   if (type) {
     query["pushSettings.enabled"] = { $ne: false };
@@ -149,11 +193,11 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
 
   const users = await User.find(
     query,
-    "_id pushToken pushRateLimit"
+    "_id pushToken pushDevices pushRateLimit"
   ).lean();
 
   await Promise.allSettled(
-    users.map((u) => sendPush(u._id, u.pushToken, title, body, data))
+    users.map((u) => sendPush(u._id, null, title, body, data))
   );
 }
 

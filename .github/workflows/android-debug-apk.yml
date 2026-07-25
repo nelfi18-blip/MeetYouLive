@@ -1,8 +1,16 @@
 name: Android Debug APK
 
-# Manual-only workflow — generates a Debug APK and uploads it as a GitHub
-# Actions artifact. No secrets, no signing, no publishing.
+# Generates a Debug APK and uploads it as a GitHub Actions artifact.
+# No secrets, no signing, no publishing.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-debug-apk.yml'
+      - 'frontend/capacitor.config.ts'
+      - 'frontend/package-lock.json'
+      - 'frontend/package.json'
+      - 'frontend/android/**'
   workflow_dispatch:
     inputs:
       ref:

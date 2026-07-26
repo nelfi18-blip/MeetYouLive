@@ -22,14 +22,25 @@ const config: CapacitorConfig = {
       launchUrl: appUrl,
     },
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchAutoHide: false,
+      launchShowDuration: 1200,
       backgroundColor: '#0f0821',
       showSpinner: false,
       androidSpinnerStyle: 'small',
-      splashFullScreen: true,
-      splashImmersive: true,
+      splashFullScreen: false,
+      splashImmersive: false,
       layoutName: 'launch_screen',
       useDialog: false,
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#0f0821',
+      overlaysWebView: false,
+    },
+    Keyboard: {
+      resize: 'body',
+      style: 'dark',
+      resizeOnFullScreen: true,
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],

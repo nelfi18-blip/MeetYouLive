@@ -72,13 +72,30 @@ export async function initNativePushNotifications(backendToken) {
   registerListeners();
 
   let permission = await PushNotifications.checkPermissions();
+
+  if (permission.receive !== "granted") {
+    await registerTokenWithBackend(null, backendToken, permission.receive);
+    return true;
+  }
+
+  await PushNotifications.register();
+  return true;
+}
+
+export async function requestNativePushNotifications(backendToken) {
+  if (!backendToken || !isNativeMobileApp()) return false;
+
+  latestBackendToken = backendToken;
+  registerListeners();
+
+  let permission = await PushNotifications.checkPermissions();
   if (permission.receive === "prompt") {
     permission = await PushNotifications.requestPermissions();
   }
 
   if (permission.receive !== "granted") {
     await registerTokenWithBackend(null, backendToken, permission.receive);
-    return true;
+    return false;
   }
 
   await PushNotifications.register();

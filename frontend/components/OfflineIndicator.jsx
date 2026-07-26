@@ -14,6 +14,12 @@ export default function OfflineIndicator() {
     // Check initial online status
     setIsOnline(navigator.onLine);
 
+    const handleNativeNetwork = (event) => {
+      const connected = Boolean(event.detail?.connected);
+      setIsOnline(connected);
+      setShowBanner(!connected);
+    };
+
     // Handle online/offline events
     const handleOnline = () => {
       setIsOnline(true);
@@ -29,10 +35,12 @@ export default function OfflineIndicator() {
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("meetyoulive:native-network", handleNativeNetwork);
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("meetyoulive:native-network", handleNativeNetwork);
     };
   }, []);
 
@@ -66,7 +74,7 @@ export default function OfflineIndicator() {
       ) : (
         <>
           <span style={{ marginRight: "8px" }}>⚠</span>
-          Sin conexión a internet - Algunas funciones no están disponibles
+          Sin conexión. Verifica tu internet.
         </>
       )}
       <style jsx>{`

@@ -5,23 +5,25 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { requestNativePushNotifications, openNativePushSettings } from "@/lib/nativePush";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 const CATEGORIES = [
-  { key: "match", label: "Matches", icon: "🔥", desc: "Cuando alguien te da match" },
-  { key: "like", label: "Likes", icon: "💖", desc: "Cuando alguien te da like" },
-  { key: "live", label: "Directos", icon: "🚀", desc: "Cuando un creador que sigues empieza un directo" },
-  { key: "reward", label: "Recompensas", icon: "🎁", desc: "Recordatorio de tu recompensa diaria" },
-  { key: "message", label: "Mensajes", icon: "💬", desc: "Nuevos mensajes privados" },
-  { key: "call", label: "Llamadas", icon: "📞", desc: "Llamadas entrantes o perdidas" },
-  { key: "creator", label: "Cuenta creator", icon: "⭐", desc: "Premium, creator y estado de cuenta" },
-  { key: "withdrawal", label: "Retiros", icon: "💳", desc: "Actualizaciones de retiros" },
+  { key: "match", icon: "🔥" },
+  { key: "like", icon: "💖" },
+  { key: "live", icon: "🚀" },
+  { key: "reward", icon: "🎁" },
+  { key: "message", icon: "💬" },
+  { key: "call", icon: "📞" },
+  { key: "creator", icon: "⭐" },
+  { key: "withdrawal", icon: "💳" },
 ];
 
 export default function NotificationSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [settings, setSettings] = useState({ enabled: true, categories: CATEGORIES.map((cat) => cat.key) });
   const [loading, setLoading] = useState(true);
@@ -99,8 +101,8 @@ export default function NotificationSettingsPage() {
     const granted = await requestNativePushNotifications(token);
     setPermissionInfo(
       granted
-        ? "Permiso concedido. Este dispositivo recibirá notificaciones nativas."
-        : "Permiso no concedido. Puedes habilitarlo desde Ajustes de Android."
+        ? t("notificationSettings.nativePermission.granted")
+        : t("notificationSettings.nativePermission.denied")
     );
   };
 
@@ -152,16 +154,16 @@ export default function NotificationSettingsPage() {
 
         {isNativeMobileApp() && (
           <section className="card">
-            <p className="row-title">Permiso Android</p>
+            <p className="row-title">{t("notificationSettings.nativePermission.title")}</p>
             <p className="row-sub">
-              Activa las notificaciones cuando quieras recibir mensajes, llamadas y avisos importantes en este dispositivo.
+              {t("notificationSettings.nativePermission.description")}
             </p>
             <div className="native-actions">
               <button className="native-btn" onClick={requestNativePermission} disabled={saving}>
-                Permitir notificaciones
+                {t("notificationSettings.nativePermission.allow")}
               </button>
               <button className="native-btn secondary" onClick={openNativePushSettings} disabled={saving}>
-                Abrir ajustes
+                {t("notificationSettings.nativePermission.settings")}
               </button>
             </div>
             {permissionInfo && <p className="hint">{permissionInfo}</p>}
@@ -178,15 +180,15 @@ export default function NotificationSettingsPage() {
                 <div className="cat-info">
                   <span className="cat-icon">{cat.icon}</span>
                   <div>
-                    <p className="row-title">{cat.label}</p>
-                    <p className="row-sub">{cat.desc}</p>
+                    <p className="row-title">{t(`notificationSettings.categories.${cat.key}.label`)}</p>
+                    <p className="row-sub">{t(`notificationSettings.categories.${cat.key}.desc`)}</p>
                   </div>
                 </div>
                 <button
                   className={`toggle ${isOn ? "on" : "off"}`}
                   onClick={() => toggleCategory(cat.key)}
                   disabled={saving || !settings.enabled}
-                  aria-label={`${isOn ? "Desactivar" : "Activar"} ${cat.label}`}
+                  aria-label={`${isOn ? "Desactivar" : "Activar"} ${t(`notificationSettings.categories.${cat.key}.label`)}`}
                 >
                   <span className="knob" />
                 </button>
@@ -196,7 +198,7 @@ export default function NotificationSettingsPage() {
         </section>
 
         <p className="hint">
-          Los cambios se aplican automáticamente. Android 13+ pedirá permiso solo cuando lo solicites aquí.
+          {t("notificationSettings.nativePermission.hint")}
         </p>
       </div>
 

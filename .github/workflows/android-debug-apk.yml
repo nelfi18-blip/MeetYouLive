@@ -55,10 +55,13 @@ jobs:
         run: npm ci
 
       - name: Restore Firebase google-services.json
-        if: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 != '' }}
         working-directory: frontend
         run: |
           set -euo pipefail
+          if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
+            exit 0
+          fi
           echo "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
           test -s android/app/google-services.json
         env:

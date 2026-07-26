@@ -1786,5 +1786,50 @@
       "onboardingCompleted": "Onboarding completed",
       "feedReached": "Feed reached"
     }
+  },
+  "notificationSettings": {
+    "categories": {
+      "match": {
+        "label": "Matches",
+        "desc": "When someone matches with you"
+      },
+      "like": {
+        "label": "Likes",
+        "desc": "When someone likes you"
+      },
+      "live": {
+        "label": "Lives",
+        "desc": "When a creator you follow starts a live"
+      },
+      "reward": {
+        "label": "Rewards",
+        "desc": "Daily reward reminders"
+      },
+      "message": {
+        "label": "Messages",
+        "desc": "New private messages"
+      },
+      "call": {
+        "label": "Calls",
+        "desc": "Incoming or missed calls"
+      },
+      "creator": {
+        "label": "Creator account",
+        "desc": "Premium, creator, and account status"
+      },
+      "withdrawal": {
+        "label": "Withdrawals",
+        "desc": "Withdrawal updates"
+      }
+    },
+    "nativePermission": {
+      "title": "Android permission",
+      "description": "Enable notifications when you want to receive messages, calls, and important alerts on this device.",
+      "allow": "Allow notifications",
+      "settings": "Open settings",
+      "granted": "Permission granted. This device will receive native notifications.",
+      "denied": "Permission not granted. You can enable it from Android Settings.",
+      "hint": "Changes apply automatically. Android 13+ will ask for permission only when you request it here."
+    }
   }
 }

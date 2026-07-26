@@ -18,6 +18,8 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
 ]);
+// Android channels are intentionally grouped by user-facing urgency:
+// social events, calls, lives, and account/payment notices.
 const CHANNEL_BY_TYPE = {
   message: "messages",
   new_message: "messages",

@@ -1,4 +1,6 @@
-export function getNativeGoogleLoginUrl(callbackPath = "/feed", origin = "https://meetyoulive.net") {
+const DEFAULT_APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://meetyoulive.net";
+
+export function getNativeGoogleLoginUrl(callbackPath = "/feed", origin = DEFAULT_APP_ORIGIN) {
   const callbackUrl = new URL("/login", origin);
   callbackUrl.searchParams.set("callbackUrl", callbackPath || "/feed");
 

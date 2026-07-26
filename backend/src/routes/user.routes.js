@@ -43,6 +43,10 @@ const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 const PUSH_TOKEN_PLATFORMS = new Set(["web", "ios", "android", "unknown"]);
 const PUSH_TOKEN_PERMISSION_STATUSES = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
+const shouldReplaceExistingDeviceToken = (nextDeviceId, nextPushToken, existingTokens) =>
+  nextDeviceId !== null ||
+  nextPushToken === null ||
+  existingTokens.some((entry) => entry.token === nextPushToken);
 const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
@@ -1429,8 +1433,7 @@ router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const existingTokens = Array.isArray(user.pushTokens) ? user.pushTokens : [];
-    const shouldReplaceDevice =
-      nextDeviceId !== null || nextPushToken === null || existingTokens.some((entry) => entry.token === nextPushToken);
+    const shouldReplaceDevice = shouldReplaceExistingDeviceToken(nextDeviceId, nextPushToken, existingTokens);
     user.pushTokens = existingTokens.filter((entry) => {
       if (nextPushToken && entry.token === nextPushToken) return false;
       if (shouldReplaceDevice && nextDeviceId && entry.deviceId === nextDeviceId) return false;

@@ -43,6 +43,10 @@ const router = Router();
 const legacyUploadDir = path.normalize(path.resolve(__dirname, "../../uploads"));
 const PUSH_TOKEN_PLATFORMS = new Set(["web", "ios", "android", "unknown"]);
 const PUSH_TOKEN_PERMISSION_STATUSES = new Set(["granted", "denied", "prompt", "prompt-with-rationale"]);
+const shouldReplaceExistingDeviceToken = (nextDeviceId, nextPushToken, existingTokens) =>
+  nextDeviceId !== null ||
+  nextPushToken === null ||
+  existingTokens.some((entry) => entry.token === nextPushToken);
 const USER_PHOTO_STATE_FIELDS = "avatar primaryPhoto profilePhotos images birthdate location locationPoint locationLabel gender interestedIn intent interests role isBlocked isSuspended";
 const FRONTEND_UPLOAD_HOST_PATTERN = /^(www\.)?meetyoulive\.net$/i;
 
@@ -1412,10 +1416,40 @@ router.patch("/me/push-token", userLimiter, verifyToken, async (req, res) => {
     return res.status(400).json({ message: "deviceId must be a string or null" });
   }
   try {
+    if (nextPushToken) {
+      await User.updateMany(
+        { _id: { $ne: req.userId }, "pushTokens.token": nextPushToken },
+        { $pull: { pushTokens: { token: nextPushToken } } }
+      ).catch(() => {});
+      await User.updateMany(
+        { _id: { $ne: req.userId }, pushToken: nextPushToken },
+        { $set: { pushToken: null, pushTokenPlatform: null, pushTokenDeviceId: null } }
+      ).catch(() => {});
+    }
+
     const user = await User.findById(req.userId).select(
-      "pushToken pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt"
+      "pushToken pushTokens pushTokenPlatform pushTokenDeviceId pushTokenPermissionStatus pushTokenUpdatedAt"
     );
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const existingTokens = Array.isArray(user.pushTokens) ? user.pushTokens : [];
+    const shouldReplaceDevice = shouldReplaceExistingDeviceToken(nextDeviceId, nextPushToken, existingTokens);
+    user.pushTokens = existingTokens.filter((entry) => {
+      if (nextPushToken && entry.token === nextPushToken) return false;
+      if (shouldReplaceDevice && nextDeviceId && entry.deviceId === nextDeviceId) return false;
+      if (nextPushToken === null && nextDeviceId && entry.deviceId === nextDeviceId) return false;
+      return true;
+    });
+
+    if (nextPushToken) {
+      user.pushTokens.push({
+        token: nextPushToken,
+        platform: nextPlatform,
+        deviceId: nextDeviceId,
+        permissionStatus: normalizedPermissionStatus,
+        updatedAt: new Date(),
+      });
+    }
 
     user.pushToken = nextPushToken;
     user.pushTokenPlatform = nextPlatform;

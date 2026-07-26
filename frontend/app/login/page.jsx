@@ -13,6 +13,7 @@ import GradientButton from "@/components/ui/GradientButton";
 import NeonInput from "@/components/ui/NeonInput";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
 // Account switching detection param
 const SWITCHING_ACCOUNT_PARAM = "switch";
@@ -525,9 +526,10 @@ function LoginForm() {
 
         <button
           className="btn-google"
-          onClick={() => {
+          onClick={async () => {
             const userRedirectPath = getSafeCallbackPath(searchParams);
             trackAnalyticsEvent("google_login_click", { reason: "login" });
+            if (await startNativeGoogleLogin(userRedirectPath)) return;
             // Return to /login after Google OAuth so this page can finish the
             // backend-token handshake before sending the user to callbackUrl.
             signIn("google", {

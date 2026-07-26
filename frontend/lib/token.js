@@ -1,6 +1,7 @@
 "use client";
 
 import { clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
+import { unregisterNativePushToken } from "./nativePush";
 
 /**
  * Centralised token helpers.
@@ -42,6 +43,8 @@ export function setToken(token) {
 /** Remove token from localStorage and clear the session cookie. */
 export function clearToken() {
   if (typeof window === "undefined") return;
+  const existingToken = localStorage.getItem("token");
+  if (existingToken) unregisterNativePushToken(existingToken).catch(() => {});
   localStorage.removeItem("token");
   clearNativeToken();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
@@ -93,6 +96,8 @@ export function activateAdminSession(token, user = null) {
 /** Remove admin token from localStorage and clear the admin-session cookie. */
 export function clearAdminToken() {
   if (typeof window === "undefined") return;
+  const existingToken = localStorage.getItem("admin_token");
+  if (existingToken) unregisterNativePushToken(existingToken).catch(() => {});
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
   clearNativeToken({ isAdmin: true });
@@ -118,6 +123,13 @@ export function clearAllAuth() {
     sessionStorage.setItem(SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE);
   } catch (e) {
     console.warn("[clearAllAuth] Could not set switching_account flag:", e);
+  }
+  
+  const existingUserToken = localStorage.getItem("token");
+  const existingAdminToken = localStorage.getItem("admin_token");
+  if (existingUserToken) unregisterNativePushToken(existingUserToken).catch(() => {});
+  if (existingAdminToken && existingAdminToken !== existingUserToken) {
+    unregisterNativePushToken(existingAdminToken).catch(() => {});
   }
   
   // Clear admin tokens

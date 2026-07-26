@@ -9,6 +9,7 @@ import { fetchUserRole, setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ensureAnalyticsVisitor, trackAnalyticsEvent } from "@/lib/analytics";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
 function getPostRegisterRedirectPath(user) {
   if (user?.role === "admin") return "/admin";
@@ -242,8 +243,9 @@ export default function RegisterForm() {
 
         <button
           className="btn-google"
-          onClick={() => {
+          onClick={async () => {
             trackAnalyticsEvent("google_login_click", { reason: "register" });
+            if (await startNativeGoogleLogin("/feed")) return;
             signIn("google", { callbackUrl: "/login?callbackUrl=/feed" });
           }}
         >

@@ -118,7 +118,7 @@ const hasBlockBetween = (recipient, actorId) => {
 };
 
 const shouldSendPush = (user, category, critical = false) => {
-  if (!user?.pushToken) return false;
+  if (!user?.pushToken && (!Array.isArray(user?.pushTokens) || user.pushTokens.length === 0)) return false;
   if (critical) return true;
   const settings = user.pushSettings || {};
   if (settings.enabled === false) return false;
@@ -204,7 +204,7 @@ const notifyNewMessage = async ({ chatId, messageId, senderId, recipientId }) =>
   if (!safeChatId || !safeMessageId || !safeSenderId || !safeRecipientId || isSelfAction(safeSenderId, safeRecipientId)) return null;
   const [sender, recipient] = await Promise.all([
     User.findById(safeSenderId).select("_id blockedUsers").lean(),
-    User.findById(safeRecipientId).select("_id email preferredLanguage pushToken pushSettings blockedUsers").lean(),
+    User.findById(safeRecipientId).select("_id email preferredLanguage pushToken pushTokens pushSettings blockedUsers").lean(),
   ]);
   if (!sender || !recipient) return null;
   if (hasBlockBetween(recipient, safeSenderId) || hasBlockBetween(sender, safeRecipientId)) return null;
@@ -227,7 +227,7 @@ const notifyIncomingCall = async ({ callId, callerId, recipientId }) => {
   if (!safeCallId || !safeCallerId || !safeRecipientId || isSelfAction(safeCallerId, safeRecipientId)) return null;
   const [caller, recipient] = await Promise.all([
     User.findById(safeCallerId).select("_id blockedUsers").lean(),
-    User.findById(safeRecipientId).select("_id preferredLanguage pushToken pushSettings blockedUsers").lean(),
+    User.findById(safeRecipientId).select("_id preferredLanguage pushToken pushTokens pushSettings blockedUsers").lean(),
   ]);
   if (!caller || !recipient) return null;
   if (hasBlockBetween(recipient, safeCallerId) || hasBlockBetween(caller, safeRecipientId)) return null;
@@ -248,7 +248,7 @@ const notifyMissedCall = async ({ callId, callerId, recipientId }) => {
   const safeRecipientId = normalizeObjectId(recipientId);
   if (!safeCallId || !safeCallerId || !safeRecipientId || isSelfAction(safeCallerId, safeRecipientId)) return null;
   const recipient = await User.findById(safeRecipientId)
-    .select("_id preferredLanguage pushToken pushSettings blockedUsers")
+    .select("_id preferredLanguage pushToken pushTokens pushSettings blockedUsers")
     .lean();
   if (!recipient || hasBlockBetween(recipient, safeCallerId)) return null;
   return deliver({
@@ -265,7 +265,7 @@ const notifyMissedCall = async ({ callId, callerId, recipientId }) => {
 const notifyCoinsPurchaseConfirmed = async ({ userId, coins, balance, reference }) => {
   const safeUserId = normalizeObjectId(userId);
   if (!safeUserId) return null;
-  const user = await User.findById(safeUserId).select("_id email preferredLanguage").lean();
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushTokens pushSettings").lean();
   return deliver({
     user,
     type: "coins_purchase_confirmed",
@@ -273,7 +273,9 @@ const notifyCoinsPurchaseConfirmed = async ({ userId, coins, balance, reference 
     data: { coins: String(coins), ...(balance != null ? { balance: String(balance) } : {}), reference: String(reference), link: "/coins" },
     dedupeKey: `coins:${reference}`,
     inApp: true,
+    push: true,
     email: true,
+    pushCategory: "reward",
     critical: true,
   });
 };
@@ -281,7 +283,7 @@ const notifyCoinsPurchaseConfirmed = async ({ userId, coins, balance, reference 
 const notifySubscription = async ({ userId, action, plan, eventId, subscriptionId }) => {
   const safeUserId = normalizeObjectId(userId);
   if (!safeUserId) return null;
-  const user = await User.findById(safeUserId).select("_id email preferredLanguage").lean();
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushTokens pushSettings").lean();
   return deliver({
     user,
     type: `subscription_${action}`,
@@ -289,7 +291,9 @@ const notifySubscription = async ({ userId, action, plan, eventId, subscriptionI
     data: { plan, ...(subscriptionId ? { subscriptionId: String(subscriptionId) } : {}), link: "/vip" },
     dedupeKey: `subscription:${eventId || `${subscriptionId}:${action}`}`,
     inApp: true,
+    push: true,
     email: true,
+    pushCategory: "creator",
     critical: true,
   });
 };
@@ -297,7 +301,7 @@ const notifySubscription = async ({ userId, action, plan, eventId, subscriptionI
 const notifyCreatorDecision = async ({ userId, approved }) => {
   const safeUserId = normalizeObjectId(userId);
   if (!safeUserId) return null;
-  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushSettings").lean();
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushTokens pushSettings").lean();
   return deliver({
     user,
     type: approved ? "creator_approved" : "creator_rejected",
@@ -313,7 +317,7 @@ const notifyCreatorDecision = async ({ userId, approved }) => {
 const notifyWithdrawal = async ({ userId, withdrawalId, status, amountCoins, date }) => {
   const safeUserId = normalizeObjectId(userId);
   if (!safeUserId) return null;
-  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushSettings").lean();
+  const user = await User.findById(safeUserId).select("_id email preferredLanguage pushToken pushTokens pushSettings").lean();
   return deliver({
     user,
     type: `withdrawal_${status}`,

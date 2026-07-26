@@ -54,6 +54,27 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Restore Firebase google-services.json
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
+            exit 0
+          fi
+          echo "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+          test -s android/app/google-services.json
+        env:
+          ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+
+      - name: Check Firebase config availability
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          if [ ! -s android/app/google-services.json ]; then
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
+          fi
+
       # Capacitor sync generates the gitignored files that Gradle needs:
       #   - android/capacitor-cordova-android-plugins/
       #   - android/app/src/main/assets/public/
@@ -79,6 +100,11 @@ jobs:
       - name: Build Debug APK
         working-directory: frontend/android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Remove temporary Firebase config
+        if: always()
+        working-directory: frontend
+        run: rm -f android/app/google-services.json
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4

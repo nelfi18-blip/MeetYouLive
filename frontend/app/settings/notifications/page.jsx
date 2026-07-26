@@ -3,25 +3,34 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { requestNativePushNotifications, openNativePushSettings } from "@/lib/nativePush";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 const CATEGORIES = [
-  { key: "match", label: "Matches", icon: "🔥", desc: "Cuando alguien te da match" },
-  { key: "like", label: "Likes", icon: "💖", desc: "Cuando alguien te da like" },
-  { key: "live", label: "Directos", icon: "🚀", desc: "Cuando un creador que sigues empieza un directo" },
-  { key: "reward", label: "Recompensas", icon: "🎁", desc: "Recordatorio de tu recompensa diaria" },
+  { key: "match", icon: "🔥" },
+  { key: "like", icon: "💖" },
+  { key: "live", icon: "🚀" },
+  { key: "reward", icon: "🎁" },
+  { key: "message", icon: "💬" },
+  { key: "call", icon: "📞" },
+  { key: "creator", icon: "⭐" },
+  { key: "withdrawal", icon: "💳" },
 ];
 
 export default function NotificationSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { t } = useLanguage();
 
-  const [settings, setSettings] = useState({ enabled: true, categories: ["match", "like", "live", "reward"] });
+  const [settings, setSettings] = useState({ enabled: true, categories: CATEGORIES.map((cat) => cat.key) });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [permissionInfo, setPermissionInfo] = useState("");
 
   // Support both OAuth (session.backendToken) and email/password (localStorage) auth flows.
   const localStorageToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -87,6 +96,16 @@ export default function NotificationSettingsPage() {
     save({ enabled: next });
   };
 
+  const requestNativePermission = async () => {
+    if (!token) return;
+    const granted = await requestNativePushNotifications(token);
+    setPermissionInfo(
+      granted
+        ? t("notificationSettings.nativePermission.granted")
+        : t("notificationSettings.nativePermission.denied")
+    );
+  };
+
   const toggleCategory = (key) => {
     const current = settings.categories || [];
     const next = current.includes(key)
@@ -133,6 +152,24 @@ export default function NotificationSettingsPage() {
           </div>
         </section>
 
+        {isNativeMobileApp() && (
+          <section className="card">
+            <p className="row-title">{t("notificationSettings.nativePermission.title")}</p>
+            <p className="row-sub">
+              {t("notificationSettings.nativePermission.description")}
+            </p>
+            <div className="native-actions">
+              <button className="native-btn" onClick={requestNativePermission} disabled={saving}>
+                {t("notificationSettings.nativePermission.allow")}
+              </button>
+              <button className="native-btn secondary" onClick={openNativePushSettings} disabled={saving}>
+                {t("notificationSettings.nativePermission.settings")}
+              </button>
+            </div>
+            {permissionInfo && <p className="hint">{permissionInfo}</p>}
+          </section>
+        )}
+
         {/* Category toggles */}
         <section className="card" style={{ opacity: settings.enabled ? 1 : 0.45 }}>
           <p className="section-title">Categorías</p>
@@ -143,15 +180,15 @@ export default function NotificationSettingsPage() {
                 <div className="cat-info">
                   <span className="cat-icon">{cat.icon}</span>
                   <div>
-                    <p className="row-title">{cat.label}</p>
-                    <p className="row-sub">{cat.desc}</p>
+                    <p className="row-title">{t(`notificationSettings.categories.${cat.key}.label`)}</p>
+                    <p className="row-sub">{t(`notificationSettings.categories.${cat.key}.desc`)}</p>
                   </div>
                 </div>
                 <button
                   className={`toggle ${isOn ? "on" : "off"}`}
                   onClick={() => toggleCategory(cat.key)}
                   disabled={saving || !settings.enabled}
-                  aria-label={`${isOn ? "Desactivar" : "Activar"} ${cat.label}`}
+                  aria-label={`${isOn ? "Desactivar" : "Activar"} ${t(`notificationSettings.categories.${cat.key}.label`)}`}
                 >
                   <span className="knob" />
                 </button>
@@ -161,7 +198,7 @@ export default function NotificationSettingsPage() {
         </section>
 
         <p className="hint">
-          Los cambios se aplican automáticamente. Las notificaciones de matches tienen la máxima prioridad.
+          {t("notificationSettings.nativePermission.hint")}
         </p>
       </div>
 
@@ -208,6 +245,23 @@ export default function NotificationSettingsPage() {
           color: #fca5a5;
           font-size: 0.85rem;
           margin-bottom: 16px;
+        }
+        .native-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .native-btn {
+          border: none;
+          border-radius: 999px;
+          padding: 10px 14px;
+          font-weight: 700;
+          color: white;
+          background: linear-gradient(135deg, #ff2d8d, #6c3dd8);
+        }
+        .native-btn.secondary {
+          background: rgba(255,255,255,0.12);
         }
         .card {
           background: rgba(255,255,255,0.05);

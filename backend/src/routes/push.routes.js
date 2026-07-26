@@ -43,7 +43,7 @@ router.get("/settings", pushLimiter, verifyToken, async (req, res) => {
   }
 });
 
-const ALLOWED_CATEGORIES = ["match", "like", "live", "reward", "reactivation"];
+const ALLOWED_CATEGORIES = ["match", "like", "live", "reward", "reactivation", "message", "call", "creator", "withdrawal"];
 
 router.patch("/settings", pushLimiter, verifyToken, async (req, res) => {
   try {

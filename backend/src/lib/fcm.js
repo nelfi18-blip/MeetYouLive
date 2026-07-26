@@ -14,6 +14,25 @@
 const User = require("../models/User.js");
 
 const PUSH_DAILY_LIMIT = 8;
+const INVALID_TOKEN_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
+// Android channels are intentionally grouped by user-facing urgency:
+// social events, calls, lives, and account/payment notices.
+const CHANNEL_BY_TYPE = {
+  message: "messages",
+  new_message: "messages",
+  match: "matches",
+  call: "calls",
+  call_incoming: "calls",
+  call_missed: "calls",
+  live: "lives",
+  reward: "account_payments",
+  coins_purchase_confirmed: "account_payments",
+  creator: "account_payments",
+  withdrawal: "account_payments",
+};
 
 let adminApp = null;
 
@@ -54,7 +73,7 @@ function getAdmin() {
  */
 async function checkAndIncrementRateLimit(userId) {
   const now = new Date();
-  const user = await User.findById(userId).select("pushRateLimit").lean();
+  const user = await User.findById(userId).select("pushRateLimit pushToken pushTokens").lean();
   if (!user) return false;
 
   const rl = user.pushRateLimit || {};
@@ -72,7 +91,32 @@ async function checkAndIncrementRateLimit(userId) {
     { _id: userId },
     { $set: { "pushRateLimit.date": now, "pushRateLimit.count": count + 1 } }
   );
-  return true;
+  return user;
+}
+
+function getDeliveryTokens(user, suppliedToken) {
+  const tokens = new Set();
+  const addToken = (value) => {
+    if (typeof value === "string" && value) tokens.add(value);
+  };
+
+  addToken(suppliedToken);
+  addToken(user?.pushToken);
+  if (Array.isArray(user?.pushTokens)) {
+    user.pushTokens.forEach((entry) => addToken(entry?.token));
+  }
+  return Array.from(tokens);
+}
+
+async function removeInvalidToken(userId, token) {
+  await User.updateOne(
+    { _id: userId },
+    {
+      $pull: { pushTokens: { token } },
+      $unset: { pushToken: "", pushTokenPlatform: "", pushTokenDeviceId: "" },
+      $set: { pushTokenPermissionStatus: null },
+    }
+  ).catch(() => {});
 }
 
 /**
@@ -86,37 +130,44 @@ async function checkAndIncrementRateLimit(userId) {
  * @returns {Promise<void>}
  */
 async function sendPush(userId, token, title, body, data = {}) {
-  if (!token) return;
+  if (!userId) return;
 
   const app = getAdmin();
   if (!app) return; // FCM not configured — skip silently
 
-  const allowed = await checkAndIncrementRateLimit(userId);
-  if (!allowed) return;
+  const user = await checkAndIncrementRateLimit(userId);
+  if (!user) return;
+  const tokens = getDeliveryTokens(user, token);
+  if (tokens.length === 0) return;
 
   const admin = require("firebase-admin");
-  const message = {
-    token,
+  const baseMessage = {
     notification: { title, body },
     data: Object.fromEntries(
       Object.entries(data).map(([k, v]) => [k, String(v)])
     ),
+    android: {
+      notification: {
+        channelId: data.channelId || CHANNEL_BY_TYPE[data.type] || "account_payments",
+        color: "#ff2d8d",
+        icon: "ic_stat_notify",
+      },
+    },
     webpush: {
       fcmOptions: { link: data.link || "/" },
     },
   };
 
-  try {
-    await admin.messaging(app).send(message);
-  } catch (err) {
-    // Token may have been revoked or is invalid — clear it so we stop trying
-    if (
-      err.code === "messaging/registration-token-not-registered" ||
-      err.code === "messaging/invalid-registration-token"
-    ) {
-      await User.updateOne({ _id: userId }, { $set: { pushToken: null } }).catch(() => {});
+  for (const deliveryToken of tokens) {
+    try {
+      await admin.messaging(app).send({ ...baseMessage, token: deliveryToken });
+    } catch (err) {
+      // Token may have been revoked or is invalid — clear it so we stop trying
+      if (INVALID_TOKEN_CODES.has(err.code)) {
+        await removeInvalidToken(userId, deliveryToken);
+      }
+      console.error("[fcm] send error:", err.message);
     }
-    console.error("[fcm] send error:", err.message);
   }
 }
 
@@ -140,7 +191,10 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
   const app = getAdmin();
   if (!app) return;
 
-  const query = { _id: { $in: userIds }, pushToken: { $ne: null } };
+  const query = {
+    _id: { $in: userIds },
+    $or: [{ pushToken: { $ne: null } }, { "pushTokens.0": { $exists: true } }],
+  };
   // When a category type is provided, skip users who have disabled it
   if (type) {
     query["pushSettings.enabled"] = { $ne: false };
@@ -149,7 +203,7 @@ async function sendMulticastPush(userIds, title, body, data = {}, type = null) {
 
   const users = await User.find(
     query,
-    "_id pushToken pushRateLimit"
+    "_id pushToken pushTokens pushRateLimit"
   ).lean();
 
   await Promise.allSettled(

@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -57,8 +58,9 @@ export default function LandingPage() {
     trackAnalyticsEvent("landing_view", {}, { dedupeKey: `landing_view:${window.location.pathname}` });
   }, []);
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     trackAnalyticsEvent("google_login_click", { reason: "landing" });
+    if (await startNativeGoogleLogin("/dashboard")) return;
     signIn("google", {
       callbackUrl: "/dashboard",
     });

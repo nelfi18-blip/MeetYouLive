@@ -3,5 +3,5 @@
     <string name="app_name">MeetYouLive</string>
     <string name="title_activity_main">MeetYouLive</string>
     <string name="package_name">com.meetyoulive.app</string>
-    <string name="custom_url_scheme">com.meetyoulive.app</string>
+    <string name="custom_url_scheme">meetyoulive</string>
 </resources>

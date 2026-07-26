@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
+import NativeAppManager from "@/components/NativeAppManager";
 import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
@@ -163,6 +164,7 @@ export default function Providers({ children, initialLang }) {
   return (
     <SessionProvider>
       <LanguageProvider initialLang={initialLang}>
+        <NativeAppManager />
         <AdminRoleGuard />
         {children}
         <SocketManager />

@@ -1,3 +1,7 @@
+"use client";
+
+import { clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
+
 /**
  * Centralised token helpers.
  *
@@ -30,6 +34,7 @@ export function buildSwitchAccountUrl() {
 export function setToken(token) {
   if (typeof window === "undefined") return;
   localStorage.setItem("token", token);
+  persistNativeToken(token);
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
 }
@@ -38,6 +43,7 @@ export function setToken(token) {
 export function clearToken() {
   if (typeof window === "undefined") return;
   localStorage.removeItem("token");
+  clearNativeToken();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
 }
@@ -52,6 +58,7 @@ export function getToken() {
 export function setAdminToken(token) {
   if (typeof window === "undefined") return;
   localStorage.setItem("admin_token", token);
+  persistNativeToken(token, { isAdmin: true });
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${ADMIN_COOKIE_NAME}=1; path=/; max-age=${MAX_AGE}; SameSite=Lax${secure}`;
 }
@@ -66,6 +73,7 @@ export function activateAdminSession(token, user = null) {
   if (typeof window === "undefined" || !token) return;
   setAdminToken(token);
   localStorage.removeItem("token");
+  clearNativeToken();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
   if (user) {
@@ -87,6 +95,7 @@ export function clearAdminToken() {
   if (typeof window === "undefined") return;
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
+  clearNativeToken({ isAdmin: true });
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${ADMIN_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
 }
@@ -117,6 +126,7 @@ export function clearAllAuth() {
   
   // Clear user tokens
   localStorage.removeItem("token");
+  clearNativeTokens();
   
   // Clear NextAuth session storage (if any) from localStorage only
   Object.keys(localStorage).forEach(key => {

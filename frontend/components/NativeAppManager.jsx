@@ -31,6 +31,12 @@ const KNOWN_DEEP_LINK_PREFIXES = [
   "/creator-center",
 ];
 
+function logNativeError(action, error) {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[NativeAppManager] ${action} failed:`, error);
+  }
+}
+
 function getSafeNativePath(url) {
   try {
     const parsed = new URL(url);
@@ -90,13 +96,13 @@ export default function NativeAppManager() {
 
     document.documentElement.classList.add("native-mobile-app");
 
-    StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-    StatusBar.setBackgroundColor({ color: "#0f0821" }).catch(() => {});
-    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
-    Keyboard.setResizeMode({ mode: "body" }).catch(() => {});
+    StatusBar.setStyle({ style: Style.Dark }).catch((error) => logNativeError("StatusBar.setStyle", error));
+    StatusBar.setBackgroundColor({ color: "#0f0821" }).catch((error) => logNativeError("StatusBar.setBackgroundColor", error));
+    StatusBar.setOverlaysWebView({ overlay: false }).catch((error) => logNativeError("StatusBar.setOverlaysWebView", error));
+    Keyboard.setResizeMode({ mode: "body" }).catch((error) => logNativeError("Keyboard.setResizeMode", error));
 
     const hideSplash = window.setTimeout(() => {
-      SplashScreen.hide({ fadeOutDuration: 220 }).catch(() => {});
+      SplashScreen.hide({ fadeOutDuration: 220 }).catch((error) => logNativeError("SplashScreen.hide", error));
     }, 350);
 
     const restoreToken = async () => {
@@ -155,7 +161,8 @@ export default function NativeAppManager() {
       const href = anchor.href;
       if (!isExternalHttpUrl(href)) return;
       event.preventDefault();
-      Browser.open({ url: href, presentationStyle: "fullscreen" }).catch(() => {
+      Browser.open({ url: href, presentationStyle: "fullscreen" }).catch((error) => {
+        logNativeError("Browser.open", error);
         window.location.href = href;
       });
     };
@@ -165,8 +172,8 @@ export default function NativeAppManager() {
     return () => {
       clearTimeout(hideSplash);
       document.documentElement.classList.remove("native-mobile-app");
-      appUrlListener.then((listener) => listener.remove()).catch(() => {});
-      backListener.then((listener) => listener.remove()).catch(() => {});
+      appUrlListener.then((listener) => listener.remove()).catch((error) => logNativeError("remove appUrlOpen listener", error));
+      backListener.then((listener) => listener.remove()).catch((error) => logNativeError("remove backButton listener", error));
       document.removeEventListener("click", clickHandler);
     };
   }, [router]);
@@ -180,7 +187,10 @@ export default function NativeAppManager() {
   useEffect(() => {
     if (!isNativeMobileApp()) return;
     const updateStatus = async () => {
-      const status = await Network.getStatus().catch(() => ({ connected: navigator.onLine }));
+      const status = await Network.getStatus().catch((error) => {
+        logNativeError("Network.getStatus", error);
+        return { connected: navigator.onLine };
+      });
       window.dispatchEvent(new CustomEvent("meetyoulive:native-network", { detail: status }));
     };
     updateStatus();
@@ -188,7 +198,7 @@ export default function NativeAppManager() {
       window.dispatchEvent(new CustomEvent("meetyoulive:native-network", { detail: status }));
     });
     return () => {
-      listener.then((handle) => handle.remove()).catch(() => {});
+      listener.then((handle) => handle.remove()).catch((error) => logNativeError("remove networkStatusChange listener", error));
     };
   }, []);
 

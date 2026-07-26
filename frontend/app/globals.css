@@ -142,8 +142,6 @@ body {
 .native-mobile-app body {
   min-height: 100dvh;
   overscroll-behavior: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 .native-mobile-app body {
@@ -166,7 +164,11 @@ body {
 
 .native-mobile-app button,
 .native-mobile-app a,
-.native-mobile-app [role="button"] {
+.native-mobile-app [role="button"],
+.native-mobile-app img,
+.native-mobile-app svg {
+  -webkit-user-select: none;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 

@@ -19,7 +19,10 @@ export function redirectToTrustedCheckout(url) {
   const trustedUrl = getTrustedCheckoutUrl(url);
   if (!trustedUrl) return false;
   if (isNativeMobileApp()) {
-    Browser.open({ url: trustedUrl, presentationStyle: "fullscreen" }).catch(() => {
+    Browser.open({ url: trustedUrl, presentationStyle: "fullscreen" }).catch((error) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[checkoutRedirect] Browser.open failed:", error);
+      }
       window.location.href = trustedUrl;
     });
     return true;

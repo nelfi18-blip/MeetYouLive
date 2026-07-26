@@ -140,10 +140,10 @@ async function sendReminderPushes() {
   for (const ev of events) {
     try {
       const user = await User.findById(ev.userId)
-        .select("pushToken pushSettings")
+        .select("pushToken pushTokens pushSettings")
         .lean();
 
-      if (!user?.pushToken) continue;
+      if (!user?.pushToken && (!Array.isArray(user?.pushTokens) || user.pushTokens.length === 0)) continue;
       if (!_isAllowed(user, ev.type)) continue;
 
       // Atomically claim the reminder slot (guards against concurrent job runs
@@ -181,10 +181,10 @@ async function sendReminderPushes() {
 async function _processUserEvents(uid, userEvents, now) {
   try {
     const user = await User.findById(uid)
-      .select("pushToken pushSettings lastActiveAt")
+      .select("pushToken pushTokens pushSettings lastActiveAt")
       .lean();
 
-    if (!user?.pushToken) {
+    if (!user?.pushToken && (!Array.isArray(user?.pushTokens) || user.pushTokens.length === 0)) {
       await _cancelEvents(userEvents.map((e) => e._id));
       return;
     }

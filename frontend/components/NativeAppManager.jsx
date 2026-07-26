@@ -29,6 +29,13 @@ const KNOWN_DEEP_LINK_PREFIXES = [
   "/profile",
   "/creator",
   "/creator-center",
+  "/dashboard/creator",
+  "/wallet",
+  "/matches",
+  "/match",
+  "/crush",
+  "/vip",
+  "/settings/notifications",
 ];
 
 function logNativeError(action, error) {
@@ -118,6 +125,7 @@ export default function NativeAppManager() {
 
     const appUrlListener = App.addListener("appUrlOpen", ({ url }) => {
       const safePath = getSafeNativePath(url);
+      Browser.close().catch(() => {});
       router.replace(safePath);
     });
 

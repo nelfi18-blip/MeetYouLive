@@ -97,6 +97,17 @@ const userImageSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const pushDeviceTokenSchema = new mongoose.Schema(
+  {
+    token: { type: String, required: true },
+    platform: { type: String, enum: ["web", "ios", "android", "unknown"], default: "unknown" },
+    deviceId: { type: String, default: null },
+    permissionStatus: { type: String, enum: ["granted", "denied", "prompt", "prompt-with-rationale"], default: null },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const locationPointSchema = new mongoose.Schema(
   {
     type: { type: String, enum: ["Point"], default: "Point" },
@@ -240,6 +251,7 @@ const userSchema = new mongoose.Schema(
     lastDailyRewardClaimAt: { type: Date, default: null },
     dailyRewardStreak: { type: Number, default: 0, min: 0 },
     pushToken: { type: String, default: null },
+    pushTokens: { type: [pushDeviceTokenSchema], default: [] },
     pushTokenPlatform: { type: String, enum: ["web", "ios", "android", "unknown"], default: null },
     pushTokenDeviceId: { type: String, default: null },
     pushTokenPermissionStatus: { type: String, enum: ["granted", "denied", "prompt", "prompt-with-rationale"], default: null },

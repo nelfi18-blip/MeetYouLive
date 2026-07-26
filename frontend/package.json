@@ -8,6 +8,7 @@
     "lint": "eslint . --max-warnings=0",
     "test:public-access": "node --test tests/public-access.test.mjs",
     "test:language": "node --test tests/language-detection.test.mjs",
+    "test:mobile": "node --test tests/mobile-native.test.mjs",
     "start": "next start",
     "build:mobile": "next build && npx cap sync",
     "cap:sync": "npx cap sync",

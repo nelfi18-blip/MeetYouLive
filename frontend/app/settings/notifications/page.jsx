@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { isNativeMobileApp } from "@/lib/mobileEnvironment";
+import { requestNativePushNotifications, openNativePushSettings } from "@/lib/nativePush";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -11,17 +13,22 @@ const CATEGORIES = [
   { key: "like", label: "Likes", icon: "💖", desc: "Cuando alguien te da like" },
   { key: "live", label: "Directos", icon: "🚀", desc: "Cuando un creador que sigues empieza un directo" },
   { key: "reward", label: "Recompensas", icon: "🎁", desc: "Recordatorio de tu recompensa diaria" },
+  { key: "message", label: "Mensajes", icon: "💬", desc: "Nuevos mensajes privados" },
+  { key: "call", label: "Llamadas", icon: "📞", desc: "Llamadas entrantes o perdidas" },
+  { key: "creator", label: "Cuenta creator", icon: "⭐", desc: "Premium, creator y estado de cuenta" },
+  { key: "withdrawal", label: "Retiros", icon: "💳", desc: "Actualizaciones de retiros" },
 ];
 
 export default function NotificationSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [settings, setSettings] = useState({ enabled: true, categories: ["match", "like", "live", "reward"] });
+  const [settings, setSettings] = useState({ enabled: true, categories: CATEGORIES.map((cat) => cat.key) });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [permissionInfo, setPermissionInfo] = useState("");
 
   // Support both OAuth (session.backendToken) and email/password (localStorage) auth flows.
   const localStorageToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -87,6 +94,16 @@ export default function NotificationSettingsPage() {
     save({ enabled: next });
   };
 
+  const requestNativePermission = async () => {
+    if (!token) return;
+    const granted = await requestNativePushNotifications(token);
+    setPermissionInfo(
+      granted
+        ? "Permiso concedido. Este dispositivo recibirá notificaciones nativas."
+        : "Permiso no concedido. Puedes habilitarlo desde Ajustes de Android."
+    );
+  };
+
   const toggleCategory = (key) => {
     const current = settings.categories || [];
     const next = current.includes(key)
@@ -133,6 +150,24 @@ export default function NotificationSettingsPage() {
           </div>
         </section>
 
+        {isNativeMobileApp() && (
+          <section className="card">
+            <p className="row-title">Permiso Android</p>
+            <p className="row-sub">
+              Activa las notificaciones cuando quieras recibir mensajes, llamadas y avisos importantes en este dispositivo.
+            </p>
+            <div className="native-actions">
+              <button className="native-btn" onClick={requestNativePermission} disabled={saving}>
+                Permitir notificaciones
+              </button>
+              <button className="native-btn secondary" onClick={openNativePushSettings} disabled={saving}>
+                Abrir ajustes
+              </button>
+            </div>
+            {permissionInfo && <p className="hint">{permissionInfo}</p>}
+          </section>
+        )}
+
         {/* Category toggles */}
         <section className="card" style={{ opacity: settings.enabled ? 1 : 0.45 }}>
           <p className="section-title">Categorías</p>
@@ -161,7 +196,7 @@ export default function NotificationSettingsPage() {
         </section>
 
         <p className="hint">
-          Los cambios se aplican automáticamente. Las notificaciones de matches tienen la máxima prioridad.
+          Los cambios se aplican automáticamente. Android 13+ pedirá permiso solo cuando lo solicites aquí.
         </p>
       </div>
 
@@ -208,6 +243,23 @@ export default function NotificationSettingsPage() {
           color: #fca5a5;
           font-size: 0.85rem;
           margin-bottom: 16px;
+        }
+        .native-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .native-btn {
+          border: none;
+          border-radius: 999px;
+          padding: 10px 14px;
+          font-weight: 700;
+          color: white;
+          background: linear-gradient(135deg, #ff2d8d, #6c3dd8);
+        }
+        .native-btn.secondary {
+          background: rgba(255,255,255,0.12);
         }
         .card {
           background: rgba(255,255,255,0.05);

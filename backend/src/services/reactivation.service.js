@@ -33,7 +33,7 @@ async function runReactivationJob() {
     lastActiveAt: { $lte: cutoff24h },
     email: { $exists: true, $ne: null, $ne: "" },
     isBlocked: { $ne: true },
-  }).select("_id email name username lastActiveAt reactivation pushToken");
+  }).select("_id email name username lastActiveAt reactivation pushToken pushTokens");
 
   if (candidates.length === 0) return;
 
@@ -74,7 +74,7 @@ async function runReactivationJob() {
 
       // Queue FCM push for inactivity through the smart push engine.
       // This ensures settings respect, rate limiting, and analytics tracking.
-      if (user.pushToken) {
+      if (user.pushToken || (Array.isArray(user.pushTokens) && user.pushTokens.length > 0)) {
         const pushBody = likesCount > 0
           ? `Tienes ${likesCount} like${likesCount !== 1 ? "s" : ""} esperándote 💖`
           : "¡Vuelve y conecta con alguien hoy!";

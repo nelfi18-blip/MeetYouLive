@@ -58,7 +58,8 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; continuing without Firebase services."
+            : > frontend/android/app/google-services.json
+            echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; using an empty placeholder and continuing without Firebase services."
             exit 0
           fi
 

@@ -59,7 +59,7 @@ jobs:
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
             # app/build.gradle only enables Firebase when google-services.json has a non-empty project_info block.
-            printf '{"placeholder":true}\n' > frontend/android/app/google-services.json
+            printf '{}\n' > frontend/android/app/google-services.json
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured. Using a placeholder config and continuing without Firebase-dependent features such as push notifications."
           else
             if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \

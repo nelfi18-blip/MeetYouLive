@@ -110,6 +110,8 @@ const OTP_RESEND_COOLDOWN_S = 60;
  */
 function isSimpleEmail(value) {
   if (typeof value !== "string") return false;
+  // Reject SMTP header-injection characters (newlines, null bytes, control chars)
+  if (/[\x00-\x1F\x7F]/.test(value)) return false;
   const at = value.indexOf("@");
   if (at <= 0) return false; // "@" must not be absent or the first character
   if (value.indexOf("@", at + 1) !== -1) return false; // exactly one "@"

@@ -1,4 +1,4 @@
-import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "./nativeUrlPolicy";
+import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "./nativeUrlPolicy.js";
 
 export const NATIVE_DEFAULT_AUTH_PATH = "/feed";
 export const NATIVE_LOGIN_PATH = "/login";

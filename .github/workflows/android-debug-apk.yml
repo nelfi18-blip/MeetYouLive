@@ -156,20 +156,29 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Report APK Firebase status
+      - name: Report APK Firebase enabled status
+        if: steps.restore_google_services.outputs.google_services_restored == 'true'
         run: |
           {
             echo "## Android Debug APK"
             echo
             echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
             echo
-            if [ "${{ steps.restore_google_services.outputs.google_services_restored }}" = "true" ]; then
-              echo "APK generated with Firebase enabled."
-            else
-              echo "APK generated with Firebase disabled."
-              echo
-              echo "This no-Firebase fallback is allowed only for development/debug APK builds."
-              echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
-            fi
+            echo "APK generated with Firebase enabled."
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+
+      - name: Report APK Firebase disabled status
+        if: steps.restore_google_services.outputs.google_services_restored != 'true'
+        run: |
+          {
+            echo "## Android Debug APK"
+            echo
+            echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
+            echo
+            echo "APK generated with Firebase disabled."
+            echo
+            echo "This no-Firebase fallback is allowed only for development/debug APK builds."
+            echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

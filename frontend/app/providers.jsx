@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import NativeAppManager from "@/components/NativeAppManager";
@@ -165,6 +165,7 @@ function AdminRoleGuard() {
 
 function NativeSessionBootstrap({ children }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [ready, setReady] = useState(() => typeof window === "undefined" || !isNativeMobileApp());
 
   useEffect(() => {
@@ -219,7 +220,7 @@ function NativeSessionBootstrap({ children }) {
   }, [router]);
 
   if (!ready) {
-    return <div aria-busy="true" aria-label="Restaurando sesión…" style={{ minHeight: "100vh", background: "#060411" }} />;
+    return <div aria-busy="true" aria-label={t("common.loading")} style={{ minHeight: "100vh", background: "#060411" }} />;
   }
 
   return children;

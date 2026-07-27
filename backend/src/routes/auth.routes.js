@@ -88,15 +88,25 @@ function generateSixDigitCode() {
   return String(crypto.randomInt(100000, 1000000));
 }
 
-function hashResetCode(code) {
+function hashCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
 }
+
+// Keep alias used by password-reset paths
+const hashResetCode = hashCode;
 
 function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
 
 const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
+
+/** Seconds a user must wait between OTP resend requests */
+const OTP_RESEND_COOLDOWN_S = 60;
+
+function isSimpleEmail(value) {
+  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 function getEmailSendFailurePayload(err, emailType = "verification") {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
@@ -164,6 +174,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
     }
 
     const code = generateSixDigitCode();
+    const now = new Date();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = await generateReferralCode();
@@ -176,8 +187,9 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       email,
       password: hashedPassword,
       emailVerified: false,
-      emailVerificationCode: code,
+      emailVerificationCode: hashCode(code),
       emailVerificationExpires: expires,
+      emailVerificationSentAt: now,
       referralCode,
       referredBy,
       role: userRole,
@@ -297,7 +309,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     if (new Date() > user.emailVerificationExpires) {
       return res.status(400).json({ code: "CODE_EXPIRED", message: "El código ha caducado. Solicita uno nuevo." });
     }
-    if (String(user.emailVerificationCode).trim() !== String(code).trim()) {
+    if (String(hashCode(code)) !== String(user.emailVerificationCode)) {
       return res.status(400).json({ message: "Código incorrecto. Inténtalo de nuevo." });
     }
     // Mark verified and clear code
@@ -328,9 +340,24 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     if (user.emailVerified) {
       return res.json({ message: "Tu email ya está verificado. Inicia sesión normalmente." });
     }
+
+    // Server-side cooldown: prevent spamming resend requests per user
+    if (user.emailVerificationSentAt) {
+      const elapsedS = (Date.now() - new Date(user.emailVerificationSentAt).getTime()) / 1000;
+      if (elapsedS < OTP_RESEND_COOLDOWN_S) {
+        const resendAfter = Math.ceil(OTP_RESEND_COOLDOWN_S - elapsedS);
+        return res.status(429).json({
+          code: "RESEND_COOLDOWN",
+          message: `Espera ${resendAfter} segundos antes de volver a solicitar un código.`,
+          resendAfter,
+        });
+      }
+    }
+
     const code = generateSixDigitCode();
-    user.emailVerificationCode = code;
+    user.emailVerificationCode = hashCode(code);
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationSentAt = new Date();
     await user.save();
 
     try {
@@ -345,10 +372,69 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
       return res.status(status).json(body);
     }
 
-    res.json({ message: "Código de verificación reenviado. Revisa tu email." });
+    res.json({ message: "Código de verificación reenviado. Revisa tu email y la carpeta de spam." });
   } catch (err) {
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * Allow an unverified user to correct their email address.
+ * This is only possible before the account is verified (emailVerified === false).
+ * A new OTP code is generated and sent to the new address.
+ */
+router.post("/update-unverified-email", verifyEmailLimiter, async (req, res) => {
+  const oldEmail = req.body.oldEmail ? req.body.oldEmail.trim().toLowerCase() : "";
+  const newEmail = req.body.newEmail ? req.body.newEmail.trim().toLowerCase() : "";
+  if (!oldEmail || !newEmail) {
+    return res.status(400).json({ message: "oldEmail y newEmail son requeridos" });
+  }
+  if (!isSimpleEmail(newEmail)) {
+    return res.status(400).json({ message: "El formato del nuevo email no es válido" });
+  }
+  if (oldEmail === newEmail) {
+    return res.status(400).json({ message: "El nuevo email debe ser diferente al actual" });
+  }
+  try {
+    const user = await User.findOne({ email: oldEmail, emailVerified: false });
+    if (!user) {
+      // Avoid disclosing whether the email exists or is already verified
+      return res.status(404).json({ message: "Cuenta no encontrada o ya verificada. Inicia sesión normalmente." });
+    }
+
+    // Prevent changing to an email already registered
+    const taken = await User.exists({ email: newEmail });
+    if (taken) {
+      return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+    }
+
+    const code = generateSixDigitCode();
+    user.email = newEmail;
+    user.emailVerificationCode = hashCode(code);
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationSentAt = new Date();
+    await user.save();
+
+    try {
+      await sendVerificationEmail(newEmail, code);
+      console.log("[update-unverified-email] Verification email sent to new address", { userId: String(user._id), newEmail });
+    } catch (err) {
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
+      console.error("[update-unverified-email] Failed to send email:", detail);
+      const { status, body } = getEmailSendFailurePayload(err);
+      return res.status(status).json(body);
+    }
+
+    res.json({ message: "Email actualizado. Revisa tu nuevo correo para obtener el código de verificación.", email: newEmail });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+    }
+    console.error("update-unverified-email error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 

@@ -58,7 +58,7 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            # app/build.gradle only enables Firebase when google-services.json has a non-empty project_info block.
+            # An empty object is sufficient because app/build.gradle only enables Firebase when project_info is present and non-empty.
             printf '{}\n' > frontend/android/app/google-services.json
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured. Using a placeholder config and continuing without Firebase-dependent features such as push notifications."
           else

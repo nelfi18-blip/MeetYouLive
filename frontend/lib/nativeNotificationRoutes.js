@@ -17,6 +17,7 @@ export const SAFE_NOTIFICATION_PREFIXES = [
   "/settings/notifications",
 ];
 const DEFAULT_APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meetyoulive.net";
+const COINS_NOTIFICATION_KEYWORDS = ["coin", "payment", "subscription", "account"];
 
 function firstString(...values) {
   return values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
@@ -51,6 +52,7 @@ function sanitizeNotificationPath(link, origin = DEFAULT_APP_ORIGIN) {
 function getPathFromNotificationData(data) {
   if (!data || typeof data !== "object") return "/";
 
+  // firstString returns "" when absent; empty strings are safe to normalize.
   const type = firstString(data.type, data.notificationType, data.category).toLowerCase();
   const chatId = firstString(data.chatId, data.conversationId, data.threadId);
   const liveId = firstString(data.liveId, data.live);
@@ -75,13 +77,19 @@ function getPathFromNotificationData(data) {
   if (type.includes("withdrawal") || type.includes("wallet")) {
     return "/wallet";
   }
-  if (type.includes("coin") || type.includes("payment") || type.includes("subscription") || type.includes("account")) {
+  if (COINS_NOTIFICATION_KEYWORDS.some((keyword) => type.includes(keyword))) {
     return "/coins";
   }
 
   return "/";
 }
 
+/**
+ * Resolve a native push tap destination.
+ * Accepts either a raw link string or a Capacitor notification data object.
+ * Explicit safe links win first; when absent/unsafe, typed FCM data falls back
+ * to the matching app screen (chat, match, live, profile, coins, or wallet).
+ */
 export function getNativeNotificationPath(notification, origin = DEFAULT_APP_ORIGIN) {
   if (typeof notification === "string") {
     return sanitizeNotificationPath(notification, origin);

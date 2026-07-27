@@ -108,6 +108,7 @@ function getDeliveryTokens(user, suppliedToken) {
   return Array.from(tokens);
 }
 
+/** Return only non-sensitive error metadata so FCM tokens are never logged. */
 function safeErrorInfo(err) {
   return {
     code: err?.code || "unknown",

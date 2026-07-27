@@ -171,6 +171,12 @@ function VerifyEmailForm() {
     setError("");
   };
 
+  const handleStartEdit = () => {
+    setEditingEmail(true);
+    setError("");
+    setResendSuccess("");
+  };
+
   return (
     <div className="ve-bg">
       <div className="orb orb-1" />
@@ -287,7 +293,7 @@ function VerifyEmailForm() {
               <button
                 type="button"
                 className="ve-resend-btn"
-                onClick={() => { setEditingEmail(true); setError(""); setResendSuccess(""); }}
+                onClick={handleStartEdit}
               >
                 Corregir email
               </button>

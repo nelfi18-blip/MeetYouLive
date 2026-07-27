@@ -110,6 +110,8 @@ const OTP_RESEND_COOLDOWN_S = 60;
  */
 function isSimpleEmail(value) {
   if (typeof value !== "string") return false;
+  // RFC 5321 max email length is 254 characters
+  if (value.length > 254) return false;
   // Reject SMTP header-injection characters (newlines, null bytes, control chars)
   if (/[\x00-\x1F\x7F]/.test(value)) return false;
   const at = value.indexOf("@");

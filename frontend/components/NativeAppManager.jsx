@@ -9,14 +9,14 @@ import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { usePathname, useRouter } from "next/navigation";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
-import { restoreNativeToken } from "@/lib/nativeSession";
+import { persistNativeRoute } from "@/lib/nativeSession";
 import { APP_ORIGINS, getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "@/lib/nativeUrlPolicy";
-import { setToken } from "@/lib/token";
 
 const EXIT_GUARD_PATHS = new Set(["/feed", "/profile", "/chats", "/live"]);
 const EXIT_CONFIRM_PATHS = new Set(["/", "/dashboard"]);
 const KNOWN_DEEP_LINK_PREFIXES = [
   "/login",
+  "/feed",
   "/verify-email",
   "/reset-password",
   "/forgot-password",
@@ -103,17 +103,6 @@ export default function NativeAppManager() {
       SplashScreen.hide({ fadeOutDuration: 220 }).catch((error) => logNativeError("SplashScreen.hide", error));
     }, 350);
 
-    const restoreToken = async () => {
-      const existing = localStorage.getItem("token");
-      if (existing) return;
-      const nativeToken = await restoreNativeToken();
-      if (nativeToken) {
-        setToken(nativeToken);
-        window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
-      }
-    };
-    restoreToken();
-
     const appUrlListener = App.addListener("appUrlOpen", ({ url }) => {
       const safePath = getSafeNativePath(url);
       Browser.close().catch(() => {});
@@ -158,7 +147,7 @@ export default function NativeAppManager() {
       const anchor = event.target.closest?.("a[href]");
       if (!anchor || event.defaultPrevented) return;
       const href = anchor.href;
-      if (anchor.target === "_blank" && isInternalAppUrl(href)) {
+      if (isInternalAppUrl(href)) {
         const appPath = getInternalAppPath(href);
         if (appPath) {
           event.preventDefault();
@@ -204,6 +193,12 @@ export default function NativeAppManager() {
       window.open = originalWindowOpen;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (!isNativeMobileApp()) return;
+    const path = `${pathname || "/"}${window.location.search}${window.location.hash}`;
+    persistNativeRoute(path);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isNativeMobileApp()) return;

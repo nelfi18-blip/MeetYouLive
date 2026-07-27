@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken, clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
+import { clearAllAuth, buildSwitchAccountUrl, getHomePath } from "@/lib/token";
 import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
@@ -35,6 +35,7 @@ function DashboardIcon() { return <svg width="15" height="15" viewBox="0 0 24 24
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const { t, lang, setLang, syncFromUser } = useLanguage();
   const [coins, setCoins] = useState(null);
@@ -116,10 +117,11 @@ export default function Navbar() {
     };
   }, [session]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     socket.disconnect();
-    clearToken();
-    signOut({ callbackUrl: "/login" });
+    clearAllAuth({ switching: false });
+    await signOut({ redirect: false });
+    router.replace("/login");
   };
 
   const handleSwitchAccount = async () => {

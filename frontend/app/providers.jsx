@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 import NotificationCenter, { useNotifications } from "@/components/NotificationCenter";
 import NativeAppManager from "@/components/NativeAppManager";
@@ -11,11 +11,14 @@ import { registerPush } from "@/lib/notify";
 import { initPushNotifications } from "@/lib/fcm";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { initNativePushNotifications } from "@/lib/nativePush";
-import { fetchUserRole, activateAdminSession } from "@/lib/token";
+import { fetchUserRole, activateAdminSession, clearToken, setToken } from "@/lib/token";
 import { isProtectedRoutePath } from "@/lib/publicAccess";
+import { restoreNativeRoute, restoreNativeToken } from "@/lib/nativeSession";
+import { getNativeInvalidSessionPath, getNativeSessionStartPath, shouldReplaceNativeStartPath } from "@/lib/nativeSessionPolicy";
 
 const ADMIN_ROLE_CHECK_TIMEOUT_MS = 8000;
 const ADMIN_ROLE_CHECK_RETRIES = 1;
+const NATIVE_SESSION_CHECK_TIMEOUT_MS = 8000;
 
 /** Decode JWT payload without verifying the signature (client-side only). */
 function parseJwtPayload(token) {
@@ -160,14 +163,79 @@ function AdminRoleGuard() {
   return null;
 }
 
+function NativeSessionBootstrap({ children }) {
+  const router = useRouter();
+  const { t } = useLanguage();
+  const [ready, setReady] = useState(() => typeof window === "undefined" || !isNativeMobileApp());
+
+  useEffect(() => {
+    if (!isNativeMobileApp()) {
+      setReady(true);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function bootstrap() {
+      const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const existingToken = localStorage.getItem("token");
+      const nativeToken = existingToken || await restoreNativeToken();
+
+      if (!nativeToken) {
+        setReady(true);
+        return;
+      }
+
+      setToken(nativeToken);
+      const user = await fetchUserRole(nativeToken, NATIVE_SESSION_CHECK_TIMEOUT_MS, 0);
+      if (cancelled) return;
+
+      if (!user) {
+        clearToken();
+        router.replace(getNativeInvalidSessionPath());
+        setReady(true);
+        return;
+      }
+
+      const storedPath = await restoreNativeRoute();
+      if (cancelled) return;
+
+      const startPath = getNativeSessionStartPath({ currentPath, storedPath });
+      if (shouldReplaceNativeStartPath(currentPath)) {
+        router.replace(startPath);
+      }
+      setReady(true);
+    }
+
+    bootstrap().catch((error) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[NativeSessionBootstrap] native session restore failed:", error);
+      }
+      if (!cancelled) setReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (!ready) {
+    return <div aria-busy="true" aria-label={t("common.loading")} style={{ minHeight: "100vh", background: "#060411" }} />;
+  }
+
+  return children;
+}
+
 export default function Providers({ children, initialLang }) {
   return (
     <SessionProvider>
       <LanguageProvider initialLang={initialLang}>
-        <NativeAppManager />
-        <AdminRoleGuard />
-        {children}
-        <SocketManager />
+        <NativeSessionBootstrap>
+          <NativeAppManager />
+          <AdminRoleGuard />
+          {children}
+          <SocketManager />
+        </NativeSessionBootstrap>
       </LanguageProvider>
     </SessionProvider>
   );

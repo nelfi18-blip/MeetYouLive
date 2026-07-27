@@ -143,12 +143,17 @@ function LoginForm() {
       
       // Check if user is admin and redirect accordingly
       fetchUserRole(localToken).then((user) => {
+        if (!user) {
+          clearToken();
+          setChecking(false);
+          return;
+        }
         syncAdminSessionIfNeeded(localToken, user);
         router.replace(getPostLoginRedirectPath(user, userRedirectPath));
       }).catch((error) => {
         console.error("[login] Error checking user role:", error);
-        // Fallback to feed on error
-        router.replace(userRedirectPath);
+        clearToken();
+        setChecking(false);
       });
       return;
     }
@@ -471,6 +476,7 @@ function LoginForm() {
 
       if (data.token) {
         setToken(data.token);
+        window.dispatchEvent(new CustomEvent("meetyoulive:native-session-restored"));
         trackAnalyticsEvent("login_completed", { reason: "email_login" });
         const userRedirectPath = getSafeCallbackPath(searchParams);
         

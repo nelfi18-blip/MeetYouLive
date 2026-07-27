@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { clearToken, getToken, setToken } from "@/lib/token";
+import { clearAllAuth, clearToken, getToken, setToken } from "@/lib/token";
 import { useLanguage, SUPPORTED_LANGS } from "@/contexts/LanguageContext";
 import ReferralCard from "@/components/ReferralCard";
 import StatusBadges from "@/components/StatusBadges";
@@ -608,10 +608,11 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     socket.disconnect();
-    clearToken();
-    signOut({ callbackUrl: "/login" });
+    clearAllAuth({ switching: false });
+    await signOut({ redirect: false });
+    router.replace("/login");
   };
 
   const handleLanguageSave = async (newLang) => {

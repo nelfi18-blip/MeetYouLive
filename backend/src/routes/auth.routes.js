@@ -103,14 +103,16 @@ const OTP_RESEND_COOLDOWN_S = 60;
 
 /**
  * Basic email format check without regex backtracking risk.
- * Uses simple string operations: verifies a single "@" exists, is not the
- * first character, and that there is a "." after "@" with at least one
- * character on each side.
+ * Verifies:
+ *  - "@" is present and is not the first character (at > 0)
+ *  - there is exactly one "@" (no second occurrence)
+ *  - there is a "." after "@" with at least one character on each side
  */
 function isSimpleEmail(value) {
   if (typeof value !== "string") return false;
   const at = value.indexOf("@");
-  if (at <= 0 || value.indexOf("@", at + 1) !== -1) return false; // must have exactly one @
+  if (at <= 0) return false; // "@" must not be absent or the first character
+  if (value.indexOf("@", at + 1) !== -1) return false; // exactly one "@"
   const dot = value.lastIndexOf(".");
   return dot > at + 1 && dot < value.length - 1;
 }

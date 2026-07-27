@@ -147,7 +147,7 @@ function VerifyEmailForm() {
       setEmail(data.email || newEmail.trim().toLowerCase());
       setNewEmail("");
       setEditingEmail(false);
-      setResendCooldown(60);
+      setResendCooldown(DEFAULT_RESEND_COOLDOWN_S);
       setCode(["", "", "", "", "", ""]);
       setResendSuccess(data.message || "Email actualizado. Revisa tu nuevo correo.");
     } catch {

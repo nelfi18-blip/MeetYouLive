@@ -195,11 +195,10 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
         ? `${err.code}: ${err.message || "Unknown email error"}`
         : (err && err.message) || "Unknown email error";
       console.error("[register] Failed to send verification email:", detail);
-      await User.deleteOne({ _id: user._id, emailVerified: false }).catch((cleanupErr) => {
-        console.error("[register] Failed to clean up unverified user after email error:", cleanupErr.message);
-      });
+      // Keep the unverified account so the user can request a resend from the verify-email page.
+      // Deleting it here would cause a confusing "Usuario no encontrado" error at login.
       const { status, body } = getEmailSendFailurePayload(err);
-      return res.status(status).json(body);
+      return res.status(status).json({ ...body, email, requiresResend: true });
     }
 
     // Analytics: referral_shared — track that the inviter's link was used (fire-and-forget)
@@ -232,7 +231,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
   }
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND", message: "No encontramos una cuenta con ese email." });
 
     if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
 

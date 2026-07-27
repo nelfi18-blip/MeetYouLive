@@ -162,7 +162,7 @@ describe("auth email verification delivery", () => {
     }));
   });
 
-  test("registration returns a clear error and cleans up when email is not configured", async () => {
+  test("registration keeps unverified account and returns requiresResend when email fails", async () => {
     User.create.mockResolvedValue({ _id: "user-2" });
     sendVerificationEmail.mockRejectedValueOnce(Object.assign(new Error("SMTP configuration missing"), {
       code: "EMAIL_NOT_CONFIGURED",
@@ -178,11 +178,11 @@ describe("auth email verification delivery", () => {
       });
 
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({
-      code: "EMAIL_NOT_CONFIGURED",
-      message: "El servicio de email no está configurado correctamente. Contacta a soporte.",
-    });
-    expect(User.deleteOne).toHaveBeenCalledWith({ _id: "user-2", emailVerified: false });
+    expect(res.body.code).toBe("EMAIL_NOT_CONFIGURED");
+    expect(res.body.email).toBe("mailfail@example.com");
+    expect(res.body.requiresResend).toBe(true);
+    // Account must NOT be deleted — user can go to verify-email and request a resend
+    expect(User.deleteOne).not.toHaveBeenCalled();
   });
 
   test("resend does not show success when the provider rejects delivery", async () => {

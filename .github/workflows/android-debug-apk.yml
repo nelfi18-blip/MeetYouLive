@@ -65,9 +65,9 @@ jobs:
             exit 0
           fi
 
-          clean_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
+          sanitized_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
 
-          if ! printf '%s' "$clean_base64" \
+          if ! printf '%s' "$sanitized_base64" \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
             echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
@@ -91,6 +91,7 @@ jobs:
             }
 
             const hasExpectedPackage = Array.isArray(data.client)
+              && data.client.length > 0
               && data.client.some((client) => client?.client_info?.android_client_info?.package_name === expectedPackageName);
 
             if (!hasExpectedPackage) {

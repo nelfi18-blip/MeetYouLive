@@ -51,16 +51,20 @@ try {
     if (servicesJSON.exists()) {
         def servicesConfig = servicesJSON.text?.trim()
         if (servicesConfig) {
-            def parsedConfig = new JsonSlurper().parseText(servicesConfig)
-            if (parsedConfig instanceof Map && parsedConfig.project_info) {
-                apply plugin: 'com.google.gms.google-services'
-            } else {
-                logger.info("google-services.json is missing project_info, google-services plugin not applied. Push Notifications won't work")
+            try {
+                def parsedConfig = new JsonSlurper().parseText(servicesConfig)
+                if (parsedConfig instanceof Map && parsedConfig.project_info) {
+                    apply plugin: 'com.google.gms.google-services'
+                } else {
+                    logger.info("google-services.json is missing project_info, google-services plugin not applied. Push Notifications won't work")
+                }
+            } catch (Exception e) {
+                logger.info("google-services.json is invalid, google-services plugin not applied. Push Notifications won't work (${e.message})")
             }
         } else {
             logger.info("google-services.json is empty, google-services plugin not applied. Push Notifications won't work")
         }
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json could not be read, google-services plugin not applied. Push Notifications won't work (${e.message})")
 }

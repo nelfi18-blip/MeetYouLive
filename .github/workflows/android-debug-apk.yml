@@ -58,13 +58,14 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            printf '{}\n' > frontend/android/app/google-services.json
+            # Keep the placeholder JSON-shaped so app/build.gradle can parse it and skip Firebase cleanly.
+            printf '{"placeholder":true}\n' > frontend/android/app/google-services.json
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; using a placeholder config and continuing without Firebase-dependent features such as push notifications."
           else
             if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
               | base64 --decode \
               > frontend/android/app/google-services.json; then
-              echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+              echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64 into frontend/android/app/google-services.json."
               exit 1
             fi
 

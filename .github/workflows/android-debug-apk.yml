@@ -74,8 +74,18 @@ jobs:
 
       - name: Verify google-services.json is gitignored
         run: |
-          if ! grep -Fxq 'frontend/android/app/google-services.json' .gitignore && \
-             ! grep -Fxq 'frontend/android/app/google-services.json' frontend/android/.gitignore; then
+          root_has_entry=false
+          android_has_entry=false
+
+          if [ -f .gitignore ] && grep -Fxq 'frontend/android/app/google-services.json' .gitignore; then
+            root_has_entry=true
+          fi
+
+          if [ -f frontend/android/.gitignore ] && grep -Fxq 'frontend/android/app/google-services.json' frontend/android/.gitignore; then
+            android_has_entry=true
+          fi
+
+          if [ "$root_has_entry" = false ] && [ "$android_has_entry" = false ]; then
             echo "Error: Add 'frontend/android/app/google-services.json' to a .gitignore file."
             exit 1
           fi
@@ -98,10 +108,12 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Android Debug APK
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ github.event.inputs.app_url || 'https://meetyoulive.net' }}
         run: |
           cd frontend
           npm ci
-          NEXT_PUBLIC_APP_URL="${{ github.event.inputs.app_url || 'https://meetyoulive.net' }}" npx cap sync android
+          npx cap sync android
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
         shell: bash

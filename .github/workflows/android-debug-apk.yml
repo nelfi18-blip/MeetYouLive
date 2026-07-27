@@ -69,7 +69,20 @@ jobs:
             exit 1
           fi
 
-          node -e "const fs=require('fs'); const p='frontend/android/app/google-services.json'; try { const data=JSON.parse(fs.readFileSync(p,'utf8')); if(!data || !data.project_info){ console.error('Error: google-services.json is missing project_info.'); process.exit(1); } } catch { console.error('Error: google-services.json is not valid JSON.'); process.exit(1); }"
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'frontend/android/app/google-services.json';
+          try {
+            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (!data || !data.project_info) {
+              console.error('Error: google-services.json is missing project_info.');
+              process.exit(1);
+            }
+          } catch {
+            console.error('Error: google-services.json is not valid JSON.');
+            process.exit(1);
+          }
+          NODE
         shell: bash
 
       - name: Verify google-services.json exists
@@ -82,11 +95,11 @@ jobs:
           root_has_entry=0
           android_has_entry=0
 
-          if [ -f .gitignore ] && grep -Fxq 'frontend/android/app/google-services.json' .gitignore; then
+          if [ -f .gitignore ] && grep -Fq 'frontend/android/app/google-services.json' .gitignore; then
             root_has_entry=1
           fi
 
-          if [ -f frontend/android/.gitignore ] && grep -Fxq 'app/google-services.json' frontend/android/.gitignore; then
+          if [ -f frontend/android/.gitignore ] && grep -Fq 'app/google-services.json' frontend/android/.gitignore; then
             android_has_entry=1
           fi
 

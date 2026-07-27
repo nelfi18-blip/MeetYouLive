@@ -49,7 +49,7 @@ apply from: 'capacitor.build.gradle'
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.exists()) {
-        def servicesConfig = servicesJSON.text?.trim()
+        def servicesConfig = servicesJSON.text.trim()
         if (servicesConfig) {
             try {
                 def parsedConfig = new JsonSlurper().parseText(servicesConfig)

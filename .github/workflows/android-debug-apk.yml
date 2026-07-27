@@ -58,8 +58,8 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            # Keep the placeholder JSON-shaped so app/build.gradle can parse it and skip Firebase cleanly.
-            printf '{"placeholder":true}\n' > frontend/android/app/google-services.json
+            # Any JSON without project_info is treated as a no-op by app/build.gradle.
+            printf '{}\n' > frontend/android/app/google-services.json
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; using a placeholder config and continuing without Firebase-dependent features such as push notifications."
           else
             if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \

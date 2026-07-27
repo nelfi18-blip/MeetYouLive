@@ -67,6 +67,11 @@ jobs:
 
           sanitized_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
 
+          if [ -z "$sanitized_base64" ]; then
+            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 is empty after normalization."
+            exit 1
+          fi
+
           if [[ ! "$sanitized_base64" =~ ^[A-Za-z0-9+/=]+$ ]]; then
             echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 contains invalid Base64 characters after normalization."
             exit 1
@@ -95,12 +100,15 @@ jobs:
               process.exit(1);
             }
 
-            const hasExpectedPackage = Array.isArray(data.client)
-              && data.client.length > 0
-              && data.client.some((client) => {
-                const packageName = client?.client_info?.android_client_info?.package_name;
-                return packageName === expectedPackageName;
-              });
+            if (!Array.isArray(data.client) || data.client.length === 0) {
+              console.error('Error: google-services.json is missing client configuration.');
+              process.exit(1);
+            }
+
+            const hasExpectedPackage = data.client.some((client) => {
+              const packageName = client?.client_info?.android_client_info?.package_name;
+              return packageName === expectedPackageName;
+            });
 
             if (!hasExpectedPackage) {
               console.error(`Error: google-services.json is missing package_name ${expectedPackageName}.`);
@@ -194,9 +202,6 @@ jobs:
                 echo
                 echo "This no-firebase fallback is allowed only for debug/development APK builds."
                 echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
-                ;;
-              "")
-                echo "APK Firebase status could not be determined because the restore step did not set an output."
                 ;;
               *)
                 echo "APK Firebase status could not be determined."

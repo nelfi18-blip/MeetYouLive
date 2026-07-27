@@ -68,6 +68,8 @@ jobs:
             echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64."
             exit 1
           fi
+
+          node -e "const fs=require('fs'); const p='frontend/android/app/google-services.json'; const data=JSON.parse(fs.readFileSync(p,'utf8')); if(!data.project_info){process.exit(1)}"
         shell: bash
 
       - name: Verify google-services.json exists
@@ -77,18 +79,18 @@ jobs:
 
       - name: Verify google-services.json is gitignored
         run: |
-          root_has_entry=false
-          android_has_entry=false
+          root_has_entry=0
+          android_has_entry=0
 
           if [ -f .gitignore ] && grep -Fxq 'frontend/android/app/google-services.json' .gitignore; then
-            root_has_entry=true
+            root_has_entry=1
           fi
 
           if [ -f frontend/android/.gitignore ] && grep -Fxq 'app/google-services.json' frontend/android/.gitignore; then
-            android_has_entry=true
+            android_has_entry=1
           fi
 
-          if [ "$root_has_entry" = false ] && [ "$android_has_entry" = false ]; then
+          if [ "$root_has_entry" -eq 0 ] && [ "$android_has_entry" -eq 0 ]; then
             echo "Error: Add 'frontend/android/app/google-services.json' to a .gitignore file."
             exit 1
           fi

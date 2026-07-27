@@ -55,25 +55,79 @@ jobs:
         run: npm ci
 
       - name: Restore Firebase google-services.json
+        id: restore_google_services
         working-directory: frontend
         run: |
           set -euo pipefail
-          if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::warning::Firebase config missing; debug build will proceed without Firebase. Production/release builds must configure ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+            echo "google_services_restored=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          test -s android/app/google-services.json
+
+          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
+            echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64. Verify the secret contains valid base64-encoded content."
+            exit 1
+          fi
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'android/app/google-services.json';
+          const raw = fs.readFileSync(path, 'utf8').trim();
+
+          if (!raw) {
+            console.error('Error: google-services.json is empty.');
+            process.exit(1);
+          }
+
+          try {
+            const data = JSON.parse(raw);
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+              console.error('Error: google-services.json must contain a JSON object.');
+              process.exit(1);
+            }
+
+            if (Object.keys(data).length === 0) {
+              console.error('Error: google-services.json must not be an empty JSON object.');
+              process.exit(1);
+            }
+
+            if (!data.project_info) {
+              console.error('Error: google-services.json must contain project_info.');
+              process.exit(1);
+            }
+
+            if (!data.client) {
+              console.error('Error: google-services.json must contain client.');
+              process.exit(1);
+            }
+
+            if (!Array.isArray(data.client)) {
+              console.error('Error: google-services.json client must be an array.');
+              process.exit(1);
+            }
+
+            if (data.client.length === 0) {
+              console.error('Error: google-services.json client array must not be empty.');
+              process.exit(1);
+            }
+          } catch (error) {
+            console.error(`Error: Invalid google-services.json (${error.message}).`);
+            process.exit(1);
+          }
+          NODE
+
+          echo "google_services_restored=true" >> "$GITHUB_OUTPUT"
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+        shell: bash
 
-      - name: Check Firebase config availability
+      - name: Verify Firebase config was restored
+        if: steps.restore_google_services.outputs.google_services_restored == 'true'
         working-directory: frontend
         run: |
-          set -euo pipefail
-          if [ ! -s android/app/google-services.json ]; then
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
-          fi
+          test -s android/app/google-services.json
+        shell: bash
 
       # Capacitor sync generates the gitignored files that Gradle needs:
       #   - android/capacitor-cordova-android-plugins/
@@ -105,6 +159,7 @@ jobs:
         if: always()
         working-directory: frontend
         run: rm -f android/app/google-services.json
+        shell: bash
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -114,3 +169,26 @@ jobs:
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
+
+      - name: Report APK Firebase status
+        env:
+          GOOGLE_SERVICES_RESTORED: ${{ steps.restore_google_services.outputs.google_services_restored }}
+        run: |
+          {
+            echo "## Android Debug APK"
+            echo
+            echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
+            echo
+            if [ "$GOOGLE_SERVICES_RESTORED" = "true" ]; then
+              echo "APK generated with Firebase enabled."
+            elif [ "$GOOGLE_SERVICES_RESTORED" = "false" ]; then
+              echo "APK generated with Firebase disabled."
+              echo
+              echo "This no-firebase fallback is allowed only for debug/development APK builds."
+              echo "Do not treat this disabled-Firebase debug run as ready for merge."
+            else
+              echo "Unexpected Firebase restore status: $GOOGLE_SERVICES_RESTORED"
+              exit 1
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash

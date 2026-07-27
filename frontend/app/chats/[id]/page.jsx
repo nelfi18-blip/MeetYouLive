@@ -753,9 +753,12 @@ export default function ChatConversationPage() {
         .chat-header {
           position: relative;
           overflow: hidden;
-          display: flex;
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto auto;
+          grid-template-areas: "back peer actions moderation";
           align-items: center;
-          gap: 0.9rem;
+          column-gap: 0.9rem;
+          row-gap: 0.72rem;
           padding: 0.95rem 1rem;
           background:
             radial-gradient(circle at 18% 0%, rgba(224,64,251,0.28), transparent 34%),
@@ -767,9 +770,15 @@ export default function ChatConversationPage() {
           backdrop-filter: blur(18px);
         }
         .chat-moderation-actions {
-          flex: 0 0 auto;
+          grid-area: moderation;
+          justify-self: end;
+          position: relative;
+          z-index: 1;
           width: auto;
+          min-width: 0;
         }
+        .chat-moderation-actions :global(.moderation-actions__buttons) { justify-content: flex-end; }
+        .chat-moderation-actions :global(button) { white-space: nowrap; }
         .chat-header::after {
           content: "";
           position: absolute;
@@ -781,12 +790,14 @@ export default function ChatConversationPage() {
         }
 
         .back-btn,
-        .icon-action,
-        .chat-peer { position: relative; z-index: 1; }
+        .chat-peer,
+        .header-actions { position: relative; z-index: 1; }
 
         .back-btn {
+          grid-area: back;
           display: inline-flex;
           align-items: center;
+          justify-self: start;
           gap: 0.25rem;
           color: var(--text-muted);
           font-size: 0.85rem;
@@ -800,7 +811,14 @@ export default function ChatConversationPage() {
         }
         .back-btn:hover { color: var(--accent-cyan); transform: translateX(-2px); border-color: rgba(34,211,238,0.24); }
 
-        .chat-peer { display: flex; align-items: center; gap: 0.72rem; flex: 1; min-width: 0; }
+        .chat-peer {
+          grid-area: peer;
+          display: flex;
+          align-items: center;
+          gap: 0.72rem;
+          flex: 1 1 auto;
+          min-width: 0;
+        }
         .peer-avatar-wrap {
           position: relative;
           width: 48px;
@@ -844,9 +862,16 @@ export default function ChatConversationPage() {
           border: 3px solid #120a28;
           box-shadow: 0 0 12px rgba(52,211,153,0.8);
         }
-        .peer-info { display: flex; flex-direction: column; gap: 0.14rem; min-width: 0; }
+        .peer-info { display: flex; flex-direction: column; gap: 0.14rem; flex: 1 1 auto; min-width: 0; }
         .peer-name { font-weight: 900; color: var(--text); font-size: 1.04rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.02em; }
-        .peer-status { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
+        .peer-status {
+          color: var(--text-muted);
+          font-size: 0.72rem;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
         .peer-creator-badge {
           display: inline-block;
           font-size: 0.6rem;
@@ -860,10 +885,12 @@ export default function ChatConversationPage() {
         }
 
         .header-actions {
+          grid-area: actions;
           position: relative;
           z-index: 1;
           display: flex;
           align-items: center;
+          justify-self: end;
           gap: 0.45rem;
           flex-shrink: 0;
           padding: 0.28rem;
@@ -1252,13 +1279,25 @@ export default function ChatConversationPage() {
 
         @media (max-width: 720px) {
           .chat-page { height: calc(100dvh - var(--chat-mobile-chrome-offset)); min-height: 520px; }
-          .chat-header { border-radius: 22px; padding: 0.78rem; }
-          .back-btn span { display: none; }
+          .chat-header {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-areas:
+              "back peer actions"
+              ". moderation moderation";
+            border-radius: 22px;
+            padding: 0.78rem;
+          }
+          .back-btn { gap: 0.2rem; padding: 0.5rem 0.56rem; font-size: 0.78rem; }
+          .chat-peer { gap: 0.58rem; }
           .peer-avatar-wrap { width: 44px; height: 44px; }
+          .peer-name { font-size: 0.96rem; }
+          .peer-status { font-size: 0.7rem; }
+          .peer-creator-badge { margin-top: 0.08rem; }
           .header-actions { gap: 0.32rem; }
           .icon-action { width: 36px; height: 36px; border-radius: 13px; }
-          .header-actions .camera-action,
-          .header-actions .voice-action { display: none; }
+          .chat-moderation-actions { width: 100%; justify-self: stretch; }
+          .chat-moderation-actions :global(.moderation-actions__buttons) { gap: 0.38rem; }
+          .chat-moderation-actions :global(button) { padding: 0.42rem 0.64rem; font-size: 0.72rem; }
           .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem 0.58rem max(0.58rem, env(safe-area-inset-bottom)); }
           .composer-actions { gap: 0.32rem; }
           .composer-btn { width: 36px; height: 36px; border-radius: 13px; }

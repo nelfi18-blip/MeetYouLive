@@ -2052,8 +2052,8 @@ export default function FeedPage() {
 
         @media (max-width: 768px) {
           .feed-page {
-            --feed-header-logo-size: clamp(52px, 13vw, 68px);
-            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.8rem);
+            --feed-header-logo-size: clamp(68px, 17vw, 88px);
+            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.5rem);
             --feed-section-top-padding: 2px;
             --feed-deck-width: min(calc(100vw - 8px), 452px);
             --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
@@ -2251,7 +2251,7 @@ function FeedHeader() {
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className="feed-header-logo" />
+        <img src="/logo.svg" alt="" width="400" height="278" className="feed-header-logo" />
       </Link>
 
       <style jsx>{`
@@ -2272,18 +2272,22 @@ function FeedHeader() {
         .feed-header-brand {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           text-decoration: none;
+          line-height: 0;
         }
         .feed-header-logo {
-          width: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
           height: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
+          width: calc(var(--feed-header-logo-size, clamp(52px, 15vw, 76px)) * 400 / 278);
+          max-width: 100%;
           display: block;
           object-fit: contain;
+          aspect-ratio: 400 / 278;
         }
         @media (max-width: 768px) {
           .feed-header {
-            padding: 0.4rem 1rem;
-            padding-top: calc(0.4rem + env(safe-area-inset-top));
+            padding: 0.25rem 1rem;
+            padding-top: calc(0.25rem + env(safe-area-inset-top));
             background: linear-gradient(180deg, rgba(15, 8, 33, 0.84), rgba(15, 8, 33, 0.42));
             border-bottom-color: rgba(255, 255, 255, 0.035);
           }

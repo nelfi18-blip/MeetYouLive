@@ -65,9 +65,9 @@ jobs:
             exit 0
           fi
 
-          normalized_google_services_json_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
+          clean_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
 
-          if ! printf '%s' "$normalized_google_services_json_base64" \
+          if ! printf '%s' "$clean_base64" \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
             echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
@@ -85,6 +85,11 @@ jobs:
           const expectedPackageName = process.env.EXPECTED_ANDROID_PACKAGE_NAME;
           try {
             const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (!data || !data.project_info) {
+              console.error('Error: google-services.json is missing project_info.');
+              process.exit(1);
+            }
+
             const hasExpectedPackage = Array.isArray(data.client)
               && data.client.some((client) => client?.client_info?.android_client_info?.package_name === expectedPackageName);
 

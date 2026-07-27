@@ -215,6 +215,9 @@ export default function ModerationActions({
           gap: 0.55rem;
           align-items: center;
         }
+        .moderation-actions.chat-moderation-actions .moderation-actions__buttons {
+          justify-content: flex-end;
+        }
         .moderation-actions.compact .moderation-actions__buttons {
           gap: 0.4rem;
         }
@@ -227,6 +230,9 @@ export default function ModerationActions({
           font-weight: 800;
           padding: 0.62rem 0.95rem;
           transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+        .moderation-actions.chat-moderation-actions button {
+          white-space: nowrap;
         }
         .compact button {
           font-size: 0.78rem;
@@ -311,6 +317,15 @@ export default function ModerationActions({
           justify-content: flex-end;
           gap: 0.6rem;
           margin-top: 1rem;
+        }
+        @media (max-width: 720px) {
+          .moderation-actions.chat-moderation-actions .moderation-actions__buttons {
+            gap: 0.38rem;
+          }
+          .moderation-actions.chat-moderation-actions button {
+            font-size: 0.72rem;
+            padding: 0.42rem 0.64rem;
+          }
         }
       `}</style>
     </div>

@@ -556,14 +556,16 @@ export default function ChatConversationPage() {
           buttonClassName="icon-action muted"
         />
         {otherUser?._id && String(otherUser._id) !== String(currentUserId) && (
-          <ModerationActions
-            targetUserId={String(otherUser._id)}
-            targetName={otherName}
-            authToken={getBackendToken()}
-            onBlocked={handleBlockedUser}
-            className="chat-moderation-actions"
-            compact
-          />
+          <div className="chat-moderation-slot">
+            <ModerationActions
+              targetUserId={String(otherUser._id)}
+              targetName={otherName}
+              authToken={getBackendToken()}
+              onBlocked={handleBlockedUser}
+              className="chat-moderation-actions"
+              compact
+            />
+          </div>
         )}
       </header>
 
@@ -771,7 +773,7 @@ export default function ChatConversationPage() {
           box-shadow: 0 20px 52px rgba(4,2,12,0.48), inset 0 1px 0 rgba(255,255,255,0.1);
           backdrop-filter: blur(18px);
         }
-        .chat-moderation-actions {
+        .chat-moderation-slot {
           grid-area: moderation;
           justify-self: end;
           position: relative;
@@ -779,8 +781,6 @@ export default function ChatConversationPage() {
           width: auto;
           min-width: 0;
         }
-        .chat-moderation-actions :global(.moderation-actions__buttons) { justify-content: flex-end; }
-        .chat-moderation-actions :global(button) { white-space: nowrap; }
         .chat-header::after {
           content: "";
           position: absolute;
@@ -1297,9 +1297,7 @@ export default function ChatConversationPage() {
           .peer-creator-badge { margin-top: 0.08rem; }
           .header-actions { gap: 0.32rem; }
           .icon-action { width: 36px; height: 36px; border-radius: 13px; }
-          .chat-moderation-actions { width: 100%; justify-self: stretch; }
-          .chat-moderation-actions :global(.moderation-actions__buttons) { gap: 0.38rem; }
-          .chat-moderation-actions :global(button) { padding: 0.42rem 0.64rem; font-size: 0.72rem; }
+          .chat-moderation-slot { width: 100%; justify-self: stretch; }
           .chat-input-bar { gap: 0.48rem; border-radius: 22px; padding: 0.58rem 0.58rem max(0.58rem, env(safe-area-inset-bottom)); }
           .composer-actions { gap: 0.32rem; }
           .composer-btn { width: 36px; height: 36px; border-radius: 13px; }

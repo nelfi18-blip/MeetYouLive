@@ -120,7 +120,7 @@ function VerifyEmailForm() {
         setError(data.error);
       } else {
         setResendSuccess(data.message || "Código reenviado. Revisa tu email y la carpeta de spam o correo no deseado.");
-        setResendCooldown(60);
+        setResendCooldown(data.resendAfter || 60);
       }
     } catch {
       setError("No se pudo conectar con el servidor");

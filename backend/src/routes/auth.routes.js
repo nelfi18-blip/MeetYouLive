@@ -92,9 +92,6 @@ function hashCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
 }
 
-// Keep alias used by password-reset paths
-const hashResetCode = hashCode;
-
 function getLatestResetRequestedAtMs(user) {
   return user.passwordResetRequestedAt ? new Date(user.passwordResetRequestedAt).getTime() : 0;
 }
@@ -104,8 +101,18 @@ const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_
 /** Seconds a user must wait between OTP resend requests */
 const OTP_RESEND_COOLDOWN_S = 60;
 
+/**
+ * Basic email format check without regex backtracking risk.
+ * Uses simple string operations: verifies a single "@" exists, is not the
+ * first character, and that there is a "." after "@" with at least one
+ * character on each side.
+ */
 function isSimpleEmail(value) {
-  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  if (typeof value !== "string") return false;
+  const at = value.indexOf("@");
+  if (at <= 0 || value.indexOf("@", at + 1) !== -1) return false; // must have exactly one @
+  const dot = value.lastIndexOf(".");
+  return dot > at + 1 && dot < value.length - 1;
 }
 
 function getEmailSendFailurePayload(err, emailType = "verification") {
@@ -372,7 +379,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
       return res.status(status).json(body);
     }
 
-    res.json({ message: "Código de verificación reenviado. Revisa tu email y la carpeta de spam." });
+    res.json({ message: "Código de verificación reenviado. Revisa tu email y la carpeta de spam.", resendAfter: OTP_RESEND_COOLDOWN_S });
   } catch (err) {
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
@@ -461,7 +468,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       requestedAt: user.passwordResetRequestedAt,
     };
 
-    user.passwordResetCode = hashResetCode(resetCode);
+    user.passwordResetCode = hashCode(resetCode);
     user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
     user.passwordResetRequestedAt = new Date(now);
     await user.save();
@@ -519,7 +526,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
 
     const providedCode = String(code).trim();
-    const codeMatches = hashResetCode(providedCode) === user.passwordResetCode;
+    const codeMatches = hashCode(providedCode) === user.passwordResetCode;
     if (!codeMatches) {
       console.warn("[reset-password] Failed attempt: reset code mismatch");
       return res.status(400).json({ message: "Código inválido o expirado." });

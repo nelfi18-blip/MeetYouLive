@@ -271,6 +271,7 @@ describe("auth email verification delivery", () => {
       .send({ email: "resend-hash@example.com" });
 
     expect(res.status).toBe(200);
+    expect(res.body.resendAfter).toBe(60);
     const sentCode = sendVerificationEmail.mock.calls[0][1];
     expect(user.emailVerificationCode).toBe(sha256(sentCode));
     expect(user.emailVerificationCode).not.toBe(sentCode);

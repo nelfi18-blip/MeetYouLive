@@ -211,26 +211,26 @@ public class MainActivity extends BridgeActivity {
             if (url != null && !url.trim().isEmpty()) {
                 lastFailedUrl = url;
             }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request != null && request.getUrl() != null ? request.getUrl().toString() : null;
-                if (isMeetYouLiveUrl(url)) {
-                    return false;
-                }
-                return super.shouldOverrideUrlLoading(view, request);
-            }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (isMeetYouLiveUrl(url)) {
-                    return false;
-                }
-                return super.shouldOverrideUrlLoading(view, url);
-            }
             hideError();
             scheduleLoadTimeout(view);
             super.onPageStarted(view, url, favicon);
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            String url = request != null && request.getUrl() != null ? request.getUrl().toString() : null;
+            if (isMeetYouLiveUrl(url)) {
+                return false;
+            }
+            return super.shouldOverrideUrlLoading(view, request);
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            if (isMeetYouLiveUrl(url)) {
+                return false;
+            }
+            return super.shouldOverrideUrlLoading(view, url);
         }
 
         @Override

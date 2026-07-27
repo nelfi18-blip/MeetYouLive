@@ -50,30 +50,31 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Restore Firebase google-services.json
-        working-directory: frontend
-        run: |
-          set -euo pipefail
-          if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
-            exit 0
-          fi
-          echo "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          test -s android/app/google-services.json
+      - name: Restore google-services.json (Firebase)
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
-
-      - name: Check Firebase config availability
-        working-directory: frontend
         run: |
-          set -euo pipefail
-          if [ ! -s android/app/google-services.json ]; then
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; building debug APK without native Firebase push."
+          mkdir -p frontend/android/app
+
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "Firebase secret is not configured."
+            exit 1
           fi
+
+          printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
+            | base64 --decode \
+            > frontend/android/app/google-services.json
+        shell: bash
+
+      - name: Verify google-services.json exists
+        run: |
+          test -s frontend/android/app/google-services.json
+        shell: bash
+
+      - name: Verify google-services.json is gitignored
+        run: |
+          grep -Fxq 'frontend/android/app/google-services.json' .gitignore
+        shell: bash
 
       # Capacitor sync generates the gitignored files that Gradle needs:
       #   - android/capacitor-cordova-android-plugins/
@@ -81,12 +82,6 @@ jobs:
       #   - android/app/src/main/assets/capacitor.config.json
       #   - android/app/src/main/assets/capacitor.plugins.json
       #   - android/app/src/main/res/xml/config.xml
-      - name: Capacitor sync (Android)
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_APP_URL: ${{ github.event.inputs.app_url || 'https://meetyoulive.net' }}
-        run: npx cap sync android
-
       # Cache Gradle home to speed up subsequent runs
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -97,14 +92,20 @@ jobs:
         working-directory: frontend/android
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        working-directory: frontend/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Build Android Debug APK
+        run: |
+          cd frontend
+          npm ci
+          NEXT_PUBLIC_APP_URL="${{ github.event.inputs.app_url || 'https://meetyoulive.net' }}" npx cap sync android
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+        shell: bash
 
-      - name: Remove temporary Firebase config
+      - name: Delete google-services.json
         if: always()
-        working-directory: frontend
-        run: rm -f android/app/google-services.json
+        run: |
+          rm -f frontend/android/app/google-services.json
+        shell: bash
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4

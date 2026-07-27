@@ -92,7 +92,10 @@ jobs:
 
             const hasExpectedPackage = Array.isArray(data.client)
               && data.client.length > 0
-              && data.client.some((client) => client?.client_info?.android_client_info?.package_name === expectedPackageName);
+              && data.client.some((client) => {
+                const packageName = client?.client_info?.android_client_info?.package_name;
+                return packageName === expectedPackageName;
+              });
 
             if (!hasExpectedPackage) {
               console.error(`Error: google-services.json is missing package_name ${expectedPackageName}.`);
@@ -187,11 +190,14 @@ jobs:
               true)
                 echo "APK generated with Firebase enabled."
                 ;;
-              *)
+              false)
                 echo "APK generated with Firebase disabled."
                 echo
                 echo "This no-firebase fallback is allowed only for debug/development APK builds."
                 echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
+                ;;
+              *)
+                echo "APK Firebase status could not be determined."
                 ;;
             esac
           } >> "$GITHUB_STEP_SUMMARY"

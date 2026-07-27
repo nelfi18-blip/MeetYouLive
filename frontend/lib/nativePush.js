@@ -90,7 +90,7 @@ function registerListeners() {
   });
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-    const path = getNativeNotificationPath(notification?.data?.link);
+    const path = getNativeNotificationPath(notification?.data);
     if (path !== "/") {
       window.location.assign(path);
     }

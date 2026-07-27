@@ -65,13 +65,10 @@ jobs:
             exit 0
           fi
 
-          google_services_json_base64="$ANDROID_GOOGLE_SERVICES_JSON_BASE64"
-          if ! printf '%s' "$google_services_json_base64" | base64 --decode > android/app/google-services.json; then
+          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
             echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64. Verify the secret contains valid base64-encoded content."
             exit 1
           fi
-
-          test -s android/app/google-services.json
 
           node <<'NODE'
           const fs = require('fs');
@@ -167,20 +164,16 @@ jobs:
             echo
             echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
             echo
-            case "$GOOGLE_SERVICES_RESTORED" in
-              true)
-                echo "APK generated with Firebase enabled."
-                ;;
-              false)
-                echo "APK generated with Firebase disabled."
-                echo
-                echo "This no-firebase fallback is allowed only for debug/development APK builds."
-                echo "Do not mark READY FOR MERGE from this disabled-Firebase debug run."
-                ;;
-              *)
-                echo "Unexpected Firebase restore status: $GOOGLE_SERVICES_RESTORED"
-                exit 1
-                ;;
-            esac
+            if [ "$GOOGLE_SERVICES_RESTORED" = "true" ]; then
+              echo "APK generated with Firebase enabled."
+            elif [ "$GOOGLE_SERVICES_RESTORED" = "false" ]; then
+              echo "APK generated with Firebase disabled."
+              echo
+              echo "This no-firebase fallback is allowed only for debug/development APK builds."
+              echo "Do not mark READY FOR MERGE from this disabled-Firebase debug run."
+            else
+              echo "Unexpected Firebase restore status: $GOOGLE_SERVICES_RESTORED"
+              exit 1
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

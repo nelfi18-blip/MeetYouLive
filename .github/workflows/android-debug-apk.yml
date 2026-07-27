@@ -54,6 +54,7 @@ jobs:
         id: restore_google_services
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          EXPECTED_ANDROID_PACKAGE_NAME: com.meetyoulive.app
         run: |
           set -euo pipefail
           mkdir -p frontend/android/app
@@ -64,8 +65,9 @@ jobs:
             exit 0
           fi
 
-          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
-            | tr -d '\r\n\t ' \
+          normalized_google_services_json_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
+
+          if ! printf '%s' "$normalized_google_services_json_base64" \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
             echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
@@ -80,13 +82,14 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const path = 'frontend/android/app/google-services.json';
+          const expectedPackageName = process.env.EXPECTED_ANDROID_PACKAGE_NAME;
           try {
             const data = JSON.parse(fs.readFileSync(path, 'utf8'));
             const hasExpectedPackage = Array.isArray(data.client)
-              && data.client.some((client) => client?.client_info?.android_client_info?.package_name === 'com.meetyoulive.app');
+              && data.client.some((client) => client?.client_info?.android_client_info?.package_name === expectedPackageName);
 
             if (!hasExpectedPackage) {
-              console.error('Error: google-services.json is missing package_name com.meetyoulive.app.');
+              console.error(`Error: google-services.json is missing package_name ${expectedPackageName}.`);
               process.exit(1);
             }
           } catch (e) {

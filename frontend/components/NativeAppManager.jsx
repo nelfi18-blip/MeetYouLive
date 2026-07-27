@@ -10,9 +10,9 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { usePathname, useRouter } from "next/navigation";
 import { isNativeMobileApp } from "@/lib/mobileEnvironment";
 import { restoreNativeToken } from "@/lib/nativeSession";
+import { APP_ORIGINS, getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "@/lib/nativeUrlPolicy";
 import { setToken } from "@/lib/token";
 
-const APP_ORIGINS = new Set(["https://meetyoulive.net", "https://www.meetyoulive.net"]);
 const EXIT_GUARD_PATHS = new Set(["/feed", "/profile", "/chats", "/live"]);
 const EXIT_CONFIRM_PATHS = new Set(["/", "/dashboard"]);
 const KNOWN_DEEP_LINK_PREFIXES = [
@@ -76,15 +76,6 @@ function closeTopModal() {
   window.dispatchEvent(new CustomEvent("meetyoulive:native-back"));
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   return true;
-}
-
-function isExternalHttpUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return (parsed.protocol === "http:" || parsed.protocol === "https:") && !APP_ORIGINS.has(parsed.origin);
-  } catch {
-    return false;
-  }
 }
 
 export default function NativeAppManager() {
@@ -167,12 +158,39 @@ export default function NativeAppManager() {
       const anchor = event.target.closest?.("a[href]");
       if (!anchor || event.defaultPrevented) return;
       const href = anchor.href;
+      if (anchor.target === "_blank" && isInternalAppUrl(href)) {
+        const appPath = getInternalAppPath(href);
+        if (appPath) {
+          event.preventDefault();
+          router.push(appPath);
+        }
+        return;
+      }
       if (!isExternalHttpUrl(href)) return;
       event.preventDefault();
       Browser.open({ url: href, presentationStyle: "fullscreen" }).catch((error) => {
         logNativeError("Browser.open", error);
         window.location.href = href;
       });
+    };
+
+    const originalWindowOpen = window.open;
+    window.open = (url, target, features) => {
+      if (typeof url === "string" && isInternalAppUrl(url)) {
+        const appPath = getInternalAppPath(url);
+        if (appPath) {
+          router.push(appPath);
+          return null;
+        }
+      }
+      if (typeof url === "string" && isExternalHttpUrl(url)) {
+        Browser.open({ url, presentationStyle: "fullscreen" }).catch((error) => {
+          logNativeError("Browser.open", error);
+          window.location.href = url;
+        });
+        return null;
+      }
+      return originalWindowOpen.call(window, url, target, features);
     };
 
     document.addEventListener("click", clickHandler);
@@ -183,6 +201,7 @@ export default function NativeAppManager() {
       appUrlListener.then((listener) => listener.remove()).catch((error) => logNativeError("remove appUrlOpen listener", error));
       backListener.then((listener) => listener.remove()).catch((error) => logNativeError("remove backButton listener", error));
       document.removeEventListener("click", clickHandler);
+      window.open = originalWindowOpen;
     };
   }, [router]);
 

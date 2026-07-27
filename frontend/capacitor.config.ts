@@ -3,6 +3,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // Mobile shells are production-first in Sprint 0. NEXT_PUBLIC_APP_URL allows
 // staging builds, while the fallback keeps local `npx cap sync` deterministic.
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://meetyoulive.net';
+const appHost = new URL(appUrl).hostname;
+const webViewHosts = Array.from(new Set([appHost, 'meetyoulive.net', 'www.meetyoulive.net']));
 
 const config: CapacitorConfig = {
   appId: 'com.meetyoulive.app',
@@ -16,13 +18,11 @@ const config: CapacitorConfig = {
     // self-contained static build instead.
     url: appUrl,
     cleartext: false,
+    allowNavigation: webViewHosts,
   },
   plugins: {
-    App: {
-      launchUrl: appUrl,
-    },
     SplashScreen: {
-      launchAutoHide: false,
+      launchAutoHide: true,
       launchShowDuration: 1200,
       backgroundColor: '#0f0821',
       showSpinner: false,

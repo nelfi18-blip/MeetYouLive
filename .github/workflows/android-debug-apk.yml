@@ -86,12 +86,12 @@ jobs:
           try {
             const data = JSON.parse(raw);
             if (!data || typeof data !== 'object' || Array.isArray(data)) {
-              console.error('Error: google-services.json must contain a non-empty JSON object.');
+              console.error('Error: google-services.json must contain a JSON object.');
               process.exit(1);
             }
 
             if (Object.keys(data).length === 0) {
-              console.error('Error: google-services.json must contain a non-empty JSON object.');
+              console.error('Error: google-services.json must not be an empty JSON object.');
               process.exit(1);
             }
 
@@ -171,7 +171,7 @@ jobs:
               true)
                 echo "APK generated with Firebase enabled."
                 ;;
-              false|"")
+              false)
                 echo "APK generated with Firebase disabled."
                 echo
                 echo "This no-firebase fallback is allowed only for debug/development APK builds."

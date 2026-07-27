@@ -65,7 +65,7 @@ jobs:
           if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
-            echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+            echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
             exit 1
           fi
 
@@ -78,8 +78,8 @@ jobs:
               console.error('Error: google-services.json is missing project_info.');
               process.exit(1);
             }
-          } catch {
-            console.error('Error: google-services.json is not valid JSON.');
+          } catch (e) {
+            console.error(`Error: Invalid google-services.json (${e.message}).`);
             process.exit(1);
           }
           NODE

@@ -33,7 +33,8 @@ function makeApp() {
   return app;
 }
 
-// Pre-compute a bcrypt hash of "correct-password" with low rounds for test speed.
+// Pre-compute a bcrypt hash of "correct-password" with low cost factor (4) for test speed.
+// Production uses cost factor 10; 4 is sufficient for unit tests and significantly faster.
 const BCRYPT_PASSWORD = bcrypt.hashSync("correct-password", 4);
 
 describe("POST /api/auth/login", () => {
@@ -97,7 +98,9 @@ describe("POST /api/auth/login", () => {
     User.findOne.mockResolvedValue({
       _id: "google-user",
       email: "google@example.com",
-      // Random hex set by Google OAuth handler — not a bcrypt hash
+      // Non-bcrypt string: the Google OAuth handler stores a random hex token in the
+      // password field to distinguish Google-only accounts from local ones. The auth
+      // route rejects any password value that doesn't match the bcrypt $2a/$2b/$2y prefix.
       password: "a1b2c3d4e5f6",
       isBlocked: false,
       emailVerified: true,

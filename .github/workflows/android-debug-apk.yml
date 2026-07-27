@@ -65,7 +65,8 @@ jobs:
             exit 0
           fi
 
-          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
+          google_services_json_base64="$ANDROID_GOOGLE_SERVICES_JSON_BASE64"
+          if ! printf '%s' "$google_services_json_base64" | base64 --decode > android/app/google-services.json; then
             echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64. Verify the secret contains valid base64-encoded content."
             exit 1
           fi
@@ -84,7 +85,7 @@ jobs:
 
           try {
             const data = JSON.parse(raw);
-            if (data == null) {
+            if (data === null || data === undefined) {
               console.error('Error: google-services.json must contain a non-empty JSON value.');
               process.exit(1);
             }
@@ -97,6 +98,11 @@ jobs:
 
             if (isEmptyArray || isEmptyObject) {
               console.error('Error: google-services.json must contain a non-empty JSON value.');
+              process.exit(1);
+            }
+
+            if (!data.project_info || !Array.isArray(data.client) || data.client.length === 0) {
+              console.error('Error: google-services.json is missing required Firebase project_info or client fields.');
               process.exit(1);
             }
           } catch (error) {

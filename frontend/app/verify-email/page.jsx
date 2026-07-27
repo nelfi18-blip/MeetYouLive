@@ -24,6 +24,7 @@ function VerifyEmailForm() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [editingEmail, setEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const inputRefs = useRef([]);
   const cooldownRef = useRef(null);
@@ -134,18 +135,19 @@ function VerifyEmailForm() {
 
   const handleUpdateEmail = async (e) => {
     e.preventDefault();
-    if (!newEmail.trim()) return;
+    if (!newEmail.trim() || !editPassword) return;
     setUpdatingEmail(true);
     setError("");
     setResendSuccess("");
     try {
-      const data = await updateUnverifiedEmail({ oldEmail: email, newEmail: newEmail.trim() });
+      const data = await updateUnverifiedEmail({ oldEmail: email, newEmail: newEmail.trim(), password: editPassword });
       if (data.error) {
         setError(data.error);
         return;
       }
       setEmail(data.email || newEmail.trim().toLowerCase());
       setNewEmail("");
+      setEditPassword("");
       setEditingEmail(false);
       setResendCooldown(DEFAULT_RESEND_COOLDOWN_S);
       setCode(["", "", "", "", "", ""]);
@@ -165,6 +167,7 @@ function VerifyEmailForm() {
   const handleCancelEdit = () => {
     setEditingEmail(false);
     setNewEmail("");
+    setEditPassword("");
     setError("");
   };
 
@@ -204,11 +207,20 @@ function VerifyEmailForm() {
               required
               autoFocus
             />
+            <input
+              type="password"
+              className="ve-edit-email-input"
+              value={editPassword}
+              onChange={(e) => setEditPassword(e.target.value)}
+              placeholder="Contraseña de tu cuenta"
+              required
+              autoComplete="current-password"
+            />
             <div className="ve-edit-email-actions">
               <button
                 type="submit"
                 className="btn btn-primary ve-edit-email-submit"
-                disabled={updatingEmail || !newEmail.trim()}
+                disabled={updatingEmail || !newEmail.trim() || !editPassword}
               >
                 {updatingEmail ? "Actualizando…" : "Cambiar email"}
               </button>

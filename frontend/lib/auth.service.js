@@ -77,14 +77,14 @@ export const verifyEmail = async ({ email, code }) => {
   }
 };
 
-export const updateUnverifiedEmail = async ({ oldEmail, newEmail }) => {
+export const updateUnverifiedEmail = async ({ oldEmail, newEmail, password }) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(`${getApiUrl()}/api/auth/update-unverified-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oldEmail, newEmail }),
+      body: JSON.stringify({ oldEmail, newEmail, password }),
       signal: controller.signal,
     });
 

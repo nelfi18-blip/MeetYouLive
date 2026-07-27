@@ -182,7 +182,7 @@ const startLive = async (req, res) => {
         followerIds,
         `🎥 ${creatorUsername || "Un creador"} está en vivo ahora`,
         live.title || "¡No te lo pierdas!",
-        { link: `/live/${String(live._id)}` },
+        { link: `/live/${String(live._id)}`, type: "live", liveId: String(live._id) },
         "live"
       ).catch(() => {});
 

@@ -13,6 +13,15 @@ test("native notification deep links route to supported screens", () => {
   assert.equal(getNativeNotificationPath("https://evil.example/chats/abc"), "/");
 });
 
+test("native notification data routes to the expected screen when link is absent", () => {
+  assert.equal(getNativeNotificationPath({ type: "new_message", chatId: "chat-1" }), "/chats/chat-1");
+  assert.equal(getNativeNotificationPath({ type: "match" }), "/matches");
+  assert.equal(getNativeNotificationPath({ type: "live", liveId: "live-1" }), "/live/live-1");
+  assert.equal(getNativeNotificationPath({ type: "profile", profileId: "user-1" }), "/profile/user-1");
+  assert.equal(getNativeNotificationPath({ type: "coins_purchase_confirmed" }), "/coins");
+  assert.equal(getNativeNotificationPath({ type: "withdrawal_approved" }), "/wallet");
+});
+
 test("native Google login uses NextAuth endpoint with a safe callback handoff", () => {
   const url = new URL(getNativeGoogleLoginUrl("/feed", "https://meetyoulive.net"));
   assert.equal(url.origin, "https://meetyoulive.net");

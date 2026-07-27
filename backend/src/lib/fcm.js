@@ -108,6 +108,14 @@ function getDeliveryTokens(user, suppliedToken) {
   return Array.from(tokens);
 }
 
+/** Return only non-sensitive error metadata so FCM tokens are never logged. */
+function safeErrorInfo(err) {
+  return {
+    code: err?.code || "unknown",
+    name: err?.name || "Error",
+  };
+}
+
 async function removeInvalidToken(userId, token) {
   await User.updateOne(
     { _id: userId },
@@ -166,7 +174,7 @@ async function sendPush(userId, token, title, body, data = {}) {
       if (INVALID_TOKEN_CODES.has(err.code)) {
         await removeInvalidToken(userId, deliveryToken);
       }
-      console.error("[fcm] send error:", err.message);
+      console.error("[fcm] send error:", safeErrorInfo(err));
     }
   }
 }

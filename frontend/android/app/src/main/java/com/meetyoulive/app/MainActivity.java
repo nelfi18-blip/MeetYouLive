@@ -5,9 +5,9 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.os.Handler;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.Window;
@@ -34,6 +34,7 @@ public class MainActivity extends BridgeActivity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private View errorView;
     private Runnable loadTimeout;
+    private boolean loadFailed;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -94,6 +95,7 @@ public class MainActivity extends BridgeActivity {
         retry.setText("Reintentar");
         retry.setAllCaps(false);
         retry.setOnClickListener((view) -> {
+            loadFailed = false;
             hideError();
             scheduleLoadTimeout(webView);
             webView.loadUrl(APP_URL);
@@ -122,6 +124,7 @@ public class MainActivity extends BridgeActivity {
             if (webView != null) {
                 webView.stopLoading();
             }
+            loadFailed = true;
             if (errorView != null) {
                 errorView.setVisibility(View.VISIBLE);
             }
@@ -186,6 +189,7 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+            loadFailed = false;
             hideError();
             scheduleLoadTimeout(view);
             super.onPageStarted(view, url, favicon);
@@ -194,7 +198,9 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             cancelLoadTimeout();
-            hideError();
+            if (!loadFailed) {
+                hideError();
+            }
             super.onPageFinished(view, url);
         }
 

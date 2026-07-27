@@ -50,16 +50,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Restore google-services.json (Firebase)
+      - name: Restore optional google-services.json (Firebase)
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           set -euo pipefail
           mkdir -p frontend/android/app
 
-          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 secret is not configured. Please add it in GitHub repository secrets."
-            exit 1
+          if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; continuing without Firebase services."
+            exit 0
           fi
 
           if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
@@ -83,11 +83,6 @@ jobs:
             process.exit(1);
           }
           NODE
-        shell: bash
-
-      - name: Verify google-services.json exists
-        run: |
-          test -s frontend/android/app/google-services.json
         shell: bash
 
       - name: Verify google-services.json is gitignored

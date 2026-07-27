@@ -4,4 +4,7 @@
     <string name="title_activity_main">MeetYouLive</string>
     <string name="package_name">com.meetyoulive.app</string>
     <string name="custom_url_scheme">meetyoulive</string>
+    <string name="webview_error_title">No se pudo cargar MeetYouLive</string>
+    <string name="webview_error_message">Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="webview_error_retry">Reintentar</string>
 </resources>

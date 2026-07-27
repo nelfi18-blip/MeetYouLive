@@ -59,7 +59,7 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "::warning::Firebase configuration not available; Firebase features will be disabled in this development/debug APK build only."
+            echo "::warning::Firebase configuration not available; Firebase features will be disabled in this debug/development APK build only."
             echo "google_services_restored=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -178,7 +178,7 @@ jobs:
             echo
             echo "APK generated with Firebase disabled."
             echo
-            echo "This no-Firebase fallback is allowed only for development/debug APK builds."
+            echo "This no-Firebase fallback is allowed only for debug/development APK builds."
             echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

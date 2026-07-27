@@ -93,7 +93,7 @@ jobs:
             }
 
             if (!data.project_info || !Array.isArray(data.client) || data.client.length === 0) {
-              console.error('Error: google-services.json is missing required Firebase project_info or client fields.');
+              console.error('Error: google-services.json must contain both project_info and a non-empty client array.');
               process.exit(1);
             }
           } catch (error) {
@@ -170,7 +170,7 @@ jobs:
               echo "APK generated with Firebase disabled."
               echo
               echo "This no-firebase fallback is allowed only for debug/development APK builds."
-              echo "Do not mark READY FOR MERGE from this disabled-Firebase debug run."
+              echo "Do not treat this disabled-Firebase debug run as ready for merge."
             else
               echo "Unexpected Firebase restore status: $GOOGLE_SERVICES_RESTORED"
               exit 1

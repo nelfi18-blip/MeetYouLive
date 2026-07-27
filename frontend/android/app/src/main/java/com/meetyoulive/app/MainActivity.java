@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -151,6 +152,15 @@ public class MainActivity extends BridgeActivity {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 
+    private boolean isMeetYouLiveUrl(String url) {
+        if (url == null) return false;
+        Uri uri = Uri.parse(url);
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        return ("https".equals(scheme) || "http".equals(scheme)) &&
+            ("meetyoulive.net".equals(host) || "www.meetyoulive.net".equals(host));
+    }
+
     @Override
     public void onDestroy() {
         cancelLoadTimeout();
@@ -200,6 +210,23 @@ public class MainActivity extends BridgeActivity {
             loadFailed = false;
             if (url != null && !url.trim().isEmpty()) {
                 lastFailedUrl = url;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request != null && request.getUrl() != null ? request.getUrl().toString() : null;
+                if (isMeetYouLiveUrl(url)) {
+                    return false;
+                }
+                return super.shouldOverrideUrlLoading(view, request);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (isMeetYouLiveUrl(url)) {
+                    return false;
+                }
+                return super.shouldOverrideUrlLoading(view, url);
             }
             hideError();
             scheduleLoadTimeout(view);

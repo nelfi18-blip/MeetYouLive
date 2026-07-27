@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { clearAllAuth } from "@/lib/token";
 import socket from "@/lib/socket";
 
@@ -40,13 +41,15 @@ const SETTINGS_SECTIONS = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   const handleLogout = async () => {
     socket.disconnect();
-    clearAllAuth();
-    await signOut({ callbackUrl: "/login" });
+    clearAllAuth({ switching: false });
+    await signOut({ redirect: false });
+    router.replace("/login");
   };
 
   const handleDeleteAccount = async () => {

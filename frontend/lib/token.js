@@ -1,6 +1,6 @@
 "use client";
 
-import { clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
+import { clearNativeRoute, clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
 import { unregisterNativePushToken } from "./nativePush";
 
 /**
@@ -47,6 +47,7 @@ export function clearToken() {
   if (existingToken) unregisterNativePushToken(existingToken).catch(() => {});
   localStorage.removeItem("token");
   clearNativeToken();
+  clearNativeRoute();
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax${secure}`;
 }
@@ -115,14 +116,16 @@ export function getAdminToken() {
  * Clear all authentication tokens and sessions for account switching.
  * Removes admin tokens, user tokens, and all related auth state.
  */
-export function clearAllAuth() {
+export function clearAllAuth({ switching = true } = {}) {
   if (typeof window === "undefined") return;
   
   // Set switching flag BEFORE clearing sessionStorage
-  try {
-    sessionStorage.setItem(SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE);
-  } catch (e) {
-    console.warn("[clearAllAuth] Could not set switching_account flag:", e);
+  if (switching) {
+    try {
+      sessionStorage.setItem(SWITCHING_ACCOUNT_FLAG, SWITCHING_ACCOUNT_VALUE);
+    } catch (e) {
+      console.warn("[clearAllAuth] Could not set switching_account flag:", e);
+    }
   }
   
   const existingUserToken = localStorage.getItem("token");

@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
+import {
+  getNativeInvalidSessionPath,
+  getNativeSessionStartPath,
+  shouldOpenUrlOutsideNativeWebView,
+  shouldPersistNativeAppPath,
+} from "../lib/nativeSessionPolicy.js";
 
 test("native notification deep links route to supported screens", () => {
   assert.equal(getNativeNotificationPath("/chats/abc"), "/chats/abc");
@@ -38,6 +44,28 @@ test("native URL policy keeps MeetYouLive domains inside the WebView", () => {
   assert.equal(getInternalAppPath("https://www.meetyoulive.net/live/123?x=1#join"), "/live/123?x=1#join");
   assert.equal(isExternalHttpUrl("https://meetyoulive.net/feed"), false);
   assert.equal(isExternalHttpUrl("https://www.meetyoulive.net/feed"), false);
+});
+
+test("native email login routes to feed inside the WebView", () => {
+  assert.equal(getNativeSessionStartPath({ callbackPath: "/feed" }), "/feed");
+  assert.equal(shouldOpenUrlOutsideNativeWebView("https://meetyoulive.net/feed"), false);
+});
+
+test("native app reopen restores the stored in-app route", () => {
+  assert.equal(
+    getNativeSessionStartPath({ currentPath: "/", storedPath: "/chats/abc?from=app" }),
+    "/chats/abc?from=app"
+  );
+  assert.equal(getNativeSessionStartPath({ currentPath: "/", storedPath: "" }), "/feed");
+});
+
+test("native invalid token flow returns to login", () => {
+  assert.equal(getNativeInvalidSessionPath(), "/login");
+});
+
+test("native logout clears persisted auth routes", () => {
+  assert.equal(shouldPersistNativeAppPath("/login"), false);
+  assert.equal(shouldPersistNativeAppPath("/feed"), true);
 });
 
 test("native URL policy opens external HTTP destinations outside the WebView", () => {

@@ -17,7 +17,7 @@ export const SAFE_NOTIFICATION_PREFIXES = [
   "/settings/notifications",
 ];
 const DEFAULT_APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://meetyoulive.net";
-const COINS_NOTIFICATION_KEYWORDS = ["coin", "payment", "subscription", "account"];
+const COINS_NOTIFICATION_KEYWORDS = ["coin", "purchase", "payment", "subscription"];
 
 function firstString(...values) {
   return values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
@@ -66,7 +66,7 @@ function getPathFromNotificationData(data) {
     return "/matches";
   }
   if (type.includes("call")) {
-    return callId && !type.includes("missed") ? `/call/${callId}` : "/calls";
+    return callId ? `/call/${callId}` : "/calls";
   }
   if (type.includes("live")) {
     return liveId ? `/live/${liveId}` : "/live";
@@ -99,5 +99,5 @@ export function getNativeNotificationPath(notification, origin = DEFAULT_APP_ORI
   const linkPath = sanitizeNotificationPath(firstString(data.link, data.url, data.path), origin);
   if (linkPath !== "/") return linkPath;
 
-  return sanitizeNotificationPath(getPathFromNotificationData(data), origin);
+  return getPathFromNotificationData(data);
 }

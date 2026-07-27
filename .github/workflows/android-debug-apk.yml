@@ -58,32 +58,31 @@ jobs:
           mkdir -p frontend/android/app
 
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            : > frontend/android/app/google-services.json
+            touch frontend/android/app/google-services.json
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 is not configured; using an empty placeholder and continuing without Firebase services."
-            exit 0
-          fi
+          else
+            if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
+              | base64 --decode \
+              > frontend/android/app/google-services.json; then
+              echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+              exit 1
+            fi
 
-          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
-            | base64 --decode \
-            > frontend/android/app/google-services.json; then
-            echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
-            exit 1
-          fi
-
-          node <<'NODE'
-          const fs = require('fs');
-          const path = 'frontend/android/app/google-services.json';
-          try {
-            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
-            if (!data || !data.project_info) {
-              console.error('Error: google-services.json is missing project_info.');
+            node <<'NODE'
+            const fs = require('fs');
+            const path = 'frontend/android/app/google-services.json';
+            try {
+              const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+              if (!data || !data.project_info) {
+                console.error('Error: google-services.json is missing project_info.');
+                process.exit(1);
+              }
+            } catch (e) {
+              console.error(`Error: Invalid google-services.json (${e.message}).`);
               process.exit(1);
             }
-          } catch (e) {
-            console.error(`Error: Invalid google-services.json (${e.message}).`);
-            process.exit(1);
-          }
-          NODE
+            NODE
+          fi
         shell: bash
 
       - name: Verify google-services.json is gitignored

@@ -2052,8 +2052,8 @@ export default function FeedPage() {
 
         @media (max-width: 768px) {
           .feed-page {
-            --feed-header-logo-size: clamp(38px, 10vw, 48px);
-            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.55rem);
+            --feed-header-logo-size: clamp(52px, 13vw, 68px);
+            --feed-header-content-height: calc(var(--feed-header-logo-size) + 0.8rem);
             --feed-section-top-padding: 2px;
             --feed-deck-width: min(calc(100vw - 8px), 452px);
             --feed-deck-height: min(790px, max(0px, calc(var(--feed-available-height) - var(--feed-section-top-padding))));
@@ -2063,6 +2063,13 @@ export default function FeedPage() {
 
           .feed-match-section {
             padding-top: var(--feed-section-top-padding);
+          }
+
+          .feed-match-section--empty {
+            align-items: flex-start;
+            padding-top: 1.5rem;
+            height: auto;
+            min-height: auto;
           }
 
           :global(.feed-swipe-deck .swipe-card-modern) {
@@ -2275,8 +2282,8 @@ function FeedHeader() {
         }
         @media (max-width: 768px) {
           .feed-header {
-            padding: 0.28rem 1rem;
-            padding-top: calc(0.28rem + env(safe-area-inset-top));
+            padding: 0.4rem 1rem;
+            padding-top: calc(0.4rem + env(safe-area-inset-top));
             background: linear-gradient(180deg, rgba(15, 8, 33, 0.84), rgba(15, 8, 33, 0.42));
             border-bottom-color: rgba(255, 255, 255, 0.035);
           }

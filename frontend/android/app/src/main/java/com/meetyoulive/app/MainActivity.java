@@ -35,6 +35,7 @@ public class MainActivity extends BridgeActivity {
     private View errorView;
     private Runnable loadTimeout;
     private boolean loadFailed;
+    private String lastFailedUrl = APP_URL;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -72,7 +73,7 @@ public class MainActivity extends BridgeActivity {
         container.setVisibility(View.GONE);
 
         TextView title = new TextView(this);
-        title.setText("No se pudo cargar MeetYouLive");
+        title.setText(getString(R.string.webview_error_title));
         title.setTextColor(Color.WHITE);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextSize(22);
@@ -80,7 +81,7 @@ public class MainActivity extends BridgeActivity {
         container.addView(title);
 
         TextView message = new TextView(this);
-        message.setText("Revisa tu conexión e inténtalo de nuevo.");
+        message.setText(getString(R.string.webview_error_message));
         message.setTextColor(Color.parseColor("#d8c8ff"));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
@@ -92,13 +93,13 @@ public class MainActivity extends BridgeActivity {
         container.addView(message, messageParams);
 
         Button retry = new Button(this);
-        retry.setText("Reintentar");
+        retry.setText(getString(R.string.webview_error_retry));
         retry.setAllCaps(false);
         retry.setOnClickListener((view) -> {
             loadFailed = false;
             hideError();
             scheduleLoadTimeout(webView);
-            webView.loadUrl(APP_URL);
+            webView.loadUrl(lastFailedUrl != null ? lastFailedUrl : APP_URL);
         });
         container.addView(retry);
 
@@ -119,12 +120,19 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void showError(WebView webView) {
+        showError(webView, webView != null ? webView.getUrl() : null);
+    }
+
+    private void showError(WebView webView, String failedUrl) {
         runOnUiThread(() -> {
             cancelLoadTimeout();
             if (webView != null) {
                 webView.stopLoading();
             }
             loadFailed = true;
+            if (failedUrl != null && !failedUrl.trim().isEmpty()) {
+                lastFailedUrl = failedUrl;
+            }
             if (errorView != null) {
                 errorView.setVisibility(View.VISIBLE);
             }
@@ -190,6 +198,9 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
             loadFailed = false;
+            if (url != null && !url.trim().isEmpty()) {
+                lastFailedUrl = url;
+            }
             hideError();
             scheduleLoadTimeout(view);
             super.onPageStarted(view, url, favicon);
@@ -208,7 +219,7 @@ public class MainActivity extends BridgeActivity {
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             super.onReceivedError(view, request, error);
             if (request != null && request.isForMainFrame()) {
-                showError(view);
+                showError(view, request.getUrl() != null ? request.getUrl().toString() : null);
             }
         }
 
@@ -216,7 +227,7 @@ public class MainActivity extends BridgeActivity {
         public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
             super.onReceivedHttpError(view, request, errorResponse);
             if (request != null && request.isForMainFrame()) {
-                showError(view);
+                showError(view, request.getUrl() != null ? request.getUrl().toString() : null);
             }
         }
 

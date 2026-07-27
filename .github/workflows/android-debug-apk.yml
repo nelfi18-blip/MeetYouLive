@@ -62,9 +62,12 @@ jobs:
             exit 1
           fi
 
-          printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
+          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
             | base64 --decode \
-            > frontend/android/app/google-services.json
+            > frontend/android/app/google-services.json; then
+            echo "Error: Failed to decode ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+            exit 1
+          fi
         shell: bash
 
       - name: Verify google-services.json exists
@@ -81,7 +84,7 @@ jobs:
             root_has_entry=true
           fi
 
-          if [ -f frontend/android/.gitignore ] && grep -Fxq 'frontend/android/app/google-services.json' frontend/android/.gitignore; then
+          if [ -f frontend/android/.gitignore ] && grep -Fxq 'app/google-services.json' frontend/android/.gitignore; then
             android_has_entry=true
           fi
 

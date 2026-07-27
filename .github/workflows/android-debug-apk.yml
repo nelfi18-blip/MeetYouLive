@@ -60,6 +60,7 @@ jobs:
 
           if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
             echo "ANDROID_GOOGLE_SERVICES_JSON_BASE64 secret is not configured; continuing without Firebase config."
+            echo "::warning::Firebase configuration not available; Firebase features will be disabled in this build."
             echo "restored=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

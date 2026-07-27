@@ -172,7 +172,7 @@ jobs:
               *)
                 echo "APK generated with Firebase disabled."
                 echo
-                echo "This no-Firebase fallback is allowed only for debug/development APK builds."
+                echo "This no-firebase fallback is allowed only for debug/development APK builds."
                 echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
                 ;;
             esac

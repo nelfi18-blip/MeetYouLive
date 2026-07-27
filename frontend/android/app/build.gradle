@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
 
 android {
@@ -46,8 +48,18 @@ apply from: 'capacitor.build.gradle'
 
 try {
     def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
+    if (servicesJSON.exists()) {
+        def servicesConfig = servicesJSON.text?.trim()
+        if (servicesConfig) {
+            def parsedConfig = new JsonSlurper().parseText(servicesConfig)
+            if (parsedConfig instanceof Map && parsedConfig.project_info) {
+                apply plugin: 'com.google.gms.google-services'
+            } else {
+                logger.info("google-services.json is missing project_info, google-services plugin not applied. Push Notifications won't work")
+            }
+        } else {
+            logger.info("google-services.json is empty, google-services plugin not applied. Push Notifications won't work")
+        }
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")

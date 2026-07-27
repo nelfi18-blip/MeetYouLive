@@ -393,13 +393,15 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
 /**
  * Allow an unverified user to correct their email address.
  * This is only possible before the account is verified (emailVerified === false).
+ * Requires the account password to prove ownership before the change is applied.
  * A new OTP code is generated and sent to the new address.
  */
 router.post("/update-unverified-email", verifyEmailLimiter, async (req, res) => {
   const oldEmail = req.body.oldEmail ? req.body.oldEmail.trim().toLowerCase() : "";
   const newEmail = req.body.newEmail ? req.body.newEmail.trim().toLowerCase() : "";
-  if (!oldEmail || !newEmail) {
-    return res.status(400).json({ message: "oldEmail y newEmail son requeridos" });
+  const password = req.body.password ? String(req.body.password) : "";
+  if (!oldEmail || !newEmail || !password) {
+    return res.status(400).json({ message: "oldEmail, newEmail y password son requeridos" });
   }
   if (!isSimpleEmail(newEmail)) {
     return res.status(400).json({ message: "El formato del nuevo email no es válido" });
@@ -412,6 +414,13 @@ router.post("/update-unverified-email", verifyEmailLimiter, async (req, res) => 
     if (!user) {
       // Avoid disclosing whether the email exists or is already verified
       return res.status(404).json({ message: "Cuenta no encontrada o ya verificada. Inicia sesión normalmente." });
+    }
+
+    // Verify ownership — reject mismatches with a generic 401 so callers cannot
+    // distinguish "wrong password" from other auth failures.
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Contraseña incorrecta." });
     }
 
     // Prevent changing to an email already registered

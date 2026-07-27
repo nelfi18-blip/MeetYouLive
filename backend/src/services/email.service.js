@@ -349,10 +349,45 @@ async function sendTransactionalNotificationEmail(to, { subject, text, ctaUrl, c
   return info;
 }
 
+/**
+ * Non-blocking SMTP connectivity check intended to be called once at server
+ * startup. It logs whether the transport can authenticate, without including
+ * any credentials in the log output. It never throws — a failure here is
+ * informational only and must not prevent the server from starting.
+ */
+async function verifySmtpConfig() {
+  let transport;
+  try {
+    transport = getTransporter();
+  } catch (err) {
+    console.warn("[email:startup] SMTP transport not created:", err.code || err.message);
+    return;
+  }
+
+  // jsonTransport (dev fallback) has no real connection to verify.
+  if (transport.options && transport.options.jsonTransport) {
+    console.log("[email:startup] Dev email fallback active (jsonTransport). No real SMTP connection.");
+    return;
+  }
+
+  try {
+    await transport.verify();
+    console.log("[email:startup] SMTP connection verified OK — host reachable and credentials accepted.");
+  } catch (err) {
+    // Log only the error category — never user/pass or full SMTP banner.
+    console.error("[email:startup] SMTP verify failed", {
+      code: err.code || null,
+      responseCode: err.responseCode || null,
+      command: err.command || null,
+    });
+  }
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendReactivationEmail,
   sendTransactionalNotificationEmail,
   MailServiceError,
+  verifySmtpConfig,
 };

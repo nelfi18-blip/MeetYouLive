@@ -367,6 +367,7 @@ describe("auth email verification delivery", () => {
     const user = {
       _id: "user-change-email",
       email: "old@example.com",
+      password: MOCK_HASH,
       emailVerified: false,
       emailVerificationSentAt: null,
       save,
@@ -376,7 +377,8 @@ describe("auth email verification delivery", () => {
 
     const res = await request(app)
       .post("/api/auth/update-unverified-email")
-      .send({ oldEmail: "old@example.com", newEmail: "new@example.com" });
+      .set("X-Forwarded-For", "10.0.1.1")
+      .send({ oldEmail: "old@example.com", newEmail: "new@example.com", password: "correctpassword" });
 
     expect(res.status).toBe(200);
     expect(res.body.email).toBe("new@example.com");
@@ -390,10 +392,83 @@ describe("auth email verification delivery", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  test("update-unverified-email rejects if password field is missing", async () => {
+    const res = await request(app)
+      .post("/api/auth/update-unverified-email")
+      .set("X-Forwarded-For", "10.0.1.2")
+      .send({ oldEmail: "old@example.com", newEmail: "new@example.com" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/password/i);
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  test("update-unverified-email rejects with 401 when password is wrong", async () => {
+    const bcrypt = require("bcryptjs");
+    bcrypt.compare.mockResolvedValueOnce(false);
+
+    User.findOne.mockResolvedValue({
+      _id: "user-wrong-pw",
+      email: "wrong-pw@example.com",
+      password: MOCK_HASH,
+      emailVerified: false,
+      save: jest.fn(),
+    });
+    User.exists.mockResolvedValue(false);
+
+    const res = await request(app)
+      .post("/api/auth/update-unverified-email")
+      .set("X-Forwarded-For", "10.0.1.3")
+      .send({ oldEmail: "wrong-pw@example.com", newEmail: "new-addr@example.com", password: "wrongpassword" });
+
+    expect(res.status).toBe(401);
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  test("update-unverified-email returns 404 for unknown account (anti-enumeration)", async () => {
+    User.findOne.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post("/api/auth/update-unverified-email")
+      .set("X-Forwarded-For", "10.0.1.4")
+      .send({ oldEmail: "ghost@example.com", newEmail: "new@example.com", password: "anypassword" });
+
+    expect(res.status).toBe(404);
+    // Must not expose whether the account exists or what went wrong
+    expect(res.body.message).not.toMatch(/password/i);
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  test("update-unverified-email invalidates previous OTP after a successful change", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const previousCode = sha256("123456");
+    const user = {
+      _id: "user-invalidate-otp",
+      email: "old-inv@example.com",
+      password: MOCK_HASH,
+      emailVerified: false,
+      emailVerificationCode: previousCode,
+      emailVerificationExpires: new Date(Date.now() + 60_000),
+      save,
+    };
+    User.findOne.mockResolvedValue(user);
+    User.exists.mockResolvedValue(false);
+
+    await request(app)
+      .post("/api/auth/update-unverified-email")
+      .set("X-Forwarded-For", "10.0.1.5")
+      .send({ oldEmail: "old-inv@example.com", newEmail: "new-inv@example.com", password: "correctpassword" });
+
+    // The stored OTP must be replaced — old code no longer valid
+    expect(user.emailVerificationCode).not.toBe(previousCode);
+    expect(user.emailVerificationCode).toMatch(/^[a-f0-9]{64}$/); // SHA-256 hex
+  });
+
   test("update-unverified-email rejects if new email is already taken", async () => {
     User.findOne.mockResolvedValue({
       _id: "user-change-email-2",
       email: "old2@example.com",
+      password: MOCK_HASH,
       emailVerified: false,
       emailVerificationSentAt: null,
       save: jest.fn(),
@@ -402,7 +477,8 @@ describe("auth email verification delivery", () => {
 
     const res = await request(app)
       .post("/api/auth/update-unverified-email")
-      .send({ oldEmail: "old2@example.com", newEmail: "taken@example.com" });
+      .set("X-Forwarded-For", "10.0.1.6")
+      .send({ oldEmail: "old2@example.com", newEmail: "taken@example.com", password: "correctpassword" });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/ya existe/i);
@@ -412,7 +488,8 @@ describe("auth email verification delivery", () => {
   test("update-unverified-email rejects invalid email format", async () => {
     const res = await request(app)
       .post("/api/auth/update-unverified-email")
-      .send({ oldEmail: "old3@example.com", newEmail: "not-an-email" });
+      .set("X-Forwarded-For", "10.0.1.7")
+      .send({ oldEmail: "old3@example.com", newEmail: "not-an-email", password: "correctpassword" });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/formato/i);

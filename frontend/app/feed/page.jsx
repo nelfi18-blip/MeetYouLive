@@ -1523,6 +1523,8 @@ export default function FeedPage() {
         .feed-page {
           --feed-safe-top: env(safe-area-inset-top);
           --feed-safe-bottom: env(safe-area-inset-bottom);
+          --feed-header-logo-aspect-width: 400;
+          --feed-header-logo-aspect-height: 278;
           --feed-header-logo-size: clamp(52px, 15vw, 76px);
           --feed-header-content-height: calc(var(--feed-header-logo-size) + 1rem);
           --feed-bottom-nav-content-height: 68px;
@@ -2251,7 +2253,7 @@ function FeedHeader() {
     <header className="feed-header">
       <Link href="/feed" className="feed-header-brand" aria-label="MeetYouLive">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" width="400" height="278" className="feed-header-logo" />
+        <img src="/logo.svg" alt="MeetYouLive logo" width="400" height="278" className="feed-header-logo" />
       </Link>
 
       <style jsx>{`
@@ -2278,11 +2280,15 @@ function FeedHeader() {
         }
         .feed-header-logo {
           height: var(--feed-header-logo-size, clamp(52px, 15vw, 76px));
-          width: calc(var(--feed-header-logo-size, clamp(52px, 15vw, 76px)) * 400 / 278);
+          width: calc(
+            var(--feed-header-logo-size, clamp(52px, 15vw, 76px)) *
+            var(--feed-header-logo-aspect-width) /
+            var(--feed-header-logo-aspect-height)
+          );
           max-width: 100%;
           display: block;
           object-fit: contain;
-          aspect-ratio: 400 / 278;
+          aspect-ratio: var(--feed-header-logo-aspect-width) / var(--feed-header-logo-aspect-height);
         }
         @media (max-width: 768px) {
           .feed-header {

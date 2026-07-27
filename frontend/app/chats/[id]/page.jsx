@@ -742,6 +742,8 @@ export default function ChatConversationPage() {
         .chat-page {
           --chat-desktop-chrome-offset: 140px; /* Mirrors current root layout navbar/page gutters; update with BottomNav/MainContent chrome changes. */
           --chat-mobile-chrome-offset: 120px; /* Compact mobile root chrome offset; keep aligned with BottomNavWrapper/MainContentWrapper spacing. */
+          --chat-header-column-gap: 0.9rem;
+          --chat-header-row-gap: 0.72rem;
           display: flex;
           flex-direction: column;
           height: calc(100dvh - var(--chat-desktop-chrome-offset));
@@ -757,8 +759,8 @@ export default function ChatConversationPage() {
           grid-template-columns: auto minmax(0, 1fr) auto auto;
           grid-template-areas: "back peer actions moderation";
           align-items: center;
-          column-gap: 0.9rem;
-          row-gap: 0.72rem;
+          column-gap: var(--chat-header-column-gap);
+          row-gap: var(--chat-header-row-gap);
           padding: 0.95rem 1rem;
           background:
             radial-gradient(circle at 18% 0%, rgba(224,64,251,0.28), transparent 34%),

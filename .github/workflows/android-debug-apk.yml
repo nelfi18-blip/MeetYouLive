@@ -60,13 +60,13 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            echo "::warning::Firebase configuration not available; Firebase features will be disabled for this debug/development APK build."
+            echo "::warning::Firebase configuration not available; Firebase features will be disabled for this debug/development APK build. Set ANDROID_GOOGLE_SERVICES_JSON_BASE64 to enable Firebase."
             echo "google_services_restored=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
-            echo "Error: Failed to restore android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+            echo "Error: Failed to restore android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64. Check that the secret contains valid base64-encoded JSON."
             exit 1
           fi
 
@@ -171,7 +171,7 @@ jobs:
                 echo "APK generated with Firebase disabled."
                 echo
                 echo "This no-firebase fallback is allowed only for debug/development APK builds."
-                echo "Do not mark READY FOR MERGE while Firebase is disabled."
+                echo "A Firebase-enabled run is required before marking READY FOR MERGE."
                 ;;
             esac
           } >> "$GITHUB_STEP_SUMMARY"

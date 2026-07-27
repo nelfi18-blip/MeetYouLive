@@ -51,31 +51,67 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Restore google-services.json (Firebase)
+        id: restore_google_services
         env:
           ANDROID_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          EXPECTED_ANDROID_PACKAGE_NAME: com.meetyoulive.app
         run: |
           set -euo pipefail
           mkdir -p frontend/android/app
 
           if [ -z "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 secret is not configured. Please add it in GitHub repository secrets."
+            echo "::warning::Firebase configuration not available; Firebase features will be disabled for this debug/development APK build."
+            echo "google_services_restored=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          sanitized_base64="$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n\t ')"
+
+          if [ -z "$sanitized_base64" ]; then
+            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 is empty after normalization."
             exit 1
           fi
 
-          if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
+          if [[ ! "$sanitized_base64" =~ ^[A-Za-z0-9+/=]+$ ]]; then
+            echo "Error: ANDROID_GOOGLE_SERVICES_JSON_BASE64 contains invalid Base64 characters after normalization."
+            exit 1
+          fi
+
+          if ! printf '%s' "$sanitized_base64" \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
             echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
             exit 1
           fi
 
+          if [ ! -s frontend/android/app/google-services.json ]; then
+            echo "Error: google-services.json is missing or empty."
+            exit 1
+          fi
+
           node <<'NODE'
           const fs = require('fs');
           const path = 'frontend/android/app/google-services.json';
+          const expectedPackageName = process.env.EXPECTED_ANDROID_PACKAGE_NAME;
           try {
             const data = JSON.parse(fs.readFileSync(path, 'utf8'));
             if (!data || !data.project_info) {
               console.error('Error: google-services.json is missing project_info.');
+              process.exit(1);
+            }
+
+            if (!Array.isArray(data.client) || data.client.length === 0) {
+              console.error('Error: google-services.json is missing client configuration.');
+              process.exit(1);
+            }
+
+            const hasExpectedPackage = data.client.some((client) => {
+              const packageName = client?.client_info?.android_client_info?.package_name;
+              return packageName === expectedPackageName;
+            });
+
+            if (!hasExpectedPackage) {
+              console.error(`Error: google-services.json is missing package_name ${expectedPackageName}.`);
               process.exit(1);
             }
           } catch (e) {
@@ -83,14 +119,11 @@ jobs:
             process.exit(1);
           }
           NODE
-        shell: bash
-
-      - name: Verify google-services.json exists
-        run: |
-          test -s frontend/android/app/google-services.json
+          echo "google_services_restored=true" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Verify google-services.json is gitignored
+        if: steps.restore_google_services.outputs.google_services_restored == 'true'
         run: |
           root_has_entry=0
           android_has_entry=0
@@ -150,3 +183,29 @@ jobs:
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
+
+      - name: Report APK Firebase status
+        env:
+          GOOGLE_SERVICES_RESTORED: ${{ steps.restore_google_services.outputs.google_services_restored }}
+        run: |
+          {
+            echo "## Android Debug APK"
+            echo
+            echo "Artifact: MeetYouLive-debug-${{ github.run_number }}"
+            echo
+            case "$GOOGLE_SERVICES_RESTORED" in
+              true)
+                echo "APK generated with Firebase enabled."
+                ;;
+              false)
+                echo "APK generated with Firebase disabled."
+                echo
+                echo "This no-firebase fallback is allowed only for debug/development APK builds."
+                echo "Do not mark READY FOR MERGE based only on a workflow run that passed through this fallback."
+                ;;
+              *)
+                echo "APK Firebase status could not be determined."
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash

@@ -8,6 +8,9 @@ import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 
+/** Fallback cooldown in seconds when the server does not return resendAfter */
+const DEFAULT_RESEND_COOLDOWN_S = 60;
+
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,7 +123,7 @@ function VerifyEmailForm() {
         setError(data.error);
       } else {
         setResendSuccess(data.message || "Código reenviado. Revisa tu email y la carpeta de spam o correo no deseado.");
-        setResendCooldown(data.resendAfter || 60);
+        setResendCooldown(data.resendAfter || DEFAULT_RESEND_COOLDOWN_S);
       }
     } catch {
       setError("No se pudo conectar con el servidor");
@@ -157,6 +160,12 @@ function VerifyEmailForm() {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     handleVerify();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEmail(false);
+    setNewEmail("");
+    setError("");
   };
 
   return (
@@ -206,7 +215,7 @@ function VerifyEmailForm() {
               <button
                 type="button"
                 className="ve-cancel-btn"
-                onClick={() => { setEditingEmail(false); setNewEmail(""); setError(""); }}
+                onClick={handleCancelEdit}
                 disabled={updatingEmail}
               >
                 Cancelar

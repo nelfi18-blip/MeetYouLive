@@ -88,7 +88,7 @@ function generateSixDigitCode() {
   return String(crypto.randomInt(100000, 1000000));
 }
 
-function hashCode(code) {
+function hashOtpCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
 }
 
@@ -194,7 +194,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       email,
       password: hashedPassword,
       emailVerified: false,
-      emailVerificationCode: hashCode(code),
+      emailVerificationCode: hashOtpCode(code),
       emailVerificationExpires: expires,
       emailVerificationSentAt: now,
       referralCode,
@@ -316,7 +316,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     if (new Date() > user.emailVerificationExpires) {
       return res.status(400).json({ code: "CODE_EXPIRED", message: "El código ha caducado. Solicita uno nuevo." });
     }
-    if (String(hashCode(code)) !== String(user.emailVerificationCode)) {
+    if (String(hashOtpCode(code)) !== String(user.emailVerificationCode)) {
       return res.status(400).json({ message: "Código incorrecto. Inténtalo de nuevo." });
     }
     // Mark verified and clear code
@@ -362,7 +362,7 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     }
 
     const code = generateSixDigitCode();
-    user.emailVerificationCode = hashCode(code);
+    user.emailVerificationCode = hashOtpCode(code);
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     user.emailVerificationSentAt = new Date();
     await user.save();
@@ -418,7 +418,7 @@ router.post("/update-unverified-email", verifyEmailLimiter, async (req, res) => 
 
     const code = generateSixDigitCode();
     user.email = newEmail;
-    user.emailVerificationCode = hashCode(code);
+    user.emailVerificationCode = hashOtpCode(code);
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     user.emailVerificationSentAt = new Date();
     await user.save();
@@ -468,7 +468,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       requestedAt: user.passwordResetRequestedAt,
     };
 
-    user.passwordResetCode = hashCode(resetCode);
+    user.passwordResetCode = hashOtpCode(resetCode);
     user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
     user.passwordResetRequestedAt = new Date(now);
     await user.save();
@@ -526,7 +526,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
 
     const providedCode = String(code).trim();
-    const codeMatches = hashCode(providedCode) === user.passwordResetCode;
+    const codeMatches = hashOtpCode(providedCode) === user.passwordResetCode;
     if (!codeMatches) {
       console.warn("[reset-password] Failed attempt: reset code mismatch");
       return res.status(400).json({ message: "Código inválido o expirado." });

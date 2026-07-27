@@ -53,7 +53,6 @@ function getPathFromNotificationData(data) {
 
   const type = firstString(data.type, data.notificationType, data.category).toLowerCase();
   const chatId = firstString(data.chatId, data.conversationId, data.threadId);
-  const matchId = firstString(data.matchId);
   const liveId = firstString(data.liveId, data.live);
   const callId = firstString(data.callId);
   const profileId = firstString(data.profileId, data.userId, data.creatorId);
@@ -62,7 +61,7 @@ function getPathFromNotificationData(data) {
     return chatId ? `/chats/${chatId}` : "/chats";
   }
   if (type.includes("match")) {
-    return matchId ? "/matches" : "/matches";
+    return "/matches";
   }
   if (type.includes("call")) {
     return callId && !type.includes("missed") ? `/call/${callId}` : "/calls";

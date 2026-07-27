@@ -53,7 +53,11 @@ try {
         if (servicesConfig) {
             try {
                 def parsedConfig = new JsonSlurper().parseText(servicesConfig)
-                if (parsedConfig instanceof Map && parsedConfig.project_info) {
+                def hasProjectInfo = parsedConfig instanceof Map && (
+                    (parsedConfig.project_info instanceof Map && !parsedConfig.project_info.isEmpty()) ||
+                    (!(parsedConfig.project_info instanceof Map) && parsedConfig.project_info)
+                )
+                if (hasProjectInfo) {
                     apply plugin: 'com.google.gms.google-services'
                 } else {
                     logger.info("google-services.json is missing project_info, google-services plugin not applied. Push Notifications won't work")

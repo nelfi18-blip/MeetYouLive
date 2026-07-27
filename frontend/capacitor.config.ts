@@ -2,6 +2,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 // Mobile shells are production-first in Sprint 0. NEXT_PUBLIC_APP_URL allows
 // staging builds, while the fallback keeps local `npx cap sync` deterministic.
+// This file is intentionally touched here so that the Android Debug APK workflow
+// triggers automatically on this PR (paths filter requires a watched file change).
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://meetyoulive.net';
 const appHost = new URL(appUrl).hostname;
 const webViewHosts = Array.from(new Set([appHost, 'meetyoulive.net', 'www.meetyoulive.net']));

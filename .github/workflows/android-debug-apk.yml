@@ -69,7 +69,7 @@ jobs:
             exit 1
           fi
 
-          node -e "const fs=require('fs'); const p='frontend/android/app/google-services.json'; const data=JSON.parse(fs.readFileSync(p,'utf8')); if(!data.project_info){process.exit(1)}"
+          node -e "const fs=require('fs'); const p='frontend/android/app/google-services.json'; try { const data=JSON.parse(fs.readFileSync(p,'utf8')); if(!data || !data.project_info){ console.error('Error: google-services.json is missing project_info.'); process.exit(1); } } catch { console.error('Error: google-services.json is not valid JSON.'); process.exit(1); }"
         shell: bash
 
       - name: Verify google-services.json exists

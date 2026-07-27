@@ -193,6 +193,62 @@ function ContactAvatar({ user, name, online, inCall, size = "md" }) {
         {image ? <img src={image} alt={name || getDisplayName(user)} className="chat-avatar-img" /> : initial}
       </div>
       {inCall ? <span className="call-dot" aria-label="In call" /> : online ? <span className="online-dot" aria-label="Online" /> : null}
+      <style jsx>{`
+        .avatar-ring {
+          position: relative;
+          width: 58px;
+          height: 58px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          padding: 2px;
+          background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.35), rgba(34,211,238,0.55));
+          box-shadow: 0 0 0 5px rgba(224,64,251,0.055), 0 12px 28px rgba(0,0,0,0.34);
+        }
+        .avatar-ring.sm { width: 42px; height: 42px; }
+        .avatar-ring[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.16); }
+        .avatar-ring[data-call="true"] {
+          background: linear-gradient(135deg, rgba(34,211,238,0.95), rgba(52,211,153,0.6));
+          box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 0 24px rgba(34,211,238,0.24);
+        }
+        .chat-avatar {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: var(--grad-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 900;
+          font-size: 1.12rem;
+          overflow: hidden;
+          border: 2px solid rgba(15,8,33,0.95);
+        }
+        .avatar-ring.sm .chat-avatar { font-size: 0.82rem; }
+        .chat-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          border-radius: 50%;
+        }
+        .online-dot, .call-dot {
+          position: absolute;
+          right: 3px;
+          bottom: 4px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          border: 3px solid #120a28;
+        }
+        .online-dot { background: var(--accent-green); box-shadow: 0 0 12px rgba(52,211,153,0.8); }
+        .call-dot { background: var(--accent-cyan); box-shadow: 0 0 12px rgba(34,211,238,0.9); animation: pulseDot 1.5s ease-out infinite; }
+        .avatar-ring.sm .online-dot, .avatar-ring.sm .call-dot { width: 11px; height: 11px; right: 0; bottom: 1px; border-width: 2px; }
+        @keyframes pulseDot { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.42); } 70% { box-shadow: 0 0 0 9px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+        @media (max-width: 720px) {
+          .avatar-ring { width: 52px; height: 52px; }
+        }
+      `}</style>
     </div>
   );
 }

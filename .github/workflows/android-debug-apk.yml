@@ -65,9 +65,15 @@ jobs:
           fi
 
           if ! printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON_BASE64" \
+            | tr -d '\r\n\t ' \
             | base64 --decode \
             > frontend/android/app/google-services.json; then
             echo "Error: Failed to restore google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+            exit 1
+          fi
+
+          if [ ! -s frontend/android/app/google-services.json ]; then
+            echo "Error: google-services.json is missing or empty."
             exit 1
           fi
 
@@ -76,8 +82,11 @@ jobs:
           const path = 'frontend/android/app/google-services.json';
           try {
             const data = JSON.parse(fs.readFileSync(path, 'utf8'));
-            if (!data || !data.project_info) {
-              console.error('Error: google-services.json is missing project_info.');
+            const hasExpectedPackage = Array.isArray(data.client)
+              && data.client.some((client) => client?.client_info?.android_client_info?.package_name === 'com.meetyoulive.app');
+
+            if (!hasExpectedPackage) {
+              console.error('Error: google-services.json is missing package_name com.meetyoulive.app.');
               process.exit(1);
             }
           } catch (e) {

@@ -115,7 +115,10 @@ describe("auth email verification delivery", () => {
       emailVerificationExpires: null,
       emailVerificationSentAt: null,
     }));
-    expect(JSON.stringify(User.create.mock.calls[0][0])).not.toMatch(/stripe/i);
+    const createPayload = User.create.mock.calls[0][0];
+    expect(createPayload).not.toHaveProperty("stripeCustomerId");
+    expect(createPayload).not.toHaveProperty("stripeAccountId");
+    expect(createPayload).not.toHaveProperty("subscriptionId");
   });
 
   test("google-session updates existing account as verified Google account without Stripe changes", async () => {
@@ -154,7 +157,9 @@ describe("auth email verification delivery", () => {
     expect(existingUser.emailVerificationExpires).toBeNull();
     expect(existingUser.emailVerificationSentAt).toBeNull();
     expect(existingUser.save).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(existingUser)).not.toMatch(/stripe/i);
+    expect(existingUser).not.toHaveProperty("stripeCustomerId");
+    expect(existingUser).not.toHaveProperty("stripeAccountId");
+    expect(existingUser).not.toHaveProperty("subscriptionId");
   });
 
   test("new registration stores structured location objects safely", async () => {

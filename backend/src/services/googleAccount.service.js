@@ -92,7 +92,7 @@ async function migrateSafeLegacyGoogleAccounts(User, { execute = false } = {}) {
     return { dryRun: true, matchedCount, modifiedCount: 0, filter, update };
   }
 
-  const result = await User.updateMany(filter, update, { timestamps: false });
+  const result = await User.collection.updateMany(filter, update);
   return {
     dryRun: false,
     matchedCount,

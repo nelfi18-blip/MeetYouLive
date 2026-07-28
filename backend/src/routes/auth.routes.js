@@ -580,7 +580,12 @@ router.post("/google-session", authLimiter, async (req, res) => {
         user.googleId = googleId;
         changed = true;
       }
-      if (user.emailVerified !== true) {
+      const hasPendingEmailVerification =
+        user.emailVerified !== true ||
+        user.emailVerificationCode != null ||
+        user.emailVerificationExpires != null ||
+        user.emailVerificationSentAt != null;
+      if (hasPendingEmailVerification) {
         user.emailVerified = true;
         Object.assign(user, EMAIL_VERIFICATION_CLEAR_FIELDS);
         changed = true;

@@ -15,13 +15,15 @@ describe("googleAccount.service", () => {
   test("safe legacy migration does not change Stripe or unrelated fields", async () => {
     const User = {
       countDocuments: jest.fn().mockResolvedValue(2),
-      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 2 }),
+      collection: {
+        updateMany: jest.fn().mockResolvedValue({ modifiedCount: 2 }),
+      },
     };
 
     const result = await migrateSafeLegacyGoogleAccounts(User, { execute: true });
 
     expect(result).toMatchObject({ dryRun: false, matchedCount: 2, modifiedCount: 2 });
-    expect(User.updateMany).toHaveBeenCalledWith(
+    expect(User.collection.updateMany).toHaveBeenCalledWith(
       LEGACY_GOOGLE_ACCOUNT_FILTER,
       {
         $set: {
@@ -31,10 +33,9 @@ describe("googleAccount.service", () => {
           emailVerificationExpires: null,
           emailVerificationSentAt: null,
         },
-      },
-      { timestamps: false }
+      }
     );
-    expect(JSON.stringify(User.updateMany.mock.calls[0][1])).not.toMatch(/stripeCustomerId|stripeAccountId|subscriptionId/i);
-    expect(JSON.stringify(User.updateMany.mock.calls[0][1])).not.toMatch(/password|role|profile/i);
+    expect(JSON.stringify(User.collection.updateMany.mock.calls[0][1])).not.toMatch(/stripeCustomerId|stripeAccountId|subscriptionId/i);
+    expect(JSON.stringify(User.collection.updateMany.mock.calls[0][1])).not.toMatch(/password|role|profile/i);
   });
 });

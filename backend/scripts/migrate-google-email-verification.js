@@ -25,7 +25,7 @@ function parseArgs(argv) {
   options.confirm = options.confirm || process.env.GOOGLE_EMAIL_MIGRATION_CONFIRM || "";
   options.execute = options.execute || process.env.GOOGLE_EMAIL_MIGRATION_EXECUTE === "true";
   if (options.execute && options.confirm !== CONFIRMATION) {
-    throw new Error(`Refusing to execute without --confirm=${CONFIRMATION} (got: "${options.confirm}")`);
+    throw new Error(`Refusing to execute without --confirm=${CONFIRMATION}`);
   }
   return options;
 }

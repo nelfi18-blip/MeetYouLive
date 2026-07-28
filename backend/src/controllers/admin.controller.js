@@ -17,21 +17,13 @@ const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
+const {
+  getAuthProvider,
+  getGoogleEmailVerificationDiagnostics,
+  isGoogleAccount,
+} = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
 
-const EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER = {
-  $or: [
-    { authProvider: "google" },
-    { googleId: { $exists: true, $ne: null } },
-  ],
-};
-
-const getAuthProvider = (user) => {
-  if (user?.authProvider === "google" || user?.googleId) return "google";
-  if (user?.authProvider === "local") return "local";
-  return null;
-};
-const isGoogleAccount = (user) => getAuthProvider(user) === "google";
 const getEmailVerifiedValue = (user) => {
   if (!user || !Object.hasOwn(user, "emailVerified") || user.emailVerified == null) return null;
   return user.emailVerified === true;
@@ -351,34 +343,12 @@ exports.getUsers = async (req, res) => {
 
 exports.getEmailVerificationDiagnostics = async (req, res) => {
   try {
-    const [
-      emailVerifiedTrueCount,
-      emailVerifiedFalseCount,
-      emailVerifiedMissingCount,
-      googleAccountsCount,
-      googleAccountsNotVerifiedCount,
-    ] =
-      await Promise.all([
-        User.countDocuments({ emailVerified: true }),
-        User.countDocuments({ emailVerified: false }),
-        User.countDocuments({ emailVerified: { $exists: false } }),
-        User.countDocuments(EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER),
-        User.countDocuments({
-          ...EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER,
-          emailVerified: { $ne: true },
-        }),
-      ]);
+    const diagnostics = await getGoogleEmailVerificationDiagnostics(User);
 
     res.set("Cache-Control", "no-store");
     return res.json({
       ok: true,
-      diagnostics: {
-        emailVerifiedTrue: emailVerifiedTrueCount,
-        emailVerifiedFalse: emailVerifiedFalseCount,
-        emailVerifiedMissing: emailVerifiedMissingCount,
-        googleAccounts: googleAccountsCount,
-        googleAccountsNotVerified: googleAccountsNotVerifiedCount,
-      },
+      diagnostics,
     });
   } catch (error) {
     console.error("Admin email verification diagnostics error:", error);
@@ -394,7 +364,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("emailVerified authProvider googleId")
+      .select("emailVerified authProvider googleId images")
       .lean();
 
     if (!existingUser) {

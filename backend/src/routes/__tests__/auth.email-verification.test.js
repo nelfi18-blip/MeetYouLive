@@ -71,7 +71,6 @@ describe("auth email verification delivery", () => {
         email: "NormalUser@example.com",
         password: "password123",
       });
-
     expect(res.status).toBe(201);
     expect(res.body.requiresVerification).toBe(true);
     expect(sendVerificationEmail).toHaveBeenCalledTimes(1);
@@ -83,6 +82,84 @@ describe("auth email verification delivery", () => {
     );
     expect(User.deleteOne).not.toHaveBeenCalled();
     expect(User.create).toHaveBeenCalledWith(expect.not.objectContaining({ location: "usa" }));
+  });
+
+  test("google-session creates verified Google account with provider fields", async () => {
+    User.findOne.mockResolvedValue(null);
+    User.create.mockResolvedValue({
+      _id: "google-user-1",
+      email: "google@example.com",
+      name: "Google User",
+      username: "google",
+      role: "user",
+      onboardingComplete: false,
+      creatorStatus: "none",
+    });
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "Google@Example.com",
+        googleId: "google-sub-1",
+        name: "Google User",
+        photoUrl: "https://lh3.googleusercontent.com/a/photo=s96-c",
+      });
+
+    expect(res.status).toBe(200);
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
+      email: "google@example.com",
+      authProvider: "google",
+      googleId: "google-sub-1",
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
+    }));
+    const createPayload = User.create.mock.calls[0][0];
+    expect(createPayload).not.toHaveProperty("stripeCustomerId");
+    expect(createPayload).not.toHaveProperty("stripeAccountId");
+    expect(createPayload).not.toHaveProperty("subscriptionId");
+  });
+
+  test("google-session updates existing account as verified Google account without Stripe changes", async () => {
+    const existingUser = {
+      _id: "google-user-2",
+      email: "existing-google@example.com",
+      name: "",
+      username: "existinggoogle",
+      role: "user",
+      onboardingComplete: false,
+      creatorStatus: "none",
+      authProvider: "local",
+      googleId: null,
+      emailVerified: false,
+      emailVerificationCode: "123456",
+      emailVerificationExpires: new Date("2026-01-01T00:00:00.000Z"),
+      emailVerificationSentAt: new Date("2026-01-01T00:00:00.000Z"),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    User.findOne.mockResolvedValue(existingUser);
+    User.findByIdAndUpdate.mockReturnValue({ catch: jest.fn() });
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "existing-google@example.com",
+        googleId: "google-sub-2",
+        name: "Existing Google",
+      });
+
+    expect(res.status).toBe(200);
+    expect(existingUser.authProvider).toBe("google");
+    expect(existingUser.googleId).toBe("google-sub-2");
+    expect(existingUser.emailVerified).toBe(true);
+    expect(existingUser.emailVerificationCode).toBeNull();
+    expect(existingUser.emailVerificationExpires).toBeNull();
+    expect(existingUser.emailVerificationSentAt).toBeNull();
+    expect(existingUser.save).toHaveBeenCalledTimes(1);
+    expect(existingUser).not.toHaveProperty("stripeCustomerId");
+    expect(existingUser).not.toHaveProperty("stripeAccountId");
+    expect(existingUser).not.toHaveProperty("subscriptionId");
   });
 
   test("new registration stores structured location objects safely", async () => {

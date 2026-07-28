@@ -20,7 +20,7 @@ function parseArgs(argv) {
     else if (arg === "--json") options.json = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg.startsWith("--confirm=")) options.confirm = arg.slice("--confirm=".length);
-    else throw new Error(`Unknown argument: ${arg}`);
+    else throw new Error(`Unknown argument: ${arg}. Use --help for usage.`);
   }
   options.confirm = options.confirm || process.env.GOOGLE_EMAIL_MIGRATION_CONFIRM || "";
   options.execute = options.execute || process.env.GOOGLE_EMAIL_MIGRATION_EXECUTE === "true";

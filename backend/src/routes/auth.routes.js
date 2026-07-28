@@ -511,7 +511,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
-  const googleId = typeof req.body.googleId === "string" ? req.body.googleId.trim() : "";
+  const googleId = typeof req.body.googleId === "string" ? req.body.googleId.trim() || null : null;
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
@@ -547,7 +547,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
         email,
         password: crypto.randomBytes(32).toString("hex"),
         authProvider: "google",
-        googleId: googleId || null,
+        googleId,
         emailVerified: true,
         emailVerificationCode: null,
         emailVerificationExpires: null,

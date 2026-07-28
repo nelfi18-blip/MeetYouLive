@@ -17,7 +17,7 @@ const LEGACY_GOOGLE_ACCOUNT_FILTER = {
 const hasGoogleImageEvidence = (user = {}) =>
   Array.isArray(user.images) && user.images.some((image) => image?.source === "google");
 
-const hasGoogleId = (user = {}) => typeof user.googleId === "string" ? user.googleId.trim() !== "" : Boolean(user.googleId);
+const hasGoogleId = (user = {}) => typeof user.googleId === "string" && user.googleId.trim() !== "";
 
 const isGoogleAccount = (user = {}) =>
   user?.authProvider === "google" || hasGoogleId(user) || hasGoogleImageEvidence(user);

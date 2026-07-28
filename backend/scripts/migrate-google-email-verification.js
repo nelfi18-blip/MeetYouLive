@@ -39,10 +39,12 @@ Dry-run only (default, no updates):
 Execute only after reviewing diagnostics:
   node scripts/migrate-google-email-verification.js --execute --confirm=${CONFIRMATION} --json
 
-This migration only updates users with persisted Google photo-source evidence:
+This migration only updates users with persisted Google evidence (authProvider, googleId, or Google photo-source)
+and the known local Alvarado account classification:
   - authProvider = "google"
   - emailVerified = true
   - OTP fields cleared
+  - alvaradomeetyoulive@gmail.com authProvider = "local" when safely not Google
 
 It never invents googleId and does not update passwords, roles, profiles, Stripe, payments, coins, payouts, or subscriptions.`);
 }

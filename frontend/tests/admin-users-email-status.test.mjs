@@ -9,6 +9,28 @@ test("local unverified user shows label and manual verification action", () => {
   assert.equal(status.canVerifyManually, true);
 });
 
+test("Alvarado local unverified user shows manual verification action before verification", () => {
+  const status = getAdminUserEmailStatus({
+    email: "alvaradomeetyoulive@gmail.com",
+    authProvider: "local",
+    emailVerified: false,
+  });
+
+  assert.equal(status.label, "Email sin verificar");
+  assert.equal(status.canVerifyManually, true);
+});
+
+test("Alvarado local verified user hides manual verification action after verification", () => {
+  const status = getAdminUserEmailStatus({
+    email: "alvaradomeetyoulive@gmail.com",
+    authProvider: "local",
+    emailVerified: true,
+  });
+
+  assert.equal(status.label, "Email verificado");
+  assert.equal(status.canVerifyManually, false);
+});
+
 test("Google current user does not show manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: "google", googleId: "google-1", emailVerified: false });
 
@@ -48,6 +70,13 @@ test("Google user shows Google label without manual verification action", () => 
   const status = getAdminUserEmailStatus({ authProvider: "google", emailVerified: true, isGoogleAccount: true });
 
   assert.equal(status.label, "Cuenta Google");
+  assert.equal(status.canVerifyManually, false);
+});
+
+test("admin user shows administrative account without manual verification action", () => {
+  const status = getAdminUserEmailStatus({ role: "admin", authProvider: "local", emailVerified: false });
+
+  assert.equal(status.label, "Cuenta administrativa");
   assert.equal(status.canVerifyManually, false);
 });
 

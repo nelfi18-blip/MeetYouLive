@@ -581,6 +581,7 @@ function AdminUsersInner() {
         .status-email-verified { background: rgba(52, 211, 153, 0.1); color: #34d399; }
         .status-email-unverified { background: rgba(251, 146, 60, 0.1); color: #fb923c; }
         .status-google { background: rgba(96, 165, 250, 0.1); color: #60a5fa; }
+        .status-admin-account { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
         .status-email-unknown { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
 
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }

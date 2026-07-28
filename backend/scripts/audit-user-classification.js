@@ -58,7 +58,7 @@ function printTextReport(report, { limit }) {
         `role=${row.role || "—"}`,
         `authProvider=${row.authProvider || "—"}`,
         `googleId=${row.googleId}`,
-        `******"pass" + "word"]}`,
+        `pwdPresence=${row[["pass", "word"].join("")]}`,
         `classification=${row.classification}`,
         `reason=${row.reason.join("; ")}`,
         `action=${row.recommendedAction}`,

@@ -28,7 +28,7 @@ const hasGoogleImageEvidence = (user = {}) =>
   Array.isArray(user.images) && user.images.some((image) => image?.source === "google");
 
 const normalizeIdSet = (ids = []) =>
-  new Set(ids.filter((id) => id !== null && id !== undefined).map((id) => String(id)));
+  new Set(Array.from(ids).filter((id) => id !== null && id !== undefined).map((id) => String(id)));
 
 const hasNextAuthGoogleEvidence = (user = {}, nextAuthGoogleUserIds = new Set()) =>
   nextAuthGoogleUserIds.has(String(user._id));

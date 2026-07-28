@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "cleanup:test-data": "node scripts/cleanup-test-data.js",
     "cleanup:production-users": "node scripts/cleanup-production-non-admin-users.js",
-    "migrate:google-email-verification": "node scripts/migrate-google-email-verification.js"
+    "migrate:google-email-verification": "node scripts/migrate-google-email-verification.js",
+    "audit:user-classification": "node scripts/audit-user-classification.js"
   },
   "engines": {
     "node": "24.x"

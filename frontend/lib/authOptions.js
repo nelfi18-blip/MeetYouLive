@@ -95,6 +95,7 @@ export const authOptions = {
       }
       if (profile) {
         token.googleEmail = profile.email || token.email || "";
+        token.googleId = profile.sub || profile.id || token.googleId || "";
         token.googleName = profile.name || token.name || "";
         token.name = profile.name || token.name || "";
         token.email = profile.email || token.email || "";
@@ -125,6 +126,7 @@ export const authOptions = {
                 email: token.googleEmail,
                 name: token.googleName,
                 photoUrl: token.picture,
+                googleId: token.googleId,
               }),
               signal: controller.signal,
             });

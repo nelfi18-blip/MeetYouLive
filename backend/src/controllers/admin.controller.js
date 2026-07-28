@@ -14,6 +14,11 @@ const Notification = require("../models/Notification.js");
 const Like = require("../models/Like.js");
 const Purchase = require("../models/Purchase.js");
 const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
+const {
+  getEmailVerificationState,
+  isGoogleAccount,
+  resolveAuthProvider,
+} = require("../lib/authProvider.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
@@ -114,8 +119,16 @@ const serializeAdminUser = (req, user) => {
   }
   const avatar = normalizedPhotos[0] || "";
   const { password, ...safeUser } = user;
+  const authProvider = resolveAuthProvider(user);
+  const googleAccount = isGoogleAccount(user);
+  const emailVerificationState = getEmailVerificationState(user);
   return {
     ...safeUser,
+    authProvider,
+    isGoogleAccount: googleAccount,
+    emailVerificationState,
+    canAdminVerifyEmail:
+      authProvider === "local" && user.emailVerified === false && !STAFF_ROLES.includes(user.role),
     avatar,
     profileImage: avatar,
     photo: avatar,
@@ -310,7 +323,7 @@ exports.getUsers = async (req, res) => {
     }
 
     const [users, total] = await Promise.all([
-      User.find(filter, "-password")
+      User.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -334,15 +347,31 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("emailVerified")
+      .select("emailVerified authProvider googleId password role")
       .lean();
 
     if (!existingUser) {
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     }
 
+    if (isGoogleAccount(existingUser)) {
+      return res.status(400).json({ ok: false, message: "Las cuentas Google no se verifican manualmente" });
+    }
+
+    if (resolveAuthProvider(existingUser) !== "local") {
+      return res.status(400).json({ ok: false, message: "Proveedor de autenticación insuficiente para verificación manual" });
+    }
+
+    if (STAFF_ROLES.includes(existingUser.role)) {
+      return res.status(400).json({ ok: false, message: "No se permite verificar manualmente cuentas administrativas" });
+    }
+
     if (existingUser.emailVerified === true) {
       return res.json({ ok: true, message: "Email ya estaba verificado" });
+    }
+
+    if (existingUser.emailVerified !== false) {
+      return res.status(400).json({ ok: false, message: "Estado de verificación insuficiente para verificación manual" });
     }
 
     await User.updateOne(

@@ -249,3 +249,93 @@ describe("POST /api/auth/register — SMTP failure leaves account intact", () =>
     expect(res.body.message).toMatch(/email/i);
   });
 });
+
+describe("POST /api/auth/google-session", () => {
+  let app;
+  let consoleLogSpy;
+  let consoleWarnSpy;
+  let consoleErrorSpy;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    app = makeApp();
+    User.exists.mockResolvedValue(false);
+    User.findByIdAndUpdate.mockResolvedValue({});
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  test("cuenta Google nueva se crea con emailVerified true y proveedor Google", async () => {
+    User.findOne.mockResolvedValue(null);
+    User.create.mockImplementation(async (payload) => ({
+      _id: "google-new",
+      onboardingComplete: false,
+      ...payload,
+    }));
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "google-new@example.com",
+        name: "Google New",
+        googleId: "google-sub-1",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
+      email: "google-new@example.com",
+      authProvider: "google",
+      googleId: "google-sub-1",
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
+    }));
+  });
+
+  test("cuenta Google existente o antigua se actualiza con emailVerified true al iniciar sesión", async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      _id: "google-existing",
+      email: "google-existing@example.com",
+      name: "",
+      username: "googleexisting",
+      password: "legacy-google-token",
+      authProvider: undefined,
+      googleId: null,
+      emailVerified: false,
+      emailVerificationCode: "123456",
+      emailVerificationExpires: new Date(),
+      emailVerificationSentAt: new Date(),
+      isBlocked: false,
+      onboardingComplete: false,
+      save,
+    };
+    User.findOne.mockResolvedValue(user);
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "google-existing@example.com",
+        name: "Google Existing",
+        googleId: "google-sub-2",
+      });
+
+    expect(res.status).toBe(200);
+    expect(user.authProvider).toBe("google");
+    expect(user.googleId).toBe("google-sub-2");
+    expect(user.emailVerified).toBe(true);
+    expect(user.emailVerificationCode).toBeNull();
+    expect(user.emailVerificationExpires).toBeNull();
+    expect(user.emailVerificationSentAt).toBeNull();
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+});

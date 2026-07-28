@@ -3,6 +3,7 @@ const { Strategy: GoogleStrategy } = require("passport-google-oauth20");
 const crypto = require("crypto");
 const User = require("../models/User.js");
 const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
+const { AUTH_PROVIDERS } = require("../lib/authProvider.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 
 const getGoogleUserPhotoFields = (profile = {}) =>
@@ -23,11 +24,36 @@ async function findOrCreateGoogleUser(profile = {}) {
       username,
       email,
       password: crypto.randomBytes(32).toString("hex"),
+      authProvider: AUTH_PROVIDERS.GOOGLE,
+      googleId: profile.id || null,
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
       ...getGoogleUserPhotoFields(profile),
     });
-  } else if (!user.username) {
-    user.username = await generateUniqueUsername(email, user._id);
-    await user.save();
+  } else {
+    let changed = false;
+    if (!user.username) {
+      user.username = await generateUniqueUsername(email, user._id);
+      changed = true;
+    }
+    if (user.authProvider !== AUTH_PROVIDERS.GOOGLE) {
+      user.authProvider = AUTH_PROVIDERS.GOOGLE;
+      changed = true;
+    }
+    if (profile.id && user.googleId !== profile.id) {
+      user.googleId = profile.id;
+      changed = true;
+    }
+    if (user.emailVerified !== true) {
+      user.emailVerified = true;
+      user.emailVerificationCode = null;
+      user.emailVerificationExpires = null;
+      user.emailVerificationSentAt = null;
+      changed = true;
+    }
+    if (changed) await user.save();
   }
 
   return user;

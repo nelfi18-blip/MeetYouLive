@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const User = require("../models/User.js");
+const { AUTH_PROVIDERS, isBcryptPassword } = require("../lib/authProvider.js");
 const { generateUniqueUsername } = require("../services/username.service.js");
 const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
@@ -175,6 +176,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       username,
       email,
       password: hashedPassword,
+      authProvider: AUTH_PROVIDERS.LOCAL,
       emailVerified: false,
       emailVerificationCode: code,
       emailVerificationExpires: expires,
@@ -236,7 +238,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
     if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
 
     // Accounts created via Google OAuth have a random hex password (not a bcrypt hash).
-    if (!user.password || !/^\$2[aby]\$/.test(user.password)) {
+    if (!isBcryptPassword(user.password)) {
       return res.status(400).json({ code: "GOOGLE_ACCOUNT", message: "Esta cuenta fue creada con Google. Por favor, inicia sesión con Google." });
     }
 
@@ -510,6 +512,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const googleId = req.body.googleId ? String(req.body.googleId).trim() : null;
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
@@ -544,6 +547,12 @@ router.post("/google-session", authLimiter, async (req, res) => {
         username,
         email,
         password: crypto.randomBytes(32).toString("hex"),
+        authProvider: AUTH_PROVIDERS.GOOGLE,
+        googleId,
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null,
+        emailVerificationSentAt: null,
         referralCode,
         referredBy,
         ...(normalizedLocation || {}),
@@ -557,6 +566,21 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
       let changed = false;
       if (!user.name && name) { user.name = name; changed = true; }
+      if (user.authProvider !== AUTH_PROVIDERS.GOOGLE) {
+        user.authProvider = AUTH_PROVIDERS.GOOGLE;
+        changed = true;
+      }
+      if (googleId && user.googleId !== googleId) {
+        user.googleId = googleId;
+        changed = true;
+      }
+      if (user.emailVerified !== true) {
+        user.emailVerified = true;
+        user.emailVerificationCode = null;
+        user.emailVerificationExpires = null;
+        user.emailVerificationSentAt = null;
+        changed = true;
+      }
       if (!user.username) {
         user.username = await generateUniqueUsername(email, user._id);
         changed = true;

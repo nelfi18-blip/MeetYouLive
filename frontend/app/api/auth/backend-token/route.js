@@ -101,6 +101,7 @@ export async function POST(request) {
         email: token.googleEmail,
         name: token.googleName || "",
         photoUrl: token.picture || "",
+        googleId: token.googleId || token.sub || "",
       }),
       signal: controller.signal,
     });

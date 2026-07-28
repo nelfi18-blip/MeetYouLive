@@ -8,6 +8,7 @@
     "create-admin": "node scripts/createAdmin.js",
     "test:db": "node scripts/test-db-connection.js",
     "test": "jest",
+    "diagnose:email-verification": "node scripts/email-verification-diagnostics.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "cleanup:test-data": "node scripts/cleanup-test-data.js",

@@ -19,6 +19,8 @@ jest.mock("../../services/audit.service.js", () => ({
 }));
 
 jest.mock("../../models/User.js", () => ({
+  countDocuments: jest.fn(),
+  find: jest.fn(),
   findById: jest.fn(),
   updateOne: jest.fn(),
 }));
@@ -43,6 +45,16 @@ const makeLeanSelectChain = (value) => ({
   })),
 });
 
+const makeFindUsersChain = (value) => ({
+  sort: jest.fn(() => ({
+    skip: jest.fn(() => ({
+      limit: jest.fn(() => ({
+        lean: jest.fn().mockResolvedValue(value),
+      })),
+    })),
+  })),
+});
+
 const mockAdminAccess = () => {
   User.findById.mockReturnValueOnce(makeSelectChain({ _id: adminId, role: "admin" }));
 };
@@ -59,7 +71,13 @@ describe("admin manual email verification", () => {
 
   test("admin puede verificar manualmente el email", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: false,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+    }));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -104,7 +122,13 @@ describe("admin manual email verification", () => {
 
   test("cuenta ya verificada no se altera", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, emailVerified: true }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: true,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+    }));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -116,7 +140,15 @@ describe("admin manual email verification", () => {
 
   test("campos Stripe permanecen intactos", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: false,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+      stripeAccountId: "acct_123",
+      stripeAccountStatus: "enabled",
+    }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -126,7 +158,13 @@ describe("admin manual email verification", () => {
 
   test("OTP, expiración y fecha de envío se limpian", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: false,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+    }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -139,7 +177,13 @@ describe("admin manual email verification", () => {
 
   test("auditoría se registra sin OTP ni datos Stripe", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: false,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+    }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -160,5 +204,124 @@ describe("admin manual email verification", () => {
     expect(auditPayload.details).not.toHaveProperty("stripeCustomerId");
     expect(auditPayload.details).not.toHaveProperty("stripeAccountId");
     expect(auditPayload.details).not.toHaveProperty("subscriptionId");
+  });
+
+  test("cuenta Google antigua no puede verificarse manualmente por error", async () => {
+    mockAdminAccess();
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      emailVerified: false,
+      password: "legacy-google-random-token",
+      role: "user",
+    }));
+
+    const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Google/i);
+    expect(User.updateOne).not.toHaveBeenCalled();
+    expect(logStaffAction).not.toHaveBeenCalled();
+  });
+
+  test("usuario con emailVerified undefined se clasifica de forma segura y no se verifica manualmente", async () => {
+    mockAdminAccess();
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      authProvider: "local",
+      password: "$2b$10$abcdefghijklmnopqrstuv",
+      role: "user",
+    }));
+
+    const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/Estado de verificación insuficiente/i);
+    expect(User.updateOne).not.toHaveBeenCalled();
+    expect(logStaffAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin users email verification fields", () => {
+  let app;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    app = makeApp();
+    User.countDocuments.mockResolvedValue(4);
+  });
+
+  test("listado admin devuelve emailVerified y clasifica cuentas locales/Google/antiguas", async () => {
+    mockAdminAccess();
+    User.find.mockReturnValueOnce(makeFindUsersChain([
+      {
+        _id: "local-unverified",
+        email: "local-unverified@example.com",
+        role: "user",
+        emailVerified: false,
+        authProvider: "local",
+        password: "$2b$10$abcdefghijklmnopqrstuv",
+      },
+      {
+        _id: "local-verified",
+        email: "local-verified@example.com",
+        role: "user",
+        emailVerified: true,
+        authProvider: "local",
+        password: "$2b$10$abcdefghijklmnopqrstuv",
+      },
+      {
+        _id: "google-user",
+        email: "google@example.com",
+        role: "user",
+        emailVerified: true,
+        authProvider: "google",
+        googleId: "google-123",
+        password: "random-google-token",
+      },
+      {
+        _id: "legacy-user",
+        email: "legacy@example.com",
+        role: "user",
+        authProvider: "local",
+        password: "$2b$10$abcdefghijklmnopqrstuv",
+      },
+    ]));
+
+    const res = await request(app).get("/api/admin/users");
+
+    expect(res.status).toBe(200);
+    expect(res.body.users).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        _id: "local-unverified",
+        emailVerified: false,
+        authProvider: "local",
+        isGoogleAccount: false,
+        emailVerificationState: "unverified",
+        canAdminVerifyEmail: true,
+      }),
+      expect.objectContaining({
+        _id: "local-verified",
+        emailVerified: true,
+        authProvider: "local",
+        emailVerificationState: "verified",
+        canAdminVerifyEmail: false,
+      }),
+      expect.objectContaining({
+        _id: "google-user",
+        authProvider: "google",
+        isGoogleAccount: true,
+        emailVerificationState: "verified",
+        canAdminVerifyEmail: false,
+      }),
+      expect.objectContaining({
+        _id: "legacy-user",
+        authProvider: "local",
+        emailVerificationState: "unknown",
+        canAdminVerifyEmail: false,
+      }),
+    ]));
+    for (const user of res.body.users) {
+      expect(user).not.toHaveProperty("password");
+    }
   });
 });

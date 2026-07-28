@@ -41,6 +41,8 @@ describe("Google Passport photo persistence", () => {
     expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
       email: "google@example.com",
       username: "google",
+      authProvider: "google",
+      emailVerified: true,
       avatar: "https://lh3.googleusercontent.com/a/google-photo=s96-c",
     }));
     expect(user.location).toBeUndefined();
@@ -52,6 +54,7 @@ describe("Google Passport photo persistence", () => {
       email: "legacy-google@example.com",
       password: "secret",
       location: "usa",
+      emailVerified: false,
     });
     legacyUser.save = jest.fn().mockResolvedValue(legacyUser);
     jest.spyOn(User, "findOne").mockResolvedValue(legacyUser);
@@ -68,5 +71,7 @@ describe("Google Passport photo persistence", () => {
       label: "usa",
     });
     expect(legacyUser.save).toHaveBeenCalledTimes(1);
+    expect(user.authProvider).toBe("google");
+    expect(user.emailVerified).toBe(true);
   });
 });

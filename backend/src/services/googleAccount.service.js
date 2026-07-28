@@ -1,4 +1,9 @@
 const LEGACY_GOOGLE_IMAGE_FILTER = { images: { $elemMatch: { source: "google" } } };
+const EMAIL_VERIFICATION_CLEAR_FIELDS = {
+  emailVerificationCode: null,
+  emailVerificationExpires: null,
+  emailVerificationSentAt: null,
+};
 
 const GOOGLE_ACCOUNT_FILTER = {
   $or: [
@@ -15,7 +20,7 @@ const LEGACY_GOOGLE_ACCOUNT_FILTER = {
 };
 
 const hasGoogleImageEvidence = (user = {}) =>
-  Array.isArray(user.images) && user.images.some((image) => image?.source === "google");
+  Array.isArray(user.images) && user.images.some((image) => image && image.source === "google");
 
 const hasGoogleId = (user = {}) => typeof user.googleId === "string" && user.googleId.trim() !== "";
 
@@ -78,9 +83,7 @@ async function migrateSafeLegacyGoogleAccounts(User, { execute = false } = {}) {
     $set: {
       authProvider: "google",
       emailVerified: true,
-      emailVerificationCode: null,
-      emailVerificationExpires: null,
-      emailVerificationSentAt: null,
+      ...EMAIL_VERIFICATION_CLEAR_FIELDS,
     },
   };
 
@@ -101,6 +104,7 @@ async function migrateSafeLegacyGoogleAccounts(User, { execute = false } = {}) {
 
 module.exports = {
   GOOGLE_ACCOUNT_FILTER,
+  EMAIL_VERIFICATION_CLEAR_FIELDS,
   LEGACY_GOOGLE_ACCOUNT_FILTER,
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,

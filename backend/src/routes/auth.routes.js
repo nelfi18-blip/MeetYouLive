@@ -9,6 +9,7 @@ const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
+const { EMAIL_VERIFICATION_CLEAR_FIELDS } = require("../services/googleAccount.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
 
 /**
@@ -511,7 +512,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
-  const googleId = typeof req.body.googleId === "string" ? req.body.googleId.trim() || null : null;
+  const googleId = typeof req.body.googleId === "string" && req.body.googleId.trim() ? req.body.googleId.trim() : null;
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
@@ -549,9 +550,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
         authProvider: "google",
         googleId,
         emailVerified: true,
-        emailVerificationCode: null,
-        emailVerificationExpires: null,
-        emailVerificationSentAt: null,
+        ...EMAIL_VERIFICATION_CLEAR_FIELDS,
         referralCode,
         referredBy,
         ...(normalizedLocation || {}),
@@ -583,9 +582,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
       if (user.emailVerified !== true) {
         user.emailVerified = true;
-        user.emailVerificationCode = null;
-        user.emailVerificationExpires = null;
-        user.emailVerificationSentAt = null;
+        Object.assign(user, EMAIL_VERIFICATION_CLEAR_FIELDS);
         changed = true;
       }
       if (changed) await user.save();

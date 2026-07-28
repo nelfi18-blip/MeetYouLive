@@ -1,4 +1,8 @@
 export function getAdminUserEmailStatus(user = {}) {
+  if (user.role === "admin") {
+    return { label: "Cuenta administrativa", className: "status-admin-account", canVerifyManually: false };
+  }
+
   if (user.isGoogleAccount === true || user.authProvider === "google" || Boolean(user.googleId)) {
     return { label: "Cuenta Google", className: "status-google", canVerifyManually: false };
   }
@@ -7,7 +11,7 @@ export function getAdminUserEmailStatus(user = {}) {
     return { label: "Email verificado", className: "status-email-verified", canVerifyManually: false };
   }
 
-  if (user.authProvider === "local" && user.emailVerified === false) {
+  if (user.authProvider === "local" && user.emailVerified !== true) {
     return { label: "Email sin verificar", className: "status-email-unverified", canVerifyManually: true };
   }
 

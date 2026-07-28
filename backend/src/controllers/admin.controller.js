@@ -21,6 +21,7 @@ const {
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,
   isGoogleAccount,
+  isManualEmailVerificationAllowed,
 } = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
 
@@ -364,11 +365,15 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("emailVerified authProvider googleId images")
+      .select("email emailVerified authProvider googleId images role")
       .lean();
 
     if (!existingUser) {
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    }
+
+    if (existingUser.role === "admin") {
+      return res.status(400).json({ ok: false, message: "Las cuentas administrativas no usan verificación manual de email" });
     }
 
     if (isGoogleAccount(existingUser)) {
@@ -376,15 +381,15 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     if (existingUser.emailVerified === true) {
-      return res.json({ ok: true, message: "Email ya estaba verificado" });
+      return res.status(400).json({ ok: false, message: "Email ya estaba verificado" });
     }
 
-    if (existingUser.authProvider !== "local" || existingUser.emailVerified !== false) {
+    if (!isManualEmailVerificationAllowed(existingUser)) {
       return res.status(400).json({ ok: false, message: "No hay evidencia suficiente para verificar este email manualmente" });
     }
 
     await User.updateOne(
-      { _id: id, authProvider: "local", emailVerified: false },
+      { _id: id, authProvider: "local", emailVerified: { $ne: true }, role: { $ne: "admin" } },
       {
         $set: {
           emailVerified: true,

@@ -45,6 +45,12 @@ const makeLeanSelectChain = (value) => ({
   })),
 });
 
+const makeFindSelectLeanChain = (value) => ({
+  select: jest.fn(() => ({
+    lean: jest.fn().mockResolvedValue(value),
+  })),
+});
+
 const mockAdminAccess = () => {
   User.findById.mockReturnValueOnce(makeSelectChain({ _id: adminId, role: "admin" }));
 };
@@ -60,16 +66,22 @@ describe("admin manual email verification", () => {
     logStaffAction.mockResolvedValue(undefined);
   });
 
-  test("admin puede verificar manualmente el email", async () => {
+  test("Alvarado local no verificada se puede verificar manualmente", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local", emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      email: "alvaradomeetyoulive@gmail.com",
+      role: "user",
+      authProvider: "local",
+      emailVerified: false,
+    }));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: true });
     expect(User.updateOne).toHaveBeenCalledWith(
-      { _id: targetUserId, authProvider: "local", emailVerified: false },
+      { _id: targetUserId, authProvider: "local", emailVerified: { $ne: true }, role: { $ne: "admin" } },
       {
         $set: {
           emailVerified: true,
@@ -107,11 +119,11 @@ describe("admin manual email verification", () => {
 
   test("cuenta ya verificada no se altera", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local", emailVerified: true }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, role: "user", authProvider: "local", emailVerified: true }));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
     expect(res.body.message).toBe("Email ya estaba verificado");
     expect(User.updateOne).not.toHaveBeenCalled();
     expect(logStaffAction).not.toHaveBeenCalled();
@@ -119,7 +131,7 @@ describe("admin manual email verification", () => {
 
   test("campos Stripe permanecen intactos", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local", emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, role: "user", authProvider: "local", emailVerified: false }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -129,7 +141,7 @@ describe("admin manual email verification", () => {
 
   test("OTP, expiración y fecha de envío se limpian", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local", emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, role: "user", authProvider: "local", emailVerified: false }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -142,7 +154,7 @@ describe("admin manual email verification", () => {
 
   test("auditoría se registra sin OTP ni datos Stripe", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local", emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, role: "user", authProvider: "local", emailVerified: false }));
 
     await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -169,6 +181,7 @@ describe("admin manual email verification", () => {
     mockAdminAccess();
     User.findById.mockReturnValueOnce(makeLeanSelectChain({
       _id: targetUserId,
+      role: "user",
       authProvider: "google",
       googleId: "google-123",
       emailVerified: false,
@@ -185,6 +198,7 @@ describe("admin manual email verification", () => {
     mockAdminAccess();
     User.findById.mockReturnValueOnce(makeLeanSelectChain({
       _id: targetUserId,
+      role: "user",
       authProvider: "local",
       emailVerified: false,
       images: [{ url: "https://lh3.googleusercontent.com/a/photo=s96-c", source: "google" }],
@@ -197,9 +211,29 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
-  test("usuario con emailVerified undefined se clasifica de forma segura para verificación manual", async () => {
+  test("cuenta admin no puede verificarse manualmente", async () => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, authProvider: "local" }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      role: "admin",
+      authProvider: "local",
+      emailVerified: false,
+    }));
+
+    const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
+
+    expect(res.status).toBe(400);
+    expect(User.updateOne).not.toHaveBeenCalled();
+    expect(logStaffAction).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["authProvider null", { _id: targetUserId, role: "user", authProvider: null, emailVerified: false }],
+    ["authProvider vacío", { _id: targetUserId, role: "user", authProvider: "", emailVerified: false }],
+    ["authProvider ausente", { _id: targetUserId, role: "user", emailVerified: false }],
+  ])("cuenta ambigua no puede verificarse manualmente: %s", async (_name, user) => {
+    mockAdminAccess();
+    User.findById.mockReturnValueOnce(makeLeanSelectChain(user));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -246,26 +280,31 @@ describe("admin manual email verification", () => {
   test("diagnóstico de verificación devuelve conteos requeridos sin migrar datos", async () => {
     mockAdminAccess();
     User.countDocuments
-      .mockResolvedValueOnce(11)
-      .mockResolvedValueOnce(7)
-      .mockResolvedValueOnce(3)
       .mockResolvedValueOnce(5)
       .mockResolvedValueOnce(4)
       .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(2);
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(3);
+    User.find
+      .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
+      .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }]));
 
     const res = await request(app).get("/api/admin/users/email-verification-diagnostics");
 
     expect(res.status).toBe(200);
     expect(res.body.diagnostics).toEqual({
-      emailVerifiedTrue: 11,
-      emailVerifiedFalse: 7,
-      emailVerifiedMissing: 3,
-      authProviderGoogle: 5,
-      googleIdPresent: 4,
-      safelyIdentifiedLegacyGoogle: 2,
-      googleAccountsNotVerified: 2,
+      currentGoogle: 5,
+      legacyGoogleIdentifiable: 4,
+      localAccounts: 2,
+      adminAccounts: 1,
+      ambiguousAccounts: 3,
+      documentsToModify: [
+        expect.objectContaining({ _id: "g1", plannedChange: "normalize-google-email-verification" }),
+        expect.objectContaining({ _id: "a1", plannedChange: "classify-alvarado-local" }),
+      ],
+      documentsToModifyCount: 2,
       legacyEvidence: [
+        expect.objectContaining({ key: "googleId", value: "present" }),
         expect.objectContaining({ key: "images.source", value: "google" }),
       ],
       ambiguousLegacyGoogle: expect.objectContaining({ count: null }),

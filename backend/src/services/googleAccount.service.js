@@ -1,6 +1,7 @@
 const ALVARADO_LOCAL_EMAIL = "alvaradomeetyoulive@gmail.com";
-const BCRYPT_PASSWORD_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
-const BCRYPT_PASSWORD_FILTER = { password: { $regex: "^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$" } };
+const BCRYPT_PASSWORD_PATTERN_SOURCE = "^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$";
+const BCRYPT_PASSWORD_PATTERN = new RegExp(BCRYPT_PASSWORD_PATTERN_SOURCE);
+const BCRYPT_PASSWORD_FILTER = { password: { $regex: BCRYPT_PASSWORD_PATTERN_SOURCE } };
 const GOOGLE_ID_FILTER = { googleId: { $exists: true, $nin: [null, ""] } };
 const LEGACY_GOOGLE_IMAGE_FILTER = { images: { $elemMatch: { source: "google" } } };
 const EMAIL_VERIFICATION_CLEAR_FIELDS = {
@@ -57,6 +58,7 @@ const LOCAL_ACCOUNT_FILTER = {
 };
 
 const ALVARADO_LOCAL_NORMALIZATION_FILTER = {
+  // This production account is the confirmed local email/password account and must not be inferred from the gmail.com domain.
   email: ALVARADO_LOCAL_EMAIL,
   authProvider: { $ne: "local" },
   $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER],
@@ -108,6 +110,7 @@ const isManualEmailVerificationAllowed = (user = {}) =>
   user?.role !== "admin" &&
   user?.authProvider === "local" &&
   user?.emailVerified !== true &&
+  // Some legacy Google accounts can still have authProvider:"local"; persistent Google evidence must still block manual OTP bypass.
   !isGoogleAccount(user);
 
 const previewDocuments = (User, filter) =>

@@ -227,9 +227,13 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
-  test("cuenta ambigua no puede verificarse manualmente", async () => {
+  test.each([
+    ["authProvider null", { _id: targetUserId, role: "user", authProvider: null, emailVerified: false }],
+    ["authProvider vacío", { _id: targetUserId, role: "user", authProvider: "", emailVerified: false }],
+    ["authProvider ausente", { _id: targetUserId, role: "user", emailVerified: false }],
+  ])("cuenta ambigua no puede verificarse manualmente: %s", async (_name, user) => {
     mockAdminAccess();
-    User.findById.mockReturnValueOnce(makeLeanSelectChain({ _id: targetUserId, role: "user", authProvider: null, emailVerified: false }));
+    User.findById.mockReturnValueOnce(makeLeanSelectChain(user));
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 

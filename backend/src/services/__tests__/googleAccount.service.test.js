@@ -24,11 +24,13 @@ describe("googleAccount.service", () => {
   test("safe migration is idempotent and does not change Stripe or unrelated fields", async () => {
     const User = {
       countDocuments: jest.fn()
+        // diagnostics: currentGoogle, legacyGoogleIdentifiable, localAccounts, adminAccounts, ambiguousAccounts
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(5)
+        // migration operation matches: Google normalization, Alvarado local normalization
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
       find: jest.fn()
@@ -67,11 +69,13 @@ describe("googleAccount.service", () => {
   test("dry-run reports documents without writing", async () => {
     const User = {
       countDocuments: jest.fn()
+        // diagnostics: currentGoogle, legacyGoogleIdentifiable, localAccounts, adminAccounts, ambiguousAccounts
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(5)
+        // dry-run operation matches: Google normalization, Alvarado local normalization
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
       find: jest.fn()

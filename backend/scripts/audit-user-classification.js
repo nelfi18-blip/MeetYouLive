@@ -37,8 +37,8 @@ Usage:
   cd backend && node scripts/audit-user-classification.js --limit=100
 
 Reads MONGODB_URI, MONGO_URI, or DATABASE_URL. It never writes to MongoDB.
-The per-user report masks emails, truncates user ids, and only prints presence/absence for password and OTP fields.
-Use --counts-only from Render Shell when you only need the final safe production counts.`);
+The per-user report (default) masks emails, truncates user ids, and only prints presence/absence for password and OTP fields.
+Use --counts-only to output only aggregated numeric counts with no per-user data—safe for production Render Shell.`);
 }
 
 function printTextReport(report, { limit }) {

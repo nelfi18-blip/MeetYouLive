@@ -220,6 +220,9 @@ describe("admin manual email verification", () => {
       expect.objectContaining({ _id: "google-user", authProvider: "google", emailVerified: true, isGoogleAccount: true }),
       expect.objectContaining({ _id: "legacy-user", authProvider: null, emailVerified: null, isGoogleAccount: false }),
     ]));
+    const legacyUser = res.body.users.find((user) => user._id === "legacy-user");
+    expect(legacyUser.authProvider).toBeNull();
+    expect(legacyUser.emailVerified).toBeNull();
   });
 
   test("diagnóstico de verificación devuelve conteos requeridos sin migrar datos", async () => {

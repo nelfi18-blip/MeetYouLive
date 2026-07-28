@@ -32,27 +32,26 @@ async function findOrCreateGoogleUser(profile = {}) {
       ...getGoogleUserPhotoFields(profile),
     });
   } else {
-    let shouldSave = false;
+    const updates = {};
     if (!user.username) {
-      user.username = await generateUniqueUsername(email, user._id);
-      shouldSave = true;
+      updates.username = await generateUniqueUsername(email, user._id);
     }
     if (user.authProvider !== "google") {
-      user.authProvider = "google";
-      shouldSave = true;
+      updates.authProvider = "google";
     }
     if (profile.id && user.googleId !== profile.id) {
-      user.googleId = profile.id;
-      shouldSave = true;
+      updates.googleId = profile.id;
     }
     if (user.emailVerified !== true) {
-      user.emailVerified = true;
-      user.emailVerificationCode = null;
-      user.emailVerificationExpires = null;
-      user.emailVerificationSentAt = null;
-      shouldSave = true;
+      updates.emailVerified = true;
+      updates.emailVerificationCode = null;
+      updates.emailVerificationExpires = null;
+      updates.emailVerificationSentAt = null;
     }
-    if (shouldSave) await user.save();
+    if (Object.keys(updates).length > 0) {
+      Object.assign(user, updates);
+      await user.save();
+    }
   }
 
   return user;

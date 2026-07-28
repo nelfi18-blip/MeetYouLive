@@ -26,7 +26,6 @@ const EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER = {
   ],
 };
 
-const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
 const getAuthProvider = (user) => {
   if (user?.authProvider === "google" || user?.googleId) return "google";
   if (user?.authProvider === "local") return "local";
@@ -34,7 +33,7 @@ const getAuthProvider = (user) => {
 };
 const isGoogleAccount = (user) => getAuthProvider(user) === "google";
 const getEmailVerifiedValue = (user) => {
-  if (!hasOwn(user, "emailVerified") || user.emailVerified === undefined || user.emailVerified === null) return null;
+  if (!Object.hasOwn(user || {}, "emailVerified") || user.emailVerified === undefined || user.emailVerified === null) return null;
   return user.emailVerified === true;
 };
 
@@ -352,7 +351,13 @@ exports.getUsers = async (req, res) => {
 
 exports.getEmailVerificationDiagnostics = async (req, res) => {
   try {
-    const [emailVerifiedTrue, emailVerifiedFalse, emailVerifiedMissing, googleAccounts, googleAccountsNotVerified] =
+    const [
+      emailVerifiedTrueCount,
+      emailVerifiedFalseCount,
+      emailVerifiedMissingCount,
+      googleAccountsCount,
+      googleAccountsNotVerifiedCount,
+    ] =
       await Promise.all([
         User.countDocuments({ emailVerified: true }),
         User.countDocuments({ emailVerified: false }),
@@ -368,11 +373,11 @@ exports.getEmailVerificationDiagnostics = async (req, res) => {
     return res.json({
       ok: true,
       diagnostics: {
-        emailVerifiedTrue,
-        emailVerifiedFalse,
-        emailVerifiedMissing,
-        googleAccounts,
-        googleAccountsNotVerified,
+        emailVerifiedTrue: emailVerifiedTrueCount,
+        emailVerifiedFalse: emailVerifiedFalseCount,
+        emailVerifiedMissing: emailVerifiedMissingCount,
+        googleAccounts: googleAccountsCount,
+        googleAccountsNotVerified: googleAccountsNotVerifiedCount,
       },
     });
   } catch (error) {

@@ -219,6 +219,8 @@ function summarizeAuditRows(rows) {
  * Builds the Render Shell safe output for the production dry-run audit.
  * Every field is a numeric aggregate so the report cannot include emails,
  * ids, password hashes, OTP state, tokens, or provider secrets.
+ * Spanish keys are intentional because this is the operator-facing output
+ * requested for the final mobile Render audit report.
  */
 function buildCountsOnlyAuditReport(counts = {}) {
   return {

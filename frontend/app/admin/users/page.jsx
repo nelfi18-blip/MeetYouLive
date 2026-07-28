@@ -39,6 +39,7 @@ function AdminUsersInner() {
   const [statusFilter, setStatusFilter] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+  const [pendingVerifyUserId, setPendingVerifyUserId] = useState(null);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -84,10 +85,6 @@ function AdminUsersInner() {
   };
 
   const doAction = async (userId, action) => {
-    if (action === "verify-email" && !confirm("¿Confirmas que deseas verificar manualmente este email?")) {
-      return;
-    }
-
     setActionLoading(userId + action);
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${userId}/${action}`, {
@@ -110,6 +107,14 @@ function AdminUsersInner() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const pendingVerifyUser = users.find((u) => u._id === pendingVerifyUserId);
+
+  const confirmEmailVerification = async () => {
+    const userId = pendingVerifyUserId;
+    setPendingVerifyUserId(null);
+    if (userId) await doAction(userId, "verify-email");
   };
 
   const doHardDelete = async (userId, userInfo) => {
@@ -176,6 +181,24 @@ function AdminUsersInner() {
       </form>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {pendingVerifyUserId && (
+       <div className="modal-backdrop" role="presentation">
+         <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="verify-email-title">
+           <h2 id="verify-email-title">Verificar email</h2>
+           <p>¿Confirmas que deseas verificar manualmente este email?</p>
+           {pendingVerifyUser?.email && <p className="confirm-email">{pendingVerifyUser.email}</p>}
+           <div className="confirm-actions">
+             <button type="button" className="btn-modal btn-modal-secondary" onClick={() => setPendingVerifyUserId(null)}>
+               Cancelar
+             </button>
+             <button type="button" className="btn-modal btn-modal-primary" onClick={confirmEmailVerification}>
+               Confirmar
+             </button>
+           </div>
+         </div>
+       </div>
+      )}
 
       {loading ? (
         <div className="loading-state">Cargando usuarios…</div>
@@ -287,7 +310,7 @@ function AdminUsersInner() {
                           {u.emailVerified === false && (
                             <button
                               className="btn-action btn-blue"
-                              onClick={() => doAction(u._id, "verify-email")}
+                              onClick={() => setPendingVerifyUserId(u._id)}
                               disabled={!!actionLoading}
                             >
                               {actionLoading === u._id + "verify-email" ? "…" : "Verificar email"}
@@ -415,6 +438,52 @@ function AdminUsersInner() {
 
         .alert-error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
         .alert-success { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
+
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          background: rgba(15, 23, 42, 0.72);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+        }
+
+        .confirm-modal {
+          width: min(100%, 420px);
+          background: #111827;
+          border: 1px solid #2d3748;
+          border-radius: 14px;
+          padding: 1.25rem;
+          box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+        }
+
+        .confirm-modal h2 { margin: 0 0 0.55rem; color: #e2e8f0; font-size: 1rem; }
+        .confirm-modal p { margin: 0; color: #cbd5e1; font-size: 0.9rem; line-height: 1.45; }
+        .confirm-email { margin-top: 0.65rem !important; color: #94a3b8 !important; word-break: break-all; }
+
+        .confirm-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.6rem;
+          margin-top: 1.2rem;
+        }
+
+        .btn-modal {
+          border-radius: 8px;
+          padding: 0.5rem 0.85rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          border: 1px solid transparent;
+        }
+
+        .btn-modal-secondary { background: #1e2535; border-color: #2d3748; color: #cbd5e1; }
+        .btn-modal-primary { background: #7c3aed; color: #fff; }
+        .btn-modal-secondary:hover { background: #263044; }
+        .btn-modal-primary:hover { background: #6d28d9; }
 
         .loading-state { text-align: center; padding: 3rem; color: #64748b; }
 

@@ -8,6 +8,9 @@ describe("User model profile fields", () => {
     expect(User.schema.path("avatar")).toBeTruthy();
     expect(User.schema.path("images")).toBeTruthy();
     expect(User.schema.path("profilePhotos")).toBeTruthy();
+    expect(User.schema.path("emailVerified")).toBeTruthy();
+    expect(User.schema.path("authProvider")).toBeTruthy();
+    expect(User.schema.path("googleId")).toBeTruthy();
 
     expect(User.schema.path("displayName")).toBeUndefined();
     expect(User.schema.path("age")).toBeUndefined();
@@ -18,6 +21,17 @@ describe("User model profile fields", () => {
     expect(User.schema.virtuals.age).toBeTruthy();
     expect(User.schema.virtuals.genderPreference).toBeTruthy();
     expect(User.schema.virtuals.profileImage).toBeTruthy();
+  });
+
+  test("defaults local email verification and auth provider fields", () => {
+    const user = new User({
+      email: "provider-default@example.com",
+      password: "secret",
+    });
+
+    expect(user.emailVerified).toBe(false);
+    expect(user.authProvider).toBe("local");
+    expect(user.googleId).toBeNull();
   });
 
   test("calculates age from birthdate without storing age", () => {

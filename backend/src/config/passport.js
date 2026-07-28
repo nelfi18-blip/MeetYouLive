@@ -12,7 +12,7 @@ async function findOrCreateGoogleUser(profile = {}) {
   if (!profile.emails || profile.emails.length === 0) {
     throw new Error("No email found in Google profile");
   }
-  const email = profile.emails[0].value;
+  const email = profile.emails[0].value.trim().toLowerCase();
 
   let user = await User.findOne({ email });
 
@@ -23,11 +23,35 @@ async function findOrCreateGoogleUser(profile = {}) {
       username,
       email,
       password: crypto.randomBytes(32).toString("hex"),
+      authProvider: "google",
+      googleId: profile.id || null,
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
       ...getGoogleUserPhotoFields(profile),
     });
-  } else if (!user.username) {
-    user.username = await generateUniqueUsername(email, user._id);
-    await user.save();
+  } else {
+    const updates = {};
+    if (!user.username) {
+      updates.username = await generateUniqueUsername(email, user._id);
+    }
+    if (user.authProvider !== "google") {
+      updates.authProvider = "google";
+    }
+    if (profile.id && user.googleId !== profile.id) {
+      updates.googleId = profile.id;
+    }
+    if (user.emailVerified !== true) {
+      updates.emailVerified = true;
+      updates.emailVerificationCode = null;
+      updates.emailVerificationExpires = null;
+      updates.emailVerificationSentAt = null;
+    }
+    if (Object.keys(updates).length > 0) {
+      user.set(updates);
+      if (user.isModified()) await user.save();
+    }
   }
 
   return user;

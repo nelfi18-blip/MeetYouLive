@@ -17,7 +17,20 @@ const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
+const {
+  getAuthProvider,
+  getGoogleEmailVerificationDiagnostics,
+  isGoogleAccount,
+  isManualEmailVerificationAllowed,
+  NON_GOOGLE_ACCOUNT_FILTER,
+  BCRYPT_PASSWORD_FILTER,
+} = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
+
+const getEmailVerifiedValue = (user) => {
+  if (!user || !Object.hasOwn(user, "emailVerified") || user.emailVerified == null) return null;
+  return user.emailVerified === true;
+};
 
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
@@ -113,9 +126,14 @@ const serializeAdminUser = (req, user) => {
     if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
   }
   const avatar = normalizedPhotos[0] || "";
-  const { password, ...safeUser } = user;
+  const { password, hasLocalPasswordEvidence, ...safeUser } = user;
+  const authProvider = getAuthProvider(user);
+  const emailVerified = getEmailVerifiedValue(user);
   return {
     ...safeUser,
+    emailVerified,
+    authProvider,
+    isGoogleAccount: authProvider === "google",
     avatar,
     profileImage: avatar,
     photo: avatar,
@@ -318,11 +336,125 @@ exports.getUsers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
+    const userIds = users.map((user) => user._id).filter(Boolean);
+    const localPasswordEvidenceUsers = userIds.length
+      ? await User.find({
+          $and: [
+            { _id: { $in: userIds } },
+            NON_GOOGLE_ACCOUNT_FILTER,
+            BCRYPT_PASSWORD_FILTER,
+          ],
+        })
+          .select("_id")
+          .lean()
+      : [];
+    const localPasswordEvidenceIds = new Set(localPasswordEvidenceUsers.map((user) => String(user._id)));
+    const serializedUsers = users.map((user) =>
+      serializeAdminUser(req, {
+        ...user,
+        hasLocalPasswordEvidence: localPasswordEvidenceIds.has(String(user._id)),
+      })
+    );
+
     res.set("Cache-Control", "no-store");
-    return res.json({ ok: true, users: users.map((user) => serializeAdminUser(req, user)), total, page, limit });
+    return res.json({ ok: true, users: serializedUsers, total, page, limit });
   } catch (error) {
     console.error("Admin users error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo usuarios" });
+  }
+};
+
+exports.getEmailVerificationDiagnostics = async (req, res) => {
+  try {
+    const diagnostics = await getGoogleEmailVerificationDiagnostics(User);
+
+    res.set("Cache-Control", "no-store");
+    return res.json({
+      ok: true,
+      diagnostics,
+    });
+  } catch (error) {
+    console.error("Admin email verification diagnostics error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo diagnóstico de verificación" });
+  }
+};
+
+exports.verifyUserEmailByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false, message: "id inválido" });
+    }
+
+    const existingUser = await User.findById(id)
+      .select("email emailVerified authProvider googleId images role")
+      .lean();
+
+    if (!existingUser) {
+      return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    }
+
+    if (existingUser.role === "admin") {
+      return res.status(400).json({ ok: false, message: "Las cuentas administrativas no usan verificación manual de email" });
+    }
+
+    if (isGoogleAccount(existingUser)) {
+      return res.status(400).json({ ok: false, message: "Las cuentas Google ya se consideran verificadas por el proveedor" });
+    }
+
+    if (existingUser.emailVerified === true) {
+      return res.status(400).json({ ok: false, message: "Email ya estaba verificado" });
+    }
+
+    const hasLocalPasswordEvidence = existingUser.authProvider === "local"
+      ? false
+      : Boolean(await User.exists({
+          $and: [
+            { _id: id },
+            NON_GOOGLE_ACCOUNT_FILTER,
+            BCRYPT_PASSWORD_FILTER,
+          ],
+        }));
+    const verificationUser = { ...existingUser, hasLocalPasswordEvidence };
+
+    if (!isManualEmailVerificationAllowed(verificationUser)) {
+      return res.status(400).json({ ok: false, message: "No hay evidencia suficiente para verificar este email manualmente" });
+    }
+
+    await User.updateOne(
+      {
+        $and: [
+          { _id: id, emailVerified: { $ne: true }, role: { $ne: "admin" } },
+          NON_GOOGLE_ACCOUNT_FILTER,
+        ],
+      },
+      {
+        $set: {
+          authProvider: "local",
+          emailVerified: true,
+          emailVerificationCode: null,
+          emailVerificationExpires: null,
+          emailVerificationSentAt: null,
+        },
+      },
+      { timestamps: false }
+    );
+
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole || "admin",
+      action: "EMAIL_VERIFIED_BY_ADMIN",
+      targetType: "User",
+      targetId: id,
+      targetIdentifier: String(id),
+      details: { affectedUserId: String(id) },
+      ipAddress: req.ip,
+    });
+
+    return res.json({ ok: true, message: "Email verificado manualmente" });
+  } catch (error) {
+    console.error("Admin verify email error:", error);
+    return res.status(500).json({ ok: false, message: "Error verificando email" });
   }
 };
 

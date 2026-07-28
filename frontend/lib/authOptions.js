@@ -95,6 +95,7 @@ export const authOptions = {
       }
       if (profile) {
         token.googleEmail = profile.email || token.email || "";
+        token.googleId = profile.sub || token.sub || "";
         token.googleName = profile.name || token.name || "";
         token.name = profile.name || token.name || "";
         token.email = profile.email || token.email || "";
@@ -123,6 +124,7 @@ export const authOptions = {
               },
               body: JSON.stringify({
                 email: token.googleEmail,
+                googleId: token.googleId,
                 name: token.googleName,
                 photoUrl: token.picture,
               }),
@@ -190,6 +192,7 @@ export const authOptions = {
       if (token.googleEmail) {
         session.googleEmail = token.googleEmail;
         session.googleName = token.googleName || "";
+        session.googleId = token.googleId || "";
       }
       if (typeof token.onboardingComplete === "boolean") {
         session.onboardingComplete = token.onboardingComplete;

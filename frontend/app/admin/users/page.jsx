@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { getAdminUserEmailStatus } from "@/lib/adminUsers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -39,6 +40,7 @@ function AdminUsersInner() {
   const [statusFilter, setStatusFilter] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState({ type: "", text: "" });
+  const [pendingVerifyUserId, setPendingVerifyUserId] = useState(null);
 
   const authHeader = useCallback(() => {
     const token = localStorage.getItem("admin_token");
@@ -97,6 +99,7 @@ function AdminUsersInner() {
         unblock: "Usuario desbloqueado.",
         suspend: "Usuario suspendido.",
         unsuspend: "Usuario reactivado.",
+        "verify-email": "Email verificado manualmente.",
       };
       showMsg("success", labels[action] || "Acción completada.");
       await loadUsers(page);
@@ -105,6 +108,14 @@ function AdminUsersInner() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const pendingVerifyUser = users.find((u) => u._id === pendingVerifyUserId);
+
+  const confirmEmailVerification = async () => {
+    const userId = pendingVerifyUserId;
+    setPendingVerifyUserId(null);
+    if (userId) await doAction(userId, "verify-email");
   };
 
   const doHardDelete = async (userId, userInfo) => {
@@ -172,6 +183,24 @@ function AdminUsersInner() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      {pendingVerifyUserId && (
+       <div className="modal-backdrop" role="presentation">
+         <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="verify-email-title">
+           <h2 id="verify-email-title">Verificar email</h2>
+           <p>¿Confirmas que deseas verificar manualmente este email?</p>
+           {pendingVerifyUser?.email && <p className="confirm-email">{pendingVerifyUser.email}</p>}
+           <div className="confirm-actions">
+             <button type="button" className="btn-modal btn-modal-secondary" onClick={() => setPendingVerifyUserId(null)}>
+               Cancelar
+             </button>
+             <button type="button" className="btn-modal btn-modal-primary" onClick={confirmEmailVerification}>
+               Confirmar
+             </button>
+           </div>
+         </div>
+       </div>
+      )}
+
       {loading ? (
         <div className="loading-state">Cargando usuarios…</div>
       ) : (
@@ -196,7 +225,9 @@ function AdminUsersInner() {
                     <td colSpan={8} className="empty-row">No hay usuarios que coincidan con los filtros.</td>
                   </tr>
                 ) : (
-                  users.map((u) => (
+                  users.map((u) => {
+                    const emailStatus = getAdminUserEmailStatus(u);
+                    return (
                     <tr key={u._id} className={u.isBlocked ? "row-blocked" : u.isSuspended ? "row-suspended" : ""}>
                       <td>
                         <div className="user-cell">
@@ -233,6 +264,7 @@ function AdminUsersInner() {
                           )}
                           {u.isPremium && <span className="status-badge status-premium">Premium</span>}
                           {u.isVerified && <span className="status-badge status-verified">Verificado</span>}
+                          <span className={`status-badge ${emailStatus.className}`}>{emailStatus.label}</span>
                         </div>
                       </td>
                       <td className="text-right">{(u.coins ?? 0).toLocaleString()}</td>
@@ -278,6 +310,15 @@ function AdminUsersInner() {
                               {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
                             </button>
                           )}
+                          {emailStatus.canVerifyManually && (
+                            <button
+                              className="btn-action btn-blue"
+                              onClick={() => setPendingVerifyUserId(u._id)}
+                              disabled={!!actionLoading}
+                            >
+                              {actionLoading === u._id + "verify-email" ? "…" : "Verificar email"}
+                            </button>
+                          )}
                           <button
                             className="btn-action btn-danger"
                             onClick={() => doHardDelete(u._id, u.username || u.email)}
@@ -289,7 +330,8 @@ function AdminUsersInner() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -401,6 +443,52 @@ function AdminUsersInner() {
         .alert-error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
         .alert-success { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
 
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          background: rgba(15, 23, 42, 0.72);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+        }
+
+        .confirm-modal {
+          width: min(100%, 420px);
+          background: #111827;
+          border: 1px solid #2d3748;
+          border-radius: 14px;
+          padding: 1.25rem;
+          box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+        }
+
+        .confirm-modal h2 { margin: 0 0 0.55rem; color: #e2e8f0; font-size: 1rem; }
+        .confirm-modal p { margin: 0; color: #cbd5e1; font-size: 0.9rem; line-height: 1.45; }
+        .confirm-email { margin-top: 0.65rem !important; color: #94a3b8 !important; word-break: break-all; }
+
+        .confirm-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.6rem;
+          margin-top: 1.2rem;
+        }
+
+        .btn-modal {
+          border-radius: 8px;
+          padding: 0.5rem 0.85rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          border: 1px solid transparent;
+        }
+
+        .btn-modal-secondary { background: #1e2535; border-color: #2d3748; color: #cbd5e1; }
+        .btn-modal-primary { background: #7c3aed; color: #fff; }
+        .btn-modal-secondary:hover { background: #263044; }
+        .btn-modal-primary:hover { background: #6d28d9; }
+
         .loading-state { text-align: center; padding: 3rem; color: #64748b; }
 
         .table-wrap {
@@ -490,6 +578,11 @@ function AdminUsersInner() {
         .status-suspended { background: rgba(251, 191, 36, 0.1); color: #fbbf24; }
         .status-premium { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
         .status-verified { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .status-email-verified { background: rgba(52, 211, 153, 0.1); color: #34d399; }
+        .status-email-unverified { background: rgba(251, 146, 60, 0.1); color: #fb923c; }
+        .status-google { background: rgba(96, 165, 250, 0.1); color: #60a5fa; }
+        .status-admin-account { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
+        .status-email-unknown { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
 
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 
@@ -515,6 +608,8 @@ function AdminUsersInner() {
 
         .btn-yellow { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251, 191, 36, 0.18); }
+        .btn-blue { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.25); color: #38bdf8; }
+        .btn-blue:hover:not(:disabled) { background: rgba(56, 189, 248, 0.18); }
 
         .btn-danger { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3); color: #ef4444; }
         .btn-danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.2); }

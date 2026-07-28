@@ -9,6 +9,7 @@ const { makePrimaryUserPhotoFields } = require("../lib/photoFields.js");
 const { normalizeLocationForUserUpdate } = require("../lib/location.js");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/email.service.js");
 const { trackAnalyticsEvent, trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
+const { EMAIL_VERIFICATION_CLEAR_FIELDS } = require("../services/googleAccount.service.js");
 const { validate, registerSchema, loginSchema } = require("../middlewares/validate.middleware.js");
 
 /**
@@ -200,6 +201,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       email,
       password: hashedPassword,
       emailVerified: false,
+      authProvider: "local",
       emailVerificationCode: hashOtpCode(code),
       emailVerificationExpires: expires,
       emailVerificationSentAt: now,
@@ -220,11 +222,10 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
         ? `${err.code}: ${err.message || "Unknown email error"}`
         : (err && err.message) || "Unknown email error";
       console.error("[register] Failed to send verification email:", detail);
-      await User.deleteOne({ _id: user._id, emailVerified: false }).catch((cleanupErr) => {
-        console.error("[register] Failed to clean up unverified user after email error:", cleanupErr.message);
-      });
+      // Keep the unverified account so the user can request a resend from the verify-email page.
+      // Deleting it here would cause a confusing "Usuario no encontrado" error at login.
       const { status, body } = getEmailSendFailurePayload(err);
-      return res.status(status).json(body);
+      return res.status(status).json({ ...body, email, requiresResend: true });
     }
 
     // Analytics: referral_shared — track that the inviter's link was used (fire-and-forget)
@@ -257,7 +258,7 @@ router.post("/login", loginLimiter, validate(loginSchema), async (req, res) => {
   }
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND", message: "No encontramos una cuenta con ese email." });
 
     if (user.isBlocked) return res.status(403).json({ message: "Tu cuenta ha sido bloqueada. Contacta al soporte." });
 
@@ -619,6 +620,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const googleId = typeof req.body.googleId === "string" && req.body.googleId.trim() ? req.body.googleId.trim() : null;
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
@@ -653,6 +655,10 @@ router.post("/google-session", authLimiter, async (req, res) => {
         username,
         email,
         password: crypto.randomBytes(32).toString("hex"),
+        authProvider: "google",
+        googleId,
+        emailVerified: true,
+        ...EMAIL_VERIFICATION_CLEAR_FIELDS,
         referralCode,
         referredBy,
         ...(normalizedLocation || {}),
@@ -672,6 +678,24 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
       if (!user.referralCode) {
         user.referralCode = await generateReferralCode();
+        changed = true;
+      }
+      if (user.authProvider !== "google") {
+        user.authProvider = "google";
+        changed = true;
+      }
+      if (googleId && user.googleId !== googleId) {
+        user.googleId = googleId;
+        changed = true;
+      }
+      const hasPendingEmailVerification =
+        user.emailVerified !== true ||
+        user.emailVerificationCode != null ||
+        user.emailVerificationExpires != null ||
+        user.emailVerificationSentAt != null;
+      if (hasPendingEmailVerification) {
+        user.emailVerified = true;
+        Object.assign(user, EMAIL_VERIFICATION_CLEAR_FIELDS);
         changed = true;
       }
       if (changed) await user.save();

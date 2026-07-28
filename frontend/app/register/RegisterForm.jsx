@@ -101,6 +101,13 @@ export default function RegisterForm() {
       const data = await signUp(payload);
 
       if (data.error) {
+        // Account was created but the verification email failed to send.
+        // The account is kept unverified; redirect to verify-email so the user can request a resend.
+        if (data.requiresResend && data.email) {
+          setSuccess("Tu cuenta fue creada pero no pudimos enviar el email de verificación. Redirigiendo…");
+          setTimeout(() => { router.push(`/verify-email?email=${encodeURIComponent(data.email)}`); }, 1500);
+          return;
+        }
         const lowerMsg = data.error.toLowerCase();
         if (lowerMsg.includes("email") && lowerMsg.includes("exist")) {
           router.push(`/login?email=${encodeURIComponent(email.trim())}`);

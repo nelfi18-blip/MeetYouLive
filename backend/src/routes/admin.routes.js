@@ -43,6 +43,8 @@ const {
   hardDeleteUser,
   getPayouts,
   updatePayout,
+  verifyUserEmailByAdmin,
+  getEmailVerificationDiagnostics,
 } = require("../controllers/admin.controller.js");
 
 const {
@@ -152,6 +154,7 @@ router.patch("/reports/:id", adminLimiter, verifyToken, requirePermission("UPDAT
 
 // Users view: admin, support, moderator
 router.get("/users", adminLimiter, verifyToken, requirePermission("VIEW_USERS"), getUsers);
+router.get("/users/email-verification-diagnostics", adminLimiter, verifyToken, requireAdmin, getEmailVerificationDiagnostics);
 
 // Lives view: admin, moderator
 router.get("/lives", adminLimiter, verifyToken, requirePermission("VIEW_LIVES"), getActiveLives);
@@ -255,6 +258,7 @@ router.use(adminLimiter, verifyToken, requireAdmin);
 router.get("/overview", getOverview);
 router.patch("/users/:id/suspend", suspendUser);
 router.patch("/users/:id/unsuspend", unsuspendUser);
+router.patch("/users/:id/verify-email", verifyUserEmailByAdmin);
 router.patch("/make-admin", makeAdmin);
 router.get("/verifications", getVerificationRequests);
 router.patch("/users/:id/verify", verifyUser);

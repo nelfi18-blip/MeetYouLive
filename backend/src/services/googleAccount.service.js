@@ -1,4 +1,3 @@
-const ALVARADO_LOCAL_EMAIL = "alvaradomeetyoulive@gmail.com";
 const BCRYPT_PASSWORD_PATTERN_SOURCE = "^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$";
 const BCRYPT_PASSWORD_PATTERN = new RegExp(BCRYPT_PASSWORD_PATTERN_SOURCE);
 const BCRYPT_PASSWORD_FILTER = { password: { $regex: BCRYPT_PASSWORD_PATTERN_SOURCE } };
@@ -11,6 +10,7 @@ const EMAIL_VERIFICATION_CLEAR_FIELDS = {
 };
 
 const CURRENT_GOOGLE_ACCOUNT_FILTER = { authProvider: "google" };
+const NON_GOOGLE_ACCOUNT_FILTER = { $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER] };
 
 const GOOGLE_ACCOUNT_FILTER = {
   $or: [
@@ -46,29 +46,28 @@ const GOOGLE_NORMALIZATION_FILTER = {
 const LOCAL_ACCOUNT_FILTER = {
   $and: [
     { role: { $ne: "admin" } },
-    { $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER] },
+    NON_GOOGLE_ACCOUNT_FILTER,
     {
       $or: [
         { authProvider: "local" },
-        { email: ALVARADO_LOCAL_EMAIL },
         BCRYPT_PASSWORD_FILTER,
       ],
     },
   ],
 };
 
-const ALVARADO_LOCAL_NORMALIZATION_FILTER = {
-  // This production account is the confirmed local email/password account and must not be inferred from the gmail.com domain.
-  email: ALVARADO_LOCAL_EMAIL,
-  authProvider: { $ne: "local" },
-  $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER],
+const LEGACY_LOCAL_NORMALIZATION_FILTER = {
+  $and: [
+    { authProvider: { $ne: "local" } },
+    NON_GOOGLE_ACCOUNT_FILTER,
+    BCRYPT_PASSWORD_FILTER,
+  ],
 };
 
 const AMBIGUOUS_ACCOUNT_FILTER = {
   $and: [
     { role: { $ne: "admin" } },
-    { email: { $ne: ALVARADO_LOCAL_EMAIL } },
-    { $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER] },
+    NON_GOOGLE_ACCOUNT_FILTER,
     {
       $or: [
         { authProvider: { $exists: false } },
@@ -93,14 +92,16 @@ const hasGoogleImageEvidence = (user = {}) =>
 const hasGoogleId = (user = {}) => typeof user.googleId === "string" && user.googleId.trim() !== "";
 
 const hasBcryptPasswordEvidence = (user = {}) =>
-  typeof user.password === "string" && BCRYPT_PASSWORD_PATTERN.test(user.password) && !hasGoogleId(user);
+  (user.hasLocalPasswordEvidence === true ||
+    (typeof user.password === "string" && BCRYPT_PASSWORD_PATTERN.test(user.password))) &&
+  !hasGoogleId(user);
 
 const isGoogleAccount = (user = {}) =>
   user?.authProvider === "google" || hasGoogleId(user) || hasGoogleImageEvidence(user);
 
 const getAuthProvider = (user = {}) => {
   if (isGoogleAccount(user)) return "google";
-  if (user?.authProvider === "local" || user?.email === ALVARADO_LOCAL_EMAIL || hasBcryptPasswordEvidence(user)) {
+  if (user?.authProvider === "local" || hasBcryptPasswordEvidence(user)) {
     return "local";
   }
   return null;
@@ -108,7 +109,7 @@ const getAuthProvider = (user = {}) => {
 
 const isManualEmailVerificationAllowed = (user = {}) =>
   user?.role !== "admin" &&
-  user?.authProvider === "local" &&
+  getAuthProvider(user) === "local" &&
   user?.emailVerified !== true &&
   // Some legacy Google accounts can still have authProvider:"local"; persistent Google evidence must still block manual OTP bypass.
   !isGoogleAccount(user);
@@ -126,7 +127,7 @@ async function getGoogleEmailVerificationDiagnostics(User) {
     adminAccounts,
     ambiguousAccounts,
     googleDocumentsToModify,
-    alvaradoDocumentsToModify,
+    legacyLocalDocumentsToModify,
   ] = await Promise.all([
     User.countDocuments(CURRENT_GOOGLE_ACCOUNT_FILTER),
     User.countDocuments(LEGACY_GOOGLE_ACCOUNT_FILTER),
@@ -134,11 +135,11 @@ async function getGoogleEmailVerificationDiagnostics(User) {
     User.countDocuments({ role: "admin" }),
     User.countDocuments(AMBIGUOUS_ACCOUNT_FILTER),
     previewDocuments(User, GOOGLE_NORMALIZATION_FILTER),
-    previewDocuments(User, ALVARADO_LOCAL_NORMALIZATION_FILTER),
+    previewDocuments(User, LEGACY_LOCAL_NORMALIZATION_FILTER),
   ]);
   const documentsToModify = [
     ...googleDocumentsToModify.map((user) => ({ ...user, plannedChange: "normalize-google-email-verification" })),
-    ...alvaradoDocumentsToModify.map((user) => ({ ...user, plannedChange: "classify-alvarado-local" })),
+    ...legacyLocalDocumentsToModify.map((user) => ({ ...user, plannedChange: "classify-legacy-local" })),
   ];
 
   return {
@@ -177,50 +178,52 @@ async function migrateSafeLegacyGoogleAccounts(User, { execute = false } = {}) {
     },
   };
 
-  const alvaradoUpdate = { $set: { authProvider: "local" } };
-  const [diagnostics, googleMatchedCount, alvaradoMatchedCount] = await Promise.all([
+  const legacyLocalUpdate = { $set: { authProvider: "local" } };
+  const [diagnostics, googleMatchedCount, legacyLocalMatchedCount] = await Promise.all([
     getGoogleEmailVerificationDiagnostics(User),
     User.countDocuments(GOOGLE_NORMALIZATION_FILTER),
-    User.countDocuments(ALVARADO_LOCAL_NORMALIZATION_FILTER),
+    User.countDocuments(LEGACY_LOCAL_NORMALIZATION_FILTER),
   ]);
   if (!execute) {
     return {
       dryRun: true,
-      matchedCount: googleMatchedCount + alvaradoMatchedCount,
+      matchedCount: googleMatchedCount + legacyLocalMatchedCount,
       modifiedCount: 0,
       diagnostics,
       operations: [
         { name: "normalize-google-email-verification", matchedCount: googleMatchedCount, filter: GOOGLE_NORMALIZATION_FILTER, update: googleUpdate },
-        { name: "classify-alvarado-local", matchedCount: alvaradoMatchedCount, filter: ALVARADO_LOCAL_NORMALIZATION_FILTER, update: alvaradoUpdate },
+        { name: "classify-legacy-local", matchedCount: legacyLocalMatchedCount, filter: LEGACY_LOCAL_NORMALIZATION_FILTER, update: legacyLocalUpdate },
       ],
     };
   }
 
-  const [googleResult, alvaradoResult] = await Promise.all([
+  const [googleResult, legacyLocalResult] = await Promise.all([
     User.updateMany(GOOGLE_NORMALIZATION_FILTER, googleUpdate),
-    User.updateMany(ALVARADO_LOCAL_NORMALIZATION_FILTER, alvaradoUpdate),
+    User.updateMany(LEGACY_LOCAL_NORMALIZATION_FILTER, legacyLocalUpdate),
   ]);
   return {
     dryRun: false,
-    matchedCount: googleMatchedCount + alvaradoMatchedCount,
-    modifiedCount: (googleResult.modifiedCount || 0) + (alvaradoResult.modifiedCount || 0),
+    matchedCount: googleMatchedCount + legacyLocalMatchedCount,
+    modifiedCount: (googleResult.modifiedCount || 0) + (legacyLocalResult.modifiedCount || 0),
     diagnostics,
     operations: [
       { name: "normalize-google-email-verification", matchedCount: googleMatchedCount, modifiedCount: googleResult.modifiedCount || 0, filter: GOOGLE_NORMALIZATION_FILTER, update: googleUpdate },
-      { name: "classify-alvarado-local", matchedCount: alvaradoMatchedCount, modifiedCount: alvaradoResult.modifiedCount || 0, filter: ALVARADO_LOCAL_NORMALIZATION_FILTER, update: alvaradoUpdate },
+      { name: "classify-legacy-local", matchedCount: legacyLocalMatchedCount, modifiedCount: legacyLocalResult.modifiedCount || 0, filter: LEGACY_LOCAL_NORMALIZATION_FILTER, update: legacyLocalUpdate },
     ],
   };
 }
 
 module.exports = {
-  ALVARADO_LOCAL_EMAIL,
   AMBIGUOUS_ACCOUNT_FILTER,
   CURRENT_GOOGLE_ACCOUNT_FILTER,
   GOOGLE_ACCOUNT_FILTER,
   GOOGLE_NORMALIZATION_FILTER,
+  LEGACY_LOCAL_NORMALIZATION_FILTER,
+  BCRYPT_PASSWORD_FILTER,
   EMAIL_VERIFICATION_CLEAR_FIELDS,
   LEGACY_GOOGLE_ACCOUNT_FILTER,
   LOCAL_ACCOUNT_FILTER,
+  NON_GOOGLE_ACCOUNT_FILTER,
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,
   hasBcryptPasswordEvidence,

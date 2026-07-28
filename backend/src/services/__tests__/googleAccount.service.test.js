@@ -15,7 +15,7 @@ describe("googleAccount.service", () => {
     expect(getAuthProvider({ authProvider: "google" })).toBe("google");
     expect(getAuthProvider({ googleId: "google-1" })).toBe("google");
     expect(getAuthProvider({ images: [{ source: "google" }] })).toBe("google");
-    expect(getAuthProvider({ email: "alvaradomeetyoulive@gmail.com" })).toBe("local");
+    expect(getAuthProvider({ email: "alvaradomeetyoulive@gmail.com" })).toBeNull();
     expect(getAuthProvider({ password: "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa" })).toBe("local");
     expect(getAuthProvider({ email: "person@gmail.com", emailVerified: false })).toBeNull();
     expect(hasBcryptPasswordEvidence({ password: "not-bcrypt" })).toBe(false);
@@ -30,7 +30,7 @@ describe("googleAccount.service", () => {
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(5)
-        // migration operation matches: Google normalization, Alvarado local normalization
+        // migration operation matches: Google normalization, legacy local normalization
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
       find: jest.fn()
@@ -58,7 +58,11 @@ describe("googleAccount.service", () => {
     );
     expect(User.updateMany).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ email: "alvaradomeetyoulive@gmail.com" }),
+      expect.objectContaining({
+        $and: expect.arrayContaining([
+          expect.objectContaining({ password: { $regex: expect.stringContaining("^\\$2") } }),
+        ]),
+      }),
       { $set: { authProvider: "local" } }
     );
     const updates = JSON.stringify([User.updateMany.mock.calls[0][1], User.updateMany.mock.calls[1][1]]);
@@ -75,7 +79,7 @@ describe("googleAccount.service", () => {
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(5)
-        // dry-run operation matches: Google normalization, Alvarado local normalization
+        // dry-run operation matches: Google normalization, legacy local normalization
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
       find: jest.fn()

@@ -5,29 +5,29 @@ import { getAdminUserEmailStatus } from "../lib/adminUsers.js";
 test("local unverified user shows label and manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: "local", emailVerified: false });
 
-  assert.equal(status.label, "Cuenta local sin verificar");
+  assert.equal(status.label, "Email sin verificar");
   assert.equal(status.canVerifyManually, true);
 });
 
-test("Alvarado local unverified user shows manual verification action before verification", () => {
+test("local Gmail unverified user shows manual verification action before verification", () => {
   const status = getAdminUserEmailStatus({
-    email: "alvaradomeetyoulive@gmail.com",
+    email: "local-person@gmail.com",
     authProvider: "local",
     emailVerified: false,
   });
 
-  assert.equal(status.label, "Cuenta local sin verificar");
+  assert.equal(status.label, "Email sin verificar");
   assert.equal(status.canVerifyManually, true);
 });
 
-test("Alvarado local verified user hides manual verification action after verification", () => {
+test("local Gmail verified user hides manual verification action after verification", () => {
   const status = getAdminUserEmailStatus({
-    email: "alvaradomeetyoulive@gmail.com",
+    email: "local-person@gmail.com",
     authProvider: "local",
     emailVerified: true,
   });
 
-  assert.equal(status.label, "Cuenta local verificada");
+  assert.equal(status.label, "Email verificado");
   assert.equal(status.canVerifyManually, false);
 });
 
@@ -45,6 +45,13 @@ test("safely identified legacy Google user does not show manual verification act
   assert.equal(status.canVerifyManually, false);
 });
 
+test("historical Google user identified from persisted creation metadata does not show manual verification action", () => {
+  const status = getAdminUserEmailStatus({ authProvider: null, isGoogleAccount: true, emailVerified: false });
+
+  assert.equal(status.label, "Cuenta Google");
+  assert.equal(status.canVerifyManually, false);
+});
+
 test("ambiguous user with explicit unverified email shows no information and no action", () => {
   const status = getAdminUserEmailStatus({ authProvider: null, emailVerified: false });
 
@@ -55,7 +62,7 @@ test("ambiguous user with explicit unverified email shows no information and no 
 test("local verified user shows verified label without manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: "local", emailVerified: true });
 
-  assert.equal(status.label, "Cuenta local verificada");
+  assert.equal(status.label, "Email verificado");
   assert.equal(status.canVerifyManually, false);
 });
 

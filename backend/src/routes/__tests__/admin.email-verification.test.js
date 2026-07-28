@@ -91,6 +91,7 @@ describe("admin manual email verification", () => {
             $nor: [
               { authProvider: "google" },
               { googleId: { $exists: true, $nin: [null, ""] } },
+              { images: { $elemMatch: { source: "google" } } },
             ],
           },
         ],
@@ -208,7 +209,7 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
-  test("cuenta con solo imagen Google y sin proveedor queda ambigua", async () => {
+  test("cuenta con metadata histórica Google no se verifica manualmente", async () => {
     mockAdminAccess();
     User.findById.mockReturnValueOnce(makeLeanSelectChain({
       _id: targetUserId,
@@ -224,7 +225,7 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
-  test("cuenta local no verificada con imagen Google se puede verificar por proveedor persistido", async () => {
+  test("cuenta local no verificada con metadata Google persistida se bloquea como Google", async () => {
     mockAdminAccess();
     User.findById.mockReturnValueOnce(makeLeanSelectChain({
       _id: targetUserId,
@@ -236,8 +237,9 @@ describe("admin manual email verification", () => {
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
-    expect(res.status).toBe(200);
-    expect(User.updateOne).toHaveBeenCalled();
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Las cuentas Google ya se consideran verificadas por el proveedor");
+    expect(User.updateOne).not.toHaveBeenCalled();
   });
 
   test("cuenta admin no puede verificarse manualmente", async () => {
@@ -348,10 +350,10 @@ describe("admin manual email verification", () => {
       .mockResolvedValueOnce(4)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(3);
-    User.find
-      .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
-      .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }]));
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1);
 
     const res = await request(app).get("/api/admin/users/email-verification-diagnostics");
 
@@ -359,16 +361,22 @@ describe("admin manual email verification", () => {
     expect(res.body.diagnostics).toEqual({
       currentGoogle: 5,
       legacyGoogleIdentifiable: 4,
-      localAccounts: 2,
-      adminAccounts: 1,
-      ambiguousAccounts: 3,
-      documentsToModify: [
-        expect.objectContaining({ _id: "g1", plannedChange: "normalize-google-email-verification" }),
-        expect.objectContaining({ _id: "a1", plannedChange: "classify-legacy-local" }),
-      ],
-      documentsToModifyCount: 2,
+      nextAuthGoogleIdentifiable: 0,
+      localAccounts: 1,
+      adminAccounts: 3,
+      ambiguousAccounts: 7,
+      legacyAccounts: 7,
+      documentsToModifyCount: 3,
+      summary: {
+        googleAccounts: 2,
+        localAccounts: 1,
+        adminAccounts: 3,
+        legacyAccounts: 7,
+      },
       legacyEvidence: [
         expect.objectContaining({ key: "googleId", value: "present" }),
+        expect.objectContaining({ key: "images.source", value: "google" }),
+        expect.objectContaining({ key: "accounts.provider", value: "google" }),
       ],
       ambiguousLegacyGoogle: expect.objectContaining({ count: null }),
     });

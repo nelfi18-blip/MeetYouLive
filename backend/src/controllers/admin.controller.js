@@ -20,9 +20,10 @@ const { notifyCreatorDecision } = require("../services/essentialNotification.ser
 const {
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,
+  getNextAuthGoogleUserIds,
   isGoogleAccount,
   isManualEmailVerificationAllowed,
-  NON_GOOGLE_ACCOUNT_FILTER,
+  buildNonGoogleAccountFilter,
   BCRYPT_PASSWORD_FILTER,
 } = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
@@ -337,11 +338,13 @@ exports.getUsers = async (req, res) => {
     ]);
 
     const userIds = users.map((user) => user._id).filter(Boolean);
+    const nextAuthGoogleUserIds = await getNextAuthGoogleUserIds(User, { userIds });
+    const nextAuthGoogleUserIdSet = new Set(nextAuthGoogleUserIds.map((id) => String(id)));
     const localPasswordEvidenceUsers = userIds.length
       ? await User.find({
           $and: [
             { _id: { $in: userIds } },
-            NON_GOOGLE_ACCOUNT_FILTER,
+            buildNonGoogleAccountFilter(nextAuthGoogleUserIds),
             BCRYPT_PASSWORD_FILTER,
           ],
         })
@@ -353,6 +356,7 @@ exports.getUsers = async (req, res) => {
       serializeAdminUser(req, {
         ...user,
         hasLocalPasswordEvidence: localPasswordEvidenceIds.has(String(user._id)),
+        hasNextAuthGoogleEvidence: nextAuthGoogleUserIdSet.has(String(user._id)),
       })
     );
 
@@ -387,7 +391,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("email emailVerified authProvider googleId role")
+      .select("email emailVerified authProvider googleId role images.source")
       .lean();
 
     if (!existingUser) {
@@ -398,7 +402,11 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Las cuentas administrativas no usan verificación manual de email" });
     }
 
-    if (isGoogleAccount(existingUser)) {
+    const nextAuthGoogleUserIds = await getNextAuthGoogleUserIds(User, { userIds: [id] });
+    const hasNextAuthGoogleEvidence = nextAuthGoogleUserIds.some((userId) => String(userId) === String(id));
+    const userWithNextAuthEvidence = { ...existingUser, hasNextAuthGoogleEvidence };
+
+    if (isGoogleAccount(userWithNextAuthEvidence)) {
       return res.status(400).json({ ok: false, message: "Las cuentas Google ya se consideran verificadas por el proveedor" });
     }
 
@@ -411,11 +419,11 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
       : Boolean(await User.exists({
           $and: [
             { _id: id },
-            NON_GOOGLE_ACCOUNT_FILTER,
+            buildNonGoogleAccountFilter(nextAuthGoogleUserIds),
             BCRYPT_PASSWORD_FILTER,
           ],
         }));
-    const verificationUser = { ...existingUser, hasLocalPasswordEvidence };
+    const verificationUser = { ...userWithNextAuthEvidence, hasLocalPasswordEvidence };
 
     if (!isManualEmailVerificationAllowed(verificationUser)) {
       return res.status(400).json({ ok: false, message: "No hay evidencia suficiente para verificar este email manualmente" });
@@ -425,7 +433,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
       {
         $and: [
           { _id: id, emailVerified: { $ne: true }, role: { $ne: "admin" } },
-          NON_GOOGLE_ACCOUNT_FILTER,
+          buildNonGoogleAccountFilter(nextAuthGoogleUserIds),
         ],
       },
       {

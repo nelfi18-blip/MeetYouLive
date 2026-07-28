@@ -8,11 +8,11 @@ export function getAdminUserEmailStatus(user = {}) {
   }
 
   if (user.authProvider === "local" && user.emailVerified === true) {
-    return { label: "Cuenta local verificada", className: "status-email-verified", canVerifyManually: false };
+    return { label: "Email verificado", className: "status-email-verified", canVerifyManually: false };
   }
 
   if (user.authProvider === "local" && user.emailVerified !== true) {
-    return { label: "Cuenta local sin verificar", className: "status-email-unverified", canVerifyManually: true };
+    return { label: "Email sin verificar", className: "status-email-unverified", canVerifyManually: true };
   }
 
   return { label: "Sin información", className: "status-email-unknown", canVerifyManually: false };

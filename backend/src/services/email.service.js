@@ -32,14 +32,17 @@ function getTransporter() {
       secure: parseInt(SMTP_PORT || "587", 10) === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
     });
-  } else if (process.env.NODE_ENV === "production") {
+  } else if (process.env.ALLOW_DEV_EMAIL_FALLBACK === "true") {
+    // Explicit opt-in for local development only. Never set this in production.
+    transporter = nodemailer.createTransport({ jsonTransport: true });
+  } else {
+    // No SMTP config and no explicit dev fallback. This includes Render and any
+    // other deployment that didn't set NODE_ENV=production but also didn't
+    // configure SMTP. Fail loudly so the operator knows emails won't be sent.
     throw new MailServiceError(
       "EMAIL_NOT_CONFIGURED",
-      "Email service is not configured. In production, SMTP_HOST, SMTP_USER, and SMTP_PASS are required."
+      "Email service is not configured. SMTP_HOST, SMTP_USER, and SMTP_PASS are required. For local dev only, set ALLOW_DEV_EMAIL_FALLBACK=true."
     );
-  } else {
-    // Development fallback: log emails to the console
-    transporter = nodemailer.createTransport({ jsonTransport: true });
   }
 
   return transporter;
@@ -49,11 +52,11 @@ const FROM = process.env.SMTP_FROM || "MeetYouLive <noreply@meetyoulive.net>";
 
 function getEmailConfigSummary() {
   return {
-    provider: process.env.SMTP_HOST ? "smtp" : "development-json",
+    provider: process.env.SMTP_HOST ? "smtp" : (process.env.ALLOW_DEV_EMAIL_FALLBACK === "true" ? "development-json" : "unconfigured"),
     host: process.env.SMTP_HOST || null,
     port: parseInt(process.env.SMTP_PORT || "587", 10),
     from: FROM,
-    production: process.env.NODE_ENV === "production",
+    devFallback: process.env.ALLOW_DEV_EMAIL_FALLBACK === "true",
   };
 }
 
@@ -154,10 +157,10 @@ async function sendVerificationEmail(to, code) {
     );
   }
 
-  // In dev (jsonTransport), print what would have been sent.
-  // This code path is only reached when SMTP_HOST is not set (non-production).
+  // In dev fallback mode (jsonTransport), print what would have been sent.
+  // This block is only reachable when ALLOW_DEV_EMAIL_FALLBACK=true is set.
   // NEVER log verification codes in production.
-  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+  if (process.env.ALLOW_DEV_EMAIL_FALLBACK === "true") {
     const parsed = typeof info.message === "string" ? JSON.parse(info.message) : info;
     console.log(`\n📧 [DEV EMAIL] To: ${to}`);
     console.log(`   Subject: ${parsed.subject || mailOptions.subject}`);
@@ -221,7 +224,7 @@ async function sendPasswordResetEmail(to, code) {
     );
   }
 
-  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+  if (process.env.ALLOW_DEV_EMAIL_FALLBACK === "true") {
     const parsed = typeof info.message === "string" ? JSON.parse(info.message) : info;
     console.log(`\n📧 [DEV EMAIL] To: ${to}`);
     console.log(`   Subject: ${parsed.subject || mailOptions.subject}`);
@@ -308,7 +311,7 @@ async function sendReactivationEmail(to, displayName, day, likesCount = 0, match
     html,
   });
 
-  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+  if (process.env.ALLOW_DEV_EMAIL_FALLBACK === "true") {
     console.log(`\n📧 [DEV EMAIL] Reactivation day ${day} → ${to}`);
     console.log(`   Subject: ${msg.subject}\n`);
   }
@@ -346,10 +349,45 @@ async function sendTransactionalNotificationEmail(to, { subject, text, ctaUrl, c
   return info;
 }
 
+/**
+ * Non-blocking SMTP connectivity check intended to be called once at server
+ * startup. It logs whether the transport can authenticate, without including
+ * any credentials in the log output. It never throws — a failure here is
+ * informational only and must not prevent the server from starting.
+ */
+async function verifySmtpConfig() {
+  let transport;
+  try {
+    transport = getTransporter();
+  } catch (err) {
+    console.warn("[email:startup] SMTP transport not created:", err.code || err.message);
+    return;
+  }
+
+  // jsonTransport (dev fallback) has no real connection to verify.
+  if (transport.options && transport.options.jsonTransport) {
+    console.log("[email:startup] Dev email fallback active (jsonTransport). No real SMTP connection.");
+    return;
+  }
+
+  try {
+    await transport.verify();
+    console.log("[email:startup] SMTP connection verified OK — host reachable and credentials accepted.");
+  } catch (err) {
+    // Log only the error category — never user/pass or full SMTP banner.
+    console.error("[email:startup] SMTP verify failed", {
+      code: err.code || null,
+      responseCode: err.responseCode || null,
+      command: err.command || null,
+    });
+  }
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendReactivationEmail,
   sendTransactionalNotificationEmail,
   MailServiceError,
+  verifySmtpConfig,
 };

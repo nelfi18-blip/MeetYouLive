@@ -1,6 +1,6 @@
 export function getAdminUserEmailStatus(user = {}) {
   if (user.role === "admin") {
-    return { label: "Cuenta administrativa", className: "status-admin-account", canVerifyManually: false };
+    return { label: "Administrador", className: "status-admin-account", canVerifyManually: false };
   }
 
   if (user.isGoogleAccount === true || user.authProvider === "google" || Boolean(user.googleId)) {

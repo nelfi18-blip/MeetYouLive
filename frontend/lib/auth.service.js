@@ -50,11 +50,14 @@ export const login = async (credentials) => {
 };
 
 export const verifyEmail = async ({ email, code }) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(`${getApiUrl()}/api/auth/verify-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, code }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -64,8 +67,41 @@ export const verifyEmail = async ({ email, code }) => {
 
     return await response.json();
   } catch (error) {
+    if (error?.name === "AbortError") {
+      return { error: "La solicitud tardó demasiado. Intenta de nuevo." };
+    }
     console.error("Connection Error:", error);
     return { error: "No se pudo conectar con el servidor. Intenta de nuevo más tarde." };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+export const updateUnverifiedEmail = async ({ oldEmail, newEmail, password }) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${getApiUrl()}/api/auth/update-unverified-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oldEmail, newEmail, password }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { error: errorData.message || "No se pudo actualizar el email" };
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return { error: "La solicitud tardó demasiado. Intenta de nuevo." };
+    }
+    console.error("Connection Error:", error);
+    return { error: "No se pudo conectar con el servidor. Intenta de nuevo más tarde." };
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
@@ -82,7 +118,7 @@ export const resendVerification = async (email) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || "Error al reenviar" };
+      return { error: errorData.message || "Error al reenviar", resendAfter: errorData.resendAfter };
     }
 
     return await response.json();

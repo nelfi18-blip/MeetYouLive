@@ -3,10 +3,13 @@
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { verifyEmail, resendVerification } from "@/lib/auth.service";
+import { verifyEmail, resendVerification, updateUnverifiedEmail } from "@/lib/auth.service";
 import { setToken } from "@/lib/token";
 import AuthBrandLogo from "@/components/AuthBrandLogo";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+
+/** Fallback cooldown in seconds when the server does not return resendAfter */
+const DEFAULT_RESEND_COOLDOWN_S = 60;
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -19,6 +22,10 @@ function VerifyEmailForm() {
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [updatingEmail, setUpdatingEmail] = useState(false);
   const inputRefs = useRef([]);
   const cooldownRef = useRef(null);
 
@@ -110,10 +117,14 @@ function VerifyEmailForm() {
     try {
       const data = await resendVerification(email);
       if (data.error) {
+        // If server enforces its own cooldown, sync the client timer
+        if (data.resendAfter) {
+          setResendCooldown(data.resendAfter);
+        }
         setError(data.error);
       } else {
         setResendSuccess(data.message || "Código reenviado. Revisa tu email y la carpeta de spam o correo no deseado.");
-        setResendCooldown(60);
+        setResendCooldown(data.resendAfter || DEFAULT_RESEND_COOLDOWN_S);
       }
     } catch {
       setError("No se pudo conectar con el servidor");
@@ -122,9 +133,48 @@ function VerifyEmailForm() {
     }
   };
 
+  const handleUpdateEmail = async (e) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !editPassword) return;
+    setUpdatingEmail(true);
+    setError("");
+    setResendSuccess("");
+    try {
+      const data = await updateUnverifiedEmail({ oldEmail: email, newEmail: newEmail.trim(), password: editPassword });
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      setEmail(data.email || newEmail.trim().toLowerCase());
+      setNewEmail("");
+      setEditPassword("");
+      setEditingEmail(false);
+      setResendCooldown(DEFAULT_RESEND_COOLDOWN_S);
+      setCode(["", "", "", "", "", ""]);
+      setResendSuccess(data.message || "Email actualizado. Revisa tu nuevo correo.");
+    } catch {
+      setError("No se pudo conectar con el servidor");
+    } finally {
+      setUpdatingEmail(false);
+    }
+  };
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     handleVerify();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEmail(false);
+    setNewEmail("");
+    setEditPassword("");
+    setError("");
+  };
+
+  const handleStartEdit = () => {
+    setEditingEmail(true);
+    setError("");
+    setResendSuccess("");
   };
 
   return (
@@ -151,51 +201,105 @@ function VerifyEmailForm() {
         {success && <div className="banner-success">{success}</div>}
         {resendSuccess && !error && <div className="banner-info">{resendSuccess}</div>}
 
-        <form onSubmit={handleFormSubmit} className="ve-form">
-          <div className="ve-code-row" onPaste={handlePaste}>
-            {code.map((digit, i) => (
-              <input
-                key={i}
-                ref={(el) => (inputRefs.current[i] = el)}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleCodeChange(i, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(i, e)}
-                className={`ve-digit${digit ? " filled" : ""}`}
-                aria-label={`Dígito ${i + 1} del código`}
-                autoComplete="off"
-                disabled={loading}
-              />
-            ))}
-          </div>
+        {editingEmail ? (
+          <form onSubmit={handleUpdateEmail} className="ve-edit-email-form">
+            <p className="ve-edit-email-label">Escribe tu email correcto:</p>
+            <input
+              type="email"
+              className="ve-edit-email-input"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="nuevo@email.com"
+              required
+              autoFocus
+            />
+            <input
+              type="password"
+              className="ve-edit-email-input"
+              value={editPassword}
+              onChange={(e) => setEditPassword(e.target.value)}
+              placeholder="Contraseña de tu cuenta"
+              required
+              autoComplete="current-password"
+            />
+            <div className="ve-edit-email-actions">
+              <button
+                type="submit"
+                className="btn btn-primary ve-edit-email-submit"
+                disabled={updatingEmail || !newEmail.trim() || !editPassword}
+              >
+                {updatingEmail ? "Actualizando…" : "Cambiar email"}
+              </button>
+              <button
+                type="button"
+                className="ve-cancel-btn"
+                onClick={handleCancelEdit}
+                disabled={updatingEmail}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <form onSubmit={handleFormSubmit} className="ve-form">
+              <div className="ve-code-row" onPaste={handlePaste}>
+                {code.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => (inputRefs.current[i] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleCodeChange(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(i, e)}
+                    className={`ve-digit${digit ? " filled" : ""}`}
+                    aria-label={`Dígito ${i + 1} del código`}
+                    autoComplete="off"
+                    disabled={loading}
+                  />
+                ))}
+              </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary ve-submit"
-            disabled={loading || code.join("").length !== 6}
-          >
-            {loading ? "Verificando…" : "Verificar código"}
-          </button>
-        </form>
+              <button
+                type="submit"
+                className="btn btn-primary ve-submit"
+                disabled={loading || code.join("").length !== 6}
+              >
+                {loading ? "Verificando…" : "Verificar código"}
+              </button>
+            </form>
 
-        <div className="ve-resend-row">
-          <span className="ve-resend-hint">¿No recibiste el código?</span>
-          <button
-            type="button"
-            className="ve-resend-btn"
-            onClick={handleResend}
-            disabled={resending || resendCooldown > 0}
-          >
-            {resending
-              ? "Enviando…"
-              : resendCooldown > 0
-              ? `Reenviar en ${resendCooldown}s`
-              : "Reenviar código"}
-          </button>
-        </div>
+            <div className="ve-resend-row">
+              <span className="ve-resend-hint">¿No recibiste el código?</span>
+              <button
+                type="button"
+                className="ve-resend-btn"
+                onClick={handleResend}
+                disabled={resending || resendCooldown > 0}
+              >
+                {resending
+                  ? "Enviando…"
+                  : resendCooldown > 0
+                  ? `Reenviar en ${resendCooldown}s`
+                  : "Reenviar código"}
+              </button>
+            </div>
+
+            <div className="ve-correct-email-row">
+              <span className="ve-resend-hint">¿Email incorrecto?</span>
+              <button
+                type="button"
+                className="ve-resend-btn"
+                onClick={handleStartEdit}
+              >
+                Corregir email
+              </button>
+            </div>
+          </>
+        )}
 
         <div className="ve-footer">
           <Link href="/login" className="ve-back-link">← Volver al inicio de sesión</Link>
@@ -416,7 +520,8 @@ function VerifyEmailForm() {
           cursor: not-allowed;
         }
 
-        .ve-resend-row {
+        .ve-resend-row,
+        .ve-correct-email-row {
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -446,6 +551,66 @@ function VerifyEmailForm() {
 
         .ve-resend-btn:not(:disabled):hover {
           text-decoration: underline;
+        }
+
+        .ve-edit-email-form {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .ve-edit-email-label {
+          color: var(--text-muted);
+          font-size: 0.9rem;
+          margin: 0;
+        }
+
+        .ve-edit-email-input {
+          width: 100%;
+          padding: 0.7rem 1rem;
+          background: rgba(255,255,255,0.05);
+          border: 1.5px solid rgba(255,255,255,0.14);
+          border-radius: 10px;
+          color: var(--text);
+          font-size: 0.95rem;
+          outline: none;
+          box-sizing: border-box;
+          transition: border-color 0.18s;
+        }
+
+        .ve-edit-email-input:focus {
+          border-color: rgba(224,64,251,0.55);
+        }
+
+        .ve-edit-email-actions {
+          display: flex;
+          gap: 0.6rem;
+        }
+
+        .ve-edit-email-submit {
+          flex: 1;
+          padding: 0.7rem;
+          font-size: 0.9rem;
+          font-weight: 700;
+          border-radius: 10px;
+        }
+
+        .ve-cancel-btn {
+          background: rgba(255,255,255,0.06);
+          border: 1.5px solid rgba(255,255,255,0.12);
+          color: var(--text-muted);
+          font-size: 0.9rem;
+          font-weight: 600;
+          padding: 0.7rem 1rem;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+
+        .ve-cancel-btn:hover:not(:disabled) {
+          background: rgba(255,255,255,0.1);
         }
 
         .ve-footer {

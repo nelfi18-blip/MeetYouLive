@@ -89,7 +89,7 @@ function generateSixDigitCode() {
   return String(crypto.randomInt(100000, 1000000));
 }
 
-function hashResetCode(code) {
+function hashOtpCode(code) {
   return crypto.createHash("sha256").update(String(code)).digest("hex");
 }
 
@@ -98,6 +98,29 @@ function getLatestResetRequestedAtMs(user) {
 }
 
 const EMAIL_CONFIG_ERROR_CODES = new Set(["EMAIL_NOT_CONFIGURED", "EMAIL_CONFIG_INVALID", "EMAIL_TRANSPORT_ERROR"]);
+
+/** Seconds a user must wait between OTP resend requests */
+const OTP_RESEND_COOLDOWN_S = 60;
+
+/**
+ * Basic email format check without regex backtracking risk.
+ * Verifies:
+ *  - "@" is present and is not the first character (at > 0)
+ *  - there is exactly one "@" (no second occurrence)
+ *  - there is a "." after "@" with at least one character on each side
+ */
+function isSimpleEmail(value) {
+  if (typeof value !== "string") return false;
+  // RFC 5321 max email length is 254 characters
+  if (value.length > 254) return false;
+  // Reject SMTP header-injection characters (newlines, null bytes, control chars)
+  if (/[\x00-\x1F\x7F]/.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at <= 0) return false; // "@" must not be absent or the first character
+  if (value.indexOf("@", at + 1) !== -1) return false; // exactly one "@"
+  const dot = value.lastIndexOf(".");
+  return dot > at + 1 && dot < value.length - 1;
+}
 
 function getEmailSendFailurePayload(err, emailType = "verification") {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
@@ -165,6 +188,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
     }
 
     const code = generateSixDigitCode();
+    const now = new Date();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     const hashedPassword = await bcrypt.hash(password, 10);
     const referralCode = await generateReferralCode();
@@ -178,8 +202,9 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
       password: hashedPassword,
       emailVerified: false,
       authProvider: "local",
-      emailVerificationCode: code,
+      emailVerificationCode: hashOtpCode(code),
       emailVerificationExpires: expires,
+      emailVerificationSentAt: now,
       referralCode,
       referredBy,
       role: userRole,
@@ -298,7 +323,7 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
     if (new Date() > user.emailVerificationExpires) {
       return res.status(400).json({ code: "CODE_EXPIRED", message: "El código ha caducado. Solicita uno nuevo." });
     }
-    if (String(user.emailVerificationCode).trim() !== String(code).trim()) {
+    if (String(hashOtpCode(code)) !== String(user.emailVerificationCode)) {
       return res.status(400).json({ message: "Código incorrecto. Inténtalo de nuevo." });
     }
     // Mark verified and clear code
@@ -329,9 +354,24 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
     if (user.emailVerified) {
       return res.json({ message: "Tu email ya está verificado. Inicia sesión normalmente." });
     }
+
+    // Server-side cooldown: prevent spamming resend requests per user
+    if (user.emailVerificationSentAt) {
+      const elapsedS = (Date.now() - new Date(user.emailVerificationSentAt).getTime()) / 1000;
+      if (elapsedS < OTP_RESEND_COOLDOWN_S) {
+        const resendAfter = Math.ceil(OTP_RESEND_COOLDOWN_S - elapsedS);
+        return res.status(429).json({
+          code: "RESEND_COOLDOWN",
+          message: `Espera ${resendAfter} segundos antes de volver a solicitar un código.`,
+          resendAfter,
+        });
+      }
+    }
+
     const code = generateSixDigitCode();
-    user.emailVerificationCode = code;
+    user.emailVerificationCode = hashOtpCode(code);
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationSentAt = new Date();
     await user.save();
 
     try {
@@ -346,10 +386,78 @@ router.post("/resend-verification", verifyEmailLimiter, async (req, res) => {
       return res.status(status).json(body);
     }
 
-    res.json({ message: "Código de verificación reenviado. Revisa tu email." });
+    res.json({ message: "Código de verificación reenviado. Revisa tu email y la carpeta de spam.", resendAfter: OTP_RESEND_COOLDOWN_S });
   } catch (err) {
     console.error("resend-verification error:", err);
     res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * Allow an unverified user to correct their email address.
+ * This is only possible before the account is verified (emailVerified === false).
+ * Requires the account password to prove ownership before the change is applied.
+ * A new OTP code is generated and sent to the new address.
+ */
+router.post("/update-unverified-email", verifyEmailLimiter, async (req, res) => {
+  const oldEmail = req.body.oldEmail ? req.body.oldEmail.trim().toLowerCase() : "";
+  const newEmail = req.body.newEmail ? req.body.newEmail.trim().toLowerCase() : "";
+  const password = req.body.password ? String(req.body.password) : "";
+  if (!oldEmail || !newEmail || !password) {
+    return res.status(400).json({ message: "oldEmail, newEmail y password son requeridos" });
+  }
+  if (!isSimpleEmail(newEmail)) {
+    return res.status(400).json({ message: "El formato del nuevo email no es válido" });
+  }
+  if (oldEmail === newEmail) {
+    return res.status(400).json({ message: "El nuevo email debe ser diferente al actual" });
+  }
+  try {
+    const user = await User.findOne({ email: oldEmail, emailVerified: false });
+    if (!user) {
+      // Avoid disclosing whether the email exists or is already verified
+      return res.status(404).json({ message: "Cuenta no encontrada o ya verificada. Inicia sesión normalmente." });
+    }
+
+    // Verify ownership — reject mismatches with a generic 401 so callers cannot
+    // distinguish "wrong password" from other auth failures.
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Contraseña incorrecta." });
+    }
+
+    // Prevent changing to an email already registered
+    const taken = await User.exists({ email: newEmail });
+    if (taken) {
+      return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+    }
+
+    const code = generateSixDigitCode();
+    user.email = newEmail;
+    user.emailVerificationCode = hashOtpCode(code);
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationSentAt = new Date();
+    await user.save();
+
+    try {
+      await sendVerificationEmail(newEmail, code);
+      console.log("[update-unverified-email] Verification email sent to new address", { userId: String(user._id), newEmail });
+    } catch (err) {
+      const detail = err && err.code
+        ? `${err.code}: ${err.message || "Unknown email error"}`
+        : (err && err.message) || "Unknown email error";
+      console.error("[update-unverified-email] Failed to send email:", detail);
+      const { status, body } = getEmailSendFailurePayload(err);
+      return res.status(status).json(body);
+    }
+
+    res.json({ message: "Email actualizado. Revisa tu nuevo correo para obtener el código de verificación.", email: newEmail });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "Ya existe una cuenta con ese email" });
+    }
+    console.error("update-unverified-email error:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -376,7 +484,7 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
       requestedAt: user.passwordResetRequestedAt,
     };
 
-    user.passwordResetCode = hashResetCode(resetCode);
+    user.passwordResetCode = hashOtpCode(resetCode);
     user.passwordResetExpiresAt = new Date(now + 15 * 60 * 1000);
     user.passwordResetRequestedAt = new Date(now);
     await user.save();
@@ -434,7 +542,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     }
 
     const providedCode = String(code).trim();
-    const codeMatches = hashResetCode(providedCode) === user.passwordResetCode;
+    const codeMatches = hashOtpCode(providedCode) === user.passwordResetCode;
     if (!codeMatches) {
       console.warn("[reset-password] Failed attempt: reset code mismatch");
       return res.status(400).json({ message: "Código inválido o expirado." });

@@ -39,12 +39,14 @@ Dry-run only (default, no updates):
 Execute only after reviewing diagnostics:
   node scripts/migrate-google-email-verification.js --execute --confirm=${CONFIRMATION} --json
 
-This migration only updates users with persisted Google evidence (authProvider, googleId, or Google photo-source)
+This migration only updates users with persisted Google evidence (authProvider, googleId, Google creation metadata, or NextAuth account provider)
 and legacy local accounts with valid bcrypt password evidence:
   - authProvider = "google"
   - emailVerified = true
   - OTP fields cleared
   - authProvider = "local" for non-Google legacy accounts with bcrypt password hashes
+
+Dry-run and execute reports include counts only (Google, Local, Admin, Legacy, matched, modified).
 
 It never invents googleId and does not update passwords, roles, profiles, Stripe, payments, coins, payouts, or subscriptions.`);
 }

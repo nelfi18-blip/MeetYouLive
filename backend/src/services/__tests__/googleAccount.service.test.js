@@ -1,41 +1,86 @@
 const {
   getAuthProvider,
+  getGoogleEmailVerificationDiagnostics,
   hasBcryptPasswordEvidence,
   migrateSafeLegacyGoogleAccounts,
 } = require("../googleAccount.service.js");
-
-const makeFindSelectLeanChain = (value) => ({
-  select: jest.fn(() => ({
-    lean: jest.fn().mockResolvedValue(value),
-  })),
-});
 
 describe("googleAccount.service", () => {
   test("identifies current and safe legacy Google accounts without Gmail heuristics", () => {
     expect(getAuthProvider({ authProvider: "google" })).toBe("google");
     expect(getAuthProvider({ googleId: "google-1" })).toBe("google");
     expect(getAuthProvider({ images: [{ source: "google" }] })).toBe("google");
+    expect(getAuthProvider({ hasNextAuthGoogleEvidence: true })).toBe("google");
     expect(getAuthProvider({ email: "alvaradomeetyoulive@gmail.com" })).toBeNull();
     expect(getAuthProvider({ password: "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa" })).toBe("local");
     expect(getAuthProvider({ email: "person@gmail.com", emailVerified: false })).toBeNull();
     expect(hasBcryptPasswordEvidence({ password: "not-bcrypt" })).toBe(false);
   });
 
+  test("classifies required account status cases without email-domain heuristics", () => {
+    const bcryptPassword = "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa";
+
+    expect(getAuthProvider({ images: [{ source: "google" }], emailVerified: false })).toBe("google");
+    expect(getAuthProvider({ email: "local@gmail.com", authProvider: "local", emailVerified: false })).toBe("local");
+    expect(getAuthProvider({ authProvider: "local", emailVerified: true })).toBe("local");
+    expect(getAuthProvider({ authProvider: "local", emailVerified: false })).toBe("local");
+    expect(getAuthProvider({ role: "admin", authProvider: "local", emailVerified: false })).toBe("local");
+    expect(getAuthProvider({ emailVerified: false })).toBeNull();
+    expect(getAuthProvider({ password: bcryptPassword })).toBe("local");
+  });
+
+  test("diagnostics report Google, Local, Admin, and Legacy counts with NextAuth account evidence", async () => {
+    const accountCollection = {
+      distinct: jest.fn().mockResolvedValue(["next-auth-google-user"]),
+    };
+    const User = {
+      countDocuments: jest.fn()
+        // currentGoogle, legacyGoogleIdentifiable
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        // nextAuthGoogleIdentifiable, googleAccounts, localAccounts, adminAccounts, legacyAccounts
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(2)
+        // documents to modify
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(1),
+    };
+
+    const diagnostics = await getGoogleEmailVerificationDiagnostics(User, { accountCollection });
+
+    expect(accountCollection.distinct).toHaveBeenCalledWith("userId", {
+      provider: "google",
+      userId: { $exists: true, $nin: [null, ""] },
+    });
+    expect(diagnostics.summary).toEqual({
+      googleAccounts: 4,
+      localAccounts: 3,
+      adminAccounts: 1,
+      legacyAccounts: 2,
+    });
+    expect(diagnostics.nextAuthGoogleIdentifiable).toBe(1);
+    expect(diagnostics.documentsToModifyCount).toBe(4);
+  });
+
   test("safe migration is idempotent and does not change Stripe or unrelated fields", async () => {
     const User = {
       countDocuments: jest.fn()
-        // diagnostics: currentGoogle, legacyGoogleIdentifiable, localAccounts, adminAccounts, ambiguousAccounts
+        // migration operation matches: Google normalization, legacy local normalization
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1)
+        // diagnostics: currentGoogle, legacyGoogleIdentifiable, googleAccounts, localAccounts, adminAccounts, legacyAccounts
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(5)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(5)
-        // migration operation matches: Google normalization, legacy local normalization
+        // diagnostics documents-to-modify counts
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
-      find: jest.fn()
-        .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
-        .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }])),
       updateMany: jest.fn()
         .mockResolvedValueOnce({ modifiedCount: 2 })
         .mockResolvedValueOnce({ modifiedCount: 1 }),
@@ -73,18 +118,19 @@ describe("googleAccount.service", () => {
   test("dry-run reports documents without writing", async () => {
     const User = {
       countDocuments: jest.fn()
-        // diagnostics: currentGoogle, legacyGoogleIdentifiable, localAccounts, adminAccounts, ambiguousAccounts
+        // dry-run operation matches: Google normalization, legacy local normalization
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1)
+        // diagnostics: currentGoogle, legacyGoogleIdentifiable, googleAccounts, localAccounts, adminAccounts, legacyAccounts
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(4)
         .mockResolvedValueOnce(5)
-        // dry-run operation matches: Google normalization, legacy local normalization
+        .mockResolvedValueOnce(6)
+        // diagnostics documents-to-modify counts
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1),
-      find: jest.fn()
-        .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
-        .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }])),
       updateMany: jest.fn(),
     };
 
@@ -94,10 +140,16 @@ describe("googleAccount.service", () => {
     expect(result.diagnostics).toMatchObject({
       currentGoogle: 1,
       legacyGoogleIdentifiable: 2,
-      localAccounts: 3,
-      adminAccounts: 4,
-      ambiguousAccounts: 5,
-      documentsToModifyCount: 2,
+      localAccounts: 4,
+      adminAccounts: 5,
+      ambiguousAccounts: 6,
+      documentsToModifyCount: 3,
+    });
+    expect(result.diagnostics.summary).toMatchObject({
+      googleAccounts: 3,
+      localAccounts: 4,
+      adminAccounts: 5,
+      legacyAccounts: 6,
     });
     expect(User.updateMany).not.toHaveBeenCalled();
   });

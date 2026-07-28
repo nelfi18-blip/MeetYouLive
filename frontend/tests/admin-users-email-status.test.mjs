@@ -9,9 +9,9 @@ test("local unverified user shows label and manual verification action", () => {
   assert.equal(status.canVerifyManually, true);
 });
 
-test("Alvarado local unverified user shows manual verification action before verification", () => {
+test("local Gmail unverified user shows manual verification action before verification", () => {
   const status = getAdminUserEmailStatus({
-    email: "alvaradomeetyoulive@gmail.com",
+    email: "local-person@gmail.com",
     authProvider: "local",
     emailVerified: false,
   });
@@ -20,9 +20,9 @@ test("Alvarado local unverified user shows manual verification action before ver
   assert.equal(status.canVerifyManually, true);
 });
 
-test("Alvarado local verified user hides manual verification action after verification", () => {
+test("local Gmail verified user hides manual verification action after verification", () => {
   const status = getAdminUserEmailStatus({
-    email: "alvaradomeetyoulive@gmail.com",
+    email: "local-person@gmail.com",
     authProvider: "local",
     emailVerified: true,
   });
@@ -40,6 +40,13 @@ test("Google current user does not show manual verification action", () => {
 
 test("safely identified legacy Google user does not show manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: null, googleId: "google-legacy", emailVerified: false });
+
+  assert.equal(status.label, "Cuenta Google");
+  assert.equal(status.canVerifyManually, false);
+});
+
+test("historical Google user identified from persisted creation metadata does not show manual verification action", () => {
+  const status = getAdminUserEmailStatus({ authProvider: null, isGoogleAccount: true, emailVerified: false });
 
   assert.equal(status.label, "Cuenta Google");
   assert.equal(status.canVerifyManually, false);
@@ -76,7 +83,7 @@ test("Google user shows Google label without manual verification action", () => 
 test("admin user shows administrative account without manual verification action", () => {
   const status = getAdminUserEmailStatus({ role: "admin", authProvider: "local", emailVerified: false });
 
-  assert.equal(status.label, "Cuenta administrativa");
+  assert.equal(status.label, "Administrador");
   assert.equal(status.canVerifyManually, false);
 });
 

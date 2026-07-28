@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { clearAdminToken } from "@/lib/token";
+import { getAdminUserEmailStatus } from "@/lib/adminUsers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -224,7 +225,9 @@ function AdminUsersInner() {
                     <td colSpan={8} className="empty-row">No hay usuarios que coincidan con los filtros.</td>
                   </tr>
                 ) : (
-                  users.map((u) => (
+                  users.map((u) => {
+                    const emailStatus = getAdminUserEmailStatus(u);
+                    return (
                     <tr key={u._id} className={u.isBlocked ? "row-blocked" : u.isSuspended ? "row-suspended" : ""}>
                       <td>
                         <div className="user-cell">
@@ -261,7 +264,7 @@ function AdminUsersInner() {
                           )}
                           {u.isPremium && <span className="status-badge status-premium">Premium</span>}
                           {u.isVerified && <span className="status-badge status-verified">Verificado</span>}
-                          {u.emailVerified === false && <span className="status-badge status-email-unverified">Email sin verificar</span>}
+                          <span className={`status-badge ${emailStatus.className}`}>{emailStatus.label}</span>
                         </div>
                       </td>
                       <td className="text-right">{(u.coins ?? 0).toLocaleString()}</td>
@@ -307,7 +310,7 @@ function AdminUsersInner() {
                               {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
                             </button>
                           )}
-                          {u.emailVerified === false && (
+                          {emailStatus.canVerifyManually && (
                             <button
                               className="btn-action btn-blue"
                               onClick={() => setPendingVerifyUserId(u._id)}
@@ -327,7 +330,8 @@ function AdminUsersInner() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -574,7 +578,10 @@ function AdminUsersInner() {
         .status-suspended { background: rgba(251, 191, 36, 0.1); color: #fbbf24; }
         .status-premium { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
         .status-verified { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .status-email-verified { background: rgba(52, 211, 153, 0.1); color: #34d399; }
         .status-email-unverified { background: rgba(251, 146, 60, 0.1); color: #fb923c; }
+        .status-google { background: rgba(96, 165, 250, 0.1); color: #60a5fa; }
+        .status-email-unknown { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
 
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 

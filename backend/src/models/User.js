@@ -225,6 +225,8 @@ const userSchema = new mongoose.Schema(
     verificationStatus: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
     isVerified: { type: Boolean, default: false },
     emailVerified: { type: Boolean, default: false },
+    authProvider: { type: String, enum: ["local", "google"], default: "local" },
+    googleId: { type: String, default: null, sparse: true },
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
     emailVerificationSentAt: { type: Date, default: null },
@@ -401,6 +403,8 @@ userSchema.index(
   { partialFilterExpression: { "location.coordinates": { $type: "array" } } }
 );
 userSchema.index({ locationPoint: "2dsphere" });
+userSchema.index({ authProvider: 1, emailVerified: 1 });
+userSchema.index({ googleId: 1 }, { sparse: true });
 
 const User = mongoose.model("User", userSchema);
 

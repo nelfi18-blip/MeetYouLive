@@ -19,6 +19,25 @@ const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.se
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
 const mongoose = require("mongoose");
 
+const EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER = {
+  $or: [
+    { authProvider: "google" },
+    { googleId: { $exists: true, $ne: null } },
+  ],
+};
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
+const getAuthProvider = (user) => {
+  if (user?.authProvider === "google" || user?.googleId) return "google";
+  if (user?.authProvider === "local") return "local";
+  return null;
+};
+const isGoogleAccount = (user) => getAuthProvider(user) === "google";
+const getEmailVerifiedValue = (user) => {
+  if (!hasOwn(user, "emailVerified") || user.emailVerified === undefined || user.emailVerified === null) return null;
+  return user.emailVerified === true;
+};
+
 const normalizeHttpProtocol = (value) => {
   const protocol = typeof value === "string" ? value.replace(/:$/, "").toLowerCase() : "";
   return protocol === "http" || protocol === "https" ? protocol : "https";
@@ -114,8 +133,13 @@ const serializeAdminUser = (req, user) => {
   }
   const avatar = normalizedPhotos[0] || "";
   const { password, ...safeUser } = user;
+  const authProvider = getAuthProvider(user);
+  const emailVerified = getEmailVerifiedValue(user);
   return {
     ...safeUser,
+    emailVerified,
+    authProvider,
+    isGoogleAccount: authProvider === "google",
     avatar,
     profileImage: avatar,
     photo: avatar,
@@ -326,6 +350,37 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+exports.getEmailVerificationDiagnostics = async (req, res) => {
+  try {
+    const [emailVerifiedTrue, emailVerifiedFalse, emailVerifiedMissing, googleAccounts, googleAccountsNotVerified] =
+      await Promise.all([
+        User.countDocuments({ emailVerified: true }),
+        User.countDocuments({ emailVerified: false }),
+        User.countDocuments({ emailVerified: { $exists: false } }),
+        User.countDocuments(EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER),
+        User.countDocuments({
+          ...EMAIL_VERIFICATION_DIAGNOSTIC_GOOGLE_FILTER,
+          emailVerified: { $ne: true },
+        }),
+      ]);
+
+    res.set("Cache-Control", "no-store");
+    return res.json({
+      ok: true,
+      diagnostics: {
+        emailVerifiedTrue,
+        emailVerifiedFalse,
+        emailVerifiedMissing,
+        googleAccounts,
+        googleAccountsNotVerified,
+      },
+    });
+  } catch (error) {
+    console.error("Admin email verification diagnostics error:", error);
+    return res.status(500).json({ ok: false, message: "Error obteniendo diagnóstico de verificación" });
+  }
+};
+
 exports.verifyUserEmailByAdmin = async (req, res) => {
   try {
     const { id } = req.params;
@@ -334,19 +389,27 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("emailVerified")
+      .select("emailVerified authProvider googleId")
       .lean();
 
     if (!existingUser) {
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     }
 
+    if (isGoogleAccount(existingUser)) {
+      return res.status(400).json({ ok: false, message: "Las cuentas Google ya se consideran verificadas por el proveedor" });
+    }
+
     if (existingUser.emailVerified === true) {
       return res.json({ ok: true, message: "Email ya estaba verificado" });
     }
 
+    if (existingUser.authProvider !== "local" || existingUser.emailVerified !== false) {
+      return res.status(400).json({ ok: false, message: "No hay evidencia suficiente para verificar este email manualmente" });
+    }
+
     await User.updateOne(
-      { _id: id, emailVerified: false },
+      { _id: id, authProvider: "local", emailVerified: false },
       {
         $set: {
           emailVerified: true,

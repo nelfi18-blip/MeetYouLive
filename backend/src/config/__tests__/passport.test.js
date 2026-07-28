@@ -41,9 +41,40 @@ describe("Google Passport photo persistence", () => {
     expect(User.create).toHaveBeenCalledWith(expect.objectContaining({
       email: "google@example.com",
       username: "google",
+      authProvider: "google",
+      emailVerified: true,
       avatar: "https://lh3.googleusercontent.com/a/google-photo=s96-c",
     }));
     expect(user.location).toBeUndefined();
+  });
+
+  test("marks an existing Google login as verified and stores provider fields", async () => {
+    const existingUser = User.hydrate({
+      _id: "507f1f77bcf86cd799439012",
+      email: "existing-google@example.com",
+      password: "secret",
+      emailVerified: false,
+      emailVerificationCode: "123456",
+      emailVerificationExpires: new Date("2026-01-01T00:00:00.000Z"),
+      emailVerificationSentAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    existingUser.save = jest.fn().mockResolvedValue(existingUser);
+    jest.spyOn(User, "findOne").mockResolvedValue(existingUser);
+
+    const user = await findOrCreateGoogleUser({
+      id: "google-oauth-id",
+      displayName: "Existing Google User",
+      emails: [{ value: "Existing-Google@Example.COM" }],
+    });
+
+    expect(User.findOne).toHaveBeenCalledWith({ email: "existing-google@example.com" });
+    expect(user.authProvider).toBe("google");
+    expect(user.googleId).toBe("google-oauth-id");
+    expect(user.emailVerified).toBe(true);
+    expect(user.emailVerificationCode).toBeNull();
+    expect(user.emailVerificationExpires).toBeNull();
+    expect(user.emailVerificationSentAt).toBeNull();
+    expect(existingUser.save).toHaveBeenCalledTimes(1);
   });
 
   test("Google login can save an old user that had primitive location data", async () => {

@@ -5,12 +5,16 @@ require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") }
 
 const mongoose = require("mongoose");
 const User = require("../src/models/User");
-const { runUserClassificationAudit } = require("../src/services/userClassificationAudit.service");
+const {
+  buildCountsOnlyAuditReport,
+  runUserClassificationAudit,
+} = require("../src/services/userClassificationAudit.service");
 
 function parseArgs(argv) {
-  const options = { json: false, limit: null, help: false };
+  const options = { json: false, countsOnly: false, limit: null, help: false };
   for (const arg of argv) {
     if (arg === "--json") options.json = true;
+    else if (arg === "--counts-only") options.countsOnly = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg.startsWith("--limit=")) {
       const value = Number(arg.slice("--limit=".length));
@@ -29,10 +33,12 @@ function printHelp() {
 Usage:
   cd backend && node scripts/audit-user-classification.js
   cd backend && node scripts/audit-user-classification.js --json
+  cd backend && node scripts/audit-user-classification.js --counts-only
   cd backend && node scripts/audit-user-classification.js --limit=100
 
 Reads MONGODB_URI, MONGO_URI, or DATABASE_URL. It never writes to MongoDB.
-The per-user report masks emails, truncates user ids, and only prints presence/absence for password and OTP fields.`);
+The per-user report masks emails, truncates user ids, and only prints presence/absence for password and OTP fields.
+Use --counts-only from Render Shell when you only need the final safe production counts.`);
 }
 
 function printTextReport(report, { limit }) {
@@ -93,7 +99,8 @@ async function main() {
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 30000 });
   const report = await runUserClassificationAudit(User);
 
-  if (options.json) console.log(JSON.stringify(report, null, 2));
+  if (options.countsOnly) console.log(JSON.stringify(buildCountsOnlyAuditReport(report.counts), null, 2));
+  else if (options.json) console.log(JSON.stringify(report, null, 2));
   else printTextReport(report, options);
 }
 

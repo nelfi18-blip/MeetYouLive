@@ -215,6 +215,23 @@ function summarizeAuditRows(rows) {
   return counts;
 }
 
+function buildCountsOnlyAuditReport(counts = {}) {
+  return {
+    totalUsuarios: counts.totalUsers || 0,
+    googleConfirmadas: counts.googleConfirmed || 0,
+    localesConfirmadas: counts.localConfirmed || 0,
+    administradores: counts.admins || 0,
+    legacyAmbiguas: counts.legacyAmbiguous || 0,
+    emailsVerificados: counts.emailVerified || 0,
+    emailsSinVerificar: counts.emailUnverified || 0,
+    googleConEmailVerifiedFalse: counts.googleWithEmailVerifiedFalse || 0,
+    adminsConEstadoOtpIncorrecto: counts.adminWithIncorrectOtpState || 0,
+    datosContradictorios: counts.contradictoryAccounts || 0,
+    cuentasCorregiblesAutomaticamente: counts.automaticallyCorrectable || 0,
+    cuentasDebenConservarSinInformacion: counts.mustRemainUnknown || 0,
+  };
+}
+
 function buildAuditReport(users = [], options = {}) {
   const nextAuthGoogleUserIds = normalizeIdSet(options.nextAuthGoogleUserIds || []);
   const rows = users.map((user) => {
@@ -278,6 +295,7 @@ module.exports = {
   ADMIN_ROLES,
   USER_AUDIT_FIELDS,
   buildAuditReport,
+  buildCountsOnlyAuditReport,
   classifyUser,
   getContradictions,
   hasBcryptPassword,

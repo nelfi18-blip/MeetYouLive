@@ -326,6 +326,56 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+exports.verifyUserEmailByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false, message: "id inválido" });
+    }
+
+    const existingUser = await User.findById(id)
+      .select("emailVerified")
+      .lean();
+
+    if (!existingUser) {
+      return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+    }
+
+    if (existingUser.emailVerified === true) {
+      return res.json({ ok: true, message: "Email ya estaba verificado" });
+    }
+
+    await User.updateOne(
+      { _id: id, emailVerified: false },
+      {
+        $set: {
+          emailVerified: true,
+          emailVerificationCode: null,
+          emailVerificationExpires: null,
+          emailVerificationSentAt: null,
+        },
+      },
+      { timestamps: false }
+    );
+
+    await logStaffAction({
+      staffId: req.userId,
+      staffRole: req.userRole || "admin",
+      action: "EMAIL_VERIFIED_BY_ADMIN",
+      targetType: "User",
+      targetId: id,
+      targetIdentifier: String(id),
+      details: { affectedUserId: String(id) },
+      ipAddress: req.ip,
+    });
+
+    return res.json({ ok: true, message: "Email verificado manualmente" });
+  } catch (error) {
+    console.error("Admin verify email error:", error);
+    return res.status(500).json({ ok: false, message: "Error verificando email" });
+  }
+};
+
 exports.getReports = async (req, res) => {
   try {
     const ALLOWED_STATUSES = ["pending", "reviewed", "dismissed"];

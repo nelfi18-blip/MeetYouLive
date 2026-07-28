@@ -2,6 +2,10 @@ jest.mock("../../models/User.js", () => ({
   findById: jest.fn(),
 }));
 
+jest.mock("../../services/analytics.service.js", () => ({
+  trackSafeAnalyticsEvent: jest.fn(),
+}));
+
 const User = require("../../models/User.js");
 const { updateOnboarding } = require("../onboarding.controller.js");
 

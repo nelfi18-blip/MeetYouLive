@@ -58,7 +58,11 @@ describe("googleAccount.service", () => {
     );
     expect(User.updateMany).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ password: { $regex: expect.stringContaining("^\\$2") } }),
+      expect.objectContaining({
+        $and: expect.arrayContaining([
+          expect.objectContaining({ password: { $regex: expect.stringContaining("^\\$2") } }),
+        ]),
+      }),
       { $set: { authProvider: "local" } }
     );
     const updates = JSON.stringify([User.updateMany.mock.calls[0][1], User.updateMany.mock.calls[1][1]]);

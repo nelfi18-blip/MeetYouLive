@@ -57,9 +57,11 @@ const LOCAL_ACCOUNT_FILTER = {
 };
 
 const LEGACY_LOCAL_NORMALIZATION_FILTER = {
-  authProvider: { $ne: "local" },
-  ...NON_GOOGLE_ACCOUNT_FILTER,
-  ...BCRYPT_PASSWORD_FILTER,
+  $and: [
+    { authProvider: { $ne: "local" } },
+    NON_GOOGLE_ACCOUNT_FILTER,
+    BCRYPT_PASSWORD_FILTER,
+  ],
 };
 
 const AMBIGUOUS_ACCOUNT_FILTER = {
@@ -90,7 +92,9 @@ const hasGoogleImageEvidence = (user = {}) =>
 const hasGoogleId = (user = {}) => typeof user.googleId === "string" && user.googleId.trim() !== "";
 
 const hasBcryptPasswordEvidence = (user = {}) =>
-  typeof user.password === "string" && BCRYPT_PASSWORD_PATTERN.test(user.password) && !hasGoogleId(user);
+  (user.hasLocalPasswordEvidence === true ||
+    (typeof user.password === "string" && BCRYPT_PASSWORD_PATTERN.test(user.password))) &&
+  !hasGoogleId(user);
 
 const isGoogleAccount = (user = {}) =>
   user?.authProvider === "google" || hasGoogleId(user) || hasGoogleImageEvidence(user);
@@ -215,6 +219,7 @@ module.exports = {
   GOOGLE_ACCOUNT_FILTER,
   GOOGLE_NORMALIZATION_FILTER,
   LEGACY_LOCAL_NORMALIZATION_FILTER,
+  BCRYPT_PASSWORD_FILTER,
   EMAIL_VERIFICATION_CLEAR_FIELDS,
   LEGACY_GOOGLE_ACCOUNT_FILTER,
   LOCAL_ACCOUNT_FILTER,

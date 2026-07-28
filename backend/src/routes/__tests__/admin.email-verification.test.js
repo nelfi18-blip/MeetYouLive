@@ -23,6 +23,7 @@ jest.mock("../../models/User.js", () => ({
   find: jest.fn(),
   countDocuments: jest.fn(),
   updateOne: jest.fn(),
+  exists: jest.fn(),
 }));
 
 const adminRoutes = require("../admin.routes.js");
@@ -63,6 +64,7 @@ describe("admin manual email verification", () => {
     app = makeApp();
     User.countDocuments.mockResolvedValue(0);
     User.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+    User.exists.mockResolvedValue(null);
     logStaffAction.mockResolvedValue(undefined);
   });
 
@@ -75,6 +77,7 @@ describe("admin manual email verification", () => {
       password: "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa",
       emailVerified: false,
     }));
+    User.exists.mockResolvedValueOnce({ _id: targetUserId });
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
@@ -82,13 +85,15 @@ describe("admin manual email verification", () => {
     expect(res.body).toMatchObject({ ok: true });
     expect(User.updateOne).toHaveBeenCalledWith(
       {
-        _id: targetUserId,
-        emailVerified: { $ne: true },
-        role: { $ne: "admin" },
-        $nor: [
-          { authProvider: "google" },
-          { googleId: { $exists: true, $nin: [null, ""] } },
-          { images: { $elemMatch: { source: "google" } } },
+        $and: [
+          { _id: targetUserId, emailVerified: { $ne: true }, role: { $ne: "admin" } },
+          {
+            $nor: [
+              { authProvider: "google" },
+              { googleId: { $exists: true, $nin: [null, ""] } },
+              { images: { $elemMatch: { source: "google" } } },
+            ],
+          },
         ],
       },
       {
@@ -271,6 +276,7 @@ describe("admin manual email verification", () => {
         })),
       })),
     });
+    User.find.mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "legacy-local" }]));
     User.countDocuments.mockResolvedValueOnce(users.length);
 
     const res = await request(app).get("/api/admin/users");
@@ -303,6 +309,7 @@ describe("admin manual email verification", () => {
         })),
       })),
     });
+    User.find.mockReturnValueOnce(makeFindSelectLeanChain([]));
     User.countDocuments.mockResolvedValueOnce(users.length);
 
     const res = await request(app).get("/api/admin/users");

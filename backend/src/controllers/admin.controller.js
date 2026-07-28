@@ -23,6 +23,7 @@ const {
   isGoogleAccount,
   isManualEmailVerificationAllowed,
   NON_GOOGLE_ACCOUNT_FILTER,
+  BCRYPT_PASSWORD_FILTER,
 } = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
 
@@ -125,7 +126,7 @@ const serializeAdminUser = (req, user) => {
     if (normalized && !normalizedPhotos.includes(normalized)) normalizedPhotos.push(normalized);
   }
   const avatar = normalizedPhotos[0] || "";
-  const { password, ...safeUser } = user;
+  const { password, hasLocalPasswordEvidence, ...safeUser } = user;
   const authProvider = getAuthProvider(user);
   const emailVerified = getEmailVerifiedValue(user);
   return {
@@ -327,7 +328,7 @@ exports.getUsers = async (req, res) => {
     }
 
     const [users, total] = await Promise.all([
-      User.find(filter)
+      User.find(filter, "-password")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -335,8 +336,28 @@ exports.getUsers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
+    const userIds = users.map((user) => user._id).filter(Boolean);
+    const localPasswordEvidenceUsers = userIds.length
+      ? await User.find({
+          $and: [
+            { _id: { $in: userIds } },
+            NON_GOOGLE_ACCOUNT_FILTER,
+            BCRYPT_PASSWORD_FILTER,
+          ],
+        })
+          .select("_id")
+          .lean()
+      : [];
+    const localPasswordEvidenceIds = new Set(localPasswordEvidenceUsers.map((user) => String(user._id)));
+    const serializedUsers = users.map((user) =>
+      serializeAdminUser(req, {
+        ...user,
+        hasLocalPasswordEvidence: localPasswordEvidenceIds.has(String(user._id)),
+      })
+    );
+
     res.set("Cache-Control", "no-store");
-    return res.json({ ok: true, users: users.map((user) => serializeAdminUser(req, user)), total, page, limit });
+    return res.json({ ok: true, users: serializedUsers, total, page, limit });
   } catch (error) {
     console.error("Admin users error:", error);
     return res.status(500).json({ ok: false, message: "Error obteniendo usuarios" });
@@ -366,7 +387,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("email emailVerified authProvider googleId images role password")
+      .select("email emailVerified authProvider googleId images role")
       .lean();
 
     if (!existingUser) {
@@ -385,12 +406,28 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Email ya estaba verificado" });
     }
 
-    if (!isManualEmailVerificationAllowed(existingUser)) {
+    const hasLocalPasswordEvidence = existingUser.authProvider === "local"
+      ? false
+      : Boolean(await User.exists({
+          $and: [
+            { _id: id },
+            NON_GOOGLE_ACCOUNT_FILTER,
+            BCRYPT_PASSWORD_FILTER,
+          ],
+        }));
+    const verificationUser = { ...existingUser, hasLocalPasswordEvidence };
+
+    if (!isManualEmailVerificationAllowed(verificationUser)) {
       return res.status(400).json({ ok: false, message: "No hay evidencia suficiente para verificar este email manualmente" });
     }
 
     await User.updateOne(
-      { _id: id, emailVerified: { $ne: true }, role: { $ne: "admin" }, ...NON_GOOGLE_ACCOUNT_FILTER },
+      {
+        $and: [
+          { _id: id, emailVerified: { $ne: true }, role: { $ne: "admin" } },
+          NON_GOOGLE_ACCOUNT_FILTER,
+        ],
+      },
       {
         $set: {
           authProvider: "local",

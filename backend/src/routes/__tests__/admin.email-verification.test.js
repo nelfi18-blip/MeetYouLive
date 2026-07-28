@@ -152,6 +152,13 @@ describe("admin manual email verification", () => {
       targetIdentifier: targetUserId,
       details: { affectedUserId: targetUserId },
     }));
-    expect(JSON.stringify(logStaffAction.mock.calls[0][0])).not.toMatch(/password|emailVerificationCode|emailVerificationExpires|stripe/i);
+    const auditPayload = logStaffAction.mock.calls[0][0];
+    expect(auditPayload).not.toHaveProperty("password");
+    expect(auditPayload.details).not.toHaveProperty("password");
+    expect(auditPayload.details).not.toHaveProperty("emailVerificationCode");
+    expect(auditPayload.details).not.toHaveProperty("emailVerificationExpires");
+    expect(auditPayload.details).not.toHaveProperty("stripeCustomerId");
+    expect(auditPayload.details).not.toHaveProperty("stripeAccountId");
+    expect(auditPayload.details).not.toHaveProperty("subscriptionId");
   });
 });

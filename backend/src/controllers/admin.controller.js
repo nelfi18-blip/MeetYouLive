@@ -334,7 +334,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("_id emailVerified")
+      .select("emailVerified")
       .lean();
 
     if (!existingUser) {

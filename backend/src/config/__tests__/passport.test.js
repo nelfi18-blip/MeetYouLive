@@ -53,6 +53,7 @@ describe("Google Passport photo persistence", () => {
       _id: "507f1f77bcf86cd799439012",
       email: "existing-google@example.com",
       password: "secret",
+      username: "existinggoogle",
       emailVerified: false,
       emailVerificationCode: "123456",
       emailVerificationExpires: new Date("2026-01-01T00:00:00.000Z"),

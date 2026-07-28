@@ -226,7 +226,7 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     emailVerified: { type: Boolean, default: false },
     authProvider: { type: String, enum: ["local", "google"], default: "local" },
-    googleId: { type: String, default: null, sparse: true },
+    googleId: { type: String, default: null },
     emailVerificationCode: { type: String, default: null },
     emailVerificationExpires: { type: Date, default: null },
     emailVerificationSentAt: { type: Date, default: null },

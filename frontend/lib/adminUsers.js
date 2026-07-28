@@ -7,7 +7,7 @@ export function getAdminUserEmailStatus(user = {}) {
     return { label: "Email verificado", className: "status-email-verified", canVerifyManually: false };
   }
 
-  if (user.authProvider === "local" && user.emailVerified === false) {
+  if (user.emailVerified === false) {
     return { label: "Email sin verificar", className: "status-email-unverified", canVerifyManually: true };
   }
 

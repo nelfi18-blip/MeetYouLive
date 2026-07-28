@@ -9,8 +9,22 @@ test("local unverified user shows label and manual verification action", () => {
   assert.equal(status.canVerifyManually, true);
 });
 
+test("legacy user with explicit unverified email shows unverified label", () => {
+  const status = getAdminUserEmailStatus({ authProvider: null, emailVerified: false });
+
+  assert.equal(status.label, "Email sin verificar");
+  assert.equal(status.canVerifyManually, true);
+});
+
 test("local verified user shows verified label without manual verification action", () => {
   const status = getAdminUserEmailStatus({ authProvider: "local", emailVerified: true });
+
+  assert.equal(status.label, "Email verificado");
+  assert.equal(status.canVerifyManually, false);
+});
+
+test("legacy user with explicit verified email shows verified label", () => {
+  const status = getAdminUserEmailStatus({ authProvider: null, emailVerified: true });
 
   assert.equal(status.label, "Email verificado");
   assert.equal(status.canVerifyManually, false);

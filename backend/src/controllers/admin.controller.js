@@ -326,7 +326,7 @@ exports.getUsers = async (req, res) => {
     }
 
     const [users, total] = await Promise.all([
-      User.find(filter)
+      User.find(filter, "-password")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -365,7 +365,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("email emailVerified authProvider googleId images role password")
+      .select("email emailVerified authProvider googleId images role")
       .lean();
 
     if (!existingUser) {

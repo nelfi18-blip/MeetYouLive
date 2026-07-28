@@ -34,8 +34,9 @@ describe("googleAccount.service", () => {
       find: jest.fn()
         .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
         .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }])),
-      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 2 }),
-      updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+      updateMany: jest.fn()
+        .mockResolvedValueOnce({ modifiedCount: 2 })
+        .mockResolvedValueOnce({ modifiedCount: 1 }),
     };
 
     const result = await migrateSafeLegacyGoogleAccounts(User, { execute: true });
@@ -53,11 +54,12 @@ describe("googleAccount.service", () => {
         },
       }
     );
-    expect(User.updateOne).toHaveBeenCalledWith(
+    expect(User.updateMany).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({ email: "alvaradomeetyoulive@gmail.com" }),
       { $set: { authProvider: "local" } }
     );
-    const updates = JSON.stringify([User.updateMany.mock.calls[0][1], User.updateOne.mock.calls[0][1]]);
+    const updates = JSON.stringify([User.updateMany.mock.calls[0][1], User.updateMany.mock.calls[1][1]]);
     expect(updates).not.toMatch(/stripeCustomerId|stripeAccountId|subscriptionId/i);
     expect(updates).not.toMatch(/password|role|profile/i);
   });
@@ -76,7 +78,6 @@ describe("googleAccount.service", () => {
         .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "g1", email: "google@example.com" }]))
         .mockReturnValueOnce(makeFindSelectLeanChain([{ _id: "a1", email: "alvaradomeetyoulive@gmail.com" }])),
       updateMany: jest.fn(),
-      updateOne: jest.fn(),
     };
 
     const result = await migrateSafeLegacyGoogleAccounts(User);
@@ -91,6 +92,5 @@ describe("googleAccount.service", () => {
       documentsToModifyCount: 2,
     });
     expect(User.updateMany).not.toHaveBeenCalled();
-    expect(User.updateOne).not.toHaveBeenCalled();
   });
 });

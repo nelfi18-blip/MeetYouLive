@@ -34,9 +34,9 @@ const GOOGLE_NORMALIZATION_FILTER = {
       $or: [
         { authProvider: { $ne: "google" } },
         { emailVerified: { $ne: true } },
-        { emailVerificationCode: { $ne: null } },
-        { emailVerificationExpires: { $ne: null } },
-        { emailVerificationSentAt: { $ne: null } },
+        { emailVerificationCode: { $exists: true, $ne: null } },
+        { emailVerificationExpires: { $exists: true, $ne: null } },
+        { emailVerificationSentAt: { $exists: true, $ne: null } },
       ],
     },
   ],
@@ -106,7 +106,7 @@ const getAuthProvider = (user = {}) => {
 
 const isManualEmailVerificationAllowed = (user = {}) =>
   user?.role !== "admin" &&
-  getAuthProvider(user) === "local" &&
+  user?.authProvider === "local" &&
   user?.emailVerified !== true &&
   !isGoogleAccount(user);
 
@@ -195,7 +195,7 @@ async function migrateSafeLegacyGoogleAccounts(User, { execute = false } = {}) {
 
   const [googleResult, alvaradoResult] = await Promise.all([
     User.updateMany(GOOGLE_NORMALIZATION_FILTER, googleUpdate),
-    User.updateOne(ALVARADO_LOCAL_NORMALIZATION_FILTER, alvaradoUpdate),
+    User.updateMany(ALVARADO_LOCAL_NORMALIZATION_FILTER, alvaradoUpdate),
   ]);
   return {
     dryRun: false,

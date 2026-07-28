@@ -207,5 +207,6 @@ describe("userClassificationAudit.service", () => {
     expect(JSON.stringify(countsOnly)).not.toContain("legacy@example.com");
     expect(JSON.stringify(countsOnly)).not.toContain("secret-google-id");
     expect(JSON.stringify(countsOnly)).not.toContain("hashed-otp");
+    expect(Object.values(countsOnly).every((value) => typeof value === "number")).toBe(true);
   });
 });

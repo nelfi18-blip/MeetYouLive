@@ -215,6 +215,11 @@ function summarizeAuditRows(rows) {
   return counts;
 }
 
+/**
+ * Builds the Render Shell safe output for the production dry-run audit.
+ * Every field is a numeric aggregate so the report cannot include emails,
+ * ids, password hashes, OTP state, tokens, or provider secrets.
+ */
 function buildCountsOnlyAuditReport(counts = {}) {
   return {
     totalUsuarios: counts.totalUsers || 0,

@@ -511,6 +511,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
 
   const { name } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const googleId = typeof req.body.googleId === "string" ? req.body.googleId.trim() : "";
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
   const ref = req.body.ref || null;
   if (!email) {
@@ -545,6 +546,12 @@ router.post("/google-session", authLimiter, async (req, res) => {
         username,
         email,
         password: crypto.randomBytes(32).toString("hex"),
+        authProvider: "google",
+        googleId: googleId || null,
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null,
+        emailVerificationSentAt: null,
         referralCode,
         referredBy,
         ...(normalizedLocation || {}),
@@ -564,6 +571,21 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
       if (!user.referralCode) {
         user.referralCode = await generateReferralCode();
+        changed = true;
+      }
+      if (user.authProvider !== "google") {
+        user.authProvider = "google";
+        changed = true;
+      }
+      if (googleId && user.googleId !== googleId) {
+        user.googleId = googleId;
+        changed = true;
+      }
+      if (user.emailVerified !== true) {
+        user.emailVerified = true;
+        user.emailVerificationCode = null;
+        user.emailVerificationExpires = null;
+        user.emailVerificationSentAt = null;
         changed = true;
       }
       if (changed) await user.save();

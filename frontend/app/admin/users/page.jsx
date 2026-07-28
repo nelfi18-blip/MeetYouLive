@@ -84,6 +84,10 @@ function AdminUsersInner() {
   };
 
   const doAction = async (userId, action) => {
+    if (action === "verify-email" && !confirm("¿Confirmas que deseas verificar manualmente este email?")) {
+      return;
+    }
+
     setActionLoading(userId + action);
     try {
       const res = await fetch(`${API_URL}/api/admin/users/${userId}/${action}`, {
@@ -97,6 +101,7 @@ function AdminUsersInner() {
         unblock: "Usuario desbloqueado.",
         suspend: "Usuario suspendido.",
         unsuspend: "Usuario reactivado.",
+        "verify-email": "Email verificado manualmente.",
       };
       showMsg("success", labels[action] || "Acción completada.");
       await loadUsers(page);
@@ -233,6 +238,7 @@ function AdminUsersInner() {
                           )}
                           {u.isPremium && <span className="status-badge status-premium">Premium</span>}
                           {u.isVerified && <span className="status-badge status-verified">Verificado</span>}
+                          {u.emailVerified === false && <span className="status-badge status-email-unverified">Email sin verificar</span>}
                         </div>
                       </td>
                       <td className="text-right">{(u.coins ?? 0).toLocaleString()}</td>
@@ -276,6 +282,15 @@ function AdminUsersInner() {
                               disabled={!!actionLoading}
                             >
                               {actionLoading === u._id + "suspend" ? "…" : "Suspender"}
+                            </button>
+                          )}
+                          {u.emailVerified === false && (
+                            <button
+                              className="btn-action btn-blue"
+                              onClick={() => doAction(u._id, "verify-email")}
+                              disabled={!!actionLoading}
+                            >
+                              {actionLoading === u._id + "verify-email" ? "…" : "Verificar email"}
                             </button>
                           )}
                           <button
@@ -490,6 +505,7 @@ function AdminUsersInner() {
         .status-suspended { background: rgba(251, 191, 36, 0.1); color: #fbbf24; }
         .status-premium { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
         .status-verified { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .status-email-unverified { background: rgba(251, 146, 60, 0.1); color: #fb923c; }
 
         .action-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 
@@ -515,6 +531,8 @@ function AdminUsersInner() {
 
         .btn-yellow { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.25); color: #fbbf24; }
         .btn-yellow:hover:not(:disabled) { background: rgba(251, 191, 36, 0.18); }
+        .btn-blue { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.25); color: #38bdf8; }
+        .btn-blue:hover:not(:disabled) { background: rgba(56, 189, 248, 0.18); }
 
         .btn-danger { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.3); color: #ef4444; }
         .btn-danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.2); }

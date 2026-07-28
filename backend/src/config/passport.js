@@ -49,8 +49,8 @@ async function findOrCreateGoogleUser(profile = {}) {
       updates.emailVerificationSentAt = null;
     }
     if (Object.keys(updates).length > 0) {
-      Object.assign(user, updates);
-      await user.save();
+      user.set(updates);
+      if (user.isModified()) await user.save();
     }
   }
 

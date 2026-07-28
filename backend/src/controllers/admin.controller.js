@@ -33,7 +33,7 @@ const getAuthProvider = (user) => {
 };
 const isGoogleAccount = (user) => getAuthProvider(user) === "google";
 const getEmailVerifiedValue = (user) => {
-  if (!Object.hasOwn(user || {}, "emailVerified") || user.emailVerified === undefined || user.emailVerified === null) return null;
+  if (!user || !Object.hasOwn(user, "emailVerified") || user.emailVerified == null) return null;
   return user.emailVerified === true;
 };
 

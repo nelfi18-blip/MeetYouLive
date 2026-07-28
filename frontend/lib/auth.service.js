@@ -18,7 +18,7 @@ export const signUp = async (userData) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      return { error: errorData.message || "Error en el servidor", code: errorData.code };
+      return { error: errorData.message || "Error en el servidor", code: errorData.code, email: errorData.email, requiresResend: errorData.requiresResend };
     }
 
     return await response.json();

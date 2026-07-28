@@ -2,7 +2,6 @@ const BCRYPT_PASSWORD_PATTERN_SOURCE = "^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$
 const BCRYPT_PASSWORD_PATTERN = new RegExp(BCRYPT_PASSWORD_PATTERN_SOURCE);
 const BCRYPT_PASSWORD_FILTER = { password: { $regex: BCRYPT_PASSWORD_PATTERN_SOURCE } };
 const GOOGLE_ID_FILTER = { googleId: { $exists: true, $nin: [null, ""] } };
-const LEGACY_GOOGLE_IMAGE_FILTER = { images: { $elemMatch: { source: "google" } } };
 const EMAIL_VERIFICATION_CLEAR_FIELDS = {
   emailVerificationCode: null,
   emailVerificationExpires: null,
@@ -10,22 +9,18 @@ const EMAIL_VERIFICATION_CLEAR_FIELDS = {
 };
 
 const CURRENT_GOOGLE_ACCOUNT_FILTER = { authProvider: "google" };
-const NON_GOOGLE_ACCOUNT_FILTER = { $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER, LEGACY_GOOGLE_IMAGE_FILTER] };
+const NON_GOOGLE_ACCOUNT_FILTER = { $nor: [CURRENT_GOOGLE_ACCOUNT_FILTER, GOOGLE_ID_FILTER] };
 
 const GOOGLE_ACCOUNT_FILTER = {
   $or: [
     CURRENT_GOOGLE_ACCOUNT_FILTER,
     GOOGLE_ID_FILTER,
-    LEGACY_GOOGLE_IMAGE_FILTER,
   ],
 };
 
 const LEGACY_GOOGLE_ACCOUNT_FILTER = {
   authProvider: { $ne: "google" },
-  $or: [
-    GOOGLE_ID_FILTER,
-    LEGACY_GOOGLE_IMAGE_FILTER,
-  ],
+  ...GOOGLE_ID_FILTER,
 };
 
 const GOOGLE_NORMALIZATION_FILTER = {
@@ -86,9 +81,6 @@ const AMBIGUOUS_ACCOUNT_FILTER = {
   ],
 };
 
-const hasGoogleImageEvidence = (user = {}) =>
-  Array.isArray(user.images) && user.images.some((image) => image && image.source === "google");
-
 const hasGoogleId = (user = {}) => typeof user.googleId === "string" && user.googleId.trim() !== "";
 
 const hasBcryptPasswordEvidence = (user = {}) =>
@@ -97,7 +89,7 @@ const hasBcryptPasswordEvidence = (user = {}) =>
   !hasGoogleId(user);
 
 const isGoogleAccount = (user = {}) =>
-  user?.authProvider === "google" || hasGoogleId(user) || hasGoogleImageEvidence(user);
+  user?.authProvider === "google" || hasGoogleId(user);
 
 const getAuthProvider = (user = {}) => {
   if (isGoogleAccount(user)) return "google";
@@ -155,11 +147,6 @@ async function getGoogleEmailVerificationDiagnostics(User) {
         key: "googleId",
         value: "present",
         reason: "Persisted identifier from Google OAuth.",
-      },
-      {
-        key: "images.source",
-        value: "google",
-        reason: "Persisted by the Google OAuth session code when importing the Google profile photo.",
       },
     ],
     ambiguousLegacyGoogle: {
@@ -227,7 +214,6 @@ module.exports = {
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,
   hasBcryptPasswordEvidence,
-  hasGoogleImageEvidence,
   isManualEmailVerificationAllowed,
   isGoogleAccount,
   migrateSafeLegacyGoogleAccounts,

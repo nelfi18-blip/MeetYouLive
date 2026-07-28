@@ -387,7 +387,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("email emailVerified authProvider googleId images role")
+      .select("email emailVerified authProvider googleId role")
       .lean();
 
     if (!existingUser) {

@@ -14,7 +14,7 @@ describe("googleAccount.service", () => {
   test("identifies current and safe legacy Google accounts without Gmail heuristics", () => {
     expect(getAuthProvider({ authProvider: "google" })).toBe("google");
     expect(getAuthProvider({ googleId: "google-1" })).toBe("google");
-    expect(getAuthProvider({ images: [{ source: "google" }] })).toBe("google");
+    expect(getAuthProvider({ images: [{ source: "google" }] })).toBeNull();
     expect(getAuthProvider({ email: "alvaradomeetyoulive@gmail.com" })).toBeNull();
     expect(getAuthProvider({ password: "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa" })).toBe("local");
     expect(getAuthProvider({ email: "person@gmail.com", emailVerified: false })).toBeNull();

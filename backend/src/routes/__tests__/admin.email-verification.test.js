@@ -91,7 +91,6 @@ describe("admin manual email verification", () => {
             $nor: [
               { authProvider: "google" },
               { googleId: { $exists: true, $nin: [null, ""] } },
-              { images: { $elemMatch: { source: "google" } } },
             ],
           },
         ],
@@ -209,7 +208,23 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
-  test("cuenta Google legacy con evidencia segura no puede verificarse manualmente por error", async () => {
+  test("cuenta con solo imagen Google y sin proveedor queda ambigua", async () => {
+    mockAdminAccess();
+    User.findById.mockReturnValueOnce(makeLeanSelectChain({
+      _id: targetUserId,
+      role: "user",
+      emailVerified: false,
+      images: [{ url: "https://lh3.googleusercontent.com/a/photo=s96-c", source: "google" }],
+    }));
+
+    const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
+
+    expect(res.status).toBe(400);
+    expect(User.updateOne).not.toHaveBeenCalled();
+    expect(logStaffAction).not.toHaveBeenCalled();
+  });
+
+  test("cuenta local no verificada con imagen Google se puede verificar por proveedor persistido", async () => {
     mockAdminAccess();
     User.findById.mockReturnValueOnce(makeLeanSelectChain({
       _id: targetUserId,
@@ -221,9 +236,8 @@ describe("admin manual email verification", () => {
 
     const res = await request(app).patch(`/api/admin/users/${targetUserId}/verify-email`);
 
-    expect(res.status).toBe(400);
-    expect(User.updateOne).not.toHaveBeenCalled();
-    expect(logStaffAction).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(User.updateOne).toHaveBeenCalled();
   });
 
   test("cuenta admin no puede verificarse manualmente", async () => {
@@ -297,7 +311,7 @@ describe("admin manual email verification", () => {
       { _id: "local-unverified", email: "local-u@example.com", authProvider: "local", emailVerified: false },
       { _id: "local-verified", email: "local-v@example.com", authProvider: "local", emailVerified: true },
       { _id: "google-user", email: "google@example.com", authProvider: "google", googleId: "google-1", emailVerified: true },
-      { _id: "legacy-google-user", email: "legacy-google@example.com", images: [{ source: "google" }], emailVerified: false },
+      { _id: "legacy-google-user", email: "legacy-google@example.com", googleId: "legacy-google-1", emailVerified: false },
       { _id: "legacy-user", email: "legacy@example.com" },
     ];
     User.find.mockReturnValueOnce({
@@ -355,7 +369,6 @@ describe("admin manual email verification", () => {
       documentsToModifyCount: 2,
       legacyEvidence: [
         expect.objectContaining({ key: "googleId", value: "present" }),
-        expect.objectContaining({ key: "images.source", value: "google" }),
       ],
       ambiguousLegacyGoogle: expect.objectContaining({ count: null }),
     });

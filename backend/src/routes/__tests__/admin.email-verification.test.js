@@ -72,7 +72,7 @@ describe("admin manual email verification", () => {
       _id: targetUserId,
       email: "alvaradomeetyoulive@gmail.com",
       role: "user",
-      authProvider: "local",
+      password: "$2a$10$7EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa",
       emailVerified: false,
     }));
 
@@ -81,9 +81,19 @@ describe("admin manual email verification", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: true });
     expect(User.updateOne).toHaveBeenCalledWith(
-      { _id: targetUserId, authProvider: "local", emailVerified: { $ne: true }, role: { $ne: "admin" } },
+      {
+        _id: targetUserId,
+        emailVerified: { $ne: true },
+        role: { $ne: "admin" },
+        $nor: [
+          { authProvider: "google" },
+          { googleId: { $exists: true, $nin: [null, ""] } },
+          { images: { $elemMatch: { source: "google" } } },
+        ],
+      },
       {
         $set: {
+          authProvider: "local",
           emailVerified: true,
           emailVerificationCode: null,
           emailVerificationExpires: null,
@@ -242,6 +252,39 @@ describe("admin manual email verification", () => {
     expect(logStaffAction).not.toHaveBeenCalled();
   });
 
+  test("cuenta legacy con hash bcrypt y sin Google se muestra como local verificable", async () => {
+    mockAdminAccess();
+    const users = [
+      {
+        _id: "legacy-local",
+        email: "person@gmail.com",
+        password: "$2b$12$9EqJtq98hPqEX7fNZaFWoOhiS4c1vSPdQvj1DrN25aP2a6cxZ7aVa",
+        emailVerified: false,
+      },
+    ];
+    User.find.mockReturnValueOnce({
+      sort: jest.fn(() => ({
+        skip: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(users),
+          })),
+        })),
+      })),
+    });
+    User.countDocuments.mockResolvedValueOnce(users.length);
+
+    const res = await request(app).get("/api/admin/users");
+
+    expect(res.status).toBe(200);
+    expect(res.body.users[0]).toMatchObject({
+      _id: "legacy-local",
+      authProvider: "local",
+      emailVerified: false,
+      isGoogleAccount: false,
+    });
+    expect(res.body.users[0]).not.toHaveProperty("password");
+  });
+
   test("listado admin devuelve emailVerified y proveedor explícitos", async () => {
     mockAdminAccess();
     const users = [
@@ -300,7 +343,7 @@ describe("admin manual email verification", () => {
       ambiguousAccounts: 3,
       documentsToModify: [
         expect.objectContaining({ _id: "g1", plannedChange: "normalize-google-email-verification" }),
-        expect.objectContaining({ _id: "a1", plannedChange: "classify-alvarado-local" }),
+        expect.objectContaining({ _id: "a1", plannedChange: "classify-legacy-local" }),
       ],
       documentsToModifyCount: 2,
       legacyEvidence: [

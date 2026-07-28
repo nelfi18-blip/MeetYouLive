@@ -22,6 +22,7 @@ const {
   getGoogleEmailVerificationDiagnostics,
   isGoogleAccount,
   isManualEmailVerificationAllowed,
+  NON_GOOGLE_ACCOUNT_FILTER,
 } = require("../services/googleAccount.service.js");
 const mongoose = require("mongoose");
 
@@ -326,7 +327,7 @@ exports.getUsers = async (req, res) => {
     }
 
     const [users, total] = await Promise.all([
-      User.find(filter, "-password")
+      User.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -365,7 +366,7 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     const existingUser = await User.findById(id)
-      .select("email emailVerified authProvider googleId images role")
+      .select("email emailVerified authProvider googleId images role password")
       .lean();
 
     if (!existingUser) {
@@ -389,9 +390,10 @@ exports.verifyUserEmailByAdmin = async (req, res) => {
     }
 
     await User.updateOne(
-      { _id: id, authProvider: "local", emailVerified: { $ne: true }, role: { $ne: "admin" } },
+      { _id: id, emailVerified: { $ne: true }, role: { $ne: "admin" }, ...NON_GOOGLE_ACCOUNT_FILTER },
       {
         $set: {
+          authProvider: "local",
           emailVerified: true,
           emailVerificationCode: null,
           emailVerificationExpires: null,

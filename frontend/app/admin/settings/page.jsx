@@ -15,6 +15,21 @@ const SETTINGS_META = [
   { key: "creatorPlatformSplitPercent", label: "Comisión plataforma (%)", description: "Porcentaje que retiene la plataforma de los regalos (0-100).", min: 0, max: 100 },
 ];
 
+const CHAT_PROTECTION_TOGGLES = [
+  { key: "chatProtectionEnabled", label: "Protección general", description: "Bloquea intentos tempranos de compartir contacto externo." },
+  { key: "blockPhones", label: "Teléfonos", description: "Detecta números de teléfono y variaciones separadas." },
+  { key: "blockEmails", label: "Emails", description: "Detecta correos escritos normal u ofuscados." },
+  { key: "blockUrls", label: "Enlaces y dominios", description: "Detecta URLs, www y dominios comunes." },
+  { key: "blockSocialMedia", label: "Redes sociales", description: "Detecta WhatsApp, Telegram, Instagram, TikTok y similares." },
+];
+
+const CHAT_PROTECTION_NUMBERS = [
+  { key: "minimumDaysSinceMatch", label: "Días mínimos desde match", min: 0, max: 3650 },
+  { key: "minimumMessages", label: "Mensajes mínimos en conversación", min: 0, max: 100000 },
+  { key: "minimumCompletedCalls", label: "Llamadas completadas mínimas", min: 0, max: 10000 },
+  { key: "minimumCoinsSpent", label: "Coins gastadas mínimas", min: 0, max: 100000000 },
+];
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [settings, setSettings] = useState(null);
@@ -39,10 +54,22 @@ export default function AdminSettingsPage() {
       if (!res.ok) throw new Error("server");
       const data = await res.json();
       setSettings(data.settings || {});
+      const chatProtection = data.settings?.chatProtection || {};
       setForm(
-        Object.fromEntries(
-          Object.entries(data.settings || {}).map(([k, v]) => [k, String(v)])
-        )
+        {
+          ...Object.fromEntries(
+            Object.entries(data.settings || {})
+              .filter(([k]) => k !== "chatProtection")
+              .map(([k, v]) => [k, String(v)])
+          ),
+          chatProtection: {
+            ...chatProtection,
+            ...Object.fromEntries(
+              CHAT_PROTECTION_NUMBERS.map((meta) => [meta.key, String(chatProtection[meta.key] ?? 0)])
+            ),
+            trustRuleMode: chatProtection.trustRuleMode || "all",
+          },
+        }
       );
     } catch {
       setError("Error cargando configuración.");
@@ -60,8 +87,16 @@ export default function AdminSettingsPage() {
     setSuccess("");
     try {
       const body = Object.fromEntries(
-        Object.entries(form).map(([k, v]) => [k, Number(v)])
+        Object.entries(form)
+          .filter(([k]) => k !== "chatProtection")
+          .map(([k, v]) => [k, Number(v)])
       );
+      body.chatProtection = {
+        ...(form.chatProtection || {}),
+        ...Object.fromEntries(
+          CHAT_PROTECTION_NUMBERS.map((meta) => [meta.key, Number(form.chatProtection?.[meta.key] ?? 0)])
+        ),
+      };
       const res = await fetch(`${API_URL}/api/admin/settings`, {
         method: "PATCH",
         headers: authHeader(),
@@ -81,6 +116,16 @@ export default function AdminSettingsPage() {
 
   const handleChange = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleChatProtectionChange = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      chatProtection: {
+        ...(prev.chatProtection || {}),
+        [key]: value,
+      },
+    }));
   };
 
   return (
@@ -141,13 +186,83 @@ export default function AdminSettingsPage() {
         </form>
       )}
 
+      {!loading && (
+        <section className="settings-form chat-protection-panel" aria-labelledby="chat-protection-title">
+          <div className="panel-heading">
+            <h2 id="chat-protection-title">Protección inteligente del chat</h2>
+            <p>Configura cuándo se permite compartir información de contacto externo.</p>
+          </div>
+          {CHAT_PROTECTION_TOGGLES.map((meta) => (
+            <div key={meta.key} className="setting-row toggle-row">
+              <div className="setting-info">
+                <span className="setting-label">{meta.label}</span>
+                <p className="setting-desc">{meta.description}</p>
+              </div>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={form.chatProtection?.[meta.key] !== false}
+                  onChange={(e) => handleChatProtectionChange(meta.key, e.target.checked)}
+                  disabled={saving}
+                />
+                <span>{form.chatProtection?.[meta.key] !== false ? "Activo" : "Inactivo"}</span>
+              </label>
+            </div>
+          ))}
+          {CHAT_PROTECTION_NUMBERS.map((meta) => (
+            <div key={meta.key} className="setting-row">
+              <div className="setting-info">
+                <label className="setting-label" htmlFor={meta.key}>{meta.label}</label>
+                <p className="setting-desc">Usa 0 para desactivar esta condición de confianza.</p>
+              </div>
+              <div className="setting-input-wrap">
+                <input
+                  id={meta.key}
+                  type="number"
+                  className="setting-input"
+                  value={form.chatProtection?.[meta.key] ?? "0"}
+                  onChange={(e) => handleChatProtectionChange(meta.key, e.target.value)}
+                  min={meta.min}
+                  max={meta.max}
+                  step="1"
+                  disabled={saving}
+                  required
+                />
+              </div>
+            </div>
+          ))}
+          <div className="setting-row">
+            <div className="setting-info">
+              <label className="setting-label" htmlFor="trustRuleMode">Modo de reglas de confianza</label>
+              <p className="setting-desc">Define si deben cumplirse todas las condiciones activas o cualquiera de ellas.</p>
+            </div>
+            <select
+              id="trustRuleMode"
+              className="setting-input"
+              value={form.chatProtection?.trustRuleMode || "all"}
+              onChange={(e) => handleChatProtectionChange("trustRuleMode", e.target.value)}
+              disabled={saving}
+            >
+              <option value="all">Cumplir todas</option>
+              <option value="any">Cumplir cualquiera</option>
+            </select>
+          </div>
+          <div className="form-footer">
+            <button type="button" className="btn-save" onClick={handleSubmit} disabled={saving}>
+              {saving ? "Guardando…" : "💾 Guardar protección"}
+            </button>
+          </div>
+        </section>
+      )}
+
       <div className="note-panel">
         <h3 className="note-title">📋 Notas importantes</h3>
         <ul className="note-list">
           <li>Los precios de boost y like oculto se leen al momento de la transacción.</li>
           <li>El porcentaje de comisión de la plataforma es solo referencial en esta versión — el split real se configura en el modelo de agencia.</li>
           <li>La recompensa diaria base afecta el día 1 de racha; los días siguientes tienen multiplicadores propios.</li>
-          <li>Los cambios son de sesión del servidor — se restablecen al reiniciar. Para persistencia, configura desde el panel de entorno.</li>
+          <li>Los cambios se guardan en MongoDB y se aplican sin redeploy.</li>
+          <li>Coins mínimas usa lectura de transacciones completadas del usuario; no modifica balances ni Stripe.</li>
         </ul>
       </div>
 
@@ -171,6 +286,10 @@ export default function AdminSettingsPage() {
         .alert-success { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
         .loading-state { text-align: center; padding: 3rem; color: #64748b; }
         .settings-form { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; overflow: hidden; margin-bottom: 1.5rem; }
+        .chat-protection-panel { margin-top: 1rem; }
+        .panel-heading { padding: 1rem 1.25rem; border-bottom: 1px solid #1a2030; }
+        .panel-heading h2 { color: #e2e8f0; font-size: 1rem; margin: 0 0 0.25rem; }
+        .panel-heading p { color: #64748b; font-size: 0.82rem; margin: 0; }
         .setting-row {
           display: grid;
           grid-template-columns: 1fr 180px;
@@ -200,6 +319,10 @@ export default function AdminSettingsPage() {
           text-align: right;
         }
         .setting-input:focus { border-color: #7c3aed; }
+        select.setting-input { text-align: left; }
+        .toggle-row { grid-template-columns: 1fr 150px; }
+        .switch { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; color: #cbd5e1; font-size: 0.82rem; font-weight: 700; }
+        .switch input { width: 1.1rem; height: 1.1rem; accent-color: #7c3aed; }
         .setting-current { font-size: 0.72rem; color: #64748b; text-align: right; }
         .setting-current strong { color: #94a3b8; }
         .form-footer {

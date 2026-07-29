@@ -1,6 +1,7 @@
 const AgencyRelationship = require("../models/AgencyRelationship.js");
 const AnalyticsEvent = require("../models/AnalyticsEvent.js");
 const Chat = require("../models/Chat.js");
+const ChatProtectionAttempt = require("../models/ChatProtectionAttempt.js");
 const CoinTransaction = require("../models/CoinTransaction.js");
 const Gift = require("../models/Gift.js");
 const Like = require("../models/Like.js");
@@ -20,6 +21,7 @@ async function deleteUserAccount(userId) {
 
   const cleanupResults = await Promise.allSettled([
     Message.deleteMany({ $or: [{ sender: userId }, { chat: { $in: chatIds } }] }),
+    ChatProtectionAttempt.deleteMany({ $or: [{ senderId: userId }, { recipientId: userId }, { chatId: { $in: chatIds } }] }),
     Chat.deleteMany({ participants: userId }),
     Live.deleteMany({ user: userId }),
     Video.deleteMany({ user: userId }),

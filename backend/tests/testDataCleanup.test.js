@@ -21,6 +21,7 @@ const relatedModels = [
   require("../src/models/AccessPass"),
   require("../src/models/AgencyRelationship"),
   require("../src/models/AnalyticsEvent"),
+  require("../src/models/ChatProtectionAttempt"),
   require("../src/models/CoinTransaction"),
   require("../src/models/ContentUnlock"),
   require("../src/models/CrushTransaction"),

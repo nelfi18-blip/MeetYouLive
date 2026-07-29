@@ -17,6 +17,7 @@ const { STAFF_ROLES } = require("../middlewares/admin.middleware.js");
 const { logStaffAction } = require("../services/audit.service.js");
 const { isLiveActuallyActive, cleanupStaleLives } = require("../services/live.service.js");
 const { notifyCreatorDecision } = require("../services/essentialNotification.service.js");
+const { getPlatformSettings, updatePlatformSettings } = require("../services/platformSettings.service.js");
 const {
   getAuthProvider,
   getGoogleEmailVerificationDiagnostics,
@@ -1305,45 +1306,24 @@ exports.getRevenueMetrics = async (req, res) => {
   }
 };
 
-// ── Settings ─────────────────────────────────────────────────────────────────
-
-// In-memory fallback store for settings (persisted in User model's admin config or a dedicated settings collection)
-// For simplicity we use a static in-memory object that can be read/updated at runtime.
-// A production system should use a dedicated Settings collection in MongoDB.
-const DEFAULT_SETTINGS = {
-  boostPriceCrush: 50,
-  boostPackPrice: 200,
-  hiddenLikePrice: 20,
-  dailyRewardBaseCoins: 20,
-  referralRewardCoins: 50,
-  creatorPlatformSplitPercent: 40,
-};
-
-let _runtimeSettings = { ...DEFAULT_SETTINGS };
-
 exports.getSettings = async (req, res) => {
-  return res.json({ ok: true, settings: { ..._runtimeSettings } });
+  try {
+    const settings = await getPlatformSettings();
+    return res.json({ ok: true, settings });
+  } catch (error) {
+    console.error("Admin settings load error:", error);
+    return res.status(500).json({ ok: false, message: "Error cargando configuración" });
+  }
 };
 
 exports.updateSettings = async (req, res) => {
   try {
-    const ALLOWED_KEYS = Object.keys(DEFAULT_SETTINGS);
-    const updates = {};
-    for (const key of ALLOWED_KEYS) {
-      if (req.body[key] !== undefined) {
-        const val = Number(req.body[key]);
-        if (isNaN(val) || val < 0) {
-          return res.status(400).json({ ok: false, message: `Valor inválido para ${key}` });
-        }
-        updates[key] = val;
-      }
-    }
-    _runtimeSettings = { ..._runtimeSettings, ...updates };
-    console.log(`⚙️ Admin settings updated by ${req.userId}:`, updates);
-    return res.json({ ok: true, settings: { ..._runtimeSettings } });
+    const settings = await updatePlatformSettings(req.body || {}, req.userId);
+    console.log(`⚙️ Admin settings updated by ${req.userId}`);
+    return res.json({ ok: true, settings });
   } catch (error) {
     console.error("Admin settings update error:", error);
-    return res.status(500).json({ ok: false, message: "Error actualizando configuración" });
+    return res.status(error.status || 500).json({ ok: false, message: error.message || "Error actualizando configuración" });
   }
 };
 

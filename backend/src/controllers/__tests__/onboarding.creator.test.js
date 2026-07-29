@@ -93,4 +93,85 @@ describe("creator onboarding", () => {
     );
     expect(currentUser.save).toHaveBeenCalled();
   });
+
+  test("approved creator onboarding ignores manipulated creator classification fields", async () => {
+    const currentUser = {
+      _id: "507f1f77bcf86cd799439012",
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt: new Date("2026-01-01T00:00:00.000Z"),
+      authProvider: "google",
+      emailVerified: true,
+      coins: 500,
+      earningsCoins: 200,
+      creatorProfile: { displayName: "Creator", liveEnabled: true },
+      isBlocked: false,
+      isSuspended: false,
+      images: [{ url: "https://example.com/current.jpg", isPrimary: true }],
+      profilePhotos: ["https://example.com/current.jpg"],
+      avatar: "https://example.com/current.jpg",
+      toObject() {
+        return { ...this };
+      },
+      set(updates) {
+        Object.assign(this, updates);
+      },
+      save: jest.fn(async function save() {
+        return this;
+      }),
+    };
+    User.findById.mockReturnValue({
+      select: jest.fn().mockResolvedValue(currentUser),
+    });
+
+    const req = {
+      userId: currentUser._id,
+      protocol: "https",
+      get(name) {
+        return name.toLowerCase() === "host" ? "meetyoulive.onrender.com" : "";
+      },
+      body: {
+        name: "Creator Updated",
+        birthdate: "2000-01-01",
+        gender: "female",
+        interestedIn: "both",
+        intent: "creator",
+        interests: ["music", "travel", "gaming"],
+        location: { type: "Point", coordinates: [-70.6693, -33.4489], country: "Chile" },
+        role: "user",
+        creatorStatus: "none",
+        isVerifiedCreator: false,
+        creatorProfile: {},
+        authProvider: "local",
+        emailVerified: false,
+        coins: 0,
+        earningsCoins: 0,
+      },
+    };
+    const res = makeResponse();
+
+    await updateOnboarding(req, res);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(currentUser.save).toHaveBeenCalled();
+    expect(currentUser).toMatchObject({
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      authProvider: "google",
+      emailVerified: true,
+      coins: 500,
+      earningsCoins: 200,
+      creatorProfile: { displayName: "Creator", liveEnabled: true },
+    });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: expect.objectContaining({
+          role: "creator",
+          creatorStatus: "approved",
+        }),
+      })
+    );
+  });
 });

@@ -135,7 +135,7 @@ const startLive = async (req, res) => {
     creatorUsername = user.username || user.name || "";
     // Only approved creators can start live streams
     if (!isApprovedCreator) {
-      return res.status(403).json({ message: "Solo los creadores aprobados pueden iniciar directos" });
+      return res.status(403).json({ message: "Necesitas una cuenta de creador aprobada para iniciar un Live." });
     }
     followerIds = (user.followers || []).slice(0, MAX_LIVE_PUSH_FOLLOWERS);
   } catch (err) {

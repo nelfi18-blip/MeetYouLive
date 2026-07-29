@@ -676,10 +676,6 @@ router.post("/google-session", authLimiter, async (req, res) => {
         user.username = await generateUniqueUsername(email, user._id);
         changed = true;
       }
-      if (!user.referralCode) {
-        user.referralCode = await generateReferralCode();
-        changed = true;
-      }
       if (user.authProvider !== "google") {
         user.authProvider = "google";
         changed = true;

@@ -1,4 +1,4 @@
-const { moderateLiveUser } = require("../live.controller.js");
+const { moderateLiveUser, startLive } = require("../live.controller.js");
 const Live = require("../../models/Live.js");
 const User = require("../../models/User.js");
 const { getIO, removeLiveUserFromRoom } = require("../../lib/socket.js");
@@ -10,6 +10,7 @@ const normalUserId = "507f1f77bcf86cd799439014";
 
 jest.mock("../../models/Live.js", () => ({
   findOne: jest.fn(),
+  create: jest.fn(),
 }));
 
 jest.mock("../../models/User.js", () => ({
@@ -19,6 +20,7 @@ jest.mock("../../models/User.js", () => ({
 jest.mock("../../models/Gift.js", () => ({}));
 jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }));
 jest.mock("../../services/notification.service.js", () => ({ createBulkNotifications: jest.fn() }));
+jest.mock("../../lib/fcm.js", () => ({ sendMulticastPush: jest.fn().mockResolvedValue({}) }));
 jest.mock("../../services/analytics.service.js", () => ({ trackAnalyticsEvent: jest.fn() }));
 jest.mock("../../services/live.service.js", () => ({
   isLiveActuallyActive: jest.fn(),
@@ -78,6 +80,61 @@ describe("moderateLiveUser", () => {
     getIO.mockReturnValue(io);
     removeLiveUserFromRoom.mockResolvedValue(1);
     mockTargetUser();
+  });
+
+  describe("startLive creator access", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      getIO.mockReturnValue(io);
+    });
+
+    test("allows approved creator to start a live", async () => {
+      const createdLive = { _id: liveId, title: "Creator live" };
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({
+          _id: hostUserId,
+          role: "creator",
+          creatorStatus: "approved",
+          username: "creator",
+          followers: [],
+        }),
+      });
+      Live.create.mockResolvedValue(createdLive);
+      const req = { userId: hostUserId, body: { title: "Creator live" } };
+      const res = makeRes();
+
+      await startLive(req, res);
+
+      expect(Live.create).toHaveBeenCalledWith(expect.objectContaining({
+        user: hostUserId,
+        title: "Creator live",
+        isLive: true,
+      }));
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(createdLive);
+    });
+
+    test("rejects normal user with clear creator approval message", async () => {
+      User.findById.mockReturnValue({
+        select: jest.fn().mockResolvedValue({
+          _id: normalUserId,
+          role: "user",
+          creatorStatus: "none",
+          username: "viewer",
+          followers: [],
+        }),
+      });
+      const req = { userId: normalUserId, body: { title: "Viewer live" } };
+      const res = makeRes();
+
+      await startLive(req, res);
+
+      expect(Live.create).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Necesitas una cuenta de creador aprobada para iniciar un Live.",
+      });
+    });
   });
 
   test("kicks a user from the host's live and emits moderation events", async () => {

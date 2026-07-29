@@ -20,10 +20,12 @@ jest.mock("../../models/Message.js", () => ({
 
 jest.mock("../../models/User.js", () => ({}));
 jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }));
+jest.mock("../../services/essentialNotification.service.js", () => ({ notifyNewMessage: jest.fn() }));
 jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
 
 const { trackEvent } = require("../../services/missions.service.js");
+const { notifyNewMessage } = require("../../services/essentialNotification.service.js");
 const { emitChatMessage } = require("../../lib/socket.js");
 const { sendMessage, getMessages } = require("../chat.controller.js");
 const { getChats } = require("../chat.controller.js");
@@ -74,6 +76,8 @@ describe("chat blocking", () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ message: "No puedes enviar mensajes a este usuario" });
     expect(Message.create).not.toHaveBeenCalled();
+    expect(emitChatMessage).not.toHaveBeenCalled();
+    expect(notifyNewMessage).not.toHaveBeenCalled();
   });
 
   test("rejects reading messages after a unilateral block", async () => {
@@ -110,10 +114,11 @@ describe("chat message idempotency", () => {
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
     Chat.findByIdAndUpdate.mockResolvedValue({});
     emitChatMessage.mockResolvedValue();
+    notifyNewMessage.mockResolvedValue();
     trackEvent.mockResolvedValue();
   });
 
-  test("persists a valid clientMessageId with the message", async () => {
+  test("persists, emits, and notifies a valid normal message", async () => {
     const createdMessage = { _id: "507f1f77bcf86cd799439099" };
     const populatedMessage = {
       _id: createdMessage._id,
@@ -148,6 +153,19 @@ describe("chat message idempotency", () => {
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId }));
+    expect(emitChatMessage).toHaveBeenCalledWith({
+      chatId,
+      message: expect.objectContaining({ clientMessageId, text: "hello" }),
+      senderId: currentUserId,
+      participants: openChat.participants,
+    });
+    expect(notifyNewMessage).toHaveBeenCalledWith({
+      chatId,
+      messageId: createdMessage._id,
+      senderId: currentUserId,
+      recipientId: otherUserId,
+    });
+    expect(trackEvent).toHaveBeenCalledWith(currentUserId, "message");
   });
 
   test("returns an existing message when clientMessageId was already processed", async () => {

@@ -14,6 +14,13 @@ function validateEnv() {
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }
+
+  if (process.env.NODE_ENV === "production") {
+    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
+    if (stripeKey.startsWith("sk_test_")) {
+      throw new Error("Stripe secret key uses a test environment value in production. This is unsafe.");
+    }
+  }
 }
 
 module.exports = {

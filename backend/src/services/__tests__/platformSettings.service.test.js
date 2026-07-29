@@ -23,6 +23,9 @@ describe("platformSettings.service", () => {
     expect(settings.chatProtection.chatProtectionEnabled).toBe(true);
     expect(settings.chatProtection.blockPhones).toBe(true);
     expect(settings.chatProtection.minimumDaysSinceMatch).toBe(7);
+    expect(settings.socialCalls.enabled).toBe(true);
+    expect(settings.socialCalls.maxDurationSeconds).toBe(900);
+    expect(settings.socialCalls.timeoutSeconds).toBe(45);
   });
 
   test("persists chat protection updates with validation", async () => {
@@ -65,5 +68,48 @@ describe("platformSettings.service", () => {
   test("rejects invalid trust mode and numeric limits", () => {
     expect(() => normalizeUpdates({ chatProtection: { trustRuleMode: "some" } })).toThrow("trustRuleMode");
     expect(() => normalizeUpdates({ chatProtection: { minimumMessages: -1 } })).toThrow("minimumMessages");
+  });
+
+  test("persists social call settings with validation", async () => {
+    const stored = {
+      socialCalls: {
+        enabled: false,
+        maxDurationSeconds: 120,
+        timeoutSeconds: 20,
+        futureRules: { regionGate: "future" },
+      },
+    };
+    PlatformSettings.findOneAndUpdate.mockReturnValue({ lean: jest.fn().mockResolvedValue(stored) });
+
+    const settings = await updatePlatformSettings({
+      socialCalls: {
+        enabled: false,
+        maxDurationSeconds: 120,
+        timeoutSeconds: 20,
+        futureRules: { regionGate: "future" },
+      },
+    }, "507f1f77bcf86cd799439011");
+
+    expect(PlatformSettings.findOneAndUpdate).toHaveBeenCalledWith(
+      { key: "global" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          "socialCalls.enabled": false,
+          "socialCalls.maxDurationSeconds": 120,
+          "socialCalls.timeoutSeconds": 20,
+          "socialCalls.futureRules": { regionGate: "future" },
+        }),
+      }),
+      expect.objectContaining({ upsert: true, runValidators: true })
+    );
+    expect(settings.socialCalls.enabled).toBe(false);
+    expect(settings.socialCalls.maxDurationSeconds).toBe(120);
+    expect(settings.socialCalls.timeoutSeconds).toBe(20);
+  });
+
+  test("rejects invalid social call limits", () => {
+    expect(() => normalizeUpdates({ socialCalls: { maxDurationSeconds: 30 } })).toThrow("maxDurationSeconds");
+    expect(() => normalizeUpdates({ socialCalls: { timeoutSeconds: 5 } })).toThrow("timeoutSeconds");
+    expect(() => normalizeUpdates({ socialCalls: { futureRules: [] } })).toThrow("futureRules");
   });
 });

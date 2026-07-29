@@ -30,6 +30,11 @@ const CHAT_PROTECTION_NUMBERS = [
   { key: "minimumCoinsSpent", label: "Coins gastadas mínimas", min: 0, max: 100000000 },
 ];
 
+const SOCIAL_CALL_NUMBERS = [
+  { key: "maxDurationSeconds", label: "Duración máxima (segundos)", min: 60, max: 14400 },
+  { key: "timeoutSeconds", label: "Tiempo de espera (segundos)", min: 10, max: 300 },
+];
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [settings, setSettings] = useState(null);
@@ -55,13 +60,22 @@ export default function AdminSettingsPage() {
       const data = await res.json();
       setSettings(data.settings || {});
       const chatProtection = data.settings?.chatProtection || {};
+      const socialCalls = data.settings?.socialCalls || {};
       setForm(
         {
           ...Object.fromEntries(
             Object.entries(data.settings || {})
-              .filter(([k]) => k !== "chatProtection")
+              .filter(([k]) => k !== "chatProtection" && k !== "socialCalls")
               .map(([k, v]) => [k, String(v)])
           ),
+          socialCalls: {
+            ...socialCalls,
+            enabled: socialCalls.enabled !== false,
+            ...Object.fromEntries(
+              SOCIAL_CALL_NUMBERS.map((meta) => [meta.key, String(socialCalls[meta.key] ?? 0)])
+            ),
+            futureRules: socialCalls.futureRules || {},
+          },
           chatProtection: {
             ...chatProtection,
             ...Object.fromEntries(
@@ -88,9 +102,16 @@ export default function AdminSettingsPage() {
     try {
       const body = Object.fromEntries(
         Object.entries(form)
-          .filter(([k]) => k !== "chatProtection")
+          .filter(([k]) => k !== "chatProtection" && k !== "socialCalls")
           .map(([k, v]) => [k, Number(v)])
       );
+      body.socialCalls = {
+        enabled: form.socialCalls?.enabled !== false,
+        ...Object.fromEntries(
+          SOCIAL_CALL_NUMBERS.map((meta) => [meta.key, Number(form.socialCalls?.[meta.key] ?? 0)])
+        ),
+        futureRules: form.socialCalls?.futureRules || {},
+      };
       body.chatProtection = {
         ...(form.chatProtection || {}),
         ...Object.fromEntries(
@@ -123,6 +144,16 @@ export default function AdminSettingsPage() {
       ...prev,
       chatProtection: {
         ...(prev.chatProtection || {}),
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleSocialCallsChange = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      socialCalls: {
+        ...(prev.socialCalls || {}),
         [key]: value,
       },
     }));
@@ -184,6 +215,57 @@ export default function AdminSettingsPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {!loading && (
+        <section className="settings-form social-calls-panel" aria-labelledby="social-calls-title">
+          <div className="panel-heading">
+            <h2 id="social-calls-title">Llamadas de voz sociales</h2>
+            <p>Configura llamadas entre usuarios con Match sin afectar videollamadas Premium ni Live Streaming.</p>
+          </div>
+          <div className="setting-row toggle-row">
+            <div className="setting-info">
+              <span className="setting-label">Activar llamadas sociales</span>
+              <p className="setting-desc">Permite iniciar llamadas de voz entre matches cuando ambos usuarios pueden interactuar.</p>
+            </div>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={form.socialCalls?.enabled !== false}
+                onChange={(e) => handleSocialCallsChange("enabled", e.target.checked)}
+                disabled={saving}
+              />
+              <span>{form.socialCalls?.enabled !== false ? "Activo" : "Inactivo"}</span>
+            </label>
+          </div>
+          {SOCIAL_CALL_NUMBERS.map((meta) => (
+            <div key={meta.key} className="setting-row">
+              <div className="setting-info">
+                <label className="setting-label" htmlFor={`social-${meta.key}`}>{meta.label}</label>
+                <p className="setting-desc">Se guarda en PlatformSettings y aplica solo a llamadas sociales.</p>
+              </div>
+              <div className="setting-input-wrap">
+                <input
+                  id={`social-${meta.key}`}
+                  type="number"
+                  className="setting-input"
+                  value={form.socialCalls?.[meta.key] ?? "0"}
+                  onChange={(e) => handleSocialCallsChange(meta.key, e.target.value)}
+                  min={meta.min}
+                  max={meta.max}
+                  step="1"
+                  disabled={saving}
+                  required
+                />
+              </div>
+            </div>
+          ))}
+          <div className="form-footer">
+            <button type="button" className="btn-save" onClick={handleSubmit} disabled={saving}>
+              {saving ? "Guardando…" : "💾 Guardar llamadas sociales"}
+            </button>
+          </div>
+        </section>
       )}
 
       {!loading && (
@@ -286,7 +368,8 @@ export default function AdminSettingsPage() {
         .alert-success { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
         .loading-state { text-align: center; padding: 3rem; color: #64748b; }
         .settings-form { background: #161b27; border: 1px solid #1e2535; border-radius: 14px; overflow: hidden; margin-bottom: 1.5rem; }
-        .chat-protection-panel { margin-top: 1rem; }
+        .chat-protection-panel,
+        .social-calls-panel { margin-top: 1rem; }
         .panel-heading { padding: 1rem 1.25rem; border-bottom: 1px solid #1a2030; }
         .panel-heading h2 { color: #e2e8f0; font-size: 1rem; margin: 0 0 0.25rem; }
         .panel-heading p { color: #64748b; font-size: 0.82rem; margin: 0; }

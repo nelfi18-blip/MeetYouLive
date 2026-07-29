@@ -53,13 +53,21 @@ const getToken = async (req, res) => {
         role = RtcRole.PUBLISHER;
       }
     } else {
-      const isCallParticipant = await VideoCall.exists({
+      const callAccess = await VideoCall.findOne({
         _id: channelName,
         $or: [{ caller: req.userId }, { recipient: req.userId }],
         status: { $in: ["pending", "accepted"] },
-      });
-      if (!isCallParticipant) {
+      }).select("type status startedAt maxDurationSeconds").lean();
+      if (!callAccess) {
         return res.status(404).json({ message: "Canal no encontrado o sin permisos" });
+      }
+      if (callAccess.type === "social" && callAccess.status === "accepted" && callAccess.startedAt && callAccess.maxDurationSeconds) {
+        const elapsedSeconds = Math.floor((Date.now() - new Date(callAccess.startedAt).getTime()) / 1000);
+        const remainingSeconds = Math.max(0, Number(callAccess.maxDurationSeconds) - elapsedSeconds);
+        if (remainingSeconds <= 0) {
+          return res.status(410).json({ message: "La llamada social alcanzó su duración máxima" });
+        }
+        tokenExpirySeconds = Math.min(CALL_TOKEN_EXPIRY_SECONDS, remainingSeconds);
       }
       if (roleParam === "publisher" || roleParam === undefined) {
         role = RtcRole.PUBLISHER;

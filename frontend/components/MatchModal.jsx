@@ -76,7 +76,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
       const res = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ recipientId: user._id, type: "social" }),
+        body: JSON.stringify({ recipientId: user._id, type: "social", mediaType: "audio" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -162,7 +162,7 @@ export default function MatchModal({ user, onClose, isSuperCrush = false }) {
 
           <button className="cta-btn cta-call" onClick={startSocialCall} disabled={callLoading}>
               <span className="cta-icon">📞</span>
-              {callLoading ? t("chatPremium.callConnectingShort") : t("chatPremium.videoCallWithMatch")}
+              {callLoading ? t("chatPremium.callConnectingShort") : "Llamar"}
           </button>
 
           {isLive && (

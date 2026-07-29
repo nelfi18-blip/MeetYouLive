@@ -431,7 +431,7 @@ export default function ChatConversationPage() {
     }
   };
 
-  const handleStartCall = async (mediaType = "video") => {
+  const handleStartCall = async (mediaType = "audio") => {
     if (!otherUser?._id || callLoading) return;
     setCallLoading(true);
     setCallError("");

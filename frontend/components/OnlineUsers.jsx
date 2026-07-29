@@ -269,7 +269,7 @@ export default function OnlineUsers() {
       const r = await fetch(`${API_URL}/api/calls`, {
         method: "POST",
         headers: { Authorization: ["Bearer", token].join(" "), "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientId: user._id, type: "social" }),
+        body: JSON.stringify({ recipientId: user._id, type: "social", mediaType: "audio" }),
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok && data._id) {

@@ -18,6 +18,16 @@ const chatProtectionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const socialCallsSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: true },
+    maxDurationSeconds: { type: Number, default: 900, min: 60, max: 14400 },
+    timeoutSeconds: { type: Number, default: 45, min: 10, max: 300 },
+    futureRules: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  },
+  { _id: false }
+);
+
 const platformSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, unique: true, default: "global", index: true },
@@ -27,6 +37,7 @@ const platformSettingsSchema = new mongoose.Schema(
     dailyRewardBaseCoins: { type: Number, default: 20, min: 1, max: 1000000 },
     referralRewardCoins: { type: Number, default: 50, min: 0, max: 1000000 },
     creatorPlatformSplitPercent: { type: Number, default: 40, min: 0, max: 100 },
+    socialCalls: { type: socialCallsSchema, default: () => ({}) },
     chatProtection: { type: chatProtectionSchema, default: () => ({}) },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },

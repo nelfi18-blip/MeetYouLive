@@ -73,6 +73,8 @@ export default function IncomingCallNotification() {
     const handleEnded = (data) => clearMatchingCall(data, t("chatPremium.callUnavailable"));
     const handleRejected = (data) => clearMatchingCall(data, t("chatPremium.callRejected"));
     const handleMissed = (data) => clearMatchingCall(data, t("chatPremium.callMissed"));
+    const handleTimeout = (data) => clearMatchingCall(data, t("chatPremium.callMissed"));
+    const handleCancelled = (data) => clearMatchingCall(data, t("chatPremium.callUnavailable"));
 
     fetchIncoming();
     intervalRef.current = setInterval(fetchIncoming, POLL_INTERVAL);
@@ -80,12 +82,16 @@ export default function IncomingCallNotification() {
     socket.on("CALL_ENDED", handleEnded);
     socket.on("CALL_REJECTED", handleRejected);
     socket.on("CALL_MISSED", handleMissed);
+    socket.on("CALL_TIMEOUT", handleTimeout);
+    socket.on("CALL_CANCELLED", handleCancelled);
     return () => {
       clearInterval(intervalRef.current);
       socket.off("CALL_INCOMING", handleIncoming);
       socket.off("CALL_ENDED", handleEnded);
       socket.off("CALL_REJECTED", handleRejected);
       socket.off("CALL_MISSED", handleMissed);
+      socket.off("CALL_TIMEOUT", handleTimeout);
+      socket.off("CALL_CANCELLED", handleCancelled);
     };
   }, [session?.backendToken, t]);
 

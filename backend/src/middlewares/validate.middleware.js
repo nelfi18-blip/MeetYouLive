@@ -72,6 +72,10 @@ const registerSchema = z.object({
     .string({ required_error: "username es requerido" })
     .min(2, "username debe tener al menos 2 caracteres")
     .max(50, "username no puede superar 50 caracteres"),
+  name: z
+    .string()
+    .max(80, "name no puede superar 80 caracteres")
+    .optional(),
   email: z
     .string({ required_error: "email es requerido" })
     .email("El formato del email no es válido"),

@@ -16,6 +16,7 @@ import ReferralCard from "@/components/ReferralCard";
 import StatCard from "@/components/StatCard";
 import FuturisticCard from "@/components/ui/FuturisticCard";
 import SectionHeader from "@/components/ui/SectionHeader";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -453,12 +454,9 @@ export default function DashboardPage() {
   }
 
   const displayName =
-    user?.username ||
-    user?.name ||
-    session?.backendUser?.username ||
-    session?.backendUser?.name ||
+    (user ? getDisplayName(user) : "") ||
+    (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
-    session?.user?.email?.split("@")[0] ||
     "Usuario";
   const isCreator = user?.role === "creator";
   const creatorStatus = user?.creatorStatus || "none";

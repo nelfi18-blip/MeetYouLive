@@ -9,7 +9,7 @@ import GiftPanel from "@/components/GiftPanel";
 import GiftOverlay from "@/components/GiftOverlay";
 import PremiumCommunicationActions from "@/components/PremiumCommunicationActions";
 import socket, { configureSocketAuth } from "@/lib/socket";
-import { getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
 
@@ -101,7 +101,7 @@ export default function ChatConversationPage() {
   // - Displayed context: "chat" (matches "Chat" page terminology for users)
   // - Backend maps "private_call" → "chat" in socket events for UI clarity
 
-  const otherName = otherUser?.username || otherUser?.name || "Usuario";
+  const otherName = getDisplayName(otherUser);
   const otherImage = getUserImage(otherUser);
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function ChatConversationPage() {
       .then(async ([me, chatData, data]) => {
         const myId = me?._id ?? null;
         setCurrentUserId(myId);
-        setCurrentUserName(me?.username || me?.name || "Tú");
+        setCurrentUserName(me ? getDisplayName(me) : "Tú");
         const msgs = Array.isArray(data) ? data : [];
         setMessages(msgs);
         lastMessageIdRef.current = msgs[msgs.length - 1]?._id || null;
@@ -618,7 +618,7 @@ export default function ChatConversationPage() {
         {!loading && messages.map((msg, index) => {
           const isMine = msg.sender?._id === currentUserId;
           const senderImage = getUserImage(msg.sender);
-          const senderName = msg.sender?.username || msg.sender?.name || "Usuario";
+          const senderName = getDisplayName(msg.sender);
           const isLatestMine = isMine && index === messages.length - 1;
           return (
             <div key={msg._id} className={`bubble-wrap ${isMine ? "mine" : "theirs"}`}>

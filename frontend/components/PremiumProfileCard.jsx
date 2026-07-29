@@ -5,7 +5,7 @@ import Badge from "./Badge";
 import StatusBadges from "./StatusBadges";
 import InteractionButton from "./InteractionButton";
 import { computeStatusBadges } from "@/lib/statusBadges";
-import { getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 
 /**
  * PremiumProfileCard - Enhanced ProfileCard with InteractionButton system
@@ -43,7 +43,7 @@ export default function PremiumProfileCard({
     return null;
   }
 
-  const displayName = user.username || user.name || "Usuario";
+  const displayName = getDisplayName(user);
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator" || user.role === "subCreator";
   const isLive = isCreator && user.isLive && user.liveId;

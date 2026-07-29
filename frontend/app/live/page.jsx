@@ -106,7 +106,7 @@ export default function LivePage() {
           added.slice(0, 2).forEach((id) => {
             const live = fresh.find((item) => String(item._id) === id);
             if (!live) return;
-            const username = live.user?.username || live.user?.name || "Un creador";
+            const username = getDisplayName(live.user);
             notify({
               icon: "🔥",
               message: `${username} acaba de iniciar un live`,

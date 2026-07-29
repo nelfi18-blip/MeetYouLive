@@ -86,6 +86,7 @@ describe("auth email verification delivery", () => {
       .post("/api/auth/register")
       .send({
         username: "normaluser",
+        name: "Normal User",
         email: "NormalUser@example.com",
         password: "password123",
       });
@@ -102,6 +103,7 @@ describe("auth email verification delivery", () => {
     expect(User.deleteOne).not.toHaveBeenCalled();
     // OTP must be stored as SHA-256 hash of the code sent by email, not as plaintext
     const createArg = User.create.mock.calls[0][0];
+    expect(createArg.name).toBe("Normal User");
     expect(createArg.emailVerificationCode).toBe(sha256(sentCode));
     expect(createArg.emailVerificationCode).not.toBe(sentCode);
     expect(createArg.emailVerificationSentAt).toBeInstanceOf(Date);
@@ -145,6 +147,27 @@ describe("auth email verification delivery", () => {
     expect(createPayload).not.toHaveProperty("subscriptionId");
   });
 
+  test("google-session does not persist an email-derived name for a new Google user", async () => {
+    User.findOne.mockResolvedValue(null);
+    User.create.mockResolvedValue({
+      _id: "google-user-email-fallback",
+      email: "housetito563@gmail.com",
+      username: "housetito563",
+      role: "user",
+      onboardingComplete: false,
+      creatorStatus: "none",
+    });
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({ email: "housetito563@gmail.com", name: "" });
+
+    expect(res.status).toBe(200);
+    const createPayload = User.create.mock.calls[0][0];
+    expect(createPayload.username).toBe("housetito563");
+    expect(createPayload).not.toHaveProperty("name");
+  });
+
   test("google-session updates existing account as verified Google account without Stripe changes", async () => {
     const existingUser = {
       _id: "google-user-2",
@@ -184,6 +207,41 @@ describe("auth email verification delivery", () => {
     expect(existingUser).not.toHaveProperty("stripeCustomerId");
     expect(existingUser).not.toHaveProperty("stripeAccountId");
     expect(existingUser).not.toHaveProperty("subscriptionId");
+  });
+
+  test("google-session preserves an existing edited name and does not replace it with Google data", async () => {
+    const existingUser = {
+      _id: "edited-google-user",
+      email: "housetito563@gmail.com",
+      name: "Nombre Editado",
+      username: "housetito563",
+      role: "user",
+      onboardingComplete: true,
+      creatorStatus: "none",
+      authProvider: "local",
+      googleId: null,
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    User.findOne.mockResolvedValue(existingUser);
+    User.findByIdAndUpdate.mockReturnValue({ catch: jest.fn() });
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "housetito563@gmail.com",
+        googleId: "google-sub-edited",
+        name: "Google Name",
+      });
+
+    expect(res.status).toBe(200);
+    expect(existingUser.name).toBe("Nombre Editado");
+    expect(existingUser.authProvider).toBe("google");
+    expect(existingUser.googleId).toBe("google-sub-edited");
+    expect(existingUser.save).toHaveBeenCalledTimes(1);
   });
 
   test("google-session preserves approved creator classification for existing Google creator", async () => {

@@ -122,6 +122,13 @@ function isSimpleEmail(value) {
   return dot > at + 1 && dot < value.length - 1;
 }
 
+function normalizeVisibleName(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim().slice(0, 80);
+  if (!trimmed) return "";
+  return isSimpleEmail(trimmed) ? "" : trimmed;
+}
+
 function getEmailSendFailurePayload(err, emailType = "verification") {
   const code = err?.code || "EMAIL_DELIVERY_FAILED";
   const isConfigError = EMAIL_CONFIG_ERROR_CODES.has(code);
@@ -141,6 +148,7 @@ function getEmailSendFailurePayload(err, emailType = "verification") {
 router.post("/register", registerLimiter, validate(registerSchema), async (req, res) => {
   const { username, password, ref, agencyCode, creatorInvite } = req.body;
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
+  const visibleName = normalizeVisibleName(req.body.name);
   if (!username || !email || !password) {
     return res.status(400).json({ message: "username, email y password son requeridos" });
   }
@@ -198,6 +206,7 @@ router.post("/register", registerLimiter, validate(registerSchema), async (req, 
         : null;
     const user = await User.create({
       username,
+      ...(visibleName ? { name: visibleName } : {}),
       email,
       password: hashedPassword,
       emailVerified: false,
@@ -618,7 +627,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
     console.log("[google-session] Request body:", { email: req.body.email, name: req.body.name });
   }
 
-  const { name } = req.body;
+  const name = normalizeVisibleName(req.body.name);
   const email = req.body.email ? req.body.email.trim().toLowerCase() : "";
   const googleId = typeof req.body.googleId === "string" && req.body.googleId.trim() ? req.body.googleId.trim() : null;
   const googlePhotoUrl = req.body.photoUrl || req.body.avatar || req.body.profileImage || req.body.photo || req.body.picture || "";
@@ -651,7 +660,7 @@ router.post("/google-session", authLimiter, async (req, res) => {
       }
 
       user = await User.create({
-        name: name || email.split("@")[0],
+        ...(name ? { name } : {}),
         username,
         email,
         password: crypto.randomBytes(32).toString("hex"),

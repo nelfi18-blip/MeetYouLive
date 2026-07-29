@@ -4,22 +4,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import socket from "@/lib/socket";
 import { hasMutualMatchFlag } from "@/lib/callRules";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function getInitial(user) {
-  return (user.username || user.name || "?")[0].toUpperCase();
+  return getDisplayName(user)[0].toUpperCase();
 }
 
 function UserCard({ user, onChat, onCall, chatLoading }) {
   const isCreator = (user.role === "creator" || user.role === "subCreator") && user.creatorStatus === "approved";
   const canSocialCall = hasMutualMatchFlag(user);
+  const displayName = getDisplayName(user);
 
   return (
     <div className="online-card">
       <div className="online-avatar-wrap">
         {user.avatar ? (
-          <img src={user.avatar} alt={user.username || user.name} className="online-avatar-img" />
+          <img src={user.avatar} alt={displayName} className="online-avatar-img" />
         ) : (
           <div className="online-avatar-initials">{getInitial(user)}</div>
         )}
@@ -27,7 +29,7 @@ function UserCard({ user, onChat, onCall, chatLoading }) {
       </div>
 
       <div className="online-info">
-        <span className="online-username">@{user.username || user.name || "usuario"}</span>
+        <span className="online-username">{displayName}</span>
         {isCreator && <span className="online-creator-badge">⭐ Creator</span>}
       </div>
 

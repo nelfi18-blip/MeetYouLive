@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getToken, setToken } from "@/lib/token";
-import { normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
+import { getDisplayName, normalizeImageUrl, normalizeUserImages } from "@/lib/imageHelpers";
 import {
   AVATAR_TOO_LARGE_MESSAGE,
   AVATAR_UPLOAD_MAX_BYTES,
@@ -162,7 +162,7 @@ export default function SimpleProfilePhotoGallery({ user, initial, t, onUserChan
       if (typeof updateSession === "function") {
         await updateSession({
           user: {
-            name: nextUser.name || nextUser.username || session?.user?.name || "",
+            name: getDisplayName(nextUser) || session?.user?.name || "",
             image: nextImages[0] || "",
             avatar: nextImages[0] || "",
             profilePhotos: nextImages,

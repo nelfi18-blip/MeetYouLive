@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -75,7 +76,7 @@ export default function TopGifters({ liveId, refreshTrigger }) {
             )
           : gifters.map((g, i) => {
               const cfg = RANK_CFG[i] || RANK_CFG[2];
-              const displayName = g.username || g.name || "Anónimo";
+              const displayName = getDisplayName(g);
               const initial = (displayName || "?")[0].toUpperCase();
               return (
                 <div

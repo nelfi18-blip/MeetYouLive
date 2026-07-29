@@ -26,7 +26,7 @@ import LiveEventFeed from "@/components/LiveEventFeed";
 import ModerationActions from "@/components/ModerationActions";
 import { computeStatusBadges } from "@/lib/statusBadges";
 import { RARITY_STYLES } from "@/lib/gifts";
-import { getUserImage } from "@/lib/imageHelpers";
+import { getDisplayName, getUserImage } from "@/lib/imageHelpers";
 import { useLanguage } from "@/contexts/LanguageContext";
 import socket, { configureSocketAuth } from "@/lib/socket";
 
@@ -349,7 +349,7 @@ export default function LiveRoomPage() {
       .then((data) => {
         if (data?._id) setCurrentUserId(String(data._id));
         if (data?.username || data?.name) {
-          const uname = data.username || data.name || "";
+          const uname = getDisplayName(data);
           setCurrentUsername(uname);
           currentUsernameRef.current = uname;
         }
@@ -468,7 +468,7 @@ export default function LiveRoomPage() {
     socket.on("connect", joinRoom);
 
     const onChatMessage = ({ user, text }) => {
-      const displayName = user?.username || "Anónimo";
+      const displayName = getDisplayName(user);
       const userId = user?.userId || null;
       const isVIP = !!(user?.isVIP);
       setChatMessages((prev) => [
@@ -1050,7 +1050,7 @@ export default function LiveRoomPage() {
       };
     }
     if (!senderName) {
-      senderName = data?.sender?.username || data?.sender?.name || currentUsernameRef.current || "Tú";
+      senderName = data?.sender ? getDisplayName(data.sender) : currentUsernameRef.current || "Tú";
     }
 
     if (gift) {
@@ -1501,7 +1501,7 @@ export default function LiveRoomPage() {
     }
   };
 
-  const creatorNameRaw = live?.user?.username || live?.user?.name || "Creador";
+  const creatorNameRaw = getDisplayName(live?.user);
   const creatorName =
     typeof creatorNameRaw === "string" && creatorNameRaw.trim()
       ? creatorNameRaw.trim()

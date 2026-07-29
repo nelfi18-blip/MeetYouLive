@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { clearAdminToken, getToken } from "@/lib/token";
-import { getPrimaryProfileImage } from "@/lib/imageHelpers";
+import { getDisplayName, getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_ORIGIN = API_URL ? new URL(API_URL).origin : "";
@@ -43,13 +43,8 @@ function fmtTime(value) {
 }
 
 function getShortUserName(user, fallback = "Usuario") {
-  const name = user?.name || user?.username;
-  if (name) return name;
-  if (user?.email) {
-    const emailName = user.email.split("@")[0];
-    return emailName || fallback;
-  }
-  return fallback;
+  const name = getDisplayName(user);
+  return name === "Usuario" ? fallback : name;
 }
 
 function getSafeActivityAvatar(user) {

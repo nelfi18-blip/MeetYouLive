@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import CreatorDiscoveryCard from "./CreatorDiscoveryCard";
 import { isApprovedCreator } from "@/lib/creatorUtils";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -285,7 +286,8 @@ export default function FeaturedCreators() {
 
             if (activeTab === "live") {
               const live = item;
-              const name = live.user?.username || live.user?.name || "Creador";
+              const name = getDisplayName(live.user);
+              const handle = live.user?.username || name;
               return (
                 <Link
                   key={live._id}
@@ -311,7 +313,7 @@ export default function FeaturedCreators() {
                   )}
                   <div className="fc-card-body">
                     <div className="fc-creator-row">
-                      <span className="fc-creator-name">@{name}</span>
+                      <span className="fc-creator-name">@{handle}</span>
                       {live.user?.isVerifiedCreator && (
                         <span className="fc-verified">✓</span>
                       )}
@@ -331,7 +333,7 @@ export default function FeaturedCreators() {
 
             // top today / top week
             const creator = item;
-            const name = creator.username || creator.name || "Creador";
+            const name = getDisplayName(creator);
             return (
               <div
                 key={String(creator.userId)}

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { clearToken } from "@/lib/token";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CREATOR_PROFILE_SAVED_NOTICE_KEY } from "@/lib/creatorOnboarding";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const GEOLOCATION_API_URL = process.env.NEXT_PUBLIC_GEOLOCATION_API_URL || "https://ipapi.co/json/";
@@ -201,7 +202,7 @@ export default function CreatorRequestForm() {
             Object.values(previous.socialLinks || {}).some((value) => !!value?.trim());
 
           setForm({
-            displayName: previous.displayName || data.username || data.name || "",
+            displayName: previous.displayName || getDisplayName(data),
             bio: previous.bio?.trim() || "",
             category: previous.category || "",
             country: resolveCountryOption(previous.country || data.country || ""),
@@ -220,7 +221,7 @@ export default function CreatorRequestForm() {
 
         setForm((prev) => ({
           ...prev,
-          displayName: data.username || data.name || "",
+          displayName: getDisplayName(data),
           country: resolveCountryOption(data.country || ""),
         }));
       })

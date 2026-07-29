@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const FAKE_NAMES = [
   "Luna", "Sofía", "Valeria", "Isabella", "Camila", "Daniela", "Alejandra",
@@ -55,7 +56,7 @@ function generateFakeEvent() {
 }
 
 function liveToEvent(live, isNew = false) {
-  const username = live.user?.username || live.user?.name || "alguien";
+  const username = getDisplayName(live.user).toLowerCase() === "usuario" ? "alguien" : getDisplayName(live.user);
   let tmpl;
   if (isNew) {
     tmpl = NEW_TEMPLATE;

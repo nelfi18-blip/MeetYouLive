@@ -19,6 +19,7 @@
  */
 
 import firebaseApp from "./firebase";
+import { getNativeNotificationPath } from "./nativeNotificationRoutes";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -108,7 +109,7 @@ export async function initPushNotifications(backendToken) {
             fetch(`${API_URL}/api/push/opened/${pushEventId}`, { method: "POST" }).catch(() => {});
           }
           window.focus();
-          window.location.assign(link);
+          window.location.assign(getNativeNotificationPath(link));
         };
       }
     });

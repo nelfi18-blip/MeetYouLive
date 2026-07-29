@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
+import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
 import {
   getNativeInvalidSessionPath,
@@ -46,6 +47,12 @@ test("native URL policy keeps MeetYouLive domains inside the WebView", () => {
   assert.equal(isExternalHttpUrl("https://www.meetyoulive.net/feed"), false);
 });
 
+test("native URL policy converts internal absolute URLs to in-app routes", () => {
+  assert.equal(getInternalAppPath("https://meetyoulive.net/profile"), "/profile");
+  assert.equal(getInternalAppPath("https://meetyoulive.net/chats/abc?from=push"), "/chats/abc?from=push");
+  assert.equal(getInternalAppPath("https://evil.example/profile"), null);
+});
+
 test("native email login routes to feed inside the WebView", () => {
   assert.equal(getNativeSessionStartPath({ callbackPath: "/feed" }), "/feed");
   assert.equal(shouldOpenUrlOutsideNativeWebView("https://meetyoulive.net/feed"), false);
@@ -72,4 +79,15 @@ test("native URL policy opens external HTTP destinations outside the WebView", (
   assert.equal(isExternalHttpUrl("https://checkout.stripe.com/c/pay/test"), true);
   assert.equal(isExternalHttpUrl("https://accounts.google.com/o/oauth2/v2/auth"), true);
   assert.equal(isExternalHttpUrl("sms:?body=hola"), false);
+});
+
+test("foreground push links are sanitized before navigation", () => {
+  assert.equal(getNativeNotificationPath("https://meetyoulive.net/profile"), "/profile");
+  assert.equal(getNativeNotificationPath("https://phishing.example/feed"), "/");
+});
+
+test("payment redirect only trusts Stripe checkout URLs", () => {
+  assert.equal(getTrustedCheckoutUrl("https://checkout.stripe.com/c/pay/test"), "https://checkout.stripe.com/c/pay/test");
+  assert.equal(getTrustedCheckoutUrl("https://fake-checkout.example/c/pay/test"), null);
+  assert.equal(getTrustedCheckoutUrl("/coins"), null);
 });

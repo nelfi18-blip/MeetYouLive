@@ -87,6 +87,7 @@ export const authOptions = {
         const nextUser = session.user || {};
         if (typeof nextUser.name === "string") token.name = nextUser.name;
         if (typeof nextUser.image === "string") token.picture = nextUser.image;
+        if (isPlainObject(session.backendUser)) token.backendUser = session.backendUser;
         if (typeof session.onboardingComplete === "boolean") token.onboardingComplete = session.onboardingComplete;
         if (typeof session.canAppearInFeed === "boolean") token.canAppearInFeed = session.canAppearInFeed;
         if (isPlainObject(session.profileStatus)) {
@@ -140,6 +141,12 @@ export const authOptions = {
               if (backendUserId) {
                 token.backendUserId = backendUserId;
               }
+              if (isPlainObject(data.user)) {
+                token.backendUser = data.user;
+                if (typeof data.user.name === "string" && data.user.name.trim()) {
+                  token.name = data.user.name;
+                }
+              }
               if (!data.token) {
                 console.warn("[NextAuth] /api/auth/google-session responded OK but returned no token");
               }
@@ -188,6 +195,9 @@ export const authOptions = {
       }
       if (token.backendUserId) {
         session.backendUserId = token.backendUserId;
+      }
+      if (isPlainObject(token.backendUser)) {
+        session.backendUser = token.backendUser;
       }
       if (token.googleEmail) {
         session.googleEmail = token.googleEmail;

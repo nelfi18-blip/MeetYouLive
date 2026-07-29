@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -160,7 +161,7 @@ export default function RankingPage() {
             const idx = c.rank - 1;
             const isPodium = idx < 3;
             const style = isPodium ? PODIUM_STYLES[idx] : null;
-            const displayName = c.username || c.name || "Creador";
+            const displayName = getDisplayName(c);
             const initial = displayName[0].toUpperCase();
             const isMyRankRow = myRank && c.rank === myRank;
 
@@ -196,7 +197,7 @@ export default function RankingPage() {
                 {/* Info */}
                 <div className="rk-info">
                   <span className="rk-name">
-                    @{displayName}
+                    {displayName}
                     {c.isVerifiedCreator && <span className="rk-verified">✓</span>}
                     {c.isPremium && <span className="rk-premium">⭐</span>}
                     {isMyRankRow && <span className="rk-you-badge">TÚ</span>}

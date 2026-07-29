@@ -12,7 +12,7 @@ import SimpleProfilePhotoGallery from "@/components/SimpleProfilePhotoGallery";
 import socket from "@/lib/socket";
 import { computeStatusBadges, getBoostNudge } from "@/lib/statusBadges";
 import { isApprovedCreator } from "@/lib/creatorUtils";
-import { normalizeUserImages } from "@/lib/imageHelpers";
+import { getDisplayName, normalizeUserImages } from "@/lib/imageHelpers";
 import { publishProfileUpdated } from "@/lib/profileSync";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -411,9 +411,10 @@ export default function ProfilePage() {
           profile
             ? {
                 user: {
-                  name: profile.name || profile.username || session?.user?.name || "",
+                  name: getDisplayName(profile) || session?.user?.name || "",
                   image: getPrimaryImage(profile) || session?.user?.image || "",
                 },
+                backendUser: profile,
                 onboardingComplete: profile.onboardingComplete === true,
                 canAppearInFeed: profile.canAppearInFeed === true,
                 profileStatus: profile.profileStatus || null,
@@ -465,7 +466,7 @@ export default function ProfilePage() {
       ...discoveryDefaults,
     });
     setCreatorReqForm({
-      displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.username || normalizedUser.name || "",
+      displayName: normalizedUser.creatorApplication?.displayName || normalizedUser.name || normalizedUser.username || "",
       category: getCreatorRequestCategoryId(normalizedUser.creatorApplication?.category),
       country: normalizedUser.creatorApplication?.country || normalizedUser.location?.country || normalizedUser.country || "",
       bio: normalizedUser.creatorApplication?.bio || "",
@@ -823,7 +824,7 @@ export default function ProfilePage() {
     finally { setRequestingCreator(false); }
   };
 
-  const displayName = user?.username || user?.name || session?.user?.name || "Usuario";
+  const displayName = user ? getDisplayName(user) : session?.user?.name || "Usuario";
   const initial = displayName[0].toUpperCase();
   // Check if user should see standard user/creator features (i.e., not an admin)
   const isNotAdmin = user?.role !== "admin";

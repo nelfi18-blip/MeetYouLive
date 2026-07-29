@@ -1,3 +1,5 @@
+import { redirectToTrustedCheckout } from "./checkoutRedirect";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export const payVideo = async (videoId) => {
@@ -15,5 +17,7 @@ export const payVideo = async (videoId) => {
   }
 
   const data = await res.json();
-  window.location.href = data.url;
+  if (!redirectToTrustedCheckout(data.url)) {
+    throw new Error("URL de pago inválida");
+  }
 };

@@ -6,6 +6,7 @@ import Link from "next/link";
 import GiftButton from "@/components/GiftButton";
 import ExclusiveContent from "@/components/ExclusiveContent";
 import ProfileGiftStats from "@/components/ProfileGiftStats";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,7 +35,7 @@ export default function CreatorProfilePage() {
       });
   }, [id]);
 
-  const displayName = creator?.username || creator?.name || "Creator";
+  const displayName = getDisplayName(creator);
   const initial = displayName[0]?.toUpperCase() ?? "?";
   const isLive = creator?.isLive && creator?.liveId;
 
@@ -76,7 +77,7 @@ export default function CreatorProfilePage() {
 
           {/* Name & badges */}
           <div className="cp-identity">
-            <h1 className="cp-name">{creator.name || creator.username || "Creator"}</h1>
+            <h1 className="cp-name">{displayName}</h1>
             {creator.username && <p className="cp-username">@{creator.username}</p>}
             <div className="cp-badges">
               {creator.role === "creator" && <span className="cp-badge cp-badge-creator">CREATOR</span>}

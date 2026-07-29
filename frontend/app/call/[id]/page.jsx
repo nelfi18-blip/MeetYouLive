@@ -10,6 +10,7 @@ import GiftPanel from "@/components/GiftPanel";
 import GiftOverlay from "@/components/GiftOverlay";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -570,7 +571,7 @@ export default function CallPage() {
         }
 
         const remote = callerIsMe ? data.recipient : data.caller;
-        setRemoteName(remote?.username || remote?.name || "Usuario");
+        setRemoteName(getDisplayName(remote));
         setRemoteAvatar(remote?.avatar || "");
         setRemoteUserId(String(remote?._id || ""));
         const mediaType = normalizeMediaType(data.mediaType);

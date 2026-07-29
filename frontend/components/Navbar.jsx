@@ -10,6 +10,7 @@ import { isApprovedCreator } from "@/lib/creatorUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isBottomNavRoute } from "@/lib/bottomNavRoutes";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profileSync";
+import { getDisplayName } from "@/lib/imageHelpers";
 import socket from "@/lib/socket";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -49,7 +50,7 @@ export default function Navbar() {
   const applyProfile = useCallback((profile) => {
     if (!profile || typeof profile !== "object") return;
     if ("username" in profile || "name" in profile) {
-      setUsername(profile.username || profile.name || "");
+      setUsername(getDisplayName(profile));
     }
     if ("role" in profile) setRole(profile.role || "");
     if ("creatorStatus" in profile) setCreatorStatus(profile.creatorStatus || "");
@@ -145,10 +146,8 @@ export default function Navbar() {
 
   const displayName =
     username ||
-    session?.backendUser?.username ||
-    session?.backendUser?.name ||
+    (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
-    session?.user?.email?.split("@")[0] ||
     "Usuario";
   const effectiveRole = role || session?.backendUser?.role || "";
   const effectiveCreatorStatus = creatorStatus || session?.backendUser?.creatorStatus || "";

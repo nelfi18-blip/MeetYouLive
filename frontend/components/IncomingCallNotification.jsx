@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import socket from "@/lib/socket";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const POLL_INTERVAL = 2500; // poll every 2.5 seconds
@@ -152,7 +153,7 @@ export default function IncomingCallNotification() {
     );
   }
 
-  const callerName = call.caller?.username || call.caller?.name || "Alguien";
+  const callerName = call.caller ? getDisplayName(call.caller) : "Alguien";
   const callerInitial = callerName[0].toUpperCase();
   const isPaid = call.type === "paid_creator";
   const isAudioCall = call.mediaType === "audio";

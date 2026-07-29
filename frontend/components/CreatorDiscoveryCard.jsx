@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { getInitial, getPrimaryProfileImage } from "@/lib/imageHelpers";
+import { getDisplayName, getInitial, getPrimaryProfileImage } from "@/lib/imageHelpers";
 
 /**
  * Tango-style creator discovery card for public users
@@ -10,10 +10,7 @@ import { getInitial, getPrimaryProfileImage } from "@/lib/imageHelpers";
  */
 export default function CreatorDiscoveryCard({ creator }) {
   const safeCreator = creator && typeof creator === "object" ? creator : {};
-  const displayName =
-    [safeCreator.username, safeCreator.name]
-      .map((value) => (typeof value === "string" ? value.trim() : ""))
-      .find(Boolean) || "Creador";
+  const displayName = getDisplayName(safeCreator);
   const initial = getInitial(displayName) || "C";
   const avatarUrl = getPrimaryProfileImage(safeCreator);
   const userId = safeCreator.userId || safeCreator._id || "";

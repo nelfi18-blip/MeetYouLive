@@ -5,6 +5,7 @@ import Badge from "./Badge";
 import GiftButton from "./GiftButton";
 import StatusBadges from "./StatusBadges";
 import { computeStatusBadges } from "@/lib/statusBadges";
+import { getDisplayName } from "@/lib/imageHelpers";
 
 /**
  * Reusable ProfileCard component for the explore/discover section.
@@ -29,7 +30,7 @@ export default function ProfileCard({ user, liked, matched, onLike, onSuperCrush
     return null;
   }
 
-  const displayName = user.username || user.name || "Usuario";
+  const displayName = getDisplayName(user);
   const initial = displayName[0].toUpperCase();
   const isCreator = user.role === "creator" || user.role === "subCreator";
   const isLive = isCreator && user.isLive && user.liveId;

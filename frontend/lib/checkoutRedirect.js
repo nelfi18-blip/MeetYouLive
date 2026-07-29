@@ -1,7 +1,7 @@
 "use client";
 
 import { Browser } from "@capacitor/browser";
-import { isNativeMobileApp } from "./mobileEnvironment";
+import { isNativeMobileApp } from "./mobileEnvironment.js";
 
 const TRUSTED_CHECKOUT_ORIGINS = new Set(["https://checkout.stripe.com"]);
 

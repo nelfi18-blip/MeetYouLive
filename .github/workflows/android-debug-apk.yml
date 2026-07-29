@@ -54,6 +54,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
       - name: Restore Firebase google-services.json
         id: restore_google_services
         working-directory: frontend

@@ -10,7 +10,7 @@ jest.mock("../../models/Live.js", () => ({
 }));
 
 jest.mock("../../models/VideoCall.js", () => ({
-  exists: jest.fn(),
+  findOne: jest.fn(),
 }));
 
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
@@ -33,6 +33,14 @@ function makeRes() {
 
 function mockLive(result) {
   Live.findOne.mockReturnValue({
+    select: jest.fn(() => ({
+      lean: jest.fn().mockResolvedValue(result),
+    })),
+  });
+}
+
+function mockVideoCall(result) {
+  VideoCall.findOne.mockReturnValue({
     select: jest.fn(() => ({
       lean: jest.fn().mockResolvedValue(result),
     })),
@@ -71,17 +79,17 @@ describe("getToken", () => {
       expect.any(Number)
     );
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ channelName: liveId, expiresIn: 60 }));
-    expect(VideoCall.exists).not.toHaveBeenCalled();
+    expect(VideoCall.findOne).not.toHaveBeenCalled();
   });
 
   test("call tokens keep the existing call expiry for authorized call participants", async () => {
     mockLive(null);
-    VideoCall.exists.mockResolvedValue({ _id: callId });
+    mockVideoCall({ _id: callId, type: "paid_creator", status: "accepted" });
     const res = makeRes();
 
     await getToken({ query: { channelName: callId }, userId: viewerUserId }, res);
 
-    expect(VideoCall.exists).toHaveBeenCalledWith({
+    expect(VideoCall.findOne).toHaveBeenCalledWith({
       _id: callId,
       $or: [{ caller: viewerUserId }, { recipient: viewerUserId }],
       status: { $in: ["pending", "accepted"] },

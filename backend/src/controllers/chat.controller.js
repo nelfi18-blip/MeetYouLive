@@ -6,6 +6,7 @@ const { notifyNewMessage } = require("../services/essentialNotification.service.
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
 const { emitChatMessage } = require("../lib/socket.js");
 const { trackSafeAnalyticsEvent } = require("../services/analytics.service.js");
+const { checkChatMessageProtection } = require("../services/chatProtection.service.js");
 const trackMilestoneEvent = typeof trackSafeAnalyticsEvent === "function" ? trackSafeAnalyticsEvent : () => {};
 
 // Define staff roles that should be excluded from regular user chats
@@ -227,6 +228,21 @@ const sendMessage = async (req, res) => {
 
     if (clientMessageId) {
       if (await sendExistingClientMessage(req, res, req.params.chatId, clientMessageId)) return;
+    }
+
+    const protection = await checkChatMessageProtection({
+      text,
+      chat,
+      chatId: req.params.chatId,
+      senderId: req.userId,
+      req,
+    });
+    if (!protection.allowed) {
+      return res.status(protection.status || 403).json({
+        code: protection.code,
+        message: protection.message,
+        detectedTypes: protection.detectedTypes,
+      });
     }
 
     const message = await Message.create({

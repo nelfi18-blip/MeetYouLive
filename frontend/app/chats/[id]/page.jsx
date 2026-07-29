@@ -14,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import ModerationActions from "@/components/ModerationActions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const CONTACT_SHARING_RESTRICTED = "CONTACT_SHARING_RESTRICTED";
 
 const formatMessageTime = (value, locale) => {
   if (!value) return "";
@@ -79,6 +80,7 @@ export default function ChatConversationPage() {
   const [showScrollJump, setShowScrollJump] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [blockedConversation, setBlockedConversation] = useState(false);
+  const [contactProtectionNotice, setContactProtectionNotice] = useState("");
   const [socketState, setSocketState] = useState(() => (socket.connected ? "connected" : "connecting"));
   const messagesAreaRef = useRef(null);
   const bottomRef = useRef(null);
@@ -387,6 +389,7 @@ export default function ChatConversationPage() {
     }
     setSending(true);
     setError("");
+    setContactProtectionNotice("");
     try {
       const res = await fetch(`${API_URL}/api/chats/${id}/messages`, {
         method: "POST",
@@ -396,13 +399,17 @@ export default function ChatConversationPage() {
         },
         body: JSON.stringify({ text: text.trim(), clientMessageId }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (data?.code === CONTACT_SHARING_RESTRICTED) {
+        setContactProtectionNotice(data.message || "Por seguridad, todavía no puedes compartir información de contacto.");
+        return;
+      }
       if (res.status === 403) {
         setBlockedConversation(true);
-        throw new Error("No puedes enviar mensajes a este usuario");
+        throw new Error(data.message || "No puedes enviar mensajes a este usuario");
       }
-      if (!res.ok) throw new Error("Error al enviar mensaje");
-      const msg = await res.json();
-      setMessages((prev) => mergeMessagesById(prev, msg));
+      if (!res.ok) throw new Error(data.message || "Error al enviar mensaje");
+      setMessages((prev) => mergeMessagesById(prev, data));
       setText("");
       stopTyping();
     } catch (err) {
@@ -571,6 +578,11 @@ export default function ChatConversationPage() {
 
       {callError && <div className="error-banner">{callError}</div>}
       {error && <div className="error-banner">{error}</div>}
+      {contactProtectionNotice && (
+        <div className="safety-banner" role="alert" aria-live="polite">
+          {contactProtectionNotice}
+        </div>
+      )}
       {blockedConversation && <div className="error-banner">Esta conversación está bloqueada.</div>}
       {!loading && socketState !== "connected" && (
         <div className="connection-banner" role="status">
@@ -1238,6 +1250,16 @@ export default function ChatConversationPage() {
           padding: 0.75rem 1rem;
           font-size: 0.875rem;
           font-weight: 600;
+        }
+
+        .safety-banner {
+          background: rgba(251,191,36,0.1);
+          border: 1px solid rgba(251,191,36,0.42);
+          color: #fde68a;
+          border-radius: var(--radius-sm);
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 700;
         }
 
         .empty-state {

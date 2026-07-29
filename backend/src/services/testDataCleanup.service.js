@@ -6,6 +6,7 @@ const AccessPass = require("../models/AccessPass");
 const AgencyRelationship = require("../models/AgencyRelationship");
 const AnalyticsEvent = require("../models/AnalyticsEvent");
 const Chat = require("../models/Chat");
+const ChatProtectionAttempt = require("../models/ChatProtectionAttempt");
 const CoinTransaction = require("../models/CoinTransaction");
 const ContentUnlock = require("../models/ContentUnlock");
 const CrushTransaction = require("../models/CrushTransaction");
@@ -337,6 +338,7 @@ async function cleanupTestData(rawOptions = {}) {
       },
     ],
     ["analyticsEvents", AnalyticsEvent, { userId: inUsers }],
+    ["chatProtectionAttempts", ChatProtectionAttempt, { $or: [{ senderId: inUsers }, { recipientId: inUsers }, { chatId: inChats }] }],
     ["messages", Message, messageQuery],
     ["chats", Chat, chatQuery],
     ["coinTransactions", CoinTransaction, { userId: inUsers }],

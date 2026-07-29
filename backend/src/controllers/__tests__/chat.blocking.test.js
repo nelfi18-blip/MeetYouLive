@@ -20,11 +20,15 @@ jest.mock("../../models/Message.js", () => ({
 
 jest.mock("../../models/User.js", () => ({}));
 jest.mock("../../services/missions.service.js", () => ({ trackEvent: jest.fn() }));
+jest.mock("../../services/essentialNotification.service.js", () => ({ notifyNewMessage: jest.fn() }));
 jest.mock("../../lib/socket.js", () => ({ emitChatMessage: jest.fn() }));
 jest.mock("../../lib/photoFields.js", () => ({ withSerializedUserPhotoFields: (_req, user) => user }));
+jest.mock("../../services/chatProtection.service.js", () => ({ checkChatMessageProtection: jest.fn() }));
 
 const { trackEvent } = require("../../services/missions.service.js");
+const { notifyNewMessage } = require("../../services/essentialNotification.service.js");
 const { emitChatMessage } = require("../../lib/socket.js");
+const { checkChatMessageProtection } = require("../../services/chatProtection.service.js");
 const { sendMessage, getMessages } = require("../chat.controller.js");
 const { getChats } = require("../chat.controller.js");
 
@@ -63,6 +67,7 @@ const makeMessageFindOneQuery = (value) => ({
 describe("chat blocking", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    checkChatMessageProtection.mockResolvedValue({ allowed: true, detectedTypes: [] });
     Chat.findOne.mockReturnValue(makeChatQuery(blockedChat));
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
   });
@@ -74,6 +79,9 @@ describe("chat blocking", () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ message: "No puedes enviar mensajes a este usuario" });
     expect(Message.create).not.toHaveBeenCalled();
+    expect(emitChatMessage).not.toHaveBeenCalled();
+    expect(notifyNewMessage).not.toHaveBeenCalled();
+    expect(checkChatMessageProtection).not.toHaveBeenCalled();
   });
 
   test("rejects reading messages after a unilateral block", async () => {
@@ -106,14 +114,16 @@ describe("chat blocking", () => {
 describe("chat message idempotency", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    checkChatMessageProtection.mockResolvedValue({ allowed: true, detectedTypes: [] });
     Chat.findOne.mockReturnValue(makeChatQuery(openChat));
     Message.findOne.mockReturnValue(makeMessageFindOneQuery(null));
     Chat.findByIdAndUpdate.mockResolvedValue({});
     emitChatMessage.mockResolvedValue();
+    notifyNewMessage.mockResolvedValue();
     trackEvent.mockResolvedValue();
   });
 
-  test("persists a valid clientMessageId with the message", async () => {
+  test("persists, emits, and notifies a valid normal message", async () => {
     const createdMessage = { _id: "507f1f77bcf86cd799439099" };
     const populatedMessage = {
       _id: createdMessage._id,
@@ -148,6 +158,44 @@ describe("chat message idempotency", () => {
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clientMessageId }));
+    expect(emitChatMessage).toHaveBeenCalledWith({
+      chatId,
+      message: expect.objectContaining({ clientMessageId, text: "hello" }),
+      senderId: currentUserId,
+      participants: openChat.participants,
+    });
+    expect(notifyNewMessage).toHaveBeenCalledWith({
+      chatId,
+      messageId: createdMessage._id,
+      senderId: currentUserId,
+      recipientId: otherUserId,
+    });
+    expect(trackEvent).toHaveBeenCalledWith(currentUserId, "message");
+  });
+
+  test("rejects contact sharing before persisting, emitting, notifying, or tracking", async () => {
+    checkChatMessageProtection.mockResolvedValue({
+      allowed: false,
+      status: 403,
+      code: "CONTACT_SHARING_RESTRICTED",
+      message: "Por seguridad y para proteger la comunidad, todavía no puedes compartir información de contacto.",
+      detectedTypes: ["phone", "social_media"],
+    });
+
+    const res = makeRes();
+    await sendMessage({ userId: currentUserId, params: { chatId }, body: { text: "whatsapp 555-123-4567" } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      code: "CONTACT_SHARING_RESTRICTED",
+      message: expect.stringContaining("Por seguridad"),
+      detectedTypes: ["phone", "social_media"],
+    });
+    expect(Message.create).not.toHaveBeenCalled();
+    expect(Chat.findByIdAndUpdate).not.toHaveBeenCalled();
+    expect(emitChatMessage).not.toHaveBeenCalled();
+    expect(notifyNewMessage).not.toHaveBeenCalled();
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 
   test("returns an existing message when clientMessageId was already processed", async () => {

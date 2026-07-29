@@ -38,6 +38,29 @@ Required GitHub Actions secrets:
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
+Configure these secrets from the existing Android signing keystore only. Do not
+paste secret values in issues, pull requests, logs, docs, or commits.
+
+On a trusted machine that has the previous keystore:
+
+```bash
+# Linux
+base64 -w 0 /path/to/existing-release.keystore
+
+# macOS
+base64 -i /path/to/existing-release.keystore | tr -d '\n'
+```
+
+Use that single-line base64 output as `ANDROID_KEYSTORE_BASE64`. Use the
+existing keystore password, existing alias, and existing key password for the
+other three secrets. If the alias is unknown, list aliases locally with:
+
+```bash
+keytool -list -keystore /path/to/existing-release.keystore
+```
+
+Do not publish the command output if it contains private project details.
+
 The workflow sets `versionCode` to the GitHub run number by default and `versionName` to `1.0.<run_number>`. For manual runs, override `version_code` only when it is greater than the installed APK's `versionCode`.
 
 Validate an update on a device with:
@@ -47,6 +70,16 @@ adb install -r app-release.apk
 ```
 
 Do not alternate these release APKs with debug APKs; debug and release builds use incompatible signing keys and Android will reject the update.
+
+Before PR #844, repository-generated APK artifacts were Debug builds named
+`MeetYouLive-debug-*` and were produced with `assembleDebug`. Those debug APKs
+were signed by the debug key available in the build environment at generation
+time, not by a reusable release keystore stored in this repository. If the APK
+currently installed on a device came from one of those debug artifacts, a new
+release keystore will not update it. Android will require the exact same
+previous signing key plus a higher `versionCode`; if that private key cannot be
+recovered, the first move to the new release keystore requires uninstalling once
+and then future APKs signed with the same release keystore can update in place.
 
 ## Google Cloud / OAuth
 

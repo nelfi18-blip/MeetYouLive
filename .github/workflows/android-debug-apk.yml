@@ -205,12 +205,25 @@ jobs:
         env:
           ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          apk_path="app/build/outputs/apk/release/app-release.apk"
+          cert_info="$(keytool -printcert -jarfile "$apk_path")"
+          cert_sha256="$(printf '%s\n' "$cert_info" | awk -F'SHA256: ' '/SHA256:/ { print $2; exit }')"
+
+          if [ -z "$cert_sha256" ]; then
+            echo "Error: Unable to read APK signing certificate SHA-256 from $apk_path."
+            exit 1
+          fi
+
           {
             echo "applicationId=com.meetyoulive.app"
             echo "versionCode=$ANDROID_VERSION_CODE"
             echo "versionName=$ANDROID_VERSION_NAME"
             echo "signing=release"
+            echo "signed=true"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "certificateSha256=$cert_sha256"
           } | tee app/build/outputs/apk/release/meetyoulive-release-metadata.txt
         shell: bash
 
@@ -234,17 +247,24 @@ jobs:
         env:
           ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          metadata_path="frontend/android/app/build/outputs/apk/release/meetyoulive-release-metadata.txt"
+          cert_sha256="$(awk -F= '/^certificateSha256=/ { print $2; exit }' "$metadata_path")"
           {
             echo "## Android Updateable Release APK"
             echo
+
             echo "Artifact: MeetYouLive-release-${{ github.run_number }}"
             echo
             echo "- applicationId: com.meetyoulive.app"
             echo "- versionCode: $ANDROID_VERSION_CODE"
             echo "- versionName: $ANDROID_VERSION_NAME"
             echo "- signing: release keystore from ANDROID_KEYSTORE_BASE64"
+            echo "- key alias: $ANDROID_KEY_ALIAS"
+            echo "- certificate SHA-256: $cert_sha256"
             echo
+
             echo "Validate on a device with: adb install -r app-release.apk"
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash

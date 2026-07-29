@@ -124,6 +124,16 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 5. Descargar el artifact `MeetYouLive-release-<run_number>` → `app-release.apk`.
 6. Instalar sobre la versión anterior con `adb install -r app-release.apk` o desde el dispositivo habilitando "Fuentes desconocidas".
 
+El artifact incluye `meetyoulive-release-metadata.txt` con `applicationId`,
+`versionCode`, `versionName`, alias de firma y SHA-256 público del certificado
+usado para firmar la APK.
+
+> Importante: las APK generadas antes del PR #844 eran `MeetYouLive-debug-*`.
+> Si la app instalada viene de una de esas APK Debug, sólo se puede actualizar
+> sin desinstalar usando exactamente la misma clave privada que firmó esa APK.
+> Si esa clave no existe o no puede recuperarse, una nueva clave Release sólo
+> garantiza actualizaciones futuras después de instalarla una primera vez.
+
 ### Opción B — Local (requiere Android SDK instalado)
 
 ```bash

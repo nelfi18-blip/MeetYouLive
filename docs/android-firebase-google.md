@@ -6,7 +6,7 @@ This repository is prepared for Android package `com.meetyoulive.app`.
 
 1. In Firebase Console, create/select the MeetYouLive Firebase project.
 2. Add an Android app with package name `com.meetyoulive.app`.
-3. Register debug SHA-1 and SHA-256 fingerprints before beta testing.
+3. Register the release keystore SHA-1 and SHA-256 fingerprints before beta testing.
 4. Download `google-services.json`.
 5. Place it locally at `frontend/android/app/google-services.json`.
 
@@ -20,7 +20,33 @@ Generate it locally with:
 base64 -w 0 frontend/android/app/google-services.json
 ```
 
-The Android Debug APK workflow reconstructs the file only during the job and removes it after `assembleDebug`. If the secret is missing, the APK still builds without native Firebase push.
+The Android Updateable Release APK workflow reconstructs the file only during the job and removes it after `assembleRelease`. Release APK generation fails if this secret is missing so every distributed APK keeps the same Firebase configuration.
+
+## Updateable APK signing and versioning
+
+All APK artifacts intended for installation over an existing app must be release builds with:
+
+- `applicationId`: `com.meetyoulive.app`
+- The same release keystore in every run (`ANDROID_KEYSTORE_BASE64`)
+- `versionCode` higher than the APK already installed
+- An ordered `versionName`
+
+Required GitHub Actions secrets:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+The workflow sets `versionCode` to the GitHub run number by default and `versionName` to `1.0.<run_number>`. For manual runs, override `version_code` only when it is greater than the installed APK's `versionCode`.
+
+Validate an update on a device with:
+
+```bash
+adb install -r app-release.apk
+```
+
+Do not alternate these release APKs with debug APKs; debug and release builds use incompatible signing keys and Android will reject the update.
 
 ## Google Cloud / OAuth
 
@@ -44,12 +70,7 @@ From `frontend/android`:
 ./gradlew signingReport
 ```
 
-Use the `debug` variant for:
-
-- SHA-1 debug
-- SHA-256 debug
-
-For a future release build, generate/use the release keystore and register its SHA-1 in:
+Use the `release` variant and register its SHA fingerprints in:
 
 - Firebase Console → Project settings → Android app
 - Google Cloud Console → APIs & Services → Credentials → Android OAuth Client

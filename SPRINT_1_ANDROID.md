@@ -109,11 +109,11 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 
 ---
 
-## 8. Cómo generar el APK Debug
+## 8. Cómo generar el APK actualizable
 
 ### Opción A — GitHub Actions (recomendado)
 
-1. Ir a **Actions → Android Debug APK** en GitHub.
+1. Ir a **Actions → Android Updateable Release APK** en GitHub.
 2. Para esta PR, el workflow también corre en `pull_request` porque GitHub no
    expone workflows `workflow_dispatch` nuevos hasta que existan en la rama por
    defecto. Si el run queda en `action_required`, aprobar la ejecución desde la
@@ -121,8 +121,8 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 3. Alternativamente, cuando el workflow ya exista en la rama por defecto, usar
    **Run workflow** y seleccionar rama (`main` o esta PR).
 4. Esperar ~8-12 min.
-5. Descargar el artifact `MeetYouLive-debug-<run_number>` → `app-debug.apk`.
-6. Instalar en el dispositivo habilitando "Fuentes desconocidas".
+5. Descargar el artifact `MeetYouLive-release-<run_number>` → `app-release.apk`.
+6. Instalar sobre la versión anterior con `adb install -r app-release.apk` o desde el dispositivo habilitando "Fuentes desconocidas".
 
 ### Opción B — Local (requiere Android SDK instalado)
 
@@ -132,8 +132,14 @@ npm ci
 npx cap sync android
 cd android
 chmod +x gradlew
-./gradlew assembleDebug
-# APK en: android/app/build/outputs/apk/debug/app-debug.apk
+ORG_GRADLE_PROJECT_androidVersionCode=2 \
+ORG_GRADLE_PROJECT_androidVersionName=1.0.1 \
+ORG_GRADLE_PROJECT_androidStoreFile=release.keystore \
+ORG_GRADLE_PROJECT_androidStorePassword=<password> \
+ORG_GRADLE_PROJECT_androidKeyAlias=<alias> \
+ORG_GRADLE_PROJECT_androidKeyPassword=<password> \
+./gradlew assembleRelease
+# APK en: android/app/build/outputs/apk/release/app-release.apk
 ```
 
 ---
@@ -141,9 +147,9 @@ chmod +x gradlew
 ## 9. Funciones que no deben probarse ni publicarse en este APK
 
 - **Google Play Billing** — los pagos in-app con Stripe deben adaptarse antes.
-- **Google Login nativo** — requiere SHA-1 del keystore de producción registrado.
+- **Google Login nativo** — requiere SHA-1 del keystore de release registrado.
 - **Notificaciones push** — requiere `google-services.json` (Firebase) real.
-- **Release/AAB firmado** — este sprint sólo genera Debug; no hay keystore.
+- **AAB para Google Play** — este workflow sólo genera APK release firmado para instalación interna.
 - **iOS** — no comenzar en este sprint.
 - **Publicación en Google Play** — sólo instalación interna/prueba.
 
@@ -154,7 +160,7 @@ chmod +x gradlew
 | Riesgo | Mitigación |
 |---|---|
 | Google Login puede no funcionar en WebView Android | Login por correo funcional; documentado |
-| Push sin Firebase config | Plugin se omite silenciosamente; documentado |
+| Push sin Firebase config | El workflow release falla si falta `ANDROID_GOOGLE_SERVICES_JSON_BASE64` |
 | Stripe Checkout puede redirigir fuera del WebView | Evaluar uso de Custom Tabs o `CapacitorBrowser` antes de publicar |
 | `assetlinks.json` para Android App Links no verificado aún | Deep links fallback a navegador; verificar antes de producción |
 | Agora sin probar en dispositivo real | Permisos configurados; probar antes del siguiente sprint |
@@ -165,7 +171,7 @@ chmod +x gradlew
 
 Intentos realizados en esta PR:
 
-- GitHub Actions: el workflow `Android Debug APK` se disparó en la PR, pero
+- GitHub Actions: el workflow `Android Updateable Release APK` se disparó en la PR, pero
   GitHub lo dejó en estado `action_required` sin crear jobs ni artifact. Debe
   aprobarse desde la UI de Actions.
 - Validación local: `npm ci`, `npm run lint`, `npm run build`,

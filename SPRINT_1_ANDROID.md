@@ -125,14 +125,62 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 6. Instalar sobre la versión anterior con `adb install -r app-release.apk` o desde el dispositivo habilitando "Fuentes desconocidas".
 
 El artifact incluye `meetyoulive-release-metadata.txt` con `applicationId`,
-`versionCode`, `versionName`, alias de firma y SHA-256 público del certificado
-usado para firmar la APK.
+`versionCode`, `versionName` y SHA-256 público del certificado usado para firmar
+la APK. No imprime ni publica valores secretos.
+
+Antes de reintentar el workflow, crear y guardar una keystore Release en un
+computador confiable:
+
+```bash
+keytool -genkeypair -v \
+  -storetype PKCS12 \
+  -keystore meetyoulive-release.keystore \
+  -alias meetyoulive-release \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+Convertirla a Base64 sin saltos de línea:
+
+```bash
+# Linux
+base64 -w 0 meetyoulive-release.keystore > meetyoulive-release.keystore.base64
+
+# macOS
+base64 -i meetyoulive-release.keystore | tr -d '\n' > meetyoulive-release.keystore.base64
+
+# Windows PowerShell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("meetyoulive-release.keystore")) | Set-Content -NoNewline "meetyoulive-release.keystore.base64"
+```
+
+Desde el teléfono, abrir GitHub en navegador en modo sitio de escritorio si hace
+falta: `nelfi18-blip/MeetYouLive` → **Settings** → **Secrets and variables** →
+**Actions** → **Repository secrets** → **New repository secret**. Agregar:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+No publicar los valores en commits, logs, documentación, comentarios, capturas o
+chats. También debe existir `ANDROID_GOOGLE_SERVICES_JSON_BASE64`.
+
+Al pasar el workflow, verificar en `meetyoulive-release-metadata.txt`:
+
+- `applicationId=com.meetyoulive.app`
+- `versionCode=<run_number o valor manual mayor>`
+- `versionName=1.0.<run_number o valor manual>`
+- `certificateSha256=<SHA-256 público del certificado>`
 
 > Importante: las APK generadas antes del PR #844 eran `MeetYouLive-debug-*`.
 > Si la app instalada viene de una de esas APK Debug, sólo se puede actualizar
 > sin desinstalar usando exactamente la misma clave privada que firmó esa APK.
 > Si esa clave no existe o no puede recuperarse, una nueva clave Release sólo
-> garantiza actualizaciones futuras después de instalarla una primera vez.
+> garantiza actualizaciones futuras después de instalarla una primera vez. Esa
+> primera instalación probablemente requiera desinstalar la APK Debug anterior.
+> Después, todas las APK futuras con la misma keystore Release y `versionCode`
+> mayor se instalarán como actualización sin desinstalar.
 
 ### Opción B — Local (requiere Android SDK instalado)
 

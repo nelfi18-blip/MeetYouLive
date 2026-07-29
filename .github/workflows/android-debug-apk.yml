@@ -160,6 +160,11 @@ jobs:
             exit 1
           fi
           test -s android/app/release.keystore
+
+          if ! keytool -list -keystore android/app/release.keystore -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null; then
+            echo "Error: Release keystore validation failed. Verify ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+            exit 1
+          fi
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -205,7 +210,6 @@ jobs:
         env:
           ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           apk_path="app/build/outputs/apk/release/app-release.apk"
           cert_info="$(keytool -printcert -jarfile "$apk_path")"
@@ -222,7 +226,6 @@ jobs:
             echo "versionName=$ANDROID_VERSION_NAME"
             echo "signing=release"
             echo "signed=true"
-            echo "keyAlias=$ANDROID_KEY_ALIAS"
             echo "certificateSha256=$cert_sha256"
           } | tee app/build/outputs/apk/release/meetyoulive-release-metadata.txt
         shell: bash
@@ -247,7 +250,6 @@ jobs:
         env:
           ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           metadata_path="frontend/android/app/build/outputs/apk/release/meetyoulive-release-metadata.txt"
           cert_sha256="$(awk -F= '/^certificateSha256=/ { print $2; exit }' "$metadata_path")"
@@ -261,7 +263,6 @@ jobs:
             echo "- versionCode: $ANDROID_VERSION_CODE"
             echo "- versionName: $ANDROID_VERSION_NAME"
             echo "- signing: release keystore from ANDROID_KEYSTORE_BASE64"
-            echo "- key alias: $ANDROID_KEY_ALIAS"
             echo "- certificate SHA-256: $cert_sha256"
             echo
 

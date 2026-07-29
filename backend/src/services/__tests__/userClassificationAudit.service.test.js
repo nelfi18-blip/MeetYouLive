@@ -1,5 +1,6 @@
 const {
   buildAuditReport,
+  buildCountsOnlyAuditReport,
   classifyUser,
   runUserClassificationAudit,
 } = require("../userClassificationAudit.service.js");
@@ -177,5 +178,35 @@ describe("userClassificationAudit.service", () => {
     expect(select).toHaveBeenCalledWith(expect.stringContaining("emailVerified"));
     expect(User.updateMany).not.toHaveBeenCalled();
     expect(User.updateOne).not.toHaveBeenCalled();
+  });
+
+  test("counts-only report includes only safe mandatory counters", () => {
+    const report = buildAuditReport([
+      { _id: "google", authProvider: "google", googleId: "secret-google-id", emailVerified: false },
+      { _id: "local", authProvider: "local", password: bcryptHash, emailVerified: true },
+      { _id: "admin", role: "admin", emailVerified: false, emailVerificationCode: "hashed-otp" },
+      { _id: "legacy", email: "legacy@example.com", emailVerified: false },
+    ]);
+
+    const countsOnly = buildCountsOnlyAuditReport(report.counts);
+
+    expect(countsOnly).toEqual({
+      totalUsuarios: 4,
+      googleConfirmadas: 0,
+      localesConfirmadas: 1,
+      administradores: 1,
+      legacyAmbiguas: 1,
+      emailsVerificados: 1,
+      emailsSinVerificar: 2,
+      googleConEmailVerifiedFalse: 1,
+      adminsConEstadoOtpIncorrecto: 1,
+      datosContradictorios: 2,
+      cuentasCorregiblesAutomaticamente: 1,
+      cuentasDebenConservarSinInformacion: 1,
+    });
+    expect(JSON.stringify(countsOnly)).not.toContain("legacy@example.com");
+    expect(JSON.stringify(countsOnly)).not.toContain("secret-google-id");
+    expect(JSON.stringify(countsOnly)).not.toContain("hashed-otp");
+    expect(Object.values(countsOnly).every((value) => typeof value === "number")).toBe(true);
   });
 });

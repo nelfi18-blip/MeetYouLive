@@ -6,6 +6,7 @@ jest.mock("../../models/VideoCall.js", () => ({
   findById: jest.fn(),
   findOne: jest.fn(),
   find: jest.fn(),
+  create: jest.fn(),
   findOneAndUpdate: jest.fn(),
   findByIdAndUpdate: jest.fn(),
 }));
@@ -63,8 +64,9 @@ const User = require("../../models/User.js");
 const CoinTransaction = require("../../models/CoinTransaction.js");
 const AgencyRelationship = require("../../models/AgencyRelationship.js");
 const callRules = require("../../services/callRules.service.js");
+const platformSettings = require("../../services/platformSettings.service.js");
 const socket = require("../../lib/socket.js");
-const { respondCall, endCall, getIncoming, tickCall } = require("../videoCall.controller.js");
+const { inviteCall, respondCall, endCall, getIncoming, tickCall } = require("../videoCall.controller.js");
 
 const callerId = "507f1f77bcf86cd799439011";
 const creatorId = "507f1f77bcf86cd799439012";
@@ -143,6 +145,14 @@ describe("paid call billing atomicity", () => {
     jest.resetAllMocks();
     callRules.normalizeCallType.mockImplementation((type) => type || "social");
     callRules.isPendingCallExpired.mockReturnValue(false);
+    platformSettings.getPlatformSettings.mockResolvedValue({
+      socialCalls: {
+        enabled: true,
+        maxDurationSeconds: 900,
+        timeoutSeconds: 45,
+        futureRules: {},
+      },
+    });
     socket.getIO.mockReturnValue({
       to: jest.fn(() => ({ emit: jest.fn() })),
     });
@@ -279,6 +289,107 @@ describe("paid call billing atomicity", () => {
 
     expect(User.findOneAndUpdate).toHaveBeenCalledTimes(1);
     expect(CoinTransaction.create).toHaveBeenCalledTimes(1);
+  });
+
+  test("social invite forces audio and creates no coin transaction when frontend asks for video", async () => {
+    callRules.normalizeCallType.mockReturnValue("social");
+    socket.getOnlineUsers.mockReturnValue([{ userId: creatorId }]);
+    VideoCall.find
+      .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue([]) })
+      .mockResolvedValueOnce([]);
+    const created = paidCall({
+      _id: callId,
+      type: "social",
+      mediaType: "audio",
+      callCoins: 0,
+      pricePerMinute: 0,
+      maxDurationSeconds: 900,
+      timeoutSeconds: 45,
+    });
+    VideoCall.create.mockResolvedValueOnce(created);
+    VideoCall.findById.mockReturnValueOnce(populateQuery(created));
+
+    const res = makeRes();
+    await inviteCall({
+      userId: callerId,
+      body: { recipientId: creatorId, type: "social", mediaType: "video", callCoins: 999 },
+    }, res);
+
+    expect(VideoCall.create).toHaveBeenCalledWith(expect.objectContaining({
+      caller: callerId,
+      recipient: creatorId,
+      type: "social",
+      mediaType: "audio",
+      callCoins: 0,
+      pricePerMinute: 0,
+    }));
+    expect(CoinTransaction.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  test("social invite rejects duplicate active participant index races as busy", async () => {
+    callRules.normalizeCallType.mockReturnValue("social");
+    socket.getOnlineUsers.mockReturnValue([{ userId: creatorId }]);
+    VideoCall.find
+      .mockReturnValueOnce({ sort: jest.fn().mockResolvedValue([]) })
+      .mockResolvedValueOnce([]);
+    const duplicate = new Error("duplicate key");
+    duplicate.code = 11000;
+    VideoCall.create.mockRejectedValueOnce(duplicate);
+
+    const res = makeRes();
+    await inviteCall({
+      userId: callerId,
+      body: { recipientId: creatorId, type: "social", mediaType: "audio" },
+    }, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "CALL_BUSY" }));
+  });
+
+  test("recipient cannot cancel a pending social call before acceptance", async () => {
+    VideoCall.findById.mockResolvedValueOnce(paidCall({ type: "social", callCoins: 0 }));
+
+    const res = makeRes();
+    await endCall({ params: { id: callId }, userId: creatorId, body: {} }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(VideoCall.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("caller cancellation uses cancelled terminal status for pending social calls", async () => {
+    const session = makeSession();
+    jest.spyOn(mongoose, "startSession").mockResolvedValue(session);
+    const pending = paidCall({ type: "social", callCoins: 0 });
+    const cancelled = paidCall({ type: "social", callCoins: 0, status: "cancelled", endedReason: "cancelled" });
+    VideoCall.findById.mockResolvedValueOnce(pending).mockReturnValueOnce(mockQueryWithSession(cancelled));
+    VideoCall.findOneAndUpdate.mockResolvedValueOnce(cancelled);
+
+    const res = makeRes();
+    await endCall({ params: { id: callId }, userId: callerId, body: {} }, res);
+
+    expect(VideoCall.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: callId, status: "pending" },
+      { $set: expect.objectContaining({ status: "cancelled", endedReason: "cancelled" }) },
+      expect.objectContaining({ new: true })
+    );
+    expect(res.json).toHaveBeenCalledWith(cancelled);
+  });
+
+  test("double finalization of an accepted social call returns conflict on second attempt", async () => {
+    const accepted = paidCall({ type: "social", callCoins: 0, status: "accepted", startedAt: new Date() });
+    VideoCall.findById.mockResolvedValueOnce(accepted);
+    VideoCall.findOneAndUpdate.mockResolvedValueOnce(null);
+
+    const res = makeRes();
+    await endCall({ params: { id: callId }, userId: callerId, body: {} }, res);
+
+    expect(VideoCall.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: callId, status: "accepted" },
+      expect.any(Object),
+      { new: true }
+    );
+    expect(res.status).toHaveBeenCalledWith(409);
   });
 
   test("tick with insufficient balance does not go negative and ends the call", async () => {

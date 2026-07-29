@@ -6,7 +6,7 @@ const videocallSchema = new mongoose.Schema(
     recipient: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "ended", "missed"],
+      enum: ["pending", "accepted", "rejected", "cancelled", "ended", "missed", "timeout"],
       default: "pending",
     },
     type: {
@@ -24,6 +24,7 @@ const videocallSchema = new mongoose.Schema(
     maxDurationSeconds: { type: Number, default: null, min: 1 },
     timeoutSeconds: { type: Number, default: null, min: 1 },
     endedReason: { type: String, default: null },
+    activeParticipantIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     startedAt: { type: Date, default: null },
     // Legacy/inactive WebRTC SDP fields. Current calls use Agora with _id as channelName.
     offerSdp: { type: String, default: null },
@@ -45,6 +46,17 @@ const videocallSchema = new mongoose.Schema(
     agencyPercentageApplied: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
+);
+
+videocallSchema.index(
+  { activeParticipantIds: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ["pending", "accepted"] },
+      activeParticipantIds: { $exists: true },
+    },
+  }
 );
 
 module.exports = mongoose.model("VideoCall", videocallSchema);

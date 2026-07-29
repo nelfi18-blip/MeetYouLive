@@ -33,6 +33,8 @@ const MEDIA_TYPES = Object.freeze({
 const PENDING_FINAL_STATUSES = Object.freeze({
   MISSED: "missed",
   REJECTED: "rejected",
+  CANCELLED: "cancelled",
+  TIMEOUT: "timeout",
   ENDED: "ended",
 });
 
@@ -217,10 +219,16 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
   const now = new Date();
 
   try {
+    const endedReason =
+      finalStatus === PENDING_FINAL_STATUSES.CANCELLED ? "cancelled" :
+      finalStatus === PENDING_FINAL_STATUSES.TIMEOUT ? "timeout" :
+      finalStatus === PENDING_FINAL_STATUSES.MISSED ? "missed" :
+      finalStatus === PENDING_FINAL_STATUSES.REJECTED ? "rejected" :
+      "ended";
     await dbSession.withTransaction(async () => {
       claimedCall = await VideoCall.findOneAndUpdate(
         { _id: callId, status: "pending" },
-        { $set: { status: finalStatus, endedAt: now } },
+        { $set: { status: finalStatus, endedAt: now, endedReason } },
         { new: true, session: dbSession }
       );
 
@@ -276,26 +284,36 @@ const emitCallEvent = (call, event, payload = {}) => {
   if (recipientId && recipientId !== callerId) io.to(recipientId).emit(event, data);
 };
 
+const getActiveParticipantIds = (callerId, recipientId) => [callerId, recipientId].filter(Boolean);
+
 const markPendingCallMissed = async (call) => {
   if (!call || call.status !== "pending") return call;
-  return finalizePendingCall(call, PENDING_FINAL_STATUSES.MISSED, "CALL_TIMEOUT");
+  return finalizePendingCall(call, PENDING_FINAL_STATUSES.TIMEOUT, "CALL_TIMEOUT");
 };
 
 const expireAcceptedSocialCall = async (call, reason = "max_duration") => {
   if (!call || call.status !== "accepted" || call.type !== CALL_TYPES.SOCIAL) return call;
   const now = new Date();
-  call.status = "ended";
-  call.endedAt = now;
-  call.endedReason = reason;
-  if (call.startedAt) {
-    call.totalDurationSeconds = Math.floor((now - call.startedAt) / 1000);
-  }
-  await call.save();
-  emitCallEvent(call, "CALL_ENDED", { reason });
-  return call;
+  const update = {
+    $set: {
+      status: "ended",
+      endedAt: now,
+      endedReason: reason,
+      totalDurationSeconds: call.startedAt ? Math.floor((now - call.startedAt) / 1000) : 0,
+    },
+  };
+  const expired = await VideoCall.findOneAndUpdate(
+    { _id: call._id, status: "accepted", type: CALL_TYPES.SOCIAL },
+    update,
+    { new: true }
+  );
+  if (expired) emitCallEvent(expired, "CALL_ENDED", { reason });
+  return expired || call;
 };
 
 const getHistoryStatus = (call) => {
+  if (call.status === "timeout") return "missed";
+  if (call.status === "cancelled") return "cancelled";
   if (call.status === "ended" && !call.startedAt) return "cancelled";
   if (call.status === "ended" || call.status === "accepted") return "answered";
   return call.status;
@@ -409,6 +427,7 @@ const inviteCall = async (req, res) => {
     const call = await VideoCall.create({
       caller: req.userId,
       recipient: recipientId,
+      activeParticipantIds: getActiveParticipantIds(req.userId, recipientId),
       type: callType,
       mediaType,
       callCoins: coins,
@@ -443,6 +462,12 @@ const inviteCall = async (req, res) => {
 
     res.status(201).json(populated);
   } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        code: "CALL_BUSY",
+        message: "The user is in another call. Please try again later.",
+      });
+    }
     res.status(err.statusCode || 500).json({ message: err.message });
   }
 };
@@ -607,6 +632,7 @@ const respondCall = async (req, res) => {
       const update = {
         $set: {
           status: "accepted",
+          activeParticipantIds: getActiveParticipantIds(pendingCall.caller, pendingCall.recipient),
           startedAt: pendingCall.startedAt || now,
         },
       };
@@ -721,20 +747,38 @@ const endCall = async (req, res) => {
     }
 
     if (call.status === "pending") {
-      const endedPending = await finalizePendingCall(call, PENDING_FINAL_STATUSES.ENDED, "CALL_ENDED");
+      if (String(call.caller) !== String(req.userId)) {
+        return res.status(403).json({ message: "Solo quien llama puede cancelar antes de la aceptación" });
+      }
+      const endedPending = await finalizePendingCall(call, PENDING_FINAL_STATUSES.CANCELLED, "CALL_CANCELLED");
+      emitCallEvent(endedPending, "CALL_ENDED", { reason: "cancelled" });
       return res.json(endedPending);
     }
 
-    call.status = "ended";
-    call.endedAt = new Date();
-    call.endedReason = req.body?.reason || "hangup";
-    if (call.startedAt) {
-      call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
+    const now = new Date();
+    const reason = req.body?.reason || "hangup";
+    if (isAcceptedSocialCallExpired(call, await getSocialCallSettings(), now.getTime())) {
+      const expired = await expireAcceptedSocialCall(call, "max_duration");
+      return res.json(expired);
     }
-    await call.save();
+    const ended = await VideoCall.findOneAndUpdate(
+      { _id: call._id, status: "accepted" },
+      {
+        $set: {
+          status: "ended",
+          endedAt: now,
+          endedReason: reason,
+          totalDurationSeconds: call.startedAt ? Math.floor((now - call.startedAt) / 1000) : 0,
+        },
+      },
+      { new: true }
+    );
+    if (!ended) {
+      return res.status(409).json({ message: "La llamada ya está finalizada" });
+    }
 
-    emitCallEvent(call, "CALL_ENDED", { reason: req.body?.reason || "hangup" });
-    res.json(call);
+    emitCallEvent(ended, "CALL_ENDED", { reason });
+    res.json(ended);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

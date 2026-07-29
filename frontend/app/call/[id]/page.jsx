@@ -18,7 +18,7 @@ const POLL_MS = 1000; // polling interval for call acceptance
 const RECONNECT_GRACE_MS = 15000;
 const CALL_CONNECT_TIMEOUT_MS = 20000;
 const AUTO_RETURN_DELAY_MS = 3000;
-const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "busy"];
+const TERMINAL_CALL_STATES = ["ended", "rejected", "missed", "cancelled", "timeout", "busy"];
 const SPEAKER_VOLUME_FULL = 100;
 const SPEAKER_VOLUME_REDUCED = 65;
 
@@ -282,16 +282,21 @@ export default function CallPage() {
     const handleTimeout = (data) => {
       if (String(data?.callId) === String(id)) finish("missed", t("chatPremium.callMissed"));
     };
+    const handleCancelled = (data) => {
+      if (String(data?.callId) === String(id)) finish("ended", t("chatPremium.callEnded"));
+    };
 
     socket.on("CALL_REJECTED", handleRejected);
     socket.on("CALL_ENDED", handleEnded);
     socket.on("CALL_MISSED", handleMissed);
     socket.on("CALL_TIMEOUT", handleTimeout);
+    socket.on("CALL_CANCELLED", handleCancelled);
     return () => {
       socket.off("CALL_REJECTED", handleRejected);
       socket.off("CALL_ENDED", handleEnded);
       socket.off("CALL_MISSED", handleMissed);
       socket.off("CALL_TIMEOUT", handleTimeout);
+      socket.off("CALL_CANCELLED", handleCancelled);
     };
   }, [cleanupAgora, id, t]);
 
@@ -469,9 +474,9 @@ export default function CallPage() {
             const mediaType = normalizeMediaType(data.mediaType);
             setCallMediaType(mediaType);
             startAgora(callData._id, mediaType);
-          } else if (["rejected", "ended", "missed"].includes(data.status)) {
+          } else if (["rejected", "cancelled", "timeout", "ended", "missed"].includes(data.status)) {
             clearInterval(pollRef.current);
-            setStatus(data.status === "rejected" ? "rejected" : "ended");
+            setStatus(data.status === "rejected" ? "rejected" : data.status === "timeout" ? "missed" : "ended");
           }
         } catch {
           // ignore
@@ -572,7 +577,10 @@ export default function CallPage() {
         setCallMediaType(mediaType);
 
         if (data.status === "rejected") { setStatus("rejected"); return; }
-        if (data.status === "ended" || data.status === "missed") { setStatus("ended"); return; }
+        if (["ended", "cancelled", "missed", "timeout"].includes(data.status)) {
+          setStatus(data.status === "timeout" || data.status === "missed" ? "missed" : "ended");
+          return;
+        }
         if (data.status === "accepted") {
           startAgora(data._id, mediaType);
         } else {

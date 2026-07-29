@@ -11,6 +11,7 @@ const { initSocket } = require(path.join(__dirname, "src", "lib", "socket"));
 const { startReactivationJob } = require(path.join(__dirname, "src", "jobs", "reactivation.job"));
 const { startPushJob } = require(path.join(__dirname, "src", "jobs", "push.job"));
 const { startDailyRewardReminderJob } = require(path.join(__dirname, "src", "jobs", "dailyRewardReminder.job"));
+const { startSocialCallExpirationJob } = require(path.join(__dirname, "src", "jobs", "socialCallExpiration.job"));
 const { verifySmtpConfig } = require(path.join(__dirname, "src", "services", "email.service"));
 
 const PORT = process.env.PORT || 10000;
@@ -33,6 +34,7 @@ connectDB()
     startReactivationJob();
     startPushJob();
     startDailyRewardReminderJob();
+    startSocialCallExpirationJob();
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Servidor MeetYouLive listo en puerto ${PORT}`);

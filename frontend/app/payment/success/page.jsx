@@ -67,7 +67,7 @@ function SuccessContent() {
       <div className="status-icon">✅</div>
       <h1>Pago exitoso</h1>
       <p>Tus monedas han sido añadidas</p>
-      <p>Redirigiendo al dashboard…</p>
+      <p>Redirigiendo al feed…</p>
 
       {balance !== null && (
         <p className="balance-text">

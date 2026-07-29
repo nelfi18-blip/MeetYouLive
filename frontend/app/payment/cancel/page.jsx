@@ -12,8 +12,8 @@ export default function PaymentCancelPage() {
         <Link href="/coins" className="btn btn-primary btn-lg">
           🔄 Intentar de nuevo
         </Link>
-        <Link href="/dashboard" className="btn btn-secondary btn-lg">
-          🏠 Ir al dashboard
+        <Link href="/feed" className="btn btn-secondary btn-lg">
+          🏠 Ir al feed
         </Link>
       </div>
 

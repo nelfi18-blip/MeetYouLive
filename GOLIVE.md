@@ -11,10 +11,10 @@ Use this checklist before deploying the payout feature to production.
 - [ ] `FRONTEND_URL` is set to the production frontend URL (for CORS)
 - [ ] Backend deployed and `/api/admin/payouts` returns 200 for an authenticated admin
 - [ ] Backend deployed and `POST /api/creator/payout` is accessible for approved creators
-- [ ] Payout model enum includes: `pending`, `approved`, `processing`, `completed`, `paid`, `rejected`
+- [ ] Payout model enum includes: `pending`, `approved`, `paid`, `rejected`
 - [ ] Admin PATCH `/api/admin/payouts/:id` accepts `approved`, `paid`, and `rejected` transitions
 - [ ] Rejected payouts atomically restore `earningsCoins` via `$inc`
-- [ ] Duplicate payout check covers statuses `pending`, `approved`, `processing`
+- [ ] Duplicate payout check covers statuses `pending`, `approved`
 - [ ] Minimum payout threshold enforced (`MIN_PAYOUT_COINS = 100`)
 - [ ] Suspended creators blocked by `requireApprovedCreator` middleware
 
@@ -26,7 +26,7 @@ Use this checklist before deploying the payout feature to production.
 - [ ] `npm run build` in `frontend/` passes with zero errors
 - [ ] `/admin` loads and shows the admin dashboard
 - [ ] `/admin/payouts` loads and lists payout requests
-- [ ] `/admin/payouts` filter tabs work for: Todos, Pendientes, Aprobados, En proceso, Pagados, Rechazados
+- [ ] `/admin/payouts` filter tabs work for: Todos, Pendientes, Aprobados, Pagados, Rechazados
 - [ ] Approve action on a pending payout sets status → `approved`
 - [ ] Pay action on an approved payout sets status → `paid`
 - [ ] Reject action opens confirmation modal with rejection reason input
@@ -39,7 +39,7 @@ Use this checklist before deploying the payout feature to production.
 ## Regression
 
 - [ ] Stripe checkout flow (`/coins`, `/subscription`) still works end-to-end
-- [ ] Stripe webhook endpoint (`/api/webhook`) processes events correctly
+- [ ] Stripe webhook endpoint (`/api/webhooks/stripe`) processes events correctly (https://meetyoulive.onrender.com/api/webhooks/stripe)
 - [ ] Gift sending (`/gifts`) correctly credits creator `earningsCoins` with the platform split
 - [ ] Agency commission split is applied only when `status: "active"` and `subCreatorAgreed: true`
 - [ ] Admin login (`/admin/login`) works with valid admin credentials

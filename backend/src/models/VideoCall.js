@@ -21,6 +21,9 @@ const videocallSchema = new mongoose.Schema(
     },
     callCoins: { type: Number, default: 0, min: 0 },
     pricePerMinute: { type: Number, default: 0, min: 0 },
+    maxDurationSeconds: { type: Number, default: null, min: 1 },
+    timeoutSeconds: { type: Number, default: null, min: 1 },
+    endedReason: { type: String, default: null },
     startedAt: { type: Date, default: null },
     // Legacy/inactive WebRTC SDP fields. Current calls use Agora with _id as channelName.
     offerSdp: { type: String, default: null },

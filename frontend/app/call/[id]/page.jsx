@@ -227,6 +227,22 @@ export default function CallPage() {
   }, [apiHeaders, id]);
 
   useEffect(() => {
+    if (status !== "connected" || call?.type !== "social" || !call?.maxDurationSeconds) return undefined;
+    const startedAt = call.startedAt ? new Date(call.startedAt).getTime() : Date.now();
+    const elapsedMs = Math.max(0, Date.now() - startedAt);
+    const remainingMs = Math.max(0, Number(call.maxDurationSeconds) * 1000 - elapsedMs);
+    const timer = setTimeout(async () => {
+      await endCallOnServer("max_duration");
+      await cleanupAgora();
+      clearInterval(tickRef.current);
+      clearInterval(durationRef.current);
+      setCoinsWarning("La llamada alcanzó la duración máxima configurada.");
+      setStatus("ended");
+    }, remainingMs);
+    return () => clearTimeout(timer);
+  }, [call, cleanupAgora, endCallOnServer, status]);
+
+  useEffect(() => {
     if (status !== "connecting") return undefined;
     let active = true;
     const timer = setTimeout(() => {
@@ -263,14 +279,19 @@ export default function CallPage() {
     const handleMissed = (data) => {
       if (String(data?.callId) === String(id)) finish("missed", t("chatPremium.callMissed"));
     };
+    const handleTimeout = (data) => {
+      if (String(data?.callId) === String(id)) finish("missed", t("chatPremium.callMissed"));
+    };
 
     socket.on("CALL_REJECTED", handleRejected);
     socket.on("CALL_ENDED", handleEnded);
     socket.on("CALL_MISSED", handleMissed);
+    socket.on("CALL_TIMEOUT", handleTimeout);
     return () => {
       socket.off("CALL_REJECTED", handleRejected);
       socket.off("CALL_ENDED", handleEnded);
       socket.off("CALL_MISSED", handleMissed);
+      socket.off("CALL_TIMEOUT", handleTimeout);
     };
   }, [cleanupAgora, id, t]);
 
@@ -752,6 +773,7 @@ export default function CallPage() {
   }
 
   const isPaidCall = call?.type === "paid_creator" && call?.callCoins > 0;
+  const isSocialCall = call?.type === "social";
   const isVideoCall = callMediaType !== "audio";
   const mins = Math.floor(callDuration / 60);
   const secs = callDuration % 60;
@@ -790,7 +812,9 @@ export default function CallPage() {
             )}
           </div>
           <header>
-            <p className="call-eyebrow">{isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}</p>
+            <p className="call-eyebrow">
+              {isSocialCall ? "Llamada de voz social" : isVideoCall ? t("chatPremium.premiumVideoCall") : t("chatPremium.premiumVoiceCall")}
+            </p>
             <h1>{remoteName}</h1>
           </header>
         </div>
@@ -834,10 +858,10 @@ export default function CallPage() {
               {status === "ringing" && `🔔 ${t("chatPremium.ringing")}`}
               {status === "connecting" && `🔄 ${t("chatPremium.connecting")}`}
               {status === "reconnecting" && `🔄 ${t("chatPremium.reconnecting")}`}
-              {!isVideoCall && status === "connected" && t("chatPremium.voiceCallConnected")}
+              {!isVideoCall && status === "connected" && (isSocialCall ? "Llamada conectada" : t("chatPremium.voiceCallConnected"))}
             </p>
             <p className="call-premium-caption">
-              {t("chatPremium.premiumCallCaption")}
+              {isSocialCall ? "Conexión segura entre matches dentro de MeetYouLive." : t("chatPremium.premiumCallCaption")}
             </p>
             {(status === "calling" || status === "ringing") && (
               <p className="call-sub-text">{remoteName}</p>
@@ -951,7 +975,7 @@ export default function CallPage() {
           </button>
         )}
 
-        {status !== "ringing" && (
+        {isPaidCall && status !== "ringing" && (
           <button
             className="call-control-btn call-gift-btn"
             onClick={() => setShowGiftPanel(true)}

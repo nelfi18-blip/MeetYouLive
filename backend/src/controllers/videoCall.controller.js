@@ -19,6 +19,7 @@ const {
 } = require("../services/callRules.service.js");
 const { getIO, getOnlineUsers } = require("../lib/socket.js");
 const { withSerializedUserPhotoFields } = require("../lib/photoFields.js");
+const { getPlatformSettings, DEFAULT_SOCIAL_CALL_SETTINGS } = require("../services/platformSettings.service.js");
 
 const CALL_USER_FIELDS = "username name avatar profilePhotos profileImage photo role lastActiveAt";
 const BILLING_TICK_MIN_INTERVAL_MS = 55 * 1000;
@@ -38,6 +39,42 @@ const PENDING_FINAL_STATUSES = Object.freeze({
 const normalizeMediaType = (mediaType) =>
   mediaType === MEDIA_TYPES.AUDIO ? MEDIA_TYPES.AUDIO : MEDIA_TYPES.VIDEO;
 
+const getSocialCallSettings = async () => {
+  const settings = await getPlatformSettings();
+  return {
+    ...DEFAULT_SOCIAL_CALL_SETTINGS,
+    ...(settings.socialCalls || {}),
+  };
+};
+
+const getPendingTimeoutMs = (call, socialCallSettings = DEFAULT_SOCIAL_CALL_SETTINGS) => {
+  if (call?.type === CALL_TYPES.SOCIAL) {
+    return Math.max(1, Number(call.timeoutSeconds || socialCallSettings.timeoutSeconds || 45)) * 1000;
+  }
+  return PENDING_CALL_TIMEOUT_MS;
+};
+
+const isPendingCallTimedOut = (call, socialCallSettings, now = Date.now()) => {
+  if (!call || call.status !== "pending" || !call.createdAt) return false;
+  return now - new Date(call.createdAt).getTime() >= getPendingTimeoutMs(call, socialCallSettings);
+};
+
+const shouldExpirePendingCall = (call, socialCallSettings) =>
+  call?.type === CALL_TYPES.SOCIAL
+    ? isPendingCallTimedOut(call, socialCallSettings)
+    : isPendingCallExpired(call);
+
+const getAcceptedSocialMaxDurationSeconds = (call, socialCallSettings = DEFAULT_SOCIAL_CALL_SETTINGS) => {
+  if (call?.type !== CALL_TYPES.SOCIAL) return 0;
+  return Math.max(1, Number(call.maxDurationSeconds || socialCallSettings.maxDurationSeconds || 0));
+};
+
+const isAcceptedSocialCallExpired = (call, socialCallSettings, now = Date.now()) => {
+  const maxDurationSeconds = getAcceptedSocialMaxDurationSeconds(call, socialCallSettings);
+  if (!maxDurationSeconds || call?.status !== "accepted" || !call.startedAt) return false;
+  return now - new Date(call.startedAt).getTime() >= maxDurationSeconds * 1000;
+};
+
 const isUserOnline = (userId) =>
   getOnlineUsers().some((onlineUser) => String(onlineUser.userId) === String(userId));
 
@@ -49,7 +86,7 @@ const isBetweenUsers = (call, userA, userB) => {
   return ids.has(String(call.caller)) && ids.has(String(call.recipient));
 };
 
-const findBlockingCall = async (callerId, recipientId) => {
+const findBlockingCall = async (callerId, recipientId, socialCallSettings) => {
   const activeCalls = await VideoCall.find({
     status: { $in: ["pending", "accepted"] },
     $or: [
@@ -61,8 +98,8 @@ const findBlockingCall = async (callerId, recipientId) => {
   }).sort({ createdAt: -1 });
 
   for (const activeCall of activeCalls) {
-    if (isPendingCallExpired(activeCall)) {
-      await markPendingCallMissed(activeCall);
+    if (shouldExpirePendingCall(activeCall, socialCallSettings)) {
+      await markPendingCallMissed(activeCall, "timeout");
       continue;
     }
 
@@ -210,6 +247,9 @@ const finalizePendingCall = async (callOrId, finalStatus, eventName) => {
   const call = claimedCall || currentCall || callOrId;
   if (claimedCall) {
     emitCallEvent(call, eventName);
+    if (eventName === "CALL_TIMEOUT") {
+      emitCallEvent(call, "CALL_MISSED", { reason: "timeout" });
+    }
     if (finalStatus === PENDING_FINAL_STATUSES.MISSED) {
       notifyMissedCall({
         callId: claimedCall._id,
@@ -238,7 +278,21 @@ const emitCallEvent = (call, event, payload = {}) => {
 
 const markPendingCallMissed = async (call) => {
   if (!call || call.status !== "pending") return call;
-  return finalizePendingCall(call, PENDING_FINAL_STATUSES.MISSED, "CALL_MISSED");
+  return finalizePendingCall(call, PENDING_FINAL_STATUSES.MISSED, "CALL_TIMEOUT");
+};
+
+const expireAcceptedSocialCall = async (call, reason = "max_duration") => {
+  if (!call || call.status !== "accepted" || call.type !== CALL_TYPES.SOCIAL) return call;
+  const now = new Date();
+  call.status = "ended";
+  call.endedAt = now;
+  call.endedReason = reason;
+  if (call.startedAt) {
+    call.totalDurationSeconds = Math.floor((now - call.startedAt) / 1000);
+  }
+  await call.save();
+  emitCallEvent(call, "CALL_ENDED", { reason });
+  return call;
 };
 
 const getHistoryStatus = (call) => {
@@ -291,15 +345,20 @@ const inviteCall = async (req, res) => {
   }
 
   const callType = normalizeCallType(type);
-  const mediaType = normalizeMediaType(req.body?.mediaType);
+  let socialCallSettings = null;
+  const mediaType = callType === CALL_TYPES.SOCIAL ? MEDIA_TYPES.AUDIO : normalizeMediaType(req.body?.mediaType);
   let coins = callType === CALL_TYPES.PAID_CREATOR ? Math.max(0, parseInt(callCoins) || 0) : 0;
   let creatorPricePerMinute = 0;
 
   try {
+    socialCallSettings = callType === CALL_TYPES.SOCIAL ? await getSocialCallSettings() : null;
     await assertNotBlockedBetween(req.userId, recipientId);
 
     // For social calls: require mutual match
     if (callType === CALL_TYPES.SOCIAL) {
+      if (socialCallSettings.enabled === false) {
+        return res.status(403).json({ message: "Las llamadas sociales están deshabilitadas temporalmente" });
+      }
       await assertSocialCallAllowed(req.userId, recipientId);
       if (!isUserOnline(recipientId)) {
         return res.status(409).json({
@@ -309,7 +368,7 @@ const inviteCall = async (req, res) => {
       }
     }
 
-    const blockingCall = await findBlockingCall(req.userId, recipientId);
+    const blockingCall = await findBlockingCall(req.userId, recipientId, socialCallSettings);
     if (blockingCall) {
       return res.status(409).json({
         code: "CALL_BUSY",
@@ -354,6 +413,8 @@ const inviteCall = async (req, res) => {
       mediaType,
       callCoins: coins,
       pricePerMinute: creatorPricePerMinute,
+      maxDurationSeconds: callType === CALL_TYPES.SOCIAL ? socialCallSettings.maxDurationSeconds : null,
+      timeoutSeconds: callType === CALL_TYPES.SOCIAL ? socialCallSettings.timeoutSeconds : null,
     });
 
     const populated = await VideoCall.findById(call._id)
@@ -389,12 +450,14 @@ const inviteCall = async (req, res) => {
 // GET /api/calls/incoming — pending calls for current user
 const getIncoming = async (req, res) => {
   try {
+    const socialCallSettings = await getSocialCallSettings();
     const stalePending = await VideoCall.findOne({
       recipient: req.userId,
       status: "pending",
-      createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
     }).sort({ createdAt: 1 });
-    if (stalePending) await markPendingCallMissed(stalePending);
+    if (stalePending && shouldExpirePendingCall(stalePending, socialCallSettings)) {
+      await markPendingCallMissed(stalePending);
+    }
 
     const call = await VideoCall.findOne({
       recipient: req.userId,
@@ -412,12 +475,16 @@ const getIncoming = async (req, res) => {
 // GET /api/calls/history — call history for current user
 const getCallHistory = async (req, res) => {
   try {
+    const socialCallSettings = await getSocialCallSettings();
     const stalePendingCalls = await VideoCall.find({
       status: "pending",
-      createdAt: { $lte: new Date(Date.now() - PENDING_CALL_TIMEOUT_MS) },
       $or: [{ caller: req.userId }, { recipient: req.userId }],
     });
-    await Promise.all(stalePendingCalls.map((staleCall) => markPendingCallMissed(staleCall)));
+    await Promise.all(
+      stalePendingCalls
+        .filter((staleCall) => shouldExpirePendingCall(staleCall, socialCallSettings))
+        .map((staleCall) => markPendingCallMissed(staleCall))
+    );
 
     const parsedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isNaN(parsedLimit) ? 50 : Math.min(Math.max(parsedLimit, 1), 100);
@@ -441,19 +508,22 @@ const getCallHistory = async (req, res) => {
 // GET /api/calls/:id — get call details
 const getCallById = async (req, res) => {
   try {
+    const socialCallSettings = await getSocialCallSettings();
     let call = await VideoCall.findById(req.params.id)
       .populate("caller", "username name avatar")
       .populate("recipient", "username name avatar");
 
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
-    if (isPendingCallExpired(call)) {
+    if (shouldExpirePendingCall(call, socialCallSettings)) {
       call = await markPendingCallMissed(call);
+    } else if (isAcceptedSocialCallExpired(call, socialCallSettings)) {
+      call = await expireAcceptedSocialCall(call, "max_duration");
     }
 
     const isParticipant =
-      String(call.caller._id) === String(req.userId) ||
-      String(call.recipient._id) === String(req.userId);
+      String(call.caller?._id || call.caller) === String(req.userId) ||
+      String(call.recipient?._id || call.recipient) === String(req.userId);
 
     if (!isParticipant) {
       return res.status(403).json({ message: "No tienes acceso a esta llamada" });
@@ -480,7 +550,8 @@ const respondCall = async (req, res) => {
     const call = await VideoCall.findById(req.params.id);
     if (!call) return res.status(404).json({ message: "Llamada no encontrada" });
 
-    if (isPendingCallExpired(call)) {
+    const socialCallSettings = call.type === CALL_TYPES.SOCIAL ? await getSocialCallSettings() : null;
+    if (shouldExpirePendingCall(call, socialCallSettings)) {
       await markPendingCallMissed(call);
       return res.status(410).json({ message: "La llamada expiró" });
     }
@@ -491,6 +562,14 @@ const respondCall = async (req, res) => {
 
     if (call.status !== "pending") {
       return res.status(400).json({ message: "Esta llamada ya fue respondida" });
+    }
+
+    if (call.type === CALL_TYPES.SOCIAL) {
+      const currentSocialCallSettings = socialCallSettings || await getSocialCallSettings();
+      if (currentSocialCallSettings.enabled === false) {
+        return res.status(403).json({ message: "Las llamadas sociales están deshabilitadas temporalmente" });
+      }
+      await assertSocialCallAllowed(call.caller, call.recipient);
     }
 
     if (action === "reject") {
@@ -648,6 +727,7 @@ const endCall = async (req, res) => {
 
     call.status = "ended";
     call.endedAt = new Date();
+    call.endedReason = req.body?.reason || "hangup";
     if (call.startedAt) {
       call.totalDurationSeconds = Math.floor((call.endedAt - call.startedAt) / 1000);
     }

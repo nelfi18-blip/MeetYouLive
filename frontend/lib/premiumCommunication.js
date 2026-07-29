@@ -38,9 +38,9 @@ export function getPremiumCommunicationAvailability({ isMatch = false, peer = nu
     matchReady,
     requiresMatch: !creatorFlow,
     showSocialVoiceAction: !creatorFlow && matchReady,
-    showSocialVideoAction: !creatorFlow && matchReady,
+    showSocialVideoAction: false,
     voiceActionEnabled: !creatorFlow && matchReady,
-    videoActionEnabled: !creatorFlow && matchReady,
+    videoActionEnabled: false,
     reason: callFlow.canStart ? "future_phase_ready" : "match_required",
   };
 }

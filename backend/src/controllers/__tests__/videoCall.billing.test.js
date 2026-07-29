@@ -34,6 +34,23 @@ jest.mock("../../services/callRules.service.js", () => ({
   PENDING_CALL_TIMEOUT_MS: 30000,
 }));
 
+jest.mock("../../services/platformSettings.service.js", () => ({
+  DEFAULT_SOCIAL_CALL_SETTINGS: {
+    enabled: true,
+    maxDurationSeconds: 900,
+    timeoutSeconds: 45,
+    futureRules: {},
+  },
+  getPlatformSettings: jest.fn().mockResolvedValue({
+    socialCalls: {
+      enabled: true,
+      maxDurationSeconds: 900,
+      timeoutSeconds: 45,
+      futureRules: {},
+    },
+  }),
+}));
+
 jest.mock("../../lib/socket.js", () => ({
   getIO: jest.fn(() => ({
     to: jest.fn(() => ({ emit: jest.fn() })),

@@ -17,6 +17,13 @@ const DEFAULT_CHAT_PROTECTION_SETTINGS = Object.freeze({
   trustRuleMode: "all",
 });
 
+const DEFAULT_SOCIAL_CALL_SETTINGS = Object.freeze({
+  enabled: true,
+  maxDurationSeconds: 900,
+  timeoutSeconds: 45,
+  futureRules: {},
+});
+
 const DEFAULT_SETTINGS = Object.freeze({
   boostPriceCrush: 50,
   boostPackPrice: 200,
@@ -24,6 +31,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   dailyRewardBaseCoins: 20,
   referralRewardCoins: 50,
   creatorPlatformSplitPercent: 40,
+  socialCalls: DEFAULT_SOCIAL_CALL_SETTINGS,
   chatProtection: DEFAULT_CHAT_PROTECTION_SETTINGS,
 });
 
@@ -36,12 +44,19 @@ const NUMERIC_LIMITS = Object.freeze({
   creatorPlatformSplitPercent: { min: 0, max: 100 },
 });
 
+const SOCIAL_CALL_NUMERIC_LIMITS = Object.freeze({
+  maxDurationSeconds: { min: 60, max: 14400 },
+  timeoutSeconds: { min: 10, max: 300 },
+});
+
 const CHAT_NUMERIC_LIMITS = Object.freeze({
   minimumDaysSinceMatch: { min: 0, max: 3650 },
   minimumMessages: { min: 0, max: 100000 },
   minimumCompletedCalls: { min: 0, max: 10000 },
   minimumCoinsSpent: { min: 0, max: 100000000 },
 });
+
+const SOCIAL_CALL_BOOLEAN_KEYS = Object.freeze(["enabled"]);
 
 const CHAT_BOOLEAN_KEYS = Object.freeze([
   "chatProtectionEnabled",
@@ -53,6 +68,7 @@ const CHAT_BOOLEAN_KEYS = Object.freeze([
 
 const cloneDefaults = () => ({
   ...DEFAULT_SETTINGS,
+  socialCalls: { ...DEFAULT_SOCIAL_CALL_SETTINGS },
   chatProtection: { ...DEFAULT_CHAT_PROTECTION_SETTINGS },
 });
 
@@ -60,6 +76,14 @@ const toPlainSettings = (doc) => {
   const defaults = cloneDefaults();
   if (!doc) return defaults;
   const obj = typeof doc.toObject === "function" ? doc.toObject() : doc;
+  const socialCalls = {
+    ...defaults.socialCalls,
+    ...(obj.socialCalls || {}),
+    futureRules: {
+      ...defaults.socialCalls.futureRules,
+      ...((obj.socialCalls && obj.socialCalls.futureRules) || {}),
+    },
+  };
   const chatProtection = {
     ...defaults.chatProtection,
     ...(obj.chatProtection || {}),
@@ -67,6 +91,7 @@ const toPlainSettings = (doc) => {
   return {
     ...defaults,
     ...Object.fromEntries(Object.keys(NUMERIC_LIMITS).map((key) => [key, obj[key] ?? defaults[key]])),
+    socialCalls,
     chatProtection,
   };
 };
@@ -85,6 +110,29 @@ const normalizeUpdates = (input = {}) => {
   const updates = {};
   for (const [key, limits] of Object.entries(NUMERIC_LIMITS)) {
     if (input[key] !== undefined) updates[key] = validateNumber(key, input[key], limits);
+  }
+
+
+  const rawSocialCalls = input.socialCalls && typeof input.socialCalls === "object"
+    ? input.socialCalls
+    : {};
+  const socialCallUpdates = {};
+  for (const key of SOCIAL_CALL_BOOLEAN_KEYS) {
+    if (rawSocialCalls[key] !== undefined) socialCallUpdates[key] = rawSocialCalls[key] === true || rawSocialCalls[key] === "true";
+  }
+  for (const [key, limits] of Object.entries(SOCIAL_CALL_NUMERIC_LIMITS)) {
+    if (rawSocialCalls[key] !== undefined) socialCallUpdates[key] = validateNumber(key, rawSocialCalls[key], limits);
+  }
+  if (rawSocialCalls.futureRules !== undefined) {
+    if (!rawSocialCalls.futureRules || typeof rawSocialCalls.futureRules !== "object" || Array.isArray(rawSocialCalls.futureRules)) {
+      const err = new Error("Valor inválido para futureRules");
+      err.status = 400;
+      throw err;
+    }
+    socialCallUpdates.futureRules = rawSocialCalls.futureRules;
+  }
+  if (Object.keys(socialCallUpdates).length > 0) {
+    updates.socialCalls = socialCallUpdates;
   }
 
   const rawChat = input.chatProtection && typeof input.chatProtection === "object"
@@ -125,6 +173,10 @@ async function updatePlatformSettings(input, updatedBy) {
       for (const [chatKey, chatValue] of Object.entries(value)) {
         set[`chatProtection.${chatKey}`] = chatValue;
       }
+    } else if (key === "socialCalls") {
+      for (const [socialKey, socialValue] of Object.entries(value)) {
+        set[`socialCalls.${socialKey}`] = socialValue;
+      }
     } else {
       set[key] = value;
     }
@@ -142,6 +194,7 @@ async function updatePlatformSettings(input, updatedBy) {
 module.exports = {
   DEFAULT_SETTINGS,
   DEFAULT_CHAT_PROTECTION_SETTINGS,
+  DEFAULT_SOCIAL_CALL_SETTINGS,
   getPlatformSettings,
   updatePlatformSettings,
   normalizeUpdates,

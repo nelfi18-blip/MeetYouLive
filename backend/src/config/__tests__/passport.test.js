@@ -78,6 +78,42 @@ describe("Google Passport photo persistence", () => {
     expect(existingUser.save).toHaveBeenCalledTimes(1);
   });
 
+  test("preserves approved creator classification on existing Google OAuth login", async () => {
+    const creatorApprovedAt = new Date("2026-01-01T00:00:00.000Z");
+    const existingUser = User.hydrate({
+      _id: "507f1f77bcf86cd799439013",
+      email: "creator-google@example.com",
+      password: "secret",
+      username: "creatorgoogle",
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt,
+      creatorProfile: { displayName: "Creator Google", liveEnabled: true },
+      authProvider: "google",
+      googleId: "google-oauth-id",
+      emailVerified: true,
+    });
+    existingUser.save = jest.fn().mockResolvedValue(existingUser);
+    jest.spyOn(User, "findOne").mockResolvedValue(existingUser);
+
+    const user = await findOrCreateGoogleUser({
+      id: "google-oauth-id",
+      displayName: "Creator Google",
+      emails: [{ value: "creator-google@example.com" }],
+    });
+
+    expect(user.role).toBe("creator");
+    expect(user.creatorStatus).toBe("approved");
+    expect(user.isVerifiedCreator).toBe(true);
+    expect(user.creatorApprovedAt).toEqual(creatorApprovedAt);
+    expect(user.creatorProfile.toObject()).toMatchObject({
+      displayName: "Creator Google",
+      liveEnabled: true,
+    });
+    expect(existingUser.save).not.toHaveBeenCalled();
+  });
+
   test("Google login can save an old user that had primitive location data", async () => {
     const legacyUser = User.hydrate({
       _id: "507f1f77bcf86cd799439011",

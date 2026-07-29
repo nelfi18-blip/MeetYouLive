@@ -186,6 +186,59 @@ describe("auth email verification delivery", () => {
     expect(existingUser).not.toHaveProperty("subscriptionId");
   });
 
+  test("google-session preserves approved creator classification for existing Google creator", async () => {
+    const creatorApprovedAt = new Date("2026-01-01T00:00:00.000Z");
+    const existingUser = {
+      _id: "creator-google-1",
+      email: "creator-google@example.com",
+      name: "Creator Google",
+      username: "creatorgoogle",
+      role: "creator",
+      onboardingComplete: true,
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt,
+      creatorProfile: { displayName: "Creator Google", liveEnabled: true },
+      coins: 100,
+      earningsCoins: 50,
+      authProvider: "google",
+      googleId: "google-creator-1",
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+      emailVerificationSentAt: null,
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+    User.findOne.mockResolvedValue(existingUser);
+    User.findByIdAndUpdate.mockReturnValue({ catch: jest.fn() });
+
+    const res = await request(app)
+      .post("/api/auth/google-session")
+      .send({
+        email: "creator-google@example.com",
+        googleId: "google-creator-1",
+        name: "Updated Display Name",
+      });
+
+    expect(res.status).toBe(200);
+    expect(existingUser).toMatchObject({
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorProfile: { displayName: "Creator Google", liveEnabled: true },
+      coins: 100,
+      earningsCoins: 50,
+      authProvider: "google",
+      emailVerified: true,
+    });
+    expect(existingUser.creatorApprovedAt).toBe(creatorApprovedAt);
+    expect(existingUser.save).not.toHaveBeenCalled();
+    expect(res.body.user).toMatchObject({
+      role: "creator",
+      creatorStatus: "approved",
+    });
+  });
+
   test("new registration stores structured location objects safely", async () => {
     User.create.mockResolvedValue({ _id: "user-location-object" });
 

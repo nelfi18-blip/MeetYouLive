@@ -80,6 +80,116 @@ describe("POST /api/user/me/avatar-upload", () => {
     ...overrides,
   });
 
+  test("profile update preserves approved creator classification and ignores sensitive fields", async () => {
+    const creator = makeCompleteUser({
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt: new Date("2026-01-01T00:00:00.000Z"),
+      authProvider: "google",
+      emailVerified: true,
+      coins: 700,
+      earningsCoins: 300,
+    });
+    User.findById.mockReturnValueOnce(makeQuery(creator));
+    User.findOne.mockResolvedValue(null);
+    User.findByIdAndUpdate.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        ...creator,
+        name: "Updated Creator",
+        bio: "Updated bio",
+        toObject() {
+          return { ...this };
+        },
+      }),
+    });
+
+    const res = await request(app)
+      .patch("/api/user/me")
+      .set("Authorization", "******")
+      .send({
+        name: "Updated Creator",
+        bio: "Updated bio",
+        role: "user",
+        creatorStatus: "none",
+        isVerifiedCreator: false,
+        creatorProfile: {},
+        authProvider: "local",
+        emailVerified: false,
+        coins: 0,
+        earningsCoins: 0,
+      });
+
+    expect(res.status).toBe(200);
+    const updatePayload = User.findByIdAndUpdate.mock.calls[0][1];
+    expect(updatePayload).toMatchObject({ name: "Updated Creator", bio: "Updated bio" });
+    expect(updatePayload).not.toHaveProperty("role");
+    expect(updatePayload).not.toHaveProperty("creatorStatus");
+    expect(updatePayload).not.toHaveProperty("isVerifiedCreator");
+    expect(updatePayload).not.toHaveProperty("creatorProfile");
+    expect(updatePayload).not.toHaveProperty("authProvider");
+    expect(updatePayload).not.toHaveProperty("emailVerified");
+    expect(updatePayload).not.toHaveProperty("coins");
+    expect(updatePayload).not.toHaveProperty("earningsCoins");
+  });
+
+  test("onboarding update preserves approved creator classification and ignores sensitive fields", async () => {
+    const creator = makeCompleteUser({
+      role: "creator",
+      creatorStatus: "approved",
+      isVerifiedCreator: true,
+      creatorApprovedAt: new Date("2026-01-01T00:00:00.000Z"),
+      authProvider: "local",
+      emailVerified: true,
+      coins: 400,
+      earningsCoins: 150,
+      creatorProfile: { displayName: "Creator", liveEnabled: true },
+    });
+    User.findById.mockReturnValueOnce(makeQuery(creator));
+    User.findByIdAndUpdate.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        ...creator,
+        name: "Onboarded Creator",
+        toObject() {
+          return { ...this };
+        },
+      }),
+    });
+
+    const res = await request(app)
+      .patch("/api/user/me/onboarding")
+      .set("Authorization", "******")
+      .send({
+        name: "Onboarded Creator",
+        birthdate: "2000-01-01",
+        gender: "female",
+        interestedIn: "both",
+        intent: "creator",
+        interests: ["music", "travel", "movies"],
+        location: { type: "Point", coordinates: [-70.6693, -33.4489], country: "Chile" },
+        role: "user",
+        creatorStatus: "none",
+        isVerifiedCreator: false,
+        creatorProfile: {},
+        authProvider: "google",
+        emailVerified: false,
+        coins: 0,
+        earningsCoins: 0,
+      });
+
+    expect(res.status).toBe(200);
+    const updatePayload = User.findByIdAndUpdate.mock.calls[0][1];
+    expect(updatePayload).toMatchObject({ name: "Onboarded Creator" });
+    expect(updatePayload).not.toHaveProperty("role");
+    expect(updatePayload).not.toHaveProperty("creatorStatus");
+    expect(updatePayload).not.toHaveProperty("isVerifiedCreator");
+    expect(updatePayload).not.toHaveProperty("creatorProfile");
+    expect(updatePayload).not.toHaveProperty("authProvider");
+    expect(updatePayload).not.toHaveProperty("emailVerified");
+    expect(updatePayload).not.toHaveProperty("coins");
+    expect(updatePayload).not.toHaveProperty("earningsCoins");
+  });
+
   test("returns raw stored photo debug fields for the current user", async () => {
     const debugUser = {
       _id: "507f1f77bcf86cd799439011",

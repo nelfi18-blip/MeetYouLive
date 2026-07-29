@@ -46,8 +46,7 @@ export default function StartLivePage() {
         const approved = hasApprovedCreatorAccess(data);
         setIsApprovedCreator(approved);
         if (!approved) {
-          // Non-approved creators cannot start streams; redirect to feed
-          router.replace("/feed");
+          setError("Necesitas una cuenta de creador aprobada para iniciar un Live.");
         }
       })
       .catch(() => {})
@@ -115,7 +114,25 @@ export default function StartLivePage() {
   }
 
   if (!isApprovedCreator) {
-    return null;
+    return (
+      <div className="start-page">
+        <div className="error-banner">
+          {error || "Necesitas una cuenta de creador aprobada para iniciar un Live."}
+        </div>
+        <Link href="/live" className="btn btn-secondary">← Directos</Link>
+        <style jsx>{`
+          .start-page { display: flex; flex-direction: column; gap: 1.5rem; max-width: 600px; margin: 0 auto; }
+          .error-banner {
+            background: rgba(244,67,54,0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+          }
+        `}</style>
+      </div>
+    );
   }
 
   return (

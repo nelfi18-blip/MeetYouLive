@@ -14,7 +14,8 @@
     "cleanup:production-users": "node scripts/cleanup-production-non-admin-users.js",
     "migrate:google-email-verification": "node scripts/migrate-google-email-verification.js",
     "audit:user-classification": "node scripts/audit-user-classification.js",
-    "audit:user-classification:counts": "node scripts/audit-user-classification.js --counts-only"
+    "audit:user-classification:counts": "node scripts/audit-user-classification.js --counts-only",
+    "audit:creator-classification": "node scripts/audit-creator-classification.js"
   },
   "engines": {
     "node": "24.x"

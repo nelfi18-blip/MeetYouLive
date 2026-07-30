@@ -125,7 +125,7 @@ settings menu is hidden.
 Never post the secret values in the PR, screenshots, public docs, issue
 comments, or chat. Only the public certificate SHA-256 may be shared.
 
-The workflow sets `versionCode` to the GitHub run number by default and `versionName` to `1.0.<run_number>`. For manual runs, override `version_code` only when it is greater than the installed APK's `versionCode`.
+The workflow sets `versionCode` to the GitHub run number by default and `versionName` to `1.0.<run_number>`. For manual runs, override `version_code` only when it is greater than the installed APK's `versionCode`. During the Gradle step, the restored keystore is exposed only as `ANDROID_KEYSTORE_PATH=release.keystore` plus `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`.
 
 ### Verificar que el workflow funciona
 
@@ -145,6 +145,7 @@ After the secrets exist:
    - `previousVersionCode=1`
    - `versionCode=<run number or manual override>`
    - `versionName=1.0.<run number or manual override>`
+   - `buildType=release`
    - `certificateSha256=<public SHA-256 of the signing certificate>`
 
 The workflow runs `apksigner verify --verbose --print-certs` against

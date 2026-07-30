@@ -125,8 +125,8 @@ error de compilación (`@color/colorPrimary` no definido en `styles.xml`).
 6. Instalar sobre la versión anterior con `adb install -r app-release.apk` o desde el dispositivo habilitando "Fuentes desconocidas".
 
 El artifact incluye `meetyoulive-release-metadata.txt` con `applicationId`,
-`versionCode`, `versionName` y SHA-256 público del certificado usado para firmar
-la APK. No imprime ni publica valores secretos.
+`versionCode`, `versionName`, `buildType=release` y SHA-256 público del
+certificado usado para firmar la APK. No imprime ni publica valores secretos.
 
 Investigación previa en PR #844:
 
@@ -182,6 +182,10 @@ falta: `nelfi18-blip/MeetYouLive` → **Settings** → **Secrets and variables**
 No publicar los valores en commits, logs, documentación, comentarios, capturas o
 chats. También debe existir `ANDROID_GOOGLE_SERVICES_JSON_BASE64`.
 
+El workflow restaura la keystore en `android/app/release.keystore` y Gradle la
+lee sólo mediante `ANDROID_KEYSTORE_PATH=release.keystore`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`.
+
 Al pasar el workflow, verificar en `meetyoulive-release-metadata.txt`:
 
 - `applicationId=com.meetyoulive.app`
@@ -189,6 +193,7 @@ Al pasar el workflow, verificar en `meetyoulive-release-metadata.txt`:
 - `previousVersionCode=1`
 - `versionCode=<run_number o valor manual mayor>`
 - `versionName=1.0.<run_number o valor manual>`
+- `buildType=release`
 - `certificateSha256=<SHA-256 público del certificado>`
 
 El workflow ejecuta `apksigner verify --verbose --print-certs`, rechaza
@@ -211,12 +216,12 @@ npm ci
 npx cap sync android
 cd android
 chmod +x gradlew
-ORG_GRADLE_PROJECT_androidVersionCode=2 \
-ORG_GRADLE_PROJECT_androidVersionName=1.0.1 \
-ORG_GRADLE_PROJECT_androidStoreFile=release.keystore \
-ORG_GRADLE_PROJECT_androidStorePassword=<password> \
-ORG_GRADLE_PROJECT_androidKeyAlias=<alias> \
-ORG_GRADLE_PROJECT_androidKeyPassword=<password> \
+ANDROID_VERSION_CODE=2 \
+ANDROID_VERSION_NAME=1.0.1 \
+ANDROID_KEYSTORE_PATH=release.keystore \
+ANDROID_KEYSTORE_PASSWORD=<password> \
+ANDROID_KEY_ALIAS=<alias> \
+ANDROID_KEY_PASSWORD=<password> \
 ./gradlew assembleRelease
 # APK en: android/app/build/outputs/apk/release/app-release.apk
 ```

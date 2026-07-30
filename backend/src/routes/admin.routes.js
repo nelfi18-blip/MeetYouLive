@@ -192,61 +192,8 @@ router.get("/payouts", adminLimiter, verifyToken, requirePermission("VIEW_PAYOUT
   }
 });
 
-router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDATE_PAYOUTS"), async (req, res) => {
-  const TERMINAL_STATUSES = ["completed", "paid", "rejected"];
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "id inválido" });
-    }
-    const { status, notes } = req.body;
-    const allowedTransitions = ["approved", "paid", "processing", "completed", "rejected"];
-    if (!allowedTransitions.includes(status)) {
-      return res.status(400).json({ message: "Estado inválido. Usa: approved, paid, completed o rejected" });
-    }
-
-    const payout = await Payout.findById(req.params.id).populate("creator", "username email");
-    if (!payout) return res.status(404).json({ message: "Solicitud de pago no encontrada" });
-
-    if (TERMINAL_STATUSES.includes(payout.status)) {
-      return res.status(400).json({ message: "Esta solicitud ya fue procesada" });
-    }
-
-    const oldStatus = payout.status;
-    payout.status = status;
-    if (notes !== undefined) payout.notes = notes;
-    if (TERMINAL_STATUSES.includes(status)) {
-      payout.processedAt = new Date();
-    }
-    if (status === "rejected") {
-      payout.rejectionReason = notes || "Sin motivo indicado";
-    }
-    await payout.save();
-
-    // Restore earningsCoins atomically if rejected so the creator can retry
-    if (status === "rejected") {
-      await User.findByIdAndUpdate(payout.creator, {
-        $inc: { earningsCoins: payout.amountCoins },
-      });
-    }
-
-    // Log the payout status change
-    await logStaffAction({
-      staffId: req.userId,
-      staffRole: req.userRole,
-      action: "update_payout_status",
-      targetType: "Other",
-      targetId: payout._id,
-      targetIdentifier: `Payout ${payout._id} for ${payout.creator.username || payout.creator.email}`,
-      details: { payoutId: payout._id, creatorId: payout.creator._id, oldStatus, newStatus: status, notes },
-      ipAddress: req.ip,
-    });
-
-    const populated = await Payout.findById(payout._id).populate("creator", "username name email");
-    res.json({ message: "Solicitud actualizada", payout: populated });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes? }
+router.patch("/payouts/:id", adminLimiter, verifyToken, requirePermission("UPDATE_PAYOUTS"), updatePayout);
 
 // Revenue: admin, finance
 router.get("/revenue", adminLimiter, verifyToken, requirePermission("VIEW_REVENUE"), getRevenueMetrics);

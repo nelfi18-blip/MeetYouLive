@@ -66,10 +66,7 @@ export default function BottomNavEnhanced() {
 
     const fetchCounts = async () => {
       try {
-        const [chatsRes, matchesRes, livesRes] = await Promise.all([
-          fetch(`${API_URL}/api/chat/unread-count`, {
-            headers: { Authorization: getBearerHeader(session.backendToken) },
-          }),
+        const [matchesRes, livesRes] = await Promise.all([
           fetch(`${API_URL}/api/matches/new-count`, {
             headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
@@ -77,11 +74,6 @@ export default function BottomNavEnhanced() {
             headers: { Authorization: getBearerHeader(session.backendToken) },
           }),
         ]);
-
-        if (chatsRes.ok) {
-          const chatsData = await chatsRes.json();
-          setUnreadCount(chatsData.count || 0);
-        }
 
         if (matchesRes.ok) {
           const matchesData = await matchesRes.json();

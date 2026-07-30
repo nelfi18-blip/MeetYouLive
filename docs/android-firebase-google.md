@@ -31,6 +31,32 @@ All APK artifacts intended for installation over an existing app must be release
 - `versionCode` higher than the APK already installed
 - An ordered `versionName`
 
+### Historical signing investigation
+
+PR #844 checked the repository, Android Gradle files, workflows, and available
+APK artifacts for a reusable historical signing key.
+
+- No `.jks`, `.keystore`, or PKCS12 signing key is committed in the repository.
+- The previous Android workflow was `Android Debug APK` and ran
+  `./gradlew assembleDebug --no-daemon --stacktrace`.
+- The previous workflow uploaded `frontend/android/app/build/outputs/apk/debug/app-debug.apk`.
+- No previous Release `signingConfig` or reusable release alias was present in
+  `frontend/android/app/build.gradle`.
+- The available previous artifact `MeetYouLive-debug-16` contains:
+  - `packageName`: `com.meetyoulive.app`
+  - `versionCode`: `1`
+  - `versionName`: `1.0`
+  - certificate subject: `C=US, O=Android, CN=Android Debug`
+  - certificate SHA-256:
+    `15f5c60358e03f5cc78be7cac3ca94852858ffa599c4847a3fa0aed915d63bf2`
+
+Result: the previous APK was Debug-signed. Its private debug signing key was
+created in the GitHub Actions build environment and is not recoverable from this
+repository or from the APK artifact. Because Android requires the same signing
+certificate to update an installed app, a newly signed Release APK cannot update
+that Debug APK in place. The first move from that Debug APK to the permanent
+Release key probably requires uninstalling once.
+
 Required GitHub Actions secrets:
 
 - `ANDROID_KEYSTORE_BASE64`
@@ -107,16 +133,23 @@ After the secrets exist:
 
 1. Go to **Actions → Android Updateable Release APK**.
 2. Run the workflow on the PR branch, or re-run the failed PR check.
-3. Confirm the job reaches **Upload signed Release APK artifact**.
+3. Confirm the job reaches **Verify signed Release APK metadata** and then
+   **Upload signed Release APK artifact**.
 4. Download artifact `MeetYouLive-release-<run_number>`.
 5. Confirm the artifact contains:
    - `app-release.apk`
    - `meetyoulive-release-metadata.txt`
 6. Open `meetyoulive-release-metadata.txt` and confirm:
    - `applicationId=com.meetyoulive.app`
+   - `packageName=com.meetyoulive.app`
+   - `previousVersionCode=1`
    - `versionCode=<run number or manual override>`
    - `versionName=1.0.<run number or manual override>`
    - `certificateSha256=<public SHA-256 of the signing certificate>`
+
+The workflow runs `apksigner verify --verbose --print-certs` against
+`app-release.apk`, rejects Android Debug certificates, and fails if the APK
+`versionCode` is not greater than the previous available APK's `versionCode` 1.
 
 Validate an update on a device with a computer that has Android platform tools:
 

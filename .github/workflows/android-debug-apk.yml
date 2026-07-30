@@ -205,25 +205,70 @@ jobs:
           ORG_GRADLE_PROJECT_androidKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Print APK metadata
+      - name: Verify signed Release APK metadata
         working-directory: frontend/android
         env:
           ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
           ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
+          ANDROID_PREVIOUS_VERSION_CODE: '1'
         run: |
+          set -euo pipefail
           apk_path="app/build/outputs/apk/release/app-release.apk"
-          cert_info="$(keytool -printcert -jarfile "$apk_path")"
-          cert_sha256="$(printf '%s\n' "$cert_info" | awk -F'SHA256: ' '/SHA256:/ { print $2; exit }')"
+          build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          aapt="$build_tools_dir/aapt"
+          apksigner="$build_tools_dir/apksigner"
+
+          badging="$("$aapt" dump badging "$apk_path")"
+          package_line="$(printf '%s\n' "$badging" | awk '/^package: / { print; exit }')"
+          package_name="$(printf '%s\n' "$package_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
+          apk_version_code="$(printf '%s\n' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          apk_version_name="$(printf '%s\n' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+
+          if [ "$package_name" != "com.meetyoulive.app" ]; then
+            echo "Error: Unexpected applicationId/packageName: $package_name"
+            exit 1
+          fi
+
+          if [ "$apk_version_code" != "$ANDROID_VERSION_CODE" ]; then
+            echo "Error: APK versionCode $apk_version_code does not match expected $ANDROID_VERSION_CODE."
+            exit 1
+          fi
+
+          if [ "$apk_version_name" != "$ANDROID_VERSION_NAME" ]; then
+            echo "Error: APK versionName $apk_version_name does not match expected $ANDROID_VERSION_NAME."
+            exit 1
+          fi
+
+          if ! printf '%s\n' "$apk_version_code" | grep -Eq '^[0-9]+$'; then
+            echo "Error: APK versionCode is not numeric: $apk_version_code"
+            exit 1
+          fi
+
+          if [ "$apk_version_code" -le "$ANDROID_PREVIOUS_VERSION_CODE" ]; then
+            echo "Error: APK versionCode $apk_version_code must be greater than previous APK versionCode $ANDROID_PREVIOUS_VERSION_CODE."
+            exit 1
+          fi
+
+          signer_info="$("$apksigner" verify --verbose --print-certs "$apk_path")"
+          printf '%s\n' "$signer_info"
+          cert_sha256="$(printf '%s\n' "$signer_info" | awk -F': ' '/certificate SHA-256 digest:/ { print $2; exit }')"
 
           if [ -z "$cert_sha256" ]; then
             echo "Error: Unable to read APK signing certificate SHA-256 from $apk_path."
             exit 1
           fi
 
+          if printf '%s\n' "$signer_info" | grep -q 'CN=Android Debug'; then
+            echo "Error: APK is signed with the Android Debug certificate, not the configured Release key."
+            exit 1
+          fi
+
           {
-            echo "applicationId=com.meetyoulive.app"
-            echo "versionCode=$ANDROID_VERSION_CODE"
-            echo "versionName=$ANDROID_VERSION_NAME"
+            echo "applicationId=$package_name"
+            echo "packageName=$package_name"
+            echo "versionCode=$apk_version_code"
+            echo "previousVersionCode=$ANDROID_PREVIOUS_VERSION_CODE"
+            echo "versionName=$apk_version_name"
             echo "signing=release"
             echo "signed=true"
             echo "certificateSha256=$cert_sha256"
@@ -259,9 +304,11 @@ jobs:
 
             echo "Artifact: MeetYouLive-release-${{ github.run_number }}"
             echo
-            echo "- applicationId: com.meetyoulive.app"
-            echo "- versionCode: $ANDROID_VERSION_CODE"
-            echo "- versionName: $ANDROID_VERSION_NAME"
+            echo "- applicationId: $(awk -F= '/^applicationId=/ { print $2; exit }' "$metadata_path")"
+            echo "- packageName: $(awk -F= '/^packageName=/ { print $2; exit }' "$metadata_path")"
+            echo "- previous versionCode: $(awk -F= '/^previousVersionCode=/ { print $2; exit }' "$metadata_path")"
+            echo "- versionCode: $(awk -F= '/^versionCode=/ { print $2; exit }' "$metadata_path")"
+            echo "- versionName: $(awk -F= '/^versionName=/ { print $2; exit }' "$metadata_path")"
             echo "- signing: release keystore from ANDROID_KEYSTORE_BASE64"
             echo "- certificate SHA-256: $cert_sha256"
             echo

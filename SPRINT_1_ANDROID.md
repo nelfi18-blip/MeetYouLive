@@ -128,6 +128,22 @@ El artifact incluye `meetyoulive-release-metadata.txt` con `applicationId`,
 `versionCode`, `versionName` y SHA-256 público del certificado usado para firmar
 la APK. No imprime ni publica valores secretos.
 
+Investigación previa en PR #844:
+
+- No se encontró ningún archivo `.jks`, `.keystore` o PKCS12 recuperable en el
+  repositorio.
+- No existía `signingConfig` Release anterior ni alias Release reutilizable en
+  `frontend/android/app/build.gradle`.
+- El workflow anterior `Android Debug APK` usaba `assembleDebug` y subía
+  `app-debug.apk`.
+- La APK anterior disponible `MeetYouLive-debug-16` tiene:
+  - `packageName`: `com.meetyoulive.app`
+  - `versionCode`: `1`
+  - `versionName`: `1.0`
+  - tipo: Debug (`C=US, O=Android, CN=Android Debug`)
+  - certificado SHA-256:
+    `15f5c60358e03f5cc78be7cac3ca94852858ffa599c4847a3fa0aed915d63bf2`
+
 Antes de reintentar el workflow, crear y guardar una keystore Release en un
 computador confiable:
 
@@ -169,9 +185,14 @@ chats. También debe existir `ANDROID_GOOGLE_SERVICES_JSON_BASE64`.
 Al pasar el workflow, verificar en `meetyoulive-release-metadata.txt`:
 
 - `applicationId=com.meetyoulive.app`
+- `packageName=com.meetyoulive.app`
+- `previousVersionCode=1`
 - `versionCode=<run_number o valor manual mayor>`
 - `versionName=1.0.<run_number o valor manual>`
 - `certificateSha256=<SHA-256 público del certificado>`
+
+El workflow ejecuta `apksigner verify --verbose --print-certs`, rechaza
+certificados Android Debug y falla si `versionCode` no es mayor que `1`.
 
 > Importante: las APK generadas antes del PR #844 eran `MeetYouLive-debug-*`.
 > Si la app instalada viene de una de esas APK Debug, sólo se puede actualizar

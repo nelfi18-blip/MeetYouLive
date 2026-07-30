@@ -2,15 +2,15 @@ apply plugin: 'com.android.application'
 
 def androidVersionCode = (findProperty('androidVersionCode') ?: System.getenv('ANDROID_VERSION_CODE') ?: '2') as Integer
 def androidVersionName = (findProperty('androidVersionName') ?: System.getenv('ANDROID_VERSION_NAME') ?: '1.0.1').toString()
-def releaseStoreFilePath = findProperty('androidStoreFile') ?: System.getenv('ANDROID_STORE_FILE')
-def releaseStorePassword = findProperty('androidStorePassword') ?: System.getenv('ANDROID_STORE_PASSWORD')
-def releaseKeyAlias = findProperty('androidKeyAlias') ?: System.getenv('ANDROID_KEY_ALIAS')
-def releaseKeyPassword = findProperty('androidKeyPassword') ?: System.getenv('ANDROID_KEY_PASSWORD')
+def releaseStoreFilePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def releaseStorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('ANDROID_KEY_PASSWORD')
 def hasReleaseSigning = releaseStoreFilePath && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
 def requestedReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
 
 if (requestedReleaseBuild && !hasReleaseSigning) {
-    throw new GradleException('Release APK builds require androidStoreFile, androidStorePassword, androidKeyAlias, and androidKeyPassword so every APK is signed with the same key.')
+    throw new GradleException('Release APK builds require ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD so every APK is signed with the same key.')
 }
 
 android {

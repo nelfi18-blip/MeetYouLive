@@ -197,12 +197,12 @@ jobs:
       - name: Build signed Release APK
         working-directory: frontend/android
         env:
-          ORG_GRADLE_PROJECT_androidVersionCode: ${{ github.event.inputs.version_code || github.run_number }}
-          ORG_GRADLE_PROJECT_androidVersionName: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
-          ORG_GRADLE_PROJECT_androidStoreFile: release.keystore
-          ORG_GRADLE_PROJECT_androidStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_androidKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_androidKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
+          ANDROID_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
+          ANDROID_KEYSTORE_PATH: release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Verify signed Release APK metadata
@@ -217,6 +217,11 @@ jobs:
           build_tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           aapt="$build_tools_dir/aapt"
           apksigner="$build_tools_dir/apksigner"
+
+          if [ ! -s "$apk_path" ]; then
+            echo "Error: Release APK was not generated at $apk_path."
+            exit 1
+          fi
 
           badging="$("$aapt" dump badging "$apk_path")"
           package_line="$(printf '%s\n' "$badging" | awk '/^package: / { print; exit }')"
@@ -249,7 +254,11 @@ jobs:
             exit 1
           fi
 
-          signer_info="$("$apksigner" verify --verbose --print-certs "$apk_path")"
+          if ! signer_info="$("$apksigner" verify --verbose --print-certs "$apk_path" 2>&1)"; then
+            printf '%s\n' "$signer_info"
+            echo "Error: APK signature verification failed for $apk_path."
+            exit 1
+          fi
           printf '%s\n' "$signer_info"
           cert_sha256="$(printf '%s\n' "$signer_info" | awk -F': ' '/certificate SHA-256 digest:/ { print $2; exit }')"
 
@@ -269,6 +278,7 @@ jobs:
             echo "versionCode=$apk_version_code"
             echo "previousVersionCode=$ANDROID_PREVIOUS_VERSION_CODE"
             echo "versionName=$apk_version_name"
+            echo "buildType=release"
             echo "signing=release"
             echo "signed=true"
             echo "certificateSha256=$cert_sha256"

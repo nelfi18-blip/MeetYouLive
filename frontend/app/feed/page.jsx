@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchUserRole, getToken, setToken } from "@/lib/token";
 import { PROFILE_UPDATED_EVENT, consumeProfileUpdatedMarker } from "@/lib/profileSync";
 import { getMissingProfileLabels } from "@/lib/profileCompletionLabels";
+import { shouldShowFeedProfileIncompleteState } from "@/lib/feedProfileState";
 import { getPrimaryProfileImage, normalizeUserImages } from "@/lib/imageHelpers";
 import { WELCOME_FEED_NOTICE_KEY } from "@/lib/storageKeys";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -1350,7 +1351,7 @@ export default function FeedPage() {
   const showEmptyState = !hasMoreProfiles && !showLoadingState && !showErrorState;
   const activeCardError = hasMoreProfiles ? error : null;
   const isUndoDisabled = swipeLocked || !lastAction;
-  const shouldShowProfileIncompleteState = showEmptyState && viewerProfileStatus?.canAppearInFeed === false;
+  const shouldShowProfileIncompleteState = shouldShowFeedProfileIncompleteState(showEmptyState, viewerProfileStatus);
   const profileCompletionHref = viewerProfileStatus?.onboardingComplete ? "/profile" : "/onboarding";
   const shouldShowPreferenceBanner = viewerProfileStatus?.preferenceCompletionNeeded === true;
   const shouldShowFeedDebugPanel =

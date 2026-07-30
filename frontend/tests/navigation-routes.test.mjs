@@ -19,11 +19,12 @@ function assertDistinctDestinations(destinations) {
   assert.deepEqual(new Set(destinations).size, destinations.length);
 }
 
-test("Home/Dashboard resolves to the dashboard, not the discovery feed", () => {
+test("Home resolves by role", () => {
+  assert.equal(getHomePath("creator"), "/creator");
+  assert.equal(getHomePath("admin"), "/admin");
   assert.equal(getHomePath("user"), "/dashboard");
-  assert.equal(getHomePath("creator"), "/dashboard");
+  assert.equal(getHomePath(null), "/");
   assert.equal(getHomePath("moderator"), "/dashboard");
-  assert.notEqual(getHomePath("user"), "/feed");
 });
 
 test("Community/Discover bottom nav keeps the discovery feed destination", async () => {
@@ -32,6 +33,15 @@ test("Community/Discover bottom nav keeps the discovery feed destination", async
   assert.match(source, /<Link href=\{homePath\}/);
   assert.match(source, /<Link href="\/feed"[^>]*>\s*<svg/s);
   assert.match(source, /isActive\("\/feed"\) \|\| isActive\("\/explore"\)/);
+});
+
+test("Home and Community have distinct destinations for user and creator", () => {
+  assert.notEqual(getHomePath("user"), "/feed");
+  assert.notEqual(getHomePath("creator"), "/feed");
+  assert.equal(getHomePath("user"), USER_BOTTOM_NAV_DESTINATIONS[0]);
+  assert.equal(getHomePath("creator"), CREATOR_BOTTOM_NAV_DESTINATIONS[0]);
+  assert.equal(USER_BOTTOM_NAV_DESTINATIONS[1], "/feed");
+  assert.equal(CREATOR_BOTTOM_NAV_DESTINATIONS[1], "/feed");
 });
 
 test("bottom nav destinations stay distinct and expected by role", () => {

@@ -2,6 +2,7 @@
 
 import { clearNativeRoute, clearNativeToken, clearNativeTokens, persistNativeToken } from "./nativeSession";
 import { unregisterNativePushToken } from "./nativePush";
+export { getHomePath } from "./navigationPaths";
 
 /**
  * Centralised token helpers.
@@ -258,15 +259,4 @@ export async function fetchUserRole(token, timeoutMs = 15000, retries = 1) {
 export async function isAdmin(token) {
   const user = await fetchUserRole(token);
   return user?.role === "admin";
-}
-
-/**
- * Get the appropriate home path based on user role.
- * Admin users go to /admin, regular users go to /feed.
- * Returns "/" for public visitors (when no role provided).
- */
-export function getHomePath(userRole) {
-  if (!userRole) return "/";
-  if (userRole === "admin") return "/admin";
-  return "/feed";
 }

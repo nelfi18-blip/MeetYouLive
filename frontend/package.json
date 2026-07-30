@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint . --max-warnings=0",
+    "test:navigation": "node --test tests/navigation-routes.test.mjs",
     "test:public-access": "node --test tests/public-access.test.mjs",
     "test:language": "node --test tests/language-detection.test.mjs",
     "test:mobile": "node --test tests/mobile-native.test.mjs",

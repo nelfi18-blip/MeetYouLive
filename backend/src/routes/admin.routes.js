@@ -535,13 +535,6 @@ router.patch("/agency-links/:id/remove", async (req, res) => {
 
 // ── Payout admin routes ─────────────────────────────────────────────────────
 
-// GET /api/admin/payouts — list payout requests (optional ?status=pending|approved|rejected|paid)
-router.get("/payouts", verifyToken, requireAdmin, getPayouts);
-
-// PATCH /api/admin/payouts/:id — approve, reject, or mark payout as paid
-// Body: { action: "approve" | "reject" | "mark_paid", rejectionReason?, notes? }
-router.patch("/payouts/:id", verifyToken, requireAdmin, updatePayout);
-
 // ── Fraud admin routes ──────────────────────────────────────────────────────
 
 const FraudAlert = require("../models/FraudAlert.js");

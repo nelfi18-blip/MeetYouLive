@@ -66,9 +66,32 @@ export default function BottomNavEnhanced() {
 
     const fetchCounts = async () => {
       try {
-        const livesRes = await fetch(`${API_URL}/api/lives`, {
-          headers: { Authorization: getBearerHeader(session.backendToken) },
-        });
+        const [chatsRes, matchesRes, livesRes] = await Promise.all([
+          fetch(`${API_URL}/api/chat/unread-count`, {
+            headers: { Authorization: getBearerHeader(session.backendToken) },
+          }),
+          fetch(`${API_URL}/api/matches/new-count`, {
+            headers: { Authorization: getBearerHeader(session.backendToken) },
+          }),
+          fetch(`${API_URL}/api/lives`, {
+            headers: { Authorization: getBearerHeader(session.backendToken) },
+          }),
+        ]);
+
+        if (chatsRes.ok) {
+          const chatsData = await chatsRes.json();
+          setUnreadCount(chatsData.count || 0);
+        }
+
+        if (matchesRes.ok) {
+          const matchesData = await matchesRes.json();
+          const newCount = matchesData.count || 0;
+          if (newCount > newMatchesCount && newMatchesCount > 0) {
+            setShowNewMatchAnimation(true);
+            setTimeout(() => setShowNewMatchAnimation(false), 2000);
+          }
+          setNewMatchesCount(newCount);
+        }
 
         if (livesRes.ok) {
           const livesData = await livesRes.json();

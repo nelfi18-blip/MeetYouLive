@@ -103,6 +103,11 @@ export default function ChatConversationPage() {
 
   const otherName = getDisplayName(otherUser);
   const otherImage = getUserImage(otherUser);
+  const otherUserId = otherUser?._id ? String(otherUser._id) : "";
+  const otherProfileHref = otherUserId ? `/profile/${encodeURIComponent(otherUserId)}` : "";
+  const openOtherProfile = () => {
+    if (otherProfileHref) router.push(otherProfileHref);
+  };
 
   useEffect(() => {
     const token = getBackendToken();
@@ -531,7 +536,18 @@ export default function ChatConversationPage() {
           <span>{t("chatPremium.backToChats")}</span>
         </Link>
 
-        <div className="chat-peer">
+        <div
+          className={["chat-peer", otherProfileHref ? "chat-peer-action" : ""].filter(Boolean).join(" ")}
+          role={otherProfileHref ? "button" : undefined}
+          tabIndex={otherProfileHref ? 0 : undefined}
+          aria-label={otherProfileHref ? `Ver perfil de ${otherName}` : undefined}
+          onClick={openOtherProfile}
+          onKeyDown={(event) => {
+            if (!otherProfileHref || (event.key !== "Enter" && event.key !== " ")) return;
+            event.preventDefault();
+            openOtherProfile();
+          }}
+        >
           {otherName && (
             <>
               <div className="peer-avatar-wrap" data-online={isOtherOnline}>
@@ -833,6 +849,9 @@ export default function ChatConversationPage() {
           flex: 1 1 auto;
           min-width: 0;
         }
+        .chat-peer-action { border-radius: 18px; color: inherit; cursor: pointer; min-height: 52px; padding: 0.18rem; transition: color var(--transition), background var(--transition), box-shadow var(--transition); }
+        .chat-peer-action:hover { color: var(--accent-cyan); background: rgba(255,255,255,0.045); }
+        .chat-peer-action:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; background: rgba(255,255,255,0.045); }
         .peer-avatar-wrap {
           position: relative;
           width: 48px;

@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { startNativeGoogleLogin } from "@/lib/nativeGoogleLogin";
+import { DEFAULT_AUTH_REDIRECT } from "@/lib/redirects";
 
 const ADVANTAGES = [
   { id: "free-registration", textKey: "landing.advantages.freeRegistration" },
@@ -60,9 +61,9 @@ export default function LandingPage() {
 
   const handleGoogleSignIn = async () => {
     trackAnalyticsEvent("google_login_click", { reason: "landing" });
-    if (await startNativeGoogleLogin("/dashboard")) return;
+    if (await startNativeGoogleLogin(DEFAULT_AUTH_REDIRECT)) return;
     signIn("google", {
-      callbackUrl: "/dashboard",
+      callbackUrl: `/login?callbackUrl=${encodeURIComponent(DEFAULT_AUTH_REDIRECT)}`,
     });
   };
 

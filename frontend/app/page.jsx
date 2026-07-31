@@ -1,5 +1,10 @@
 import LandingPageContent from "@/components/LandingPageContent";
+import { authOptions } from "@/lib/authOptions";
+import { DEFAULT_AUTH_REDIRECT } from "@/lib/redirects";
 import { canonicalUrl } from "@/lib/site";
+import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "MeetYouLive - Match, chat y live streaming",
@@ -26,6 +31,14 @@ export const metadata = {
   },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const cookieStore = await cookies();
+  const hasBackendSession = Boolean(cookieStore.get("auth-session")?.value);
+  const nextAuthSession = await getServerSession(authOptions);
+
+  if (hasBackendSession || nextAuthSession) {
+    redirect(DEFAULT_AUTH_REDIRECT);
+  }
+
   return <LandingPageContent />;
 }

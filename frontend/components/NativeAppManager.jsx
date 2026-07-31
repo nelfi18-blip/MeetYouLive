@@ -20,6 +20,7 @@ const KNOWN_DEEP_LINK_PREFIXES = [
   "/verify-email",
   "/reset-password",
   "/forgot-password",
+  "/auth/success",
   "/chats",
   "/chat",
   "/live",

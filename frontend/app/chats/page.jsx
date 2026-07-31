@@ -464,13 +464,9 @@ export default function ChatsPage() {
     if (!chatId) return;
     router.push(`/chats/${encodeURIComponent(String(chatId))}`);
   };
-  const handleChatRowKeyDown = (event, chatId) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    navigateToChat(chatId);
-  };
-  const stopProfileLinkPropagation = (event) => {
+  const navigateToProfile = (event, profileHref) => {
     event.stopPropagation();
+    if (profileHref) router.push(profileHref);
   };
 
   return (
@@ -593,22 +589,17 @@ export default function ChatsPage() {
                 key={chat._id}
                 className="chat-row"
                 data-unread={unreadCount > 0 ? "true" : "false"}
-                role="link"
-                tabIndex={0}
-                aria-label={`Abrir conversación con ${displayName}`}
                 onClick={() => navigateToChat(chat._id)}
-                onKeyDown={(event) => handleChatRowKeyDown(event, chat._id)}
               >
                 {profileHref ? (
-                  <Link
-                    href={profileHref}
-                    className="profile-avatar-link"
+                  <button
+                    type="button"
+                    className="profile-avatar-button"
                     aria-label={profileLabel}
-                    onClick={stopProfileLinkPropagation}
-                    onKeyDown={stopProfileLinkPropagation}
+                    onClick={(event) => navigateToProfile(event, profileHref)}
                   >
                     <ContactAvatar user={other} name={displayName} online={isOnline} inCall={inCall} />
-                  </Link>
+                  </button>
                 ) : (
                   <ContactAvatar user={other} name={displayName} online={isOnline} inCall={inCall} />
                 )}
@@ -617,15 +608,14 @@ export default function ChatsPage() {
                   <div className="chat-topline">
                     <div className="chat-name-wrap">
                       {profileHref ? (
-                        <Link
-                          href={profileHref}
-                          className="chat-name profile-name-link"
+                        <button
+                          type="button"
+                          className="chat-name profile-name-button"
                           aria-label={profileLabel}
-                          onClick={stopProfileLinkPropagation}
-                          onKeyDown={stopProfileLinkPropagation}
+                          onClick={(event) => navigateToProfile(event, profileHref)}
                         >
                           {displayName}
-                        </Link>
+                        </button>
                       ) : (
                         <div className="chat-name">{displayName}</div>
                       )}
@@ -815,11 +805,11 @@ export default function ChatsPage() {
         .chat-row { position: relative; display: flex; align-items: center; gap: 1rem; padding: 1rem; cursor: pointer; overflow: hidden; transition: transform var(--transition-slow), border-color var(--transition), box-shadow var(--transition), background var(--transition); border: 1px solid rgba(236,124,255,0.2); border-radius: 26px; background: radial-gradient(circle at 0% 50%, rgba(224,64,251,0.12), transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.07), transparent 40%), rgba(15,8,32,0.82); box-shadow: 0 14px 34px rgba(4,2,12,0.36), inset 0 1px 0 rgba(255,255,255,0.06); }
         .chat-row[data-unread="true"] { border-color: rgba(34,211,238,0.34); box-shadow: 0 16px 38px rgba(4,2,12,0.38), 0 0 26px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.06); }
         .chat-row::before { content: ""; position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 10% 50%, rgba(224,64,251,0.18), transparent 35%); transition: opacity var(--transition); pointer-events: none; }
-        .chat-row:hover, .chat-row:focus-visible { border-color: rgba(34,211,238,0.38); background: rgba(22,12,45,0.92); box-shadow: 0 20px 48px rgba(4,2,12,0.5), 0 0 26px rgba(124,58,237,0.2); transform: translateY(-2px); outline: none; }
+        .chat-row:hover { border-color: rgba(34,211,238,0.38); background: rgba(22,12,45,0.92); box-shadow: 0 20px 48px rgba(4,2,12,0.5), 0 0 26px rgba(124,58,237,0.2); transform: translateY(-2px); }
         .chat-row:hover::before { opacity: 1; }
         .chat-row:hover .chat-arrow { opacity: 1; color: var(--accent-cyan); transform: translateX(2px); }
-        .profile-avatar-link { position: relative; z-index: 2; display: inline-flex; flex-shrink: 0; border-radius: 50%; min-width: 52px; min-height: 52px; }
-        .profile-avatar-link:focus-visible, .profile-name-link:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; }
+        .profile-avatar-button { position: relative; z-index: 2; display: inline-flex; flex-shrink: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+        .profile-avatar-button:focus-visible, .profile-name-button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; }
         .avatar-ring { position: relative; width: 58px; height: 58px; flex-shrink: 0; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, rgba(224,64,251,0.75), rgba(124,58,237,0.35), rgba(34,211,238,0.55)); box-shadow: 0 0 0 5px rgba(224,64,251,0.055), 0 12px 28px rgba(0,0,0,0.34); }
         .avatar-ring.sm { width: 42px; height: 42px; }
         .avatar-ring[data-online="true"] { box-shadow: 0 0 0 4px rgba(52,211,153,0.08), 0 0 22px rgba(52,211,153,0.16); }
@@ -835,8 +825,8 @@ export default function ChatsPage() {
         .chat-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
         .chat-name-wrap { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.46rem; }
         .chat-name { font-weight: 900; color: var(--text); font-size: 1.02rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .profile-name-link { position: relative; z-index: 2; min-height: 44px; display: inline-flex; align-items: center; border-radius: 12px; }
-        .profile-name-link:hover { color: var(--accent-cyan); }
+        .profile-name-button { position: relative; z-index: 2; padding: 0; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+        .profile-name-button:hover { color: var(--accent-cyan); }
         .chat-side { display: flex; align-items: center; gap: 0.42rem; flex-shrink: 0; }
         .status-pill { display: inline-flex; align-items: center; gap: 0.32rem; padding: 0.18rem 0.48rem; border-radius: var(--radius-pill); color: var(--text-muted); background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.06); font-size: 0.66rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
         .status-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }

@@ -105,6 +105,9 @@ export default function ChatConversationPage() {
   const otherImage = getUserImage(otherUser);
   const otherUserId = otherUser?._id ? String(otherUser._id) : "";
   const otherProfileHref = otherUserId ? `/profile/${encodeURIComponent(otherUserId)}` : "";
+  const openOtherProfile = () => {
+    if (otherProfileHref) router.push(otherProfileHref);
+  };
 
   useEffect(() => {
     const token = getBackendToken();
@@ -533,30 +536,18 @@ export default function ChatConversationPage() {
           <span>{t("chatPremium.backToChats")}</span>
         </Link>
 
-        {otherProfileHref ? (
-          <Link href={otherProfileHref} className="chat-peer chat-peer-link" aria-label={`Ver perfil de ${otherName}`}>
-            {otherName && (
-              <>
-                <div className="peer-avatar-wrap" data-online={isOtherOnline}>
-                  <div className="peer-avatar avatar-placeholder">
-                    {otherImage ? (
-                      <img src={otherImage} alt={otherName} className="peer-avatar-img" decoding="async" />
-                    ) : (
-                      otherName[0].toUpperCase()
-                    )}
-                  </div>
-                  {isOtherOnline && <span className="peer-online-dot" aria-label={t("chatPremium.online")} />}
-                </div>
-                <div className="peer-info">
-                  <span className="peer-name">{otherName}</span>
-                  <span className="peer-status">{isOtherOnline ? t("chatPremium.onlineNow") : t("chatPremium.lastSeenUnavailable")}</span>
-                  {isCreator && <span className="peer-creator-badge">{t("chatPremium.creator")}</span>}
-                </div>
-              </>
-            )}
-          </Link>
-        ) : (
-          <div className="chat-peer">
+        <div
+          className={["chat-peer", otherProfileHref ? "chat-peer-action" : ""].filter(Boolean).join(" ")}
+          role={otherProfileHref ? "button" : undefined}
+          tabIndex={otherProfileHref ? 0 : undefined}
+          aria-label={otherProfileHref ? `Ver perfil de ${otherName}` : undefined}
+          onClick={openOtherProfile}
+          onKeyDown={(event) => {
+            if (!otherProfileHref || (event.key !== "Enter" && event.key !== " ")) return;
+            event.preventDefault();
+            openOtherProfile();
+          }}
+        >
           {otherName && (
             <>
               <div className="peer-avatar-wrap" data-online={isOtherOnline}>
@@ -577,8 +568,7 @@ export default function ChatConversationPage() {
             </>
           )}
           {!otherName && <span className="peer-name">{t("chatPremium.conversation")}</span>}
-          </div>
-        )}
+        </div>
 
         <PremiumCommunicationActions
           isMatch={isMatch}
@@ -859,19 +849,9 @@ export default function ChatConversationPage() {
           flex: 1 1 auto;
           min-width: 0;
         }
-        .chat-peer-link {
-          border-radius: 18px;
-          color: inherit;
-          min-height: 52px;
-          padding: 0.18rem;
-          transition: color var(--transition), background var(--transition), box-shadow var(--transition);
-        }
-        .chat-peer-link:hover { color: var(--accent-cyan); background: rgba(255,255,255,0.045); }
-        .chat-peer-link:focus-visible {
-          outline: 2px solid var(--accent-cyan);
-          outline-offset: 3px;
-          background: rgba(255,255,255,0.045);
-        }
+        .chat-peer-action { border-radius: 18px; color: inherit; cursor: pointer; min-height: 52px; padding: 0.18rem; transition: color var(--transition), background var(--transition), box-shadow var(--transition); }
+        .chat-peer-action:hover { color: var(--accent-cyan); background: rgba(255,255,255,0.045); }
+        .chat-peer-action:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; background: rgba(255,255,255,0.045); }
         .peer-avatar-wrap {
           position: relative;
           width: 48px;

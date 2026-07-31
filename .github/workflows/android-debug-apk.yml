@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch or SHA to build from (default: current branch)'
+        description: 'Branch or SHA to build from (default: main)'
         required: false
-        default: ''
+        default: 'main'
       app_url:
         description: 'App URL loaded by Capacitor WebView'
         required: false

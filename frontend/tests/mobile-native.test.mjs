@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getNativeNotificationPath } from "../lib/nativeNotificationRoutes.js";
 import { getNativeGoogleLoginUrl } from "../lib/nativeGoogleLoginUrl.js";
+import { buildNativeAuthSuccessDeepLink } from "../lib/nativeAuthRedirect.js";
 import { getTrustedCheckoutUrl } from "../lib/checkoutRedirect.js";
 import { getInternalAppPath, isExternalHttpUrl, isInternalAppUrl } from "../lib/nativeUrlPolicy.js";
 import {
@@ -35,8 +36,17 @@ test("native Google login uses NextAuth endpoint with a safe callback handoff", 
   assert.equal(url.pathname, "/api/auth/signin/google");
 
   const callbackUrl = new URL(url.searchParams.get("callbackUrl"));
-  assert.equal(callbackUrl.pathname, "/login");
+  assert.equal(callbackUrl.pathname, "/auth/native-callback");
   assert.equal(callbackUrl.searchParams.get("callbackUrl"), "/feed");
+});
+
+test("native auth callback builds app deep link for the final token handoff", () => {
+  const deepLink = new URL(buildNativeAuthSuccessDeepLink("header.payload.signature", "/profile"));
+  assert.equal(deepLink.protocol, "meetyoulive:");
+  assert.equal(deepLink.hostname, "auth");
+  assert.equal(deepLink.pathname, "/success");
+  assert.equal(deepLink.searchParams.get("token"), "header.payload.signature");
+  assert.equal(deepLink.searchParams.get("callbackUrl"), "/profile");
 });
 
 test("native URL policy keeps MeetYouLive domains inside the WebView", () => {

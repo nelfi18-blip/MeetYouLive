@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { getNativeAuthCallbackPath } from "@/lib/nativeAuthRedirect";
@@ -8,6 +8,7 @@ import { normalizeCallbackPath } from "@/lib/redirects";
 
 function NativeStartHandler() {
   const searchParams = useSearchParams();
+  const hasStartedRef = useRef(false);
   const [error, setError] = useState("");
   const callbackPath = useMemo(
     () => normalizeCallbackPath(searchParams.get("callbackUrl")),
@@ -22,6 +23,9 @@ function NativeStartHandler() {
     let cancelled = false;
 
     async function startGoogleSignIn() {
+      if (hasStartedRef.current) return;
+      hasStartedRef.current = true;
+
       try {
         await signIn("google", { callbackUrl: nativeCallbackUrl });
       } catch (err) {

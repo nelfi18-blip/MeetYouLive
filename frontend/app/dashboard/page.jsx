@@ -588,11 +588,6 @@ export default function DashboardPage() {
       ]
     : [];
 
-  const requestCard =
-    !isCreator && creatorStatus === "none"
-      ? [{ href: "/creator-request", title: smartCreatorCTA.title, sub: smartCreatorCTA.sub, icon: CreatorRequestIcon, color: "green", size: "normal", _noNav: false }]
-      : [];
-
   const pendingCard =
     !isCreator && creatorStatus === "pending"
       ? [{ href: "#", title: "Solicitud en revisión", sub: "Tu solicitud de creador está en revisión", icon: PendingIcon, color: "orange", size: "normal", _disabled: true }]
@@ -611,7 +606,7 @@ export default function DashboardPage() {
   // Approved creators get their tool access via the Quick Actions section; show only nav cards below
   const allCards = isCreatorApproved
     ? [...CARDS]
-    : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
+    : [...CARDS, ...creatorCards, ...pendingCard, ...rejectedCard, ...suspendedCard];
   const moreAccessCards = allCards;
   const profileImage =
     user?.profilePhoto ||
@@ -1534,17 +1529,26 @@ export default function DashboardPage() {
         }
 
         .home-live-info strong,
-        .discover-person-info strong {
+        :global(.discover-person-info strong) {
+          display: block;
+          min-width: 0;
+          max-width: 100%;
           color: var(--text);
+          font-size: 0.88rem;
+          line-height: 1.15;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .home-live-info span,
-        .discover-person-info span {
+        :global(.discover-person-info span) {
+          display: block;
+          min-width: 0;
+          max-width: 100%;
           color: var(--text-muted);
           font-size: 0.78rem;
+          line-height: 1.25;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1568,36 +1572,57 @@ export default function DashboardPage() {
 
         .people-carousel {
           gap: 0.7rem;
+          max-width: 100%;
+          padding-right: 1.35rem;
         }
 
-        .discover-person-card {
+        :global(.discover-person-card) {
+          display: flex;
+          flex-direction: column;
           flex: 0 0 132px;
+          width: 132px;
+          height: 190px;
+          min-width: 132px;
+          max-width: 132px;
           scroll-snap-align: start;
           border-radius: 22px;
           overflow: hidden;
           background: rgba(15,8,32,0.72);
           border: 1px solid rgba(139,92,246,0.16);
+          color: inherit;
+          box-sizing: border-box;
         }
 
-        .discover-person-photo {
+        :global(.discover-person-photo) {
           position: relative;
+          flex: 0 0 132px;
+          width: 100%;
           height: 132px;
+          min-height: 132px;
+          max-height: 132px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: radial-gradient(circle at 50% 20%, rgba(129,140,248,0.28), rgba(15,8,32,0.95));
+          overflow: hidden;
         }
 
-        .discover-person-photo img {
+        :global(.discover-person-photo img) {
           width: 100%;
           height: 100%;
+          min-width: 100%;
+          min-height: 100%;
+          max-width: 100%;
+          max-height: 100%;
           object-fit: cover;
           display: block;
         }
 
-        .discover-person-photo > span:not(.person-live-dot) {
+        :global(.discover-person-photo > span:not(.person-live-dot)) {
           width: 54px;
           height: 54px;
+          min-width: 54px;
+          min-height: 54px;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -1608,7 +1633,7 @@ export default function DashboardPage() {
           background: var(--grad-primary);
         }
 
-        .person-live-dot {
+        :global(.person-live-dot) {
           position: absolute;
           left: 0.55rem;
           top: 0.55rem;
@@ -1620,11 +1645,15 @@ export default function DashboardPage() {
           font-weight: 900;
         }
 
-        .discover-person-info {
+        :global(.discover-person-info) {
           display: flex;
           flex-direction: column;
           gap: 0.18rem;
+          flex: 1;
+          min-width: 0;
           padding: 0.65rem 0.7rem 0.75rem;
+          overflow: hidden;
+          box-sizing: border-box;
         }
 
         .compact-empty-state {
@@ -1673,12 +1702,14 @@ export default function DashboardPage() {
           gap: 1rem;
         }
 
-        .video-call-access {
+        :global(.video-call-access) {
           display: flex;
           align-items: center;
           gap: 0.65rem;
           width: 100%;
           max-width: 460px;
+          min-width: 0;
+          box-sizing: border-box;
           padding: 0.7rem 0.85rem;
           border-radius: 18px;
           background: rgba(15,8,32,0.7);
@@ -1687,15 +1718,17 @@ export default function DashboardPage() {
           transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
         }
 
-        .video-call-access:hover {
+        :global(.video-call-access:hover) {
           transform: translateY(-2px);
           border-color: var(--c-border);
           box-shadow: 0 0 18px var(--c-glow);
         }
 
-        .video-call-access-icon {
+        :global(.video-call-access-icon) {
           width: 34px;
           height: 34px;
+          min-width: 34px;
+          min-height: 34px;
           border-radius: 12px;
           display: inline-flex;
           align-items: center;
@@ -1706,12 +1739,17 @@ export default function DashboardPage() {
           border: 1px solid var(--c-border);
         }
 
-        .video-call-access-icon :global(svg) {
+        :global(.video-call-access-icon svg) {
           width: 17px;
           height: 17px;
+          min-width: 17px;
+          min-height: 17px;
+          max-width: 17px;
+          max-height: 17px;
+          display: block;
         }
 
-        .video-call-access-text {
+        :global(.video-call-access-text) {
           display: flex;
           flex-direction: column;
           gap: 0.15rem;
@@ -1719,13 +1757,20 @@ export default function DashboardPage() {
           flex: 1;
         }
 
-        .video-call-access-text strong {
+        :global(.video-call-access-text strong) {
+          display: block;
+          min-width: 0;
           color: var(--text);
           font-size: 0.9rem;
           line-height: 1.1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .video-call-access-text span {
+        :global(.video-call-access-text span) {
+          display: block;
+          min-width: 0;
           color: var(--text-muted);
           font-size: 0.76rem;
           line-height: 1.3;
@@ -1734,7 +1779,7 @@ export default function DashboardPage() {
           text-overflow: ellipsis;
         }
 
-        .video-call-access-cta {
+        :global(.video-call-access-cta) {
           flex-shrink: 0;
           color: var(--c-icon);
           font-size: 0.78rem;
@@ -2569,12 +2614,19 @@ export default function DashboardPage() {
           .home-live-media {
             height: 138px;
           }
-          .discover-person-card {
+          :global(.discover-person-card) {
             flex-basis: 118px;
+            width: 118px;
+            height: 174px;
+            min-width: 118px;
+            max-width: 118px;
             border-radius: 19px;
           }
-          .discover-person-photo {
+          :global(.discover-person-photo) {
+            flex-basis: 118px;
             height: 118px;
+            min-height: 118px;
+            max-height: 118px;
           }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;

@@ -49,7 +49,7 @@ export default function FloatingGoLiveButton() {
       <style jsx>{`
         .floating-go-live-btn {
           position: fixed;
-          bottom: calc(24px + env(safe-area-inset-bottom));
+          bottom: calc(var(--bottom-nav-height, 80px) + 20px + env(safe-area-inset-bottom));
           right: 24px;
           z-index: 950;
           display: flex;
@@ -112,10 +112,18 @@ export default function FloatingGoLiveButton() {
           }
         }
 
-        /* Mobile shell owns the Go Live CTA through BottomNavEnhanced. */
+        /* Mobile responsive */
         @media (max-width: 768px) {
           .floating-go-live-btn {
-            display: none;
+            bottom: calc(68px + 16px + env(safe-area-inset-bottom));
+            right: 16px;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+          }
+
+          .floating-go-live-icon {
+            width: 20px;
+            height: 20px;
           }
         }
 

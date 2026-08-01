@@ -107,10 +107,6 @@ export default function BottomNavEnhanced() {
     return () => clearInterval(interval);
   }, [session, newMatchesCount]);
 
-  useEffect(() => {
-    setShowCreateMenu(false);
-  }, [pathname]);
-
   const createMenuItems = [
     {
       icon: "🔴",
@@ -121,7 +117,7 @@ export default function BottomNavEnhanced() {
     },
     {
       icon: "👑",
-      label: canGoLive ? "Centro" : "Matches",
+      label: canGoLive ? "Ganancias" : "Matches",
       href: canGoLive ? "/creator#earnings" : "/matches",
       color: "#8b5cf6",
       show: true,
@@ -180,7 +176,7 @@ export default function BottomNavEnhanced() {
         )}
       </AnimatePresence>
 
-      <nav className="bottom-nav-enhanced" aria-label="Navegación principal móvil">
+      <nav className="bottom-nav-enhanced" aria-label="Premium MeetYouLive navigation">
         <Link href={homePath} className={`nav-item ${isActive(homePath) ? "active" : ""}`}>
           {showNewMatchAnimation && (
             <motion.div
@@ -195,7 +191,7 @@ export default function BottomNavEnhanced() {
             <path d="M5 10.5V20h14v-9.5" />
             <path d="M9.5 20v-5h5v5" />
           </svg>
-          <span className="nav-label">{canGoLive ? "Panel" : "Inicio"}</span>
+          <span className="nav-label">{canGoLive ? "Dashboard" : "Inicio"}</span>
           {newMatchesCount > 0 && (
             <span className="nav-badge" aria-label={`${newMatchesCount} new matches`}>
               {formatBadgeCount(newMatchesCount)}
@@ -237,9 +233,7 @@ export default function BottomNavEnhanced() {
               <rect x="3" y="6" width="12" height="12" rx="3" />
             </svg>
           </motion.div>
-          <span className="create-live-label" aria-live="polite">
-            {canGoLive ? "LIVE" : liveCount > 0 ? "VER" : "LIVE"}
-          </span>
+          <span className="create-live-label" aria-live="polite">{liveCount > 0 ? t("nav.liveCtaActive") : t("nav.liveCtaInactive")}</span>
         </button>
 
         <Link href="/chats" className={`nav-item ${isActive("/chats") ? "active" : ""}`}>

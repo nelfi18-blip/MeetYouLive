@@ -23,15 +23,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const DISCOVERY_PROFILE_LIMIT = 8;
 
 const CARDS = [
-  { href: "/feed", title: "Feed / Descubrir", sub: "Personas y contenido recomendado", icon: ExploreIcon, color: "indigo", size: "normal" },
-  { href: "/matches", title: "Matches", sub: "Tus conexiones mutuas", icon: MatchIcon, color: "pink", size: "normal" },
-  { href: "/chats", title: "Chats", sub: "Conversaciones privadas", icon: ChatIcon, color: "cyan", size: "normal" },
-  { href: "/live", title: "Lives", sub: "Transmisiones en tiempo real", icon: LiveIcon, color: "red", size: "normal" },
-  { href: "/calls", title: "Videollamadas", sub: "Llamadas y encuentros en video", icon: PrivateCallIcon, color: "green", size: "normal" },
   { href: "/coins", title: "Coins", sub: "Compra y administra monedas", icon: CoinIcon, color: "orange", size: "normal" },
-  { href: "/profile", title: "Mi Perfil", sub: "Fotos, bio e intereses", icon: ProfileIcon, color: "purple", size: "normal" },
   { href: "/settings", title: "Configuración", sub: "Cuenta, privacidad y notificaciones", icon: SettingsIcon, color: "indigo", size: "normal" },
 ];
+
+const VIDEO_CALL_ACCESS = {
+  href: "/calls",
+  title: "Videollamadas",
+  sub: "Acceso rápido a llamadas y encuentros en video",
+  icon: PrivateCallIcon,
+  color: "green",
+};
 
 const DASH_ICON_PROPS = {
   width: "24",
@@ -40,13 +42,6 @@ const DASH_ICON_PROPS = {
   focusable: "false",
 };
 
-function ExploreIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-  );
-}
 function MatchIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -61,24 +56,10 @@ function LiveIcon() {
     </svg>
   );
 }
-function ChatIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-    </svg>
-  );
-}
 function CoinIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a2.5 2.5 0 010 5H9"/>
-    </svg>
-  );
-}
-function ProfileIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
     </svg>
   );
 }
@@ -631,12 +612,7 @@ export default function DashboardPage() {
   const allCards = isCreatorApproved
     ? [...CARDS]
     : [...CARDS, ...creatorCards, ...requestCard, ...pendingCard, ...rejectedCard, ...suspendedCard];
-  const contextualActionHrefs = new Set(["/matches", "/calls", "/chats"]);
-  const contentFirstHrefs = new Set(["/feed", "/live", "/profile"]);
-  const contextualActionCards = allCards.filter((card) => contextualActionHrefs.has(card.href));
-  const moreAccessCards = allCards.filter(
-    (card) => !contextualActionHrefs.has(card.href) && !contentFirstHrefs.has(card.href)
-  );
+  const moreAccessCards = allCards;
   const profileImage =
     user?.profilePhoto ||
     user?.avatar ||
@@ -691,6 +667,28 @@ export default function DashboardPage() {
         <span className="dash-card-arrow">
           <ArrowIcon />
         </span>
+      </Link>
+    );
+  };
+
+  const renderVideoCallAccess = () => {
+    const Icon = VIDEO_CALL_ACCESS.icon;
+    const c = COLOR_MAP[VIDEO_CALL_ACCESS.color];
+
+    return (
+      <Link
+        href={VIDEO_CALL_ACCESS.href}
+        className="video-call-access"
+        style={{ "--c-bg": c.bg, "--c-border": c.border, "--c-glow": c.glow, "--c-icon": c.icon }}
+      >
+        <span className="video-call-access-icon">
+          <Icon />
+        </span>
+        <span className="video-call-access-text">
+          <strong>{VIDEO_CALL_ACCESS.title}</strong>
+          <span>{VIDEO_CALL_ACCESS.sub}</span>
+        </span>
+        <span className="video-call-access-cta">Abrir</span>
       </Link>
     );
   };
@@ -862,13 +860,12 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="social-home-section" aria-labelledby="social-home-title">
-        <div className="social-home-heading">
-          <h2 id="social-home-title">Continuar socializando</h2>
+      <section className="video-call-access-section" aria-labelledby="video-call-access-title">
+        <div className="video-call-access-heading">
+          <span className="section-label">Acceso social</span>
+          <h2 id="video-call-access-title">Videollamadas</h2>
         </div>
-        <div className="contextual-actions-row" aria-label="Acciones sociales compactas">
-          {contextualActionCards.map((card) => renderDashCard(card, "dash-card-compact"))}
-        </div>
+        {renderVideoCallAccess()}
       </section>
 
       {isCreatorApproved && (
@@ -1387,7 +1384,7 @@ export default function DashboardPage() {
           gap: 0.85rem;
         }
 
-        .social-home-section,
+        .video-call-access-section,
         .live-discovery-section,
         .people-discovery-section,
         .more-access-section {
@@ -1654,13 +1651,13 @@ export default function DashboardPage() {
           font-weight: 800;
         }
 
-        .social-home-heading {
+        .video-call-access-heading {
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
         }
 
-        .social-home-heading h2,
+        .video-call-access-heading h2,
         .more-access-heading h2 {
           margin: 0;
           color: var(--text);
@@ -1669,37 +1666,79 @@ export default function DashboardPage() {
           line-height: 1.15;
         }
 
-        .social-home-heading p {
-          margin: 0;
-          color: var(--text-muted);
-          font-size: 0.86rem;
-          line-height: 1.45;
-          max-width: 620px;
-        }
-
-        .primary-social-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.8rem;
-        }
-
-        .secondary-social-row {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.65rem;
-        }
-
-        .contextual-actions-row {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.6rem;
-        }
-
         .more-access-heading {
           display: flex;
           align-items: baseline;
           justify-content: space-between;
           gap: 1rem;
+        }
+
+        .video-call-access {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          width: 100%;
+          max-width: 460px;
+          padding: 0.7rem 0.85rem;
+          border-radius: 18px;
+          background: rgba(15,8,32,0.7);
+          border: 1px solid var(--c-border);
+          color: inherit;
+          transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+        }
+
+        .video-call-access:hover {
+          transform: translateY(-2px);
+          border-color: var(--c-border);
+          box-shadow: 0 0 18px var(--c-glow);
+        }
+
+        .video-call-access-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: var(--c-icon);
+          background: var(--c-bg);
+          border: 1px solid var(--c-border);
+        }
+
+        .video-call-access-icon :global(svg) {
+          width: 17px;
+          height: 17px;
+        }
+
+        .video-call-access-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .video-call-access-text strong {
+          color: var(--text);
+          font-size: 0.9rem;
+          line-height: 1.1;
+        }
+
+        .video-call-access-text span {
+          color: var(--text-muted);
+          font-size: 0.76rem;
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .video-call-access-cta {
+          flex-shrink: 0;
+          color: var(--c-icon);
+          font-size: 0.78rem;
+          font-weight: 800;
         }
 
         /* ── Hero ─────────── */
@@ -2392,53 +2431,6 @@ export default function DashboardPage() {
           overflow: hidden;
         }
 
-        :global(.dash-card-primary) {
-          min-height: 126px;
-          align-items: flex-start;
-          flex-direction: column;
-          justify-content: space-between;
-          background: linear-gradient(145deg, rgba(22,12,45,0.9), rgba(15,8,32,0.78));
-        }
-
-        :global(.dash-card-primary .dash-card-icon-wrap) {
-          width: 44px;
-          height: 44px;
-          border-radius: 18px;
-        }
-
-        :global(.dash-card-primary .dash-card-title) {
-          font-size: 1rem;
-        }
-
-        :global(.dash-card-primary .dash-card-arrow) {
-          position: absolute;
-          top: 1rem;
-          right: 1rem;
-          opacity: 0.8;
-          transform: none;
-        }
-
-        :global(.dash-card-compact) {
-          padding: 0.9rem;
-          gap: 0.7rem;
-          border-radius: 18px;
-        }
-
-        :global(.dash-card-compact .dash-card-icon-wrap) {
-          width: 36px;
-          height: 36px;
-          border-radius: 14px;
-        }
-
-        :global(.dash-card-compact .dash-card-icon-wrap svg) {
-          width: 18px;
-          height: 18px;
-        }
-
-        :global(.dash-card-compact .dash-card-sub) {
-          display: none;
-        }
-
         :global(.dash-card)::before {
           content: '';
           position: absolute;
@@ -2559,7 +2551,7 @@ export default function DashboardPage() {
           .earnings-pill-label,
           .agency-pill-label { display: none; }
           .hero-start-live-btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
-          .social-home-heading h2,
+          .video-call-access-heading h2,
           .more-access-heading h2 { font-size: 1.05rem; }
           .content-section-heading h2 { font-size: 1.08rem; }
           .home-live-carousel {
@@ -2586,72 +2578,6 @@ export default function DashboardPage() {
           }
           .compact-empty-state {
             padding: 0.65rem 0.75rem;
-          }
-          .primary-social-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.5rem;
-          }
-          .secondary-social-row {
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 0.5rem;
-          }
-          .contextual-actions-row {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.5rem;
-          }
-          :global(.dash-card-primary) {
-            min-height: 82px;
-            padding: 0.75rem 0.45rem;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.55rem;
-            text-align: center;
-          }
-          :global(.dash-card-primary .dash-card-body) { flex: 0; }
-          :global(.dash-card-primary .dash-card-icon-wrap) {
-            width: 34px;
-            height: 34px;
-            border-radius: 13px;
-          }
-          :global(.dash-card-primary .dash-card-icon-wrap svg) {
-            width: 18px;
-            height: 18px;
-            max-width: 18px;
-            max-height: 18px;
-          }
-          :global(.dash-card-primary .dash-card-title) {
-            font-size: 0.78rem;
-            line-height: 1.15;
-          }
-          :global(.dash-card-primary .dash-card-sub) { display: none; }
-          :global(.dash-card-primary .dash-card-arrow) {
-            display: none;
-          }
-          :global(.dash-card-compact) {
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            min-height: 74px;
-            padding: 0.8rem 0.4rem;
-          }
-          :global(.dash-card-compact .dash-card-icon-wrap) {
-            width: 32px;
-            height: 32px;
-            border-radius: 12px;
-          }
-          :global(.dash-card-compact .dash-card-icon-wrap svg) {
-            width: 16px;
-            height: 16px;
-            max-width: 16px;
-            max-height: 16px;
-          }
-          :global(.dash-card-compact .dash-card-title) {
-            font-size: 0.78rem;
-          }
-          :global(.dash-card-compact .dash-card-arrow) {
-            display: none;
           }
           .cards-grid {
             grid-template-columns: 1fr;

@@ -106,13 +106,6 @@ function CreatorRequestIcon() {
     </svg>
   );
 }
-function PendingIcon() {
-  return (
-    <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-    </svg>
-  );
-}
 function RankingIcon() {
   return (
     <svg {...DASH_ICON_PROPS} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -592,38 +585,9 @@ export default function DashboardPage() {
     (session?.backendUser ? getDisplayName(session.backendUser) : "") ||
     session?.user?.name ||
     "Usuario";
-  const isCreator = user?.role === "creator";
   const creatorStatus = user?.creatorStatus || "none";
 
   const isCreatorApproved = isApprovedCreator(user);
-  const isSuspended = creatorStatus === "suspended";
-  const loginCount = Number(user?.loginCount || 0);
-  const behaviorSegment =
-    loginCount <= 3
-      ? "new"
-      : loginCount >= 20 && (user?.coins ?? 0) <= 40
-      ? "spender"
-      : loginCount >= 8
-      ? "active"
-      : "default";
-  const smartCreatorCTA =
-    behaviorSegment === "new"
-      ? {
-          title: "¿Quieres ganar dinero en vivo?",
-          sub: "Solicita acceso y empieza a monetizar tus directos.",
-          button: "Solicitar acceso",
-        }
-      : behaviorSegment === "spender"
-      ? {
-          title: "Recupera lo que gastas creando contenido",
-          sub: "Convierte tu actividad en ingresos con regalos, lives y contenido premium.",
-          button: "Solicitar acceso de creador",
-        }
-      : {
-          title: "Acceso a creadores limitado",
-          sub: "Solicita acceso o usa invitación de creador existente.",
-          button: "Solicitar acceso",
-        };
   const missionStatusLabel = user?.onboardingComplete ? "Completado" : "Pendiente";
   const liveStatusLabel = isCreatorApproved
     ? (creatorDash?.activeLive ? "En directo" : "Listo para emitir")
@@ -647,38 +611,8 @@ export default function DashboardPage() {
   const hasSocialConnections = recentChats.length > 0 || visibleMatches.length > 0 || totalLikesCount > 0;
   const socialHasPartialError = Object.values(socialErrors).some(Boolean);
 
-  // Monetization tools are only available to approved creators
-  const creatorCards = isCreatorApproved
-    ? [
-        { href: "/creator",       title: "Mis ganancias",       sub: "Consulta tus ingresos",               icon: EarningsIcon,    color: "green",  size: "normal" },
-        { href: "/gifts",         title: "Mis regalos",         sub: "Regalos recibidos de tus fans",       icon: GiftIcon,        color: "pink",   size: "normal" },
-        { href: "/creator",       title: "Sesiones privadas",   sub: "Llamadas privadas de pago",           icon: PrivateCallIcon, color: "cyan",   size: "normal" },
-        { href: "/exclusive",     title: "Contenido exclusivo", sub: "Publica contenido para suscriptores", icon: ExclusiveIcon,   color: "purple", size: "normal" },
-        ...(user?.agencyProfile?.enabled
-          ? [{ href: "/agency", title: "Mi Agencia", sub: "Gestiona sub-creadores y comisiones", icon: AgencyIcon, color: "indigo", size: "normal" }]
-          : []),
-      ]
-    : [];
-
-  const pendingCard =
-    !isCreator && creatorStatus === "pending"
-      ? [{ href: "#", title: "Solicitud en revisión", sub: "Tu solicitud de creador está en revisión", icon: PendingIcon, color: "orange", size: "normal", _disabled: true }]
-      : [];
-
-  const rejectedCard =
-    !isCreator && creatorStatus === "rejected"
-      ? [{ href: "/creator-request", title: "Solicitar ser creador", sub: "Rechazada. Vuelve a aplicar.", icon: CreatorRequestIcon, color: "green", size: "normal" }]
-      : [];
-
-  const suspendedCard =
-    isSuspended
-      ? [{ href: "#", title: "Cuenta suspendida", sub: "Tu acceso de creador ha sido suspendido. Contacta al soporte.", icon: PendingIcon, color: "red", size: "normal", _disabled: true }]
-      : [];
-
-  // Approved creators get their tool access via the Quick Actions section; show only nav cards below
-  const allCards = isCreatorApproved
-    ? [...CARDS]
-    : [...CARDS, ...creatorCards, ...pendingCard, ...rejectedCard, ...suspendedCard];
+  // Creator application/status access stays centralized in Profile.
+  const allCards = [...CARDS];
   const moreAccessCards = allCards;
   const profileImage =
     user?.profilePhoto ||
@@ -1103,46 +1037,6 @@ export default function DashboardPage() {
               Copiar enlace
             </button>
             <Link href="/agency" className="creator-invite-btn">Ver agencia</Link>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation cards grid */}
-      {!isCreatorApproved && creatorStatus === "none" && (
-        <div className="creator-cta-banner">
-          <div className="creator-cta-icon"><CreatorRequestIcon /></div>
-          <div className="creator-cta-text">
-            <strong>{smartCreatorCTA.title}</strong>
-            <span>{smartCreatorCTA.sub}</span>
-          </div>
-          <a href="/creator-request" className="creator-cta-btn">{smartCreatorCTA.button}</a>
-        </div>
-      )}
-      {!isCreatorApproved && creatorStatus === "pending" && (
-        <div className="creator-status-banner creator-status-pending">
-          <span className="creator-status-icon"><PendingIcon /></span>
-          <div className="creator-status-text">
-            <strong>Tu solicitud de creador está en revisión</strong>
-            <span>El equipo de MeetYouLive revisará tu solicitud pronto. Te notificaremos cuando haya novedades.</span>
-          </div>
-        </div>
-      )}
-      {!isCreatorApproved && creatorStatus === "rejected" && (
-        <div className="creator-status-banner creator-status-rejected">
-          <span className="creator-status-icon"><CreatorRequestIcon /></span>
-          <div className="creator-status-text">
-            <strong>Tu solicitud fue rechazada</strong>
-            <span>Puedes volver a solicitar acceso de creador con información actualizada.</span>
-          </div>
-          <a href="/creator-request" className="creator-cta-btn">Volver a solicitar</a>
-        </div>
-      )}
-      {isSuspended && (
-        <div className="creator-status-banner creator-status-suspended">
-          <span className="creator-status-icon"><LockIcon /></span>
-          <div className="creator-status-text">
-            <strong>Tu cuenta de creador ha sido suspendida</strong>
-            <span>El acceso a funciones de creador está temporalmente deshabilitado. Contacta al soporte para más información.</span>
           </div>
         </div>
       )}
@@ -2430,112 +2324,6 @@ export default function DashboardPage() {
           .creator-invite-card { flex-direction: column; align-items: flex-start; }
           .creator-invite-actions { width: 100%; }
           .creator-invite-copy, .creator-invite-btn { flex: 1; text-align: center; }
-        }
-
-        .creator-cta-banner {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          background: linear-gradient(135deg, rgba(255,15,138,0.08) 0%, rgba(139,92,246,0.08) 100%);
-          border: 1px solid rgba(255,15,138,0.3);
-          border-radius: 18px;
-          padding: 0.85rem 1rem;
-          flex-wrap: wrap;
-        }
-        .creator-cta-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 12px;
-          background: rgba(224,64,251,0.1);
-          border: 1px solid rgba(224,64,251,0.35);
-          color: #e9d5ff;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .creator-cta-icon :global(svg) { width: 17px; height: 17px; }
-        .creator-cta-text {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          flex: 1;
-          min-width: 0;
-        }
-        .creator-cta-text strong {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--text);
-        }
-        .creator-cta-text span {
-          font-size: 0.78rem;
-          color: var(--text-muted);
-          line-height: 1.35;
-        }
-        .creator-cta-btn {
-          display: inline-block;
-          padding: 0.48rem 0.9rem;
-          background: linear-gradient(135deg, var(--accent), var(--accent-2));
-          color: #fff;
-          font-size: 0.8rem;
-          font-weight: 700;
-          border-radius: var(--radius-pill);
-          text-decoration: none;
-          white-space: nowrap;
-          flex-shrink: 0;
-          transition: opacity 0.15s;
-        }
-        .creator-cta-btn:hover { opacity: 0.88; }
-
-        .creator-status-banner {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          border-radius: var(--radius);
-          padding: 1.1rem 1.5rem;
-          flex-wrap: wrap;
-        }
-        .creator-status-pending {
-          background: rgba(251,146,60,0.08);
-          border: 1px solid rgba(251,146,60,0.25);
-        }
-        .creator-status-rejected {
-          background: rgba(244,67,54,0.08);
-          border: 1px solid rgba(244,67,54,0.25);
-        }
-        .creator-status-suspended {
-          background: rgba(239,68,68,0.08);
-          border: 1px solid rgba(239,68,68,0.3);
-        }
-        .creator-status-icon {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.08);
-          border: 1px solid rgba(255,255,255,0.2);
-          color: #e2d9f3;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .creator-status-icon :global(svg) { width: 14px; height: 14px; }
-        .creator-status-text {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          flex: 1;
-          min-width: 0;
-        }
-        .creator-status-text strong {
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: var(--text);
-        }
-        .creator-status-text span {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-          line-height: 1.5;
         }
 
         .cards-grid {

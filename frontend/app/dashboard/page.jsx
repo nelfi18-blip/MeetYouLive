@@ -420,7 +420,7 @@ export default function DashboardPage() {
     setProfilesLoading(true);
     setProfilesError(false);
     fetch(`${API_URL}/api/user/discover?page=1&limit=${DISCOVERY_PROFILE_LIMIT}`, {
-      headers: { Authorization: `****** },
+      headers: { Authorization: "Bearer " + token },
       cache: "no-store",
     })
       .then((r) => {

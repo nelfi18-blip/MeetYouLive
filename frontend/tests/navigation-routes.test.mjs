@@ -8,6 +8,7 @@ import {
   DEFAULT_AUTH_REDIRECT,
   normalizeCallbackPath,
 } from "../lib/redirects.js";
+import { isBottomNavRoute } from "../lib/bottomNavRoutes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const bottomNavPath = join(__dirname, "../components/BottomNavEnhanced.jsx");
@@ -60,6 +61,13 @@ test("bottom nav destinations stay distinct and expected by role", () => {
     "/chats",
     "/settings",
   ]);
+});
+
+test("bottom nav stays off immersive live routes", () => {
+  assert.equal(isBottomNavRoute("/live"), true);
+  assert.equal(isBottomNavRoute("/live/start"), false);
+  assert.equal(isBottomNavRoute("/live/create"), false);
+  assert.equal(isBottomNavRoute("/live/room-123"), false);
 });
 
 test("protected route callbacks normalize without redirect loops", () => {

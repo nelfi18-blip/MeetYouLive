@@ -42,6 +42,7 @@ jest.mock("../../lib/socket.js", () => ({
   setLiveEvent: jest.fn(),
   clearLiveEvent: jest.fn(),
   clearAllEventsForLive: jest.fn(),
+  clearLiveRoomState: jest.fn(),
 }));
 
 function makeRes() {

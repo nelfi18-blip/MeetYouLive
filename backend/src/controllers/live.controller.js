@@ -15,6 +15,7 @@ const {
   clearLiveEvent,
   clearAllEventsForLive,
   removeLiveUserFromRoom,
+  clearLiveRoomState,
 } = require("../lib/socket.js");
 const { sendMulticastPush } = require("../lib/fcm.js");
 const { trackEvent } = require("../services/missions.service.js");
@@ -221,6 +222,7 @@ const endLive = async (req, res) => {
 
     // Clean up all live events and timers to prevent memory leaks
     clearAllEventsForLive(req.params.id);
+    clearLiveRoomState(req.params.id);
 
     // Notify all viewers in the live room that the stream has ended
     const io = getIO();
